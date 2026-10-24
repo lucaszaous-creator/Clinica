@@ -430,3 +430,60 @@ cliques; a mensagem "Combinado…" fica como rascunho).
   cinco ações visíveis, nada vaza, nada rola para o lado. Na busca dentro da conversa, o termo
   achado ganhou sublinhado forte e negrito: no laranja da nota interna o fundo suave sumia.
 
+
+## 10. Mídia e áudio (24/10/2026)
+
+Pedido da direção: *"Importantíssimo as possibilidades de ver imagens, ouvir áudios e baixar itens
+enviados dentro da tela do CRM no sistema"*. Até aqui o balão mostrava só o nome do arquivo.
+
+| Peça | Onde | Teste |
+|---|---|---|
+| A regra da mídia: tipo pelo `Type` do CRM, a ROTA por direção (recebida `/api/conversations/{id}/media/{messageId}`, enviada `/api/attachments/{attachmentId}`, sempre `download=true`), o teto de 16 MB, o que vira `data:` (só o formato que a mensagem diz), a duração lida do próprio arquivo (OGG/Opus da nota de voz e WAV), os rótulos ("Foto", "Áudio 0:42", "PDF enviado · 12 KB"), o nome e o filtro para salvar, a prévia da lista ("AUDIO" → "Áudio") e a memória da tela (64 MB, descarta a usada há mais tempo) | `Application/Servicos/MidiaDaConversa.cs` (`MidiaDaConversa`, `MemoriaDeMidia`); a linha do tempo leva `ItemDaConversa.Midia` e, com mídia, o texto é só a legenda | `MidiaDaConversaTests` |
+| `IClienteDoCrm.MidiaAsync` (bytes + tipo + nome do Content-Disposition; GET sem csrf, prazo do envio; 401 renova; acima do teto é recusa) e `AnexarAsync(..., gravacao)` (o campo `recording=true` do CRM web) | `ClienteDoCrmHttp`, `WhatsAppDaRecepcaoService.MidiaAsync` | `ClienteDoCrmHttpTests` (7 novos), `WhatsAppDaRecepcaoServiceTests` |
+| No balão: foto (miniatura com esqueleto, clique amplia), áudio (tocador do navegador + Baixar), vídeo (capa com ▶, carrega no clique) e documento (cartão com a sigla, Abrir e Baixar); falha com "Tentar de novo" | `Componentes/MidiaNoBalao.razor`, `Formularios/WhatsApp/MidiaAmpliadaForm.razor`, `Telas/Recepcao/ConversasDoWhatsApp.Midia.cs` (a parte da mídia da tela, num arquivo à parte), `css/telas/conversas-midia.css` | `MidiaDoWhatsAppNaTelaTests` (bUnit, CRM de mentira) e o `TelasBlazorAbremTests` |
+| Gravar áudio: microfone no rodapé ("Áudio"; só o ícone abaixo de 1180 px), faixa com o tempo, Cancelar e Enviar; até 2 min (para e espera o Enviar); sobe como gravação e sai como resposta com o anexo; falhou o envio, o áudio fica para Enviar de novo com o MESMO anexo e Id | `Componentes/GravadorDeAudio.razor` + `js/gravacao-de-audio.js` (o MediaRecorder do CRM web) | `MidiaDoWhatsAppNaTelaTests` (o navegador simulado: sobe com a gravação e aparece na hora; microfone negado diz o que fazer) |
+| O microfone liberado no WebView2 só para a origem do app (a mesma via da câmera da foto do paciente) | `Desktop.Shell/Shell/NavegadorEmbutido.cs` | `compilar-sombra` |
+| Prévia: foto (PNG), nota de voz (WAV de 6,5 s) e dois PDFs gerados em código; Roberto manda a foto e o áudio e recebe o PDF; João manda o pedido em PDF e um vídeo que o "provedor" não entrega | `tools/PreviaBlazor/MidiaDeExemplo.cs`, `CrmDeMentira.cs` | fotos 50–55 e 33 (`FOTOS=50,51,52,53,54,55,33`) |
+
+As regras do anexo valem para o áudio sem cópia: o botão só existe onde o Anexar existe (WhatsApp,
+janela de 24 h aberta, anexos ligados no CRM); conversa de outra pessoa, janela fechada no meio e
+SMS o CRM recusa, e a frase aparece na faixa de recado. Baixar e abrir passam pelo `IHostDaTela`
+(`PerguntarOndeSalvarAsync` + `GravarArquivoAsync`; `SalvarEAbrirAsync`), com a barreira da aba
+(`EditarAgenda`).
+
+🧑‍💻 **UX** — a recepção vê a foto e ouve o áudio sem sair da conversa; o arquivo chega sozinho
+(foto e áudio) ou num clique (vídeo, documento), com esqueleto enquanto chega e "Tentar de novo"
+quando falha. A releitura de 7 s não baixa nada de novo (memória da tela). Gravar é um clique,
+Enviar outro — nada sai sem o clique. Sem microfone ou sem permissão, a tela diz onde liberar e
+lembra do Anexar.
+
+🛠️ **DX** — uma classe de regra com teste (`MidiaDaConversa`) e três componentes pequenos; a tela
+ganhou quatro linhas no Razor e um arquivo parcial (`ConversasDoWhatsApp.Midia.cs`), para a
+mídia crescer sem conflitar com a conversa. O CRM não mudou (as rotas e o `recording` já
+existiam). Três lições novas em `docs/agentes/convencoes.md` (ordem dos campos estáticos, bytes do
+navegador em fluxo, `Func` não redesenha a tela).
+
+🤝 **CX** — o pedido da direção, sem trocar de sistema; sem custo novo (a mídia já estava no CRM,
+que a guarda e a converte). Risco: a mídia passa pela memória do app (até 64 MB por aba aberta);
+o arquivo maior que isso não é guardado e volta a ser pedido no clique.
+
+**O que NÃO foi feito, e por quê:**
+
+- **Saber se o CRM tem o conversor de gravações** (`recordingEnabled` da `/api/session`): o campo
+  não está no contrato (`AppSession`) e mudá-lo pede os dois repositórios e o SHA novo. Hoje o
+  botão aparece onde o Anexar aparece; sem o ffmpeg no CRM, o envio é recusado com a frase dele
+  ("O conversor de gravações ainda não está configurado.") e o áudio fica para tentar de novo.
+  Próxima rodada: o campo no fim do record, com padrão.
+- **Ouvir a gravação antes de enviar** (o cadeado do WhatsApp): gravar → Enviar ou Cancelar, como
+  o CRM web. Pedido "simples, mas funcional".
+- **Quadro do vídeo como capa**: baixar até 16 MB só para a capa; a capa é escura com ▶.
+- **Tamanho do documento antes de baixar**: o `AppMessage` não traz o tamanho; ele aparece depois
+  do primeiro Abrir/Baixar.
+- **Vídeo que toca na prévia**: gerar MP4 em código não cabe; o vídeo da semente é o que o provedor
+  não entregou (a foto do "Tentar de novo"). Na prévia o áudio enviado fica em WebM (o CRM real
+  converte para OGG/Opus), e o Chromium mostra "0:00" no tocador até tocar.
+- **As fotos antigas da tela** (02–25, 31, 32) não foram refeitas: o rodapé agora tem o microfone.
+  Refazer com o roteiro depois da junção com os outros PRs da tela (PNG conflita).
+- **Microfone real no Windows**: só a sombra compilou o hospedeiro. Conferir na clínica: abrir uma
+  conversa com janela aberta, gravar 3 s e enviar; negar o microfone em Configurações do Windows →
+  Privacidade → Microfone e ver a frase.

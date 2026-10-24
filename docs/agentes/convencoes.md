@@ -5,7 +5,7 @@ sessão). O texto é o MESMO, sem reescrita: design system, WPF/XAML, Blazor, EF
 `verificar-suite`, assinatura digital, impressão, CRM e as rodadas de UI, cada uma com o defeito que a
 originou. Antes de escrever uma tela, uma consulta ou uma checagem, procure aqui a lição da área.
 
-## Índice (186 tópicos, na ordem do arquivo)
+## Índice (189 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -195,6 +195,9 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
 - Parâmetro `string` de componente Razor recebe expressão com `@`; sem ela recebe o TEXTO
 - Semente com data relativa a "hoje" respeita a JORNADA de quem tem agenda protegida
 - CSS de tela é importado no TOPO do `clinica.css`: regra de tela com a MESMA especificidade de uma comum PERDE
+- Campo estático de classe estática nasce na ORDEM DO ARQUIVO: o que usa outro declarado abaixo lê nulo
+- Bytes do navegador para o C# vão em FLUXO (`IJSStreamReference`), nunca `byte[]`: a prévia é Blazor Server e corta em 32 KB
+- Componente filho que chama a tela por `Func` (e não `EventCallback`) não a redesenha: quem chama chama `StateHasChanged`
 
 ---
 
@@ -5027,3 +5030,32 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
   (`.segmentado.wa-modo button`) ou prefixe pela tela (`.wa-filtros .segmentado button`). O
   roteiro de fotos do WhatsApp passou a acusar filho que vaza do grupo
   (`.segmentado`, `.wa-cab-acoes`, `.wa-faixa`…).
+
+- **Campo estático de classe estática nasce na ORDEM DO ARQUIVO: o que usa outro declarado abaixo
+  lê nulo** (24/10/2026, mídia do WhatsApp). O `MidiaDeExemplo` da prévia gera a foto de exemplo
+  num campo estático (`Foto = new(Png(...))`), e o `Png` usa a tabela do CRC declarada MAIS
+  ABAIXO no arquivo: na hora da foto a tabela ainda era nula, o inicializador do tipo estourou
+  (`TypeInitializationException`), e o CRM de mentira — que serve a foto — não abria. Compilou
+  sem aviso; quem acusou foi o teste bUnit da tela (a tela nem abria) e o teste de regra que lia a
+  duração do WAV. Regra: em classe estática, a tabela/constante que outro campo usa vem PRIMEIRO
+  (com um comentário dizendo por quê), ou é calculada sob demanda (`Lazy`, propriedade).
+
+- **Bytes do navegador para o C# vão em FLUXO (`IJSStreamReference`), nunca `byte[]`: a prévia é
+  Blazor Server e corta em 32 KB** (24/10/2026, gravação de áudio do WhatsApp). O `parar()` do
+  `js/gravacao-de-audio.js` devolvia o `Uint8Array` e o C# o lia como `byte[]`. No app (Blazor
+  Hybrid, WebView2) funcionaria; na prévia, que é Blazor Server, a mensagem do navegador para o
+  servidor passa do limite do SignalR (32 KB) e o CIRCUITO cai — a foto 55 mostrou a tela parada
+  em "Gravando" e o console "Connection disconnected". O bUnit não vê (não há SignalR). Regra:
+  arquivo que vem do navegador é `InvokeAsync<IJSStreamReference>` + `OpenReadStreamAsync(teto)`,
+  que chega em pedaços nos dois hospedeiros (o JS só devolve o `Uint8Array`/`Blob`). No sentido
+  contrário (C# → navegador, um `data:` no `src`) não há esse limite.
+
+- **Componente filho que chama a tela por `Func` (e não `EventCallback`) não a redesenha: quem chama
+  chama `StateHasChanged`** (24/10/2026, gravação de áudio do WhatsApp). O `GravadorDeAudio`
+  precisa da RESPOSTA do envio (saiu ou não, para fechar a faixa ou guardar o áudio), então recebe
+  `Func<Gravacao, Task<bool>>`. `EventCallback` redesenha o dono depois do handler; `Func`, não: o
+  áudio era enviado, o toast aparecia, e a mensagem nova (e a frase da recusa) só surgia na
+  releitura de 7 s. O teste bUnit passava porque esperava 20 s — a releitura o salvava. Regra: o
+  método da tela chamado por `Func` termina em `finally { StateHasChanged(); }`, e o teste que
+  prova o redesenho espera MENOS que o relógio da tela (aqui 3 s), senão o relógio responde por
+  ele. O teste foi provado tirando o `StateHasChanged`: reprovou.
