@@ -301,7 +301,9 @@ inteira (820 + 20) e os 13 testes do contrato. A suíte completa do Clinica é d
   `seen` (lida), `failed`. `ConversasNaTela.Tick` já mapeia; status desconhecido vira "Envio não
   confirmado" (dizer "enviada" sem confirmação faria a recepção não conferir).
 - **`AppReply.Id` e `AppNoteRequest.Id` são Guid "D"** (com hífens). O contrato foi corrigido nos
-  dois repositórios (SHA-256 novo: `ff97010885fcd28d8c9de2a681a8025bf839eb6c6a6cda8edea6f335ad3504c7`).
+  dois repositórios (SHA-256 daquela rodada: `ff97010885fc…`; o atual, depois do
+  `AppReply.ContactRecordedByApp` de 24/10, é `35284d966f92f4a1676ce7521439d6f28c7799e9ba262ca1018e41c8366a673e`,
+  o mesmo de `ContratosDoCrmTests` e `ApiParaOsAppsTests`).
 - **O `?desde=` não traz** a leitura feita noutro aparelho nem a conversa que saiu da visão do
   usuário: a tela relê a lista inteira ao abrir e a cada poucos minutos.
 - **Aviso do sino → conversa**: só para conversa com ficha conferida (`PatientId`), pelo mapa
