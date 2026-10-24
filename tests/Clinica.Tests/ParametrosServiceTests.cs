@@ -230,6 +230,36 @@ public class ParametrosServiceTests : IDisposable
         lerCampoErrado.Should().Throw<InvalidOperationException>();
     }
 
+    /// <summary>
+    /// A tela da aba WhatsApp (PR 5 do WhatsApp nativo): nasce na MOLDURA, e a tela nova só
+    /// entra quando a direção escolhe. Desligar volta à moldura sem release.
+    /// </summary>
+    [Fact]
+    public async Task WhatsApp_nativo_nasce_desligado_grava_e_rele()
+    {
+        (await _parametros.ObterWhatsAppNativoAsync()).Should().BeFalse();
+
+        await _parametros.SalvarWhatsAppNativoAsync(true);
+        (await new ParametrosService(new ClinicaRepositorio(_db)).ObterWhatsAppNativoAsync()).Should().BeTrue();
+        _db.Configuracoes.AsNoTracking().Single(c => c.Chave == ParametrosService.ChaveWhatsAppNativo).Valor.Should().Be("true");
+
+        await _parametros.SalvarWhatsAppNativoAsync(false);
+        (await _parametros.ObterWhatsAppNativoAsync()).Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("1")]
+    [InlineData("True")]
+    [InlineData("sim")]
+    [InlineData("")]
+    public async Task WhatsApp_nativo_so_liga_com_o_valor_que_o_proprio_servico_grava(string valor)
+    {
+        // Valor estranho na base (gravado à mão) não liga a tela nova por acidente.
+        _db.Configuracoes.Add(new ConfiguracaoGlobal { Chave = ParametrosService.ChaveWhatsAppNativo, Valor = valor });
+        await _db.SaveChangesAsync();
+        (await _parametros.ObterWhatsAppNativoAsync()).Should().BeFalse();
+    }
+
     public void Dispose()
     {
         _db.Dispose();

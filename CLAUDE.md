@@ -611,4 +611,6 @@ Documentação de produto e decisões: `docs/` (`docs/arquitetura-multi-exe.md`,
 O WhatsApp nativo na Recepção (decisão da direção, out/2026): a proposta e o mockup interativo em
 `docs/whatsapp-nativo-na-recepcao.md` + `docs/mockups/whatsapp-nativo/`, e o roteiro de
 implementação PR a PR em `docs/whatsapp-nativo-implementacao.md` (a metade do CRM:
-`semdor-crm/docs/api-para-os-apps.md`).
+`semdor-crm/docs/api-para-os-apps.md`). Para pôr no ar: `docs/whatsapp-nativo-roteiro-da-manha.md`
+(publicar o CRM na VPS 2, os apps Recepção e Gerente, ligar a tela em Configurações → Integrações e
+conferir; voltar atrás é escolher a moldura de novo, sem release).
