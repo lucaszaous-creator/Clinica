@@ -552,4 +552,13 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
 
         public void EsquecerSessao(int usuarioId) { }
     }
+
+    [Fact]
+    public void O_lembrete_automatico_do_CRM_nao_aparece_com_o_nome_tecnico()
+    {
+        Assert.Equal(" pelo número oficial (automático)", WhatsAppDaRecepcaoService.QuemEnviou("CRM · WhatsApp"));
+        Assert.Equal(" pelo número oficial (automático)", WhatsAppDaRecepcaoService.QuemEnviou("crm"));
+        Assert.Equal(" · Ana Paula", WhatsAppDaRecepcaoService.QuemEnviou(" Ana Paula "));
+        Assert.Equal("", WhatsAppDaRecepcaoService.QuemEnviou(null));
+    }
 }

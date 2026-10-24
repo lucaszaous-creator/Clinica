@@ -494,8 +494,7 @@ public sealed class WhatsAppDaRecepcaoService(
         if (contato is null) return [];
         var passos = new List<PassoDaConfirmacao>();
         if (contato.EnviadoEm is { } enviado)
-            passos.Add(new(enviado.ToString("HH:mm", PtBr), RodadaDeConfirmacao.Canal(contato.Canal)
-                + (string.IsNullOrWhiteSpace(contato.EnviadoPor) ? "" : $" · {contato.EnviadoPor}")));
+            passos.Add(new(enviado.ToString("HH:mm", PtBr), RodadaDeConfirmacao.Canal(contato.Canal) + QuemEnviou(contato.EnviadoPor)));
         var situacao = RodadaDeConfirmacao.Classificar(contato.Status, contato.EnviadoEm, contato.Comentario);
         if (contato.RespondidoEm is { } respondido && situacao != SituacaoConfirmacao.Dispensado)
             passos.Add(new(respondido.ToString("HH:mm", PtBr), "Respondeu: " + RodadaDeConfirmacao.SeloDaLista(
@@ -504,6 +503,17 @@ public sealed class WhatsAppDaRecepcaoService(
             passos.Add(new(contato.RespondidoEm?.ToString("HH:mm", PtBr) ?? "", "Saiu da rodada sem aviso" + (string.IsNullOrWhiteSpace(contato.Comentario) ? "" : $" · {contato.Comentario}")));
         return passos;
     }
+
+    /// <summary>
+    /// Quem mandou o lembrete, na frase da tela. O lembrete automático é gravado pela ponte do CRM
+    /// como "CRM · WhatsApp" (e pela prévia como "crm"): mostrar isso cru daria "WhatsApp enviado ·
+    /// CRM · WhatsApp". O automático vira "pelo número oficial (automático)"; o resto é o nome de
+    /// quem fez login e mandou.
+    /// </summary>
+    public static string QuemEnviou(string? enviadoPor)
+        => string.IsNullOrWhiteSpace(enviadoPor) ? ""
+            : enviadoPor.TrimStart().StartsWith("CRM", StringComparison.OrdinalIgnoreCase) ? " pelo número oficial (automático)"
+            : $" · {enviadoPor.Trim()}";
 
     /// <summary>Uma ficha a conferir, com nascimento, o fim do documento, a próxima sessão e a última.</summary>
     public static FichaCandidata Candidata(FichaComTelefone f, IEnumerable<Agendamento> agenda, DateTimeOffset agora)
