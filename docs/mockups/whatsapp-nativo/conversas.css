@@ -1,0 +1,155 @@
+/* Estilo PRÓPRIO da tela "WhatsApp da clínica" nativa (proposta, out/2026 —
+   docs/whatsapp-nativo-na-recepcao.md). Só tokens, como manda docs/telas-blazor.md.
+   No app este arquivo moraria em Ativos/css/telas/conversas.css. */
+
+/* A página ocupa a altura do palco: quem rola é cada coluna, nunca a página. */
+.pagina.conversas{height:100%;padding-top:var(--space-4);padding-bottom:var(--space-4);gap:var(--space-4)}
+.conversas .cabecalho{flex:none}
+.conv-estado{display:inline-flex;align-items:center;gap:var(--space-2);font-size:var(--text-small-size);color:var(--texto-secundario)}
+.conv-estado i{width:8px;height:8px;border-radius:50%;background:var(--sucesso)}
+
+/* ---------- As três colunas: conversas · a conversa · o paciente (lido do Clinica) ---------- */
+.conv-grade{flex:1;min-height:0;display:grid;grid-template-columns:320px minmax(0,1fr) 304px;overflow:hidden;position:relative}
+.conv-lista,.conv-painel,.conv-contexto{display:flex;flex-direction:column;min-height:0;min-width:0}
+.conv-lista{border-right:1px solid var(--borda)}
+.conv-contexto{border-left:1px solid var(--borda);background:var(--fundo)}
+
+/* ---------- Coluna 1: a lista ---------- */
+.conv-filtros{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-3) var(--space-3) var(--space-2);border-bottom:1px solid var(--borda)}
+.conv-chips{display:flex;flex-wrap:wrap;gap:var(--space-1)}
+.conv-chips .chip{height:28px;padding:0 10px;font-size:var(--text-small-size)}
+.conv-chips .chip b{font-weight:700}
+.conv-linhas{flex:1;min-height:0;overflow-y:auto}
+.conv-linha{display:grid;grid-template-columns:36px minmax(0,1fr);gap:var(--space-3);width:100%;padding:var(--space-3);border:0;
+  border-bottom:1px solid var(--cinza-100);background:transparent;text-align:left;font:inherit;color:var(--texto-primario);cursor:pointer}
+.conv-linha:hover{background:var(--fundo)}
+.conv-linha[aria-current="true"]{background:var(--acento-suave);box-shadow:inset 3px 0 0 var(--acento)}
+.conv-linha .avatar{width:36px;height:36px;font-size:12px;background:var(--acento-suave);color:var(--acento)}
+.conv-linha.nao-lida .avatar{background:var(--acento);color:var(--texto-invertido)}
+.conv-linha-corpo{display:flex;flex-direction:column;gap:3px;min-width:0}
+.conv-linha-topo{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-2)}
+.conv-linha-nome{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.conv-linha.nao-lida .conv-linha-nome{font-weight:700}
+.conv-linha-hora{font-size:var(--text-small-size);color:var(--texto-secundario);white-space:nowrap;font-variant-numeric:tabular-nums}
+.conv-linha-previa{display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-table-size);color:var(--texto-secundario)}
+.conv-linha-previa span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.conv-linha.nao-lida .conv-linha-previa span{color:var(--texto-primario)}
+.conv-nao-lidas{min-width:18px;height:18px;padding:0 5px;border-radius:var(--radius-pilula);background:var(--acento);color:var(--texto-invertido);
+  font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+.conv-linha-selos{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-2);margin-top:2px}
+.conv-linha-selos .selo{margin-left:0}
+.conv-linha-quem{font-size:var(--text-small-size);color:var(--texto-secundario);margin-left:auto;white-space:nowrap}
+.conv-rodape{padding:var(--space-2) var(--space-3);border-top:1px solid var(--borda);font-size:var(--text-small-size);color:var(--texto-secundario);
+  display:flex;align-items:center;gap:var(--space-2);background:var(--cinza-50)}
+
+/* ---------- Coluna 2: a conversa ----------
+   ⚠️ "entrada"/"saida"/"dica" já são classes do comum (a tela de entrada, o tooltip do gráfico):
+   as bolhas são "recebida"/"enviada" e o atalho é "conv-atalho". Classe de tela nova leva o prefixo da tela. */
+.conv-cab{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--borda)}
+.conv-cab .avatar{width:40px;height:40px;font-size:13px}
+.conv-cab-quem{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.conv-cab-quem h2{margin:0;font-size:16px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.conv-cab-meta{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-2);font-size:var(--text-small-size);color:var(--texto-secundario)}
+.conv-cab-meta .selo{margin-left:0}
+.conv-cab-acoes{display:flex;align-items:center;gap:var(--space-2);flex:none}
+.conv-faixa{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2) var(--space-3);padding:var(--space-2) var(--space-4);
+  border-bottom:1px solid var(--borda);background:var(--cinza-50);font-size:var(--text-small-size);color:var(--texto-secundario)}
+.conv-faixa .selo{margin-left:0}
+.conv-faixa .separador{width:1px;height:14px;background:var(--borda)}
+.conv-mensagens{flex:1;min-height:0;overflow-y:auto;padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-2)}
+.conv-dia{align-self:center;font-size:var(--text-small-size);font-weight:600;color:var(--texto-secundario);padding:2px 10px;
+  border-radius:var(--radius-pilula);background:var(--cinza-100);margin:var(--space-2) 0}
+.conv-evento{align-self:center;display:inline-flex;align-items:center;gap:var(--space-2);max-width:min(560px,100%);padding:var(--space-2) var(--space-3);
+  border:1px dashed var(--borda);border-radius:var(--radius-control);font-size:var(--text-small-size);color:var(--texto-secundario);text-align:center}
+.conv-evento .icone{width:14px;height:14px;color:var(--acento)}
+.conv-m{display:flex;flex-direction:column;gap:3px;max-width:min(560px,78%)}
+.conv-m.recebida{align-self:flex-start}
+.conv-m.enviada{align-self:flex-end;align-items:flex-end}
+.conv-m.nota{align-self:stretch;max-width:none}
+.conv-bolha{padding:var(--space-2) var(--space-3);border-radius:var(--radius-card);line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere;
+  background:var(--cinza-100);color:var(--texto-primario)}
+.conv-m.recebida .conv-bolha{border-top-left-radius:var(--radius-pequeno)}
+.conv-m.enviada .conv-bolha{background:var(--acento-suave);border-top-right-radius:var(--radius-pequeno)}
+.conv-m.nota .conv-bolha{background:var(--aviso-suave);color:var(--aviso-texto);box-shadow:inset 3px 0 0 var(--aviso);border-radius:var(--radius-control)}
+.conv-m-meta{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--texto-secundario);font-variant-numeric:tabular-nums;padding:0 4px}
+.conv-m-meta .icone{width:14px;height:14px}
+.conv-m-meta .lido{color:var(--info-texto)}
+.conv-m-meta .falhou{color:var(--erro-texto);font-weight:600}
+.conv-m.nova .conv-bolha{box-shadow:0 0 0 2px var(--acento-tint)}
+
+/* O que PEDE AÇÃO entra na conversa como aviso com os botões da agenda — a regra é a da agenda do Clinica. */
+.conv-acao{margin:0 var(--space-4);align-items:center;flex-wrap:wrap;padding:var(--space-3) var(--space-4)}
+.conv-acao .conv-acao-texto{flex:1 1 320px;min-width:0}
+.conv-acao strong{display:block}
+.conversas .subtitulo{max-width:none}
+.conv-acao .botoes-linha{flex-wrap:wrap}
+
+.conv-escrever{border-top:1px solid var(--borda);padding:var(--space-3) var(--space-4) var(--space-4);display:flex;flex-direction:column;gap:var(--space-2)}
+.conv-escrever-abas{display:flex;align-items:center;gap:var(--space-1)}
+.conv-escrever-abas .chip{height:28px;padding:0 10px;font-size:var(--text-small-size)}
+.conv-escrever-abas .link{margin-left:auto;font-size:var(--text-small-size)}
+.conv-escrever textarea.campo{min-height:56px;max-height:200px;font:inherit} /* textarea não herda a fonte sozinho (clinica.css só cobre button/select/input) */
+.conv-escrever-rodape{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2)}
+.conv-escrever-rodape .conv-atalho{margin-left:auto;font-size:var(--text-small-size);color:var(--texto-secundario)}
+
+/* ---------- Coluna 3: o paciente, lido do Clinica ---------- */
+.conv-contexto{overflow-y:auto}
+.ctx-secao{padding:var(--space-4);border-bottom:1px solid var(--borda);display:flex;flex-direction:column;gap:var(--space-2)}
+.ctx-secao > h3{margin:0;font-size:var(--text-secao-size);font-weight:700;text-transform:uppercase;letter-spacing:var(--text-secao-tracking);color:var(--texto-secundario);
+  display:flex;align-items:center;justify-content:space-between;gap:var(--space-2)}
+.ctx-secao > h3 .link{font-size:var(--text-small-size);text-transform:none;letter-spacing:0}
+.ctx-paciente{display:flex;align-items:center;gap:var(--space-3)}
+.ctx-paciente .avatar{width:44px;height:44px;font-size:15px}
+.ctx-paciente-nome{display:flex;flex-direction:column;min-width:0}
+.ctx-paciente-nome strong{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ctx-paciente-nome span{font-size:var(--text-small-size);color:var(--texto-secundario)}
+.ctx-pares{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px var(--space-3);margin:0;font-size:var(--text-table-size)}
+.ctx-pares dt{color:var(--texto-secundario)}
+.ctx-pares dd{margin:0;font-weight:600;min-width:0;overflow-wrap:anywhere}
+.ctx-pares dd .selo{margin-left:6px}
+.ctx-selos{display:flex;flex-wrap:wrap;gap:var(--space-1)}
+.ctx-selos .selo{margin-left:0}
+.ctx-horario{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-3);border:1px solid var(--borda);border-radius:var(--radius-control);background:var(--superficie)}
+.ctx-horario.nao-vem{border-color:var(--erro-suave);box-shadow:inset 3px 0 0 var(--erro)}
+.ctx-horario-topo{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-2)}
+.ctx-horario-topo b{font-variant-numeric:tabular-nums}
+.ctx-horario-topo .selo{margin-left:0}
+.ctx-horario small{color:var(--texto-secundario);font-size:var(--text-small-size)}
+.ctx-horario .botoes-linha{justify-content:flex-start}
+.ctx-linha-do-tempo{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--space-2);font-size:var(--text-table-size)}
+.ctx-linha-do-tempo li{display:grid;grid-template-columns:44px minmax(0,1fr);gap:var(--space-2)}
+.ctx-linha-do-tempo time{color:var(--texto-secundario);font-variant-numeric:tabular-nums;font-size:var(--text-small-size);padding-top:1px}
+.ctx-linha-do-tempo li span{min-width:0}
+.ctx-dica{font-size:var(--text-small-size);color:var(--texto-secundario);line-height:1.4;margin:0}
+
+/* Só aparece em janela estreita: o botão que abre a coluna do paciente por cima da conversa. */
+.so-estreito{display:none}
+@media (max-width:1180px){
+  .conversas .subtitulo{display:none} /* em 1024×768 cada linha do cabeçalho é uma linha a menos de conversa */
+  .conv-grade{grid-template-columns:300px minmax(0,1fr)}
+  .so-estreito{display:inline-flex}
+  .conv-contexto{position:absolute;top:0;right:0;bottom:0;width:min(320px,100%);box-shadow:var(--sombra-popup);transform:translateX(100%);
+    transition:transform var(--duracao-normal);z-index:5}
+  .conv-contexto.aberto{transform:none}
+}
+@media (max-width:760px){
+  .pagina.conversas{height:auto}
+  .conv-grade{grid-template-columns:1fr;height:auto}
+  .conv-lista{border-right:0;border-bottom:1px solid var(--borda);max-height:360px}
+  .conv-m{max-width:92%}
+}
+
+/* ---------- O formulário "Qual ficha é esta pessoa?" (regra 5: o telefone não é identidade) ---------- */
+.ficha-opcoes{display:flex;flex-direction:column;gap:var(--space-2)}
+.ficha-opcao{display:grid;grid-template-columns:20px 40px minmax(0,1fr);gap:var(--space-3);align-items:start;padding:var(--space-3);
+  border:1px solid var(--borda);border-radius:var(--radius-control);cursor:pointer;background:var(--superficie)}
+.ficha-opcao:hover{border-color:var(--borda-hover)}
+.ficha-opcao.marcada{border-color:var(--acento);background:var(--acento-suave)}
+.ficha-opcao input{width:16px;height:16px;margin:3px 0 0;accent-color:var(--acento)}
+.ficha-opcao .avatar{width:40px;height:40px;font-size:13px}
+.ficha-opcao-texto{display:flex;flex-direction:column;gap:4px;min-width:0}
+.ficha-opcao-texto strong{font-size:15px}
+.ficha-conferir{display:flex;flex-wrap:wrap;gap:var(--space-1) var(--space-4);margin:0;font-size:var(--text-small-size)}
+.ficha-conferir div{display:flex;gap:6px}
+.ficha-conferir dt{color:var(--texto-secundario)}
+.ficha-conferir dd{margin:0;font-weight:600;font-variant-numeric:tabular-nums}

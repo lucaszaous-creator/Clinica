@@ -1,0 +1,348 @@
+<div class="moldura">
+  <header class="moldura-topo">
+    <div class="moldura-marca">
+      <img src="logo-cor.png" alt="Clínica SemDor" />
+      <span class="moldura-separador" aria-hidden="true"></span>
+      <span class="moldura-app" title="Recepção">Recepção</span>
+    </div>
+    <nav class="moldura-nav" aria-label="Navegação principal">
+      <ul role="menubar">
+        <li class="moldura-grupo"><button type="button" role="menuitem">Início</button></li>
+        <li class="moldura-grupo"><button type="button" role="menuitem">Agenda {{icone:abaixo}}</button></li>
+        <li class="moldura-grupo"><button type="button" role="menuitem">Pacientes {{icone:abaixo}}</button></li>
+        <li class="moldura-grupo"><button type="button" role="menuitem">Marcar {{icone:abaixo}}</button></li>
+        <li class="moldura-grupo"><button type="button" role="menuitem">Relacionamento {{icone:abaixo}}</button></li>
+        <li class="moldura-grupo ativo"><button type="button" role="menuitem" aria-current="page">WhatsApp</button></li>
+      </ul>
+      <button type="button" class="moldura-treinamento">Treinamento</button>
+    </nav>
+    <div class="moldura-busca">
+      <input class="campo" id="busca-telas" type="search" placeholder="Buscar tela (Ctrl+F)" aria-label="Buscar tela" />
+    </div>
+    <div class="moldura-acoes">
+      <div class="moldura-sino">
+        <button type="button" class="botao icone fantasma" title="Notificações" aria-label="Notificações, 3 não lidas">{{icone:sino}}</button>
+        <span class="moldura-contador sobre" aria-hidden="true">3</span>
+      </div>
+      <div class="moldura-conta">
+        <button type="button" class="moldura-usuario" title="Ana Paula · Recepção">
+          <span class="avatar pequeno" aria-hidden="true">AP</span>
+          <span class="moldura-usuario-nome">Ana Paula</span>
+          {{icone:abaixo}}
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="moldura-corpo">
+  <main class="moldura-area">
+  <div class="palco-tela">
+  <div class="pagina conversas">
+
+    <header class="cabecalho">
+      <div class="cabecalho-texto">
+        <p class="sobretitulo">Relacionamento</p>
+        <h1>WhatsApp da clínica</h1>
+        <p class="subtitulo">Conversas do número oficial, com a ficha, a agenda e a confirmação do paciente ao lado.</p>
+      </div>
+      <div class="acoes">
+        <span class="conv-estado" title="O número oficial está conectado à Meta; as mensagens chegam em até 7 s"><i></i>Número oficial · conectado · agora</span>
+        <button type="button" class="botao primario">{{icone:mais}}Nova conversa</button>
+      </div>
+    </header>
+
+    <section class="cartao conv-grade" aria-label="Conversas do WhatsApp da clínica">
+
+      <!-- Coluna 1: a lista -->
+      <aside class="conv-lista" aria-label="Lista de conversas">
+        <div class="conv-filtros">
+          <div class="conv-chips" role="group" aria-label="Quais conversas">
+            <button type="button" class="chip" aria-pressed="true">Novas <b>3</b></button>
+            <button type="button" class="chip" aria-pressed="false">Minhas <b>5</b></button>
+            <button type="button" class="chip" aria-pressed="false">Todas <b>14</b></button>
+            <button type="button" class="chip" aria-pressed="false">Encerradas</button>
+          </div>
+          <div class="busca">
+            {{icone:busca}}
+            <input class="campo" id="busca-conversa" type="search" placeholder="Nome, telefone ou etiqueta" aria-label="Buscar conversa" />
+          </div>
+        </div>
+
+        <div class="conv-linhas">
+          <button type="button" class="conv-linha nao-lida" aria-current="true">
+            <span class="avatar" aria-hidden="true">MG</span>
+            <span class="conv-linha-corpo">
+              <span class="conv-linha-topo"><span class="conv-linha-nome">Maria das Graças Silva</span><span class="conv-linha-hora">10:09</span></span>
+              <span class="conv-linha-previa"><span>Terça às 14h fica ótimo</span><b class="conv-nao-lidas" aria-label="1 mensagem não lida">1</b></span>
+              <span class="conv-linha-selos"><span class="selo tom-perigo">Não vem — remarcar</span><span class="conv-linha-quem">Sem responsável</span></span>
+            </span>
+          </button>
+          <button type="button" class="conv-linha nao-lida">
+            <span class="avatar" aria-hidden="true">LA</span>
+            <span class="conv-linha-corpo">
+              <span class="conv-linha-topo"><span class="conv-linha-nome">(22) 99712-0045</span><span class="conv-linha-hora">09:30</span></span>
+              <span class="conv-linha-previa"><span>Bom dia, gostaria de saber o valor da acupuntura</span><b class="conv-nao-lidas" aria-label="1 mensagem não lida">1</b></span>
+              <span class="conv-linha-selos"><span class="selo tom-neutro">Novo contato · sem ficha</span><span class="conv-linha-quem">Sem responsável</span></span>
+            </span>
+          </button>
+          <button type="button" class="conv-linha nao-lida" data-abrir="ficha" title="Duas fichas têm este telefone — a recepção confere">
+            <span class="avatar" aria-hidden="true">TS</span>
+            <span class="conv-linha-corpo">
+              <span class="conv-linha-topo"><span class="conv-linha-nome">Terezinha Souza</span><span class="conv-linha-hora">09:12</span></span>
+              <span class="conv-linha-previa"><span>O Pedro vai sim amanhã, obrigada</span><b class="conv-nao-lidas" aria-label="1 mensagem não lida">1</b></span>
+              <span class="conv-linha-selos"><span class="selo tom-info">2 fichas — conferir</span><span class="conv-linha-quem">Sem responsável</span></span>
+            </span>
+          </button>
+          <button type="button" class="conv-linha">
+            <span class="avatar" aria-hidden="true">CM</span>
+            <span class="conv-linha-corpo">
+              <span class="conv-linha-topo"><span class="conv-linha-nome">Carlos Eduardo Mota</span><span class="conv-linha-hora">07:12</span></span>
+              <span class="conv-linha-previa"><span>Lembrete do dia lido, sem resposta</span></span>
+              <span class="conv-linha-selos"><span class="selo tom-aviso">Sem resposta · 16:00</span><span class="conv-linha-quem">Ana Paula</span></span>
+            </span>
+          </button>
+          <button type="button" class="conv-linha">
+            <span class="avatar" aria-hidden="true">JB</span>
+            <span class="conv-linha-corpo">
+              <span class="conv-linha-topo"><span class="conv-linha-nome">João Batista Ferreira</span><span class="conv-linha-hora">09:41</span></span>
+              <span class="conv-linha-previa"><span>Confirmado, obrigado!</span></span>
+              <span class="conv-linha-selos"><span class="selo tom-sucesso">Confirmou · 15:00</span><span class="conv-linha-quem">Ana Paula</span></span>
+            </span>
+          </button>
+          <button type="button" class="conv-linha">
+            <span class="avatar" aria-hidden="true">RL</span>
+            <span class="conv-linha-corpo">
+              <span class="conv-linha-topo"><span class="conv-linha-nome">Roberto Lima</span><span class="conv-linha-hora">ontem</span></span>
+              <span class="conv-linha-previa"><span>Você: Fica combinado então, Roberto. Até quinta!</span></span>
+              <span class="conv-linha-selos"><span class="selo tom-neutro">Aguardando paciente</span><span class="conv-linha-quem">Ana Paula</span></span>
+            </span>
+          </button>
+          <button type="button" class="conv-linha">
+            <span class="avatar" aria-hidden="true">FN</span>
+            <span class="conv-linha-corpo">
+              <span class="conv-linha-topo"><span class="conv-linha-nome">Fernanda Nogueira</span><span class="conv-linha-hora">ontem</span></span>
+              <span class="conv-linha-previa"><span>Você: Boa tarde, Fernanda! Sentimos sua falta na acupuntura…</span></span>
+              <span class="conv-linha-selos"><span class="selo tom-info">Acompanhamento · 20 dias</span><span class="conv-linha-quem">Bruna</span></span>
+            </span>
+          </button>
+        </div>
+        <div class="conv-rodape">{{icone:chat}}<span>(22) 3333-0000 · WhatsApp Business · 14 abertas</span></div>
+      </aside>
+
+      <!-- Coluna 2: a conversa -->
+      <section class="conv-painel" aria-label="Conversa com Maria das Graças Silva">
+        <div class="conv-cab">
+          <span class="avatar" aria-hidden="true">MG</span>
+          <div class="conv-cab-quem">
+            <h2>Maria das Graças Silva</h2>
+            <div class="conv-cab-meta">
+              <span>(22) 99876-5432</span><span>·</span><span>WhatsApp</span><span>·</span>
+              <span class="selo tom-sucesso" title="A ficha foi conferida pela recepção em 03/09">Ficha 4.512 · conferida</span>
+            </div>
+          </div>
+          <div class="conv-cab-acoes">
+            <button type="button" class="botao primario">{{icone:pessoa}}Assumir</button>
+            <button type="button" class="botao">{{icone:transferir}}Transferir</button>
+            <button type="button" class="botao icone" title="Buscar nesta conversa" aria-label="Buscar nesta conversa">{{icone:busca}}</button>
+            <button type="button" class="botao icone" title="Encerrar atendimento" aria-label="Encerrar atendimento">{{icone:check}}</button>
+            <button type="button" class="botao icone so-estreito" id="abrir-contexto" title="Ficha, agenda e confirmação" aria-label="Abrir a ficha do paciente" aria-expanded="false">{{icone:ficha}}</button>
+          </div>
+        </div>
+        <div class="conv-faixa">
+          <span>Fila <b>Recepção</b></span><span class="separador"></span>
+          <span>Sem responsável</span><span class="separador"></span>
+          <span class="selo tom-info" title="A Meta aceita texto livre por 24 h depois da última mensagem do paciente; fora disso só modelo aprovado">Janela aberta até amanhã 10:09</span>
+          <span class="separador"></span><span>Hoje <b>14:00</b> · Acupuntura · Dra. Helena</span>
+        </div>
+
+        <div class="conv-mensagens" id="mensagens" role="log" aria-label="Mensagens">
+          <span class="conv-dia">Ontem · quinta-feira, 23/10</span>
+          <div class="conv-m enviada">
+            <div class="conv-bolha">Boa tarde, Maria! Lembrando que amanhã às 14:00 você tem acupuntura com a Dra. Helena. Qualquer coisa é só responder por aqui.</div>
+            <span class="conv-m-meta">Bruna · 16:20 {{icone:lido}}<span class="lido">Lida</span></span>
+          </div>
+          <span class="conv-dia">Hoje · sexta-feira, 24/10</span>
+          <div class="conv-evento">{{icone:sino}}06:00 · Lembrete do dia enviado pelo número oficial (modelo <b>lembrete_sessao</b>) · entregue 06:01 · lido 07:12</div>
+          <div class="conv-m recebida">
+            <div class="conv-bolha">Bom dia! Não vou conseguir ir hoje, posso remarcar?</div>
+            <span class="conv-m-meta">09:58</span>
+          </div>
+          <div class="conv-m recebida">
+            <div class="conv-bolha">Surgiu um compromisso no trabalho 😕</div>
+            <span class="conv-m-meta">09:58</span>
+          </div>
+          <div class="conv-evento">{{icone:alerta}}09:58 · A resposta virou o aviso <b>Não vem — remarcar</b> no sino da Recepção e no painel do Gerente</div>
+          <div class="conv-m nota">
+            <div class="conv-bolha">Nota interna · Ana Paula, 10:02 — Ela prefere o período da tarde. Oferecer terça ou quinta com a Dra. Helena.</div>
+          </div>
+          <div class="conv-m enviada">
+            <div class="conv-bolha">Bom dia, Maria! Sem problema. Tenho terça 28/10 às 14:00 ou quinta 30/10 às 09:30 com a Dra. Helena. Qual prefere?</div>
+            <span class="conv-m-meta">Ana Paula · 10:05 {{icone:lido}}<span class="lido">Lida</span></span>
+          </div>
+          <div class="conv-m recebida nova">
+            <div class="conv-bolha">Terça às 14h fica ótimo</div>
+            <span class="conv-m-meta">10:09 · <b>nova</b></span>
+          </div>
+        </div>
+
+        <div class="aviso atencao conv-acao" role="status">
+          {{icone:alerta}}
+          <div class="conv-acao-texto">
+            <strong>Maria não vem hoje às 14:00 (Acupuntura · Dra. Helena).</strong>
+            Remarcar pela agenda libera o horário de hoje e grava o contato no Acompanhamento.
+          </div>
+          <div class="botoes-linha">
+            <button type="button" class="botao mini primario">{{icone:cal}}Remarcar para ter 28/10 14:00</button>
+            <button type="button" class="botao mini">Outras vagas</button>
+          </div>
+        </div>
+
+        <form class="conv-escrever" aria-label="Escrever">
+          <div class="conv-escrever-abas" role="group" aria-label="Tipo de mensagem">
+            <button type="button" class="chip" aria-pressed="true">{{icone:chat}}Responder</button>
+            <button type="button" class="chip" aria-pressed="false">{{icone:nota}}Nota interna</button>
+            <button type="button" class="link">Respostas rápidas</button>
+          </div>
+          <textarea class="campo" id="texto" aria-label="Mensagem" rows="2">Combinado, Maria! Remarquei sua acupuntura para terça, 28/10, às 14:00 com a Dra. Helena. O lembrete chega na manhã do dia. Até lá 🙂</textarea>
+          <div class="conv-escrever-rodape">
+            <button type="button" class="botao mini">{{icone:anexo}}Anexar</button>
+            <button type="button" class="botao mini">{{icone:modelo}}Modelos do WhatsApp</button>
+            <span class="conv-atalho">Ctrl + Enter envia</span>
+            <button type="submit" class="botao primario">{{icone:enviar}}Enviar</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Coluna 3: o paciente, lido do Clinica (não do CRM) -->
+      <aside class="conv-contexto" id="contexto" aria-label="Ficha, agenda e confirmação do paciente">
+        <section class="ctx-secao">
+          <h3>Paciente <button type="button" class="link">Abrir ficha</button></h3>
+          <div class="ctx-paciente">
+            <span class="avatar" aria-hidden="true">MG</span>
+            <div class="ctx-paciente-nome"><strong>Maria das Graças Silva</strong><span>58 anos · 12/03/1968 · paciente desde 2023</span></div>
+          </div>
+          <dl class="ctx-pares">
+            <dt>Telefone</dt><dd>(22) 99876-5432 <span class="selo tom-sucesso" title="É o mesmo número da ficha">confere</span></dd>
+            <dt>Convênio</dt><dd>Unimed · 0 064 1234 5678 9 <span class="selo tom-aviso" title="Vence em 30/11/2026">vence em 37 dias</span></dd>
+            <dt>Documento</dt><dd>···.···.···-42</dd>
+            <dt>Mensagens</dt><dd>Autorizou no termo do BSV · 03/09</dd>
+          </dl>
+          <div class="ctx-selos"><span class="selo tom-info">Em tratamento · Acupuntura</span><span class="selo tom-neutro">BSV encerrado em jun</span></div>
+        </section>
+
+        <section class="ctx-secao">
+          <h3>Horários <button type="button" class="link">Agenda</button></h3>
+          <div class="ctx-horario nao-vem">
+            <div class="ctx-horario-topo"><b>Hoje 14:00</b><span class="selo tom-perigo">Não vem</span></div>
+            <small>Acupuntura · Dra. Helena · sala 2 · guia 2 de 10</small>
+            <div class="botoes-linha">
+              <button type="button" class="botao mini primario">Remarcar</button>
+              <button type="button" class="botao mini contorno-perigo">Cancelar</button>
+            </div>
+          </div>
+          <div class="ctx-horario">
+            <div class="ctx-horario-topo"><b>Qui 06/11 · 14:00</b><span class="selo tom-neutro">Marcado</span></div>
+            <small>Acupuntura · Dra. Helena · o lembrete sai 06/11 às 06:00</small>
+          </div>
+        </section>
+
+        <section class="ctx-secao">
+          <h3>Confirmação de hoje</h3>
+          <ul class="ctx-linha-do-tempo">
+            <li><time>06:00</time><span>Lembrete enviado pelo WhatsApp da clínica</span></li>
+            <li><time>07:12</time><span>Lido pela paciente</span></li>
+            <li><time>09:58</time><span>Respondeu <b>Não vem</b> · aviso no sino e no Gerente</span></li>
+          </ul>
+        </section>
+
+        <section class="ctx-secao">
+          <h3>Acompanhamento <button type="button" class="link">Ver caso</button></h3>
+          <ul class="ctx-linha-do-tempo">
+            <li><time>Hoje</time><span>Contato pelo WhatsApp · Ana Paula (registrado sozinho)</span></li>
+            <li><time>17/10</time><span>Sessão 5 de 10 · compareceu</span></li>
+            <li><time>10/10</time><span>Sessão 4 de 10 · compareceu</span></li>
+          </ul>
+          <p class="ctx-dica">Consulta de convênio a renovar em 14 dias (Unimed). A tela de Consultas de convênio já acompanha.</p>
+        </section>
+      </aside>
+    </section>
+  </div>
+  </div>
+  </main>
+  <!-- A bolinha do chat da equipe, como nos quatro apps da suíte -->
+  <div class="chat-flutuante"><button type="button" class="chat-bola" title="Chat da equipe" aria-label="Chat da equipe, 2 mensagens não lidas">{{icone:chat}}<span class="chat-contador">2</span></button></div>
+  </div>
+</div>
+
+<!-- O formulário da regra 5: o telefone não é identidade. Abre pela linha "2 fichas — conferir" (ou pelo #ficha). -->
+<div class="modal-fundo" id="modal-ficha" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Qual ficha é esta pessoa?" tabindex="-1">
+    <header class="modal-topo">
+      <div>
+        <h2>Qual ficha é esta pessoa?</h2>
+        <p>O telefone (22) 98811-2233 está em duas fichas. Confira com quem está no telefone antes de ligar a conversa.</p>
+      </div>
+      <div class="modal-topo-acoes"><button type="button" class="fechar" aria-label="Fechar" data-fechar>×</button></div>
+    </header>
+    <div class="modal-corpo">
+      <div class="ficha-opcoes" role="radiogroup" aria-label="Fichas com este telefone">
+        <label class="ficha-opcao marcada">
+          <input type="radio" name="ficha" id="ficha-pedro" checked />
+          <span class="avatar" aria-hidden="true">PS</span>
+          <span class="ficha-opcao-texto">
+            <strong>Pedro Henrique Souza</strong>
+            <dl class="ficha-conferir">
+              <div><dt>Nascimento</dt><dd>14/05/2017 · 9 anos</dd></div>
+              <div><dt>Documento</dt><dd>final 07</dd></div>
+              <div><dt>Responsável</dt><dd>Terezinha Souza</dd></div>
+            </dl>
+            <dl class="ficha-conferir">
+              <div><dt>Próxima</dt><dd>sáb 25/10 09:00 · Acupuntura</dd></div>
+              <div><dt>Última</dt><dd>17/10</dd></div>
+            </dl>
+          </span>
+        </label>
+        <label class="ficha-opcao">
+          <input type="radio" name="ficha" id="ficha-terezinha" />
+          <span class="avatar" aria-hidden="true">TS</span>
+          <span class="ficha-opcao-texto">
+            <strong>Terezinha Souza</strong>
+            <dl class="ficha-conferir">
+              <div><dt>Nascimento</dt><dd>02/08/1965 · 61 anos</dd></div>
+              <div><dt>Documento</dt><dd>final 31</dd></div>
+            </dl>
+            <dl class="ficha-conferir">
+              <div><dt>Próxima</dt><dd>nenhuma</dd></div>
+              <div><dt>Última</dt><dd>02/09 · BSV</dd></div>
+            </dl>
+          </span>
+        </label>
+      </div>
+      <div class="aviso info">{{icone:info}}<span>Pergunte a data de nascimento ou os dois últimos números do documento. A mensagem "O Pedro vai sim amanhã" sugere a ficha do Pedro, mas quem decide é você.</span></div>
+    </div>
+    <footer class="modal-rodape">
+      <span class="esquerda">A ficha ligada aqui nunca troca sozinha: a mãe que divide o celular com o filho continua sendo quem a recepção conferiu.</span>
+      <button type="button" class="botao" data-fechar>Cancelar</button>
+      <button type="button" class="botao primario" data-fechar>Ligar a ficha à conversa</button>
+    </footer>
+  </div>
+</div>
+
+<script>
+(function(){
+  var modal=document.getElementById('modal-ficha');
+  function abrir(){modal.hidden=false;modal.querySelector('.modal').focus();}
+  function fechar(){modal.hidden=true;}
+  document.querySelectorAll('[data-abrir="ficha"]').forEach(function(b){b.addEventListener('click',abrir);});
+  document.querySelectorAll('[data-fechar]').forEach(function(b){b.addEventListener('click',fechar);});
+  modal.addEventListener('keydown',function(e){if(e.key==='Escape')fechar();});
+  document.querySelectorAll('.ficha-opcao input').forEach(function(r){r.addEventListener('change',function(){
+    document.querySelectorAll('.ficha-opcao').forEach(function(l){l.classList.toggle('marcada',l.querySelector('input').checked);});});});
+  var ctx=document.getElementById('contexto'),alt=document.getElementById('abrir-contexto');
+  alt.addEventListener('click',function(){var a=ctx.classList.toggle('aberto');alt.setAttribute('aria-expanded',a?'true':'false');});
+  document.querySelectorAll('form').forEach(function(f){f.addEventListener('submit',function(e){e.preventDefault();});});
+  var m=document.getElementById('mensagens');m.scrollTop=m.scrollHeight;
+  if(location.hash==='#ficha')abrir();
+  if(location.hash==='#contexto')ctx.classList.add('aberto');
+})();
+</script>

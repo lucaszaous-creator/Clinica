@@ -5,7 +5,7 @@ sessão). O texto é o MESMO, sem reescrita: design system, WPF/XAML, Blazor, EF
 `verificar-suite`, assinatura digital, impressão, CRM e as rodadas de UI, cada uma com o defeito que a
 originou. Antes de escrever uma tela, uma consulta ou uma checagem, procure aqui a lição da área.
 
-## Índice (180 tópicos, na ordem do arquivo)
+## Índice (181 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -189,6 +189,7 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
 - "QUAL PACOTE DEBITA" ESTAVA ESCRITO TRÊS VEZES
 - A VENDA DE PACOTE TINHA UMA PORTA, E ELA PERGUNTAVA O QUE A TELA JÁ SABIA
 - Três armadilhas de XAML que a releitura do próprio diff pegou
+- Classe de tela Blazor nova leva o PREFIXO da tela: `entrada`, `saida` e `dica` já são do comum
 
 ---
 
@@ -4964,3 +4965,13 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
   conversor (é `DataTrigger`, como o resto da suíte); e um `_` como parâmetro de lambda
   colide com o descarte quando o corpo também usa `_` — o `compilar-sombra` acusou o
   `CS0029` em segundos, sete minutos antes de o CI o acusar.
+
+- **Classe de tela Blazor nova leva o PREFIXO da tela: `entrada`, `saida` e `dica` já são do
+  comum** (out/2026, mockup `docs/mockups/whatsapp-nativo/`). As bolhas da conversa nasceram
+  `.conv-m.entrada` / `.conv-m.saida` e o atalho do teclado `.dica` — três nomes que o CSS
+  comum já usa: `.entrada` é a TELA DE ENTRADA (login) em `moldura.css`, com
+  `min-height:100vh`, e `.dica` é o tooltip ABSOLUTO do gráfico em `clinica.css`. Resultado:
+  cada mensagem recebida virou uma caixa da altura da janela e "Ctrl + Enter envia" apareceu
+  flutuando sobre o cabeçalho. Nenhuma rede acusa (é CSS válido); só a foto. Regra: toda
+  classe que uma tela cria leva o prefixo dela (`conv-`, `ctx-`, `ficha-`), e antes de usar
+  um nome curto, `grep -n "^\.nome\b\|\.nome{" Ativos/css/clinica.css Ativos/css/telas/moldura.css`.
