@@ -186,6 +186,7 @@ public sealed class ClienteDoCrmHttpTests : IDisposable
         Assert.Equal(status, e.Status);
         Assert.Equal(status == 409, e.Conflito);
         Assert.IsAssignableFrom<InvalidOperationException>(e); // recusa de regra, como as da Application
+        Assert.Equal(1, Bilhetes()); // recusa não é sessão vencida: nada de bilhete novo
     }
 
     [Fact] public async Task Recusa_sem_frase_ainda_diz_o_codigo()
@@ -334,11 +335,66 @@ public sealed class ClienteDoCrmHttpTests : IDisposable
 
         // Logout de uma pessoa não derruba a outra.
         cliente.EsquecerSessao(7);
+        await cliente.UltimaSaida;
         await cliente.ListarConversasAsync(8);
         Assert.Equal(2, Bilhetes());
         await cliente.ListarConversasAsync(7);
         Assert.Equal(3, Bilhetes());
         Assert.Equal("u7", crm.Pedidos.Last().Agente);
+    }
+
+    [Fact] public async Task Csrf_recusado_renova_a_sessao_e_repete_a_escrita_uma_vez()
+    {
+        await Configurar(EnderecoA);
+        crm.Rota = (_, _) => Responder(Conversa("c1"));
+        await cliente.AbrirConversaAsync(7, "c1");
+        crm.VencerCsrf();
+
+        await cliente.AssumirAsync(7, "c1", new AppChange(1, null, null));
+
+        var claims = crm.Pedidos.Where(p => p.Caminho == "/api/conversations/c1/claim").ToList();
+        Assert.Equal([400, 200], claims.Select(p => p.Status));
+        Assert.Equal(["csrf-s1", "csrf-s2"], claims.Select(p => p.Csrf));
+        Assert.Equal(2, Bilhetes());
+    }
+
+    [Fact] public async Task Segundo_csrf_recusado_vira_CrmIndisponivel_e_pausa()
+    {
+        await Configurar(EnderecoA);
+        crm.Rota = (_, _) => Responder(Conversa("c1"));
+        await cliente.AbrirConversaAsync(7, "c1");
+        crm.RecusarCsrfSempre = true;
+
+        var e = await Assert.ThrowsAsync<CrmIndisponivel>(() => cliente.AssumirAsync(7, "c1", new AppChange(1, null, null)));
+
+        Assert.Equal(CrmIndisponivel.AcessoRecusado, e.Message);
+        Assert.Equal(2, Bilhetes());
+        var antes = crm.Pedidos.Count;
+        await Assert.ThrowsAsync<CrmIndisponivel>(() => cliente.AssumirAsync(7, "c1", new AppChange(1, null, null)));
+        Assert.Equal(antes, crm.Pedidos.Count);
+    }
+
+    [Fact] public async Task Logout_avisa_o_CRM_e_a_falha_do_aviso_nao_propaga()
+    {
+        await Configurar(EnderecoA);
+        crm.Rota = (_, _) => Responder(Array.Empty<AppConversationSummary>());
+        await cliente.ListarConversasAsync(7);
+        await cliente.ListarConversasAsync(8);
+
+        cliente.EsquecerSessao(7);
+        await cliente.UltimaSaida;
+        var saida = Assert.Single(crm.Pedidos, p => p.Caminho == "/api/logout");
+        Assert.Equal(("POST", "csrf-s1", "u7", 200), (saida.Metodo, saida.Csrf, saida.Agente, saida.Status));
+
+        crm.FalharSaida = true;
+        cliente.EsquecerSessao(8); // não lança
+        await cliente.UltimaSaida;  // e o aviso que falhou não deixa tarefa com exceção
+        Assert.True(cliente.UltimaSaida.IsCompletedSuccessfully);
+        Assert.Equal(2, crm.Pedidos.Count(p => p.Caminho == "/api/logout"));
+
+        cliente.EsquecerSessao(9); // quem nunca entrou não avisa nada
+        await cliente.UltimaSaida;
+        Assert.Equal(2, crm.Pedidos.Count(p => p.Caminho == "/api/logout"));
     }
 
     [Fact] public async Task Duas_chamadas_simultaneas_que_tomam_401_emitem_um_bilhete()
@@ -432,6 +488,12 @@ public sealed class ClienteDoCrmHttpTests : IDisposable
         public bool RecusarToda401 { get; set; }
         public bool RecusarBilhetes { get; set; }
         public TimeSpan Demora { get; set; }
+        public bool RecusarCsrfSempre { get; set; }
+        public bool FalharSaida { get; set; }
+        readonly ConcurrentDictionary<string, bool> csrfVencido = new();
+
+        /// <summary>O csrf das sessões abertas deixa de valer com o cookie delas (o CRM trocou as chaves).</summary>
+        public void VencerCsrf() { foreach (var k in sessoes.Keys) csrfVencido[k] = true; }
 
         /// <summary>Todas as sessões abertas vencem (o cookie de 2 h, ou o CRM reiniciou).</summary>
         public void Revogar() => sessoes.Clear();
@@ -473,7 +535,7 @@ public sealed class ClienteDoCrmHttpTests : IDisposable
             if (p.Caminho == "/api/login/ticket")
             {
                 if (!antiforgery.TryGetValue(p.Csrf, out var af) || cookies.GetValueOrDefault("af") != af)
-                    return Erro(400, "Sessão desatualizada. Recarregue a página.");
+                    return Erro(400, ClienteDoCrmHttp.FraseDoCsrfRecusado);
                 var bilhete = JsonSerializer.Deserialize<AppTicketLogin>(p.Corpo, Json)!.Ticket;
                 int? usuario;
                 await conferencia.WaitAsync(ct);
@@ -495,7 +557,15 @@ public sealed class ClienteDoCrmHttpTests : IDisposable
                 }
                 return new HttpResponseMessage(HttpStatusCode.Unauthorized);
             }
-            if (p.Metodo == "POST" && p.Csrf != "csrf-" + sessao) return Erro(400, "Sessão desatualizada. Recarregue a página.");
+            // O 400 do antiforgery do CRM: a mesma frase do middleware dele.
+            if (p.Metodo == "POST" && (p.Csrf != "csrf-" + sessao || RecusarCsrfSempre || csrfVencido.ContainsKey(sessao!)))
+                return Erro(400, ClienteDoCrmHttp.FraseDoCsrfRecusado);
+            if (p.Caminho == "/api/logout")
+            {
+                if (FalharSaida) throw new HttpRequestException("o CRM caiu no meio do logout");
+                sessoes.TryRemove(sessao!, out _);
+                return new HttpResponseMessage(HttpStatusCode.OK);
+            }
             if (Demora > TimeSpan.Zero) await Task.Delay(Demora, ct);
             return Rota(p, p.Agente);
         }

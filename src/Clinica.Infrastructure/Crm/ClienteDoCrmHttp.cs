@@ -52,6 +52,12 @@ public sealed class ClienteDoCrmHttp : IClienteDoCrm, IDisposable
     public const string FormatoDesconhecido = "O CRM respondeu num formato que este app não conhece. Fale com a direção para atualizar o app.";
     public const string TentativasDemais = "O CRM recebeu tentativas demais de entrada. Espere um minuto e tente de novo.";
 
+    /// <summary>A frase do 400 do antiforgery do CRM (ver <see cref="CsrfRecusadoAsync"/>).</summary>
+    public const string FraseDoCsrfRecusado = "Sessão desatualizada. Recarregue a página.";
+
+    /// <summary>Prazo do aviso de saída ao CRM no logout: é cortesia (a presença sai na hora), não pode segurar nada.</summary>
+    public static readonly TimeSpan PrazoDaSaida = TimeSpan.FromSeconds(3);
+
     /// <summary>Prazos por natureza de chamada: leitura 10 s, escrita 20 s, envio de arquivo 60 s.</summary>
     internal sealed record Prazos(TimeSpan Leitura, TimeSpan Escrita, TimeSpan Envio)
     {
@@ -170,7 +176,32 @@ public sealed class ClienteDoCrmHttp : IClienteDoCrm, IDisposable
         // O HttpClient antigo não é descartado aqui: uma chamada dele pode estar em andamento
         // (a releitura de 7 s), e descartá-lo a derrubaria com uma exceção que não é do CRM.
         // As conexões dele fecham sozinhas (PooledConnectionIdleTimeout).
-        lock (trava) sessoes.Remove(usuarioId);
+        Acesso? aberto;
+        lock (trava)
+        {
+            aberto = sessoes.TryGetValue(usuarioId, out var sessao) ? sessao.Atual : null;
+            sessoes.Remove(usuarioId);
+        }
+        // Avisa o CRM para a presença sair na hora — sem esperar e sem exceção: o logout do app
+        // não pode depender do CRM estar no ar. Se o aviso se perder, a sessão vence sozinha (2 h).
+        if (aberto is not null) UltimaSaida = Task.Run(() => SairAsync(aberto));
+    }
+
+    /// <summary>O último aviso de saída (para os testes esperarem por ele). Nunca falha.</summary>
+    internal Task UltimaSaida { get; private set; } = Task.CompletedTask;
+
+    private async Task SairAsync(Acesso acesso)
+    {
+        try
+        {
+            using var pedido = Post("/api/logout", new StringContent(""));
+            pedido.Headers.Add("X-CSRF-TOKEN", acesso.Csrf);
+            using var resposta = await EnviarAsync(acesso.Http, pedido, PrazoDaSaida, CancellationToken.None);
+        }
+        catch (Exception e)
+        {
+            Clinica.Application.Diagnostico.Registrar("CRM — aviso de saída no logout (a sessão vence sozinha)", e);
+        }
     }
 
     public void Dispose()
@@ -211,9 +242,10 @@ public sealed class ClienteDoCrmHttp : IClienteDoCrm, IDisposable
             using var pedido = montar();
             if (natureza != Natureza.Leitura) pedido.Headers.Add("X-CSRF-TOKEN", acesso.Csrf);
             using var resposta = await EnviarAsync(acesso.Http, pedido, Prazo(natureza), ct);
-            if (resposta.StatusCode != HttpStatusCode.Unauthorized) return await TratarAsync(resposta, ler, ct);
+            if (resposta.StatusCode != HttpStatusCode.Unauthorized && !await CsrfRecusadoAsync(resposta, ct))
+                return await TratarAsync(resposta, ler, ct);
 
-            // A sessão que esta chamada acabou de abrir, ou a renovada, também tomou 401: não é
+            // A sessão que esta chamada acabou de abrir, ou a renovada, também foi recusada: não é
             // sessão vencida, é o CRM recusando a pessoa. Renovar de novo só gastaria bilhete.
             if (renovou || entrouNestaChamada)
             {
@@ -223,6 +255,19 @@ public sealed class ClienteDoCrmHttp : IClienteDoCrm, IDisposable
             (acesso, _) = await EntrarAsync(sessao, acesso, ct);
         }
     }
+
+    /// <summary>
+    /// O 400 do antiforgery: o csrf não vale mais para o cookie da sessão (o CRM trocou as chaves,
+    /// reiniciou sem elas). É sessão vencida, não recusa — e é seguro repetir, porque o filtro do CRM
+    /// valida o csrf ANTES de executar a rota. ⚠️ O único sinal que o CRM dá é a frase: o middleware
+    /// dele (Program.cs, <c>catch (AntiforgeryValidationException)</c>) devolve 400 com exatamente
+    /// <see cref="FraseDoCsrfRecusado"/>, sem cabeçalho nem código próprio. Se a frase mudar lá, este
+    /// reconhecimento para (o teste do CRM de mentira usa a mesma constante) e o 400 vira
+    /// <see cref="RecusaDoCrm"/> com a frase — nada quebra, só deixa de renovar sozinho.
+    /// </summary>
+    private static async Task<bool> CsrfRecusadoAsync(HttpResponseMessage resposta, CancellationToken ct)
+        => resposta.StatusCode == HttpStatusCode.BadRequest
+           && await FraseDoErroAsync(resposta, ct) == FraseDoCsrfRecusado;
 
     private TimeSpan Prazo(Natureza n) => n switch
     {
