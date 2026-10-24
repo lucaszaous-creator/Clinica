@@ -342,9 +342,6 @@ Nada disso trava o que está acima. São decisões para a próxima rodada.
 - **Formulário próprio de remarcar.** Remarcar abre a janela do horário da agenda (a mesma das
   listas do dia), e a mensagem "Combinado…" fica pronta como rascunho. Uma segunda tela de
   remarcar seria a segunda verdade da agenda.
-- **Cadastrar com o telefone já preenchido** e **abrir o caso exato** no Acompanhamento: as
-  telas de destino não recebem esse dado hoje. Cadastrar liga a ficha nova à conversa e pede
-  para conferir o telefone; "Ver caso" abre o Acompanhamento.
 - **Gravação de áudio e @SemDor** na tela nova: continuam no CRM web.
 
 ---
@@ -414,6 +411,9 @@ padrão até a direção ligar, e volta com um clique.
   roteador da aba (`WhatsAppDaRecepcao`).
 - **A escolha no Gerente** (`ChaveWhatsAppNativo`, `ConfiguracoesDaClinicaNaTela`) e a saída do
   CRM no fechamento do app (`SaidaDoCrm` na `JanelaDoApp`).
+- **As pontas para as outras telas**: "Cadastrar com este telefone" abre o cadastro com o número
+  da conversa já preenchido; "Ver caso" abre o Acompanhamento direto na conversa do caso
+  (`PedidoDoAcompanhamento.PedirCaso`).
 - **Prévia e teste sem CRM de verdade**: `CrmDeMentira` + semente `ConversasDoWhatsApp`.
 - Sem migration. Duas consultas novas no repositório (em `TraducaoNoNpgsqlTests`) e
   `AgendaService.CancelarComMotivoAsync` (o mesmo cancelamento, com o motivo na auditoria).

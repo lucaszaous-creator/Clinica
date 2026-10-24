@@ -243,6 +243,7 @@
 
     // Formulários abertos.
     private LinhaAcompanhamento? _conversa;
+    private int? _casoPedido;
     private CanalContato? _canalInicial;
     private bool _maisFiltros, _gerarRecall, _configurar, _equipe;
 
@@ -273,10 +274,41 @@
         return CarregarAsync(silencioso: true);
     }
 
-    /// <summary>O contador "Retornos" do Início pede a fila de retornos (PedidoDoAcompanhamento).</summary>
+    /// <summary>
+    /// O contador "Retornos" do Início pede a fila de retornos; o "Ver caso" do WhatsApp pede o caso de
+    /// uma pessoa, que abre DEPOIS da leitura (é ela que traz a linha) — ver <see cref="AbrirCasoPedido"/>.
+    /// </summary>
     private void AtenderPedido()
     {
-        if (Servicos.GetService<PedidoDoAcompanhamento>()?.ConsumirRetornos() == true) MostrarRetornos();
+        var pedido = Servicos.GetService<PedidoDoAcompanhamento>();
+        if (pedido is null) return;
+        if (pedido.ConsumirRetornos()) MostrarRetornos();
+        if (pedido.ConsumirCaso() is { } caso) _casoPedido = caso;
+    }
+
+    /// <summary>
+    /// Abre a conversa do caso pedido, já na fila do tipo dele. Não passa por cima de formulário aberto
+    /// (pode haver texto digitado); o caso que saiu da fila avisa em vez de abrir nada.
+    /// </summary>
+    private void AbrirCasoPedido()
+    {
+        if (_casoPedido is not { } id) return;
+        _casoPedido = null;
+        if (_todos.FirstOrDefault(x => x.Id == id) is not { } l)
+        {
+            Notificacoes.Info("Este caso não está mais na fila do acompanhamento.");
+            return;
+        }
+        if (FormularioAberto && _conversa?.Id != id)
+        {
+            Notificacoes.Info($"Feche o que está aberto para ver o caso de {l.Paciente}.");
+            return;
+        }
+        _retornos = false;
+        _tipo = l.Tipo;
+        _faixa = null;
+        Refiltrar();
+        if (_conversa?.Id != id) AbrirConversa(l, null);
     }
 
     /// <summary>F5 relê e Ctrl+P exporta o CSV — pelo MESMO caminho dos botões, com as duas barreiras.</summary>
@@ -340,6 +372,7 @@
             _naoVerificado = false;
             _carregou = true;
             Refiltrar();
+            AbrirCasoPedido();
         }
         catch (Exception ex)
         {

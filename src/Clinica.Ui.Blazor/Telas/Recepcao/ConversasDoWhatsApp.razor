@@ -1047,8 +1047,9 @@ else
         if (!Exigir(Permissao.EditarPaciente, "cadastrar paciente") || a.Conversa is not { } c) return;
         var formularios = Servicos.GetService<FormulariosDoPaciente>();
         if (formularios is null || !formularios.Disponivel) { Notificacoes.Erro(FormulariosDoPaciente.Indisponivel); return; }
-        if (await formularios.CadastrarAsync() is not { } novo) return;
-        if (await GravarNoCrmAsync(s => s.LigarFichaAsync(c, novo.Id, novo.Nome), $"{novo.Nome} cadastrado e ligado à conversa. Confira o telefone na ficha.") is not null)
+        // O cadastro abre com o telefone da conversa já no campo (a recepção pode corrigir antes de gravar).
+        if (await formularios.CadastrarAsync(ConversasNaTela.TelefoneNaTela(c.Contact)) is not { } novo) return;
+        if (await GravarNoCrmAsync(s => s.LigarFichaAsync(c, novo.Id, novo.Nome), $"{novo.Nome} cadastrado e ligado à conversa.") is not null)
             await ReleiaDepoisDoAtoAsync();
     }
 
@@ -1474,9 +1475,15 @@ else
 
     private async Task AbrirAcompanhamentoAsync()
     {
-        if (_aberta?.Caso is null) return;
+        if (_aberta?.Caso is not { } caso) return;
+        // Abre o caso desta pessoa, não a fila inteira (PedidoDoAcompanhamento).
+        var pedido = Servicos.GetService<PedidoDoAcompanhamento>();
+        pedido?.PedirCaso(caso.Id);
         if (!await Host.NavegarAsync(ChaveDoAcompanhamento))
+        {
+            pedido?.ConsumirCaso();
             Notificacoes.Info("O Acompanhamento não está disponível neste aplicativo.");
+        }
     }
 
     // ==================================================================== desenho

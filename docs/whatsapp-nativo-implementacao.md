@@ -394,7 +394,17 @@ novas (`WhatsAppDaRecepcao`, `TraducaoNoNpgsql`, `AgendaService`, `Acompanhament
   andamento"); o CRM de mentira não imita. A tela trata: no 409 relê e mostra a frase.
 
 **O que ficou de fora:** formulário próprio de remarcar (abre a janela do horário da agenda, dois
-cliques; a mensagem "Combinado…" fica como rascunho); "Cadastrar com este telefone" não
-pré-preenche o telefone (o `FormulariosDoPaciente.CadastrarAsync` não aceita; a notificação pede
-para conferir); "Ver caso" abre o Acompanhamento sem abrir o caso (não há pedido por caso).
+cliques; a mensagem "Combinado…" fica como rascunho).
+
+**Fechado depois, na mesma noite:**
+- **"Cadastrar com este telefone" abre o cadastro com o número da conversa já no campo**
+  (`FormulariosDoPaciente.CadastrarAsync(telefone)`, parâmetro opcional: o balcão e a busca de
+  pacientes continuam chamando sem ele). A recepção pode corrigir antes de gravar. Teste:
+  `FormulariosDoPacienteTests.Cadastro_aberto_pela_conversa_do_WhatsApp_ja_vem_com_o_telefone_e_o_grava`.
+  Ele pegou um defeito na hora: sem `@`, o Razor passava a frase `"f.TelefoneInicial"` ao
+  parâmetro `string` (lição em `docs/agentes/convencoes.md`).
+- **"Ver caso" abre a conversa do caso da pessoa no Acompanhamento**, já na fila do tipo dele
+  (`PedidoDoAcompanhamento.PedirCaso`, como o pedido de retornos do Início). Não passa por cima de
+  formulário aberto, e o caso que saiu da fila avisa em vez de abrir nada. Teste:
+  `VerCasoDoWhatsAppTests`, que reprova se a abertura for retirada.
 

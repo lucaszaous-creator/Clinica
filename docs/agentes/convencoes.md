@@ -5,7 +5,7 @@ sessão). O texto é o MESMO, sem reescrita: design system, WPF/XAML, Blazor, EF
 `verificar-suite`, assinatura digital, impressão, CRM e as rodadas de UI, cada uma com o defeito que a
 originou. Antes de escrever uma tela, uma consulta ou uma checagem, procure aqui a lição da área.
 
-## Índice (183 tópicos, na ordem do arquivo)
+## Índice (184 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -192,6 +192,7 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
 - Classe de tela Blazor nova leva o PREFIXO da tela: `entrada`, `saida` e `dica` já são do comum
 - Arquivo novo da prévia que uma SEMENTE usa entra também no `ValidarLayoutWindows.csproj`
 - `textarea` herda a fonte da casa pela regra COMUM, não por remendo de tela
+- Parâmetro `string` de componente Razor recebe expressão com `@`; sem ela recebe o TEXTO
 
 ---
 
@@ -4995,3 +4996,12 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
   comum agora inclui o `textarea`; os remendos locais ficaram inofensivos. Defeito que aparece
   em DUAS telas é da regra comum: conserte lá.
 
+
+- **Parâmetro `string` de componente Razor recebe expressão com `@`; sem ela recebe o TEXTO**
+  (out/2026, WhatsApp nativo, "Cadastrar com este telefone"). Em `PacienteId="f.PacienteId"` o
+  Razor avalia a expressão porque o parâmetro é `int?`; em `TelefoneInicial="f.TelefoneInicial"`,
+  com o parâmetro `string`, ele passa a frase literal `"f.TelefoneInicial"` — compila sem aviso e
+  o campo do cadastro abriu com esse texto escrito. Só o teste bUnit que lia o `value` do campo
+  pegou. Regra: atributo de componente que leva expressão começa com `@` sempre
+  (`TelefoneInicial="@f.TelefoneInicial"`), e parâmetro novo `string` nasce com um teste que lê o
+  que ele mostra.
