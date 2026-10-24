@@ -95,7 +95,8 @@ a fase 1 não começa**: hoje `/api/*` é interno do front do CRM e muda sem avi
 
 - `src/Clinica.Application/Abstracoes/IClienteDoCrm.cs`: um método por rota da tabela acima,
   todos `Async` com `CancellationToken`, devolvendo os records de
-  `src/Clinica.Application/Modelos/Crm/ContratosDoCrm.cs` (**cópia idêntica** do
+  `src/Clinica.Application/Modelos/Crm/ContratosDoCrm.cs` (JÁ ESCRITO em 24/10, namespace
+  `Clinica.Crm.Contracts`, records `App*`; **cópia idêntica** do
   `ApiParaOsApps.cs` do CRM, pela mesma regra do `ClinicContracts.cs`: campo novo entra no
   fim, com valor padrão). Toda recusa do CRM (4xx com `{ error }`) vira `RecusaDoCrm(string
   Mensagem, int Status)` — exceção tipada que a tela mostra inline; 5xx/timeout viram
