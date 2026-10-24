@@ -22,11 +22,10 @@
                 </label>
             }
         </div>
-        <Aviso Tom="info" Texto="Pergunte a data de nascimento ou os dois últimos números do documento. Quem decide qual ficha é a pessoa é você." />
+        <Aviso Tom="info" Texto="Pergunte a data de nascimento ou os dois últimos números do documento. Quem decide qual ficha é a pessoa é você, e a ficha ligada nunca troca sozinha." />
         <Aviso Tom="erro" Texto="@_erro" />
     </ChildContent>
     <Rodape>
-        <span class="esquerda">A ficha ligada aqui nunca troca sozinha: a mãe que divide o celular com o filho continua sendo quem a recepção conferiu.</span>
         <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
         <button type="button" class="botao primario" disabled="@(_escolhida is null || _ocupado)" @onclick="ConfirmarAsync">@(_ocupado ? "Ligando…" : "Ligar a ficha à conversa")</button>
     </Rodape>

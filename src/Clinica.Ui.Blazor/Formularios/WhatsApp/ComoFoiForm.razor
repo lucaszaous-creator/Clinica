@@ -53,7 +53,6 @@
         <Aviso Tom="erro" Texto="@_erro" />
     </ChildContent>
     <Rodape>
-        <span class="esquerda">Grava a etapa e o próximo contato do Acompanhamento.</span>
         <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
         <button type="button" class="botao @(_desfecho == DesfechoContato.NaoQuerVoltar ? "perigo" : "primario")" disabled="@(_desfecho is null || _ocupado)" @onclick="ConfirmarAsync">
             @(_ocupado ? "Gravando…" : _desfecho == DesfechoContato.NaoQuerVoltar ? "Encerrar o caso" : "Registrar")</button>

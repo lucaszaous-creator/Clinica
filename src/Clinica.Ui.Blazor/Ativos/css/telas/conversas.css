@@ -53,6 +53,8 @@
 .wa-grupo{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);padding:6px var(--space-4);
   background:var(--cinza-50);border-bottom:1px solid var(--borda);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:var(--text-secao-tracking);color:var(--texto-secundario)}
 .wa-grupo span{font-variant-numeric:tabular-nums}
+/* Uma linha só: o título fixo que quebra em duas fica com a segunda linha por baixo do grupo seguinte (300 px). */
+.wa-grupo b{font-weight:inherit;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wa-dias{font-size:var(--text-small-size);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
 .wa-dias.tom-perigo{color:var(--erro-texto)}
 .wa-dias.tom-aviso{color:var(--aviso-texto)}

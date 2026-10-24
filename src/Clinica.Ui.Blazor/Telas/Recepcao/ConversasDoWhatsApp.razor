@@ -146,7 +146,7 @@ else
                     }
                     @foreach (var g in grupos)
                     {
-                        <div class="wa-grupo" @key="g.Chave">@g.Titulo<span>@g.Linhas.Count</span></div>
+                        <div class="wa-grupo" @key="g.Chave" title="@g.Titulo"><b>@g.Titulo</b><span>@g.Linhas.Count</span></div>
                         @foreach (var r in g.Linhas)
                         {
                             <button type="button" role="option" @key="r.Caso.Id" class="wa-linha @(r.NaoLida ? "nao-lida" : null)" aria-current="@Bool(_aberta?.Caso?.Id == r.Caso.Id)"
@@ -201,7 +201,7 @@ else
                     <button type="button" class="botao icone fantasma wa-voltar" aria-label="Voltar à lista" @onclick="FecharConversa"><Icone Nome="esquerda" /></button>
                     <span class="avatar tom-@c.TomDoAvatar" aria-hidden="true">@c.Iniciais<span class="wa-canal @(c.Sms ? "sms" : null)"><Icone Nome="@(c.Sms ? "sms" : "chat")" /></span></span>
                     <div class="wa-cab-quem"><h2>@c.Nome</h2>
-                        <div class="wa-cab-meta">@if (!string.IsNullOrWhiteSpace(c.Telefone)) { <span>@c.Telefone</span><span>·</span> }<span>@(c.Sms ? "SMS" : "WhatsApp")</span>
+                        <div class="wa-cab-meta">@* Sem nome, o título já é o telefone: não repete. *@@if (!string.IsNullOrWhiteSpace(c.Telefone) && c.Telefone != c.Nome) { <span>@c.Telefone</span><span>·</span> }<span>@(c.Sms ? "SMS" : "WhatsApp")</span>
                             @if (c.Ficha.Estado == EstadoFicha.Conferida)
                             {
                                 <span class="selo tom-sucesso" title="@c.Ficha.Dica">@c.Ficha.Texto</span>
@@ -556,7 +556,7 @@ else
                 <CancelarHorarioPelaConversaForm Horario="h" MotivoInicial="@_motivoInicial" AoFechar="FecharForm" AoConfirmar="CancelarAsync" />
                 break;
             case Form.ComoFoi when aberta.Caso is { } caso:
-                <ComoFoiForm Titulo="@_comoFoiTitulo" Subtitulo="@($"{caso.Paciente} · {ConversasNaTela.TelefoneNaTela(caso.Telefone)}. O que a pessoa disse grava a etapa do Acompanhamento.")"
+                <ComoFoiForm Titulo="@_comoFoiTitulo" Subtitulo="@($"{caso.Paciente} · {ConversasNaTela.TelefoneNaTela(caso.Telefone)}. O que a pessoa disse grava a etapa e o próximo contato do Acompanhamento.")"
                              DesfechoInicial="@_comoFoiInicial" Motivos="@_motivos" PodeParar="@caso.Consentimento" AoFechar="FecharForm" AoConfirmar="RegistrarComoFoiAsync" />
                 break;
         }

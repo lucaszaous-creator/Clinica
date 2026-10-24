@@ -5,7 +5,7 @@
   pessoa escrever de novo, o CRM reabre a conversa sozinho.
 *@
 
-<Modal Titulo="Encerrar o atendimento" Subtitulo="A conversa sai da lista. Se a pessoa escrever de novo, ela reabre sozinha." Largura="pequeno" AoFechar="AoFechar">
+<Modal Titulo="Encerrar o atendimento" Subtitulo="A conversa sai da lista e o resultado entra no resumo do dia que o Gerente lê. Se a pessoa escrever de novo, ela reabre sozinha." Largura="pequeno" AoFechar="AoFechar">
     <ChildContent>
         @if (Resultados.Count == 0)
         {
@@ -26,7 +26,6 @@
         <Aviso Tom="erro" Texto="@_erro" />
     </ChildContent>
     <Rodape>
-        <span class="esquerda">O resultado alimenta o resumo do dia que o Gerente lê.</span>
         <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
         <button type="button" class="botao primario" disabled="@(_resultado is null || _ocupado)" @onclick="ConfirmarAsync"><Icone Nome="check" />@(_ocupado ? "Encerrando…" : "Encerrar")</button>
     </Rodape>

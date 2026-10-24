@@ -414,5 +414,9 @@ cliques; a mensagem "Combinado…" fica como rascunho).
   cima e o número embaixo; o seletor Conversas/Retenção perdeu os ícones e passou a respeitar o
   próprio padding (o `.segmentado button` comum vencia — lição em `convencoes.md`), e o
   "Retenção 15" deixou de passar por baixo do "+"; a janela de quem nunca escreveu diz "Janela
-  fechada: a pessoa ainda não escreveu", sem o "desde sempre".
+  fechada: a pessoa ainda não escreveu", sem o "desde sempre"; sem nome, o cabeçalho não repete o
+  telefone; as janelas Qual ficha, Encerrar e Como foi perderam a nota do rodapé (ela empurrava o
+  botão principal para baixo do Cancelar em 1024; o texto foi para o subtítulo ou para o aviso); e
+  o título fixo de grupo da lista fica numa linha (quebrado, a segunda linha aparecia por baixo do
+  grupo seguinte).
 
