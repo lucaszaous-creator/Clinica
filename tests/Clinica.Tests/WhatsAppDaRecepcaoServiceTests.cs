@@ -405,6 +405,31 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
         Assert.Null(WhatsAppDaRecepcaoService.CasoDoConvite(aberta, M("semdor_lembrete_sessao")));
     }
 
+    [Fact]
+    public async Task Envio_no_409_rele_e_repete_uma_vez_com_o_mesmo_id_e_o_segundo_409_sobe()
+    {
+        var c = _crm.Pôr(Conversa("c-maria", "Maria", "5522998765432", pacienteId: _maria.Id));
+        var id = Guid.NewGuid().ToString("D");
+        _crm.ConflitosNoEnvio = 1;
+        var depois = await Com(s => s.ResponderAsync(c, "Bom dia!", null, id));
+        Assert.Equal(2, _crm.Respostas.Count);
+        Assert.All(_crm.Respostas, r => Assert.Equal(id, r.Id));
+        Assert.Contains(depois.Messages, m => m.Id == id);
+
+        _crm.ConflitosNoEnvio = 2;
+        var erro = await Assert.ThrowsAsync<RecusaDoCrm>(() => Com(s => s.ResponderAsync(depois, "De novo", null, Guid.NewGuid().ToString("D"))));
+        Assert.True(erro.Conflito);
+    }
+
+    [Fact]
+    public async Task Devolver_exige_o_motivo_que_o_CRM_pede()
+    {
+        var c = _crm.Pôr(Conversa("c-maria", "Maria", "5522998765432", pacienteId: _maria.Id));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Com(s => s.DevolverAsync(c, "ok")));
+        var depois = await Com(s => s.DevolverAsync(c, "Paciente quer falar com o financeiro"));
+        Assert.Null(depois.AgentId);
+    }
+
     private static SituacaoConfirmacao Situacao(ContatoCampanha c) => RodadaDeConfirmacao.Classificar(c.Status, c.EnviadoEm, c.Comentario);
 
     // ------------------------------------------------------------------ o CRM falso
@@ -430,6 +455,8 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
         public List<AppNoteRequest> Notas { get; } = [];
         public List<AppNewConversation> Novas { get; } = [];
         public List<AppPatientLink> Ligacoes { get; } = [];
+        /// <summary>Quantos 409 os próximos envios recebem antes de passar (a Version que mudou sozinha).</summary>
+        public int ConflitosNoEnvio { get; set; }
 
         public AppConversation Pôr(AppConversation c, int naoLidas = 0)
         {
@@ -468,6 +495,13 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
         public Task<AppConversation> ResponderAsync(int usuarioId, string conversaId, AppReply resposta, CancellationToken ct = default)
         {
             Respostas.Add(resposta);
+            if (ConflitosNoEnvio > 0)
+            {
+                ConflitosNoEnvio--;
+                _conversas[conversaId] = _conversas[conversaId] with { Version = _conversas[conversaId].Version + 1 };
+                throw new RecusaDoCrm("Esta conversa mudou. Atualize antes de continuar.", 409);
+            }
+            if (resposta.Version != _conversas[conversaId].Version) throw new RecusaDoCrm("Versão velha.", 409);
             return Task.FromResult(Trocar(conversaId, c => c with
             {
                 Messages = [.. c.Messages, new AppMessage(resposta.Id, "out", resposta.Text, resposta.Template is null ? "TEXT" : "TEMPLATE", "ana",

@@ -576,14 +576,33 @@ public sealed class WhatsAppDaRecepcaoService(
     public Task<AppConversation> ResponderAsync(AppConversation c, string texto, string? anexoId, string idDoEnvio, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(texto) && anexoId is null) throw new InvalidOperationException("Escreva a mensagem ou anexe um arquivo.");
-        return crm.ResponderAsync(UsuarioId, c.Id, new AppReply(c.Version, IdDoEnvio(idDoEnvio), texto?.Trim() ?? "", anexoId), ct);
+        var id = IdDoEnvio(idDoEnvio);
+        return ComVersaoNovaAsync(c, v => crm.ResponderAsync(UsuarioId, c.Id, new AppReply(v, id, texto?.Trim() ?? "", anexoId), ct), ct);
     }
 
     /// <summary>Guarda uma nota interna (nunca vai ao paciente).</summary>
     public Task<AppConversation> AnotarAsync(AppConversation c, string texto, string idDoEnvio, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(texto)) throw new InvalidOperationException("Escreva a nota.");
-        return crm.AnotarAsync(UsuarioId, c.Id, new AppNoteRequest(c.Version, IdDoEnvio(idDoEnvio), texto.Trim()), ct);
+        var id = IdDoEnvio(idDoEnvio);
+        return ComVersaoNovaAsync(c, v => crm.AnotarAsync(UsuarioId, c.Id, new AppNoteRequest(v, id, texto.Trim()), ct), ct);
+    }
+
+    /// <summary>
+    /// O envio e a nota no 409: a <c>Version</c> da conversa muda sozinha (o recibo de entrega de
+    /// uma mensagem anterior avança o status), então o conflito é COMUM e não quer dizer que alguém
+    /// mexeu. Relê a conversa e repete UMA vez com o MESMO Id — o Id torna o envio idempotente no
+    /// CRM, a mensagem não sai duas vezes. O segundo 409 sobe para a tela. (Assumir, transferir,
+    /// encerrar e devolver NÃO repetem sozinhos: ali o conflito pode ser outra pessoa.)
+    /// </summary>
+    private async Task<AppConversation> ComVersaoNovaAsync(AppConversation c, Func<int, Task<AppConversation>> ato, CancellationToken ct)
+    {
+        try { return await ato(c.Version); }
+        catch (RecusaDoCrm r) when (r.Conflito)
+        {
+            var relida = await crm.AbrirConversaAsync(UsuarioId, c.Id, ct);
+            return await ato(relida.Version);
+        }
     }
 
     /// <summary>Sobe UM arquivo; o id devolvido vai no envio.</summary>
@@ -593,8 +612,17 @@ public sealed class WhatsAppDaRecepcaoService(
     public Task<AppConversation> AssumirAsync(AppConversation c, string? meuAgente, CancellationToken ct = default)
         => crm.AssumirAsync(UsuarioId, c.Id, new AppChange(c.Version, meuAgente, c.Queue), ct);
 
-    public Task<AppConversation> DevolverAsync(AppConversation c, CancellationToken ct = default)
-        => crm.DevolverAFilaAsync(UsuarioId, c.Id, new AppChange(c.Version, null, c.Queue), ct);
+    /// <summary>O mínimo e o máximo do motivo de devolver à fila (a regra do CRM: 400 fora disso).</summary>
+    public const int MinimoDoMotivoDeDevolver = 5, MaximoDoMotivoDeDevolver = 2000;
+
+    /// <summary>Devolve à fila da Recepção, com o motivo que o CRM exige (fica na trilha da conversa).</summary>
+    public Task<AppConversation> DevolverAsync(AppConversation c, string motivo, CancellationToken ct = default)
+    {
+        var m = motivo?.Trim() ?? "";
+        if (m.Length < MinimoDoMotivoDeDevolver || m.Length > MaximoDoMotivoDeDevolver)
+            throw new InvalidOperationException($"Diga por que a conversa volta à fila (de {MinimoDoMotivoDeDevolver} a {MaximoDoMotivoDeDevolver} letras).");
+        return crm.DevolverAFilaAsync(UsuarioId, c.Id, new AppChange(c.Version, null, c.Queue, m), ct);
+    }
 
     public Task<AppConversation> TransferirAsync(AppConversation c, string? agenteId, string? fila, string? nota, CancellationToken ct = default)
     {
@@ -666,7 +694,10 @@ public sealed class WhatsAppDaRecepcaoService(
         else if (registrar && c.PatientId is null)
             c = await crm.LigarFichaAsync(u, c.Id, new AppPatientLink(caso!.PacienteId, caso.Paciente, c.Version), ct);
 
-        c = await crm.ResponderAsync(u, c.Id, new AppReply(c.Version, IdDoEnvio(idDoEnvio), "", Template: ModeloDoWhatsApp.Selecao(modelo, valores)), ct);
+        var id = IdDoEnvio(idDoEnvio);
+        var selecao = ModeloDoWhatsApp.Selecao(modelo, valores);
+        var conversa = c;
+        c = await ComVersaoNovaAsync(conversa, v => crm.ResponderAsync(u, conversa.Id, new AppReply(v, id, "", Template: selecao), ct), ct);
         if (!registrar) return new ResultadoDoEnvio(c, null);
 
         var pendencia = await RegistrarDesfechoAsync(caso!, DesfechoContato.NaoRespondeu, CanalContato.WhatsApp, null,
@@ -716,7 +747,8 @@ public sealed class WhatsAppDaRecepcaoService(
         try
         {
             var nota = $"Horário de {quando} cancelado na agenda por {SessaoUsuario.Atual.Nome} · motivo: {motivo.Trim()}. Nenhuma mensagem foi ao paciente.";
-            return (avisosDaGuia, await crm.AnotarAsync(UsuarioId, c.Id, new AppNoteRequest(c.Version, Guid.NewGuid().ToString("D"), nota), ct), null);
+            var id = Guid.NewGuid().ToString("D");
+            return (avisosDaGuia, await ComVersaoNovaAsync(c, v => crm.AnotarAsync(UsuarioId, c.Id, new AppNoteRequest(v, id, nota), ct), ct), null);
         }
         catch (Exception ex) when (ex is RecusaDoCrm or CrmIndisponivel)
         {

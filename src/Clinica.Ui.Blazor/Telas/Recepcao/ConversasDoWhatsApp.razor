@@ -224,7 +224,7 @@ else
                             {
                                 <button type="button" class="botao primario" title="Esta conversa passa a ser sua" disabled="@(!PodeEscrever || _ocupado)" @onclick="AssumirAsync"><Icone Nome="pessoa" /><span>Assumir</span></button>
                             }
-                            <button type="button" class="botao" data-acao="transferir" disabled="@(!PodeEscrever || _ocupado)" @onclick="() => _form = Form.Transferir"><Icone Nome="transferir" /><span>Transferir</span></button>
+                            <button type="button" class="botao" data-acao="transferir" disabled="@(!PodeEscrever || _ocupado || !c.Minha)" title="@(c.Minha ? "Passar a conversa a outra pessoa ou fila" : SoComVoce)" @onclick="() => _form = Form.Transferir"><Icone Nome="transferir" /><span>Transferir</span></button>
                         }
                         @if (c.Conversa is not null)
                         {
@@ -232,7 +232,7 @@ else
                         }
                         @if (c.Conversa is not null && !c.Encerrada)
                         {
-                            <button type="button" class="botao icone" data-acao="encerrar" title="Encerrar o atendimento" aria-label="Encerrar o atendimento" disabled="@(!PodeEscrever || _ocupado)" @onclick="() => _form = Form.Encerrar"><Icone Nome="check" /></button>
+                            <button type="button" class="botao icone" data-acao="encerrar" title="@(c.Minha ? "Encerrar o atendimento" : SoComVoce)" aria-label="Encerrar o atendimento" disabled="@(!PodeEscrever || _ocupado || !c.Minha)" @onclick="() => _form = Form.Encerrar"><Icone Nome="check" /></button>
                         }
                         <button type="button" class="botao icone wa-so-estreito" title="Ficha, agenda e confirmação" aria-label="Abrir a ficha do paciente" aria-expanded="@Bool(_fichaAberta)" @onclick="() => _fichaAberta = !_fichaAberta"><Icone Nome="ficha" /></button>
                     </div>
@@ -332,7 +332,7 @@ else
                                 <button type="button" class="botao primario" aria-expanded="@Bool(_popover == Popover.Modelos)" disabled="@(!PodeEscrever)" @onclick="() => AbrirModelosAsync(false)"><Icone Nome="modelo" />Escolher modelo</button>
                                 @if (c.Conversa is not null)
                                 {
-                                    <button type="button" class="botao" disabled="@(!PodeEscrever)" @onclick="() => r.Nota = true"><Icone Nome="nota" />Nota interna</button>
+                                    <button type="button" class="botao" disabled="@(!PodeEscrever || !c.Minha)" title="@(c.Minha ? null : SoComVoce)" @onclick="() => r.Nota = true"><Icone Nome="nota" />Nota interna</button>
                                 }
                             </div></div>
                     }
@@ -342,7 +342,7 @@ else
                             <div class="wa-escrever-abas">
                                 <div class="segmentado" role="group" aria-label="Tipo de mensagem">
                                     <button type="button" aria-pressed="@Bool(!r.Nota)" @onclick="() => r.Nota = false"><Icone Nome="chat" />Responder</button>
-                                    <button type="button" aria-pressed="@Bool(r.Nota)" disabled="@(c.Conversa is null)" @onclick="() => r.Nota = true"><Icone Nome="nota" />Nota interna</button>
+                                    <button type="button" aria-pressed="@Bool(r.Nota)" disabled="@(c.Conversa is null || !c.Minha)" title="@(c.Minha ? null : SoComVoce)" @onclick="() => r.Nota = true"><Icone Nome="nota" />Nota interna</button>
                                 </div>
                                 <small>@(r.Nota ? "Só a equipe vê. Não vai ao paciente." : $"Vai pelo número oficial para {c.Telefone}")</small>
                             </div>
@@ -643,6 +643,9 @@ else
     private bool _batendo;
 
     private static bool PodeEscrever => Pode(Permissao.EditarAgenda);
+
+    /// <summary>A regra do CRM: nota, transferir e encerrar são de quem está com a conversa (responder assume sozinho).</summary>
+    private const string SoComVoce = "Assuma a conversa antes: nota, transferir e encerrar são de quem está com ela.";
     private static bool PodeAcompanhar => Pode(Permissao.VerFichaPaciente) && PodeAlgum(Permissao.GerenciarCampanhas | Permissao.VerFaturamento);
 
     private static string Bool(bool v) => v ? "true" : "false";
@@ -977,9 +980,20 @@ else
         ? GravarNoCrmAsync(s => s.AssumirAsync(c, _painel?.Sessao.AgentId), "A conversa é sua. Ela aparece em \"Minhas\".")
         : Task.CompletedTask;
 
-    private Task DevolverAsync() => _aberta?.Conversa is { } c
-        ? GravarNoCrmAsync(s => s.DevolverAsync(c), "Devolvida à fila da Recepção.")
-        : Task.CompletedTask;
+    /// <summary>Devolver pede o motivo (o CRM o exige e o guarda na trilha). Cancelar a pergunta é null: nada acontece.</summary>
+    private async Task DevolverAsync()
+    {
+        if (_aberta?.Conversa is not { } c || !Exigir(Permissao.EditarAgenda, "devolver a conversa à fila")) return;
+        var motivo = await Dialogos.PerguntarTextoAsync("Devolver à fila da Recepção",
+            $"Por que a conversa volta à fila? Quem assumir depois lê o motivo ({WhatsAppDaRecepcaoService.MinimoDoMotivoDeDevolver} letras ou mais).");
+        if (motivo is null) return;
+        if (motivo.Trim().Length < WhatsAppDaRecepcaoService.MinimoDoMotivoDeDevolver)
+        {
+            Recado($"O motivo precisa de pelo menos {WhatsAppDaRecepcaoService.MinimoDoMotivoDeDevolver} letras. A conversa continua com você.", "erro");
+            return;
+        }
+        await GravarNoCrmAsync(s => s.DevolverAsync(c, motivo), "Devolvida à fila da Recepção.");
+    }
 
     private Task ReabrirAsync() => _aberta?.Conversa is { } c
         ? GravarNoCrmAsync(s => s.ReabrirAsync(c, _painel?.Sessao.AgentId), "Conversa reaberta e com você.")
@@ -1388,7 +1402,9 @@ else
             case BotaoDaAcao.ConferirFicha: AbrirConferirFicha(); break;
             case BotaoDaAcao.BuscarFicha: _fichaAberta = true; break;
             case BotaoDaAcao.CadastrarPaciente: await CadastrarAsync(c); break;
-            case BotaoDaAcao.NotaInterna when c.Conversa is not null: Rascunho(c).Nota = true; break;
+            case BotaoDaAcao.NotaInterna when c.Conversa is not null:
+                if (c.Minha) Rascunho(c).Nota = true; else Recado(SoComVoce, "info");
+                break;
             case BotaoDaAcao.PrepararConvite or BotaoDaAcao.PrepararMensagem:
                 if (!Exigir(Permissao.EditarAgenda, "enviar pelo WhatsApp da clínica")) return;
                 await AbrirModelosAsync(convite: true);
