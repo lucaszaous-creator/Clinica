@@ -390,3 +390,5 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px;fon
 .wa-escrever-abas .segmentado button:disabled,.wa-cab-acoes .botao:disabled{opacity:.5;cursor:not-allowed}
 .wa-sem-acesso{padding:var(--space-8)}
 @media (max-width:1180px){.wa-recado{margin-left:var(--space-4);margin-right:var(--space-4)}}
+/* Os estados antes da tela (sem acesso, CRM sem endereço, falha, carregando): um cartão no topo da página. */
+.pagina.wa-estado{display:flex;flex-direction:column;gap:var(--space-2);padding-bottom:var(--space-4)}

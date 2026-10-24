@@ -13,28 +13,6 @@ namespace Clinica.Tests;
 /// </summary>
 public class ConfiguracoesDaClinicaNaTelaTests
 {
-    // ============================ WhatsApp dentro do app ============================
-
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("http://crm.exemplo.com.br")]
-    [InlineData("https://crm.exemplo.com.br/caminho")]
-    public void Escolha_do_WhatsApp_fica_desligada_sem_endereco_do_CRM_gravado(string? endereco)
-        => ConfiguracoesDaClinicaNaTela.PorQueSemEscolhaDoWhatsApp(endereco)
-            .Should().Be("Salve o endereço do CRM primeiro: as duas telas falam com o CRM por ele.");
-
-    [Fact]
-    public void Escolha_do_WhatsApp_liga_com_o_endereco_gravado()
-        => ConfiguracoesDaClinicaNaTela.PorQueSemEscolhaDoWhatsApp("https://crm.exemplo.com.br").Should().BeNull();
-
-    [Fact]
-    public void Salvar_a_tela_nova_diz_como_voltar_atras_sem_instalar_nada()
-    {
-        ConfiguracoesDaClinicaNaTela.FraseWhatsAppSalvo(true).Should().Contain("Moldura do CRM").And.Contain("não precisa instalar");
-        ConfiguracoesDaClinicaNaTela.FraseWhatsAppSalvo(false).Should().StartWith("Moldura do CRM escolhida");
-    }
-
     // ============================ Operação ============================
 
     [Fact]

@@ -182,33 +182,6 @@ public static class ConfiguracoesDaClinicaNaTela
           + "variável de ambiente desta máquina."
         : "Publicação salva.";
 
-    // ============================ WhatsApp dentro do app (out/2026) ============================
-    // A escolha da aba WhatsApp da Recepção: a tela nova (nativa, sobre a API do CRM) ou a
-    // moldura do CRM. PR 5 de docs/whatsapp-nativo-implementacao.md; a chave é
-    // ParametrosService.ChaveWhatsAppNativo.
-
-    /// <summary>
-    /// Por que a escolha está desligada, ou nulo quando ela pode ser feita. Olha o endereço
-    /// GRAVADO (não o digitado e ainda não salvo): as duas telas falam com o CRM por ele, e
-    /// escolher a tela nova sem endereço não ligaria nada — prometeria uma tela que não abre.
-    /// </summary>
-    public static string? PorQueSemEscolhaDoWhatsApp(string? enderecoDoCrmGravado)
-        => EntradaNoCrm.EnderecoValido(enderecoDoCrmGravado) is null
-            ? "Salve o endereço do CRM primeiro: as duas telas falam com o CRM por ele."
-            : null;
-
-    public const string ExplicaTelaNovaDoWhatsApp =
-        "As conversas e a retenção numa tela do próprio app, com a ficha e os horários do paciente ao lado.";
-
-    public const string ExplicaMolduraDoWhatsApp =
-        "O próprio CRM aberto dentro da aba, como até hoje. Fica como reserva enquanto a tela nova é conferida.";
-
-    /// <summary>A frase do Salvar: o que muda, para quem e como voltar atrás.</summary>
-    public static string FraseWhatsAppSalvo(bool telaNova) => telaNova
-        ? "Tela nova escolhida. A Recepção passa a usá-la quando o app for aberto de novo. "
-          + "Para voltar atrás, escolha \"Moldura do CRM\" e salve; não precisa instalar nada."
-        : "Moldura do CRM escolhida. A Recepção volta a abrir o CRM dentro da aba quando o app for aberto de novo.";
-
     // ============================ Conclusão automática ============================
 
     public static string SituacaoConclusao(bool automatica) => automatica

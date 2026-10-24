@@ -27,15 +27,14 @@ namespace PreviaBlazor.Sementes;
 /// (SEM autorização de mensagens), Marcos, Rita, Fernanda (aguardando: convidada ontem), Alzira
 /// (respondeu ao convite), Felipe e Cláudia (novos no BSV, sem a 1ª sessão), Inês (voltou: marcou)
 /// e Geraldo (não quer voltar), com sessões que dão os dias do mockup.</item>
-/// <item>O endereço do CRM (se a semente da moldura ainda não o pôs) e a chave
-/// <see cref="ParametrosService.ChaveWhatsAppNativo"/> ligada: a aba WhatsApp abre a tela nova.</item>
+/// <item>O endereço do CRM (fictício): sem ele a aba mostra "ainda não foi ligado".</item>
 /// </list>
 /// Pacientes PRÓPRIOS (telefones com DDD 22, que nenhuma outra semente usa), para não mexer no que
 /// outras telas contam. Os dias de "recall" dependem só do calendário; as horas, do relógio da prévia.
 /// </summary>
 public sealed class SementeConversasDoWhatsApp : ISemente
 {
-    // Depois do Acompanhamento (70: usuários e motivos) e da moldura do WhatsApp (85: o endereço).
+    // Depois do Acompanhamento (70: usuários e motivos).
     public int Ordem => 88;
 
     public void Semear(ClinicaDbContext db)
@@ -48,16 +47,8 @@ public sealed class SementeConversasDoWhatsApp : ISemente
         var ana = db.Set<UsuarioSistema>().FirstOrDefault(u => u.Login == "ana.previa");
         var bruno = db.Set<UsuarioSistema>().FirstOrDefault(u => u.Login == "bruno.previa");
 
-        foreach (var (chave, valor) in new[]
-                 {
-                     (ParametrosService.ChaveEnderecoDoCrm, "https://crm.exemplo.invalid"),
-                     (ParametrosService.ChaveWhatsAppNativo, "true")
-                 })
-        {
-            var existente = db.Configuracoes.Find(chave);
-            if (existente is null) db.Configuracoes.Add(new ConfiguracaoGlobal { Chave = chave, Valor = valor });
-            else if (chave == ParametrosService.ChaveWhatsAppNativo) existente.Valor = valor;
-        }
+        if (db.Configuracoes.Find(ParametrosService.ChaveEnderecoDoCrm) is null)
+            db.Configuracoes.Add(new ConfiguracaoGlobal { Chave = ParametrosService.ChaveEnderecoDoCrm, Valor = "https://crm.exemplo.invalid" });
         db.SaveChanges();
 
         Paciente P(Pessoa pessoa, DateOnly nascimento, bool autorizou, Convenio convenio = Convenio.UnimedPadrao,

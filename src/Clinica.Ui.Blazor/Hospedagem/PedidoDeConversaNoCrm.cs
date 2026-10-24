@@ -6,7 +6,7 @@ namespace Clinica.Ui.Blazor.Hospedagem;
 /// <summary>
 /// "Abra a conversa DESTE paciente no WhatsApp da clínica" — o pedido que uma tela deixa antes de
 /// navegar para a aba WhatsApp (out/2026, fase 2 — docs/crm-na-recepcao.md). Um pedido só; ler
-/// LIMPA, como o <see cref="PedidoDeDocumento"/>. Quem consome é a <c>WhatsAppNoCrm</c>, na
+/// LIMPA, como o <see cref="PedidoDeDocumento"/>. Quem consome é a <c>ConversasDoWhatsApp</c>, na
 /// abertura e na volta à aba.
 /// </summary>
 public sealed class PedidoDeConversaNoCrm

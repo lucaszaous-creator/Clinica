@@ -517,8 +517,8 @@ public sealed class ModuloRecepcao : IModuloApp
         ChaveConsultas => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ConsultasDeConvenio), servicos),
         ChaveLancamentos => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.LancamentosDoBalcao), servicos),
         ChaveRetorno => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.AcompanhamentoDePacientes), servicos),
-        // A tela nativa ou a moldura do CRM, pela escolha do Gerente (WhatsAppDaRecepcao decide).
-        ChaveWhatsAppCrm => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.WhatsAppDaRecepcao), servicos),
+        // A tela nativa do WhatsApp da clínica (fase 3, 24/10: a moldura do CRM saiu inteira).
+        ChaveWhatsAppCrm => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ConversasDoWhatsApp), servicos),
         ChaveSalaInfusao => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.SalaDeInfusao), servicos),
         ChaveEnfermagem => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.Enfermagem), servicos),
         // Tela do SHELL (parcela 60), como a sala de infusão acima. O item era publicado

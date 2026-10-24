@@ -32,7 +32,7 @@
 
 @if (!Pode(Permissao.EditarAgenda))
 {
-    <div class="pagina whatsapp-crm">
+    <div class="pagina wa-estado">
         <section class="cartao lista-cartao">
             <EstadoVazio Titulo="Seu acesso não inclui o WhatsApp da clínica" Icone="cadeado"
                          Descricao="As conversas com os pacientes ficam com quem marca na agenda. Fale com a direção da clínica." />
@@ -41,7 +41,7 @@
 }
 else if (_naoConfigurado)
 {
-    <div class="pagina whatsapp-crm">
+    <div class="pagina wa-estado">
         <section class="cartao lista-cartao">
             <EstadoVazio Titulo="O WhatsApp da clínica ainda não foi ligado aqui" Icone="chat"
                          Descricao="A direção informa o endereço do CRM em Gerente → Configurações → Integrações. Até lá, as conversas continuam no CRM pelo navegador." />
@@ -50,7 +50,7 @@ else if (_naoConfigurado)
 }
 else if (_painel is null && _erroLista is not null)
 {
-    <div class="pagina whatsapp-crm">
+    <div class="pagina wa-estado">
         <section class="cartao lista-cartao">
             <FalhaDeLeitura Titulo="Não foi possível abrir o WhatsApp da clínica" Detalhe="@_erroLista" AoTentarDeNovo="() => LerTudoAsync(silencioso: false)" />
         </section>
@@ -58,7 +58,7 @@ else if (_painel is null && _erroLista is not null)
 }
 else if (_painel is not { } painel)
 {
-    <div class="pagina whatsapp-crm"><div class="cartao"><div class="cartao-corpo"><Esqueleto Altura="420" /></div></div></div>
+    <div class="pagina wa-estado"><div class="cartao"><div class="cartao-corpo"><Esqueleto Altura="420" /></div></div></div>
 }
 else
 {
@@ -568,7 +568,9 @@ else
     }
     @if (_horarioAberto is { } horario)
     {
-        <HorarioDaAgendaForm AgendamentoId="horario" AoFechar="() => _horarioAberto = null" AoMudou="HorarioMudouAsync" />
+        @* Remarcar direto no formulário da AGENDA (o mesmo AgendamentoForm da Agenda do dia: as mesmas
+           regras, vagas e avisos de guias) — sem o cartão do horário no meio, que custava um clique. *@
+        <AgendamentoForm AgendamentoId="horario" AoFechar="() => _horarioAberto = null" AoConcluir="RemarcouAsync" />
     }
 }
 
@@ -1286,7 +1288,17 @@ else
         return null;
     }
 
-    private async Task HorarioMudouAsync()
+    private async Task RemarcouAsync(IReadOnlyList<string> avisos)
+    {
+        _horarioAberto = null;
+        var rascunho = await HorarioMudouAsync();
+        Notificacoes.Sucesso(rascunho ? "Horário remarcado na agenda. A mensagem ficou pronta no campo: revise e envie."
+            : "Horário remarcado na agenda.");
+        if (avisos.Count > 0) await Dialogos.AvisoAsync("Atenção — guias deste horário", string.Join("\n\n", avisos));
+    }
+
+    /// <summary>Relê depois de remarcar e deixa a mensagem do que a clínica FEZ no campo. Verdadeiro = preparou o rascunho.</summary>
+    private async Task<bool> HorarioMudouAsync()
     {
         _horariosAntesDeRemarcar = _aberta?.Dados.Horarios ?? [];
         var antes = _horariosAntesDeRemarcar;
@@ -1298,8 +1310,12 @@ else
         {
             var r = Rascunho(a);
             if (string.IsNullOrWhiteSpace(r.Texto))
+            {
                 r.Texto = WhatsAppDaRecepcaoService.RascunhoDeRemarcacao(a.Paciente?.Nome ?? a.Nome, novo, DateOnly.FromDateTime(DateTime.Today));
+                return true;
+            }
         }
+        return false;
     }
 
     private async Task AbrirComoFoiAsync(string titulo, DesfechoContato? inicial, CanalContato canal)
