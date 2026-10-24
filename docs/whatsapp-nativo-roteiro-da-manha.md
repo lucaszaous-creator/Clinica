@@ -259,15 +259,14 @@ um release novo. Não existe volta automática de versão dos apps.
 
 Nada disso trava o que está acima. São decisões para a próxima rodada.
 
-1. **Degraus 30, 20 e 15 dias na retenção.** Hoje o Gerente tem **um número só** ("Recall:
-   dias sem vir", padrão 60), e a lista sai num grupo só. Quer os três degraus como
-   configuração nova do Gerente, ou um limite basta?
+1. ~~**Degraus 30, 20 e 15 dias na retenção.**~~ **Decidido em 24/10: um número só basta.**
+   Fica o "Recall: dias sem vir" do Gerente (padrão 60). Nada a construir.
 2. **Os modelos aprovados na Meta: resolvido durante a noite.** A tela passou a conhecer os
    doze `semdor_*` (os mesmos rótulos do CRM) e convida com `semdor_recall` (ou
    `semdor_iniciar_atendimento` para o novo no BSV). Se um modelo for aprovado com outra
    quantidade de variáveis, a tela mostra "Variável n" em branco para a secretária preencher.
-3. **"Como se sentiu depois da 1ª sessão de BSV"** precisa de uma fila nova no Acompanhamento?
-   Hoje "Novos no BSV" são os que **ainda não** fizeram a 1ª sessão.
+3. ~~**"Como se sentiu depois da 1ª sessão de BSV"**~~ **Decidido em 24/10: não vira fila nova.**
+   "Novos no BSV" continua sendo quem **ainda não** fez a 1ª sessão.
 4. **O convite conta duas tentativas no Acompanhamento.** Enviar o convite pela tela grava o
    contato no caso, e a ponte do CRM também grava "Mensagem enviada pelo WhatsApp da clínica".
    A tela grava porque é isso que faz o "Respondeu" funcionar mesmo se a ponte atrasar. Prefere
