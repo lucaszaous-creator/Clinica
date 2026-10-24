@@ -41,6 +41,14 @@ public static class ModeloDoWhatsApp
     private const string PrimeiroNome = "Primeiro nome", Atendimento = "Atendimento", DiaEHora = "Dia e hora",
         Tratamento = "Tratamento", Dias = "Dias", Documento = "Documento", Assunto = "Assunto";
 
+    // Os rótulos dos modelos APROVADOS na Meta (os mesmos do template-picker.js do CRM). Os de
+    // horário usam a sessão do contexto; os que só a recepção sabe ficam vazios para ela preencher.
+    private const string NovoDiaEHora = "Novo dia e horário", DiaPerdido = "Dia e horário que perdeu",
+        DiaLivre = "Dia e horário livre", OQueFalta = "O que falta", Orcamento = "Orçamento";
+
+    /// <summary>Os modelos aprovados na Meta que a retenção usa (out/2026, CRM em produção — docs/producao-out2026.md do CRM).</summary>
+    public const string RecallReal = "semdor_recall", IniciarAtendimentoReal = "semdor_iniciar_atendimento";
+
     /// <summary>
     /// O que cada variável dos modelos conhecidos é, na ordem do <c>{{n}}</c>. Os quatro do
     /// mockup aprovado, mais os dois cujo texto está no próprio CRM (<c>RichMessaging.cs</c>):
@@ -54,6 +62,19 @@ public static class ModeloDoWhatsApp
         [PrimeiroContato] = [PrimeiroNome, Assunto],
         ["recall_semdor"] = [PrimeiroNome],
         ["semdor_confirmacao_24h"] = [PrimeiroNome, DiaEHora],
+        // Os aprovados na Meta em produção (out/2026). Tabela do CRM: wwwroot/template-picker.js (KNOWN).
+        [IniciarAtendimentoReal] = [PrimeiroNome, Assunto],
+        ["semdor_retorno_contato"] = [PrimeiroNome],
+        ["semdor_retomar_conversa"] = [PrimeiroNome, Assunto],
+        ["semdor_horario_remarcado"] = [PrimeiroNome, NovoDiaEHora],
+        ["semdor_falta_reagendar"] = [PrimeiroNome, DiaPerdido],
+        ["semdor_vaga_disponivel"] = [PrimeiroNome, DiaLivre],
+        ["semdor_agendamento_confirmado"] = [PrimeiroNome, DiaEHora],
+        ["semdor_informacao_pendente"] = [PrimeiroNome, OQueFalta],
+        ["semdor_orcamento"] = [PrimeiroNome, Orcamento],
+        ["semdor_documento"] = [PrimeiroNome],
+        ["semdor_lembrete_sessao"] = [PrimeiroNome, DiaEHora],
+        [RecallReal] = [PrimeiroNome],
     };
 
     private static readonly Regex Variavel = new(@"\{\{(\d+)\}\}", RegexOptions.CultureInvariant);
@@ -82,7 +103,7 @@ public static class ModeloDoWhatsApp
     {
         PrimeiroNome => ConversasNaTela.PrimeiroNomeOu(c.NomeDoPaciente, ""),
         Atendimento => c.Atendimento is { } m ? NaFrase(m) : "",
-        DiaEHora => c.Sessao is { } s ? MensagensDeContato.QuandoPorExtenso(s, c.Hoje) : "",
+        DiaEHora or NovoDiaEHora or DiaPerdido => c.Sessao is { } s ? MensagensDeContato.QuandoPorExtenso(s, c.Hoje) : "",
         Tratamento => c.Caso is { } caso ? NaFrase(caso.Tipo == TipoAcompanhamento.NovoBsv && !EhBsv(caso.Modalidade) ? ModalidadeAtendimento.BsvApenas : caso.Modalidade)
             : c.Atendimento is { } a ? NaFrase(a) : "",
         Dias => c.Caso is { Tipo: TipoAcompanhamento.Recall } r ? r.Dias.ToString(CultureInfo.InvariantCulture) : "",

@@ -300,6 +300,18 @@ public static class RetencaoNaTela
         => !PodeConvidar(l) ? null : l.Tipo == TipoAcompanhamento.NovoBsv ? ModeloDoWhatsApp.PrimeiroContato : ModeloDoWhatsApp.RetornoTratamento;
 
     /// <summary>
+    /// Os modelos do convite em ordem de preferência: o APROVADO na Meta primeiro
+    /// (<c>semdor_recall</c>; <c>semdor_iniciar_atendimento</c> para o novo no BSV) e o nome do
+    /// mockup como reserva (a prévia e instalações antigas). A tela usa o primeiro que o CRM
+    /// devolver em <c>GET /api/templates</c>; nenhum = o convite não é oferecido, e a tela diz.
+    /// Vazio para quem não pode ser convidado (sem consentimento, caso fechado) — a mesma regra de <see cref="ModeloDoConvite"/>.
+    /// </summary>
+    public static IReadOnlyList<string> CandidatosDoConvite(LinhaAcompanhamento l)
+        => !PodeConvidar(l) ? []
+            : l.Tipo == TipoAcompanhamento.NovoBsv ? [ModeloDoWhatsApp.IniciarAtendimentoReal, ModeloDoWhatsApp.PrimeiroContato]
+            : [ModeloDoWhatsApp.RecallReal, ModeloDoWhatsApp.RetornoTratamento];
+
+    /// <summary>
     /// O bloco da conversa de retenção SEM mensagens (o lugar do campo de escrever). Quem não
     /// autorizou nunca recebe botão de envio — vale em qualquer situação aberta; quem autorizou
     /// e é "para hoje" recebe o modelo como primeira mensagem (a pessoa ainda não escreveu).
