@@ -5,7 +5,7 @@ sessão). O texto é o MESMO, sem reescrita: design system, WPF/XAML, Blazor, EF
 `verificar-suite`, assinatura digital, impressão, CRM e as rodadas de UI, cada uma com o defeito que a
 originou. Antes de escrever uma tela, uma consulta ou uma checagem, procure aqui a lição da área.
 
-## Índice (184 tópicos, na ordem do arquivo)
+## Índice (185 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -193,6 +193,7 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
 - Arquivo novo da prévia que uma SEMENTE usa entra também no `ValidarLayoutWindows.csproj`
 - `textarea` herda a fonte da casa pela regra COMUM, não por remendo de tela
 - Parâmetro `string` de componente Razor recebe expressão com `@`; sem ela recebe o TEXTO
+- Semente com data relativa a "hoje" respeita a JORNADA de quem tem agenda protegida
 
 ---
 
@@ -5005,3 +5006,12 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
   pegou. Regra: atributo de componente que leva expressão começa com `@` sempre
   (`TelefoneInicial="@f.TelefoneInicial"`), e parâmetro novo `string` nasce com um teste que lê o
   que ele mostra.
+
+- **Semente com data relativa a "hoje" respeita a JORNADA de quem tem agenda protegida**
+  (out/2026). A sessão do Dr. Caio nas férias dele era `hoje + 20` às 15h; ele só atende terça e
+  quinta, e no Postgres o gatilho `CK_Agenda_Protegida` recusava a semente em cinco dias de cada
+  sete. O SQLite não tem o gatilho, então a prévia e o CI nunca viram. Regra: horário semeado para
+  profissional com `AgendaProtegida` escolhe um dia da jornada dele (procure o dia, não some um
+  número fixo), e o horário que "já estava marcado" antes de um bloqueio é gravado num
+  `SaveChanges` ANTERIOR ao do bloqueio. Para conferir: a família com `CLINICA_TESTES_POSTGRES` e
+  `faketime` em cada dia da semana.

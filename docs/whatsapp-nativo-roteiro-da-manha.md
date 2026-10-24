@@ -276,10 +276,12 @@ Nada disso trava o que está acima. São decisões para a próxima rodada.
    mensagem vai ao paciente sozinha (a secretária escreve). Está bom assim?
 6. **O PARAR do "Não quer voltar"** revoga a autorização só da ficha conferida; o PARAR que o
    paciente manda pelo CRM revoga todas as fichas com aquele telefone. Quer igualar?
-7. **Teste das telas no Postgres.** Com `CLINICA_TESTES_POSTGRES`, uma semente antiga da prévia
-   (o horário do Dr. Caio) cai fora da jornada conforme o dia e o gatilho da agenda recusa. Já
-   era assim antes desta noite e o `CLAUDE.md` diz que essa rede não cobre telas. Corrigir a
-   semente para cair sempre na jornada é pequeno; fica para quando quiser.
+7. ~~**Teste das telas no Postgres.**~~ **Resolvido na madrugada.** A sessão do Dr. Caio dentro
+   das férias caía em "hoje + 20" e ele só atende terça e quinta: em cinco dias de cada sete o
+   gatilho da agenda protegida recusava. A semente passou a escolher a terça ou quinta das férias
+   e a gravar a sessão antes do bloqueio. Conferido no Postgres com o relógio em cada um dos sete
+   dias da semana (a semente antiga reprova num sábado, a nova passa nos sete), e o
+   `TelasBlazorAbremTests` inteiro passou no Postgres (161 de 161, cada botão clicado). Nada para decidir.
 
 ### O que fica para as fases 2 e 3
 

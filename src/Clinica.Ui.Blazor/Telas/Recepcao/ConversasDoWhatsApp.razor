@@ -172,7 +172,9 @@ else
                 {
                     var caixa = painel.Sessao.Inboxes.FirstOrDefault();
                     <span class="wa-ponto @(_releituraFalhou || painel.Sessao.WhatsappOff ? "fora" : null)" aria-hidden="true"></span>
-                    <span>@(caixa is null ? "Sem caixa de saída do WhatsApp" : $"{ConversasNaTela.TelefoneNaTela(caixa.Sender)} · {caixa.Name}") · @(painel.Sessao.WhatsappOff ? "WhatsApp desligado no CRM" : _releituraFalhou ? "sem resposta do CRM" : "conectado")</span>
+                    @* O estado em cima e o número embaixo: numa linha só, a coluna estreita quebrava o "conectado" sozinho. *@
+                    <span class="wa-conexao"><b>@(painel.Sessao.WhatsappOff ? "WhatsApp desligado no CRM" : _releituraFalhou ? "Sem resposta do CRM" : "Conectado")</b>
+                        <small>@(caixa is null ? "Sem caixa de saída do WhatsApp" : $"{ConversasNaTela.TelefoneNaTela(caixa.Sender)} · {caixa.Name}")</small></span>
                 }
             </div>
         </aside>
@@ -199,7 +201,7 @@ else
                     <button type="button" class="botao icone fantasma wa-voltar" aria-label="Voltar à lista" @onclick="FecharConversa"><Icone Nome="esquerda" /></button>
                     <span class="avatar tom-@c.TomDoAvatar" aria-hidden="true">@c.Iniciais<span class="wa-canal @(c.Sms ? "sms" : null)"><Icone Nome="@(c.Sms ? "sms" : "chat")" /></span></span>
                     <div class="wa-cab-quem"><h2>@c.Nome</h2>
-                        <div class="wa-cab-meta">@if (!string.IsNullOrWhiteSpace(c.Telefone)) { <span>@c.Telefone</span><span>·</span> }<span>@(c.Sms ? "SMS" : "WhatsApp")</span><span>·</span>
+                        <div class="wa-cab-meta">@if (!string.IsNullOrWhiteSpace(c.Telefone)) { <span>@c.Telefone</span><span>·</span> }<span>@(c.Sms ? "SMS" : "WhatsApp")</span>
                             @if (c.Ficha.Estado == EstadoFicha.Conferida)
                             {
                                 <span class="selo tom-sucesso" title="@c.Ficha.Dica">@c.Ficha.Texto</span>
@@ -239,7 +241,7 @@ else
                 </div>
                 <div class="wa-faixa">
                     <span>Fila <b>@c.Fila</b></span><i></i>
-                    <span>@if (c.Responsavel == "Sem responsável") { @c.Responsavel } else if (c.Minha) { <text>Com <b>você</b></text> } else { <text>Com <b>@c.Responsavel</b></text> }</span><i></i>
+                    <span>@if (c.Responsavel == "Sem responsável") { @c.Responsavel } else if (c.Minha) { <text>Com <b>você</b></text> } else { <text>Com <b>@c.Responsavel</b></text> }</span>
                     @if (c.Janela.Estado == SituacaoDaJanela.SemJanela)
                     {
                         <span class="selo tom-neutro"><Icone Nome="sms" />@c.Janela.Texto</span>
@@ -254,11 +256,11 @@ else
                     }
                     @if (c.ProximoHorario is { } h)
                     {
-                        <i></i><span><Icone Nome="calendario" /> @h.QuandoTexto · @h.Detalhe</span>
+                        <span><Icone Nome="calendario" /> @h.QuandoTexto · @h.Detalhe</span>
                     }
                     @if (c.Caso is { } caso)
                     {
-                        <i></i><span class="selo tom-info"><Icone Nome="coracao" />Retenção · @RetencaoNaTela.Tratamento(caso.Modalidade) · @RetencaoNaTela.Dias(caso)</span>
+                        <span class="selo tom-info"><Icone Nome="coracao" />Retenção · @RetencaoNaTela.Tratamento(caso.Modalidade) · @RetencaoNaTela.Dias(caso)</span>
                     }
                 </div>
                 @if (_buscaConversa is not null)

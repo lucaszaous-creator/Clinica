@@ -87,15 +87,22 @@ public sealed class SementeEquipe : ISemente
         B(hoje.AddDays(9), hoje.AddDays(9).AddHours(23).AddMinutes(59), "Folga compensatória", profissional: abigail.Id);
         B(hoje.AddDays(40), hoje.AddDays(54).AddHours(23).AddMinutes(59), "Férias", profissional: abigail.Id);
 
-        // As férias do Dr. Caio, com uma sessão que já estava marcada dentro.
+        // As férias do Dr. Caio, com uma sessão que já estava marcada dentro. A sessão cai numa
+        // terça ou quinta às 15h (a jornada dele; as férias têm sete dias, então sempre há uma) e é
+        // gravada ANTES do bloqueio, como na vida real: no Postgres o gatilho da agenda protegida
+        // (CK_Agenda_Protegida) recusaria um horário fora da jornada ou dentro de um bloqueio já
+        // existente — e com o dia fixo em "+2" a semente quebrava em cinco dias de cada sete.
         var inicioFerias = hoje.AddDays(18);
-        B(inicioFerias, inicioFerias.AddDays(6).AddHours(23).AddMinutes(59), "Congresso de psiquiatria", profissional: caio.Id);
+        var diaDaSessao = Enumerable.Range(0, 7).Select(d => inicioFerias.AddDays(d))
+            .First(d => d.DayOfWeek is DayOfWeek.Tuesday or DayOfWeek.Thursday);
         var paciente = db.Pacientes.OrderBy(p => p.Id).First();
         db.Add(new Agendamento
         {
-            PacienteId = paciente.Id, ProfissionalId = caio.Id, DataHora = inicioFerias.AddDays(2).AddHours(15),
+            PacienteId = paciente.Id, ProfissionalId = caio.Id, DataHora = diaDaSessao.AddHours(15),
             ModalidadePrevista = ModalidadeAtendimento.Consulta, Status = StatusAgendamento.Agendado, DuracaoMinutos = 50
         });
+        db.SaveChanges();
+        B(inicioFerias, inicioFerias.AddDays(6).AddHours(23).AddMinutes(59), "Congresso de psiquiatria", profissional: caio.Id);
 
         B(hoje.AddDays(12).AddHours(13), hoje.AddDays(12).AddHours(18), "Manutenção do ar-condicionado", sala: alecrim.Id);
 

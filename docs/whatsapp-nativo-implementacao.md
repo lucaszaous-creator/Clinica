@@ -388,8 +388,8 @@ novas (`WhatsAppDaRecepcao`, `TraducaoNoNpgsql`, `AgendaService`, `Acompanhament
 - Com `CLINICA_TESTES_POSTGRES`, o banco das telas (`BancoDasTelas`) também vai ao Postgres, e uma
   semente ANTIGA (horário do Dr. Caio, agenda protegida) cai fora da jornada conforme o dia: o
   gatilho `CK_Agenda_Protegida` recusa. **É anterior a esta rodada** (reproduzido no commit
-  `1a828bd`) e coerente com o `CLAUDE.md` ("a rede do Postgres não cobre as telas"). Não corrigido
-  aqui; está nas perguntas da manhã.
+  `1a828bd`). **Corrigido depois, na mesma noite:** a sessão das férias cai numa terça ou quinta
+  (a jornada dele) e é gravada antes do bloqueio; conferido no Postgres nos sete dias da semana.
 - O CRM real recusa assumir/transferir/reabrir enquanto há envio em `sending` ("Aguarde o envio em
   andamento"); o CRM de mentira não imita. A tela trata: no 409 relê e mostra a frase.
 
