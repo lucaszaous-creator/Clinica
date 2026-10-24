@@ -1,4 +1,4 @@
-// As fotos da tela real do WhatsApp nativo (out/2026): 21 estados × 1366 e 1024, mais três fluxos
+// As fotos da tela real do WhatsApp nativo (out/2026): 21 estados × 1366 e 1024, três no celular (480), e três fluxos
 // executados de verdade (enviar, convite, assumir e anotar). Uso, com a prévia no relógio fixo de
 // docs/telas-blazor.md §5 (sexta 23/10, 10:12 — senão as horas da semente caem de madrugada):
 //   TZ=America/Sao_Paulo faketime -f '@2026-10-23 10:12:00' dotnet run --project tools/PreviaBlazor --urls http://127.0.0.1:5199
@@ -71,6 +71,23 @@ const ROTEIRO = [
       } catch (e) { falhas.push(`${nome}-${w}: ${e.message.split('\n')[0]}`); }
       await p.close();
     }
+  }
+  // Celular (480): a lista, a conversa por cima dela e a ficha — as cinco ações do cabeçalho alcançáveis.
+  for (const [nome, passos] of [
+    ['30-celular-lista', async p => {}],
+    ['31-celular-conversa', async p => { await filtro(p, 'Minhas'); await linha(p, 'Maria das Graças'); }],
+    ['32-celular-ficha', async p => { await filtro(p, 'Minhas'); await linha(p, 'Maria das Graças'); await clicar(p, 'Abrir a ficha do paciente'); }],
+  ]) {
+    const p = await abrir(b, 480, 860);
+    try {
+      await passos(p);
+      if (await p.evaluate(() => document.documentElement.scrollWidth) > 480) falhas.push(`${nome}: rola para o lado`);
+      const escondidas = await p.evaluate(() => document.querySelector('.wa-conversa.aberta')
+        ? [...document.querySelectorAll('.wa-cab-acoes > button')].filter(x => !x.getBoundingClientRect().width).map(x => x.getAttribute('aria-label') || x.textContent.trim()) : []);
+      if (escondidas.length) falhas.push(`${nome}: ações escondidas no celular: ${escondidas.join(', ')}`);
+      await p.screenshot({ path: `${DIR}/${nome}-480.png` }); feitas.push(nome);
+    } catch (e) { falhas.push(`${nome}: ${e.message.split('\n')[0]}`); }
+    await p.close();
   }
   // Os fluxos executados de verdade (1366): enviar, convite enviado, assumir e anotar.
   let p = await abrir(b, 1366, 900);
