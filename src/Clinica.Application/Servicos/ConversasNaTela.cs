@@ -130,7 +130,7 @@ public enum TipoNaLinhaDoTempo { Dia, Novas, Evento, Recebida, Enviada, Nota }
 /// </summary>
 public sealed record ItemDaConversa(TipoNaLinhaDoTempo Tipo, string Texto, string Hora = "", string? Autor = null,
     bool Seguida = false, TickDaMensagem? Tick = null, string? Anexo = null, string? Modelo = null,
-    string Tom = "neutro", string? Erro = null, string? Id = null, DateTimeOffset? At = null);
+    string Tom = "neutro", string? Erro = null, string? Id = null, DateTimeOffset? At = null, MidiaDaMensagem? Midia = null);
 
 /// <summary>Um evento da trilha do CRM, traduzido para a linha do tempo.</summary>
 public sealed record EventoDaTrilha(string Texto, string Tom);
@@ -575,13 +575,18 @@ public static class ConversasNaTela
         {
             var m = conversa.Messages[i];
             var recebida = EhRecebida(m);
-            var texto = string.IsNullOrWhiteSpace(m.Text) ? m.FileName ?? (recebida ? "Mensagem sem texto" : "Arquivo") : m.Text;
+            // Foto, áudio, vídeo e documento aparecem no balão (MidiaDaConversa): o texto é só a legenda, e sem
+            // legenda o balão não inventa "Mensagem sem texto" nem repete o nome que o cartão do arquivo já mostra.
+            var midia = MidiaDaConversa.Da(conversa.Id, m);
+            var texto = !string.IsNullOrWhiteSpace(m.Text) ? m.Text
+                : midia is not null ? ""
+                : m.FileName ?? (recebida ? "Mensagem sem texto" : "Arquivo");
             var tick = recebida ? null : Tick(m.Status);
             fontes.Add((m.At, 0, i, new ItemDaConversa(recebida ? TipoNaLinhaDoTempo.Recebida : TipoNaLinhaDoTempo.Enviada, texto,
                 Hora(m.At, agora), recebida ? null : Agente(m.AgentId, nomesDosAgentes, "Mensagem automática"),
-                Tick: tick, Anexo: string.IsNullOrWhiteSpace(m.FileName) ? null : m.FileName, Modelo: m.Template?.Name,
+                Tick: tick, Anexo: midia is not null || string.IsNullOrWhiteSpace(m.FileName) ? null : m.FileName, Modelo: m.Template?.Name,
                 Erro: tick is { Estado: EstadoDaEntrega.Falhou or EstadoDaEntrega.NaoConfirmada } && !string.IsNullOrWhiteSpace(m.Error) ? m.Error : null,
-                Id: m.Id, At: m.At)));
+                Id: m.Id, At: m.At, Midia: midia)));
         }
         for (var i = 0; i < conversa.Notes.Length; i++)
         {

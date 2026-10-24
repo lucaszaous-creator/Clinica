@@ -79,8 +79,22 @@ public interface IClienteDoCrm
     /// <summary>POST …/{id}/patient — liga a ficha que a RECEPÇÃO conferiu (o telefone não é identidade).</summary>
     Task<AppConversation> LigarFichaAsync(int usuarioId, string conversaId, AppPatientLink ficha, CancellationToken ct = default);
 
-    /// <summary>POST …/{id}/attachments — sobe UM arquivo (multipart); o Id devolvido vai no <see cref="AppReply.AttachmentId"/>.</summary>
-    Task<AppAttachment> AnexarAsync(int usuarioId, string conversaId, Stream arquivo, string nome, string mime, CancellationToken ct = default);
+    /// <summary>
+    /// POST …/{id}/attachments — sobe UM arquivo (multipart); o Id devolvido vai no <see cref="AppReply.AttachmentId"/>.
+    /// <paramref name="gravacao"/>: é o áudio gravado na tela (o campo <c>recording=true</c> do formulário, como o CRM web
+    /// manda): o CRM converte para OGG/Opus, o formato da nota de voz do WhatsApp, e recusa o que não for áudio.
+    /// </summary>
+    Task<AppAttachment> AnexarAsync(int usuarioId, string conversaId, Stream arquivo, string nome, string mime, bool gravacao = false,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// O ARQUIVO de uma mensagem com mídia (foto, áudio, vídeo, documento), com o tipo e o nome que o CRM deu.
+    /// A rota sai de <see cref="Servicos.MidiaDaConversa.Rota"/>: a RECEBIDA vem de
+    /// <c>GET /api/conversations/{id}/media/{messageId}</c> (o CRM a busca no provedor na primeira vez) e a
+    /// ENVIADA, de <c>GET /api/attachments/{attachmentId}</c>. Mensagem sem arquivo é <see cref="RecusaDoCrm"/>;
+    /// mais de <see cref="Servicos.MidiaDaConversa.Teto"/> também (o CRM não guarda nada maior).
+    /// </summary>
+    Task<ArquivoDaMidia> MidiaAsync(int usuarioId, string conversaId, AppMessage mensagem, CancellationToken ct = default);
 
     /// <summary>GET /api/templates/{sender} — os modelos aprovados pela Meta para aquele remetente.</summary>
     Task<AppTemplate[]> ModelosAsync(int usuarioId, string remetente, CancellationToken ct = default);
@@ -91,6 +105,9 @@ public interface IClienteDoCrm
     /// <summary>Esquece a sessão do CRM da pessoa (o app chama no logout): a próxima chamada entra de novo.</summary>
     void EsquecerSessao(int usuarioId);
 }
+
+/// <summary>O arquivo de uma mensagem do WhatsApp: os bytes, o tipo (Content-Type) e o nome, quando o CRM o informa.</summary>
+public sealed record ArquivoDaMidia(byte[] Conteudo, string Mime, string? Nome);
 
 /// <summary>
 /// O CRM recusou o pedido (4xx com <c>{ "error": "…" }</c>): <see cref="Exception.Message"/> é a
