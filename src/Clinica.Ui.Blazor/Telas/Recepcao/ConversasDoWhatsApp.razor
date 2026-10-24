@@ -108,6 +108,11 @@ else
             {
                 <div class="wa-recado"><Aviso Tom="atencao" Texto="O CRM não respondeu na última releitura. A lista pode estar desatualizada; tentamos de novo sozinhos." /></div>
             }
+            @if (!_avisoSemDorFechado && SemDorNaTela.AvisoDaGestao(painel.SemDor) is { } avisoSemDor)
+            {
+                <div class="wa-semdor-aviso" role="status"><span aria-hidden="true">✨</span><span>@avisoSemDor</span>
+                    <button type="button" class="botao icone fantasma" aria-label="Fechar o aviso do @@SemDor" @onclick="() => _avisoSemDorFechado = true"><Icone Nome="x" /></button></div>
+            }
             <div class="wa-linhas" role="listbox" aria-label="Lista de conversas">
                 @if (_modo == Modo.Conversas)
                 {
@@ -124,7 +129,7 @@ else
                             <span class="avatar tom-@l.TomDoAvatar" aria-hidden="true">@l.Iniciais<span class="wa-canal @(l.Sms ? "sms" : null)" title="@(l.Sms ? "SMS" : "WhatsApp")"><Icone Nome="@(l.Sms ? "sms" : "chat")" /></span></span>
                             <span class="wa-linha-corpo">
                                 <span class="wa-linha-topo"><span class="wa-linha-nome">@l.Nome</span><span class="wa-linha-hora">@l.Hora</span></span>
-                                <span class="wa-linha-previa">@if (l.Tick is { } t) { @Tick(t) }<span class="texto">@l.Previa</span>@if (l.NaoLidas > 0) { <b class="wa-nao-lidas" aria-label="@($"{l.NaoLidas} não lidas")">@l.NaoLidas</b> }</span>
+                                <span class="wa-linha-previa">@if (l.Tick is { } t) { @Tick(t) }@if (l.SemDor is { } etiqueta) { @SeloDoSemDor(etiqueta) }<span class="texto">@l.Previa</span>@if (l.NaoLidas > 0) { <b class="wa-nao-lidas" aria-label="@($"{l.NaoLidas} não lidas")">@l.NaoLidas</b> }</span>
                                 <span class="wa-linha-rodape"><span class="selo tom-@l.Selo.Tom">@l.Selo.Texto</span>
                                     <span class="wa-linha-quem @(l.Minha ? "minha" : null)">@if (l.TemResponsavel) { <Icone Nome="pessoa" /> }@l.Responsavel</span></span>
                             </span>
@@ -228,6 +233,14 @@ else
                             }
                             <button type="button" class="botao" data-acao="transferir" disabled="@(!PodeEscrever || _ocupado || !c.Minha)" title="@(c.Minha ? "Passar a conversa a outra pessoa ou fila" : SoComVoce)" @onclick="() => _form = Form.Transferir"><Icone Nome="transferir" /><span>Transferir</span></button>
                         }
+                        @if (SemDorLigado && c.Conversa is { } paraResumir)
+                        {
+                            var resumindo = _semdorPedindo == PedidoSemDor.Resumo;
+                            <button type="button" class="botao wa-semdor-acao" data-acao="resumo" title="Resumo do @@SemDor: o que o paciente quer, o que já foi feito e o que falta"
+                                    aria-label="@(resumindo ? "O @SemDor está resumindo…" : "Resumo da conversa pelo @SemDor")" aria-expanded="@Bool(_resumoSemDor?.Conversa == paraResumir.Id)"
+                                    disabled="@(!PodeEscrever || _semdorPedindo != PedidoSemDor.Nenhum || paraResumir.Messages.Length == 0)" @onclick="() => ResumirComSemDorAsync(c)">
+                                @if (resumindo) { <b class="wa-semdor-pensando" aria-hidden="true"></b><span>Resumindo…</span> } else { <b class="wa-semdor-brilho" aria-hidden="true">✨</b><span>Resumo</span> }</button>
+                        }
                         @if (c.Conversa is not null)
                         {
                             <button type="button" class="botao icone" data-acao="buscar" title="Buscar nesta conversa" aria-label="Buscar nesta conversa" aria-expanded="@Bool(_buscaConversa is not null)" @onclick="AlternarBusca"><Icone Nome="busca" /></button>
@@ -263,6 +276,15 @@ else
                         <span class="selo tom-info"><Icone Nome="coracao" />Retenção · @RetencaoNaTela.Tratamento(caso.Modalidade) · @RetencaoNaTela.Dias(caso)</span>
                     }
                 </div>
+                @if (SemDorLigado && _resumoSemDor is { } resumoAberto && resumoAberto.Conversa == c.Conversa?.Id)
+                {
+                    <section class="wa-semdor-resumo" aria-label="Resumo do @@SemDor">
+                        <header><strong><span aria-hidden="true">✨</span> Resumo do @@SemDor</strong>
+                            <button type="button" class="botao icone fantasma" aria-label="Fechar o resumo" @onclick="() => _resumoSemDor = null"><Icone Nome="x" /></button></header>
+                        <dl>@foreach (var (rotulo, texto) in SemDorNaTela.LinhasDoResumo(resumoAberto.Resumo)) { <dt>@rotulo</dt><dd>@texto</dd> }</dl>
+                        <small>@SemDorNaTela.RodapeDoResumo</small>
+                    </section>
+                }
                 @if (_buscaConversa is not null)
                 {
                     <div class="wa-busca-conversa">
@@ -367,6 +389,10 @@ else
                                         <button type="button" class="botao mini" aria-expanded="@Bool(_popover == Popover.Modelos)" disabled="@(!PodeEscrever)" @onclick="() => AbrirModelosAsync(false)"><Icone Nome="modelo" />Modelos</button>
                                     }
                                     <button type="button" class="botao mini" aria-expanded="@Bool(_popover == Popover.Rapidas)" @onclick="() => _popover = _popover == Popover.Rapidas ? Popover.Nenhum : Popover.Rapidas"><Icone Nome="raio" />Respostas rápidas</button>
+                                    @if (SemDorLigado && c.Conversa is { } paraSugerir)
+                                    {
+                                        @BotoesDoSemDor(c, paraSugerir, r)
+                                    }
                                 }
                                 <span class="wa-atalho">Ctrl + Enter @(r.Nota ? "guarda" : "envia")</span>
                                 <button type="button" class="botao primario" disabled="@(!PodeEscrever || _ocupado || !r.TemConteudo)" @onclick="() => EnviarAsync(c)">
@@ -963,7 +989,8 @@ else
             _painel = painel with { Conversas = painel.Conversas.Select(x => x.Id != nova.Id ? x : x with
             {
                 AgentId = nova.AgentId, Closed = nova.Closed, Version = nova.Version, UpdatedAt = nova.UpdatedAt,
-                PatientId = nova.PatientId, PatientName = nova.PatientName, Queue = nova.Queue, Unread = 0
+                PatientId = nova.PatientId, PatientName = nova.PatientName, Queue = nova.Queue, Unread = 0,
+                Semdor = SemDorNaTela.EtiquetaDepoisDaEscrita(x.Semdor, nova)
             }).ToList() };
     }
 
@@ -1535,5 +1562,99 @@ else
         var n = c.LinhaDoTempo.Where(i => i.Tipo is TipoNaLinhaDoTempo.Recebida or TipoNaLinhaDoTempo.Enviada or TipoNaLinhaDoTempo.Nota)
             .Count(i => Formato.PtBr.CompareInfo.IndexOf(i.Texto, termo, CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) >= 0);
         return n == 0 ? "Nada encontrado" : n == 1 ? "1 mensagem" : $"{n} mensagens";
+    }
+
+    // ==================================================================== o @SemDor (24/10 — SemDorNaTela decide; aqui só se desenha)
+    // A IA lê e redige; quem decide e envia é a secretária (regra 3 do CRM). Desligada no CRM, nada daqui aparece.
+    // Um pedido por vez (a IA leva até 30 s); trocar de conversa no meio descarta a resposta.
+
+    private enum PedidoSemDor { Nenhum, Sugestao, Resumo }
+    private PedidoSemDor _semdorPedindo;
+    private int _geracaoSemDor;
+    private (string Conversa, AppSemDorSummary Resumo)? _resumoSemDor;
+    /// <summary>Conversa → (o texto que o @SemDor pôs, o texto dela antes): o ↶ da revisão.</summary>
+    private readonly Dictionary<string, (string DoSemDor, string Anterior)> _desfazerSemDor = new(StringComparer.Ordinal);
+    private bool _avisoSemDorFechado;
+
+    private bool SemDorLigado => SemDorNaTela.Ligado(_painel?.SemDor);
+
+    private RenderFragment SeloDoSemDor(EtiquetaDoSemDor e) => @<span class="selo wa-etiqueta @(e.Atencao ? "tom-perigo" : "tom-semdor")" title="@e.Dica"><span class="wa-sr">Assunto lido pelo @@SemDor: </span><span aria-hidden="true">✨</span>@e.Texto</span>;
+
+    private RenderFragment BotoesDoSemDor(ConversaDoWhatsApp c, AppConversation conversa, RascunhoDaConversa r) => __builder =>
+    {
+        var escrevendo = _semdorPedindo == PedidoSemDor.Sugestao;
+        <button type="button" class="botao mini wa-semdor-sugerir @(escrevendo ? "escrevendo" : null)" aria-label="@SemDorNaTela.NomeDoBotao(r.Texto, escrevendo)" title="@SemDorNaTela.DicaDoBotao(r.Texto, escrevendo)"
+                disabled="@(!PodeEscrever || _ocupado || _semdorPedindo != PedidoSemDor.Nenhum)" @onclick="() => SugerirComSemDorAsync(c)">
+            @if (escrevendo) { <b class="wa-semdor-pensando" aria-hidden="true"></b><span>Escrevendo…</span> } else { <span class="wa-semdor-brilho" aria-hidden="true">✨</span> }</button>
+        @if (_desfazerSemDor.TryGetValue(conversa.Id, out var d) && SemDorNaTela.PodeDesfazer(d.DoSemDor, r.Texto))
+        {
+            <button type="button" class="botao mini wa-semdor-desfazer" aria-label="Voltar ao seu texto" title="Voltar ao texto que você escreveu antes do @@SemDor"
+                    @onclick="() => DesfazerSemDor(c)"><span aria-hidden="true">↶</span></button>
+        }
+    };
+
+    /// <summary>O ✨: a sugestão (ou a revisão) vai para o CAMPO. Nunca envia.</summary>
+    private async Task SugerirComSemDorAsync(ConversaDoWhatsApp c)
+    {
+        if (!Exigir(Permissao.EditarAgenda, "pedir uma sugestão ao @SemDor") || _semdorPedindo != PedidoSemDor.Nenhum || c.Conversa is not { } conversa) return;
+        var r = Rascunho(c);
+        var antes = r.Texto;
+        var g = ++_geracaoSemDor;
+        _semdorPedindo = PedidoSemDor.Sugestao;
+        _recado = null;
+        try
+        {
+            using var escopo = Escopo();
+            var sugestao = await escopo.ServiceProvider.GetRequiredService<WhatsAppDaRecepcaoService>().SugerirComSemDorAsync(conversa, antes);
+            if (g != _geracaoSemDor || Descartada || _aberta?.Conversa?.Id != conversa.Id) return;
+            var no = SemDorNaTela.Aplicar(antes, r.Texto, r.Nota, sugestao);
+            if (!no.Aplicada) { Notificacoes.Info(no.Aviso); return; }
+            r.Texto = no.Texto;
+            if (no.Anterior is not null) _desfazerSemDor[conversa.Id] = (no.Texto, no.Anterior);
+            else _desfazerSemDor.Remove(conversa.Id);
+            Notificacoes.Sucesso(no.Aviso);
+        }
+        catch (Exception ex)
+        {
+            if (g != _geracaoSemDor || Descartada) return;
+            FalhaDoSemDor(ex, conversa.Id);
+        }
+        finally { if (g == _geracaoSemDor) _semdorPedindo = PedidoSemDor.Nenhum; }
+    }
+
+    private void DesfazerSemDor(ConversaDoWhatsApp c)
+    {
+        if (c.Conversa is not { } conversa || !_desfazerSemDor.Remove(conversa.Id, out var d)) return;
+        var r = Rascunho(c);
+        if (SemDorNaTela.PodeDesfazer(d.DoSemDor, r.Texto)) r.Texto = d.Anterior;
+    }
+
+    /// <summary>O "✨ Resumo": quer, feito e falta, num bloco fechável acima das mensagens.</summary>
+    private async Task ResumirComSemDorAsync(ConversaDoWhatsApp c)
+    {
+        if (!Exigir(Permissao.EditarAgenda, "pedir o resumo ao @SemDor") || _semdorPedindo != PedidoSemDor.Nenhum || c.Conversa is not { } conversa) return;
+        var g = ++_geracaoSemDor;
+        _semdorPedindo = PedidoSemDor.Resumo;
+        _recado = null;
+        try
+        {
+            using var escopo = Escopo();
+            var resumo = await escopo.ServiceProvider.GetRequiredService<WhatsAppDaRecepcaoService>().ResumirComSemDorAsync(conversa);
+            if (g != _geracaoSemDor || Descartada || _aberta?.Conversa?.Id != conversa.Id) return;
+            _resumoSemDor = (conversa.Id, resumo);
+        }
+        catch (Exception ex)
+        {
+            if (g != _geracaoSemDor || Descartada) return;
+            FalhaDoSemDor(ex, conversa.Id);
+        }
+        finally { if (g == _geracaoSemDor) _semdorPedindo = PedidoSemDor.Nenhum; }
+    }
+
+    /// <summary>Falhou: a frase do CRM, inline, e ela escreve normalmente. Só o que não é recusa vai ao log.</summary>
+    private void FalhaDoSemDor(Exception ex, string conversaId)
+    {
+        if (ex is not RecusaDoCrm) Clinica.Application.Diagnostico.Registrar("Blazor — o @SemDor não respondeu na tela de WhatsApp", ex);
+        if (_aberta?.Conversa?.Id == conversaId) Recado(SemDorNaTela.Falha(ex), "atencao");
     }
 }

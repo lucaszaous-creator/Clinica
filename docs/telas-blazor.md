@@ -133,7 +133,10 @@ TZ=America/Sao_Paulo faketime -f '@2026-10-23 10:12:00' dotnet run --project too
 ```
 
 ⚠️ Para parar a prévia, não use `pkill -f "tools/PreviaBlazor"` no MESMO comando que tem esse texto:
-o `pkill` mata o próprio shell. Pegue os PIDs com `ps -eo pid,args | grep "[P]reviaBlazor"`.
+o `pkill` mata o próprio shell. Pegue os PIDs pelo NOME do processo e pela SUA porta —
+`ps -eo pid,comm,args | awk '($2 ~ /^(dotnet|faketime|PreviaBlazor)$/) && /127\.0\.0\.1:5199/ {print $1}'` —
+porque `grep "[P]reviaBlazor"` também casa a linha do shell quando o mesmo comando sobe a prévia
+(lição em `docs/agentes/convencoes.md`).
 A prévia roda os MESMOS serviços do app (`AddClinica`) sobre um SQLite em memória; sem
 sessão autenticada, `Pode` libera tudo (como no app fora do login).
 

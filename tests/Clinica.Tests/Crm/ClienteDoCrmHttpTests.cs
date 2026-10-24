@@ -305,6 +305,70 @@ public sealed class ClienteDoCrmHttpTests : IDisposable
         Assert.Contains("\"agentId\":null", escritas.Single(p => p.Caminho.EndsWith("/reassign")).Corpo);
     }
 
+    // ---------- O @SemDor (24/10) ----------
+
+    [Fact] public async Task O_SemDor_vai_pelo_caminho_autenticado_com_o_csrf_e_volta_nos_records_do_contrato()
+    {
+        await Configurar(EnderecoA);
+        crm.Rota = (p, _) => p.Caminho switch
+        {
+            "/api/semdor/estado" => Responder(new AppSemDorState(true, true, DateTimeOffset.UnixEpoch, null, "")),
+            "/api/conversations/c%201/semdor/sugestao" => Responder(new AppSemDorSuggestion("Olá, Maria! Vou verificar na agenda.", "sugestao")),
+            "/api/conversations/c%201/semdor/resumo" => Responder(new AppSemDorSummary("Remarcar", "Ofereceu dois horários", "Confirmar o novo")),
+            _ => new HttpResponseMessage(HttpStatusCode.NotFound),
+        };
+
+        var estado = await cliente.EstadoDoSemDorAsync(7);
+        var sugestao = await cliente.SugerirComSemDorAsync(7, "c 1", new AppSemDorRequest(null));
+        await cliente.SugerirComSemDorAsync(7, "c 1", new AppSemDorRequest("pode vir quinta"));
+        var resumo = await cliente.ResumirComSemDorAsync(7, "c 1");
+
+        Assert.True(estado.Ligada);
+        Assert.Equal("sugestao", sugestao.Modo);
+        Assert.Equal(("Remarcar", "Confirmar o novo"), (resumo.Quer, resumo.Falta));
+        var depois = crm.Pedidos.Skip(3).ToList();
+        Assert.Equal(["GET /api/semdor/estado csrf=", "POST /api/conversations/c%201/semdor/sugestao csrf=csrf-s1",
+            "POST /api/conversations/c%201/semdor/sugestao csrf=csrf-s1", "POST /api/conversations/c%201/semdor/resumo csrf=csrf-s1"],
+            depois.Select(p => $"{p.Metodo} {p.Caminho} csrf={p.Csrf}"));
+        // Campo vazio vai como null (é o que o CRM lê como "sugira"); o rascunho vai como está; o resumo leva "{}".
+        Assert.Contains("\"rascunho\":null", depois[1].Corpo);
+        Assert.Contains("\"rascunho\":\"pode vir quinta\"", depois[2].Corpo);
+        Assert.Equal("{}", depois[3].Corpo);
+        Assert.Equal(1, Bilhetes());
+    }
+
+    [Fact] public async Task O_SemDor_desligado_e_sem_resposta_chegam_com_a_frase_do_CRM()
+    {
+        await Configurar(EnderecoA);
+        crm.Rota = (p, _) => p.Caminho.EndsWith("/sugestao")
+            ? Erro(409, "O @SemDor está desligado neste CRM.")
+            : Erro(502, "O @SemDor não conseguiu resumir agora. Tente de novo em instantes.");
+
+        var desligado = await Assert.ThrowsAsync<RecusaDoCrm>(() => cliente.SugerirComSemDorAsync(7, "c1", new AppSemDorRequest(null)));
+        var falhou = await Assert.ThrowsAsync<CrmIndisponivel>(() => cliente.ResumirComSemDorAsync(7, "c1"));
+
+        Assert.Equal(("O @SemDor está desligado neste CRM.", 409), (desligado.Message, desligado.Status));
+        Assert.Equal("O @SemDor não conseguiu resumir agora. Tente de novo em instantes.", falhou.Message);
+        Assert.Single(crm.Pedidos, p => p.Caminho.EndsWith("/resumo")); // 502 não se repete: cada pedido é uma chamada paga à IA
+    }
+
+    [Fact] public async Task O_SemDor_espera_a_IA_mais_que_uma_escrita_comum()
+    {
+        // O CRM espera a Anthropic por até 30 s: com o prazo da escrita (20 s) o app diria "demorou" com a resposta a caminho.
+        Assert.True(ClienteDoCrmHttp.Prazos.Padrao.IA > TimeSpan.FromSeconds(30));
+        Assert.True(ClienteDoCrmHttp.Prazos.Padrao.IA > ClienteDoCrmHttp.Prazos.Padrao.Escrita);
+
+        await Configurar(EnderecoA);
+        using var curto = new ClienteDoCrmHttp(servicos.GetRequiredService<IServiceScopeFactory>(), c => new Cano(crm, c), relogio,
+            new ClienteDoCrmHttp.Prazos(TimeSpan.FromMilliseconds(300), TimeSpan.FromMilliseconds(300), TimeSpan.FromMilliseconds(300), TimeSpan.FromSeconds(10)));
+        crm.Rota = (p, _) => p.Caminho.EndsWith("/sugestao") ? Responder(new AppSemDorSuggestion("Olá!", "sugestao")) : Responder(Conversa("c1"));
+        await curto.AbrirConversaAsync(7, "c1");
+
+        crm.Demora = TimeSpan.FromSeconds(1);
+        Assert.Equal("Olá!", (await curto.SugerirComSemDorAsync(7, "c1", new AppSemDorRequest(null))).Texto);
+        Assert.Equal(ClienteDoCrmHttp.Demorou, (await Assert.ThrowsAsync<CrmIndisponivel>(() => curto.AssumirAsync(7, "c1", new AppChange(1, null, null)))).Message);
+    }
+
     [Fact] public async Task O_anexo_e_reenviado_inteiro_quando_a_sessao_venceu()
     {
         await Configurar(EnderecoA);

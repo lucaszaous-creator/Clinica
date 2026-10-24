@@ -390,3 +390,49 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px;fon
 .wa-escrever-abas .segmentado button:disabled,.wa-cab-acoes .botao:disabled{opacity:.5;cursor:not-allowed}
 .wa-sem-acesso{padding:var(--space-8)}
 @media (max-width:1180px){.wa-recado{margin-left:var(--space-4);margin-right:var(--space-4)}}
+
+/* ---------- O @SemDor das secretárias (24/10): a IA lê e redige; quem envia é a secretária ----------
+   O violeta é a cor DELE (a etiqueta, o ✨, o resumo): distingue o que a IA leu do que a clínica escreveu.
+   Os seletores levam a classe do componente comum junto (.selo., .botao.): regra de tela com a MESMA
+   especificidade de uma comum perde, porque o clinica.css vem depois dos @import (convencoes.md). */
+/* A etiqueta abre a linha da prévia: ela resume aquela mensagem, e o rodapé (situação + responsável) não tem
+   folga na coluna de 300 px. Quem encolhe é o texto da prévia, não o selo da situação. */
+.wa-linha-previa .selo.wa-etiqueta{flex:none;max-width:60%;margin-left:0;display:inline-flex;align-items:center;gap:3px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.selo.wa-etiqueta.tom-semdor{background:var(--violeta-50);color:var(--violeta-600)}
+.wa-escrever-rodape .botao.mini.wa-semdor-sugerir{min-width:30px;padding:0 var(--space-2);justify-content:center;gap:6px;color:var(--violeta-600)}
+.wa-escrever-rodape .botao.mini.wa-semdor-sugerir:hover:not(:disabled){background:var(--violeta-50)}
+.wa-escrever-rodape .botao.mini.wa-semdor-sugerir.escrevendo{opacity:1;color:var(--violeta-600)}
+.wa-escrever-rodape .botao.mini.wa-semdor-desfazer{min-width:30px;padding:0 var(--space-2);justify-content:center;font-size:var(--text-body-size)}
+.wa-semdor-brilho{font-weight:400;line-height:1;font-size:var(--text-body-size)}
+.wa-cab-acoes .botao.wa-semdor-acao{color:var(--violeta-600);gap:6px}
+/* O rótulo "Resumo" só onde sobra cabeçalho: em 1024 e 1366 ele espremia o nome do paciente (fotos 53). Abaixo
+   disso fica o ✨, do tamanho do buscar, com o nome inteiro na dica e no leitor de tela. O contêiner é o
+   CABEÇALHO (não a coluna): a contenção de leiaute não alcança os popovers nem a linha do tempo. */
+.wa-cab{container-type:inline-size}
+@container (max-width:820px){.wa-cab-acoes .botao.wa-semdor-acao span{display:none}.wa-cab-acoes .botao.wa-semdor-acao{width:34px;padding:0;justify-content:center}}
+.wa-cab-acoes .botao.wa-semdor-acao:hover:not(:disabled){background:var(--violeta-50)}
+/* "Escrevendo…": um ponto que pulsa — parado com movimento reduzido. */
+.wa-semdor-pensando{display:inline-block;width:8px;height:8px;border-radius:var(--radius-pilula);background:var(--violeta-600);flex:none;
+  animation:wa-semdor-pulso 1s ease-in-out infinite}
+@keyframes wa-semdor-pulso{0%,100%{opacity:.25;transform:scale(.8)}50%{opacity:1;transform:none}}
+.wa-semdor-resumo{margin:var(--space-2) var(--space-6) 0;padding:var(--space-3) var(--space-4);border:1px solid var(--borda);border-radius:var(--radius-card);
+  background:var(--violeta-50);font-size:var(--text-table-size);color:var(--texto-primario);animation:wa-surgir var(--duracao-normal) ease-out}
+.wa-semdor-resumo header{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);margin-bottom:var(--space-1)}
+.wa-semdor-resumo header strong{color:var(--violeta-600)}
+.wa-semdor-resumo header .botao.icone{width:28px;height:28px}
+.wa-semdor-resumo dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--space-1) var(--space-3);margin:0}
+.wa-semdor-resumo dt{color:var(--texto-secundario);font-weight:600;white-space:nowrap}
+.wa-semdor-resumo dd{margin:0;overflow-wrap:anywhere;line-height:1.4}
+.wa-semdor-resumo small{display:block;margin-top:var(--space-2);color:var(--texto-secundario);font-size:var(--text-small-size)}
+.wa-semdor-aviso{display:flex;align-items:center;gap:var(--space-2);margin:0 var(--space-3) var(--space-2);padding:var(--space-2) var(--space-3);
+  border-radius:var(--radius-control);background:var(--aviso-suave);color:var(--aviso-texto);font-size:var(--text-small-size);line-height:1.4}
+.wa-semdor-aviso span:nth-child(2){flex:1;min-width:0}
+.wa-semdor-aviso .botao.icone{width:24px;height:24px;flex:none}
+@media (max-width:1180px){.wa-semdor-resumo{margin-left:var(--space-4);margin-right:var(--space-4)}
+  /* Com o ↶, o rodapé (que aqui reserva o canto da bolinha do chat) quebrava e o Enviar caía sozinho à esquerda
+     (foto 52 em 1024): sai a dica do atalho — o Ctrl + Enter continua valendo — e o Enviar fica à direita. */
+  .wa-escrever-rodape:has(.wa-semdor-desfazer) .wa-atalho{display:none}
+  .wa-escrever-rodape:has(.wa-semdor-desfazer) .botao.primario{margin-left:auto}}
+@media (max-width:760px){.wa-semdor-resumo dl{grid-template-columns:minmax(0,1fr)}.wa-semdor-resumo dd{margin-bottom:var(--space-1)}}
+@media (prefers-reduced-motion:reduce){.wa-semdor-pensando{animation:none;opacity:.7}.wa-semdor-resumo{animation:none}}

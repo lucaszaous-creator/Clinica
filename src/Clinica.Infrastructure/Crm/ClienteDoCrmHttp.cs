@@ -58,13 +58,16 @@ public sealed class ClienteDoCrmHttp : IClienteDoCrm, IDisposable
     /// <summary>Prazo do aviso de saída ao CRM no logout: encerra a SESSÃO no servidor (que valeria 2 h); a "presença" online é o pulso do CRM web, que o app não manda. Não pode segurar nada.</summary>
     public static readonly TimeSpan PrazoDaSaida = TimeSpan.FromSeconds(3);
 
-    /// <summary>Prazos por natureza de chamada: leitura 10 s, escrita 20 s, envio de arquivo 60 s.</summary>
-    internal sealed record Prazos(TimeSpan Leitura, TimeSpan Escrita, TimeSpan Envio)
+    /// <summary>
+    /// Prazos por natureza de chamada: leitura 10 s, escrita 20 s, envio de arquivo 60 s e o @SemDor 35 s (o CRM espera
+    /// a Anthropic por até 30 s; com 20 s o app diria "demorou" enquanto a sugestão ainda vinha). <c>IA</c> nulo = o da escrita.
+    /// </summary>
+    internal sealed record Prazos(TimeSpan Leitura, TimeSpan Escrita, TimeSpan Envio, TimeSpan? IA = null)
     {
-        public static readonly Prazos Padrao = new(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(60));
+        public static readonly Prazos Padrao = new(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(60), TimeSpan.FromSeconds(35));
     }
 
-    private enum Natureza { Leitura, Escrita, Envio }
+    private enum Natureza { Leitura, Escrita, Envio, IA }
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
@@ -171,6 +174,19 @@ public sealed class ClienteDoCrmHttp : IClienteDoCrm, IDisposable
     public Task<AppWorkspace> AreaDeTrabalhoAsync(int usuarioId, CancellationToken ct = default)
         => LerAsync<AppWorkspace>(usuarioId, "/api/workspace", ct);
 
+    public Task<AppSemDorState> EstadoDoSemDorAsync(int usuarioId, CancellationToken ct = default)
+        => LerAsync<AppSemDorState>(usuarioId, "/api/semdor/estado", ct);
+
+    // POST com o csrf, como escrita, mas com o prazo da IA. Repetir no 401 é seguro: o CRM recusa antes de chamar a IA.
+    public Task<AppSemDorSuggestion> SugerirComSemDorAsync(int usuarioId, string conversaId, AppSemDorRequest pedido, CancellationToken ct = default)
+        => ChamarAsync(usuarioId, Natureza.IA, () => Post(Conversa(conversaId, "semdor/sugestao"), JsonContent.Create(pedido, options: Json)),
+            Desserializar<AppSemDorSuggestion>, ct);
+
+    // A rota não lê corpo; vai "{}", como o CRM web manda.
+    public Task<AppSemDorSummary> ResumirComSemDorAsync(int usuarioId, string conversaId, CancellationToken ct = default)
+        => ChamarAsync(usuarioId, Natureza.IA, () => Post(Conversa(conversaId, "semdor/resumo"), new StringContent("{}", System.Text.Encoding.UTF8, "application/json")),
+            Desserializar<AppSemDorSummary>, ct);
+
     public void EsquecerSessao(int usuarioId)
     {
         // O HttpClient antigo não é descartado aqui: uma chamada dele pode estar em andamento
@@ -273,6 +289,7 @@ public sealed class ClienteDoCrmHttp : IClienteDoCrm, IDisposable
     {
         Natureza.Leitura => prazos.Leitura,
         Natureza.Escrita => prazos.Escrita,
+        Natureza.IA => prazos.IA ?? prazos.Escrita,
         _ => prazos.Envio,
     };
 
