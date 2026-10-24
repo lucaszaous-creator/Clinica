@@ -5,7 +5,7 @@ sessão). O texto é o MESMO, sem reescrita: design system, WPF/XAML, Blazor, EF
 `verificar-suite`, assinatura digital, impressão, CRM e as rodadas de UI, cada uma com o defeito que a
 originou. Antes de escrever uma tela, uma consulta ou uma checagem, procure aqui a lição da área.
 
-## Índice (185 tópicos, na ordem do arquivo)
+## Índice (186 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -194,6 +194,7 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
 - `textarea` herda a fonte da casa pela regra COMUM, não por remendo de tela
 - Parâmetro `string` de componente Razor recebe expressão com `@`; sem ela recebe o TEXTO
 - Semente com data relativa a "hoje" respeita a JORNADA de quem tem agenda protegida
+- CSS de tela é importado no TOPO do `clinica.css`: regra de tela com a MESMA especificidade de uma comum PERDE
 
 ---
 
@@ -5015,3 +5016,14 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
   número fixo), e o horário que "já estava marcado" antes de um bloqueio é gravado num
   `SaveChanges` ANTERIOR ao do bloqueio. Para conferir: a família com `CLINICA_TESTES_POSTGRES` e
   `faketime` em cada dia da semana.
+
+- **CSS de tela é importado no TOPO do `clinica.css`: regra de tela com a MESMA especificidade de
+  uma comum PERDE** (out/2026, WhatsApp nativo). O `.wa-modo button{padding:6px 10px;gap:6px}`
+  nunca se aplicou: o `.segmentado button` do `clinica.css` (padding 12 px, gap 6 px) vem depois
+  dos `@import url("telas/…")` e vence no empate. O seletor de modo ficou 26 px mais largo que a
+  coluna e o "Retenção 15" passava por baixo do "+". Só a foto mostrou, e só a medida explicou
+  (`getComputedStyle(botao).padding` dizia 12 px). Regra: ao estilizar um componente comum
+  (`segmentado`, `botao`, `selo`, `campo`) dentro de uma tela, some a classe dele ao seletor
+  (`.segmentado.wa-modo button`) ou prefixe pela tela (`.wa-filtros .segmentado button`). O
+  roteiro de fotos do WhatsApp passou a acusar filho que vaza do grupo
+  (`.segmentado`, `.wa-cab-acoes`, `.wa-faixa`…).

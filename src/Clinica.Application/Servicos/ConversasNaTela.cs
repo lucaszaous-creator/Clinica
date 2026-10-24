@@ -182,7 +182,7 @@ public static class ConversasNaTela
             return new(SituacaoDaJanela.SemJanela, null, null, "SMS · sem janela de 24 h",
                 "SMS não tem janela de 24 h: o texto sai a qualquer hora, sem modelo e sem anexo.");
         if (!PacienteJaEscreveu(ultimaRecebida))
-            return new(SituacaoDaJanela.NuncaEscreveu, null, null, "Janela fechada desde sempre: a pessoa ainda não escreveu",
+            return new(SituacaoDaJanela.NuncaEscreveu, null, null, "Janela fechada: a pessoa ainda não escreveu",
                 "A primeira mensagem para quem ainda não escreveu tem de ser um modelo aprovado pela Meta.");
         var fim = ultimaRecebida!.Value.ToOffset(agora.Offset) + DuracaoDaJanela;
         return agora < fim

@@ -371,7 +371,9 @@ prévia (com o CRM de mentira) e no bUnit:
 | O CRM de mentira e a semente (prévia e `TelasBlazorAbremTests`); `CLINICA_PREVIA_CRM=fora-do-ar` ou `nao-configurado` para fotografar as falhas | `tools/PreviaBlazor/CrmDeMentira.cs`, `Sementes/ConversasDoWhatsApp.cs` |
 
 Fotos da tela real (1024 e 1366, cada estado e formulário, e três fluxos executados):
-`docs/mockups/whatsapp-nativo/tela-real/`.
+`docs/mockups/whatsapp-nativo/tela-real/`, refeitas por `node tools/PreviaBlazor/fotos-whatsapp.js`
+com a prévia no relógio fixo. O roteiro também reprova página que rola para o lado e filho que vaza
+da borda do grupo (seletores, ações do cabeçalho, faixa, rodapé do campo de escrever).
 
 **Verificação na árvore juntada:** build `--no-incremental` de `Clinica.Ui.Blazor`, dos testes e da
 prévia sem warning; `compilar-sombra` (13 projetos WPF); `verificar-suite`; as famílias tocadas em
@@ -407,4 +409,10 @@ cliques; a mensagem "Combinado…" fica como rascunho).
   (`PedidoDoAcompanhamento.PedirCaso`, como o pedido de retornos do Início). Não passa por cima de
   formulário aberto, e o caso que saiu da fila avisa em vez de abrir nada. Teste:
   `VerCasoDoWhatsAppTests`, que reprova se a abertura for retirada.
+- **Acabamento visto nas fotos**: o separador que ficava pendurado no fim da linha quando o
+  cabeçalho ou a faixa quebravam saiu (o selo já separa); o rodapé da lista mostra "Conectado" em
+  cima e o número embaixo; o seletor Conversas/Retenção perdeu os ícones e passou a respeitar o
+  próprio padding (o `.segmentado button` comum vencia — lição em `convencoes.md`), e o
+  "Retenção 15" deixou de passar por baixo do "+"; a janela de quem nunca escreveu diz "Janela
+  fechada: a pessoa ainda não escreveu", sem o "desde sempre".
 

@@ -70,9 +70,9 @@ else
             <div class="wa-lista-topo">
                 <h1 class="wa-sr">WhatsApp da clínica · @contaConversas.Todas abertas</h1>
                 <div class="segmentado wa-modo" role="group" aria-label="O que a lista mostra">
-                    <button type="button" aria-pressed="@Bool(_modo == Modo.Conversas)" @onclick="() => TrocarModo(Modo.Conversas)"><Icone Nome="chat" />Conversas @if (contaConversas.Novas > 0) { <b>@contaConversas.Novas</b> }</button>
+                    <button type="button" aria-pressed="@Bool(_modo == Modo.Conversas)" @onclick="() => TrocarModo(Modo.Conversas)">Conversas @if (contaConversas.Novas > 0) { <b>@contaConversas.Novas</b> }</button>
                     <button type="button" aria-pressed="@Bool(_modo == Modo.Retencao)" @onclick="() => TrocarModo(Modo.Retencao)"
-                            title="O Acompanhamento: quem está em tratamento e não vem, e os indicados ao BSV"><Icone Nome="coracao" />Retenção @if (painel.RetencaoPermitida && contaRetencao.ParaHoje > 0) { <b>@contaRetencao.ParaHoje</b> }</button>
+                            title="O Acompanhamento: quem está em tratamento e não vem, e os indicados ao BSV">Retenção @if (painel.RetencaoPermitida && contaRetencao.ParaHoje > 0) { <b>@contaRetencao.ParaHoje</b> }</button>
                 </div>
                 <button type="button" class="botao icone" title="Nova conversa" aria-label="Nova conversa" disabled="@(!PodeEscrever)" @onclick="AbrirNovaConversa"><Icone Nome="mais" /></button>
             </div>

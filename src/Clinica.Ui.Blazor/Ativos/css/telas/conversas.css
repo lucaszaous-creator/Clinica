@@ -41,8 +41,10 @@
 
 /* ---------- Coluna 1: a lista — dois modos: Conversas e Retenção (o Acompanhamento, de onde se escreve) ---------- */
 .wa-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);margin:-1px}
+/* Sem ícone: a coluna tem largura fixa (340/300 px) e ícone + nome + contagem de dois dígitos não
+   cabem nos dois botões — o "Retenção 15" passava por baixo do "+". */
 .wa-modo{flex:1;min-width:0}
-.wa-modo button{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:6px 10px;font-weight:600}
+.segmentado.wa-modo button{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:6px 10px;font-weight:600}
 .wa-modo button b{font-weight:700;font-variant-numeric:tabular-nums;min-width:18px;height:18px;padding:0 5px;border-radius:var(--radius-pilula);
   background:var(--acento-suave);color:var(--acento);font-size:11px;display:inline-flex;align-items:center;justify-content:center}
 .wa-modo button[aria-pressed="true"] b{background:rgba(255,255,255,.22);color:var(--texto-invertido)}
@@ -307,9 +309,8 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px}
   .wa-popover{left:var(--space-4);right:var(--space-4)}
   /* Sem a coluna da ficha, a bolinha do chat da equipe cai sobre o canto do Enviar: o rodapé deixa o lugar dela. */
   .wa-escrever-rodape,.wa-convite,.wa-janela-fechada{padding-right:calc(var(--space-12) + var(--space-8))}
-  /* A lista tem 300 px: o seletor de modo perde o ícone e os filtros apertam. */
-  .wa-modo .icone{display:none}
-  .wa-modo button{padding:6px 6px;font-size:var(--text-table-size)}
+  /* A lista tem 300 px: o seletor de modo e os filtros apertam. */
+  .segmentado.wa-modo button{padding:6px 4px;gap:4px;font-size:var(--text-table-size)}
   .wa-filtros .segmentado button{padding:5px 4px;font-size:var(--text-small-size);white-space:nowrap}
 }
 /* Celular: um painel por vez — a lista, e a conversa por cima dela com "voltar". */
@@ -364,7 +365,6 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px}
 .wa-evento.aviso .icone{color:var(--aviso)}
 .wa-m.nota .wa-balao b .icone{width:13px;height:13px}
 .wa-janela-ic .icone,.wa-anexo .icone,.wa-rascunho-anexo .icone{width:18px;height:18px}
-.wa-modo .icone{width:16px;height:16px}
 .wa-recado{margin:var(--space-2) var(--space-6) 0}
 .wa-lista-topo .wa-sr + .segmentado{margin:0}
 .wa-cab-quem h2 .selo{font-size:11px}

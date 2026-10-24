@@ -107,7 +107,7 @@ public sealed class ConversasNaTelaTests
             var j = ConversasNaTela.Janela(nunca, Agora, "whatsapp");
             Assert.Equal(SituacaoDaJanela.NuncaEscreveu, j.Estado);
             Assert.False(j.PodeEscreverLivre);
-            Assert.Equal("Janela fechada desde sempre: a pessoa ainda não escreveu", j.Texto);
+            Assert.Equal("Janela fechada: a pessoa ainda não escreveu", j.Texto);
         }
         var sms = ConversasNaTela.Janela(WhatsAppDeTeste.Em(1, 8, 0), Agora, "SMS");
         Assert.Equal(SituacaoDaJanela.SemJanela, sms.Estado);
