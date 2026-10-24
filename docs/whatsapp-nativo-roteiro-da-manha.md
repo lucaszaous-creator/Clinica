@@ -441,7 +441,11 @@ Ver `docs/whatsapp-nativo-roteiro-da-manha.md` §6 e `docs/whatsapp-nativo-na-re
 
 - Locais (Linux): build `--no-incremental` sem warning; `compilar-sombra` (13 projetos WPF);
   `verificar-suite`; as famílias tocadas em SQLite; as famílias das consultas e escritas novas
-  no Postgres; o `TelasBlazorAbremTests`.
+  no Postgres; o `TelasBlazorAbremTests` em SQLite (com as famílias do WhatsApp, do CRM e do
+  Acompanhamento: 430 de 430) e **no Postgres** (161 de 161, depois de corrigir a semente da
+  Equipe, que quebrava em cinco dias de cada sete).
+- Fotos: `node tools/PreviaBlazor/fotos-whatsapp.js` (44, em 1366, 1024 e 480), que reprova
+  rolagem lateral, botão que vaza do grupo e ação escondida no celular.
 - **Não rodou localmente:** a suíte inteira e os cinco apps no Windows (é este CI); os testes do
   tablet e a web de leitura (não foram tocados).
 
