@@ -2,7 +2,8 @@ namespace Clinica.Application.Servicos;
 
 /// <summary>Quem a recepção quer chamar pelo WhatsApp da clínica, e a mensagem que ela vai revisar.</summary>
 /// <param name="PacienteId">A ficha que a recepção escolheu aqui — o CRM a liga à conversa se ela ainda não tiver uma.</param>
-public sealed record PedidoDeConversa(string Telefone, string Nome, int? PacienteId, string? Texto);
+/// <param name="ConversaId">A conversa exata (o aviso do @SemDor no sino já sabe qual é); nula = procura pelo telefone.</param>
+public sealed record PedidoDeConversa(string Telefone, string Nome, int? PacienteId, string? Texto, string? ConversaId = null);
 
 /// <summary>
 /// ESCREVER PELO WHATSAPP DA CLÍNICA (out/2026, fase 2 da unificação Recepção × CRM —

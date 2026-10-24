@@ -824,6 +824,14 @@ else
     {
         if (_painel is not { } painel || Servicos.GetService<PedidoDeConversaNoCrm>()?.Consumir() is not { } pedido) return;
         _modo = Modo.Conversas;
+        // O aviso do @SemDor no sino já sabe a conversa: abre ela, mesmo fora do filtro da lista.
+        if (pedido.ConversaId is { Length: > 0 } exata)
+        {
+            var linha = painel.Conversas.FirstOrDefault(c => c.Id == exata);
+            _filtro = linha is { Closed: true } ? FiltroDasConversas.Encerradas : FiltroDasConversas.Todas;
+            await AbrirConversaAsync(exata, linha?.Unread ?? 0, null);
+            return;
+        }
         var conversa = painel.Conversas.Where(c => pedido.PacienteId is { } id && c.PatientId == id && ConversasNaTela.MesmoTelefone(c.Contact, pedido.Telefone))
                            .OrderByDescending(c => c.UpdatedAt).FirstOrDefault()
                        ?? painel.Conversas.Where(c => ConversasNaTela.MesmoTelefone(c.Contact, pedido.Telefone)).OrderByDescending(c => c.UpdatedAt).FirstOrDefault();
