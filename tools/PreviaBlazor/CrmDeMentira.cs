@@ -37,6 +37,8 @@ public static class PessoasDoWhatsApp
     public static readonly Pessoa Fernanda = new("Fernanda Nogueira", "(22) 99877-4455");
     public static readonly Pessoa Antonio = new("Antônio Carvalho", "(22) 99333-9090");
     public static readonly Pessoa Alzira = new("Alzira Pinto", "(22) 99501-2020");
+    /// <summary>Escreveu de um número que não está em ficha nenhuma; a etiqueta do @SemDor pede atenção (reação ao tratamento).</summary>
+    public static readonly Pessoa Lucia = new("Lúcia Andrade", "(22) 99588-1414");
 
     // Só a retenção (sem conversa no CRM: a tela a cria em memória ao abrir — PR 4).
     public static readonly Pessoa Sebastiao = new("Sebastião Ramos", "(22) 99120-4477");
@@ -152,6 +154,11 @@ public static class RelogioDaPrevia
 /// (<see cref="IClienteDoCrm.ConfiguradoAsync"/> falso e o resto <see cref="CrmNaoConfigurado"/>);
 /// nos testes, a propriedade <see cref="Modo"/>. Sem a variável, o "configurado" é o de verdade:
 /// o endereço do CRM nas Configurações (apagá-lo na tela de Configurações mostra o "ainda não foi ligado").
+///
+/// <b>O @SemDor</b> (24/10): responde a sugestão, a revisão e o resumo com textos fixos plausíveis (como o
+/// <c>SemDorSecretariaDemo</c> do CRM) e põe etiquetas nas linhas de quem espera a clínica — uma delas de atenção
+/// (a Lúcia). <see cref="VariavelDoModo"/> = <c>semdor-desligado</c> (a IA desligada: sem botão nem etiqueta) ou
+/// <c>semdor-falhando</c> (ligada, sem responder: a frase do 502); nos testes, a propriedade <see cref="SemDor"/>.
 /// </summary>
 public sealed class CrmDeMentira : IClienteDoCrm
 {
@@ -162,6 +169,11 @@ public sealed class CrmDeMentira : IClienteDoCrm
 
     /// <summary>Como o CRM responde agora (começa pela <see cref="VariavelDoModo"/>).</summary>
     public ModoDoCrm Modo { get; set; }
+
+    public enum ModoDoSemDor { Ligado, Desligado, Falhando }
+
+    /// <summary>Como o @SemDor responde agora (começa pela <see cref="VariavelDoModo"/>).</summary>
+    public ModoDoSemDor SemDor { get; set; }
 
     /// <summary>O número oficial do WhatsApp da clínica (fictício) e o remetente do SMS.</summary>
     public const string RemetenteWhatsApp = "5522999990000";
@@ -185,7 +197,24 @@ public sealed class CrmDeMentira : IClienteDoCrm
         public const string Fernanda = "0f6a1e2b-0007-4c3d-9a10-000000000007";
         public const string Antonio = "0f6a1e2b-0008-4c3d-9a10-000000000008";
         public const string Alzira = "0f6a1e2b-0009-4c3d-9a10-000000000009";
+        public const string Lucia = "0f6a1e2b-0010-4c3d-9a10-000000000010";
     }
+
+    /// <summary>
+    /// A leitura do @SemDor de cada conversa (o que o <c>SemDorTriagemWorker</c> do CRM teria guardado). Como no CRM,
+    /// a linha só a mostra enquanto a última mensagem é do paciente e a conversa está aberta: quem responde a apaga.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, AppSemDorTag> Etiquetas = new Dictionary<string, AppSemDorTag>
+    {
+        [Ids.Maria] = new("remarcar", "Remarcar", false),
+        [Ids.NovoContato] = new("valores", "Valores", false),
+        [Ids.Terezinha] = new("confirmar", "Confirmou", false),
+        [Ids.Alzira] = new("agendar", "Quer marcar", false),
+        [Ids.Lucia] = new("urgencia", "Urgência clínica", true),
+    };
+
+    public const string SemDorDesligado = "O @SemDor está desligado neste CRM.";
+    public const string SemDorSemResposta = "O @SemDor não respondeu agora. Escreva normalmente ou tente de novo em instantes.";
 
     private static readonly AppAgent[] Agentes =
     [
@@ -289,6 +318,12 @@ public sealed class CrmDeMentira : IClienteDoCrm
             "nao-configurado" or "sem-configuracao" => ModoDoCrm.NaoConfigurado,
             _ => ModoDoCrm.Normal
         };
+        SemDor = (Environment.GetEnvironmentVariable(VariavelDoModo) ?? "").Trim().ToLowerInvariant() switch
+        {
+            "semdor-desligado" => ModoDoSemDor.Desligado,
+            "semdor-falhando" => ModoDoSemDor.Falhando,
+            _ => ModoDoSemDor.Ligado
+        };
         conversas = Semear();
     }
 
@@ -369,6 +404,95 @@ public sealed class CrmDeMentira : IClienteDoCrm
     }
 
     public void EsquecerSessao(int usuarioId) { }
+
+    // ==================================================================== o @SemDor (as frases e os 409/502 do Program.cs do CRM)
+
+    public async Task<AppSemDorState> EstadoDoSemDorAsync(int usuarioId, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        // A "ana" da prévia é supervisora: o motivo da falha vem inteiro (para quem não é da gestão, o CRM manda "Fale com a gestão.").
+        return SemDor switch
+        {
+            ModoDoSemDor.Desligado => new AppSemDorState(false, false, null, null, ""),
+            ModoDoSemDor.Falhando => new AppSemDorState(true, false, DateTimeOffset.UtcNow.AddHours(-2), DateTimeOffset.UtcNow.AddMinutes(-3),
+                "a conta da Anthropic está sem crédito."),
+            _ => new AppSemDorState(true, true, DateTimeOffset.UtcNow.AddMinutes(-1), null, ""),
+        };
+    }
+
+    public async Task<AppSemDorSuggestion> SugerirComSemDorAsync(int usuarioId, string conversaId, AppSemDorRequest pedido, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        ConferirSemDor();
+        var rascunho = pedido.Rascunho?.Trim();
+        if (rascunho is { Length: > 4096 }) throw new RecusaDoCrm("O texto passou de 4.096 caracteres.", 400);
+        lock (trava)
+        {
+            var c = Achar(conversaId);
+            if (string.IsNullOrEmpty(rascunho))
+            {
+                if (c.Recebidas == 0) throw new RecusaDoCrm("O paciente ainda não escreveu nada para o @SemDor responder.", 409);
+                var nome = PrimeiroNome(c.PatientName.Length > 0 ? c.PatientName : c.Name);
+                return new AppSemDorSuggestion(c.Id == Ids.Maria
+                    ? $"Combinado, {nome}! Vou ver esse horário na agenda com a Dra. Helena e já te confirmo por aqui, tudo bem?"
+                    : $"Olá{(nome.Length > 0 ? ", " + nome : "")}! Obrigada pela mensagem. Vou verificar e já te retorno com as opções, tudo bem?", "sugestao");
+            }
+            return new AppSemDorSuggestion(Revisar(rascunho), "revisao");
+        }
+    }
+
+    public async Task<AppSemDorSummary> ResumirComSemDorAsync(int usuarioId, string conversaId, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        ConferirSemDor();
+        lock (trava)
+        {
+            var c = Achar(conversaId);
+            if (c.Messages.Count == 0) throw new RecusaDoCrm("Ainda não há conversa para resumir.", 409);
+            if (c.Id == Ids.Maria)
+                return new AppSemDorSummary("Remarcar a sessão de hoje: surgiu um compromisso no trabalho. Prefere à tarde.",
+                    "A Ana ofereceu dois horários com a Dra. Helena; a paciente escolheu o primeiro.",
+                    "Remarcar na agenda e confirmar o novo horário com ela.");
+            var ultima = c.Messages.LastOrDefault(m => m.Direction == "in")?.Text;
+            return new AppSemDorSummary(string.IsNullOrWhiteSpace(ultima) ? "Ainda não escreveu." : ultima.Trim(),
+                c.Messages.Any(m => m.Direction == "out") ? "A clínica já respondeu." : "Ninguém respondeu ainda.",
+                "Responder ao paciente.");
+        }
+    }
+
+    /// <summary>Desligado é 409 (RecusaDoCrm); sem resposta é o 502 do CRM, que o cliente HTTP entrega como CrmIndisponivel com a frase.</summary>
+    private void ConferirSemDor()
+    {
+        switch (SemDor)
+        {
+            case ModoDoSemDor.Desligado: throw new RecusaDoCrm(SemDorDesligado, 409);
+            case ModoDoSemDor.Falhando: throw new CrmIndisponivel(SemDorSemResposta);
+        }
+    }
+
+    private static string PrimeiroNome(string nome)
+    {
+        var primeiro = nome.Trim().Split(' ')[0];
+        return primeiro.Length >= 2 && primeiro.All(char.IsLetter) ? primeiro : "";
+    }
+
+    /// <summary>A "revisão" de mentira: abreviações por extenso, a primeira letra maiúscula e o ponto final. O sentido não muda.</summary>
+    private static string Revisar(string texto)
+    {
+        var trocas = new (string De, string Para)[] { ("vc", "você"), ("pra", "para"), ("tb", "também"), ("tbm", "também"), ("hj", "hoje"),
+            ("amanha", "amanhã"), ("obg", "obrigada"), ("q", "que"), ("blz", "beleza") };
+        // "as 14h" é hora (crase); "as consultas" não é.
+        texto = System.Text.RegularExpressions.Regex.Replace(texto, @"\bas (?=\d)", "às ");
+        var palavras = texto.Split(' ').Select(p =>
+        {
+            var miolo = p.TrimEnd(',', '.', '?', '!');
+            var troca = trocas.FirstOrDefault(t => t.De == miolo.ToLowerInvariant());
+            return troca.Para is null ? p : troca.Para + p[miolo.Length..];
+        });
+        var r = string.Join(' ', palavras).Trim();
+        r = char.ToUpper(r[0], CultureInfo.GetCultureInfo("pt-BR")) + r[1..];
+        return r.EndsWith('.') || r.EndsWith('?') || r.EndsWith('!') ? r : r + ".";
+    }
 
     // ==================================================================== escritas
 
@@ -807,7 +931,9 @@ public sealed class CrmDeMentira : IClienteDoCrm
             ultima is null ? "Nova conversa" : ultima.Text.Length > 0 ? ultima.Text : ultima.FileName ?? ultima.Type,
             AwaitingMenu: false, DeliveryAttention: ultimaSaida?.Status is "failed" or "uncertain",
             Resolution: c.Closed ? c.Resolutions.LastOrDefault() : null, c.ClosedAt,
-            PreviewDirection: ultima?.Direction ?? "in", PreviewStatus: ultima?.Status ?? "");
+            PreviewDirection: ultima?.Direction ?? "in", PreviewStatus: ultima?.Status ?? "",
+            // A regra do CRM (Program.cs): a etiqueta só vale enquanto o paciente espera a clínica.
+            Semdor: SemDor != ModoDoSemDor.Desligado && !c.Closed && ultima?.Direction == "in" ? Etiquetas.GetValueOrDefault(c.Id) : null);
     }
 
     private sealed record Anexo(string Id, string ConversaId, string Nome, string Mime, byte[] Bytes);
@@ -1027,6 +1153,14 @@ public sealed class CrmDeMentira : IClienteDoCrm
             .Recebida(T(-1, 17, 40), "Oi Bruna, obrigada por lembrar. Eu quero voltar sim, mas só depois da viagem da minha filha, daqui a umas duas semanas")
             .Evento(T(-1, 17, 40, 10), "Recall", "Paciente respondeu ao recall; equipe deve acompanhar o retorno");
         lista.Add(alzira);
+
+        // ----- Lúcia: escreveu de um número sem ficha, com a Bruna; o @SemDor leu como reação ao tratamento (atenção já).
+        var lucia = new Conversa(Ids.Lucia, PessoasDoWhatsApp.Lucia.Nome, PessoasDoWhatsApp.Lucia.NoCrm, RemetenteWhatsApp)
+            { AgentId = "bruna", NaoLidasIniciais = 1 };
+        lucia.Evento(T(-1, 15, 40), bruna, "Assumiu ao escrever para o paciente")
+            .Enviada(T(-1, 15, 40, 5), "bruna", "Boa tarde, Lúcia! Qualquer dúvida depois da sessão, é só escrever por aqui.", "seen")
+            .Recebida(T(0, 10, 6), "Bom dia. Depois da acupuntura de ontem o braço ficou inchado e vermelho onde colocaram a agulha, e está doendo. É normal?");
+        lista.Add(lucia);
 
         return lista;
     }

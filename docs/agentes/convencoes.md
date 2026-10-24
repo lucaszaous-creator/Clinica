@@ -5,7 +5,7 @@ sessão). O texto é o MESMO, sem reescrita: design system, WPF/XAML, Blazor, EF
 `verificar-suite`, assinatura digital, impressão, CRM e as rodadas de UI, cada uma com o defeito que a
 originou. Antes de escrever uma tela, uma consulta ou uma checagem, procure aqui a lição da área.
 
-## Índice (186 tópicos, na ordem do arquivo)
+## Índice (188 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -195,6 +195,8 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
 - Parâmetro `string` de componente Razor recebe expressão com `@`; sem ela recebe o TEXTO
 - Semente com data relativa a "hoje" respeita a JORNADA de quem tem agenda protegida
 - CSS de tela é importado no TOPO do `clinica.css`: regra de tela com a MESMA especificidade de uma comum PERDE
+- Peça nova numa linha de largura FIXA entra onde há folga — e o rótulo cede por CONTÊINER, no menor elemento
+- Pare a prévia pelo NOME do processo: `grep "[5]212"` casa a linha do próprio shell
 
 ---
 
@@ -5027,3 +5029,23 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
   (`.segmentado.wa-modo button`) ou prefixe pela tela (`.wa-filtros .segmentado button`). O
   roteiro de fotos do WhatsApp passou a acusar filho que vaza do grupo
   (`.segmentado`, `.wa-cab-acoes`, `.wa-faixa`…).
+
+- **Peça nova numa linha de largura FIXA entra onde há folga — e o rótulo cede por CONTÊINER, no menor
+  elemento** (out/2026, @SemDor na tela de WhatsApp). A etiqueta "✨ Remarcar" nasceu no rodapé da linha da
+  lista, ao lado do selo da situação e do responsável: na coluna de 300 px (1024) o selo virou "N…" e o
+  responsável vazou da linha. Nenhuma rede pega; o roteiro de fotos acusou "vaza do grupo" porque passou a
+  olhar `.wa-linha-rodape`. A saída foi pôr a etiqueta no começo da linha da PRÉVIA — ela resume aquela
+  mensagem, e o que encolhe ali é o texto, não a situação. Do mesmo jeito, o "✨ Resumo" no cabeçalho da
+  conversa espremia o nome do paciente em 1024 e 1366: o rótulo cede por `@container`, e o contêiner é o
+  CABEÇALHO (`.wa-cab{container-type:inline-size}`), não a coluna — `container-type` liga a contenção de
+  leiaute, que faz do elemento o bloco de contenção dos filhos `fixed`/`absolute` e um contexto de
+  empilhamento; na coluna inteira, os popovers e a linha do tempo passariam a depender disso. Regra: antes de
+  acrescentar à linha, some a largura do que já está nela na menor largura da tela (300 px de lista, ~520 px
+  de conversa em 1180), e ponha o grupo novo no roteiro de vazamento das fotos.
+
+- **Pare a prévia pelo NOME do processo: `grep "[5]212"` casa a linha do próprio shell** (out/2026). O truque
+  do colchete (`ps -eo pid,args | grep "[P]reviaBlazor"`) só esconde o `grep`; quando o MESMO comando também
+  sobe a prévia (`… --urls http://127.0.0.1:5212`), a linha do `bash -c` que o roda contém o texto procurado,
+  o `kill` a acerta e o comando morre no meio (código 144, sem saída). Filtre pelo nome:
+  `ps -eo pid,comm,args | awk '($2 ~ /^(dotnet|faketime|PreviaBlazor)$/) && /127\.0\.0\.1:5212/ {print $1}'`
+  — e só a SUA porta: outras prévias (de outros agentes) podem estar no ar ao lado.

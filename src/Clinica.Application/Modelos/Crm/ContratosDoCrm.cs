@@ -34,7 +34,11 @@ public sealed record AppResolution(string Outcome, string Summary, string ActorI
 public sealed record AppConversationSummary(string Id, string Name, string Contact, string Channel, string Sender,
     string Queue, string? AgentId, bool Closed, int Version, DateTimeOffset UpdatedAt, DateTimeOffset LastIncoming,
     int? PatientId, string PatientName, int Unread, string Preview, bool AwaitingMenu, bool DeliveryAttention,
-    AppResolution? Resolution, DateTimeOffset? ClosedAt, string PreviewDirection = "in", string PreviewStatus = "");
+    AppResolution? Resolution, DateTimeOffset? ClosedAt, string PreviewDirection = "in", string PreviewStatus = "",
+    AppSemDorTag? Semdor = null);
+/// <summary>A etiqueta do @SemDor na linha: o assunto da mensagem nova de quem espera a clínica. Nula quando a IA
+/// está desligada, quando a clínica já respondeu ou a conversa encerrou. Atencao: sintoma grave, reação ao tratamento ou reclamação.</summary>
+public sealed record AppSemDorTag(string Tema, string Rotulo, bool Atencao);
 /// <summary>GET /api/conversations?desde=ISO: só o que mudou depois de "desde", os ids que fecharam, e o "agora" para a próxima.</summary>
 public sealed record AppConversationsSince(AppConversationSummary[] Conversations, string[] Closed, DateTimeOffset Now);
 
@@ -84,3 +88,14 @@ public sealed record AppTemplate(string Name, string Language, string Status, st
 public sealed record AppQuickReply(string Id, string Title, string Text, bool Archived = false);
 /// <summary>A parte de GET /api/workspace que o app usa: as respostas rápidas e os resultados de encerrar (chave → rótulo).</summary>
 public sealed record AppWorkspace(AppQuickReply[] QuickReplies, Dictionary<string, string> Outcomes);
+
+// ---------- O @SemDor das secretárias (só lê e redige; quem decide e envia é a secretária — regra 3 do CRM) ----------
+/// <summary>POST …/{id}/semdor/sugestao — Rascunho nulo ou vazio: sugere a resposta; com texto: revisa ortografia e tom.</summary>
+public sealed record AppSemDorRequest(string? Rascunho);
+/// <summary>Resposta da sugestão: o texto que vai para o CAMPO (nunca é enviado sozinho). Modo "sugestao" | "revisao".</summary>
+public sealed record AppSemDorSuggestion(string Texto, string Modo);
+/// <summary>POST …/{id}/semdor/resumo (corpo vazio): o que o paciente quer, o que já foi feito e o que falta.</summary>
+public sealed record AppSemDorSummary(string Quer, string Feito, string Falta);
+/// <summary>GET /api/semdor/estado. Ligada falso: os botões e as etiquetas somem. UltimaFalha: o motivo só para a gestão
+/// (para os outros, "Fale com a gestão." ou vazio). 409 (desligado) e 502 (não respondeu) trazem a frase em AppError.</summary>
+public sealed record AppSemDorState(bool Ligada, bool Funcionando, DateTimeOffset? UltimoSucessoEm, DateTimeOffset? UltimaFalhaEm, string UltimaFalha);

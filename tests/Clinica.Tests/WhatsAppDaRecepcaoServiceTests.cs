@@ -437,6 +437,61 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
 
     private static SituacaoConfirmacao Situacao(ContatoCampanha c) => RodadaDeConfirmacao.Classificar(c.Status, c.EnviadoEm, c.Comentario);
 
+    // ------------------------------------------------------------------ o @SemDor (24/10)
+
+    [Fact]
+    public async Task SemDor_ligado_poe_o_estado_no_painel_e_a_etiqueta_na_linha_de_quem_espera()
+    {
+        _crm.Pôr(Conversa("c-maria", "Maria", "5522998765432", pacienteId: _maria.Id, nomeDaFicha: _maria.Nome));
+        _crm.Pôr(Conversa("c-novo", "5522997120045", "5522997120045"));
+        _crm.Etiquetas["c-maria"] = new AppSemDorTag("urgencia", "Urgência clínica", true);
+        _crm.Etiquetas["c-novo"] = new AppSemDorTag("valores", "Valores", false);
+
+        var painel = await Com(s => s.LerAsync());
+        var linhas = WhatsAppDaRecepcaoService.Linhas(painel, FiltroDasConversas.Todas, null, false, WhatsAppDaRecepcaoService.Agora);
+
+        Assert.True(SemDorNaTela.Ligado(painel.SemDor));
+        Assert.Equal(("Urgência clínica", true), (linhas.Single(l => l.Id == "c-maria").SemDor!.Texto, linhas.Single(l => l.Id == "c-maria").SemDor!.Atencao));
+        Assert.Equal(("Valores", false), (linhas.Single(l => l.Id == "c-novo").SemDor!.Texto, linhas.Single(l => l.Id == "c-novo").SemDor!.Atencao));
+        // A releitura de 7 s guarda o estado da leitura inteira (o "desde" não o traz).
+        Assert.Same(painel.SemDor, (await Com(s => s.AtualizarAsync(painel))).SemDor);
+    }
+
+    [Fact]
+    public async Task SemDor_desligado_ou_sem_estado_tira_as_etiquetas_e_a_aba_abre_igual()
+    {
+        _crm.Pôr(Conversa("c-maria", "Maria", "5522998765432"));
+        _crm.Etiquetas["c-maria"] = new AppSemDorTag("remarcar", "Remarcar", false);
+
+        foreach (var estado in new Func<AppSemDorState>[]
+                 {
+                     () => new AppSemDorState(false, false, null, null, ""),
+                     () => throw new RecusaDoCrm("O CRM recusou o pedido (código 404).", 404), // CRM de antes do @SemDor
+                     () => throw new CrmIndisponivel("O CRM demorou demais para responder."),
+                 })
+        {
+            _crm.EstadoDoSemDor = estado;
+            var painel = await Com(s => s.LerAsync());
+            Assert.False(SemDorNaTela.Ligado(painel.SemDor));
+            Assert.Null(Assert.Single(WhatsAppDaRecepcaoService.Linhas(painel, FiltroDasConversas.Todas, null, false, WhatsAppDaRecepcaoService.Agora)).SemDor);
+        }
+    }
+
+    [Fact]
+    public async Task SemDor_sugere_com_o_campo_vazio_revisa_com_texto_e_nada_e_enviado()
+    {
+        var c = _crm.Pôr(Conversa("c-maria", "Maria", "5522998765432"));
+
+        var sugestao = await Com(s => s.SugerirComSemDorAsync(c, "   "));
+        var revisao = await Com(s => s.SugerirComSemDorAsync(c, "  pode vir quinta  "));
+        var resumo = await Com(s => s.ResumirComSemDorAsync(c));
+
+        Assert.Equal([("c-maria", (string?)null), ("c-maria", "pode vir quinta")], _crm.PedidosAoSemDor.Take(2).Select(p => (p.Conversa, p.Pedido!.Rascunho)));
+        Assert.Equal(("sugestao", "revisao", "Remarcar"), (sugestao.Modo, revisao.Modo, resumo.Quer));
+        Assert.Empty(_crm.Respostas);
+        Assert.Empty(_crm.Notas);
+    }
+
     // ------------------------------------------------------------------ o CRM falso
 
     private static AppConversationSummary Resumo(string id, DateTimeOffset em)
@@ -462,6 +517,10 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
         public List<AppPatientLink> Ligacoes { get; } = [];
         /// <summary>Quantos 409 os próximos envios recebem antes de passar (a Version que mudou sozinha).</summary>
         public int ConflitosNoEnvio { get; set; }
+        /// <summary>O @SemDor: o estado que o CRM devolve (ou a falha dele), as etiquetas das linhas e os pedidos que chegaram.</summary>
+        public Func<AppSemDorState> EstadoDoSemDor { get; set; } = () => new(true, true, null, null, "");
+        public Dictionary<string, AppSemDorTag> Etiquetas { get; } = new();
+        public List<(string Conversa, AppSemDorRequest? Pedido)> PedidosAoSemDor { get; } = [];
 
         public AppConversation Pôr(AppConversation c, int naoLidas = 0)
         {
@@ -482,7 +541,7 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
         public Task<AppConversationSummary[]> ListarConversasAsync(int usuarioId, CancellationToken ct = default)
             => Task.FromResult(_conversas.Values.Select(c => new AppConversationSummary(c.Id, c.Name, c.Contact, c.Channel, c.Sender, c.Queue,
                 c.AgentId, c.Closed, c.Version, c.UpdatedAt, c.LastIncoming, c.PatientId, c.PatientName, _naoLidas.GetValueOrDefault(c.Id),
-                c.Messages.LastOrDefault()?.Text ?? "", false, false, null, c.ClosedAt)).ToArray());
+                c.Messages.LastOrDefault()?.Text ?? "", false, false, null, c.ClosedAt, Semdor: Etiquetas.GetValueOrDefault(c.Id))).ToArray());
 
         public Task<AppConversationsSince> ListarDesdeAsync(int usuarioId, DateTimeOffset desde, CancellationToken ct = default)
             => Task.FromResult(new AppConversationsSince([], [], DateTimeOffset.UtcNow));
@@ -554,6 +613,20 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
 
         public Task<AppWorkspace> AreaDeTrabalhoAsync(int usuarioId, CancellationToken ct = default)
             => Task.FromResult(new AppWorkspace([], new Dictionary<string, string> { ["resolved"] = "Resolvido" }));
+
+        public Task<AppSemDorState> EstadoDoSemDorAsync(int usuarioId, CancellationToken ct = default) => Task.FromResult(EstadoDoSemDor());
+
+        public Task<AppSemDorSuggestion> SugerirComSemDorAsync(int usuarioId, string conversaId, AppSemDorRequest pedido, CancellationToken ct = default)
+        {
+            PedidosAoSemDor.Add((conversaId, pedido));
+            return Task.FromResult(new AppSemDorSuggestion(pedido.Rascunho is null ? "Olá! Vou verificar e já te retorno." : pedido.Rascunho + ".", pedido.Rascunho is null ? "sugestao" : "revisao"));
+        }
+
+        public Task<AppSemDorSummary> ResumirComSemDorAsync(int usuarioId, string conversaId, CancellationToken ct = default)
+        {
+            PedidosAoSemDor.Add((conversaId, null));
+            return Task.FromResult(new AppSemDorSummary("Remarcar", "Nada ainda", "Responder"));
+        }
 
         public void EsquecerSessao(int usuarioId) { }
     }

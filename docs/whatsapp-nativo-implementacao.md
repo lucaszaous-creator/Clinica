@@ -279,7 +279,7 @@ A entrada por bilhete **fica**: é o que o `ClienteDoCrmHttp` usa. "Função que
 2. **Respostas rápidas**: as do CRM (`/api/quick-replies`) ou um catálogo do Gerente no app?
    O mockup usa as do CRM.
 3. O **destino da tela Acompanhamento** depois da fase 2.
-4. **Áudio e @SemDor** na tela nativa: fase 4, ou nunca (ficam no CRM web)?
+4. **Áudio e @SemDor** na tela nativa: fase 4, ou nunca (ficam no CRM web)? — o @SemDor entrou em 24/10 (§10).
 
 ## 7. Rodada 1 entregue (24/10/2026): PR 0, PR 1 e PR 2
 
@@ -302,8 +302,8 @@ inteira (820 + 20) e os 13 testes do contrato. A suíte completa do Clinica é d
   confirmado" (dizer "enviada" sem confirmação faria a recepção não conferir).
 - **`AppReply.Id` e `AppNoteRequest.Id` são Guid "D"** (com hífens). O contrato foi corrigido nos
   dois repositórios (SHA-256 daquela rodada: `ff97010885fc…`; o atual, depois do
-  `AppReply.ContactRecordedByApp` de 24/10, é `35284d966f92f4a1676ce7521439d6f28c7799e9ba262ca1018e41c8366a673e`,
-  o mesmo de `ContratosDoCrmTests` e `ApiParaOsAppsTests`).
+  `AppReply.ContactRecordedByApp` de 24/10, era `35284d966f92…673e`; depois do @SemDor (§10) é
+  `84200af20226503b53e698e576fd9126e8726331b091342f273ed456fa96dae6`, o mesmo de `ContratosDoCrmTests` e `ApiParaOsAppsTests`).
 - **O `?desde=` não traz** a leitura feita noutro aparelho nem a conversa que saiu da visão do
   usuário: a tela relê a lista inteira ao abrir e a cada poucos minutos.
 - **Aviso do sino → conversa**: só para conversa com ficha conferida (`PatientId`), pelo mapa
@@ -430,3 +430,58 @@ cliques; a mensagem "Combinado…" fica como rascunho).
   cinco ações visíveis, nada vaza, nada rola para o lado. Na busca dentro da conversa, o termo
   achado ganhou sublinhado forte e negrito: no laranja da nota interna o fundo suave sumia.
 
+## 10. @SemDor na tela nova (24/10)
+
+O @SemDor das secretárias (`semdor-crm/docs/semdor-secretarias.md`) na tela nativa, igual ao CRM web: **a IA
+lê e redige; quem decide e envia é a secretária** (regra 3 do CRM). A IA continua só no CRM (a chave fica na
+VPS 2); o app chama as rotas dele (`semdor-crm/docs/api-para-os-apps.md` §9).
+
+| O que a secretária vê | Onde no código |
+|---|---|
+| **✨** no rodapé do campo, do tamanho dos vizinhos, com o nome inteiro na dica e no leitor de tela. Campo vazio: a sugestão entra no campo. Com texto: o texto revisado entra, e o **↶** volta ao dela (só enquanto o texto do @SemDor está intacto — depois que ela mexe, voltar apagaria o que escreveu). Nunca envia. "Escrevendo…" com um ponto que pulsa (parado com movimento reduzido). Se ela continuou escrevendo ou passou para a nota interna enquanto a IA pensava, o texto dela vence | `ConversasDoWhatsApp.razor` (`BotoesDoSemDor`, `SugerirComSemDorAsync`, `DesfazerSemDor`); regras em `SemDorNaTela` (`Aplicar`, `PodeDesfazer`, `NomeDoBotao`) |
+| **✨ Resumo** no cabeçalho → bloco fechável acima das mensagens: o paciente quer / já foi feito / falta, com "Leitura automática da conversa. Confira antes de agir." O rótulo "Resumo" só aparece com cabeçalho largo (≥ 820 px, `@container`); em 1024 e 1366 fica o ✨, como o buscar — senão o nome do paciente encolhia | `ResumirComSemDorAsync`; `SemDorNaTela.LinhasDoResumo`; `.wa-semdor-resumo` |
+| **Etiqueta** na lista (✨ Remarcar, ✨ Dúvida…), no começo da linha da prévia; **vermelha** quando pede atenção (sintoma grave, reação ao tratamento, reclamação). Some quando a clínica responde (o CRM zera; a tela tira na hora em que ela mesma responde ou encerra) | `WhatsAppDaRecepcaoService.Linha` → `SemDorNaTela.Etiqueta`; `Recompor` → `EtiquetaDepoisDaEscrita` |
+| **Desligado** no CRM (ou o estado não pôde ser lido): nada disso aparece — nem botão, nem etiqueta, nem texto. **Ligado e falhando**: os botões ficam; o clique mostra a frase do CRM inline ("O @SemDor não respondeu agora. Escreva normalmente…") e o campo fica como estava. A gestão vê o motivo no topo da lista, fechável | `LerAsync` lê `GET /api/semdor/estado` (recusa = desligado, silencioso; falha = desligado + log); `SemDorNaTela.Ligado`, `Falha`, `AvisoDaGestao` |
+
+**Peças**: `IClienteDoCrm` ganhou `EstadoDoSemDorAsync`, `SugerirComSemDorAsync` e `ResumirComSemDorAsync`
+(`ClienteDoCrmHttp`: mesmo caminho autenticado, renova no 401/CSRF; prazo próprio de **35 s**, porque o CRM
+espera a Anthropic por até 30 s e a escrita comum desiste em 20; o `502` não se repete — cada pedido é uma
+chamada paga). `PainelDoWhatsApp.SemDor` (init, lido na leitura inteira e mantido pela releitura de 7 s).
+O CRM de mentira responde com textos fixos plausíveis, põe etiquetas em cinco conversas (a da Lúcia, nova
+na semente, é a de atenção) e aceita `CLINICA_PREVIA_CRM=semdor-desligado` ou `semdor-falhando`.
+
+**Testes**: `SemDorNaTelaTests` (as regras), `WhatsAppDaRecepcaoServiceTests.SemDor_*` (estado no painel,
+etiqueta na linha, desligado/404/fora do ar sem etiqueta, rascunho nulo para sugerir), `ClienteDoCrmHttpTests.O_SemDor_*`
+(caminho, csrf, corpo, frase do 409/502, prazo da IA maior que o da escrita), e `SemDorNaTelaDoWhatsAppTests`
+(bUnit na `Raiz`, como o `TelasBlazorAbremTests`: etiquetas, ✨ no campo vazio e com texto, ↶, resumo, desligado
+sem resquício e falhando com a frase). No CRM, `ApiParaOsAppsTests` cobre as rotas e a etiqueta no `desde`.
+
+**Fotos** (`node tools/PreviaBlazor/fotos-semdor.js [ligado|desligado|falhando]`, aceita `PREVIA_URL`), em
+1366 e 1024, em `docs/mockups/whatsapp-nativo/tela-real/`: `50-semdor-lista`, `51-semdor-sugestao`,
+`52-semdor-revisao`, `53-semdor-resumo`, `56-semdor-desligado-lista`, `57-semdor-desligado-conversa` e
+`58-semdor-falhando`. Duas correções vieram delas: a etiqueta saiu do rodapé da linha (em 300 px ela espremia
+o selo da situação até "N…" e empurrava o responsável para fora — o roteiro acusou "vaza do grupo") e o rótulo
+"Resumo" passou a ceder por contêiner. Com o ↶ em ≤ 1180 px, a dica "Ctrl + Enter envia" sai para o Enviar
+não cair sozinho na linha de baixo.
+
+🧑‍💻 **UX** — a secretária não troca de sistema para ter a ajuda do @SemDor; um toque escreve ou acerta o
+texto, e nada sai sem o Enviar dela. A fila mostra o assunto de cada mensagem nova e destaca em vermelho a
+que pede atenção. Falhando, ela lê uma frase e escreve como sempre; desligado, a tela é a de antes.
+🛠️ **DX** — uma classe de regras (`SemDorNaTela`, pura, com teste), três métodos no cliente, um campo no
+painel; no Razor, blocos e métodos novos num lugar só (`BotoesDoSemDor`, `SeloDoSemDor`, o fim do `@code`),
+para conviver com as outras mudanças da tela. Classes `wa-semdor-*` e `wa-etiqueta`, só tokens (o violeta é
+a cor do @SemDor).
+🤝 **CX** — o custo é o do CRM web (uma chamada por toque e por mensagem nova); o risco fica contido: a IA não
+vê a ficha nem o prontuário (o CRM manda só o primeiro nome e o texto mascarado), e desligar é uma variável na
+VPS 2 — a tela acompanha sem release.
+
+**O que NÃO foi feito, e por quê**
+
+- **A etiqueta de atenção não toca o sino da Recepção** (no CRM web ela toca o sino de lá). O sino dos apps é
+  o `AvisosDeConfirmacaoService`, da agenda; levar a ele um aviso que nasce no CRM é peça nova (leitura
+  periódica do CRM no sino) e pede decisão da direção. Na tela, a etiqueta vermelha já aparece na lista.
+- **Atalho de teclado para o ✨**: o CRM web não tem; ficou de fora para não inventar um.
+- **A chamada real à Anthropic** não foi feita aqui (a chave fica na VPS 2), como no CRM: o primeiro uso real
+  é em produção, e o aviso da gestão diz o motivo se falhar.
+- **A semente ganhou uma conversa** (Lúcia, com a Bruna, sem ficha) para mostrar a etiqueta de atenção: a
+  contagem "Todas" das fotos anteriores passa de 8 para 9 abertas na prévia.

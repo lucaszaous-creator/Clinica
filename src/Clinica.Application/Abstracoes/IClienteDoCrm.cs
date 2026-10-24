@@ -88,6 +88,21 @@ public interface IClienteDoCrm
     /// <summary>GET /api/workspace — as respostas rápidas e os resultados de encerrar.</summary>
     Task<AppWorkspace> AreaDeTrabalhoAsync(int usuarioId, CancellationToken ct = default);
 
+    // ---------- O @SemDor das secretárias (24/10): a IA lê e redige; quem decide e envia é a secretária ----------
+
+    /// <summary>GET /api/semdor/estado — se a IA está ligada e funcionando. <c>UltimaFalha</c> só traz o motivo para a gestão.</summary>
+    Task<AppSemDorState> EstadoDoSemDorAsync(int usuarioId, CancellationToken ct = default);
+
+    /// <summary>
+    /// POST …/{id}/semdor/sugestao — <c>Rascunho</c> nulo: o @SemDor lê a conversa e sugere a resposta; com texto: revisa
+    /// ortografia e tom. Devolve o texto para o CAMPO: nada é enviado. Desligado = <see cref="RecusaDoCrm"/> 409; a IA
+    /// sem responder = <see cref="CrmIndisponivel"/> com a frase do CRM (502). A IA leva até 30 s: o prazo é próprio.
+    /// </summary>
+    Task<AppSemDorSuggestion> SugerirComSemDorAsync(int usuarioId, string conversaId, AppSemDorRequest pedido, CancellationToken ct = default);
+
+    /// <summary>POST …/{id}/semdor/resumo — o que o paciente quer, o que já foi feito e o que falta. As falhas, como na sugestão.</summary>
+    Task<AppSemDorSummary> ResumirComSemDorAsync(int usuarioId, string conversaId, CancellationToken ct = default);
+
     /// <summary>Esquece a sessão do CRM da pessoa (o app chama no logout): a próxima chamada entra de novo.</summary>
     void EsquecerSessao(int usuarioId);
 }

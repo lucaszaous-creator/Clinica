@@ -12,7 +12,8 @@ namespace Clinica.Application.Servicos;
 
 /// <summary>Uma linha da lista de conversas, pronta para desenhar.</summary>
 public sealed record LinhaDaConversa(string Id, string Nome, string Iniciais, string TomDoAvatar, bool Sms, string Hora,
-    string Previa, TickDaMensagem? Tick, int NaoLidas, SeloDoWhatsApp Selo, string Responsavel, bool Minha, bool TemResponsavel);
+    string Previa, TickDaMensagem? Tick, int NaoLidas, SeloDoWhatsApp Selo, string Responsavel, bool Minha, bool TemResponsavel,
+    EtiquetaDoSemDor? SemDor = null);
 
 /// <summary>Uma linha do modo Retenção (um caso do Acompanhamento), pronta para desenhar.</summary>
 public sealed record LinhaDaRetencao(LinhaAcompanhamento Caso, string Iniciais, string TomDoAvatar, string Dias, string TomDosDias,
@@ -41,6 +42,9 @@ public sealed record PainelDoWhatsApp(
 
     /// <summary>Os resultados de encerrar (chave → rótulo).</summary>
     public IReadOnlyDictionary<string, string> Resultados => Area.Outcomes;
+
+    /// <summary>O estado do @SemDor na leitura inteira; nulo = não pôde ser lido (conta como desligado: <see cref="SemDorNaTela.Ligado"/>).</summary>
+    public AppSemDorState? SemDor { get; init; }
 }
 
 /// <summary>Uma ficha que tem o telefone da conversa, com o que a recepção pergunta para conferir.</summary>
@@ -151,6 +155,7 @@ public sealed class WhatsAppDaRecepcaoService(
         var u = UsuarioId;
         var sessao = await crm.SessaoAsync(u, ct);
         var area = await crm.AreaDeTrabalhoAsync(u, ct);
+        var semdor = await EstadoDoSemDorAsync(u, ct);
         var conversas = await crm.ListarConversasAsync(u, ct);
         var agora = Agora;
         var lista = await avisos.ListarAsync(agora.DateTime, agora.Date, ct);
@@ -158,7 +163,22 @@ public sealed class WhatsAppDaRecepcaoService(
         var fichas = await FichasDasConversasAsync(conversas, ct);
         var (retencao, permitida) = await RetencaoAsync(ct);
         var dias = await parametros.ObterDiasInatividadeRecallAsync(ct);
-        return new PainelDoWhatsApp(sessao, area, conversas, agora, lista, donos, fichas, retencao, permitida, [dias]);
+        return new PainelDoWhatsApp(sessao, area, conversas, agora, lista, donos, fichas, retencao, permitida, [dias]) { SemDor = semdor };
+    }
+
+    /// <summary>
+    /// O estado do @SemDor. A IA é ajuda: se o estado não vem, a aba abre igual e sem os botões dela. A recusa
+    /// (o CRM de antes do @SemDor responde 404) é silenciosa; o CRM que falhou só nesta leitura vai ao log.
+    /// </summary>
+    private async Task<AppSemDorState?> EstadoDoSemDorAsync(int usuarioId, CancellationToken ct)
+    {
+        try { return await crm.EstadoDoSemDorAsync(usuarioId, ct); }
+        catch (RecusaDoCrm) { return null; }
+        catch (CrmIndisponivel e)
+        {
+            Diagnostico.Registrar("WhatsApp — o estado do @SemDor não pôde ser lido (a tela segue sem ele)", e);
+            return null;
+        }
     }
 
     /// <summary>
@@ -373,7 +393,7 @@ public sealed class WhatsAppDaRecepcaoService(
             ConversasNaTela.EhSms(c.Channel), HoraDaLinha(c.UpdatedAt, agora),
             string.IsNullOrWhiteSpace(c.Preview) ? "Sem mensagens ainda" : c.Preview.Trim(), ConversasNaTela.TickDaPrevia(c),
             Math.Max(0, c.Unread), selo, Responsavel(c.AgentId, painel.Sessao.AgentId, painel.Agentes),
-            c.AgentId is not null && c.AgentId == painel.Sessao.AgentId, c.AgentId is not null);
+            c.AgentId is not null && c.AgentId == painel.Sessao.AgentId, c.AgentId is not null, SemDorNaTela.Etiqueta(painel.SemDor, c));
     }
 
     /// <summary>Os números do seletor e dos filtros dos dois modos.</summary>
@@ -574,6 +594,19 @@ public sealed class WhatsAppDaRecepcaoService(
     private static string Maiuscula(string s) => s.Length == 0 ? s : char.ToUpper(s[0], PtBr) + s[1..];
 
     // ======================================================================== escritas no CRM
+
+    // ======================================================================== o @SemDor (lê e redige; nada sai daqui)
+
+    /// <summary>
+    /// O ✨: com o campo vazio, a sugestão de resposta; com texto, a revisão dele. Devolve o TEXTO para o campo —
+    /// o envio continua sendo o Enviar da secretária. As falhas chegam com a frase do CRM (<see cref="SemDorNaTela.Falha"/>).
+    /// </summary>
+    public Task<AppSemDorSuggestion> SugerirComSemDorAsync(AppConversation c, string? rascunho, CancellationToken ct = default)
+        => crm.SugerirComSemDorAsync(UsuarioId, c.Id, new AppSemDorRequest(SemDorNaTela.RascunhoDoPedido(rascunho)), ct);
+
+    /// <summary>O "✨ Resumo": o que o paciente quer, o que já foi feito e o que falta.</summary>
+    public Task<AppSemDorSummary> ResumirComSemDorAsync(AppConversation c, CancellationToken ct = default)
+        => crm.ResumirComSemDorAsync(UsuarioId, c.Id, ct);
 
     /// <summary>Os modelos aprovados do remetente da conversa.</summary>
     public Task<AppTemplate[]> ModelosAsync(string remetente, CancellationToken ct = default) => crm.ModelosAsync(UsuarioId, remetente, ct);
