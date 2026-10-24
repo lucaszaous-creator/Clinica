@@ -55,7 +55,7 @@ public sealed class ClienteDoCrmHttp : IClienteDoCrm, IDisposable
     /// <summary>A frase do 400 do antiforgery do CRM (ver <see cref="CsrfRecusadoAsync"/>).</summary>
     public const string FraseDoCsrfRecusado = "Sessão desatualizada. Recarregue a página.";
 
-    /// <summary>Prazo do aviso de saída ao CRM no logout: é cortesia (a presença sai na hora), não pode segurar nada.</summary>
+    /// <summary>Prazo do aviso de saída ao CRM no logout: encerra a SESSÃO no servidor (que valeria 2 h); a "presença" online é o pulso do CRM web, que o app não manda. Não pode segurar nada.</summary>
     public static readonly TimeSpan PrazoDaSaida = TimeSpan.FromSeconds(3);
 
     /// <summary>Prazos por natureza de chamada: leitura 10 s, escrita 20 s, envio de arquivo 60 s.</summary>
@@ -182,7 +182,7 @@ public sealed class ClienteDoCrmHttp : IClienteDoCrm, IDisposable
             aberto = sessoes.TryGetValue(usuarioId, out var sessao) ? sessao.Atual : null;
             sessoes.Remove(usuarioId);
         }
-        // Avisa o CRM para a presença sair na hora — sem esperar e sem exceção: o logout do app
+        // Avisa o CRM para a sessão acabar na hora (não a presença: essa é o pulso do CRM web) — sem esperar e sem exceção: o logout do app
         // não pode depender do CRM estar no ar. Se o aviso se perder, a sessão vence sozinha (2 h).
         if (aberto is not null) UltimaSaida = Task.Run(() => SairAsync(aberto));
     }

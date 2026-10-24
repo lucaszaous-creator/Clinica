@@ -125,4 +125,25 @@ public sealed class ModeloDoWhatsAppTests
         Assert.Equal(["Sebastião", "sessão de BSV", "32"], s.Parameters);
         Assert.Null(s.ButtonPayloads);
     }
+
+    [Fact]
+    public void Os_modelos_aprovados_na_Meta_tem_rotulos_e_valores_do_contexto()
+    {
+        var hoje14 = Hoje.ToDateTime(new TimeOnly(14, 0));
+        var c = new ContextoDoModelo("Maria das Graças Silva", Hoje, ModalidadeAtendimento.AcupunturaSimples, hoje14);
+        // O lembrete do dia e o remarcado: primeiro nome e o horário por extenso.
+        var lembrete = Modelo("semdor_lembrete_sessao", "Olá, {{1}}! Sua sessão é {{2}}.", 2);
+        Assert.Equal(["Primeiro nome", "Dia e hora"], ModeloDoWhatsApp.Rotulos(lembrete));
+        Assert.Equal("Maria", Valores(lembrete, c)[0]);
+        Assert.False(string.IsNullOrEmpty(Valores(lembrete, c)[1]));
+        var remarcado = Modelo("semdor_horario_remarcado", "Olá, {{1}}! Seu novo horário é {{2}}.", 2);
+        Assert.Equal(Valores(lembrete, c)[1], Valores(remarcado, c)[1]);
+        // O que só a recepção sabe fica vazio, com o rótulo do CRM.
+        var orcamento = Modelo("semdor_orcamento", "Olá, {{1}}! {{2}}", 2);
+        Assert.Equal(["Primeiro nome", "Orçamento"], ModeloDoWhatsApp.Rotulos(orcamento));
+        Assert.Equal("", Valores(orcamento, c)[1]);
+        // O convite de retorno aprovado tem só o primeiro nome.
+        var recall = Modelo(ModeloDoWhatsApp.RecallReal, "Olá, {{1}}! Sentimos sua falta.", 1);
+        Assert.Equal(["Sebastião"], Valores(recall, new ContextoDoModelo("Sebastião Ramos", Hoje)));
+    }
 }

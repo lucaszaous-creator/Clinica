@@ -212,6 +212,17 @@ public sealed class RetencaoNaTelaTests
     }
 
     [Fact]
+    public void Os_candidatos_do_convite_poem_o_modelo_aprovado_na_Meta_antes_do_nome_do_mockup()
+    {
+        Assert.Equal([ModeloDoWhatsApp.RecallReal, ModeloDoWhatsApp.RetornoTratamento], RetencaoNaTela.CandidatosDoConvite(Sebastiao));
+        Assert.Equal([ModeloDoWhatsApp.IniciarAtendimentoReal, ModeloDoWhatsApp.PrimeiroContato], RetencaoNaTela.CandidatosDoConvite(Felipe));
+        // A mesma regra do ModeloDoConvite: quem não pode ser convidado não ganha candidato nenhum.
+        Assert.Empty(RetencaoNaTela.CandidatosDoConvite(Ines));
+        Assert.Empty(RetencaoNaTela.CandidatosDoConvite(SoConsulta));
+        Assert.Empty(RetencaoNaTela.CandidatosDoConvite(Sebastiao with { Telefone = " " }));
+    }
+
+    [Fact]
     public void Os_cinco_como_foi_usam_os_rotulos_do_Acompanhamento()
     {
         var botoes = RetencaoNaTela.BotoesDoComoFoi();
