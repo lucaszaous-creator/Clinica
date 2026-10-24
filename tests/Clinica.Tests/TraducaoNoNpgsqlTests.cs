@@ -50,6 +50,21 @@ public class TraducaoNoNpgsqlTests
         if (filtro == FiltroListaPacientes.EmTratamento) sql.Should().Contain("EXISTS");
     }
     [Fact]
+    public void Fichas_por_telefone_traduzem_a_limpeza_do_numero_no_banco_sem_a_foto()
+    {
+        using var db = Postgres();
+        var sql = new ClinicaRepositorio(db).ConsultaFichasComTelefone(["22998765432", "5522998765432"], 6).ToQueryString();
+        sql.Should().Contain("replace").And.Contain("LIMIT").And.NotContain("FotoMiniatura").And.NotContain("Observacoes");
+    }
+
+    [Fact]
+    public void Donos_dos_horarios_traduzem_em_projecao()
+    {
+        using var db = Postgres();
+        new ClinicaRepositorio(db).ConsultaPacientesDosAgendamentos([1, 2]).ToQueryString().Should().Contain("PacienteId").And.NotContain("JOIN");
+    }
+
+    [Fact]
     public void Marcacoes_da_conferencia_traduzem_sem_trazer_a_ficha_inteira()
     {
         using var db = Postgres();
