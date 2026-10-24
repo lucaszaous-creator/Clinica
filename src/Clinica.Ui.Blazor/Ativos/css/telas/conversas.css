@@ -329,8 +329,17 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px}
   .wa-cab-acoes .botao:not(.icone){width:34px;padding:0;justify-content:center}
   .wa-m{max-width:88%}
   .wa-faixa{display:none}
-  .wa-cab-acoes [data-acao="buscar"],.wa-cab-acoes [data-acao="encerrar"],.wa-cab-acoes [data-acao="transferir"],.wa-cab-meta .selo,.wa-cab-meta .selo + span{display:none}
+  /* Transferir, buscar e encerrar ficam como ícones: no celular a secretária também passa e encerra a conversa. */
+  .wa-cab-meta .selo,.wa-cab-meta .selo + span{display:none}
   .wa-cab-meta{flex-wrap:nowrap;white-space:nowrap;overflow:hidden}
+  /* A dica (número oficial / só a equipe vê) desce para a linha de baixo em vez de quebrar os botões. */
+  .wa-escrever-abas{flex-wrap:wrap}
+  .wa-escrever-abas .segmentado button{white-space:nowrap}
+  .wa-escrever-abas small{flex-basis:100%}
+}
+@media (max-width:480px){
+  /* Sem o avatar, o nome cabe ao lado das cinco ações. */
+  .wa-cab > .avatar{display:none}
 }
 @media (prefers-reduced-motion:reduce){.wa-conversa,.wa-ficha{transition:none}.wa-m.nova .wa-balao,.wa-popover{animation:none}}
 

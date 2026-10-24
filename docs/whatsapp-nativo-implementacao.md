@@ -419,5 +419,9 @@ cliques; a mensagem "Combinado…" fica como rascunho).
   botão principal para baixo do Cancelar em 1024; o texto foi para o subtítulo ou para o aviso); e
   o título fixo de grupo da lista fica numa linha (quebrado, a segunda linha aparecia por baixo do
   grupo seguinte); na prévia do modelo, o preenchido se marca por cor e sublinhado, sem a caixinha
-  que punha um espaço falso em "Olá, Maria !".
+  que punha um espaço falso em "Olá, Maria !"; e no celular (≤ 760 px) **Transferir, Buscar e
+  Encerrar voltaram** como ícones (estavam escondidos: a secretária não conseguia encerrar nem passar
+  a conversa nessa largura), o avatar sai abaixo de 480 px para o nome caber, e a dica do número
+  oficial desce para a linha de baixo em vez de quebrar os botões. Medido em 760, 480 e 360 px: as
+  cinco ações visíveis, nada vaza, nada rola para o lado.
 
