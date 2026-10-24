@@ -40,48 +40,90 @@ atendida (uma aba), mas a porta abre para outra casa.
 fase 1 do B provar o mesmo trabalho na clínica; depois sai inteira (regra 2: função que sai, sai
 inteira, com `modo=recepcao` e `CRM_EMBED_ORIGINS` do CRM junto).
 
-## 3. O mockup
+## 3. O mockup (interativo)
+
+> Segunda versão, depois de a direção reprovar a primeira ("pode melhorar e muito") e pedir
+> uma tela **boa e interativa**, já que ela será o WhatsApp inteiro dentro do sistema. A
+> direção escolheu: **WhatsApp reconhecível, nos tokens da casa**, e os quatro fluxos
+> funcionando (atender, agenda na conversa, modelos e janela de 24 h, sino e ficha em dúvida).
 
 Feito sobre o CSS **real** do app, não sobre um desenho: `gerar.py` concatena `tokens/*.css`
 (os mesmos do `Tokens.xaml`), `clinica.css`, `moldura.css`, `chat-equipe.css` e o
-`conversas.css` proposto (só tokens), e produz o `index.html`. Os ícones seguem o traço do
-`Componentes/Icone.razor`. O que está nas fotos é o que a tela Blazor desenharia com essas
-classes.
+`conversas.css` proposto (só tokens), e embute o `app.js` (dados fictícios + renderização). Os
+ícones seguem o traço do `Componentes/Icone.razor`. O que está nas fotos é o que a tela Blazor
+desenharia com essas classes; o que acontece ao clicar é o que a tela faria chamando os
+serviços.
 
 ```bash
 python3 docs/mockups/whatsapp-nativo/gerar.py      # regenera index.html e artefato.html
-# abra docs/mockups/whatsapp-nativo/index.html; #ficha abre o formulário da regra 5; #contexto abre a ficha em 1024
+# abra docs/mockups/whatsapp-nativo/index.html
+#   #fechada  → a conversa fora da janela de 24 h (só modelo)     #ficha → "Qual ficha é esta pessoa?"
+#   #nova     → novo contato sem ficha (buscar / cadastrar)        #vazia → nenhuma conversa escolhida
 ```
+
+O que dá para FAZER no mockup, e o que cada clique prova:
+
+| Clique | O que acontece | A regra que ele prova |
+|---|---|---|
+| Uma conversa na lista, ↑/↓ | Abre com a divisória "1 nova mensagem"; a ficha ao lado troca | A ficha vem do Clinica, não do CRM |
+| **Assumir** / **Com você** | Passa a ser sua; "Minhas" conta; a faixa diz "Com você"; evento na conversa | Fila e responsável do CRM |
+| **Transferir** | Formulário da casa: para quem e uma nota; a nota vira nota interna | Nota interna nunca vai ao paciente |
+| **Encerrar** / **Reabrir** | Pergunta como terminou; a conversa vai para "Encerradas" com a faixa e o Reabrir | O resultado alimenta o resumo do dia do Gerente |
+| Escrever + **Ctrl+Enter** | Balão verde com ✓ → ✓✓ → ✓✓ azul; a Maria responde e a lista reordena | Ticks de entrega da Meta; a lista viva |
+| **Nota interna** | O bloco inteiro fica âmbar e diz "Só a equipe vê" | Dois modos, uma caixa |
+| **Anexar** | Escolhe um arquivo real; vira chip no rascunho e no balão | Mídia pelo CRM |
+| **Modelos** | Lista aprovada pela Meta; escolhido, o formulário preenche as variáveis com o contexto (nome, atendimento, dia) e mostra a prévia | Modelo é a única saída fora da janela |
+| **Respostas rápidas** | Entram no campo para revisar, nunca saem sozinhas | Regra 3 do CRM: a secretária revisa e envia |
+| Conversa do Carlos (`#fechada`) | O campo livre some: "Janela de 24 h fechada desde…", com **Escolher modelo** e **Nota interna** | A tela nunca mente sobre o que a Meta aceita |
+| **Remarcar** (no aviso ou no horário) | Vagas da agenda; escolhida, o horário de hoje vira "Remarcado", nasce o novo, o evento entra na conversa, o sino limpa e a mensagem para a paciente já vem pronta para revisar | A regra é a da agenda do Clinica; o contato entra sozinho no Acompanhamento |
+| **Confirmar** / **Não vem** / **Cancelar** | Mudam o selo do horário e da linha, o evento e a Confirmação de hoje; cancelar exige motivo | O mesmo vocabulário do balcão ("Não vem — remarcar", nunca "Confirmou") |
+| **Sino** | A mesma lista do app (Não vem, Sem resposta, 2 fichas); o clique abre a conversa certa e limpa o ponto | Regra 3 da direção: o que pede ação vira aviso, e o aviso leva à porta |
+| **2 fichas — conferir** | "Qual ficha é esta pessoa?" com nascimento, fim do documento e próxima consulta; ligada, a agenda e a confirmação do Pedro aparecem ao lado | Regra 5: o telefone não é identidade |
+| Novo contato (`#nova`) | Busca de ficha pelo nome, ou cadastrar com o telefone preenchido | O CRM nunca cria ficha; quem cria é o app |
+| **+** Nova conversa | A primeira mensagem tem de ser modelo (a pessoa ainda não escreveu) | A regra da Meta, dita antes de a pessoa errar |
 
 | 1366 × 900 | 1024 × 768 |
 |---|---|
-| ![](mockups/whatsapp-nativo/conversas-1366.png) | ![](mockups/whatsapp-nativo/conversas-1024.png) |
-| Em 1024 a coluna do paciente vira painel por cima da conversa (botão "ficha" no cabeçalho): ![](mockups/whatsapp-nativo/conversas-1024-ficha.png) | O formulário da regra 5, "Qual ficha é esta pessoa?": ![](mockups/whatsapp-nativo/conferir-ficha-1366.png) |
+| ![](mockups/whatsapp-nativo/01-conversas-1366.png) | ![](mockups/whatsapp-nativo/10-conversas-1024.png) |
+| Depois de assumir, responder e a paciente responder: ![](mockups/whatsapp-nativo/02-enviou-e-respondeu-1366.png) | A ficha por cima da conversa (botão no cabeçalho): ![](mockups/whatsapp-nativo/11-ficha-1024.png) |
+| Remarcar pelas vagas da agenda: ![](mockups/whatsapp-nativo/03-remarcar-1366.png) | Remarcado: o horário de hoje apagado, o novo em cima, a mensagem pronta: ![](mockups/whatsapp-nativo/04-remarcado-1366.png) |
+| Modelo aprovado com as variáveis preenchidas pelo contexto: ![](mockups/whatsapp-nativo/05-modelo-1366.png) | Fora da janela de 24 h: ![](mockups/whatsapp-nativo/06-janela-fechada-1366.png) |
+| "Qual ficha é esta pessoa?": ![](mockups/whatsapp-nativo/07-conferir-ficha-1366.png) | Novo contato, buscar a ficha: ![](mockups/whatsapp-nativo/08-sem-ficha-1366.png) |
+| O sino que abre a conversa: ![](mockups/whatsapp-nativo/09-sino-1366.png) | Celular (a direção abre o mockup no telefone): ![](mockups/whatsapp-nativo/13-celular-conversa.png) |
 
-O que cada parte da tela diz, e de onde vem:
+Decisões de desenho, e por quê:
 
-- **Coluna 1, a lista** (do CRM: `GET /api/conversations`). Chips *Novas · Minhas · Todas ·
-  Encerradas* com a contagem antes do clique (o `.chip` comum), busca, e em cada linha o selo
-  do que a conversa PEDE: *Não vem — remarcar*, *Sem resposta · 16:00*, *2 fichas — conferir*,
-  *Novo contato · sem ficha*, *Confirmou*. O selo vem da MESMA decisão do sino
-  (`AvisosDeConfirmacao`), não de um segundo cálculo.
-- **Coluna 2, a conversa** (do CRM: `GET /api/conversations/{id}`, `POST …/reply`, `…/notes`,
-  `…/claim`, `…/transfer`, `…/close`, `…/read`, `GET /api/templates/{sender}`,
-  `POST …/attachments`). Bolhas recebida/enviada com estado de entrega, nota interna, os
-  eventos do sistema na linha do tempo ("06:00 · Lembrete do dia enviado…", "09:58 · virou o
-  aviso Não vem"), a janela de 24 h da Meta no cabeçalho, e o **aviso que pede ação** com os
-  botões da agenda da Recepção. Escrever: Responder / Nota interna, Modelos do WhatsApp,
-  Anexar, Ctrl+Enter.
-- **Coluna 3, o paciente** (do próprio Clinica, pelos serviços que a Recepção já usa):
-  cabeçalho da ficha (`FichaDoBalcao.Cabecalho`), telefone confere, carteirinha e vencimento,
-  autorização de mensagens do termo do BSV, tratamento em curso; os horários com Remarcar /
+- **Sem cabeçalho de página.** A moldura já diz onde a pessoa está; cada linha de cabeçalho
+  em 1024 × 768 é uma linha de conversa a menos. A tela ocupa o palco inteiro e cada coluna
+  rola sozinha.
+- **O verde só no que é do canal**: o selo do canal no avatar, o balão enviado
+  (`--verde-100`), o "conectado" e o contador de não lidas. Ação primária continua no acento
+  do app. O "papel de parede" é um pontilhado da cor da borda, sem imagem.
+- **Balões agrupados**: mensagens seguidas do mesmo lado perdem o espaço entre si e o canto
+  reto; a hora e os ticks ficam dentro do balão, como no WhatsApp.
+- **O que pede ação é um aviso DENTRO da conversa**, acima do campo de escrever, com os botões
+  da agenda. Ele some quando a ação é feita, e o evento fica na linha do tempo.
+- **Nota interna muda a cor do bloco inteiro**, não só um chip: a diferença entre "vai ao
+  paciente" e "só a equipe vê" não pode depender de ler um rótulo.
+- **Em 1024 a ficha vira painel por cima**; no celular, um painel por vez com "voltar". E a
+  bolinha do chat da equipe, que em 1024 caía sobre o Enviar, ganhou o canto: o rodapé do
+  campo deixa o lugar dela.
+- **Caret, seleção e barra de rolagem** seguem a paleta; o foco de teclado é o anel da casa.
+
+Onde cada coisa vem:
+
+- **Coluna 1 e 2** (do CRM: `GET /api/conversations`, `GET /api/conversations/{id}`,
+  `POST …/reply`, `…/notes`, `…/claim`, `…/transfer`, `…/close`, `…/read`,
+  `…/attachments`, `…/patient`, `GET /api/templates/{sender}`). O selo de cada linha vem da
+  MESMA decisão do sino (`AvisosDeConfirmacao`), não de um segundo cálculo.
+- **Coluna 3** (do próprio Clinica, pelos serviços que a Recepção já usa): cabeçalho da ficha
+  (`FichaDoBalcao.Cabecalho`), telefone confere, carteirinha e vencimento, autorização de
+  mensagens do termo do BSV, tratamento em curso; os horários com Confirmar / Remarcar /
   Cancelar (`AgendaService`); a confirmação de hoje (`AvisosDeConfirmacaoService`); o
-  Acompanhamento com o contato registrado sozinho (`ClinicContactNotice` continua valendo: quem
-  grava o contato é o CRM via ponte, como hoje, e a tela só mostra).
-- **"Qual ficha é esta pessoa?"** é a regra 5 (*o telefone não é identidade*): o app busca as
-  fichas candidatas com a sua própria busca (`BuscaDePacienteNaTela`), a recepção confere
-  nascimento/fim do documento/próxima consulta e só então o app liga a ficha na conversa
-  (`POST /api/conversations/{id}/patient`). A ficha ligada nunca troca sozinha.
+  Acompanhamento (o contato continua sendo gravado pelo CRM via ponte, como hoje; a tela só
+  mostra).
+- **"Qual ficha é esta pessoa?"** e a busca de ficha do novo contato usam a busca do próprio
+  app (`BuscaDePacienteNaTela`); só a LIGAÇÃO da ficha à conversa vai ao CRM.
 
 ## 4. Como se constrói (a fase 1)
 
@@ -133,9 +175,10 @@ Decisões já tomadas aqui, para não reabrir:
 - 🛠️ **DX**: cinco peças novas, cada regra num lugar só (o que a tela afirma em
   `ConversasNaTela`, o que pede ação em `AvisosDeConfirmacao`, a agenda no `AgendaService`),
   um cliente HTTP testável contra servidor falso, e o CRM intocado por dentro. O custo real é o
-  contrato da API, que hoje não existe como contrato. Lição já escrita em
-  `docs/agentes/convencoes.md`: classes de tela nova levam o prefixo da tela (`entrada`,
-  `saida` e `dica` já eram do comum e o mockup colidiu com as três).
+  contrato da API, que hoje não existe como contrato. O `app.js` do mockup é o mapa do que a
+  tela Blazor precisa (estados, ações, o que cada clique muda), e o `conversas.css` entra como
+  está. Lição já escrita em `docs/agentes/convencoes.md`: classes de tela nova levam o prefixo
+  da tela (`entrada`, `saida` e `dica` já eram do comum e o mockup colidiu com as três).
 - 🤝 **CX**: nenhum servidor novo; o CRM em produção não para. A clínica recebe o que o produto
   prometeu ("a mesa de trabalho da secretária") em vez de duas mesas encostadas. O risco de
   regressão fica contido pela fase 1 ao lado da moldura: se algo faltar, a direção volta a

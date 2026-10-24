@@ -40,12 +40,25 @@ ICONES = {
     "modelo": "<rect x='4' y='4' width='16' height='16' rx='2'/><path d='M4 10h16M10 10v10'/>",
     "enviar": "<path d='m3 11 18-8-8 18-2-8z'/>",
     "lido": "<path d='m2 12 4 4 7-8'/><path d='m10 16 1 1 9-10'/>",
+    "tick": "<path d='m4 12 5 5 11-11'/>",
+    "ticks": "<path d='m2 12 4 4 7-8'/><path d='m10 16 1 1 9-10'/>",
+    "relogio": "<circle cx='12' cy='12' r='9'/><path d='M12 7v5l3 2'/>",
+    "cadeado": "<rect x='5' y='11' width='14' height='10' rx='2'/><path d='M8 11V8a4 4 0 0 1 8 0v3'/>",
+    "fechar": "<path d='M6 6l12 12M18 6 6 18'/>",
+    "bolt": "<path d='M13 3 5 14h6l-1 7 8-11h-6z'/>",
+    "esquerda": "<path d='m15 18-6-6 6-6'/>",
+    "sms": "<rect x='3' y='5' width='18' height='14' rx='2'/><path d='M7 10h10M7 14h6'/>",
+    "arquivo": "<path d='M6 3h8l4 4v14H6z'/><path d='M14 3v4h4'/>",
+    "vazio": "<rect x='4' y='4' width='16' height='16' rx='3'/><path d='M4 13h4l2 3h4l2-3h4'/>",
 }
 def icone(m):
     nome = m.group(1)
     return ("<svg class='icone' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' "
             "stroke-linecap='round' stroke-linejoin='round' aria-hidden='true' focusable='false'>" + ICONES[nome] + "</svg>")
 corpo = re.sub(r"\{\{icone:([a-z-]+)\}\}", icone, corpo)
+import json
+app = (AQUI / "app.js").read_text(encoding="utf-8")
+corpo += "\n<script>\nconst ICONES = " + json.dumps(ICONES, ensure_ascii=False) + ";\n" + app + "\n</script>\n"
 
 # A tela é de um app Windows claro: um tema só, de propósito, com fundo e cores explícitos.
 css = ("/* ===== tokens/*.css (os MESMOS do app, linkados e nunca copiados no projeto) ===== */\n" + tokens +
