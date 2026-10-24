@@ -1419,12 +1419,25 @@ public sealed class AgendaService
         int agendamentoId, string? operador = null, CancellationToken ct = default)
         => await AlterarStatusAsync(agendamentoId, StatusAgendamento.Cancelado, operador, ct);
 
+    /// <summary>
+    /// O MESMO cancelamento (guias suspensas, trilha), com o MOTIVO na linha da auditoria
+    /// (out/2026, WhatsApp da Recepção: "cancelar pela conversa" pede o porquê). Sem motivo,
+    /// recusa — quem quer cancelar sem dizer usa o <see cref="CancelarAsync"/> da agenda.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> CancelarComMotivoAsync(
+        int agendamentoId, string motivo, string? operador = null, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new InvalidOperationException("Diga o motivo do cancelamento.");
+        return await AlterarStatusAsync(agendamentoId, StatusAgendamento.Cancelado, operador, ct, motivo.Trim());
+    }
+
     public async Task<IReadOnlyList<string>> MarcarFaltaAsync(
         int agendamentoId, string? operador = null, CancellationToken ct = default)
         => await AlterarStatusAsync(agendamentoId, StatusAgendamento.Faltou, operador, ct);
 
     private async Task<IReadOnlyList<string>> AlterarStatusAsync(
-        int agendamentoId, StatusAgendamento status, string? operador, CancellationToken ct)
+        int agendamentoId, StatusAgendamento status, string? operador, CancellationToken ct, string? motivo = null)
     {
         var ag = await _repo.ObterAgendamentoAsync(agendamentoId, ct)
             ?? throw new InvalidOperationException($"Agendamento {agendamentoId} não encontrado.");
@@ -1443,7 +1456,7 @@ public sealed class AgendaService
         {
             Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
             Acao = status == StatusAgendamento.Cancelado ? "AgendamentoCancelado" : "AgendamentoFalta",
-            Detalhe = $"{ag.DataHora:dd/MM/yyyy HH:mm} — de {anterior} para {status}",
+            Detalhe = $"{ag.DataHora:dd/MM/yyyy HH:mm} — de {anterior} para {status}" + (motivo is null ? "" : $" · motivo: {motivo}"),
             PacienteId = ag.PacienteId
         }, ct);
 
