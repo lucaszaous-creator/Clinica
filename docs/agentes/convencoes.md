@@ -5,7 +5,7 @@ sessão). O texto é o MESMO, sem reescrita: design system, WPF/XAML, Blazor, EF
 `verificar-suite`, assinatura digital, impressão, CRM e as rodadas de UI, cada uma com o defeito que a
 originou. Antes de escrever uma tela, uma consulta ou uma checagem, procure aqui a lição da área.
 
-## Índice (186 tópicos, na ordem do arquivo)
+## Índice (188 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -195,6 +195,8 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
 - Parâmetro `string` de componente Razor recebe expressão com `@`; sem ela recebe o TEXTO
 - Semente com data relativa a "hoje" respeita a JORNADA de quem tem agenda protegida
 - CSS de tela é importado no TOPO do `clinica.css`: regra de tela com a MESMA especificidade de uma comum PERDE
+- `opacity` numa célula PRENDE o menu fixo de dentro dela abaixo do fundo que o fecha
+- Tela reusada dentro de um painel: os `@media` dela olham a JANELA, não o painel
 
 ---
 
@@ -5027,3 +5029,23 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
   (`.segmentado.wa-modo button`) ou prefixe pela tela (`.wa-filtros .segmentado button`). O
   roteiro de fotos do WhatsApp passou a acusar filho que vaza do grupo
   (`.segmentado`, `.wa-cab-acoes`, `.wa-faixa`…).
+
+- **`opacity` numa célula PRENDE o menu fixo de dentro dela abaixo do fundo que o fecha** (out/2026,
+  fotos da conversa ao lado). Na Agenda do dia, `tr.apagada td{opacity:.72}` apagava a linha cancelada
+  — e opacidade menor que 1 abre um CONTEXTO DE EMPILHAMENTO. O menu "⋯" da linha (`position:fixed`,
+  z 30) ficou preso dentro dele, e o fundo transparente que fecha o menu (z 25, fora da tabela) passou
+  a ficar POR CIMA: todo clique num item caía no fundo e só fechava o menu. Nenhuma rede viu (o bUnit
+  não tem leiaute); a foto também não — quem acusou foi o Playwright recusando o clique ("outro
+  elemento recebe o clique"), e a medida explicou (`elementFromPoint` devolvia o fundo; subir os pais
+  com `getComputedStyle` achou o `opacity:0.72`). Regra: menu, popover ou dica com `position:fixed` e
+  z-index não mora dentro de quem tem `opacity`, `transform`, `filter` ou `isolation` — tire a célula
+  das ações do efeito (`td:not(.rd-col-acoes)`) ou desenhe o menu fora da tabela.
+
+- **Tela reusada dentro de um painel: os `@media` dela olham a JANELA, não o painel** (out/2026,
+  conversa ao lado). A conversa do WhatsApp foi para uma gaveta de 460 px, mas numa janela de 1366 os
+  `@media (max-width:760px)` do `conversas.css` não valem: os botões do cabeçalho voltariam com rótulo
+  e o rodapé do campo apertaria. O modo painel (`.wa-ao-lado`, em `conversa-ao-lado.css`) repete o que
+  lá vale em ≤ 760 px com um seletor MAIS específico, e o roteiro de fotos acusa filho que vaza da
+  gaveta. Regra: componente que aparece em duas larguras na mesma janela ganha uma classe de modo (ou
+  `container-type` + `@container`), nunca só `@media`; e a foto vai na largura da JANELA, com o painel
+  aberto.
