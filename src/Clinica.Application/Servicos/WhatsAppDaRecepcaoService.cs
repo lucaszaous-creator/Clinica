@@ -534,6 +534,18 @@ public sealed class WhatsAppDaRecepcaoService(
         => new(aberta.Paciente?.Nome ?? aberta.Caso?.Paciente ?? (aberta.Conversa is { } c ? ConversasNaTela.NomeDaConversa(c) : null),
             DateOnly.FromDateTime(agora.DateTime), aberta.ProximoHorario?.Modalidade, aberta.ProximoHorario?.Quando, aberta.Caso);
 
+    /// <summary>Os modelos que CONVIDAM a voltar: enviados a quem tem caso aberto, contam como contato da retenção e exigem a autorização.</summary>
+    public static readonly IReadOnlySet<string> ModelosDeConvite = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        { ModeloDoWhatsApp.RetornoTratamento, ModeloDoWhatsApp.PrimeiroContato, "recall_semdor" };
+
+    /// <summary>
+    /// O caso que o envio do modelo registra (e que obriga a conferir a autorização): o caso
+    /// aberto da conversa, quando o modelo é um convite. O lembrete e o "documento pronto" não
+    /// mexem no Acompanhamento.
+    /// </summary>
+    public static LinhaAcompanhamento? CasoDoConvite(ConversaDoWhatsApp aberta, AppTemplate modelo)
+        => aberta.Caso is { Pendente: true } c && RetencaoNaTela.EmTratamento(c) && ModelosDeConvite.Contains(modelo.Name ?? "") ? c : null;
+
     private static bool TemLetra(string? s) => !string.IsNullOrWhiteSpace(s) && s.Any(char.IsLetter);
 
     private static string Maiuscula(string s) => s.Length == 0 ? s : char.ToUpper(s[0], PtBr) + s[1..];
