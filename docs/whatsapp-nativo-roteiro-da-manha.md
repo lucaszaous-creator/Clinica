@@ -6,8 +6,12 @@
 >
 > Tempo total: cerca de 1 h 30, quase tudo esperando o GitHub compilar.
 >
-> Se algo der errado no meio, pare ali. **Nada muda para as secretárias até a parte 4**
-> (ligar a tela nova). Até lá, a aba WhatsApp continua abrindo a moldura do CRM de hoje.
+> ⚠️ **Fase 3 (decisão da direção, 24/10): não existe mais a moldura nem a escolha "Tela nova /
+> Moldura do CRM".** A Recepção nova abre sempre a tela nativa, e o CRM novo não abre mais
+> dentro de app nenhum. Por isso, **faça as partes 1 e 2 em sequência, fora do horário de
+> atendimento**: entre o CRM novo no ar e a Recepção atualizada, a aba WhatsApp das Recepções
+> antigas fica em branco. Nesse intervalo, e em qualquer emergência depois, **as secretárias
+> usam o CRM no navegador** (o mesmo endereço de sempre, as mesmas conversas).
 
 Os detalhes de cada peça estão em `docs/whatsapp-nativo-implementacao.md`. O CRM em produção
 está descrito em `semdor-crm/docs/producao-out2026.md` (VPS 2) e em
@@ -121,7 +125,8 @@ outra versão.
    por quebrada sem motivo (aconteceu em 21/10).
 2. Teste **pela URL pública**. Direto na porta 8080, sem o Caddy, a resposta é 400.
 3. O CRM no navegador abre, entra e mostra as conversas.
-4. Na Recepção, a aba WhatsApp (a moldura de hoje) continua abrindo sem senha.
+4. Na Recepção ainda sem a versão nova, a aba WhatsApp (a moldura) **fica em branco** até a
+   parte 2: é o esperado (o CRM novo não abre em moldura). As secretárias usam o CRM no navegador.
 5. Em **Equipe**, confira quem aparece como administrador. É a mudança de comportamento
    do PR 0.
 6. Apague o pacote copiado: `rm -rf /tmp/crm-pacote`.
@@ -200,30 +205,16 @@ gh workflow run "Release (instalador + auto-update)" -R lucaszaous-creator/Clini
 
 ## 3. O que mudou na tela de Configurações
 
-Gerente → Configurações → **Integrações** ganhou um bloco novo, logo abaixo do Endereço do
-CRM: **"WhatsApp dentro do app"**.
-
-![O bloco em 1366](mockups/whatsapp-nativo/tela-real/configuracoes-whatsapp-1366.png)
-
-- **Tela nova (recomendado)**: as conversas e a retenção numa tela do próprio app, com a ficha
-  e os horários do paciente ao lado.
-- **Moldura do CRM**: o CRM aberto dentro da aba, como até hoje. É o padrão e fica como
-  reserva.
-- A escolha só aparece habilitada **com o endereço do CRM salvo**. Sem ele, o bloco diz
-  "Salve o endereço do CRM primeiro" (foto `configuracoes-whatsapp-sem-endereco-1024.png`).
-- Pede o mesmo acesso do endereço do CRM: **gerenciar usuários**.
-
-⚠️ **A escolha vale para a clínica inteira, não só para uma máquina.** Ela fica gravada no
-banco. Cada Recepção passa a usar a tela escolhida **quando o app dela for aberto de novo**.
-Por isso, ligue e confira **antes** de as secretárias chegarem. Assim, se algo faltar, dá tempo
-de voltar.
+Gerente → Configurações → **Integrações** tem só o **Endereço do CRM**, como antes da tela nova.
+O bloco "WhatsApp dentro do app" (a escolha entre a tela nova e a moldura) **saiu** na fase 3:
+com o endereço salvo, a aba WhatsApp da Recepção abre a tela nativa. Sem endereço, a aba diz
+como ligar.
 
 ---
 
 ## 4. Ligar e conferir (20 min)
 
-1. No Gerente: Configurações → Integrações → WhatsApp dentro do app → **Tela nova** →
-   **Salvar escolha**.
+1. Confira no Gerente que Configurações → Integrações → **Endereço do CRM** está preenchido.
 2. Numa máquina da Recepção: feche o app e abra de novo (ele também se atualiza). Entre com o
    **usuário de uma secretária** que tenha acesso à agenda.
 3. Clique em **WhatsApp**.
@@ -245,13 +236,16 @@ verdade: tudo o que sai, sai pelo número oficial da clínica.
 Se a tela mostrar "O CRM não respondeu" ou "não aceitou o acesso", veja o log do app
 (`Diagnostico`) antes de mexer em qualquer coisa.
 
-### Voltar atrás, sem release
+### Se algo der errado
 
-Gerente → Configurações → Integrações → **Moldura do CRM** → **Salvar escolha**. Depois feche e
-abra a Recepção. A aba volta a ser a moldura de hoje. Não precisa instalar nada.
+- **A aba WhatsApp não abre ou o CRM não responde:** as secretárias seguem no **CRM pelo
+  navegador** (as mesmas conversas, o mesmo número). Veja o log do app (`Diagnostico`) antes de
+  mexer em qualquer coisa.
+- **Defeito na tela nova:** a correção é um release novo da Recepção (e do Gerente). Não existe
+  volta automática de versão dos apps; a reserva, até o release sair, é o CRM no navegador.
 
-A volta não alcança um defeito **fora da aba**, por exemplo o app que não abre. Aí a correção é
-um release novo. Não existe volta automática de versão dos apps.
+Na VPS 2, a linha `CRM_EMBED_ORIGINS` do `/etc/semdor-crm/production.env` pode sair: o CRM novo
+não a lê mais (não faz mal se ficar).
 
 ---
 
@@ -293,10 +287,10 @@ Nada disso trava o que está acima. São decisões para a próxima rodada.
 - **Fase 2 (depois de a tela nova estar em uso):** a conversa vira um **painel ao lado** da
   Agenda do dia, da Ficha, de Confirmações e do Acompanhamento, sem trocar de tela. Então se
   decide o destino da tela Acompanhamento.
-- **Fase 3:** a moldura **sai inteira**, junto com a escolha deste bloco. Saem a tela
-  `WhatsAppNoCrm`, o CSS e a semente dela, e, no CRM, o `modo=recepcao`, o `modo-recepcao.js`,
-  o `CRM_EMBED_ORIGINS` e o teste dele. A entrada por bilhete **fica**: é por ela que a tela
-  nova entra.
+- **Fase 3: feita em 24/10 (decisão da direção).** A moldura saiu inteira: a tela
+  `WhatsAppNoCrm`, o roteador da aba, o CSS, a semente, a escolha em Configurações e, no CRM, o
+  `modo=recepcao`, o `modo-recepcao.js`, o `CRM_EMBED_ORIGINS` e os testes deles. A entrada por
+  bilhete **ficou**: é por ela que a tela nova entra.
 
 ---
 
