@@ -397,6 +397,39 @@ public sealed class ClienteDoCrmHttpTests : IDisposable
         Assert.Equal(2, crm.Pedidos.Count(p => p.Caminho == "/api/logout"));
     }
 
+    /// <summary>
+    /// O fechamento do app (Sair ou Trocar usuário) é o ponto único de saída, e o processo morre
+    /// logo depois: a saída tem de ter CHEGADO ao CRM quando <see cref="SaidaDoCrm.AoFecharOApp"/>
+    /// volta — sem esperar o <c>UltimaSaida</c> aqui no teste, que é o que o app não faz.
+    /// </summary>
+    [Fact] public async Task Fechar_o_app_tira_do_CRM_quem_estava_logado_antes_de_voltar()
+    {
+        await Configurar(EnderecoA);
+        crm.Rota = (_, _) => Responder(Array.Empty<AppConversationSummary>());
+        await cliente.ListarConversasAsync(7);
+
+        Assert.True(SaidaDoCrm.AoFecharOApp(cliente, 7, TimeSpan.FromSeconds(5)));
+
+        var saida = Assert.Single(crm.Pedidos, p => p.Caminho == "/api/logout");
+        Assert.Equal(("u7", 200), (saida.Agente, saida.Status));
+
+        // Ninguém logado (desistiu na entrada) e app sem cliente: nada a avisar, e nada lança.
+        Assert.False(SaidaDoCrm.AoFecharOApp(cliente, 0, TimeSpan.FromSeconds(5)));
+        Assert.False(SaidaDoCrm.AoFecharOApp(null, 7, TimeSpan.FromSeconds(5)));
+        Assert.Single(crm.Pedidos, p => p.Caminho == "/api/logout");
+    }
+
+    [Fact] public async Task Fechar_o_app_com_o_CRM_fora_do_ar_nao_lanca()
+    {
+        await Configurar(EnderecoA);
+        crm.Rota = (_, _) => Responder(Array.Empty<AppConversationSummary>());
+        await cliente.ListarConversasAsync(7);
+        crm.FalharSaida = true;
+
+        Assert.True(SaidaDoCrm.AoFecharOApp(cliente, 7, TimeSpan.FromSeconds(5)));
+        Assert.True(cliente.UltimaSaida.IsCompleted);
+    }
+
     [Fact] public async Task Duas_chamadas_simultaneas_que_tomam_401_emitem_um_bilhete()
     {
         await Configurar(EnderecoA);

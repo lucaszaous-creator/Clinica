@@ -211,6 +211,11 @@ do §1 é um método público com teste em `ConversasNaTelaTests` / `RetencaoNaT
 
 ### PR 5 — ligar na clínica, ao lado da moldura
 
+> **Rodada 2 (24/10/2026):** a escolha em Configurações → Integrações, a saída do CRM no
+> fechamento do app e o **roteiro da manhã** (`docs/whatsapp-nativo-roteiro-da-manha.md`: publicar
+> o CRM, os apps, ligar e conferir) estão entregues — ver §8. A linha do `ModuloRecepcao` e o
+> consumo do pedido do sino são da tela (PR 3).
+
 - `ParametrosService.ChaveWhatsAppNativo` (bool, padrão **false**) com o campo em Gerente →
   Configurações → Integrações, ao lado do Endereço do CRM: "WhatsApp dentro do app: tela nova
   (recomendado) / moldura do CRM".
@@ -219,8 +224,11 @@ do §1 é um método público com teste em `ConversasNaTelaTests` / `RetencaoNaT
 - O **sino** já navega para a aba com um `PedidoDeConversaNoCrm`; a tela nova o consome na
   abertura e no `AoVoltarAsync` (como a aba de hoje faz) e abre a conversa pelo telefone, liga a
   ficha **só se a conversa não tem ficha** (regra 5) e deixa o texto como rascunho.
-- Publicação: CRM (PR 0) → apps (Recepção e Gerente) → a direção liga a configuração numa
-  máquina, depois nas outras. Rollback = desligar a configuração; nenhum release.
+- Publicação: CRM (PR 0) → apps (Recepção e Gerente) → a direção liga a configuração antes de
+  a clínica abrir e confere. ⚠️ A configuração mora no banco e vale para a CLÍNICA inteira (não há
+  "uma máquina primeiro"): cada Recepção passa a usar a escolha quando o app for aberto de novo.
+  Rollback = voltar a configuração para a moldura; nenhum release. Passo a passo em
+  `docs/whatsapp-nativo-roteiro-da-manha.md`.
 - O PR diz em **UX · DX · CX** como cada regra de tela da direção foi atendida (as seis do
   `CLAUDE.md`), e o que ficou de fora (áudio, @SemDor).
 
@@ -324,3 +332,25 @@ da ponte (`Store.TeamProfiles` agora segue a regra de `WorkspaceStore.Team`).
 
 **Próxima rodada:** PR 3 (a tela, o CSS, os formulários, a semente e o `IClienteDoCrm` falso da
 prévia) e PR 4 (a retenção na tela), sobre `IClienteDoCrm` e as três classes de regras.
+
+## 8. Rodada 2 — a ligação (PR 5, 24/10/2026)
+
+| Peça | Onde | Teste |
+|---|---|---|
+| Bloco **"WhatsApp dentro do app"** (Tela nova (recomendado) / Moldura do CRM), logo abaixo do Endereço do CRM. Habilitado só com o endereço GRAVADO (diz por quê quando não está); duas barreiras com `GerenciarUsuarios`, o bit do endereço; o Salvar confere o endereço de novo no banco | `ConfiguracoesDaClinica.razor` (aba Integrações), regras e frases em `ConfiguracoesDaClinicaNaTela` | `ConfiguracoesDaClinicaNaTelaTests`; a tela é aberta e clicada pelo `TelasBlazorAbremTests`; fotos em `docs/mockups/whatsapp-nativo/tela-real/configuracoes-whatsapp-*.png` |
+| A chave `ChaveWhatsAppNativo`: nasce desligada, grava e relê, só `"true"` liga | `ParametrosService` | `ParametrosServiceTests.WhatsApp_nativo_*` |
+| **Saída do CRM no fechamento do app**: `EsquecerSessao` + espera de até 2 s pelo logout (sem a espera o aviso morria com o processo) | `Infrastructure/Crm/SaidaDoCrm`, chamada no `Closed` da `JanelaDoApp` — o ponto único: "Sair" fecha a janela e "Trocar usuário" reabre o processo | `ClienteDoCrmHttpTests.Fechar_o_app_*` |
+| O roteiro da direção | `docs/whatsapp-nativo-roteiro-da-manha.md` | — |
+
+**Fatos que a rodada descobriu:**
+
+- A **presença** "online" do CRM vem do pulso `/api/presence`, que só o CRM web manda (lease de
+  120 s). O que o logout do app encerra é a **sessão** no servidor (válida por 2 h), não a presença.
+- A **escolha não é por máquina**: a configuração da clínica mora no banco. O roteiro manda ligar e
+  conferir antes de a clínica abrir.
+- Os **modelos em produção** têm prefixo (`semdor_lembrete_sessao`, `semdor_iniciar_atendimento`):
+  os nomes que `ModeloDoWhatsApp` conhece não casam, e a tela cai em "Variável n" em branco até a
+  direção mandar a lista (pergunta 2 da rodada 1).
+- O `docs/producao-out2026.md` do CRM registra `79f823e` (21/10) como a versão no ar; a `main` tem
+  depois disso as fases 1–3 e o @SemDor. O roteiro manda conferir o `state.json` da VPS 2 e listar o
+  que vai junto antes de publicar.

@@ -330,7 +330,7 @@
                     <h3>Endereço do CRM</h3>
                     <div class="campos">
                         <Campo Rotulo="Endereço" Classe="largo"
-                               Dica="O mesmo que se abre no navegador, só o começo (https e o domínio, sem caminho). No servidor do CRM, CRM_EMBED_ORIGINS precisa ter https://0.0.0.0 — é o que deixa o CRM abrir dentro do app. Em branco, a aba WhatsApp mostra como ligar.">
+                               Dica="O mesmo que se abre no navegador, só o começo (https e o domínio, sem caminho). No servidor do CRM, CRM_EMBED_ORIGINS precisa ter https://0.0.0.0 — é o que deixa a MOLDURA do CRM abrir dentro do app (a tela nova não depende disso). Em branco, a aba WhatsApp mostra como ligar.">
                             <input class="campo" maxlength="200" placeholder="https://crm.suaclinica.com.br" @bind="_enderecoCrm" @bind:after="MudouCrm" />
                         </Campo>
                     </div>
@@ -340,6 +340,42 @@
                 @Mensagem(Aba.Integracoes, Bloco.Crm)
                 <div class="cfg-acoes">
                     <button type="button" class="botao primario" @onclick="SalvarCrmAsync" disabled="@(!PodeEditar || _salvando)"><Icone Nome="check" />Salvar endereço</button>
+                </div>
+            </footer>
+        </section>
+
+        <section class="cfg-bloco">
+            @Cabeca("WhatsApp dentro do app", "Qual tela a aba WhatsApp da Recepção abre. Dá para trocar a qualquer hora, aqui mesmo, sem instalar nada.", _pendWhatsApp)
+            <div class="cfg-bloco-campos">
+                <div class="cfg-grupo">
+                    <h3>Tela da aba WhatsApp</h3>
+                    @{ var semEscolha = ConfiguracoesDaClinicaNaTela.PorQueSemEscolhaDoWhatsApp(_enderecoCrmGravado); }
+                    <Aviso Tom="atencao" Texto="@semEscolha" />
+                    <div class="cfg-escolhas" role="radiogroup" aria-label="Tela da aba WhatsApp">
+                        <label class="cfg-escolha @(_whatsAppNativo ? "escolhida" : null) @(semEscolha is null ? null : "indisponivel")">
+                            <span class="marcar">
+                                <input type="radio" name="cfg-whatsapp" checked="@_whatsAppNativo" disabled="@(!PodeEditar || semEscolha is not null)"
+                                       @onchange="() => EscolherWhatsApp(true)" />
+                                <strong>Tela nova (recomendado)</strong>
+                            </span>
+                            <span class="campo-dica">@ConfiguracoesDaClinicaNaTela.ExplicaTelaNovaDoWhatsApp</span>
+                        </label>
+                        <label class="cfg-escolha @(_whatsAppNativo ? null : "escolhida") @(semEscolha is null ? null : "indisponivel")">
+                            <span class="marcar">
+                                <input type="radio" name="cfg-whatsapp" checked="@(!_whatsAppNativo)" disabled="@(!PodeEditar || semEscolha is not null)"
+                                       @onchange="() => EscolherWhatsApp(false)" />
+                                <strong>Moldura do CRM</strong>
+                            </span>
+                            <span class="campo-dica">@ConfiguracoesDaClinicaNaTela.ExplicaMolduraDoWhatsApp</span>
+                        </label>
+                    </div>
+                    <p class="cfg-nota">Para voltar atrás, escolha a outra opção e salve. A Recepção usa a escolha nova quando o app for aberto de novo.</p>
+                </div>
+            </div>
+            <footer class="cfg-bloco-rodape">
+                @Mensagem(Aba.Integracoes, Bloco.WhatsApp)
+                <div class="cfg-acoes">
+                    <button type="button" class="botao primario" @onclick="SalvarWhatsAppAsync" disabled="@(!PodeEditar || _salvando || semEscolha is not null)"><Icone Nome="check" />Salvar escolha</button>
                 </div>
             </footer>
         </section>
@@ -512,7 +548,7 @@
         Aba.Atendimento => _pendConclusao,
         Aba.Operacao => _pendOperacao,
         Aba.Faturamento => _pendFaturamento,
-        Aba.Integracoes => _pendPublicacao || _pendCrm,
+        Aba.Integracoes => _pendPublicacao || _pendCrm || _pendWhatsApp,
         _ => _pendBackup
     };
 
@@ -529,8 +565,8 @@
 
     private enum Aba { Clinica, Atendimento, Operacao, Faturamento, Integracoes, Backup }
 
-    /// <summary>A aba Integrações tem blocos com o próprio Salvar e a própria mensagem (CRM e publicação).</summary>
-    private enum Bloco { Unico, Publicacao, Crm }
+    /// <summary>A aba Integrações tem blocos com o próprio Salvar e a própria mensagem (CRM, WhatsApp e publicação).</summary>
+    private enum Bloco { Unico, Publicacao, Crm, WhatsApp }
 
     private static readonly (Aba Aba, string Rotulo)[] Abas =
     [
@@ -567,6 +603,9 @@
     private string _armSegredo = string.Empty;
     // O CRM dentro da Recepção (docs/crm-na-recepcao.md)
     private string? _enderecoCrm;
+    // A tela da aba WhatsApp (PR 5 do WhatsApp nativo): a escolha só vale com o endereço GRAVADO.
+    private string? _enderecoCrmGravado;
+    private bool _whatsAppNativo;
     private bool _temSegredoGravado, _armVemDoAmbiente, _testando;
     private string _situacaoPublicacao = string.Empty;
     // Backup
@@ -575,9 +614,9 @@
     private bool _backupDesligado = true, _resumoBackupEhErro, _resumoBackupNaPolitica, _copiando;
 
     // Pendências por bloco: salvar um bloco não pode apagar o que foi digitado nos outros.
-    private bool _pendClinica, _pendConclusao, _pendOperacao, _pendFaturamento, _pendPublicacao, _pendBackup, _pendCrm;
+    private bool _pendClinica, _pendConclusao, _pendOperacao, _pendFaturamento, _pendPublicacao, _pendBackup, _pendCrm, _pendWhatsApp;
     private bool Pendente => _pendClinica || _pendConclusao || _pendOperacao || _pendFaturamento
-                             || _pendPublicacao || _pendBackup || _pendCrm;
+                             || _pendPublicacao || _pendBackup || _pendCrm || _pendWhatsApp;
 
     private bool _carregou, _carregando, _naoVerificado, _salvando, _termos, _campos;
     private string? _erroLeitura, _mensagem;
@@ -600,6 +639,13 @@
     private void MudouFaturamento() => _pendFaturamento = true;
     private void MudouPublicacao() => _pendPublicacao = true;
     private void MudouCrm() => _pendCrm = true;
+
+    private void EscolherWhatsApp(bool telaNova)
+    {
+        if (_whatsAppNativo == telaNova) return;
+        _whatsAppNativo = telaNova;
+        _pendWhatsApp = true;
+    }
 
     protected override Task OnInitializedAsync() => CarregarAsync();
 
@@ -726,6 +772,7 @@
             var conclusao = await LerConclusaoAsync(sp);
             var publicacao = await LerPublicacaoAsync(p);
             var enderecoCrm = await p.ObterEnderecoDoCrmAsync();
+            var whatsAppNativo = await p.ObterWhatsAppNativoAsync();
             var copia = await sp.GetRequiredService<ICopiaDeSeguranca>().SituacaoAsync();
             var (pendencias, resumo) = await LerPendenciasAsync(sp);
             if (geracao != _geracao || Descartada) return;
@@ -737,6 +784,7 @@
             (_pendencias, _resumoPendencias) = (pendencias, resumo);
             PublicarPublicacao(publicacao);
             PublicarCrm(enderecoCrm);
+            PublicarWhatsApp(whatsAppNativo);
             PublicarBackup(copia);
 
             _carregou = true;
@@ -815,8 +863,14 @@
 
     private void PublicarCrm(string? endereco)
     {
-        _enderecoCrm = endereco;
+        _enderecoCrm = _enderecoCrmGravado = endereco;
         _pendCrm = false;
+    }
+
+    private void PublicarWhatsApp(bool telaNova)
+    {
+        _whatsAppNativo = telaNova;
+        _pendWhatsApp = false;
     }
 
     private void PublicarPublicacao(LidoPublicacao l)
@@ -984,6 +1038,29 @@
             return _enderecoCrm is null
                 ? "Endereço do CRM apagado: a aba WhatsApp da Recepção mostra como ligar."
                 : "Endereço do CRM salvo: a aba WhatsApp da Recepção já abre as conversas.";
+        });
+    }
+
+    /// <summary>
+    /// A tela da aba WhatsApp. Mesmo bit do endereço do CRM; a recusa sem endereço é conferida
+    /// de novo no banco (o endereço pode ter sido apagado noutra máquina depois desta leitura).
+    /// </summary>
+    private async Task SalvarWhatsAppAsync()
+    {
+        if (!Exigir(Permissao.GerenciarUsuarios, "mudar as configurações da clínica")) return;
+        await GravarAsync(Aba.Integracoes, Bloco.WhatsApp, "WhatsApp dentro do app", async sp =>
+        {
+            var p = sp.GetRequiredService<ParametrosService>();
+            var gravado = await p.ObterEnderecoDoCrmAsync();
+            if (ConfiguracoesDaClinicaNaTela.PorQueSemEscolhaDoWhatsApp(gravado) is { } porQue)
+            {
+                _enderecoCrmGravado = gravado;
+                Dizer(Aba.Integracoes, porQue, erro: true, Bloco.WhatsApp);
+                return null;
+            }
+            await p.SalvarWhatsAppNativoAsync(_whatsAppNativo);
+            PublicarWhatsApp(await p.ObterWhatsAppNativoAsync());
+            return ConfiguracoesDaClinicaNaTela.FraseWhatsAppSalvo(_whatsAppNativo);
         });
     }
 
