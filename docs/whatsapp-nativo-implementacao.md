@@ -272,3 +272,55 @@ A entrada por bilhete **fica**: é o que o `ClienteDoCrmHttp` usa. "Função que
    O mockup usa as do CRM.
 3. O **destino da tela Acompanhamento** depois da fase 2.
 4. **Áudio e @SemDor** na tela nativa: fase 4, ou nunca (ficam no CRM web)?
+
+## 7. Rodada 1 entregue (24/10/2026): PR 0, PR 1 e PR 2
+
+Três agentes em paralelo, juntados na branch `claude/whatsapp-system-integration-ankslw` dos dois
+repositórios. Verde na árvore juntada: build `--no-incremental` sem warning, 341 testes das
+famílias tocadas (`Crm`, `Ponte`, `EntradaNoCrm`, `ConversasNaTela`, `RetencaoNaTela`,
+`ModeloDoWhatsApp`, `Acompanhamento`, `AvisosDeConfirmacao`), `verificar-suite`, e no CRM a suíte
+inteira (820 + 20) e os 13 testes do contrato. A suíte completa do Clinica é do CI do PR.
+
+| PR | Onde | O que ficou pronto |
+|---|---|---|
+| 0 | semdor-crm | `previewDirection`/`previewStatus` na lista; `?desde=` (`ListaDesde`, margem de 5 s porque o `Store.Save` carimba `UpdatedAt` antes de confirmar); `ApiParaOsAppsTests` (reprova campo que some, por reflexão; fluxo do bilhete; SHA-256 do contrato) |
+| 1 | Clinica | `IClienteDoCrm` + `ClienteDoCrmHttp` (Singleton; sessão por usuário; entrada por bilhete serializada; 401 e CSRF recusado renovam UMA vez; pausa de 1 min depois de acesso recusado, para não esgotar o limite de login do IP da clínica; logout avisa o CRM sem esperar); `RecusaDoCrm`, `CrmIndisponivel`, `CrmNaoConfigurado`; `ContratosDoCrmTests` |
+| 2 | Clinica | `ConversasNaTela`, `RetencaoNaTela`, `ModeloDoWhatsApp`, 83 testes |
+
+**Fatos que a rodada descobriu e que valem para a tela (PR 3):**
+
+- **Status de saída reais** do CRM: `sending`, `accepted`, `simulated`, `uncertain`, `delivered`,
+  `seen` (lida), `failed`. `ConversasNaTela.Tick` já mapeia; status desconhecido vira "Envio não
+  confirmado" (dizer "enviada" sem confirmação faria a recepção não conferir).
+- **`AppReply.Id` e `AppNoteRequest.Id` são Guid "D"** (com hífens). O contrato foi corrigido nos
+  dois repositórios (SHA-256 novo: `ff97010885fcd28d8c9de2a681a8025bf839eb6c6a6cda8edea6f335ad3504c7`).
+- **O `?desde=` não traz** a leitura feita noutro aparelho nem a conversa que saiu da visão do
+  usuário: a tela relê a lista inteira ao abrir e a cada poucos minutos.
+- **Aviso do sino → conversa**: só para conversa com ficha conferida (`PatientId`), pelo mapa
+  agendamento → paciente que a tela monta da agenda do período (`ConversasNaTela.AvisosDaConversa`).
+- **Os dias do Gerente são UM número** (`ParametrosService.ObterDiasInatividadeRecallAsync`, padrão
+  60). Os degraus 30 / 20 / 15 do mockup não existem na configuração: `RetencaoNaTela.Agrupar`
+  recebe os limites, e com `[60]` a lista sai num grupo só.
+- **"Novos no BSV"** no Acompanhamento são os indicados que ainda NÃO fizeram a 1ª sessão; os textos
+  dizem isso (o "como se sentiu" do mockup pressupunha sessão feita).
+- **"Retornos pedidos" ficaram fora** da retenção: `RetornoAMarcar` não traz modalidade nem
+  autorização, e a tela "Retornos a marcar" já responde a pergunta.
+- **Modelos**: `{{n}}` ligado por nome do modelo (`lembrete_sessao`, `retorno_tratamento`,
+  `documento_pronto`, `primeiro_contato`, `recall_semdor`, `semdor_confirmacao_24h`); modelo
+  desconhecido sai com "Variável n" vazia para a pessoa preencher. Nenhum valor inventado.
+- **Encerrar e respostas rápidas** vêm do CRM (`GET /api/workspace`: os seis resultados de
+  `Store.Outcomes` e as respostas rápidas). Responde as perguntas 1 e 2 do §6.
+- O mockup erra os dias da semana (24/10/2026 é **sábado**); os testes usam o calendário real.
+
+**Mudança de comportamento em produção que veio junto (CRM):** quando não há perfil gravado, o
+administrador padrão do CRM passa a ser quem é administrador no Clinica, e não o primeiro da lista
+da ponte (`Store.TeamProfiles` agora segue a regra de `WorkspaceStore.Team`).
+
+**Perguntas para a direção antes do PR 4:**
+
+1. Quer os degraus 30 / 20 / 15 dias como configuração nova do Gerente, ou um limite só basta?
+2. Quais são os nomes reais dos modelos aprovados na Meta? Os do mockup provavelmente não existem.
+3. O "como se sentiu depois da 1ª sessão de BSV" precisa de uma fila nova no Acompanhamento?
+
+**Próxima rodada:** PR 3 (a tela, o CSS, os formulários, a semente e o `IClienteDoCrm` falso da
+prévia) e PR 4 (a retenção na tela), sobre `IClienteDoCrm` e as três classes de regras.

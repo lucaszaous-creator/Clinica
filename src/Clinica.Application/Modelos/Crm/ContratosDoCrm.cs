@@ -41,8 +41,8 @@ public sealed record AppConversationsSince(AppConversationSummary[] Conversation
 // ---------- A conversa ----------
 public sealed record AppTemplateSelection(string Name, string Language, string[] Parameters, string[]? ButtonPayloads = null);
 /// <summary>
-/// Direction "in" | "out". Status: "received" (entrada) e, na saída, "queued" | "sent" | "delivered" |
-/// "read" | "failed" (Error diz por quê). Type "TEXT" | "IMAGE" | "DOCUMENT" | "AUDIO" | "VIDEO" | "TEMPLATE" |
+/// Direction "in" | "out". Status: "received" (entrada) e, na saída, "sending" | "accepted" | "simulated" |
+/// "uncertain" (envio não confirmado) | "delivered" | "seen" (lida) | "failed" (Error diz por quê). Type "TEXT" | "IMAGE" | "DOCUMENT" | "AUDIO" | "VIDEO" | "TEMPLATE" |
 /// "INTERACTIVE". AgentId nulo na saída = mensagem automática (lembrete, recall, menu).
 /// </summary>
 public sealed record AppMessage(string Id, string Direction, string Text, string Type, string? AgentId, DateTimeOffset At,
@@ -60,10 +60,10 @@ public sealed record AppConversation(string Id, string Name, string Contact, str
 // ---------- Escritas (corpo dos POST; toda escrita leva X-CSRF-TOKEN e a Version da conversa) ----------
 /// <summary>POST /api/conversations — Sender é um AppInbox.Sender (ou o remetente do SMS).</summary>
 public sealed record AppNewConversation(string Sender, string Contact, string Name);
-/// <summary>POST …/{id}/reply. Id: gerado pelo app (Guid "N"), torna o envio idempotente. Modelo: Template preenchido e Text vazio.</summary>
+/// <summary>POST …/{id}/reply. Id: gerado pelo app, Guid no formato "D" (com hífens; "N" é recusado), torna o envio idempotente. Modelo: Template preenchido e Text vazio.</summary>
 public sealed record AppReply(int Version, string Id, string Text, string? AttachmentId = null,
     AppTemplateSelection? Template = null, string? ReplyToId = null);
-/// <summary>POST …/{id}/notes — nota interna; nunca vai ao paciente.</summary>
+/// <summary>POST …/{id}/notes — nota interna; nunca vai ao paciente. Id: Guid no formato "D", como no AppReply.</summary>
 public sealed record AppNoteRequest(int Version, string Id, string Text);
 /// <summary>POST …/{id}/claim · /transfer · /reopen · /reassign (AgentId nulo = devolver à fila).</summary>
 public sealed record AppChange(int Version, string? AgentId, string? Queue, string? Note = null);
