@@ -1,4 +1,5 @@
 // Dados FICTÍCIOS da prévia — nenhuma pessoa real, nenhum telefone real.
+using System.IO;
 using System.Globalization;
 using System.Text;
 using Clinica.Application.Abstracoes;

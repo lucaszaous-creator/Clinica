@@ -9,6 +9,9 @@
   <ItemGroup>
     <!-- As MESMAS sementes fictícias da prévia e do dotnet test (a conferência das trocas Blazor abre as telas com dados). -->
     <Compile Include="../PreviaBlazor/Sementes/*.cs" Link="Sementes/%(Filename)%(Extension)" />
+    <!-- A semente do WhatsApp (ConversasDoWhatsApp.cs) usa PessoasDoWhatsApp e RelogioDaPrevia, que moram
+         no arquivo do CRM de mentira: sem ele, este projeto não compila (o CI do Windows o roda). -->
+    <Compile Include="../PreviaBlazor/CrmDeMentira.cs" Link="CrmDeMentira.cs" />
   </ItemGroup>
   <ItemGroup>
     <!-- Ferramenta de QA com banco fictício; os executáveis publicados não recebem SQLite. -->

@@ -348,9 +348,53 @@ prévia) e PR 4 (a retenção na tela), sobre `IClienteDoCrm` e as três classes
   120 s). O que o logout do app encerra é a **sessão** no servidor (válida por 2 h), não a presença.
 - A **escolha não é por máquina**: a configuração da clínica mora no banco. O roteiro manda ligar e
   conferir antes de a clínica abrir.
-- Os **modelos em produção** têm prefixo (`semdor_lembrete_sessao`, `semdor_iniciar_atendimento`):
-  os nomes que `ModeloDoWhatsApp` conhece não casam, e a tela cai em "Variável n" em branco até a
-  direção mandar a lista (pergunta 2 da rodada 1).
+- Os **modelos em produção** têm prefixo (`semdor_lembrete_sessao`, `semdor_iniciar_atendimento`).
+  **Resolvido na mesma noite**: `ModeloDoWhatsApp` passou a conhecer os doze aprovados (a tabela
+  `KNOWN` do `template-picker.js` do CRM), e o convite da retenção usa
+  `RetencaoNaTela.CandidatosDoConvite` (o `semdor_*` antes do nome do mockup).
 - O `docs/producao-out2026.md` do CRM registra `79f823e` (21/10) como a versão no ar; a `main` tem
   depois disso as fases 1–3 e o @SemDor. O roteiro manda conferir o `state.json` da VPS 2 e listar o
   que vai junto antes de publicar.
+
+## 9. Rodada 2 — a tela (PR 3 e PR 4, 24/10/2026)
+
+O que está na branch `claude/whatsapp-system-integration-ankslw` e funciona de ponta a ponta na
+prévia (com o CRM de mentira) e no bUnit:
+
+| Peça | Onde |
+|---|---|
+| O roteador da aba: lê `ObterWhatsAppNativoAsync` e mostra a tela nova ou a moldura; relê ao voltar à aba; se a leitura falhar, fica a moldura | `Telas/Recepcao/WhatsAppDaRecepcao.razor`; `ModuloRecepcao` aponta para ele |
+| A tela: lista em dois modos (Conversas / Retenção), conversa (linha do tempo, ticks, aviso que pede ação, janela fechada com modelo, modelos com variáveis e prévia, respostas rápidas, anexo, busca, Ctrl+Enter), assumir/devolver/transferir/encerrar/reabrir, nova conversa, coluna do paciente (ficha, horários com confirmar/não vem/manter/remarcar/cancelar, confirmação de hoje, caso do Acompanhamento com o "Como foi?"), estados sem permissão / não configurado / fora do ar / conflito, releitura de 7 s com `desde` e lista inteira a cada 3 min | `Telas/Recepcao/ConversasDoWhatsApp.razor`, `Ativos/css/telas/conversas.css`, `Formularios/WhatsApp/*` |
+| A composição dos dados e as escritas (as MESMAS das telas vizinhas: `CampanhaService`, `AgendaService`, `IAcompanhamentoPacienteService`, `ConsentimentoService.RevogarAsync`); no 409 de responder/nota/modelo relê e repete UMA vez com o mesmo Id | `Servicos/WhatsAppDaRecepcaoService.cs` (18 testes) |
+| Duas consultas novas (pacientes dos agendamentos; fichas com o telefone) | repositório + `TraducaoNoNpgsqlTests` |
+| Cancelar com motivo na auditoria (o mesmo cancelamento, que suspende as guias) | `AgendaService.CancelarComMotivoAsync` |
+| O CRM de mentira e a semente (prévia e `TelasBlazorAbremTests`); `CLINICA_PREVIA_CRM=fora-do-ar` ou `nao-configurado` para fotografar as falhas | `tools/PreviaBlazor/CrmDeMentira.cs`, `Sementes/ConversasDoWhatsApp.cs` |
+
+Fotos da tela real (1024 e 1366, cada estado e formulário, e três fluxos executados):
+`docs/mockups/whatsapp-nativo/tela-real/`.
+
+**Verificação na árvore juntada:** build `--no-incremental` de `Clinica.Ui.Blazor`, dos testes e da
+prévia sem warning; `compilar-sombra` (13 projetos WPF); `verificar-suite`; as famílias tocadas em
+SQLite; **e no Postgres** (`CLINICA_TESTES_POSTGRES`, local): as famílias das consultas e escritas
+novas (`WhatsAppDaRecepcao`, `TraducaoNoNpgsql`, `AgendaService`, `Acompanhamento`,
+`CampanhaService`, `ParametrosService`) passaram. A suíte inteira roda no CI do PR.
+
+**O que a rodada achou e corrigiu na junção:**
+
+- O `tools/ValidarLayoutWindows` (que o CI do Windows roda) compila as sementes da prévia mas não
+  enxergava o `CrmDeMentira.cs`, onde moram `PessoasDoWhatsApp` e `RelogioDaPrevia`: seria build
+  vermelho no CI. O `.csproj` passou a incluí-lo, e o arquivo ganhou o `using System.IO` que esse
+  projeto não tem implícito. Lição em `docs/agentes/convencoes.md`.
+- Com `CLINICA_TESTES_POSTGRES`, o banco das telas (`BancoDasTelas`) também vai ao Postgres, e uma
+  semente ANTIGA (horário do Dr. Caio, agenda protegida) cai fora da jornada conforme o dia: o
+  gatilho `CK_Agenda_Protegida` recusa. **É anterior a esta rodada** (reproduzido no commit
+  `1a828bd`) e coerente com o `CLAUDE.md` ("a rede do Postgres não cobre as telas"). Não corrigido
+  aqui; está nas perguntas da manhã.
+- O CRM real recusa assumir/transferir/reabrir enquanto há envio em `sending` ("Aguarde o envio em
+  andamento"); o CRM de mentira não imita. A tela trata: no 409 relê e mostra a frase.
+
+**O que ficou de fora:** formulário próprio de remarcar (abre a janela do horário da agenda, dois
+cliques; a mensagem "Combinado…" fica como rascunho); "Cadastrar com este telefone" não
+pré-preenche o telefone (o `FormulariosDoPaciente.CadastrarAsync` não aceita; a notificação pede
+para conferir); "Ver caso" abre o Acompanhamento sem abrir o caso (não há pedido por caso).
+

@@ -5,7 +5,7 @@ sessão). O texto é o MESMO, sem reescrita: design system, WPF/XAML, Blazor, EF
 `verificar-suite`, assinatura digital, impressão, CRM e as rodadas de UI, cada uma com o defeito que a
 originou. Antes de escrever uma tela, uma consulta ou uma checagem, procure aqui a lição da área.
 
-## Índice (181 tópicos, na ordem do arquivo)
+## Índice (182 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -190,6 +190,7 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
 - A VENDA DE PACOTE TINHA UMA PORTA, E ELA PERGUNTAVA O QUE A TELA JÁ SABIA
 - Três armadilhas de XAML que a releitura do próprio diff pegou
 - Classe de tela Blazor nova leva o PREFIXO da tela: `entrada`, `saida` e `dica` já são do comum
+- Arquivo novo da prévia que uma SEMENTE usa entra também no `ValidarLayoutWindows.csproj`
 
 ---
 
@@ -4975,3 +4976,13 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
   flutuando sobre o cabeçalho. Nenhuma rede acusa (é CSS válido); só a foto. Regra: toda
   classe que uma tela cria leva o prefixo dela (`conv-`, `ctx-`, `ficha-`), e antes de usar
   um nome curto, `grep -n "^\.nome\b\|\.nome{" Ativos/css/clinica.css Ativos/css/telas/moldura.css`.
+
+- **Arquivo novo da prévia que uma SEMENTE usa entra também no `ValidarLayoutWindows.csproj`**
+  (out/2026, WhatsApp nativo). As sementes de `tools/PreviaBlazor/Sementes/*.cs` são compiladas em
+  TRÊS lugares: a prévia, o `Clinica.Tests` e o `tools/ValidarLayoutWindows` (que o CI do Windows
+  roda). A semente do WhatsApp passou a usar classes do `CrmDeMentira.cs`; o agente o incluiu no
+  `Clinica.Tests.csproj` e esqueceu o validador. Prévia e testes verdes, CI vermelho. Só o
+  `compilar-sombra` acusou. E o validador não tem `using System.IO` implícito. Antes de commitar
+  uma semente que usa arquivo de fora de `Sementes/`: `grep -rn "PreviaBlazor/Sementes" --include=*.csproj`
+  e inclua o arquivo em todos.
+
