@@ -56,9 +56,12 @@ public sealed record CartaoDoPaciente(int Id, string Nome, string Iniciais, stri
     string Convenio, string? Carteirinha, bool CarteirinhaVencida, string FimDoDocumento, bool MensagensAutorizadas, string Mensagens);
 
 /// <summary>
-/// Um horário do paciente, com o que a confirmação diz dele e o que dá para fazer ali. As
-/// ações seguem o contato de confirmação: sem contato na rodada não há "confirmar" nem "não
-/// vem" — registrar uma resposta para um lembrete que não saiu seria inventar a conversa.
+/// Um horário do paciente, com o que a confirmação diz dele e o que dá para fazer ali. "Confirmar"
+/// e "Não vem" valem para todo horário MARCADO E FUTURO da ficha conferida, com ou sem a rodada de
+/// Confirmações (R1, 25/10): o paciente diz "confirmo" ou "não vou" na própria conversa, e a resposta
+/// grava o contato de confirmação daquele horário (<see cref="CampanhaService.RegistrarRespostaDoHorarioAsync"/>).
+/// Nenhum dos dois depois que ele já respondeu que não vem (aí é "Manter" ou remarcar) nem para o horário
+/// que saiu da rodada por decisão de alguém.
 /// </summary>
 public sealed record HorarioDoPaciente(int AgendamentoId, DateTime Quando, string QuandoTexto, string Detalhe,
     string Situacao, string Tom, bool PodeConfirmar, bool PodeNaoVem, bool PodeManter, int? ProfissionalId,
@@ -73,11 +76,22 @@ public sealed record PassoDaConfirmacao(string Hora, string Texto);
 /// reler o app.
 /// </summary>
 /// <param name="Conversa">Nulo: o caso da retenção que ainda não tem conversa no CRM (nasce no primeiro envio).</param>
+/// <param name="ParaResolver">O que resolver com o paciente da ficha conferida (os alertas da Ficha do balcão), lido
+/// DEPOIS de a conversa estar desenhada — nulo enquanto não foi lido (<see cref="WhatsAppDaRecepcaoService.ParaResolverAsync"/>).</param>
 public sealed record DadosDaConversa(AppConversation? Conversa, string Contato, string? NomeDoCaso,
     IReadOnlyDictionary<string, string> Agentes, string? MeuAgente, int RecebidasJaLidas,
     IReadOnlyList<AvisoDeConfirmacao> Avisos, IReadOnlyList<FichaCandidata> Candidatas, CartaoDoPaciente? Paciente,
     IReadOnlyList<HorarioDoPaciente> Horarios, IReadOnlyList<PassoDaConfirmacao> Confirmacao,
-    LinhaAcompanhamento? Caso, IReadOnlyList<ContatoAcompanhamento> Contatos, IReadOnlyDictionary<string, string> Resultados);
+    LinhaAcompanhamento? Caso, IReadOnlyList<ContatoAcompanhamento> Contatos, IReadOnlyDictionary<string, string> Resultados,
+    ParaResolverDoPaciente? ParaResolver = null);
+
+/// <summary>
+/// "Para resolver" na coluna do paciente (R6, 25/10): os MESMOS alertas que a Ficha do balcão mostra
+/// (<see cref="ElegibilidadeService"/>: consulta a renovar, cota, carteirinha, guia glosada, pacote vencendo, conta em
+/// atraso, termo pendente), do paciente <see cref="PacienteId"/>. <see cref="Falhou"/>: a leitura não veio — a tela diz
+/// que NÃO conferiu, nunca "nada a resolver".
+/// </summary>
+public sealed record ParaResolverDoPaciente(int PacienteId, IReadOnlyList<FichaAdministrativaNaTela.Alerta> Alertas, bool Falhou = false);
 
 /// <summary>A conversa aberta, composta: o que as colunas 2 e 3 desenham.</summary>
 public sealed record ConversaDoWhatsApp(DadosDaConversa Dados, string Id, string Nome, string Iniciais, string TomDoAvatar,
@@ -91,6 +105,19 @@ public sealed record ConversaDoWhatsApp(DadosDaConversa Dados, string Id, string
 
     /// <summary>A primeira sessão marcada daqui para a frente (a faixa da conversa e o modelo do lembrete).</summary>
     public HorarioDoPaciente? ProximoHorario => Dados.Horarios.FirstOrDefault();
+
+    /// <summary>
+    /// O nome que a pessoa usa no WhatsApp, enquanto a ficha não foi conferida (item 16 da revisão, 25/10): o título
+    /// da conversa é o TELEFONE e este nome aparece rotulado como "nome no WhatsApp" — com duas fichas no mesmo número,
+    /// o nome do perfil não diz qual delas é a pessoa (regra 5: o telefone não é identidade). Nulo com a ficha conferida.
+    /// </summary>
+    public string? NomeNoWhatsApp { get; init; }
+
+    /// <summary>O nome do perfil, rotulado para o cabeçalho: "Terezinha (nome no WhatsApp)"; no SMS, "(nome na conversa)" — SMS não tem perfil.</summary>
+    public string? NomeDoPerfil => NomeNoWhatsApp is { } n ? $"{n} (nome {(Sms ? "na conversa" : "no WhatsApp")})" : null;
+
+    /// <summary>Sem telefone (o caso da retenção de quem não tem celular na ficha): não há WhatsApp, janela nem selo do canal.</summary>
+    public bool SemTelefone => string.IsNullOrWhiteSpace(Telefone);
 }
 
 /// <summary>O envio feito, e o que não deu certo DEPOIS dele (a mensagem já saiu: a frase diz o que falta).</summary>
@@ -120,7 +147,8 @@ public sealed record ResultadoDoEnvio(AppConversation Conversa, string? Pendenci
 public sealed class WhatsAppDaRecepcaoService(
     IClienteDoCrm crm, IClinicaRepositorio repo, IAcompanhamentoPacienteService acompanhamento,
     AvisosDeConfirmacaoService avisos, CampanhaService campanha, AgendaService agenda,
-    ConsentimentoService consentimentos, ParametrosService parametros)
+    ConsentimentoService consentimentos, ParametrosService parametros, ElegibilidadeService elegibilidade,
+    RecallDoDia recallDoDia)
 {
     private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
 
@@ -168,8 +196,8 @@ public sealed class WhatsAppDaRecepcaoService(
         var lista = await avisos.ListarAsync(agora.DateTime, agora.Date, ct);
         var donos = await repo.PacientesDosAgendamentosAsync(lista.Select(a => a.AgendamentoId).Distinct().ToList(), ct);
         var fichas = await FichasDasConversasAsync(conversas, ct);
-        var (retencao, permitida) = await RetencaoAsync(ct);
         var dias = await parametros.ObterDiasInatividadeRecallAsync(ct);
+        var (retencao, permitida) = await RetencaoAsync(dias, DateOnly.FromDateTime(agora.DateTime), ct);
         return new PainelDoWhatsApp(sessao, area, conversas, agora, lista, donos, fichas, retencao, permitida, [dias]) { SemDor = semdor };
     }
 
@@ -219,10 +247,34 @@ public sealed class WhatsAppDaRecepcaoService(
         return porId.Values.OrderByDescending(c => c.UpdatedAt).ThenBy(c => c.Id, StringComparer.Ordinal).ToList();
     }
 
-    private async Task<(IReadOnlyList<LinhaAcompanhamento> Linhas, bool Permitida)> RetencaoAsync(CancellationToken ct)
+    /// <summary>
+    /// A fila da Retenção. Antes de ler, a fila do recall se RENOVA uma vez por dia (item 8, 25/10): ela só se renovava
+    /// quando alguém abria a tela Acompanhamento, e quem trabalha só pela aba WhatsApp via a fila envelhecer sem aviso.
+    /// É o MESMO <see cref="IAcompanhamentoPacienteService.GerarRecallAsync"/>, com os dias do Gerente, e ele não
+    /// duplica caso (o caso que já está no ciclo da última sessão fica como está). O dia é marcado em
+    /// <see cref="RecallDoDia"/>, dividido com a tela Acompanhamento.
+    /// </summary>
+    private async Task<(IReadOnlyList<LinhaAcompanhamento> Linhas, bool Permitida)> RetencaoAsync(int dias, DateOnly hoje, CancellationToken ct)
     {
+        await RenovarRecallDoDiaAsync(dias, hoje, ct);
         try { return (await acompanhamento.ListarAsync(UsuarioId, ct), true); }
         catch (UnauthorizedAccessException) { return ([], false); }
+    }
+
+    /// <summary>
+    /// Renova a fila do recall se ainda não foi renovada hoje neste app. Quem não tem o acesso do Acompanhamento não
+    /// renova (o serviço recusa) e não marca o dia: a próxima pessoa com acesso renova. A falha vai ao log e libera o
+    /// dia — a leitura seguinte tenta de novo; a aba abre do mesmo jeito.
+    /// </summary>
+    private async Task RenovarRecallDoDiaAsync(int dias, DateOnly hoje, CancellationToken ct)
+    {
+        if (!SessaoUsuario.Atual.Pode(Permissao.GerenciarCampanhas) || !recallDoDia.Reservar(hoje)) return;
+        try { await acompanhamento.GerarRecallAsync(UsuarioId, dias, ct: ct); }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            recallDoDia.Liberar(hoje);
+            if (ex is not UnauthorizedAccessException) Diagnostico.Registrar("WhatsApp — a fila do recall não pôde ser renovada (a Retenção segue com a de antes)", ex);
+        }
     }
 
     /// <summary>As fichas que têm o telefone de cada conversa sem ficha conferida — UMA consulta para todas.</summary>
@@ -331,6 +383,7 @@ public sealed class WhatsAppDaRecepcaoService(
         {
             try { doCaso = (await acompanhamento.HistoricoAsync(UsuarioId, caso.Id, ct)).Where(c => c.AcompanhamentoPacienteId == caso.Id).ToList(); }
             catch (UnauthorizedAccessException) { doCaso = []; }
+            if (doCaso.Count > 0) doCaso = ComNomeDeQuemFez(doCaso, await repo.UsuariosAsync(ct));
         }
         var avisosDele = ConversasNaTela.AvisosDaConversa(conferida ? pacienteId : null, painel.Avisos, painel.PacienteDoAgendamento);
         var dados = new DadosDaConversa(conversa, contato, caso?.Paciente, painel.Agentes, painel.Sessao.AgentId, jaLidas,
@@ -347,14 +400,18 @@ public sealed class WhatsAppDaRecepcaoService(
     public static ConversaDoWhatsApp Compor(DadosDaConversa d, DateTimeOffset agora)
     {
         var c = d.Conversa;
+        // Sem ficha conferida o título é o telefone, e o nome do perfil vai rotulado (item 16): com duas fichas no mesmo
+        // número, o nome que a pessoa usa no WhatsApp não diz qual delas ela é.
+        var semConferir = c is not null && d.Paciente is null && c.PatientId is null;
+        var nomeNoWhatsApp = semConferir && TemLetra(c!.Name) ? c.Name.Trim() : null;
         var nome = c is null ? (d.Caso?.Paciente ?? ConversasNaTela.TelefoneNaTela(d.Contato))
-            : d.Paciente?.Nome ?? ConversasNaTela.NomeDaConversa(c);
+            : d.Paciente?.Nome ?? (semConferir && ConversasNaTela.TelefoneNaTela(c.Contact) is { Length: > 0 } numero ? numero : ConversasNaTela.NomeDaConversa(c));
         var sms = ConversasNaTela.EhSms(c?.Channel);
         var janela = c is null ? ConversasNaTela.Janela(null, agora, "whatsapp") : ConversasNaTela.Janela(c, agora);
         var ficha = c is null
             ? ConversasNaTela.EstadoDaFicha(d.Caso?.PacienteId, d.Caso?.Paciente, 1)
             : ConversasNaTela.EstadoDaFicha(c, d.Candidatas.Count);
-        var acao = ConversasNaTela.PedeAcao(c, d.Avisos, d.Candidatas.Count, d.Caso, agora);
+        var acao = ConversasNaTela.PedeAcao(c, d.Avisos, d.Candidatas.Count, d.Caso, agora, d.MeuAgente, d.Agentes);
         var abertura = d.Caso is { } caso && (c is null || c.Messages.Length == 0) ? RetencaoNaTela.Abertura(caso, c, agora) : null;
         var minha = c?.AgentId is { } a && a == d.MeuAgente;
         var encerramento = c is { Closed: true } ? Encerramento(c, d.Agentes, d.Resultados, agora) : null;
@@ -367,7 +424,8 @@ public sealed class WhatsAppDaRecepcaoService(
             Responsavel(c?.AgentId, d.MeuAgente, d.Agentes), minha, c?.Closed ?? false, encerramento,
             c is null ? [new ItemDaConversa(TipoNaLinhaDoTempo.Dia, ConversasNaTela.Dia(hoje, hoje))]
                 : ConversasNaTela.LinhaDoTempo(c, d.RecebidasJaLidas, agora, d.Agentes),
-            janela, ficha, acao, abertura, ConversasNaTela.CampoFechado(janela, nome, agora));
+            janela, ficha, acao, abertura, ConversasNaTela.CampoFechado(janela, nomeNoWhatsApp ?? nome, agora))
+        { NomeNoWhatsApp = nomeNoWhatsApp };
     }
 
     private static string Encerramento(AppConversation c, IReadOnlyDictionary<string, string> agentes,
@@ -393,7 +451,7 @@ public sealed class WhatsAppDaRecepcaoService(
         var avisosDele = ConversasNaTela.AvisosDaConversa(c.PatientId, painel.Avisos, painel.PacienteDoAgendamento);
         var fichas = painel.FichasPorConversa.TryGetValue(c.Id, out var f) ? f.Count : 0;
         var caso = ConversasNaTela.CasoDoPaciente(c.PatientId, painel.Retencao);
-        var selo = ConversasNaTela.Selo(c, avisosDele, fichas, caso, agora, painel.Resultados);
+        var selo = ConversasNaTela.Selo(c, avisosDele, fichas, caso, agora, painel.Resultados, painel.Sessao.AgentId, painel.Agentes);
         var nome = ConversasNaTela.NomeDaConversa(c);
         var semNome = c.PatientId is null && !TemLetra(c.Name) && string.IsNullOrWhiteSpace(c.PatientName);
         return new LinhaDaConversa(c.Id, nome, semNome ? "?" : Iniciais(nome), TomDoAvatar(semNome ? null : c.Id),
@@ -497,17 +555,18 @@ public sealed class WhatsAppDaRecepcaoService(
                     SituacaoConfirmacao.Confirmou => (RodadaDeConfirmacao.SeloConfirmou, "sucesso"),
                     SituacaoConfirmacao.PediuRemarcar => (RodadaDeConfirmacao.SeloNaoVem, "perigo"),
                     SituacaoConfirmacao.PediuCancelar => (RodadaDeConfirmacao.SeloPediuCancelar, "perigo"),
-                    SituacaoConfirmacao.AvisadoSemResposta => (RodadaDeConfirmacao.SeloSemResposta, "aviso"),
+                    SituacaoConfirmacao.AvisadoSemResposta => (RodadaDeConfirmacao.SemResposta, "aviso"),
                     SituacaoConfirmacao.Dispensado => ("Fora da rodada", "neutro"),
                     _ => ("Marcado", "neutro")
                 };
                 var pedido = situacao is SituacaoConfirmacao.PediuRemarcar or SituacaoConfirmacao.PediuCancelar;
+                var futuro = a.DataHora > agora.DateTime;
                 var modalidade = CatalogoModalidades.Nome(a.ModalidadeCodigo, a.ModalidadePrevista);
                 var detalhe = string.Join(" · ", new[] { modalidade, a.Profissional?.Nome }.Where(x => !string.IsNullOrWhiteSpace(x)));
                 return new HorarioDoPaciente(a.Id, a.DataHora, Maiuscula(AvisosDeConfirmacao.QuandoDaSessao(a.DataHora, agora.DateTime)), detalhe,
                     texto, tom,
-                    PodeConfirmar: contato is not null && situacao is not (SituacaoConfirmacao.Confirmou or SituacaoConfirmacao.Dispensado) && !pedido,
-                    PodeNaoVem: contato is not null && situacao is not (SituacaoConfirmacao.Dispensado) && !pedido,
+                    PodeConfirmar: futuro && situacao is not (SituacaoConfirmacao.Confirmou or SituacaoConfirmacao.Dispensado) && !pedido,
+                    PodeNaoVem: futuro && situacao is not SituacaoConfirmacao.Dispensado && !pedido,
                     PodeManter: pedido, a.ProfissionalId, a.ModalidadePrevista, a.Profissional?.Nome);
             }).ToList();
     }
@@ -556,14 +615,43 @@ public sealed class WhatsAppDaRecepcaoService(
 
     /// <summary>
     /// A mensagem pronta depois de remarcar pela janela do horário (o mockup, foto 04): diz o
-    /// que a clínica FEZ, e a recepção revisa antes de enviar (regra 3 do CRM).
+    /// que a clínica FEZ, e a recepção revisa antes de enviar (regra 3 do CRM). O lembrete só é
+    /// prometido quando o pedido de confirmação automático está LIGADO no CRM
+    /// (<see cref="AppSession.RemindersEnabled"/>) e a sessão não é hoje (R3, 25/10): com ele
+    /// desligado a frase "o lembrete chega" era uma promessa que a clínica não cumpria. O texto não
+    /// diz a hora do lembrete — o CRM manda na manhã do dia ou 24 h antes, conforme a Automação.
     /// </summary>
-    public static string RascunhoDeRemarcacao(string? nome, HorarioDoPaciente novo, DateOnly hoje)
+    public static string RascunhoDeRemarcacao(string? nome, HorarioDoPaciente novo, DateOnly hoje, bool lembreteAutomatico)
     {
         var quem = ConversasNaTela.PrimeiroNomeOu(nome, "");
         var com = string.IsNullOrWhiteSpace(novo.Profissional) ? "" : $" com {novo.Profissional}";
+        var lembrete = lembreteAutomatico && DateOnly.FromDateTime(novo.Quando) > hoje ? " Antes da sessão chega o lembrete para você confirmar." : "";
         return $"Combinado{(quem.Length == 0 ? "" : ", " + quem)}! Remarquei a sua {ModeloDoWhatsApp.NaFrase(novo.Modalidade)} para "
-            + $"{MensagensDeContato.QuandoPorExtenso(novo.Quando, hoje)}{com}. O lembrete chega na manhã do dia.";
+            + $"{MensagensDeContato.QuandoPorExtenso(novo.Quando, hoje)}{com}.{lembrete}";
+    }
+
+    /// <summary>
+    /// O horário que o modelo de LEMBRETE avisa (D11, 25/10): o primeiro horário marcado e futuro da ficha conferida —
+    /// o mesmo que preenche o "Dia e hora" do modelo. Nulo para modelo que não é lembrete, sem ficha conferida ou sem
+    /// horário à frente: aí o envio não grava aviso nenhum na rodada.
+    /// </summary>
+    public static int? HorarioDoLembrete(ConversaDoWhatsApp aberta, AppTemplate modelo, DateTimeOffset agora)
+        => aberta.Paciente is not null && ModeloDoWhatsApp.Lembretes.Contains(modelo.Name ?? "")
+            ? aberta.Dados.Horarios.FirstOrDefault(h => h.Quando > agora.DateTime)?.AgendamentoId
+            : null;
+
+    /// <summary>Os contatos do caso com o NOME de quem fez (item 15): o histórico grava o login ("ana"), e a recepção lê pessoas.</summary>
+    public static IReadOnlyList<ContatoAcompanhamento> ComNomeDeQuemFez(IReadOnlyList<ContatoAcompanhamento> contatos, IEnumerable<UsuarioSistema> usuarios)
+    {
+        var nomes = usuarios.Where(u => !string.IsNullOrWhiteSpace(u.Login) && !string.IsNullOrWhiteSpace(u.Nome))
+            .GroupBy(u => u.Login.Trim(), StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First().Nome.Trim(), StringComparer.OrdinalIgnoreCase);
+        // Cópias: o histórico que veio do serviço não é alterado.
+        return contatos.Select(c => new ContatoAcompanhamento
+        {
+            Id = c.Id, AcompanhamentoPacienteId = c.AcompanhamentoPacienteId, Idempotencia = c.Idempotencia, Em = c.Em,
+            Operador = nomes.TryGetValue(c.Operador?.Trim() ?? "", out var nome) ? nome : c.Operador ?? "",
+            Canal = c.Canal, Resultado = c.Resultado, Observacao = c.Observacao, ProximoContato = c.ProximoContato, ResponsavelId = c.ResponsavelId
+        }).ToList();
     }
 
     /// <summary>O contexto que preenche as variáveis do modelo: a ficha, a próxima sessão e o caso.</summary>
@@ -685,6 +773,50 @@ public sealed class WhatsAppDaRecepcaoService(
             string.IsNullOrWhiteSpace(fila) ? c.Queue : fila, string.IsNullOrWhiteSpace(nota) ? null : nota.Trim()), ct);
     }
 
+    // ---------------------------------------------------------------- o pedido de transferência (R7, 25/10)
+
+    /// <summary>O motivo de recusar uma transferência (a regra do CRM: 400 fora disso).</summary>
+    public const int MinimoDoMotivoDeRecusar = 3, MaximoDoMotivoDeRecusar = 500;
+
+    /// <summary>Quem recebe aceita o pedido: a conversa passa a ser dela. Devolve a conversa relida.</summary>
+    public Task<AppConversation> AceitarTransferenciaAsync(AppConversation c, CancellationToken ct = default)
+        => DecidirTransferenciaAsync(c, "accept", null, ct);
+
+    /// <summary>Quem recebe recusa, com o motivo (fica na trilha): a conversa continua com quem pediu.</summary>
+    public Task<AppConversation> RecusarTransferenciaAsync(AppConversation c, string motivo, CancellationToken ct = default)
+    {
+        var m = motivo?.Trim() ?? "";
+        if (m.Length < MinimoDoMotivoDeRecusar || m.Length > MaximoDoMotivoDeRecusar)
+            throw new InvalidOperationException($"Diga por que recusa (de {MinimoDoMotivoDeRecusar} a {MaximoDoMotivoDeRecusar} letras).");
+        return DecidirTransferenciaAsync(c, "reject", m, ct);
+    }
+
+    /// <summary>Quem pediu desiste: a conversa continua com ela, sem pedido pendente.</summary>
+    public Task<AppConversation> CancelarTransferenciaAsync(AppConversation c, CancellationToken ct = default)
+        => DecidirTransferenciaAsync(c, "cancel", null, ct);
+
+    private async Task<AppConversation> DecidirTransferenciaAsync(AppConversation c, string acao, string? motivo, CancellationToken ct)
+    {
+        if (c.PendingTransfer is not { } pedido) throw new InvalidOperationException("Esta conversa não tem pedido de transferência aguardando o aceite.");
+        var decidido = await crm.DecidirTransferenciaAsync(UsuarioId, pedido.Id, acao, new AppTransferDecision(motivo), ct);
+        return await crm.AbrirConversaAsync(UsuarioId, string.IsNullOrWhiteSpace(decidido.ConversationId) ? c.Id : decidido.ConversationId, ct);
+    }
+
+    // ---------------------------------------------------------------- "Para resolver" (R6, 25/10)
+
+    /// <summary>
+    /// O que resolver com o paciente da ficha conferida: os MESMOS alertas da Ficha do balcão (<see cref="ElegibilidadeService"/>,
+    /// pela mesma tradução <see cref="FichaAdministrativaNaTela.AlertaDe"/>). O serviço de elegibilidade não filtra por
+    /// permissão; a Ficha do balcão os mostra a quem a abre (<see cref="Permissao.VerFichaPaciente"/>), e aqui vale o
+    /// mesmo bit — sem ele, nada é lido. A tela chama UMA vez por troca de paciente, depois de a conversa estar desenhada.
+    /// </summary>
+    public async Task<ParaResolverDoPaciente> ParaResolverAsync(int pacienteId, CancellationToken ct = default)
+    {
+        if (!SessaoUsuario.Atual.Pode(Permissao.VerFichaPaciente)) return new(pacienteId, []);
+        var r = await elegibilidade.ConferirAsync(pacienteId, DateOnly.FromDateTime(Agora.DateTime), ct);
+        return new(pacienteId, r.Alertas.Select(FichaAdministrativaNaTela.AlertaDe).ToList());
+    }
+
     public Task<AppConversation> EncerrarAsync(AppConversation c, string resultado, string? resumo, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(resultado)) throw new InvalidOperationException("Escolha como terminou o atendimento.");
@@ -729,8 +861,10 @@ public sealed class WhatsAppDaRecepcaoService(
     /// já com a ficha do caso. O consentimento é conferido NO SERVIDOR antes de qualquer envio
     /// do convite. Se o convite sair e o registro falhar, a <see cref="ResultadoDoEnvio.Pendencia"/> diz.
     /// </summary>
+    /// <param name="lembreteDoHorario">O horário que este modelo de lembrete avisa (<see cref="HorarioDoLembrete"/>): depois
+    /// do envio, ele conta como avisado na rodada (D11) — se a gravação falhar, a mensagem já saiu e a pendência diz.</param>
     public async Task<ResultadoDoEnvio> EnviarModeloAsync(AppConversation? c, string remetente, AppTemplate modelo,
-        IReadOnlyList<string> valores, LinhaAcompanhamento? caso, string idDoEnvio, CancellationToken ct = default)
+        IReadOnlyList<string> valores, LinhaAcompanhamento? caso, string idDoEnvio, int? lembreteDoHorario = null, CancellationToken ct = default)
     {
         var variaveis = ModeloDoWhatsApp.Sugestoes(modelo, new ContextoDoModelo(null, DateOnly.FromDateTime(Agora.DateTime)));
         if (ModeloDoWhatsApp.Impedimento(modelo, variaveis, valores) is { } impedimento) throw new InvalidOperationException(impedimento);
@@ -755,6 +889,7 @@ public sealed class WhatsAppDaRecepcaoService(
         // (o mesmo envio contaria duas tentativas no caso — decisão da direção, 24/10).
         c = await ComVersaoNovaAsync(conversa, v => crm.ResponderAsync(u, conversa.Id,
             new AppReply(v, id, "", Template: selecao, ContactRecordedByApp: registrar), ct), ct);
+        if (lembreteDoHorario is { } horario) return new ResultadoDoEnvio(c, await RegistrarLembreteAsync(horario, ct));
         if (!registrar) return new ResultadoDoEnvio(c, null);
 
         var pendencia = await RegistrarDesfechoAsync(caso!, DesfechoContato.NaoRespondeu, CanalContato.WhatsApp, null,
@@ -763,32 +898,41 @@ public sealed class WhatsAppDaRecepcaoService(
             : $"O convite saiu, mas o contato não foi gravado no Acompanhamento: {pendencia} Registre pelo \"Como foi?\".");
     }
 
+    /// <summary>O lembrete saiu: o horário conta como avisado, com quem mandou (D11). Devolve a frase do que faltou, ou nulo.</summary>
+    private async Task<string?> RegistrarLembreteAsync(int agendamentoId, CancellationToken ct)
+    {
+        try
+        {
+            await campanha.RegistrarLembreteDoHorarioAsync(agendamentoId, Operador, ct);
+            return null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            if (ex is not InvalidOperationException) Diagnostico.Registrar("WhatsApp — o lembrete saiu e o aviso não foi gravado na rodada", ex);
+            return "O lembrete saiu, mas o horário não ficou marcado como avisado em Confirmações"
+                + (ex is InvalidOperationException ? $": {ex.Message}" : ". Registre por lá.");
+        }
+    }
+
     private static string IdDoEnvio(string id)
         => Guid.TryParse(id, out var g) ? g.ToString("D") : throw new InvalidOperationException("Identificador de envio inválido.");
 
     // ======================================================================== escritas no app
 
-    /// <summary>O paciente ligou (ou respondeu no balcão) e confirmou: a MESMA resposta da tela Confirmações.</summary>
-    public async Task ConfirmouPorTelefoneAsync(int agendamentoId, CancellationToken ct = default)
-    {
-        var contato = await ContatoDoHorarioAsync(agendamentoId, ct);
-        await campanha.RegistrarRespostaAsync(contato.Id, "confirmou", ct);
-    }
+    /// <summary>
+    /// O paciente confirmou — na conversa, ao telefone ou no balcão: a MESMA resposta da tela Confirmações, gravada no
+    /// contato de confirmação do horário, com ou sem a rodada gerada (R1, 25/10).
+    /// </summary>
+    public Task ConfirmouPorTelefoneAsync(int agendamentoId, CancellationToken ct = default)
+        => campanha.RegistrarRespostaDoHorarioAsync(agendamentoId, "confirmou", ct);
 
-    /// <summary>O paciente disse que não vem: a resposta "pediu para remarcar" — o aviso "Não vem — remarcar" do sino.</summary>
-    public async Task NaoVemAsync(int agendamentoId, CancellationToken ct = default)
-    {
-        var contato = await ContatoDoHorarioAsync(agendamentoId, ct);
-        await campanha.RegistrarRespostaAsync(contato.Id, RodadaDeConfirmacao.RespostaRemarcar, ct);
-    }
+    /// <summary>O paciente disse que não vem: a resposta "pediu para remarcar" — o aviso "Não vem — remarcar" do sino e do Gerente. Com ou sem rodada (R1).</summary>
+    public Task NaoVemAsync(int agendamentoId, CancellationToken ct = default)
+        => campanha.RegistrarRespostaDoHorarioAsync(agendamentoId, RodadaDeConfirmacao.RespostaRemarcar, ct);
 
     /// <summary>A recepção falou com quem pediu para não vir (ou cancelar) e o paciente MANTEVE o horário.</summary>
     public Task ManterHorarioAsync(int agendamentoId, CancellationToken ct = default)
         => campanha.ManterHorarioAsync(agendamentoId, Operador, ct);
-
-    private async Task<ContatoCampanha> ContatoDoHorarioAsync(int agendamentoId, CancellationToken ct)
-        => await repo.ContatoDeConfirmacaoDoAgendamentoAsync(agendamentoId, ct)
-           ?? throw new InvalidOperationException("Este horário ainda não está na rodada de confirmação. Gere a rodada em Confirmações de agenda.");
 
     /// <summary>
     /// Cancela o horário pelo caminho da agenda (as guias do dia ficam suspensas), com o motivo

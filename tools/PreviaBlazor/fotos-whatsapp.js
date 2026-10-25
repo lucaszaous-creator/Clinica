@@ -67,6 +67,22 @@ const ROTEIRO = [
   ['56-figurinha', async p => { await filtro(p, 'Minhas'); await linha(p, 'Roberto Lima'); await mostrar(p, '.wa-figurinha'); }],
   ['57-retratos-nos-avatares', async p => { await filtro(p, 'Minhas'); await linha(p, 'João Batista'); await p.locator('.wa-linha .avatar.com-foto').first().waitFor({ timeout: 8000 }); }],
   ['54-midia-gravando', async p => { await filtro(p, 'Minhas'); await linha(p, 'Roberto Lima'); await clicar(p, 'Gravar áudio'); await pausa(2600); }],
+  // A tela diz a verdade (25/10, §14): transferência com aceite, "Sem resposta" numa palavra só, "Para resolver",
+  // o nome no WhatsApp antes de conferir, a Retenção sem telefone e com o mesmo responsável dos dois lados. O 62 ENVIA o
+  // pedido (muda o Roberto no CRM de mentira): fica por último.
+  ['60-transferencia-para-voce', async p => { await filtro(p, 'Todas'); await linha(p, 'Lúcia Andrade'); }],
+  ['61-transferir-pessoa-ou-setor', async p => { await filtro(p, 'Minhas'); await linha(p, 'Roberto Lima'); await clicar(p, 'Transferir'); }],
+  ['63-sem-resposta-uma-palavra', async p => { await filtro(p, 'Minhas'); await linha(p, 'Carlos Eduardo'); }],
+  ['64-para-resolver', async p => { await filtro(p, 'Minhas'); await linha(p, 'Maria das Graças'); await mostrar(p, '.wa-resolver'); await pausa(900); }],
+  ['65-nome-no-whatsapp', async p => { await linha(p, 'Terezinha'); }],
+  ['66-retencao-sem-telefone', async p => { await modo(p, 'Retenção'); await linha(p, 'Helena Martins'); }],
+  ['67-retencao-responsavel', async p => { await modo(p, 'Retenção'); await linha(p, 'Alzira'); }],
+  ['62-aguardando-aceite', async p => { await filtro(p, 'Minhas'); await linha(p, 'Roberto Lima');
+    // A largura anterior já enviou o pedido (o CRM de mentira guarda): cancela e pede de novo.
+    if (await p.locator('.wa-acao button', { hasText: 'Cancelar o pedido' }).count()) await clicar(p, 'Cancelar o pedido');
+    await clicar(p, 'Transferir');
+    await p.locator('.modal .wa-escolha', { hasText: 'Bruna Reis' }).first().click({ timeout: 8000 }); await pausa(400);
+    await clicar(p, 'Enviar o pedido'); await pausa(1500); }],
 ];
 async function mostrar(p, seletor) { await p.locator(seletor).first().scrollIntoViewIfNeeded({ timeout: 8000 }); await pausa(600); }
 
@@ -114,7 +130,7 @@ async function mostrar(p, seletor) { await p.locator(seletor).first().scrollInto
   let p;
   if (quer('23')) { p = await abrir(b, 1366, 900);
   try { await filtro(p, 'Minhas'); await linha(p, 'Maria das Graças');
-    await p.locator('.wa-escrever textarea').first().fill('Combinado, Maria! Fica para quarta às 14h com a Dra. Helena. O lembrete chega na manhã do dia.');
+    await p.locator('.wa-escrever textarea').first().fill('Combinado, Maria! Fica para quarta às 14h com a Dra. Helena.');
     await clicar(p, 'Enviar'); await pausa(1500); await p.screenshot({ path: `${DIR}/23-enviou-1366.png` }); feitas.push('23'); }
   catch (e) { falhas.push('23: ' + e.message.split('\n')[0]); } await p.close(); }
   if (quer('24')) { p = await abrir(b, 1366, 900);

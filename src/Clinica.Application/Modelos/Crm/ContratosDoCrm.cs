@@ -20,9 +20,12 @@ public sealed record AppAgent(string Id, string Name);
 public sealed record AppInbox(string Sender, string Name);
 public sealed record AppSms(bool Enabled, string Provider);
 /// <summary>GET /api/session. Anônimo: só Csrf (e o cookie antiforgery). Logado: AgentId e o resto. O Csrf MUDA a cada login.
-/// RecordingEnabled: o CRM converte a gravação de voz (ffmpeg) — sem ele, o app não mostra o microfone.</summary>
+/// RecordingEnabled: o CRM converte a gravação de voz (ffmpeg) — sem ele, o app não mostra o microfone.
+/// RemindersEnabled: o pedido de confirmação automático da agenda está ligado (Automação → Agenda e lembretes) — sem ele,
+/// a mensagem ao paciente não promete lembrete nenhum.</summary>
 public sealed record AppSession(string? AgentId, string Csrf, AppAgent[] Agents, AppInbox[] Inboxes, string[] Queues,
-    bool AttachmentsEnabled, bool SendEnabled, bool WhatsappOff, AppSms? Sms = null, bool RecordingEnabled = false);
+    bool AttachmentsEnabled, bool SendEnabled, bool WhatsappOff, AppSms? Sms = null, bool RecordingEnabled = false,
+    bool RemindersEnabled = false);
 
 // ---------- A lista ----------
 /// <summary>Como a conversa terminou (o último ServiceClose). Outcome é a chave de AppWorkspace.Outcomes.</summary>
@@ -36,7 +39,7 @@ public sealed record AppConversationSummary(string Id, string Name, string Conta
     string Queue, string? AgentId, bool Closed, int Version, DateTimeOffset UpdatedAt, DateTimeOffset LastIncoming,
     int? PatientId, string PatientName, int Unread, string Preview, bool AwaitingMenu, bool DeliveryAttention,
     AppResolution? Resolution, DateTimeOffset? ClosedAt, string PreviewDirection = "in", string PreviewStatus = "",
-    AppSemDorTag? Semdor = null);
+    AppSemDorTag? Semdor = null, AppPendingTransfer? PendingTransfer = null);
 /// <summary>A etiqueta do @SemDor na linha: o assunto da mensagem nova de quem espera a clínica. Nula quando a IA
 /// está desligada, quando a clínica já respondeu ou a conversa encerrou. Atencao: sintoma grave, reação ao tratamento ou reclamação.</summary>
 public sealed record AppSemDorTag(string Tema, string Rotulo, bool Atencao);
@@ -61,7 +64,13 @@ public sealed record AppAudit(DateTimeOffset At, string Actor, string Action);
 public sealed record AppConversation(string Id, string Name, string Contact, string Channel, string Sender, string Queue,
     string? AgentId, bool Closed, int Version, DateTimeOffset UpdatedAt, DateTimeOffset LastIncoming, int? PatientId,
     string PatientName, AppMessage[] Messages, AppNote[] Notes, AppAudit[] Audit, AppResolution[] Resolutions,
-    DateTimeOffset? ClosedAt);
+    DateTimeOffset? ClosedAt, AppPendingTransfer? PendingTransfer = null);
+/// <summary>
+/// O pedido de transferência para uma PESSOA que espera o aceite (o setor passa na hora e nunca fica pendente). Nulo
+/// quando não há. From: quem pediu; To: quem recebe (ids de AppAgent); Note: o contexto para quem recebe. Quem recebe
+/// aceita ou recusa, e quem pediu cancela, por POST /api/transfers/{Id}/accept · reject · cancel.
+/// </summary>
+public sealed record AppPendingTransfer(string Id, string From, string To, string Note, DateTimeOffset At);
 
 // ---------- Escritas (corpo dos POST; toda escrita leva X-CSRF-TOKEN e a Version da conversa) ----------
 /// <summary>POST /api/conversations — Sender é um AppInbox.Sender (ou o remetente do SMS).</summary>
@@ -72,8 +81,14 @@ public sealed record AppReply(int Version, string Id, string Text, string? Attac
     AppTemplateSelection? Template = null, string? ReplyToId = null, bool ContactRecordedByApp = false);
 /// <summary>POST …/{id}/notes — nota interna; nunca vai ao paciente. Id: Guid no formato "D", como no AppReply.</summary>
 public sealed record AppNoteRequest(int Version, string Id, string Text);
-/// <summary>POST …/{id}/claim · /transfer · /reopen · /reassign (AgentId nulo = devolver à fila).</summary>
+/// <summary>POST …/{id}/claim · /transfer · /reopen · /reassign (AgentId nulo = devolver à fila). No /transfer, com AgentId
+/// a conversa NÃO muda de mãos: vira o pedido AppPendingTransfer, que passa quando a pessoa aceitar; sem AgentId vai à
+/// fila Queue na hora, sem responsável.</summary>
 public sealed record AppChange(int Version, string? AgentId, string? Queue, string? Note = null);
+/// <summary>POST /api/transfers/{id}/accept · reject · cancel. Reason: obrigatório ao recusar (3 a 500 letras); opcional nos outros.</summary>
+public sealed record AppTransferDecision(string? Reason = null);
+/// <summary>A resposta da decisão: a conversa que o pedido moveu (o app a relê por GET /api/conversations/{id}).</summary>
+public sealed record AppTransferDecided(string ConversationId);
 /// <summary>POST …/{id}/close — Outcome é uma chave de AppWorkspace.Outcomes.</summary>
 public sealed record AppClose(int Version, string Outcome, string Summary, string? NextStep = null, DateTimeOffset? DueAt = null);
 /// <summary>POST …/{id}/patient — a ficha que a RECEPÇÃO conferiu (regra 5: o telefone não é identidade).</summary>

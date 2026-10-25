@@ -83,7 +83,11 @@ public enum TipoDaAcaoPedida
     RetencaoAguardando,
     RetencaoSemAutorizacao,
     RetencaoNovoBsv,
-    RetencaoConvidar
+    RetencaoConvidar,
+    /// <summary>Alguém pediu para passar esta conversa a quem está vendo: aceitar ou recusar (R7, 25/10).</summary>
+    TransferenciaParaVoce,
+    /// <summary>Quem está vendo pediu para passar a conversa a outra pessoa, que ainda não aceitou.</summary>
+    TransferenciaAguardando
 }
 
 /// <summary>O que o botão faz — a tela liga cada valor a um serviço que já existe.</summary>
@@ -106,7 +110,10 @@ public enum BotaoDaAcao
     /// <summary>Abre o modelo do novo no BSV (<c>primeiro_contato</c>), preenchido pelo caso.</summary>
     PrepararMensagem,
     NotaInterna,
-    AtualizarTelefone
+    AtualizarTelefone,
+    AceitarTransferencia,
+    RecusarTransferencia,
+    CancelarTransferencia
 }
 
 /// <summary>Um botão do aviso: o que faz, o rótulo, o peso e, quando cabe, o horário ou o desfecho.</summary>
@@ -357,22 +364,27 @@ public static class ConversasNaTela
     /// <item>Confirmou · HH:mm (notícia, não pede ação);</item>
     /// <item>Aguardando paciente (a última foi da clínica), Em atendimento, ou Nova · sem responsável.</item>
     /// </list>
+    /// O pedido de transferência (R7, 25/10) entra em dois lugares: "Transferência para você" logo depois de encerrada (é
+    /// ação de quem está vendo) e "Aguardando aceite" depois dos avisos de confirmação (é espera, não ação).
     /// </summary>
     public static SeloDoWhatsApp Selo(AppConversationSummary c, IReadOnlyList<AvisoDeConfirmacao> avisosDoPaciente,
         int fichasComOTelefone, LinhaAcompanhamento? caso, DateTimeOffset agora,
-        IReadOnlyDictionary<string, string>? resultados = null)
+        IReadOnlyDictionary<string, string>? resultados = null, string? meuAgente = null, IReadOnlyDictionary<string, string>? agentes = null)
     {
         if (c.Closed)
             return new(c.Resolution is { } r && resultados is not null && resultados.TryGetValue(r.Outcome, out var rotulo)
                        && !string.IsNullOrWhiteSpace(rotulo) ? $"Encerrada · {rotulo}" : "Encerrada", "neutro");
+        if (ParaMim(c.PendingTransfer, meuAgente)) return new("Transferência para você", "aviso");
 
         var aviso = c.PatientId is null ? null : Principal(avisosDoPaciente);
         switch (aviso?.Tipo)
         {
-            case TipoAvisoConfirmacao.NaoVem: return new("Não vem — remarcar", "perigo");
-            case TipoAvisoConfirmacao.PediuCancelar: return new("Pediu para cancelar", "perigo");
-            case TipoAvisoConfirmacao.SemResposta: return new($"Sem resposta · {HoraDaSessao(aviso.Sessao, agora)}", "aviso");
+            case TipoAvisoConfirmacao.NaoVem: return new(RodadaDeConfirmacao.SeloNaoVem, "perigo");
+            case TipoAvisoConfirmacao.PediuCancelar: return new(RodadaDeConfirmacao.SeloPediuCancelar, "perigo");
+            case TipoAvisoConfirmacao.SemResposta: return new($"{RodadaDeConfirmacao.SemResposta} · {HoraDaSessao(aviso.Sessao, agora)}", "aviso");
         }
+        if (PediMeu(c.PendingTransfer, meuAgente) is { } pedido)
+            return new($"Aguardando aceite · {MensagensDeContato.PrimeiroNome(NomeDaPessoa(pedido.To, agentes))}", "neutro");
         if (c.DeliveryAttention) return new("Mensagem não entregue · conferir", "perigo");
         if (c.PatientId is null)
             return fichasComOTelefone switch
@@ -417,12 +429,28 @@ public static class ConversasNaTela
     /// bloco de <see cref="RetencaoNaTela.Abertura"/>. <paramref name="conversa"/> nulo é o
     /// caso da retenção que ainda não tem conversa no CRM. Sem autorização, nenhum botão envia.
     /// </summary>
+    /// <remarks>
+    /// O pedido de transferência (R7, 25/10) vem antes de tudo para quem o RECEBE — é a decisão dela, e até aceitar a
+    /// conversa nem é dela — e depois dos avisos de confirmação para quem o FEZ (ela continua com a conversa e com o
+    /// paciente esperando). <paramref name="meuAgente"/> e <paramref name="agentes"/> são os da sessão do CRM.
+    /// </remarks>
     public static AcaoPedida? PedeAcao(AppConversation? conversa, IReadOnlyList<AvisoDeConfirmacao> avisosDoPaciente,
-        int fichasComOTelefone, LinhaAcompanhamento? caso, DateTimeOffset agora)
+        int fichasComOTelefone, LinhaAcompanhamento? caso, DateTimeOffset agora,
+        string? meuAgente = null, IReadOnlyDictionary<string, string>? agentes = null)
     {
         if (conversa is { Closed: true }) return null;
         var nomeCompleto = conversa is null ? caso?.Paciente : NomeDaConversa(conversa);
         var nome = PrimeiroNomeOu(nomeCompleto, "A pessoa");
+
+        if (ParaMim(conversa?.PendingTransfer, meuAgente))
+        {
+            var pedido = conversa!.PendingTransfer!;
+            var de = NomeDaPessoa(pedido.From, agentes);
+            return new(TipoDaAcaoPedida.TransferenciaParaVoce, "atencao", $"{de} quer passar esta conversa para você.",
+                (string.IsNullOrWhiteSpace(pedido.Note) ? "" : $"Nota: {pedido.Note.Trim()} · ")
+                + $"Aceitar deixa a conversa com você; recusar pede o motivo e ela continua com {MensagensDeContato.PrimeiroNome(de)}.",
+                [new(BotaoDaAcao.AceitarTransferencia, "Aceitar", Primario: true), new(BotaoDaAcao.RecusarTransferencia, "Recusar")]);
+        }
 
         if ((conversa is null || conversa.PatientId is not null) && Principal(avisosDoPaciente) is { } a && a.PedeAcao)
         {
@@ -438,11 +466,19 @@ public static class ConversasNaTela
                     "O horário continua marcado até a recepção aceitar o cancelamento na agenda.",
                     [new(BotaoDaAcao.AceitarCancelamento, "Aceitar o cancelamento", Primario: true, AgendamentoId: a.AgendamentoId),
                      new(BotaoDaAcao.Remarcar, "Remarcar", AgendamentoId: a.AgendamentoId)]),
-                _ => new(TipoDaAcaoPedida.SemResposta, "atencao", $"{nome} não respondeu ao lembrete de {quando}{com}.",
-                    "Ligou? Registre aqui a resposta: a agenda do dia e o Gerente veem na hora.",
-                    [new(BotaoDaAcao.ConfirmouPorTelefone, "Confirmou por telefone", Primario: true, AgendamentoId: a.AgendamentoId),
+                _ => new(TipoDaAcaoPedida.SemResposta, "atencao", $"{nome} · {RodadaDeConfirmacao.SemResposta.ToLowerInvariant()} ao lembrete de {quando}{com}.",
+                    "Respondeu aqui ou ao telefone? Registre a resposta: a agenda do dia e o Gerente veem na hora.",
+                    [new(BotaoDaAcao.ConfirmouPorTelefone, "Confirmar", Primario: true, AgendamentoId: a.AgendamentoId),
                      new(BotaoDaAcao.NaoVem, "Não vem", Perigo: true, AgendamentoId: a.AgendamentoId)])
             };
+        }
+
+        if (PediMeu(conversa?.PendingTransfer, meuAgente) is { } meu)
+        {
+            var para = NomeDaPessoa(meu.To, agentes);
+            return new(TipoDaAcaoPedida.TransferenciaAguardando, "info", $"Aguardando o aceite de {para}.",
+                $"A conversa continua com você até {MensagensDeContato.PrimeiroNome(para)} aceitar. Mudou de ideia? Cancele o pedido.",
+                [new(BotaoDaAcao.CancelarTransferencia, "Cancelar o pedido")]);
         }
 
         if (conversa is { PatientId: null })
@@ -450,7 +486,7 @@ public static class ConversasNaTela
             {
                 <= 0 => new(TipoDaAcaoPedida.NovoContato, "info", "Novo contato, ainda sem ficha.",
                     "Se a pessoa já é paciente, ligue a ficha; senão, cadastre pelo app com o telefone preenchido.",
-                    [new(BotaoDaAcao.BuscarFicha, "Buscar ficha", Primario: true), new(BotaoDaAcao.CadastrarPaciente, "Cadastrar paciente")]),
+                    [new(BotaoDaAcao.BuscarFicha, "Buscar ficha", Primario: true), new(BotaoDaAcao.CadastrarPaciente, RotuloDeCadastrar)]),
                 1 => new(TipoDaAcaoPedida.ConferirFicha, "info", "Uma ficha tem este telefone.",
                     "Confira com quem está no telefone antes de ligar a ficha: o telefone não é identidade.",
                     [new(BotaoDaAcao.ConferirFicha, "Conferir a ficha", Primario: true)]),
@@ -490,6 +526,42 @@ public static class ConversasNaTela
             "O convite para voltar é o modelo aprovado retorno_tratamento, já preenchido com nome, tratamento e dias. Você revisa e envia.",
             [new(BotaoDaAcao.PrepararConvite, "Preparar convite", Primario: true), new(BotaoDaAcao.JaLiguei, "Já liguei")]);
     }
+
+    /// <summary>
+    /// "Cadastrar paciente" — o MESMO nome no aviso e na coluna (item 6): os dois abrem o cadastro com o telefone da
+    /// conversa já no campo.
+    /// </summary>
+    public const string RotuloDeCadastrar = "Cadastrar paciente";
+
+    /// <summary>
+    /// O aviso da conversa já oferece este botão? Uma porta por pergunta (item 6 da revisão, 25/10): o que o aviso mostra
+    /// sai da coluna do paciente, que fica com o ESTADO e com o que só ela oferece — o mesmo botão em dois lugares fazia a
+    /// recepção procurar a diferença que não havia. Com <paramref name="agendamentoId"/>, só vale para o botão daquele horário.
+    /// </summary>
+    public static bool AvisoOferece(AcaoPedida? acao, BotaoDaAcao botao, int? agendamentoId = null)
+        => acao is not null && acao.Botoes.Any(b => b.Acao == botao && (agendamentoId is null || b.AgendamentoId == agendamentoId));
+
+    // ---------------------------------------------------------------- a transferência (R7)
+
+    private static bool ParaMim(AppPendingTransfer? pedido, string? meuAgente)
+        => pedido is not null && !string.IsNullOrWhiteSpace(meuAgente) && pedido.To == meuAgente;
+
+    private static AppPendingTransfer? PediMeu(AppPendingTransfer? pedido, string? meuAgente)
+        => pedido is not null && !string.IsNullOrWhiteSpace(meuAgente) && pedido.From == meuAgente && pedido.To != meuAgente ? pedido : null;
+
+    /// <summary>O nome da pessoa da equipe do CRM (id → nome da sessão); id que a sessão não conhece vira "Alguém da equipe", nunca o id cru.</summary>
+    public static string NomeDaPessoa(string? id, IReadOnlyDictionary<string, string>? agentes)
+        => !string.IsNullOrWhiteSpace(id) && agentes is not null && agentes.TryGetValue(id, out var nome) && !string.IsNullOrWhiteSpace(nome)
+            ? nome.Trim() : "Alguém da equipe";
+
+    /// <summary>
+    /// A frase depois de transferir (R3, 25/10): para uma PESSOA o pedido foi enviado e a conversa só passa quando ela
+    /// aceitar; para o setor (a fila), passou na hora. Antes a tela dizia "Conversa transferida" nos dois casos.
+    /// </summary>
+    public static string FraseDaTransferencia(AppConversation depois, IReadOnlyDictionary<string, string>? agentes)
+        => depois.PendingTransfer is { } p
+            ? $"Pedido enviado a {NomeDaPessoa(p.To, agentes)}. A conversa continua com você até a pessoa aceitar."
+            : $"Conversa encaminhada ao setor {depois.Queue}. Quem estiver nele assume.";
 
     // ---------------------------------------------------------------- a lista
 

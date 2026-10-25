@@ -1,0 +1,36 @@
+@*
+  "PARA RESOLVER" NA COLUNA DO PACIENTE DA CONVERSA DO WHATSAPP (R6, 25/10 — docs/whatsapp-nativo-implementacao.md
+  §14). Os MESMOS alertas da Ficha do balcão (ElegibilidadeService → FichaAdministrativaNaTela.AlertaDe), lidos
+  depois de a conversa estar na tela (ConversasDoWhatsApp.ParaResolver.cs). Aqui só se desenha os três estados:
+  lendo (esqueleto), não conferiu (a frase que NÃO diz "está tudo certo") e a lista — vazia, "nada pendente".
+*@
+@using Clinica.Application.Servicos
+<section class="wa-secao wa-resolver" aria-label="O que resolver com este paciente">
+    <h3>Para resolver</h3>
+    @if (Estado is null)
+    {
+        <Esqueleto Altura="36" />
+    }
+    else if (Estado.Falhou)
+    {
+        <p class="wa-dica">Não foi possível conferir carteirinha, cota, guias e pagamentos agora — isto NÃO quer dizer que está tudo certo.</p>
+    }
+    else if (Estado.Alertas.Count == 0)
+    {
+        <p class="wa-dica">Nada pendente na ficha.</p>
+    }
+    else
+    {
+        <ul>
+            @foreach (var a in Estado.Alertas)
+            {
+                <li class="@(a.EhVermelho ? "tom-perigo" : "tom-aviso")"><Icone Nome="alerta" /><span>@a.Descricao</span></li>
+            }
+        </ul>
+    }
+</section>
+
+@code {
+    /// <summary>Nulo enquanto lê; com <c>Falhou</c>, não conferiu.</summary>
+    [Parameter] public ParaResolverDoPaciente? Estado { get; set; }
+}

@@ -922,7 +922,8 @@ public class TraducaoNoNpgsqlTests
     /// <summary>
     /// As respostas dos pacientes no sino (out/2026): navegação ao agendamento, ao paciente e
     /// ao profissional, com <c>??</c> entre duas COLUNAS (NomeCurto ?? Nome — coalescência de
-    /// escalar, que traduz; a de ENTIDADE não traduziria) e o booleano do link.
+    /// escalar, que traduz; a de ENTIDADE não traduziria) e o booleano "pede resposta" (o link do
+    /// SMS antigo OU o remetente do lembrete automático da ponte, 25/10).
     /// </summary>
     [Fact]
     public void Contatos_para_avisos_de_confirmacao_traduzem_sem_foto()
@@ -931,7 +932,7 @@ public class TraducaoNoNpgsqlTests
         var sql = new ClinicaRepositorio(db).ConsultaContatosParaAvisosDeConfirmacao(
             new DateTime(2026, 10, 19, 8, 0, 0), new DateTime(2026, 10, 21, 0, 0, 0)).ToQueryString();
         sql.Should().Contain("\"DataHora\"").And.Contain("COALESCE").And.Contain("\"TokenResposta\"")
-            .And.Contain("ORDER BY");
+            .And.Contain("\"EnviadoPor\"").And.Contain("ORDER BY");
         sql.Should().NotContain("FotoMiniatura");
     }
 }

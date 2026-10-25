@@ -228,8 +228,22 @@ public sealed class RetencaoNaTelaTests
         var botoes = RetencaoNaTela.BotoesDoComoFoi();
         Assert.Equal(Enum.GetValues<DesfechoContato>().Length, botoes.Count);
         Assert.All(botoes, b => Assert.Equal(AcompanhamentoNaTela.Rotulo(b.Desfecho!.Value), b.Rotulo));
-        Assert.Equal(DesfechoContato.QuerMarcar, botoes.Single(b => b.Primario).Desfecho);
+        // Neutros (item 22): nenhum parece a resposta já escolhida; só o que encerra o caso tem o contorno de perigo.
+        Assert.DoesNotContain(botoes, b => b.Primario);
         Assert.Equal(DesfechoContato.NaoQuerVoltar, botoes.Single(b => b.Perigo).Desfecho);
+    }
+
+    [Fact]
+    public void O_como_foi_da_coluna_so_aparece_depois_de_um_contato_e_quando_o_aviso_nao_o_mostra()
+    {
+        // Sem convite nem ligação (só a abertura do ciclo), não há o que perguntar.
+        Assert.False(RetencaoNaTela.ComoFoiNaColuna(Sebastiao, null));
+        var convidado = Sebastiao with { Tentativas = 1, UltimoContato = new DateTime(2026, 10, 23, 15, 0, 0) };
+        Assert.True(RetencaoNaTela.ComoFoiNaColuna(convidado, null));
+        // O aviso "respondeu ao convite" já traz os cinco: a coluna não repete.
+        var aviso = new AcaoPedida(TipoDaAcaoPedida.RetencaoRespondeu, "sucesso", "", "", RetencaoNaTela.BotoesDoComoFoi());
+        Assert.False(RetencaoNaTela.ComoFoiNaColuna(convidado, aviso));
+        Assert.False(RetencaoNaTela.ComoFoiNaColuna(convidado with { Pendente = false }, null));
     }
 
     [Fact]

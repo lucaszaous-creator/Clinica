@@ -345,8 +345,10 @@ public sealed class ConversasNaTelaTests
     {
         var semResposta = ConversasNaTela.PedeAcao(WhatsAppDeTeste.Conversa(paciente: 102, nomeDaFicha: "Carlos Eduardo Mota"),
             ConversasNaTela.AvisosDaConversa(102, AvisosDoSino(), PacienteDoAgendamento), 1, null, Agora)!;
-        Assert.Equal("Carlos não respondeu ao lembrete de hoje 16:00 (Dr. Marcos).", semResposta.Titulo);
+        // A mesma palavra da linha da lista e do horário da coluna (item 7): "sem resposta".
+        Assert.Equal("Carlos · sem resposta ao lembrete de hoje 16:00 (Dr. Marcos).", semResposta.Titulo);
         Assert.Equal([BotaoDaAcao.ConfirmouPorTelefone, BotaoDaAcao.NaoVem], semResposta.Botoes.Select(b => b.Acao));
+        Assert.Equal(["Confirmar", "Não vem"], semResposta.Botoes.Select(b => b.Rotulo));
         Assert.True(semResposta.Botoes[1].Perigo);
 
         var cancelar = ConversasNaTela.PedeAcao(WhatsAppDeTeste.Conversa(paciente: 104, nomeDaFicha: "Pedro Henrique Souza"),
@@ -357,6 +359,64 @@ public sealed class ConversasNaTelaTests
         // Confirmou é notícia, não pede nada.
         Assert.Null(ConversasNaTela.PedeAcao(WhatsAppDeTeste.Conversa(paciente: 103),
             ConversasNaTela.AvisosDaConversa(103, AvisosDoSino(), PacienteDoAgendamento), 1, null, Agora));
+    }
+
+    // ------------------------------------------------------------ 25/10: a transferência (R7) e uma porta por pergunta (item 6)
+
+    [Fact]
+    public void O_pedido_de_transferencia_pede_acao_de_quem_recebe_antes_de_tudo_e_espera_de_quem_pediu()
+    {
+        var avisos = ConversasNaTela.AvisosDaConversa(101, AvisosDoSino(), PacienteDoAgendamento);
+        var paraAna = WhatsAppDeTeste.Conversa() with { AgentId = "bruna", PendingTransfer = new("p1", "bruna", "ana", "Quer o valor do pacote.", Agora) };
+
+        var recebe = ConversasNaTela.PedeAcao(paraAna, avisos, 1, null, Agora, "ana", WhatsAppDeTeste.Agentes)!;
+        Assert.Equal(TipoDaAcaoPedida.TransferenciaParaVoce, recebe.Tipo);
+        Assert.Equal("Bruna quer passar esta conversa para você.", recebe.Titulo);
+        Assert.StartsWith("Nota: Quer o valor do pacote. · ", recebe.Frase);
+        Assert.Equal([BotaoDaAcao.AceitarTransferencia, BotaoDaAcao.RecusarTransferencia], recebe.Botoes.Select(b => b.Acao));
+
+        // Quem pediu continua com a conversa: o "não vem" do paciente vem antes da espera dele.
+        var daAna = WhatsAppDeTeste.Conversa() with { PendingTransfer = new("p2", "ana", "bruna", "", Agora) };
+        Assert.Equal(TipoDaAcaoPedida.NaoVem, ConversasNaTela.PedeAcao(daAna, avisos, 1, null, Agora, "ana", WhatsAppDeTeste.Agentes)!.Tipo);
+        var espera = ConversasNaTela.PedeAcao(daAna, [], 1, null, Agora, "ana", WhatsAppDeTeste.Agentes)!;
+        Assert.Equal((TipoDaAcaoPedida.TransferenciaAguardando, "Aguardando o aceite de Bruna."), (espera.Tipo, espera.Titulo));
+        Assert.Equal(BotaoDaAcao.CancelarTransferencia, Assert.Single(espera.Botoes).Acao);
+        // Sem saber quem está vendo, ninguém é "você".
+        Assert.Null(ConversasNaTela.PedeAcao(daAna, [], 1, null, Agora));
+    }
+
+    [Fact]
+    public void O_selo_diz_transferencia_para_voce_e_aguardando_aceite()
+    {
+        var pedido = new AppPendingTransfer("p1", "bruna", "ana", "", Agora);
+        Assert.Equal(new SeloDoWhatsApp("Transferência para você", "aviso"),
+            ConversasNaTela.Selo(WhatsAppDeTeste.Resumo(agente: "bruna", paciente: 101) with { PendingTransfer = pedido }, [], 1, null, Agora, null, "ana", WhatsAppDeTeste.Agentes));
+        Assert.Equal(new SeloDoWhatsApp("Aguardando aceite · Bruna", "neutro"),
+            ConversasNaTela.Selo(WhatsAppDeTeste.Resumo(agente: "ana", paciente: 101) with { PendingTransfer = pedido with { From = "ana", To = "bruna" } }, [], 1, null, Agora, null, "ana", WhatsAppDeTeste.Agentes));
+    }
+
+    [Fact]
+    public void A_frase_da_transferencia_diz_se_foi_pedido_ou_se_passou()
+    {
+        var pedido = WhatsAppDeTeste.Conversa() with { PendingTransfer = new("p1", "ana", "bruna", "", Agora) };
+        Assert.Equal("Pedido enviado a Bruna. A conversa continua com você até a pessoa aceitar.", ConversasNaTela.FraseDaTransferencia(pedido, WhatsAppDeTeste.Agentes));
+        Assert.Equal("Conversa encaminhada ao setor Agendamento. Quem estiver nele assume.",
+            ConversasNaTela.FraseDaTransferencia(WhatsAppDeTeste.Conversa() with { AgentId = null, Queue = "Agendamento" }, WhatsAppDeTeste.Agentes));
+        Assert.Equal("Alguém da equipe", ConversasNaTela.NomeDaPessoa("x9", WhatsAppDeTeste.Agentes));
+    }
+
+    [Fact]
+    public void O_que_o_aviso_oferece_sai_da_coluna_so_para_aquele_horario()
+    {
+        var acao = ConversasNaTela.PedeAcao(WhatsAppDeTeste.Conversa(), ConversasNaTela.AvisosDaConversa(101, AvisosDoSino(), PacienteDoAgendamento), 1, null, Agora);
+        Assert.True(ConversasNaTela.AvisoOferece(acao, BotaoDaAcao.Remarcar, 1));
+        Assert.True(ConversasNaTela.AvisoOferece(acao, BotaoDaAcao.ManterHorario, 1));
+        Assert.False(ConversasNaTela.AvisoOferece(acao, BotaoDaAcao.Remarcar, 2), "o outro horário mantém o botão");
+        Assert.False(ConversasNaTela.AvisoOferece(acao, BotaoDaAcao.AceitarCancelamento, 1), "cancelar continua na coluna");
+        Assert.False(ConversasNaTela.AvisoOferece(null, BotaoDaAcao.ConferirFicha));
+        var semFicha = ConversasNaTela.PedeAcao(WhatsAppDeTeste.Conversa(paciente: null, nomeDaFicha: ""), [], 0, null, Agora)!;
+        Assert.True(ConversasNaTela.AvisoOferece(semFicha, BotaoDaAcao.CadastrarPaciente));
+        Assert.Equal(ConversasNaTela.RotuloDeCadastrar, semFicha.Botoes.Single(b => b.Acao == BotaoDaAcao.CadastrarPaciente).Rotulo);
     }
 
     [Fact]

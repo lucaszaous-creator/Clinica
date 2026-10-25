@@ -19,9 +19,10 @@ namespace PreviaBlazor.Sementes;
 /// O que cada parte faz aparecer, pelas regras de verdade:
 /// <list type="bullet">
 /// <item><b>Avisos do sino</b> (<c>AvisosDeConfirmacao.Decidir</c>): Maria "não vem" (respondeu
-/// "pediu para remarcar"), Carlos "sem resposta" (lembrete COM link há mais de 3 h) e João
-/// "confirmou" (pelo WhatsApp, hoje). O lembrete do Pedro saiu sem link: não vira aviso — e a
-/// conversa é da Terezinha, sem ficha conferida.</item>
+/// "pediu para remarcar"), Carlos "sem resposta" (o lembrete AUTOMÁTICO do WhatsApp, gravado pela
+/// ponte, há mais de 3 h — o mesmo que a conversa dele mostra às 06:00) e João "confirmou" (pelo
+/// WhatsApp, hoje). O lembrete do Pedro a recepção mandou à mão: não vira aviso — e a conversa é da
+/// Terezinha, sem ficha conferida.</item>
 /// <item><b>Duas fichas no mesmo telefone</b>: Terezinha e o filho Pedro.</item>
 /// <item><b>A retenção</b> (<c>IAcompanhamentoPacienteService.ListarAsync</c>): Sebastião, Helena
 /// (SEM autorização de mensagens), Marcos, Rita, Fernanda (aguardando: convidada ontem), Alzira
@@ -45,7 +46,14 @@ public sealed class SementeConversasDoWhatsApp : ISemente
         var helena = db.Set<Profissional>().First(p => p.NomeCurto == "Dra. Helena");
         var marcos = db.Set<Profissional>().First(p => p.NomeCurto == "Dr. Marcos");
         var ana = db.Set<UsuarioSistema>().FirstOrDefault(u => u.Login == "ana.previa");
-        var bruno = db.Set<UsuarioSistema>().FirstOrDefault(u => u.Login == "bruno.previa");
+        // A Bruna Reis do CRM de mentira (quem mandou os convites e pediu a transferência da Lúcia) é também quem cuida dos
+        // casos dela no Acompanhamento: o mesmo nome nas duas colunas (item 15 da revisão — antes era "Bruno" de um lado).
+        var bruna = db.Set<UsuarioSistema>().FirstOrDefault(u => u.Login == "bruna.previa");
+        if (bruna is null && ana is not null)
+        {
+            bruna = new UsuarioSistema { Nome = "Bruna Reis", Login = "bruna.previa", Perfil = PerfilAcesso.Recepcao, SenhaHash = "-", SenhaSalt = "-", Ativo = true };
+            db.Add(bruna);
+        }
 
         if (db.Configuracoes.Find(ParametrosService.ChaveEnderecoDoCrm) is null)
             db.Configuracoes.Add(new ConfiguracaoGlobal { Chave = ParametrosService.ChaveEnderecoDoCrm, Valor = "https://crm.exemplo.invalid" });
@@ -91,19 +99,21 @@ public sealed class SementeConversasDoWhatsApp : ISemente
             return a;
         }
 
-        // O lembrete de confirmação do horário e a resposta (ou a falta dela).
+        // O lembrete de confirmação do horário e a resposta (ou a falta dela). Por padrão, o AUTOMÁTICO do WhatsApp da
+        // clínica, como a ponte do CRM o grava (RodadaDeConfirmacao.LembreteAutomatico); "enviadoPor" é o lembrete à mão.
         void Confirmacao(Agendamento a, StatusContato status, DateTime enviado, DateTime? respondido = null,
-            string? comentario = null, string? token = null) => db.Add(new ContatoCampanha
+            string? comentario = null, string? enviadoPor = null) => db.Add(new ContatoCampanha
         {
             PacienteId = a.PacienteId, AgendamentoId = a.Id, Tipo = TipoContato.ConfirmacaoSessao, Status = status,
-            Canal = token is null ? CanalContato.WhatsApp : CanalContato.Sms,
+            Canal = CanalContato.WhatsApp,
             Origem = ContatoCampanha.OrigemDeAgendamento(a.Id), Referencia = DateOnly.FromDateTime(a.DataHora),
-            CriadoEm = enviado.AddHours(-12), EnviadoEm = enviado, EnviadoPor = "crm", RespondidoEm = respondido,
-            Comentario = comentario, TokenResposta = token
+            CriadoEm = enviado.AddHours(-12), EnviadoEm = enviado, EnviadoPor = enviadoPor ?? RodadaDeConfirmacao.LembreteAutomatico,
+            RespondidoEm = respondido, Comentario = comentario
         });
 
         // ===================== as conversas
-        var maria = P(Maria, new DateOnly(1968, 3, 12), true, documento: "12345678942", carteirinha: "0 064 1234 5678 9", validade: hoje.AddDays(37));
+        // A carteirinha vence em 20 dias: o "Para resolver" da coluna da conversa mostra o MESMO alerta da Ficha do balcão (R6).
+        var maria = P(Maria, new DateOnly(1968, 3, 12), true, documento: "12345678942", carteirinha: "0 064 1234 5678 9", validade: hoje.AddDays(20));
         Sessoes(maria, ModalidadeAtendimento.AcupunturaSimples, 5, 7);
         var hMaria = A(maria, R(0, 14, 0), ModalidadeAtendimento.AcupunturaSimples, helena);
         A(maria, R(13, 14, 0), ModalidadeAtendimento.AcupunturaSimples, helena);
@@ -115,12 +125,12 @@ public sealed class SementeConversasDoWhatsApp : ISemente
             observacoes: "Responsável: Terezinha Souza (mãe), que usa o mesmo telefone.");
         Sessoes(pedro, ModalidadeAtendimento.AcupunturaSimples, 4, 7);
         var hPedro = A(pedro, R(1, 9, 0), ModalidadeAtendimento.AcupunturaSimples, helena);
-        Confirmacao(hPedro, StatusContato.Enviado, R(0, 6, 0)); // pelo WhatsApp, sem link: não vira "sem resposta"
+        Confirmacao(hPedro, StatusContato.Enviado, R(0, 6, 0), enviadoPor: ana?.Login ?? "previa"); // à mão pela recepção: não vira "sem resposta"
 
         var carlos = P(Carlos, new DateOnly(1980, 7, 30), true, Convenio.Amil, documento: "33344455515", carteirinha: "7788 0001 2", validade: new DateOnly(hoje.Year + 1, 12, 31));
         Sessoes(carlos, ModalidadeAtendimento.BsvComAcupuntura, 6, 7);
         var hCarlos = A(carlos, R(0, 16, 0), ModalidadeAtendimento.BsvComAcupuntura, marcos, duracao: 60);
-        Confirmacao(hCarlos, StatusContato.Enviado, R(0, 6, 0), token: "pv-carlos-hoje");
+        Confirmacao(hCarlos, StatusContato.Enviado, R(0, 6, 0)); // o automático das 06:00, sem resposta há mais de 3 h
 
         var joao = P(Joao, new DateOnly(1958, 11, 2), true, documento: "66677788888", carteirinha: "0 064 9988 7766 5", validade: new DateOnly(hoje.Year + 1, 6, 30));
         Sessoes(joao, ModalidadeAtendimento.AcupunturaSimples, 8, 7);
@@ -178,14 +188,14 @@ public sealed class SementeConversasDoWhatsApp : ISemente
         // Fernanda: convidada ontem pelo WhatsApp (o modelo da conversa do CRM); aguardando a resposta.
         var fernanda = P(Fernanda, new DateOnly(1987, 6, 8), true, documento: "55566677723", carteirinha: "0 064 5544 3322 1", validade: new DateOnly(hoje.Year + 1, 3, 31));
         Sessoes(fernanda, ModalidadeAtendimento.AcupunturaSimples, 4, 20);
-        var cFernanda = Caso(fernanda, TipoAcompanhamento.Recall, ModalidadeAtendimento.AcupunturaSimples, 20, bruno, 3, EtapaAcompanhamento.SemResposta);
-        Contato(cFernanda, bruno, R(-1, 15, 10), CanalContato.WhatsApp, "Convite para voltar enviado pelo WhatsApp");
+        var cFernanda = Caso(fernanda, TipoAcompanhamento.Recall, ModalidadeAtendimento.AcupunturaSimples, 20, bruna, 3, EtapaAcompanhamento.SemResposta);
+        Contato(cFernanda, bruna, R(-1, 15, 10), CanalContato.WhatsApp, "Convite para voltar enviado pelo WhatsApp");
 
         // Alzira: o convite foi anteontem; ela respondeu ontem (o "Respondeu" vem da conversa do CRM).
         var alzira = P(Alzira, new DateOnly(1955, 4, 3), true, documento: "77788899977", carteirinha: "0 064 2211 3344 0", validade: new DateOnly(hoje.Year + 1, 9, 30));
         Sessoes(alzira, ModalidadeAtendimento.BsvApenas, 5, 16);
-        var cAlzira = Caso(alzira, TipoAcompanhamento.Recall, ModalidadeAtendimento.BsvApenas, 16, bruno, 2, EtapaAcompanhamento.SemResposta, marcos);
-        Contato(cAlzira, bruno, R(-2, 15, 12), CanalContato.WhatsApp, "Convite para voltar enviado pelo WhatsApp");
+        var cAlzira = Caso(alzira, TipoAcompanhamento.Recall, ModalidadeAtendimento.BsvApenas, 16, bruna, 2, EtapaAcompanhamento.SemResposta, marcos);
+        Contato(cAlzira, bruna, R(-2, 15, 12), CanalContato.WhatsApp, "Convite para voltar enviado pelo WhatsApp");
 
         var sebastiao = P(Sebastiao, new DateOnly(1963, 2, 11), true, documento: "10120230340", carteirinha: "0 064 3300 1122 9", validade: new DateOnly(hoje.Year + 1, 1, 31));
         Sessoes(sebastiao, ModalidadeAtendimento.BsvApenas, 6, 32);
@@ -228,9 +238,9 @@ public sealed class SementeConversasDoWhatsApp : ISemente
 
         var geraldo = P(Geraldo, new DateOnly(1960, 1, 25), true, documento: "80890900011", carteirinha: "0 064 9100 9900 2", validade: new DateOnly(hoje.Year + 1, 7, 31));
         Sessoes(geraldo, ModalidadeAtendimento.BsvApenas, 2, 39);
-        var cGeraldo = Caso(geraldo, TipoAcompanhamento.Recall, ModalidadeAtendimento.BsvApenas, 39, bruno, 0, prof: marcos);
+        var cGeraldo = Caso(geraldo, TipoAcompanhamento.Recall, ModalidadeAtendimento.BsvApenas, 39, bruna, 0, prof: marcos);
         var encerrouEm = NestaSemana(3, 15);
-        Contato(cGeraldo, bruno, encerrouEm, CanalContato.Telefone, "Não conformidade — encerrado", "Não quer voltar: mudou para Campos.");
+        Contato(cGeraldo, bruna, encerrouEm, CanalContato.Telefone, "Não conformidade — encerrado", "Não quer voltar: mudou para Campos.");
         var mudouDeCidade = db.MotivosAcompanhamento.FirstOrDefault(m => m.Nome == "Mudou de cidade");
         if (mudouDeCidade is null)
         {
@@ -239,7 +249,7 @@ public sealed class SementeConversasDoWhatsApp : ISemente
         }
         db.SaveChanges();
         cGeraldo.EncerradoEm = encerrouEm;
-        cGeraldo.EncerradoPor = bruno?.Login ?? "previa";
+        cGeraldo.EncerradoPor = bruna?.Login ?? "previa";
         cGeraldo.MotivoEncerramento = "Não quer voltar: mudou para Campos.";
         cGeraldo.MotivoId = mudouDeCidade.Id;
         db.SaveChanges();

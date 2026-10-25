@@ -3822,7 +3822,8 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
                     ? (c.Agendamento.Profissional.NomeCurto ?? c.Agendamento.Profissional.Nome)
                     : null,
                 c.Status,
-                c.TokenResposta != null,
+                // Pede resposta: o link do SMS antigo OU o lembrete automático que a ponte do CRM gravou (com os botões).
+                c.TokenResposta != null || c.EnviadoPor == RodadaDeConfirmacao.LembreteAutomatico,
                 c.EnviadoEm,
                 c.RespondidoEm,
                 c.Comentario));

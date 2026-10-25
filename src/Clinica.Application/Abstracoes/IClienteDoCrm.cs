@@ -64,8 +64,20 @@ public interface IClienteDoCrm
     /// <summary>POST …/{id}/claim — a pessoa assume a conversa.</summary>
     Task<AppConversation> AssumirAsync(int usuarioId, string conversaId, AppChange mudanca, CancellationToken ct = default);
 
-    /// <summary>POST …/{id}/transfer — passa a conversa a outra pessoa ou fila.</summary>
+    /// <summary>
+    /// POST …/{id}/transfer — para uma FILA (setor) a conversa passa na hora, sem responsável; para uma PESSOA ela
+    /// continua com quem pediu e nasce o pedido (<see cref="AppConversation.PendingTransfer"/>), que passa quando a
+    /// pessoa aceitar (<see cref="DecidirTransferenciaAsync"/>).
+    /// </summary>
     Task<AppConversation> TransferirAsync(int usuarioId, string conversaId, AppChange mudanca, CancellationToken ct = default);
+
+    /// <summary>
+    /// POST /api/transfers/{pedidoId}/{acao} — <paramref name="acao"/> é <c>accept</c> ou <c>reject</c> (de quem recebe)
+    /// ou <c>cancel</c> (de quem pediu). Recusar exige o motivo (3 a 500 letras). Devolve a conversa que o pedido moveu;
+    /// repetir a mesma decisão (a resposta se perdeu) é inofensivo no CRM.
+    /// </summary>
+    Task<AppTransferDecided> DecidirTransferenciaAsync(int usuarioId, string pedidoId, string acao, AppTransferDecision decisao,
+        CancellationToken ct = default);
 
     /// <summary>POST …/{id}/reopen — reabre uma conversa encerrada.</summary>
     Task<AppConversation> ReabrirAsync(int usuarioId, string conversaId, AppChange mudanca, CancellationToken ct = default);

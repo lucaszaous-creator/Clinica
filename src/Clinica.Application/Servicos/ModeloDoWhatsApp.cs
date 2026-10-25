@@ -77,6 +77,14 @@ public static class ModeloDoWhatsApp
         [RecallReal] = [PrimeiroNome],
     };
 
+    /// <summary>
+    /// Os modelos que LEMBRAM a sessão marcada e pedem a confirmação (o do mockup, o aprovado em produção e o de 24 h).
+    /// Enviado pela conversa, o lembrete conta o horário como avisado na rodada (D11, 25/10 —
+    /// <see cref="WhatsAppDaRecepcaoService.HorarioDoLembrete"/>).
+    /// </summary>
+    public static readonly IReadOnlySet<string> Lembretes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        { LembreteSessao, "semdor_lembrete_sessao", "semdor_confirmacao_24h" };
+
     private static readonly Regex Variavel = new(@"\{\{(\d+)\}\}", RegexOptions.CultureInvariant);
 
     /// <summary>Os rótulos do modelo conhecido com esta quantidade de variáveis, ou nulo.</summary>
