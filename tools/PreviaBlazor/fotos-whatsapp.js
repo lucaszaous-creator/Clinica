@@ -63,6 +63,9 @@ const ROTEIRO = [
   ['52-midia-documento-e-video', async p => { await filtro(p, 'Minhas'); await linha(p, 'João Batista'); await mostrar(p, '.wa-midia-documento'); }],
   ['53-midia-video-falhou', async p => { await filtro(p, 'Minhas'); await linha(p, 'João Batista'); await mostrar(p, '.wa-midia-video');
       await p.locator('.wa-video-capa').first().click({ timeout: 8000 }); await pausa(1200); }],
+  // A figurinha solta (sem balão nem ampliar) e o retrato da ficha nos avatares (25/10).
+  ['56-figurinha', async p => { await filtro(p, 'Minhas'); await linha(p, 'Roberto Lima'); await mostrar(p, '.wa-figurinha'); }],
+  ['57-retratos-nos-avatares', async p => { await filtro(p, 'Minhas'); await linha(p, 'João Batista'); await p.locator('.wa-linha .avatar.com-foto').first().waitFor({ timeout: 8000 }); }],
   ['54-midia-gravando', async p => { await filtro(p, 'Minhas'); await linha(p, 'Roberto Lima'); await clicar(p, 'Gravar áudio'); await pausa(2600); }],
 ];
 async function mostrar(p, seletor) { await p.locator(seletor).first().scrollIntoViewIfNeeded({ timeout: 8000 }); await pausa(600); }

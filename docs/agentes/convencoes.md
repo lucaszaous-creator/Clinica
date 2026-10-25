@@ -5,7 +5,7 @@ sessão). O texto é o MESMO, sem reescrita: design system, WPF/XAML, Blazor, EF
 `verificar-suite`, assinatura digital, impressão, CRM e as rodadas de UI, cada uma com o defeito que a
 originou. Antes de escrever uma tela, uma consulta ou uma checagem, procure aqui a lição da área.
 
-## Índice (196 tópicos, na ordem do arquivo)
+## Índice (197 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -204,6 +204,7 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
 - Componente filho que chama a tela por `Func` (e não `EventCallback`) não a redesenha: quem chama chama `StateHasChanged`
 - Junção de branches paralelas: o git junta SEM conflito duas versões da MESMA decisão
 - O bUnit CLICA botão `disabled`, e o Postgres é que mostra
+- Leitura que chega DEPOIS redesenha entre o `Find` e o `Click` do teste
 ---
 
 
@@ -5123,3 +5124,14 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
   clique agora também recusa sem telefone. Regra: teste que clica espera o botão ACENDER
   (`WaitForAssertion(... HasAttribute("disabled").Should().BeFalse())`), e todo `@onclick` de botão que
   nasce apagado confere de novo, no clique, a condição que o apaga.
+- **Leitura que chega DEPOIS redesenha entre o `Find` e o `Click` do teste** (25/10/2026, o retrato
+  da ficha no avatar do WhatsApp). A tela publica a lista e, em seguida, busca as miniaturas sem
+  segurar a lista; quando elas chegam, a tela redesenha. No SQLite a busca termina antes de o teste
+  clicar; no Postgres ela caiu entre o `FindAll(...)` e o `.Click()`, e o bUnit recusou o clique
+  ("There is no event handler with ID") em seis testes de dois arquivos que nada tinham a ver com
+  foto. Regra: em tela que publica alguma coisa depois de abrir, o teste acha e age no MESMO passo
+  do renderizador — `tela.Clicar(() => tela.Find(...))` e `tela.Digitar(...)`
+  (`tests/Clinica.Tests/CliqueNoMesmoPasso.cs`, o `InvokeAsync` que o bUnit recomenda). E rode a
+  família da tela mexida com `CLINICA_TESTES_POSTGRES`: é a rede que vê a corrida. ⚠️ Duas rodadas
+  de `dotnet test` contra o MESMO Postgres ao mesmo tempo disputam o banco-modelo
+  (`BancoDosTestes`) e falham com "transient failure" na fixture — não é defeito, é a rodada.

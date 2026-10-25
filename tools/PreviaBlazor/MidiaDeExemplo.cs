@@ -26,6 +26,21 @@ public static class MidiaDeExemplo
     /// <summary>A "foto do pedido médico": uma folha com cabeçalho, linhas e assinatura sobre a mesa.</summary>
     public static readonly ArquivoDaMidia Foto = new(Png(480, 360), "image/png", null);
 
+    /// <summary>A figurinha (25/10): um rosto sorrindo com contorno branco sobre fundo TRANSPARENTE, como as do WhatsApp (lá, WEBP).</summary>
+    public static readonly ArquivoDaMidia Figurinha = new(PngComTransparencia(256, PixelDaFigurinha), "image/png", null);
+
+    /// <summary>
+    /// O retrato da ficha (25/10, o avatar das conversas): uma SILHUETA desenhada — cabeça e ombros
+    /// claros sobre a cor de fundo —, nunca o rosto de alguém. 160 px, o tamanho da miniatura do balcão.
+    /// </summary>
+    public static byte[] Retrato(byte r, byte g, byte b) => PngComTransparencia(160, (x, y, lado) =>
+    {
+        double cx = x + 0.5 - lado / 2.0, cabeca = Math.Sqrt(cx * cx + Math.Pow(y + 0.5 - lado * 0.40, 2)), ombro = Math.Sqrt(cx * cx * 0.55 + Math.Pow(y + 0.5 - lado * 1.02, 2));
+        return cabeca < lado * 0.19 || ombro < lado * 0.42
+            ? ((byte)Math.Min(255, r + 120), (byte)Math.Min(255, g + 120), (byte)Math.Min(255, b + 120), (byte)255)
+            : (r, g, b, (byte)255);
+    });
+
     /// <summary>A nota de voz: seis segundos e meio de "fala" (tom com sílabas e pausas), 8 kHz mono.</summary>
     public static readonly ArquivoDaMidia NotaDeVoz = new(Wav(6.5), "audio/wav", null);
 
@@ -61,12 +76,46 @@ public static class MidiaDeExemplo
                 linhas[i++] = r; linhas[i++] = g; linhas[i++] = b;
             }
         }
+        return MontarPng(linhas, largura, altura, tipoDeCor: 2); // 8 bits, RGB
+    }
+
+    /// <summary>Um PNG quadrado RGBA (tipo de cor 6): o que a figurinha precisa para o fundo transparente.</summary>
+    private static byte[] PngComTransparencia(int lado, Func<int, int, int, (byte R, byte G, byte B, byte A)> pixel)
+    {
+        var linhas = new byte[lado * (1 + lado * 4)];
+        var i = 0;
+        for (var y = 0; y < lado; y++)
+        {
+            linhas[i++] = 0;
+            for (var x = 0; x < lado; x++)
+            {
+                var (r, g, b, a) = pixel(x, y, lado);
+                linhas[i++] = r; linhas[i++] = g; linhas[i++] = b; linhas[i++] = a;
+            }
+        }
+        return MontarPng(linhas, lado, lado, tipoDeCor: 6);
+    }
+
+    /// <summary>Rosto amarelo com olhos e sorriso, contorno branco e nada em volta.</summary>
+    private static (byte, byte, byte, byte) PixelDaFigurinha(int x, int y, int lado)
+    {
+        double c = lado / 2.0, dx = x + 0.5 - c, dy = y + 0.5 - c, d = Math.Sqrt(dx * dx + dy * dy), raio = lado * 0.40;
+        if (d > raio + lado * 0.05) return (0, 0, 0, 0);
+        if (d > raio) return (255, 255, 255, 255);
+        var olho = Math.Min(Math.Pow(dx + lado * 0.13, 2), Math.Pow(dx - lado * 0.13, 2)) + Math.Pow(dy + lado * 0.08, 2) < Math.Pow(lado * 0.045, 2);
+        var sorriso = dy > lado * 0.05 && Math.Abs(Math.Sqrt(dx * dx + Math.Pow(dy + lado * 0.02, 2)) - lado * 0.21) < lado * 0.022;
+        if (olho || sorriso) return (92, 58, 18, 255);
+        return d > raio - lado * 0.025 ? ((byte)230, (byte)160, (byte)40, (byte)255) : ((byte)255, (byte)204, (byte)77, (byte)255);
+    }
+
+    private static byte[] MontarPng(byte[] linhas, int largura, int altura, byte tipoDeCor)
+    {
         using var saida = new MemoryStream();
         saida.Write([137, 80, 78, 71, 13, 10, 26, 10]);
         var ihdr = new byte[13];
         EscreverBE(ihdr, 0, (uint)largura);
         EscreverBE(ihdr, 4, (uint)altura);
-        ihdr[8] = 8; ihdr[9] = 2; // 8 bits, RGB
+        ihdr[8] = 8; ihdr[9] = tipoDeCor;
         Pedaco(saida, "IHDR", ihdr);
         using (var comprimido = new MemoryStream())
         {

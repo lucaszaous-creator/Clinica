@@ -9,3 +9,6 @@ public sealed record FichaComTelefone(int Id, string Nome, DateOnly? DataNascime
 
 /// <summary>De quem é um horário: o par que liga o aviso do sino (só o agendamento) à ficha da conversa.</summary>
 public sealed record AgendamentoDoPaciente(int AgendamentoId, int PacienteId);
+
+/// <summary>A miniatura do retrato de uma ficha (25/10, o avatar das conversas do WhatsApp): só o id e os bytes.</summary>
+public sealed record MiniaturaDoPaciente(int PacienteId, byte[] Miniatura);

@@ -58,6 +58,14 @@ public class TraducaoNoNpgsqlTests
     }
 
     [Fact]
+    public void Miniaturas_traduzem_em_projecao_sem_a_ficha()
+    {
+        using var db = Postgres();
+        var sql = new ClinicaRepositorio(db).ConsultaMiniaturas([1, 2]).ToQueryString();
+        sql.Should().Contain("FotoMiniatura").And.Contain("IS NOT NULL").And.NotContain("\"Nome\"").And.NotContain("Observacoes");
+    }
+
+    [Fact]
     public void Donos_dos_horarios_traduzem_em_projecao()
     {
         using var db = Postgres();

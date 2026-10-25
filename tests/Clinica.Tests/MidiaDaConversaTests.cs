@@ -30,6 +30,22 @@ public sealed class MidiaDaConversaTests
     }
 
     [Fact]
+    public void Figurinha_e_imagem_que_se_chama_figurinha_em_toda_frase()
+    {
+        var m = MidiaDaConversa.Da("c1", Msg("in", "IMAGE") with { Sticker = true })!;
+        Assert.Equal((TipoDeMidia.Imagem, true, true, "Figurinha"), (m.Tipo, m.Figurinha, m.CarregaSozinha, m.Rotulo));
+        var webp = new ArquivoDaMidia([1, 2, 3], "image/webp", null);
+        Assert.StartsWith("data:image/webp;base64,", MidiaDaConversa.Endereco(m.Tipo, webp));
+        Assert.Equal("Figurinha recebida · 3 bytes", MidiaDaConversa.Descricao(m, MidiaDaConversa.Preparar(m, webp)));
+        Assert.StartsWith("figurinha-", MidiaDaConversa.NomeParaSalvar(m, webp));
+        Assert.Equal("Não foi possível carregar a figurinha.", MidiaDaConversa.Falha(m, ""));
+        // A foto comum continua foto, e a marca numa mensagem que não é imagem não muda nada.
+        var foto = MidiaDaConversa.Da("c1", Msg("in", "IMAGE"))!;
+        Assert.Equal((false, "Foto", "Não foi possível carregar a foto."), (foto.Figurinha, foto.Rotulo, MidiaDaConversa.Falha(foto, "")));
+        Assert.False(MidiaDaConversa.Da("c1", Msg("in", "AUDIO") with { Sticker = true })!.Figurinha);
+    }
+
+    [Fact]
     public void Sem_arquivo_nao_ha_rota()
     {
         Assert.Null(MidiaDaConversa.Rota("c1", Msg("in", "TEXT", "oi")));

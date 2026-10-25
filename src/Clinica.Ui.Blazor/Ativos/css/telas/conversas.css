@@ -34,6 +34,9 @@
 .wa .avatar.tom-ciano{background:var(--ciano-100);color:var(--ciano-700)}
 .wa .avatar.tom-laranja{background:var(--laranja-100);color:var(--laranja-700)}
 .wa .avatar.tom-cinza{background:var(--cinza-100);color:var(--cinza-700)}
+/* O retrato da ficha (25/10, ConversasDoWhatsApp.Fotos.cs): a foto ocupa o círculo; o selo do canal continua por cima, fora dele. */
+.wa .avatar.com-foto{background:var(--superficie);padding:0}
+.wa .avatar.com-foto img{display:block;width:100%;height:100%;border-radius:50%;object-fit:cover}
 .wa-canal{position:absolute;right:-2px;bottom:-2px;width:16px;height:16px;border-radius:50%;display:grid;place-items:center;
   background:var(--sucesso);color:var(--texto-invertido);border:2px solid var(--superficie)}
 .wa-canal.sms{background:var(--cinza-500)}

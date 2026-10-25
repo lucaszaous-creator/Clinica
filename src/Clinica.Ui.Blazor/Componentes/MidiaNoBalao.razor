@@ -7,6 +7,7 @@
 
   - Foto e áudio pedem o arquivo sozinhos ao aparecer (CarregaSozinha); vídeo e documento, só no
     clique — um vídeo pode ter 16 MB.
+  - A figurinha (MidiaDaMensagem.Figurinha) é imagem que se desenha pequena, sem balão e sem ampliar.
   - Três estados por arquivo: esqueleto enquanto chega, o arquivo, e a falha com "Tentar de novo".
     Formato que o navegador não mostra (uma foto que veio como PDF) vira cartão com "Baixar".
 *@
@@ -15,7 +16,12 @@
     @switch (Midia.Tipo)
     {
         case TipoDeMidia.Imagem:
-            @if (Carregada?.Endereco is { } foto)
+            @if (Midia.Figurinha && Carregada?.Endereco is { } figurinha)
+            {
+                @* Como no WhatsApp: pequena, sem balão e sem "Ampliar" — figurinha é reação, não documento a guardar. *@
+                <img class="wa-figurinha" src="@figurinha" alt="Figurinha" />
+            }
+            else if (Carregada?.Endereco is { } foto)
             {
                 <button type="button" class="wa-foto" aria-label="Ampliar a foto" title="Ampliar a foto" @onclick="AoAmpliar"><img src="@foto" alt="@Midia.Rotulo da conversa" /></button>
             }
@@ -113,7 +119,7 @@
 
     private string Classe => Midia.Tipo switch
     {
-        TipoDeMidia.Imagem => "foto", TipoDeMidia.Audio => "audio", TipoDeMidia.Video => "video", _ => "documento"
+        TipoDeMidia.Imagem => Midia.Figurinha ? "figurinha" : "foto", TipoDeMidia.Audio => "audio", TipoDeMidia.Video => "video", _ => "documento"
     };
 
     // Foto e áudio pedem o arquivo ao aparecer — uma vez por mensagem (a falha espera o "Tentar de novo").

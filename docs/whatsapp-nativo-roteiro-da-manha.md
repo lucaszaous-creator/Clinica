@@ -232,6 +232,7 @@ verdade: tudo o que sai, sai pelo número oficial da clínica.
 | ☐ | **Retenção.** O seletor Conversas / Retenção mostra os grupos. Quem não autorizou mensagens só tem "Já liguei". **Não envie convite a paciente real** neste teste. |
 | ☐ | **O sino leva à conversa.** Um aviso de confirmação no sino abre a conversa certa. |
 | ☐ | **Mídia.** Mande do seu celular uma foto, um áudio e um PDF: a foto aparece no balão (clique amplia), o áudio toca, o PDF abre e baixa. |
+| ☐ | **Figurinha e retrato.** Mande uma figurinha do seu celular: ela aparece pequena e solta (sem balão), e a lista diz "Figurinha". Se o paciente de teste tem foto na ficha, o rosto da ficha aparece no avatar da conversa depois de a ficha estar conferida (a foto do perfil do WhatsApp a Meta não fornece). |
 | ☐ | **Gravar áudio.** O microfone aparece só se o CRM tiver o conversor de gravações; o Windows pede permissão do microfone na primeira vez. Grave 3 s e envie ao seu celular. |
 | ☐ | **@SemDor** (se estiver ligado na VPS 2): ✨ com o campo vazio sugere a resposta; com texto, corrige, e ↶ volta. "✨ Resumo" mostra o resumo. |
 | ☐ | **Conversa ao lado.** Na Agenda do dia, o ícone do WhatsApp na linha do paciente de teste abre a conversa à direita; escreva algo, feche com Esc e abra de novo: o texto continua. |
@@ -342,7 +343,8 @@ conversa** (o formulário de remarcar da própria agenda, sem o cartão do horá
 **o @SemDor** (✨ sugerir ou corrigir, resumo, etiqueta na lista; o aviso de atenção no sino abre a
 conversa na aba), **a fase 2** (a conversa ao lado da Agenda do dia, da Ficha, de Confirmações e do
 Acompanhamento) e **a fase 3** (a moldura saiu inteira). Detalhes em
-`docs/whatsapp-nativo-implementacao.md` §10 a §12. Continua de fora:
+`docs/whatsapp-nativo-implementacao.md` §10 a §12. Em 25/10 entraram **as figurinhas** (pequenas e
+soltas, como no WhatsApp) e **o retrato da ficha no avatar** da conversa (§13). Continua de fora:
 
 - **Publicar, criar tag ou disparar workflow.** O roteiro é para a direção executar. Nenhum
   comando acima foi rodado.
@@ -354,6 +356,8 @@ Acompanhamento) e **a fase 3** (a moldura saiu inteira). Detalhes em
   passos; baixar o vídeo inteiro para tirar a capa).
 - **A gaveta ao lado cobre a tela em vez de empurrá-la**: empurrar exigiria que cada tela coubesse
   em ~900 px. Em 1024, a coluna de ações da Agenda do dia fica sob a gaveta; fecha-se com Esc.
+- **A foto do perfil do WhatsApp**: a API oficial da Meta entrega o nome do perfil, nunca a foto.
+  O avatar mostra o retrato da FICHA (o do balcão), quando a conversa está ligada a uma.
 - **O destino da tela Acompanhamento** (funil e taxa de retorno) continua com a direção.
 
 ---
@@ -375,7 +379,10 @@ virar contrato para os apps e tira daqui a moldura (fase 3).
 
 - `ApiParaOsApps.cs`: os records `App*` que o app lê e escreve, idênticos ao `ContratosDoCrm.cs`
   do Clinica (SHA-256 conferido nos dois repositórios). Campos novos sempre no fim, com padrão:
-  `AppReply.ContactRecordedByApp`, `AppConversationSummary.Semdor`, `AppSession.RecordingEnabled`.
+  `AppReply.ContactRecordedByApp`, `AppConversationSummary.Semdor`, `AppSession.RecordingEnabled`,
+  `AppMessage.Sticker`.
+- **Figurinha**: entra como `IMAGE` com a marca `Sticker`; a lista diz "Figurinha", o CRM web e o
+  app a desenham pequena e solta, e o @SemDor lê "[figurinha]".
 - `GET /api/conversations` com o tick da lista e `?desde=` (só o que mudou, inclusive a etiqueta
   nova do @SemDor, guardada fora da conversa).
 - **@SemDor para os apps**: as rotas de estado, sugestão e resumo entram no contrato.
@@ -422,6 +429,8 @@ A aba WhatsApp da Recepção é uma tela da casa (Blazor), sobre a API do CRM. A
 - **Mídia**: foto (miniatura e ampliada), áudio, vídeo e documento recebidos e enviados, com abrir
   e baixar; **gravar áudio** (o microfone só aparece com o conversor de gravações no CRM; o WebView2
   libera o microfone só para a origem do app).
+- **Figurinha e retrato**: a figurinha pequena e solta (`AppMessage.Sticker`), e o retrato da ficha
+  ligada no avatar da lista, do cabeçalho e do cartão (a foto do perfil do WhatsApp a Meta não dá).
 - **@SemDor**: ✨ sugere ou corrige a resposta (↶ volta), resumo da conversa, etiqueta de assunto na
   lista; o aviso de atenção no sino abre a conversa na aba.
 - **Fase 2, a conversa ao lado**: uma gaveta à direita da Agenda do dia, da Ficha, de Confirmações

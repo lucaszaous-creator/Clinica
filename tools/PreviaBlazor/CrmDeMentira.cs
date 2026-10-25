@@ -1021,11 +1021,12 @@ public sealed class CrmDeMentira : IClienteDoCrm
             return Tocar(at);
         }
 
-        /// <summary>Uma recebida com mídia (Type do CRM: IMAGE, AUDIO, VIDEO, DOCUMENT); <paramref name="arquivo"/> nulo = o provedor não entrega.</summary>
-        public Conversa RecebidaComMidia(DateTimeOffset at, string tipo, string legenda, ArquivoDaMidia? arquivo)
+        /// <summary>Uma recebida com mídia (Type do CRM: IMAGE, AUDIO, VIDEO, DOCUMENT); <paramref name="arquivo"/> nulo = o provedor não entrega.
+        /// <paramref name="figurinha"/>: a figurinha do WhatsApp (IMAGE com AppMessage.Sticker).</summary>
+        public Conversa RecebidaComMidia(DateTimeOffset at, string tipo, string legenda, ArquivoDaMidia? arquivo, bool figurinha = false)
         {
             var id = $"wamid.previa.{Id[^4..]}.{++seq}";
-            Messages.Add(new AppMessage(id, "in", legenda, tipo, null, at, "received", FileName: arquivo?.Nome));
+            Messages.Add(new AppMessage(id, "in", legenda, tipo, null, at, "received", FileName: arquivo?.Nome, Sticker: figurinha));
             if (arquivo is not null) Midias[id] = arquivo;
             if (at > LastIncoming) LastIncoming = at;
             return Tocar(at);
@@ -1184,6 +1185,7 @@ public sealed class CrmDeMentira : IClienteDoCrm
             .Evento(T(-1, 16, 55), ana, "Assumiu ao escrever para o paciente")
             .Enviada(T(-1, 16, 55), Eu, $"Boa tarde, Roberto! Tenho {RelogioDaPrevia.Quando(sessaoRoberto)} com a Dra. Helena. Serve?", "seen")
             .Recebida(T(-1, 17, 2), "Serve sim")
+            .RecebidaComMidia(T(-1, 17, 2, 20), "IMAGE", "", MidiaDeExemplo.Figurinha, figurinha: true)
             .Evento(T(-1, 17, 3), "Agenda da clínica", "Clínica confirmou remarcação do horário #1. Nenhuma mensagem enviada ao paciente.")
             .EnviadaComAnexo(T(-1, 17, 3, 10), Eu, "Seguem as orientações para o dia do BSV.", "DOCUMENT", MidiaDeExemplo.Orientacoes, "seen")
             .Enviada(T(-1, 17, 3, 30), Eu, $"Fica combinado então, Roberto. Até {RelogioDaPrevia.DiaDaSemana(sessaoRoberto)}!", "delivered");

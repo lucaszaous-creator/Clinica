@@ -59,13 +59,13 @@ public sealed class SemDorNaTelaDoWhatsAppTests : IClassFixture<BancoDasTelas>, 
         var tipo = typeof(IHostDaTela).Assembly.GetType("Clinica.Ui.Blazor.Telas.ConversasDoWhatsApp")!;
         var tela = _ctx.RenderComponent<Raiz>(p => p.Add(r => r.Tela, tipo));
         tela.WaitForAssertion(() => tela.FindAll(".wa-linha").Should().NotBeEmpty(), Prazo);
-        tela.FindAll(".wa-filtros .segmentado button").First(b => b.TextContent.Trim().StartsWith("Todas", StringComparison.Ordinal)).Click();
+        tela.Clicar(() => tela.FindAll(".wa-filtros .segmentado button").First(b => b.TextContent.Trim().StartsWith("Todas", StringComparison.Ordinal)));
         return tela;
     }
 
     private static void AbrirConversa(IRenderedComponent<Raiz> tela, string nome)
     {
-        tela.FindAll(".wa-linha").First(e => e.TextContent.Contains(nome, StringComparison.Ordinal)).Click();
+        tela.Clicar(() => tela.FindAll(".wa-linha").First(e => e.TextContent.Contains(nome, StringComparison.Ordinal)));
         tela.WaitForAssertion(() => tela.Find(".wa-cab-quem h2").TextContent.Should().Contain(nome), Prazo);
     }
 
@@ -90,16 +90,16 @@ public sealed class SemDorNaTelaDoWhatsAppTests : IClassFixture<BancoDasTelas>, 
         tela.Find(".wa-semdor-sugerir").GetAttribute("aria-label").Should().Be("Sugerir resposta com o @SemDor");
 
         // Campo vazio: a sugestão entra no campo, sem ↶ (não havia texto dela).
-        tela.Find(".wa-semdor-sugerir").Click();
+        tela.Clicar(() => tela.Find(".wa-semdor-sugerir"));
         tela.WaitForAssertion(() => Campo(tela).Should().StartWith("Combinado, Maria!"), Prazo);
         tela.FindAll(".wa-semdor-desfazer").Should().BeEmpty();
 
         // Com texto: a revisão entra, e o ↶ volta ao texto dela.
-        tela.Find(".wa-escrever textarea").Input("pode vir amanha as 14h");
+        tela.Digitar(() => tela.Find(".wa-escrever textarea"), "pode vir amanha as 14h");
         tela.Find(".wa-semdor-sugerir").GetAttribute("aria-label").Should().Be("Melhorar o texto com o @SemDor");
-        tela.Find(".wa-semdor-sugerir").Click();
+        tela.Clicar(() => tela.Find(".wa-semdor-sugerir"));
         tela.WaitForAssertion(() => Campo(tela).Should().Be("Pode vir amanhã às 14h."), Prazo);
-        tela.Find(".wa-semdor-desfazer").Click();
+        tela.Clicar(() => tela.Find(".wa-semdor-desfazer"));
         tela.WaitForAssertion(() => Campo(tela).Should().Be("pode vir amanha as 14h"), Prazo);
         tela.FindAll(".wa-semdor-desfazer").Should().BeEmpty();
 
@@ -113,11 +113,11 @@ public sealed class SemDorNaTelaDoWhatsAppTests : IClassFixture<BancoDasTelas>, 
         var tela = Abrir();
         AbrirConversa(tela, "Maria das Graças");
 
-        tela.Find("[data-acao=resumo]").Click();
+        tela.Clicar(() => tela.Find("[data-acao=resumo]"));
         tela.WaitForAssertion(() => tela.Find(".wa-semdor-resumo").TextContent.Should().Contain("O paciente quer").And.Contain("Remarcar a sessão de hoje")
             .And.Contain("Já foi feito").And.Contain("Falta"), Prazo);
 
-        tela.Find(".wa-semdor-resumo header button").Click();
+        tela.Clicar(() => tela.Find(".wa-semdor-resumo header button"));
         tela.FindAll(".wa-semdor-resumo").Should().BeEmpty();
     }
 
@@ -144,8 +144,8 @@ public sealed class SemDorNaTelaDoWhatsAppTests : IClassFixture<BancoDasTelas>, 
         tela.WaitForAssertion(() => tela.Find(".wa-semdor-aviso").TextContent.Should().Contain("O @SemDor não está respondendo"), Prazo);
 
         AbrirConversa(tela, "Maria das Graças");
-        tela.Find(".wa-escrever textarea").Input("oi maria");
-        tela.Find(".wa-semdor-sugerir").Click();
+        tela.Digitar(() => tela.Find(".wa-escrever textarea"), "oi maria");
+        tela.Clicar(() => tela.Find(".wa-semdor-sugerir"));
         tela.WaitForAssertion(() => tela.Find(".wa-recado").TextContent.Should().Contain(CrmDeMentira.SemDorSemResposta), Prazo);
         Campo(tela).Should().Be("oi maria");
         tela.Find(".wa-semdor-sugerir").HasAttribute("disabled").Should().BeFalse("ela pode tentar de novo");

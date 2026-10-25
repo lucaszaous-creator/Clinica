@@ -221,6 +221,12 @@ public interface IClinicaRepositorio
     Task<PacienteFoto?> ObterFotoPacienteAsync(int pacienteId, CancellationToken ct = default);
 
     /// <summary>
+    /// As miniaturas (~160 px, JPEG) dos pacientes pedidos que têm retrato, por id — o avatar de uma
+    /// lista (as conversas do WhatsApp). Lê só essa coluna; quem não tem foto fica fora do dicionário.
+    /// </summary>
+    Task<IReadOnlyDictionary<int, byte[]>> ObterMiniaturasPacientesAsync(IReadOnlyCollection<int> pacienteIds, CancellationToken ct = default);
+
+    /// <summary>
     /// Grava (ou substitui) o retrato do paciente: a foto cheia na tabela própria e a
     /// miniatura na linha do paciente. Não persiste — chame <c>SalvarAsync</c>.
     /// </summary>

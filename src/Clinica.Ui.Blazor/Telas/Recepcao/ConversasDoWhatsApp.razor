@@ -126,7 +126,7 @@ else
                     {
                         <button type="button" role="option" @key="l.Id" class="wa-linha @(l.NaoLidas > 0 ? "nao-lida" : null)" aria-current="@Bool(_aberta?.Id == l.Id)" aria-selected="@Bool(_aberta?.Id == l.Id)"
                                 @onclick="() => AbrirConversaAsync(l.Id, l.NaoLidas, null)">
-                            <span class="avatar tom-@l.TomDoAvatar" aria-hidden="true">@l.Iniciais<span class="wa-canal @(l.Sms ? "sms" : null)" title="@(l.Sms ? "SMS" : "WhatsApp")"><Icone Nome="@(l.Sms ? "sms" : "chat")" /></span></span>
+                            @Avatar(l.PacienteId, l.Iniciais, l.TomDoAvatar, @<span class="wa-canal @(l.Sms ? "sms" : null)" title="@(l.Sms ? "SMS" : "WhatsApp")"><Icone Nome="@(l.Sms ? "sms" : "chat")" /></span>)
                             <span class="wa-linha-corpo">
                                 <span class="wa-linha-topo"><span class="wa-linha-nome">@l.Nome</span><span class="wa-linha-hora">@l.Hora</span></span>
                                 <span class="wa-linha-previa">@if (l.Tick is { } t) { @Tick(t) }@if (l.SemDor is { } etiqueta) { @SeloDoSemDor(etiqueta) }<span class="texto">@l.Previa</span>@if (l.NaoLidas > 0) { <b class="wa-nao-lidas" aria-label="@($"{l.NaoLidas} não lidas")">@l.NaoLidas</b> }</span>
@@ -156,7 +156,7 @@ else
                         {
                             <button type="button" role="option" @key="r.Caso.Id" class="wa-linha @(r.NaoLida ? "nao-lida" : null)" aria-current="@Bool(_aberta?.Caso?.Id == r.Caso.Id)"
                                     @onclick="() => AbrirCasoAsync(r.Caso)">
-                                <span class="avatar tom-@r.TomDoAvatar" aria-hidden="true">@r.Iniciais</span>
+                                @Avatar(r.Caso.PacienteId, r.Iniciais, r.TomDoAvatar)
                                 <span class="wa-linha-corpo">
                                     <span class="wa-linha-topo"><span class="wa-linha-nome">@r.Caso.Paciente</span><span class="wa-dias tom-@r.TomDosDias">@r.Dias</span></span>
                                     <span class="wa-linha-tratamento">@r.Detalhe</span>
@@ -206,7 +206,7 @@ else
                 var r = Rascunho(c);
                 <div class="wa-cab">
                     <button type="button" class="botao icone fantasma wa-voltar" aria-label="Voltar à lista" @onclick="FecharConversa"><Icone Nome="esquerda" /></button>
-                    <span class="avatar tom-@c.TomDoAvatar" aria-hidden="true">@c.Iniciais<span class="wa-canal @(c.Sms ? "sms" : null)"><Icone Nome="@(c.Sms ? "sms" : "chat")" /></span></span>
+                    @Avatar(c.Conversa?.PatientId ?? c.Paciente?.Id, c.Iniciais, c.TomDoAvatar, @<span class="wa-canal @(c.Sms ? "sms" : null)"><Icone Nome="@(c.Sms ? "sms" : "chat")" /></span>)
                     <div class="wa-cab-quem"><h2>@c.Nome</h2>
                         <div class="wa-cab-meta">@* Sem nome, o título já é o telefone: não repete. *@@if (!string.IsNullOrWhiteSpace(c.Telefone) && c.Telefone != c.Nome) { <span>@c.Telefone</span><span>·</span> }<span>@(c.Sms ? "SMS" : "WhatsApp")</span>
                             @if (c.Ficha.Estado == EstadoFicha.Conferida)
@@ -319,7 +319,7 @@ else
                                 var enviada = item.Tipo == TipoNaLinhaDoTempo.Enviada;
                                 <div class="wa-m @(enviada ? "enviada" : "recebida") @(item.Seguida ? "seguida" : null)">
                                     @if (item.Anexo is { } anexo) { <span class="wa-anexo"><Icone Nome="documento" />@anexo</span> }
-                                    <div class="wa-balao">@if (item.Midia is { } md) { @Midia(md) }@Marcar(item.Texto)<span class="wa-m-rodape">@if (enviada && item.Autor is { } autor) { <span class="wa-autor">@autor ·</span> }@if (item.Modelo is { } m) { <span class="wa-autor" title="@($"Modelo aprovado {m}")">modelo ·</span> }<span>@item.Hora</span>@if (item.Tick is { } t) { @Tick(t) }</span></div>
+                                    <div class="wa-balao @(item.Midia?.Figurinha == true ? "wa-balao-figurinha" : null)">@if (item.Midia is { } md) { @Midia(md) }@Marcar(item.Texto)<span class="wa-m-rodape">@if (enviada && item.Autor is { } autor) { <span class="wa-autor">@autor ·</span> }@if (item.Modelo is { } m) { <span class="wa-autor" title="@($"Modelo aprovado {m}")">modelo ·</span> }<span>@item.Hora</span>@if (item.Tick is { } t) { @Tick(t) }</span></div>
                                     @if (item.Erro is { } erro) { <span class="wa-m-erro">@erro</span> }
                                 </div>
                                 break;
@@ -533,7 +533,7 @@ else
                 else if (a.Paciente is { } p)
                 {
                     <section class="wa-secao"><h3>Paciente <button type="button" class="link" @onclick="() => AbrirFichaAsync(p.Id)">Abrir ficha</button></h3>
-                        <div class="wa-pessoa"><span class="avatar tom-@a.TomDoAvatar" aria-hidden="true">@p.Iniciais</span><div class="wa-pessoa-nome"><strong>@p.Nome</strong><span>@p.Idade</span></div></div>
+                        <div class="wa-pessoa">@Avatar(p.Id, p.Iniciais, a.TomDoAvatar)<div class="wa-pessoa-nome"><strong>@p.Nome</strong><span>@p.Idade</span></div></div>
                         @if (Pode(Permissao.VerFichaPaciente))
                         {
                             <dl class="wa-pares">
@@ -749,6 +749,7 @@ else
             if (g != _geracaoLista || Descartada) return;
             _naoConfigurado = false;
             _painel = painel;
+            PedirFotos();
             _ultimaLeituraInteira = DateTimeOffset.Now;
             _releituraFalhou = false;
             _erroLista = null;
@@ -797,6 +798,7 @@ else
                     var painel = await escopo.ServiceProvider.GetRequiredService<WhatsAppDaRecepcaoService>().AtualizarAsync(antes);
                     if (g != _geracaoLista || Descartada || _ocupado) return;
                     _painel = painel;
+                    PedirFotos();
                     _releituraFalhou = false;
                 }
                 catch (Exception ex)
@@ -895,6 +897,7 @@ else
             if (g != _geracaoConversa || Descartada) return;
             var linhasAntes = _aberta?.LinhaDoTempo.Count ?? 0;
             _aberta = aberta;
+            PedirFotos();
             _erroConversa = null;
             if (trocou || aberta.LinhaDoTempo.Count != linhasAntes) _rolarAoFim = true;
             if (naoLidas > 0 && aberta.Conversa is { } c) _painel = _painel! with { Conversas = _painel.Conversas.Select(x => x.Id == c.Id ? x with { Unread = 0 } : x).ToList() };

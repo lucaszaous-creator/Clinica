@@ -877,6 +877,20 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public Task<PacienteFoto?> ObterFotoPacienteAsync(int pacienteId, CancellationToken ct = default)
         => _db.PacientesFotos.AsNoTracking().FirstOrDefaultAsync(f => f.PacienteId == pacienteId, ct);
 
+    public async Task<IReadOnlyDictionary<int, byte[]>> ObterMiniaturasPacientesAsync(IReadOnlyCollection<int> pacienteIds, CancellationToken ct = default)
+    {
+        if (pacienteIds.Count == 0) return new Dictionary<int, byte[]>();
+        return await ConsultaMiniaturas(pacienteIds).ToDictionaryAsync(m => m.PacienteId, m => m.Miniatura, ct);
+    }
+
+    // Só o id e a miniatura — nada da ficha. `internal` para a rede de tradução do Npgsql compilar a MESMA consulta.
+    internal IQueryable<MiniaturaDoPaciente> ConsultaMiniaturas(IReadOnlyCollection<int> pacienteIds)
+    {
+        var ids = pacienteIds.Distinct().ToList();
+        return _db.Pacientes.AsNoTracking().Where(p => ids.Contains(p.Id) && p.FotoMiniatura != null)
+            .Select(p => new MiniaturaDoPaciente(p.Id, p.FotoMiniatura!));
+    }
+
     public async Task DefinirFotoPacienteAsync(int pacienteId, byte[] conteudo, byte[] miniatura, CancellationToken ct = default)
     {
         var paciente = await _db.Pacientes.FirstOrDefaultAsync(p => p.Id == pacienteId, ct)

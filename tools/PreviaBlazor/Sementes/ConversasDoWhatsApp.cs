@@ -127,7 +127,10 @@ public sealed class SementeConversasDoWhatsApp : ISemente
         var hJoao = A(joao, R(0, 15, 0), ModalidadeAtendimento.AcupunturaSimples, helena);
         Confirmacao(hJoao, StatusContato.Respondido, R(0, 6, 0), R(0, 9, 40), RodadaDeConfirmacao.RespostaConfirmouPeloWhatsApp);
 
+        // O retrato da ficha no avatar da conversa (25/10): silhuetas desenhadas, nunca o rosto de alguém.
+        joao.FotoMiniatura = MidiaDeExemplo.Retrato(46, 94, 140);
         var roberto = P(Roberto, new DateOnly(1974, 1, 19), true, particular: true, documento: "99988877760");
+        roberto.FotoMiniatura = MidiaDeExemplo.Retrato(120, 84, 60);
         Sessoes(roberto, ModalidadeAtendimento.AcupunturaSimples, 3, 8);
         A(roberto, R(6, 9, 30), ModalidadeAtendimento.AcupunturaSimples, helena);
         var pacote = new PacotePaciente { PacienteId = roberto.Id, Nome = "Pacote de 10 sessões", DataCompra = hoje.AddDays(-30),

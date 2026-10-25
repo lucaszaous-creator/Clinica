@@ -22,6 +22,12 @@ public sealed record MidiaDaMensagem(TipoDeMidia Tipo, string Rotulo, string? No
 
     /// <summary>Foto e áudio chegam sozinhos ao abrir a conversa (são pequenos e é o que se olha primeiro); vídeo e documento, só quando a pessoa pede.</summary>
     public bool CarregaSozinha => Tipo is TipoDeMidia.Imagem or TipoDeMidia.Audio;
+
+    /// <summary>
+    /// Figurinha do WhatsApp (<c>AppMessage.Sticker</c>): é uma imagem — carrega, baixa e falha como
+    /// foto —, mas a tela a desenha pequena, sem balão e sem "Ampliar", como o WhatsApp.
+    /// </summary>
+    public bool Figurinha => Tipo == TipoDeMidia.Imagem && Mensagem.Sticker;
 }
 
 /// <summary>
@@ -82,7 +88,7 @@ public static class MidiaDaConversa
         var tipo = Tipo(m.Type) ?? (string.IsNullOrWhiteSpace(m.AttachmentId) ? null : TipoDeMidia.Documento);
         if (tipo is not { } t) return null;
         var nome = string.IsNullOrWhiteSpace(m.FileName) ? null : m.FileName.Trim();
-        return new MidiaDaMensagem(t, Rotulo(t), nome, conversaId, m);
+        return new MidiaDaMensagem(t, t == TipoDeMidia.Imagem && m.Sticker ? "Figurinha" : Rotulo(t), nome, conversaId, m);
     }
 
     /// <summary>
@@ -158,9 +164,14 @@ public static class MidiaDaConversa
     }
 
     /// <summary>A frase da falha de carregar ("Não foi possível carregar a foto: …").</summary>
-    public static string Falha(TipoDeMidia tipo, string motivo)
+    public static string Falha(TipoDeMidia tipo, string motivo) => Falha(tipo, motivo, null);
+
+    /// <summary>A frase da falha de carregar a mídia desta mensagem (a figurinha diz "a figurinha").</summary>
+    public static string Falha(MidiaDaMensagem midia, string motivo) => Falha(midia.Tipo, motivo, midia.Figurinha ? "a figurinha" : null);
+
+    private static string Falha(TipoDeMidia tipo, string motivo, string? objeto)
     {
-        var o = tipo switch { TipoDeMidia.Imagem => "a foto", TipoDeMidia.Audio => "o áudio", TipoDeMidia.Video => "o vídeo", _ => "o documento" };
+        var o = objeto ?? tipo switch { TipoDeMidia.Imagem => "a foto", TipoDeMidia.Audio => "o áudio", TipoDeMidia.Video => "o vídeo", _ => "o documento" };
         var frase = (motivo ?? "").Trim();
         return frase.Length == 0 ? $"Não foi possível carregar {o}." : $"Não foi possível carregar {o}: {frase}";
     }
@@ -183,7 +194,7 @@ public static class MidiaDaConversa
     {
         var (nome, feminino) = midia.Tipo switch
         {
-            TipoDeMidia.Imagem => ("Foto", true),
+            TipoDeMidia.Imagem => (midia.Figurinha ? "Figurinha" : "Foto", true),
             TipoDeMidia.Audio => ("Áudio", false),
             TipoDeMidia.Video => ("Vídeo", false),
             _ => (Sigla(midia.Nome ?? carregada?.Arquivo.Nome, carregada?.Arquivo.Mime) is var s && s != "DOC" ? s : "Documento", false)
@@ -244,7 +255,7 @@ public static class MidiaDaConversa
         if (limpo is null)
         {
             var quando = midia.Mensagem.At.ToLocalTime();
-            var rotulo = midia.Tipo switch { TipoDeMidia.Imagem => "foto", TipoDeMidia.Audio => "audio", TipoDeMidia.Video => "video", _ => "documento" };
+            var rotulo = midia.Tipo switch { TipoDeMidia.Imagem => midia.Figurinha ? "figurinha" : "foto", TipoDeMidia.Audio => "audio", TipoDeMidia.Video => "video", _ => "documento" };
             return $"{rotulo}-{quando:yyyy-MM-dd-HHmm}{(extensao.Length > 0 ? extensao : ".bin")}";
         }
         return Path.HasExtension(limpo) || extensao.Length == 0 ? limpo : limpo + extensao;

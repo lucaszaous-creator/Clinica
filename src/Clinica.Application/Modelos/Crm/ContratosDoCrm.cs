@@ -49,10 +49,11 @@ public sealed record AppTemplateSelection(string Name, string Language, string[]
 /// Direction "in" | "out". Status: "received" (entrada) e, na saída, "sending" | "accepted" | "simulated" |
 /// "uncertain" (envio não confirmado) | "delivered" | "seen" (lida) | "failed" (Error diz por quê). Type "TEXT" | "IMAGE" | "DOCUMENT" | "AUDIO" | "VIDEO" | "TEMPLATE" |
 /// "INTERACTIVE". AgentId nulo na saída = mensagem automática (lembrete, recall, menu).
+/// Sticker: figurinha do WhatsApp — Type continua "IMAGE" (o app antigo a mostra como foto), e o novo a desenha pequena e sem moldura.
 /// </summary>
 public sealed record AppMessage(string Id, string Direction, string Text, string Type, string? AgentId, DateTimeOffset At,
     string Status, string? Error = null, string? AttachmentId = null, string? FileName = null,
-    AppTemplateSelection? Template = null, string? ReplyToId = null);
+    AppTemplateSelection? Template = null, string? ReplyToId = null, bool Sticker = false);
 public sealed record AppNote(string Id, string Text, string AgentId, DateTimeOffset At);
 /// <summary>A trilha da conversa (assumiu, transferiu, encerrou, ligou ficha…): vira os eventos da linha do tempo.</summary>
 public sealed record AppAudit(DateTimeOffset At, string Actor, string Action);

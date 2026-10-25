@@ -13,7 +13,7 @@ namespace Clinica.Application.Servicos;
 /// <summary>Uma linha da lista de conversas, pronta para desenhar.</summary>
 public sealed record LinhaDaConversa(string Id, string Nome, string Iniciais, string TomDoAvatar, bool Sms, string Hora,
     string Previa, TickDaMensagem? Tick, int NaoLidas, SeloDoWhatsApp Selo, string Responsavel, bool Minha, bool TemResponsavel,
-    EtiquetaDoSemDor? SemDor = null);
+    EtiquetaDoSemDor? SemDor = null, int? PacienteId = null);
 
 /// <summary>Uma linha do modo Retenção (um caso do Acompanhamento), pronta para desenhar.</summary>
 public sealed record LinhaDaRetencao(LinhaAcompanhamento Caso, string Iniciais, string TomDoAvatar, string Dias, string TomDosDias,
@@ -400,7 +400,7 @@ public sealed class WhatsAppDaRecepcaoService(
             ConversasNaTela.EhSms(c.Channel), HoraDaLinha(c.UpdatedAt, agora),
             string.IsNullOrWhiteSpace(c.Preview) ? "Sem mensagens ainda" : MidiaDaConversa.PreviaDaLista(c.Preview), ConversasNaTela.TickDaPrevia(c),
             Math.Max(0, c.Unread), selo, Responsavel(c.AgentId, painel.Sessao.AgentId, painel.Agentes),
-            c.AgentId is not null && c.AgentId == painel.Sessao.AgentId, c.AgentId is not null, SemDorNaTela.Etiqueta(painel.SemDor, c));
+            c.AgentId is not null && c.AgentId == painel.Sessao.AgentId, c.AgentId is not null, SemDorNaTela.Etiqueta(painel.SemDor, c), c.PatientId);
     }
 
     /// <summary>Os números do seletor e dos filtros dos dois modos.</summary>

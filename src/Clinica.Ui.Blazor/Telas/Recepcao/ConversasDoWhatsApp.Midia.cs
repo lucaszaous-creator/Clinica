@@ -92,12 +92,12 @@ public partial class ConversasDoWhatsApp
         catch (CrmIndisponivel ex)
         {
             Clinica.Application.Diagnostico.Registrar("Blazor — mídia do WhatsApp não veio do CRM", ex);
-            _midiaFalhou[m.Chave] = MidiaDaConversa.Falha(m.Tipo, ex.Message);
+            _midiaFalhou[m.Chave] = MidiaDaConversa.Falha(m, ex.Message);
             return null;
         }
         catch (InvalidOperationException ex) // RecusaDoCrm: o CRM disse por quê
         {
-            _midiaFalhou[m.Chave] = MidiaDaConversa.Falha(m.Tipo, ex.Message);
+            _midiaFalhou[m.Chave] = MidiaDaConversa.Falha(m, ex.Message);
             return null;
         }
         finally { _midiaCarregando.Remove(m.Chave); }

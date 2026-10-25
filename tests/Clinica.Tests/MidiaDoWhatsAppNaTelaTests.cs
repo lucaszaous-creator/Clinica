@@ -63,9 +63,9 @@ public sealed class MidiaDoWhatsAppNaTelaTests : IClassFixture<BancoDasTelas>, I
         var tipo = typeof(IHostDaTela).Assembly.GetType("Clinica.Ui.Blazor.Telas.ConversasDoWhatsApp")!;
         var tela = _ctx.RenderComponent<Raiz>(p => p.Add(r => r.Tela, tipo));
         tela.WaitForAssertion(() => tela.FindAll(".wa-filtros button").Should().Contain(b => b.TextContent.Contains("Minhas")), Prazo);
-        tela.FindAll(".wa-filtros button").First(b => b.TextContent.Contains("Minhas")).Click();
+        tela.Clicar(() => tela.FindAll(".wa-filtros button").First(b => b.TextContent.Contains("Minhas")));
         tela.WaitForAssertion(() => tela.FindAll(".wa-linha").Should().Contain(l => l.TextContent.Contains(nome)), Prazo);
-        tela.FindAll(".wa-linha").First(l => l.TextContent.Contains(nome)).Click();
+        tela.Clicar(() => tela.FindAll(".wa-linha").First(l => l.TextContent.Contains(nome)));
         tela.WaitForAssertion(() => tela.FindAll(".wa-m").Should().NotBeEmpty(), Prazo);
         return tela;
     }
@@ -85,7 +85,7 @@ public sealed class MidiaDoWhatsAppNaTelaTests : IClassFixture<BancoDasTelas>, I
 
         var doc = tela.FindAll(".wa-doc").Single(d => d.TextContent.Contains("orientacoes-bsv.pdf"));
         doc.TextContent.Should().Contain("PDF enviado");
-        doc.QuerySelectorAll("button").First(b => b.TextContent.Contains("Baixar")).Click();
+        tela.Clicar(() => tela.FindAll(".wa-doc").Single(d => d.TextContent.Contains("orientacoes-bsv.pdf")).QuerySelectorAll("button").First(b => b.TextContent.Contains("Baixar")));
 
         tela.WaitForAssertion(() => _host.Gravados.Should().ContainSingle(), Prazo);
         _host.Gravados[0].Caminho.Should().Be("/teste/orientacoes-bsv.pdf");
@@ -94,16 +94,39 @@ public sealed class MidiaDoWhatsAppNaTelaTests : IClassFixture<BancoDasTelas>, I
     }
 
     [Fact]
+    public void A_figurinha_aparece_solta_e_a_ficha_ligada_poe_o_retrato_no_avatar()
+    {
+        var tela = AbrirConversa("Roberto");
+
+        // A figurinha (25/10): imagem pequena, sem balão e sem o botão de ampliar da foto.
+        tela.WaitForAssertion(() => tela.Find(".wa-balao-figurinha .wa-figurinha").GetAttribute("src").Should().StartWith("data:image/png;base64,"), Prazo);
+        tela.Find(".wa-balao-figurinha").QuerySelector("button").Should().BeNull();
+        tela.FindAll(".wa-foto").Should().ContainSingle("a foto do pedido continua sendo a única foto que amplia");
+
+        // O retrato da FICHA (a foto de perfil do WhatsApp a API da Meta não dá): na linha, no
+        // cabeçalho e no cartão do paciente; o João tem retrato, o Carlos (sem retrato) fica nas iniciais.
+        tela.WaitForAssertion(() =>
+        {
+            tela.Find(".wa-cab .avatar.com-foto img").GetAttribute("src").Should().StartWith("data:image/jpeg;base64,");
+            tela.FindAll(".wa-linha").First(l => l.TextContent.Contains("Roberto")).QuerySelector(".avatar.com-foto img").Should().NotBeNull();
+            tela.FindAll(".wa-linha").First(l => l.TextContent.Contains("João")).QuerySelector(".avatar.com-foto img").Should().NotBeNull();
+            tela.Find(".wa-pessoa .avatar.com-foto img").Should().NotBeNull();
+        }, Prazo);
+        tela.FindAll(".wa-linha").First(l => l.TextContent.Contains("Carlos")).QuerySelector(".avatar.com-foto").Should().BeNull();
+        tela.Find(".wa-cab .avatar.com-foto .wa-canal").Should().NotBeNull("o selo do canal continua sobre a foto");
+    }
+
+    [Fact]
     public void O_clique_na_foto_abre_a_foto_grande_com_Baixar()
     {
         var tela = AbrirConversa("Roberto");
         tela.WaitForAssertion(() => tela.Find(".wa-foto img"), Prazo);
 
-        tela.Find(".wa-foto").Click();
+        tela.Clicar(() => tela.Find(".wa-foto"));
 
         tela.WaitForAssertion(() => tela.Find(".modal .wa-ampliada img").GetAttribute("src").Should().StartWith("data:image/png"), Prazo);
         tela.Find(".modal").TextContent.Should().Contain("Esse é o pedido do médico");
-        tela.FindAll(".modal-rodape button").Single(b => b.TextContent.Contains("Baixar")).Click();
+        tela.Clicar(() => tela.FindAll(".modal-rodape button").Single(b => b.TextContent.Contains("Baixar")));
         tela.WaitForAssertion(() => _host.Gravados.Should().ContainSingle(), Prazo);
         _host.Gravados[0].Caminho.Should().MatchRegex(@"^/teste/foto-\d{4}-\d{2}-\d{2}-\d{4}\.png$");
     }
@@ -113,11 +136,10 @@ public sealed class MidiaDoWhatsAppNaTelaTests : IClassFixture<BancoDasTelas>, I
     {
         var tela = AbrirConversa("João Batista");
 
-        var pedido = tela.FindAll(".wa-doc").Single(d => d.TextContent.Contains("Pedido medico"));
-        pedido.QuerySelectorAll("button").First(b => b.TextContent.Contains("Abrir")).Click();
+        tela.Clicar(() => tela.FindAll(".wa-doc").Single(d => d.TextContent.Contains("Pedido medico")).QuerySelectorAll("button").First(b => b.TextContent.Contains("Abrir")));
         tela.WaitForAssertion(() => _host.Abertos.Should().ContainSingle().Which.Should().Be("Pedido medico - Joao.pdf"), Prazo);
 
-        tela.FindAll(".wa-video-capa").Single().Click();
+        tela.Clicar(() => tela.FindAll(".wa-video-capa").Single());
         tela.WaitForAssertion(() => tela.Find(".wa-midia-falha").TextContent.Should()
             .Contain("Não foi possível carregar o vídeo: Este anexo não possui um endereço de mídia compatível"), Prazo);
         tela.Find(".wa-midia-falha button").TextContent.Should().Contain("Tentar de novo");
@@ -134,9 +156,9 @@ public sealed class MidiaDoWhatsAppNaTelaTests : IClassFixture<BancoDasTelas>, I
         js.SetupVoid("cancelar", _ => true).SetVoidResult();
         var tela = AbrirConversa("Roberto");
 
-        tela.FindAll(".wa-escrever-rodape button").Single(b => b.GetAttribute("aria-label") == "Gravar áudio").Click();
+        tela.Clicar(() => tela.FindAll(".wa-escrever-rodape button").Single(b => b.GetAttribute("aria-label") == "Gravar áudio"));
         tela.WaitForAssertion(() => tela.Find(".wa-gravando .wa-gravando-tempo").TextContent.Should().Be("0:03"), Prazo);
-        tela.FindAll(".wa-gravando button").Single(b => b.TextContent.Contains("Enviar áudio")).Click();
+        tela.Clicar(() => tela.FindAll(".wa-gravando button").Single(b => b.TextContent.Contains("Enviar áudio")));
 
         tela.WaitForAssertion(() => tela.FindAll(".wa-gravando").Should().BeEmpty(), Prazo);
         // Na hora, e não na releitura de 7 s: o gravador chama a tela por Func, que não a redesenha sozinha.
@@ -158,7 +180,7 @@ public sealed class MidiaDoWhatsAppNaTelaTests : IClassFixture<BancoDasTelas>, I
         js.Setup<GravadorDeAudio.ResultadoDoInicio?>("iniciar", _ => true).SetResult(new("negado", null, "Permission denied"));
         var tela = AbrirConversa("Roberto");
 
-        tela.FindAll(".wa-escrever-rodape button").Single(b => b.GetAttribute("aria-label") == "Gravar áudio").Click();
+        tela.Clicar(() => tela.FindAll(".wa-escrever-rodape button").Single(b => b.GetAttribute("aria-label") == "Gravar áudio"));
 
         tela.WaitForAssertion(() => tela.Find(".wa-recado").TextContent.Should().Contain("O microfone não foi liberado"), Prazo);
         tela.FindAll(".wa-gravando").Should().BeEmpty();

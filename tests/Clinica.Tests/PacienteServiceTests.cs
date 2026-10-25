@@ -262,6 +262,20 @@ public class PacienteServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Miniaturas_vem_so_de_quem_tem_retrato_e_lista_vazia_nao_vai_ao_banco()
+    {
+        var comFoto = await CriarPacienteAsync();
+        var semFoto = await CriarPacienteAsync();
+        await _pacientes.DefinirFotoAsync(comFoto.Id, FotoCheia, Miniatura);
+
+        var miniaturas = await _pacientes.ObterMiniaturasAsync([comFoto.Id, semFoto.Id, comFoto.Id, 999_999]);
+
+        miniaturas.Should().ContainSingle().Which.Key.Should().Be(comFoto.Id);
+        miniaturas[comFoto.Id].Should().Equal(Miniatura); // a MINIATURA, não a foto cheia
+        (await _pacientes.ObterMiniaturasAsync([])).Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task DefinirFoto_RecusaConteudoVazio()
     {
         var paciente = await CriarPacienteAsync();

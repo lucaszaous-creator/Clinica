@@ -303,7 +303,7 @@ inteira (820 + 20) e os 13 testes do contrato. A suíte completa do Clinica é d
 - **`AppReply.Id` e `AppNoteRequest.Id` são Guid "D"** (com hífens). O contrato foi corrigido nos
   dois repositórios (SHA-256 daquela rodada: `ff97010885fc…`; o atual, depois do
   `AppReply.ContactRecordedByApp` de 24/10, era `35284d966f92…673e`; depois do @SemDor (§10) e do
-  `AppSession.RecordingEnabled` (§12) é `7dc0717ed14a851f429a8fc8737832c1a9a5d5913b515cecd348fe4dd1156642`, o mesmo de `ContratosDoCrmTests` e `ApiParaOsAppsTests`).
+  `AppSession.RecordingEnabled` (§12) era `7dc0717ed14a…6642`; depois do `AppMessage.Sticker` (§13, a figurinha) é `49d26d079134fede2d2fa122a545c0fed780f55d4725b51e54434c2f22651da3`, o mesmo de `ContratosDoCrmTests` e `ApiParaOsAppsTests`).
 - **O `?desde=` não traz** a leitura feita noutro aparelho nem a conversa que saiu da visão do
   usuário: a tela relê a lista inteira ao abrir e a cada poucos minutos.
 - **Aviso do sino → conversa**: só para conversa com ficha conferida (`PatientId`), pelo mapa
@@ -635,7 +635,7 @@ o arquivo maior que isso não é guardado e volta a ser pedido no clique.
 - ~~**Saber se o CRM tem o conversor de gravações.**~~ **Feito na junção (24/10):** o `AppSession`
   ganhou `RecordingEnabled` no fim (padrão `false`; o CRM já mandava `recordingEnabled` na
   `/api/session`), os dois contratos idênticos com o SHA-256 novo
-  (`7dc0717ed14a851f429a8fc8737832c1a9a5d5913b515cecd348fe4dd1156642`). O microfone só aparece com o
+  (`7dc0717ed14a…6642`; o atual é o de `ContratosDoCrmTests`). O microfone só aparece com o
   conversor (ffmpeg) no CRM; sem ele, a secretária anexa um arquivo de áudio como antes.
 - **Ouvir a gravação antes de enviar** (o cadeado do WhatsApp): gravar → Enviar ou Cancelar, como
   o CRM web. Pedido "simples, mas funcional".
@@ -650,3 +650,62 @@ o arquivo maior que isso não é guardado e volta a ser pedido no clique.
 - **Microfone real no Windows**: só a sombra compilou o hospedeiro. Conferir na clínica: abrir uma
   conversa com janela aberta, gravar 3 s e enviar; negar o microfone em Configurações do Windows →
   Privacidade → Microfone e ver a frase.
+
+## 13. Figurinhas e fotos de perfil (25/10/2026)
+
+Pergunta da direção: *"Figurinhas e fotos de perfis estão inclusos?"*. Antes desta rodada a
+figurinha chegava como uma foto comum (no balão, com "Ampliar", e "Foto" na lista) e o avatar era
+sempre as iniciais.
+
+**Figurinha.** A Meta manda `type: "sticker"` (uma imagem WEBP, às vezes animada). O CRM continua a
+gravá-la como `IMAGE` — o app antigo segue mostrando-a como foto, nada quebra no meio da
+publicação — e agora com a marca `Sticker`:
+
+| Peça | Onde | Teste |
+|---|---|---|
+| A marca na entrada (`Incoming.Sticker` → `Message.Sticker`), a prévia da lista "Figurinha" e o "[figurinha]" que o @SemDor lê | semdor-crm: `MetaCloud.cs`, `Store.cs`, `Models.cs`, `Program.cs`, `SemDorSecretaria.cs`; o CRM web a desenha solta (`app.js`, `.message-sticker`) | `MidiaRecebidaTests` (2), `ApiParaOsAppsTests.Figurinha_chega_marcada_na_conversa_e_a_lista_diz_Figurinha`, `SemDorSecretariaTests` |
+| O contrato: `AppMessage.Sticker` no FIM, padrão `false` (SHA-256 `49d26d07…51da3`, os dois arquivos idênticos) | `ApiParaOsApps.cs` ≡ `ContratosDoCrm.cs` | `ApiParaOsAppsTests`, `ContratosDoCrmTests` |
+| A regra: `MidiaDaMensagem.Figurinha` (imagem com a marca) — carrega, baixa e falha como foto, mas se chama "Figurinha" em toda frase ("Figurinha recebida", "figurinha-….png", "Não foi possível carregar a figurinha.") | `Application/Servicos/MidiaDaConversa.cs` | `MidiaDaConversaTests.Figurinha_e_imagem_que_se_chama_figurinha_em_toda_frase` |
+| Na tela: 128 px, sem balão e sem "Ampliar"; a hora numa pílula, como no WhatsApp | `MidiaNoBalao.razor`, `ConversasDoWhatsApp.razor` (`wa-balao-figurinha`), `conversas-midia.css` | `MidiaDoWhatsAppNaTelaTests.A_figurinha_aparece_solta_e_a_ficha_ligada_poe_o_retrato_no_avatar` |
+
+**Foto de perfil.** ⚠️ **A foto do perfil do WhatsApp não existe para a clínica:** a API oficial da
+Meta (Cloud API) entrega o nome do perfil (`contacts[].profile.name`, que o CRM já usa) e nunca a
+foto. Não há rota da Meta que a devolva a uma empresa; buscá-la por fora seria usar o WhatsApp
+fora dos termos — e o número oficial da clínica é o que se arrisca. O que a clínica TEM é o
+**retrato da ficha**, tirado no balcão (`Paciente.FotoMiniatura`), e é ele que aparece:
+
+| Peça | Onde | Teste |
+|---|---|---|
+| As miniaturas de várias fichas numa ida, só a coluna (`ObterMiniaturasPacientesAsync` → `PacienteService.ObterMiniaturasAsync`) | `ClinicaRepositorio.ConsultaMiniaturas`, `IClinicaRepositorio` | `PacienteServiceTests.Miniaturas_vem_so_de_quem_tem_retrato_e_lista_vazia_nao_vai_ao_banco`, `TraducaoNoNpgsqlTests.Miniaturas_traduzem_em_projecao_sem_a_ficha` |
+| O avatar com o retrato na lista, na Retenção, no cabeçalho da conversa e no cartão do paciente; o selo do canal continua por cima | `Telas/Recepcao/ConversasDoWhatsApp.Fotos.cs` (`Avatar`, `PedirFotos`), `LinhaDaConversa.PacienteId` (no fim), `conversas.css` (`.avatar.com-foto`) | `MidiaDoWhatsAppNaTelaTests` (Roberto e João com retrato, Carlos nas iniciais) |
+| Prévia: retratos DESENHADOS (silhuetas, nunca o rosto de alguém) no João e no Roberto; uma figurinha (rosto amarelo, fundo transparente) que o Roberto manda depois do "Serve sim" | `tools/PreviaBlazor/MidiaDeExemplo.cs`, `Sementes/ConversasDoWhatsApp.cs`, `CrmDeMentira.cs` | fotos 56 e 57 |
+
+As regras do retrato:
+
+- **Só da ficha LIGADA** (`PatientId`, a que a recepção conferiu) — o telefone não é identidade, e
+  a candidata ainda não conferida não ganha rosto. Na Retenção, o caso é da própria clínica.
+- **Só com `VerFichaPaciente`** — o retrato é da ficha; sem o bit, iniciais.
+- **Uma pergunta por ficha por abertura da tela**: a releitura de 7 s não volta ao banco; ficha
+  recém-ligada entra na batida seguinte. Retrato trocado no balcão aparece na próxima abertura.
+- **Falhou, iniciais**: a falha vai ao log e a tela não muda por ela.
+
+🧑‍💻 **UX** — a figurinha parece figurinha (pequena, solta, sem um "Ampliar" que não serve), e a
+lista diz "Figurinha" em vez de "Foto". O rosto da ficha na conversa ajuda a recepção a reconhecer
+quem escreve — e ele só aparece depois de a ficha ser conferida, então nunca sugere a pessoa errada.
+
+🛠️ **DX** — figurinha: uma marca no contrato e uma propriedade derivada na regra; nenhum tipo novo
+de mídia (o `TipoDeMidia` não ganhou valor, então nenhum `switch` ficou para trás). Retrato: um
+método de repositório com teste que o executa e com a rede do Npgsql, e um arquivo parcial da tela.
+
+🤝 **CX** — custo zero (a foto já está no banco, a figurinha no CRM); a leitura extra é de ~10 KB
+por ficha, uma vez por abertura da tela. Ordem de publicação: CRM primeiro (o app antigo ignora o
+`sticker` e continua mostrando a figurinha como foto); o app novo com o CRM antigo mostra a
+figurinha como foto e a lista "Foto", como antes.
+
+**O que NÃO foi feito, e por quê:**
+
+- **A foto do perfil do WhatsApp**: não há como (acima). Se um dia a Meta a oferecer, ela entra
+  como mais uma fonte do mesmo `Avatar`, atrás do retrato da ficha.
+- **Mandar figurinha**: a Cloud API aceita, mas a figurinha precisa ser WEBP 512×512, e o pedido é
+  "simples, mas funcional" — a recepção responde com texto e emoji.
+- **Nada a fazer na figurinha animada**: o WebView2 (Chromium) anima o WEBP sozinho, como o WhatsApp.
