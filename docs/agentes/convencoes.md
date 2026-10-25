@@ -5,7 +5,7 @@ sessão). O texto é o MESMO, sem reescrita: design system, WPF/XAML, Blazor, EF
 `verificar-suite`, assinatura digital, impressão, CRM e as rodadas de UI, cada uma com o defeito que a
 originou. Antes de escrever uma tela, uma consulta ou uma checagem, procure aqui a lição da área.
 
-## Índice (197 tópicos, na ordem do arquivo)
+## Índice (199 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -205,6 +205,8 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
 - Junção de branches paralelas: o git junta SEM conflito duas versões da MESMA decisão
 - O bUnit CLICA botão `disabled`, e o Postgres é que mostra
 - Leitura que chega DEPOIS redesenha entre o `Find` e o `Click` do teste
+- Rota do CRM se escolhe por QUEM ela aceita, não só pela forma
+- Leitor de fundo que entra sozinho num serviço PARA antes da saída e cancela o que está em voo
 ---
 
 
@@ -5135,3 +5137,21 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
   família da tela mexida com `CLINICA_TESTES_POSTGRES`: é a rede que vê a corrida. ⚠️ Duas rodadas
   de `dotnet test` contra o MESMO Postgres ao mesmo tempo disputam o banco-modelo
   (`BancoDosTestes`) e falham com "transient failure" na fixture — não é defeito, é a rodada.
+- **Rota do CRM se escolhe por QUEM ela aceita, não só pela forma** (25/10/2026, o "Passar o turno"). O
+  "Com você → Devolver à fila" da tela nativa chamava `POST …/reassign` — a forma (`AppChange` com
+  `AgentId` nulo) batia, o teste do serviço com o CRM falso passava e o CRM de mentira da prévia aceitava
+  porque a "ana" de lá é supervisora. No CRM de verdade o `/reassign` é o "Reorganizar" da GESTÃO
+  (`ReceptionHandoffs.cs`: `403` para quem não é admin nem supervisora), e o próprio
+  `ApiParaOsAppsTests.Devolver_a_fila_pela_gestao…` já mostrava a Ana recusada. A dona devolve pelo
+  `/transfer` sem responsável, como o CRM web faz. Regra: antes de ligar um botão do app a uma rota do CRM,
+  leia o filtro de PAPEL da rota (`TeamProfiles`, `WorkflowAccess`, `Role is "admin" or "supervisor"`) e
+  teste a rota em `ApiParaOsAppsTests` com a pessoa COMUM; o CRM de mentira entra como gestão e não vê isso.
+- **Leitor de fundo que entra sozinho num serviço PARA antes da saída e cancela o que está em voo**
+  (25/10/2026, o pulso de presença do app). O `ClienteDoCrmHttp` entra de novo pelo bilhete no `401`. Um
+  pulso que saísse logo antes do fechamento e voltasse depois do `/api/logout` tomaria `401` e ENTRARIA DE
+  NOVO: a pessoa sairia do app e continuaria "conectada" no CRM por 2 h — nada falha, só deixa de fazer o
+  que promete. O `VigiaDoWhatsApp` para no `PararAvisosGlobais` (antes do `SairDoCrm` da `JanelaDoApp`) e o
+  `Parar()` cancela o `CancellationToken` da chamada em voo (a reentrada espera a vaga com o mesmo token).
+  Regra: todo relógio que fala com um cliente de login automático tem dono (a janela), para antes da saída e
+  cancela, não só "não agenda a próxima"; e o teste confere que, parado, nada mais chega ao serviço
+  (`EsperaNoWhatsAppTests.O_pulso_vai_ao_CRM_e_para_de_vez_quando_o_vigia_para`).

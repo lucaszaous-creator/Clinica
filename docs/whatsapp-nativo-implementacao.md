@@ -709,3 +709,104 @@ figurinha como foto e a lista "Foto", como antes.
 - **Mandar figurinha**: a Cloud API aceita, mas a figurinha precisa ser WEBP 512×512, e o pedido é
   "simples, mas funcional" — a recepção responde com texto e emoji.
 - **Nada a fazer na figurinha animada**: o WebView2 (Chromium) anima o WEBP sozinho, como o WhatsApp.
+
+## 16. A conversa resolve: marcar, guardar, perguntar, avisar e passar o turno (25/10/2026)
+
+O pedido da direção, depois da revisão dos casos de uso (R5, R8, R9, R10 e D12): *"corrigir todas, sem
+perguntas, profissional, sem falhas nem redundâncias"*, com duas decisões — **o app passa a contar como
+conectado no CRM** e **a troca de turno vira um gesto**. Cada item tira a secretária de uma ida a outra tela
+ou de uma dependência da memória; nada sai ao paciente sem o Enviar dela.
+
+| Peça | Onde | Teste |
+|---|---|---|
+| **R5 — Marcar horário pela conversa.** Com a ficha conferida, a seção Horários aparece SEMPRE (antes, só com horário marcado) e oferece "Marcar horário" — o formulário da AGENDA (`AgendamentoForm`, ganhou `PacienteId`: a ficha travada) em modal, sem trocar de tela; o profissional sugerido é o da próxima sessão ou o do caso. Na volta, a tela compara os horários (o número de agendamento novo) e, com a janela aberta e o campo vazio, deixa "Pronto, Maria! Marquei a sua acupuntura para …". Cancelar pela conversa também deixa "Maria, cancelei o seu horário de …". Nenhuma frase promete lembrete | `RascunhosDaConversa` (Application); `ConversasDoWhatsApp.Resolve.cs`, `Componentes/MarcarHorarioNaConversa.razor`, `Formularios/Recepcao/AgendamentoForm.razor` | `ConversaResolveTests` (frases, horário novo), `ConversaResolveNaTelaTests` (o formulário abre com a ficha travada; o cancelamento deixa o rascunho e nada é enviado) |
+| **R8 — Paciente esperando vira aviso fora da aba.** A regra `ConversasNaTela.PedemResposta`: conversa aberta, fora do menu automático, última mensagem do paciente, sem resposta há 5 min ou mais, e sem responsável ou de quem está logado. O leitor é da JANELA (a aba para o próprio relógio quando sai de vista): a lista inteira ao abrir e a cada 10 min, e no meio o `?desde=` a cada 60 s. O número aparece no item "WhatsApp" do menu (e no grupo do submenu, no Gerente); o sino ganha a seção "Esperando resposta no WhatsApp", UMA linha por espera (a chave carrega a hora da mensagem: a mesma espera não pisca de novo a cada minuto; a mensagem nova depois da resposta é outra), e o clique abre a conversa pela `PedidoDeConversa.ConversaId`. A notificação passageira sai só para a espera NOVA, fora da aba; a primeira leitura semeia (abrir o app não é rajada) | `ConversasNaTela.Espera.cs`, `VigiaDoWhatsApp` (Application); `Desktop.Shell/Shell/EsperaNoWhatsAppShell.cs` (relógio, sino, marcas de leitura em `LeituraDoSinoShell`), `MolduraDaSuite` (o número e a seção), `Moldura/MolduraDoApp.razor` + `Contratos.cs` (`ItemDaBarra.Contador`, `EsperaNoSino`) | `EsperaNoWhatsAppTests` (a regra, as frases, o vigia sobre o CRM de mentira: semeia, anuncia uma vez, desligado sem endereço, fora do ar sobe), `MolduraBlazorTests.Quem_espera_resposta_poe_o_numero_no_menu…`; o shell só pela `compilar-sombra` |
+| **R9 — "Guardar na ficha" o arquivo recebido.** No balão da foto ou do documento que o PACIENTE mandou (a figurinha, não): um `Modal` com o que é (Carteirinha, Pedido médico, Exame, Outro) e a data do documento (obrigatória, nunca futura). Grava pelo `AnexoPacienteService` (o mesmo teto, a trilha no mesmo SaveChanges, o operador de quem entrou, "não se apaga, cancela-se com motivo"), com a observação "Recebido pelo WhatsApp da clínica.", e deixa a nota interna "Guardado na ficha por …" quando a conversa é de quem guardou (a nota no CRM é de quem está com a conversa). Os bytes vêm da memória da tela. **A permissão é a das outras portas de anexar** (a aba Prontuário da ficha, a Enfermagem, o Consultório, o tablet): `EditarProntuario` ou `RegistrarEvolucaoEnfermagem` — duas barreiras, e só com a ficha CONFERIDA | `GuardarNaFichaService` (Application); `Componentes/MidiaNoBalao.razor`, `Formularios/WhatsApp/GuardarNaFichaForm.razor` | `ConversaResolveTests` (regras, o arquivo na ficha com a trilha e o operador, as recusas sem nada gravado), `ConversaResolveNaTelaTests` (a foto do Roberto vai à ficha dele e a nota fica na conversa) |
+| **R10 — "Perguntar ao profissional".** Ao lado do balão do paciente (aparece ao passar o mouse ou com o foco; sempre, em tela de toque): um `Modal` que escolhe quem responde (sugestão: o profissional da próxima sessão; sem ela, o do caso; a secretária troca) e manda pelo CHAT DA EQUIPE uma direta com o trecho citado e o paciente ANEXADO (só com a ficha conferida e `VerFichaPaciente`, a barreira do chat). Nada sai do banco da clínica e não há IA. O formulário diz numa linha que o relato não entra no prontuário | `PerguntaAoProfissionalService` (Application); `Componentes/AcoesDaMensagemRecebida.razor`, `Formularios/WhatsApp/PerguntarAoProfissionalForm.razor` | `ConversaResolveTests` (quem pode responder, a sugestão, o texto com teto, a direta gravada com o paciente), `ConversaResolveNaTelaTests` (a mensagem da Lúcia chega à direta) |
+| **D12 — Presença: o app conta como conectado.** O pulso `POST /api/presence` a cada 30 s (vale 120 s) enquanto a pessoa está logada, para quem tem a aba e com o CRM configurado. O contrato ganhou só `AppPresence` no fim (SHA-256 `ea3d21f73d7e5898a6453b81afbe2f566723f32e08760ad4870f38fd6f2b3c52`, os dois arquivos idênticos). O vigia para no `PararAvisosGlobais`, antes do `SairDoCrm` da janela, e cancela o pulso em voo | `IClienteDoCrm.PulsoDePresencaAsync`, `ClienteDoCrmHttp`, `VigiaDoWhatsApp`, `EsperaNoWhatsAppShell` | `ClienteDoCrmHttpTests.O_pulso_de_presenca_vai_com_o_csrf_e_renova_a_sessao_vencida`, `EsperaNoWhatsAppTests.O_pulso_vai_ao_CRM_e_para_de_vez…`; no CRM, `ApiParaOsAppsTests.Pulso_de_presenca_do_app_segue_o_contrato_e_acaba_com_a_saida` |
+| **D12 — "Passar o turno".** No filtro "Minhas", a faixa "N conversas com você · Passar o turno": um `Modal` com a lista do que vai e a nota obrigatória (5 letras ou mais), e cada conversa volta à fila dela, uma a uma, sem parar no primeiro erro. No 409 relê e repete UMA vez, só se a conversa ainda é de quem sai. Todas passaram: fecha com "N conversas voltaram à fila"; alguma ficou: o formulário fica aberto com o relato e só as que ficaram | `TurnoNoWhatsApp`, `WhatsAppDaRecepcaoService.Turno.cs` (Application); `Componentes/BarraDoTurno.razor`, `Formularios/WhatsApp/PassarOTurnoForm.razor` | `ConversaResolveTests` (a lista, a nota, o relato), `WhatsAppDaRecepcaoServiceTests.Passar_o_turno_*` (a mesma nota em todas, a falha no meio, o 409), `ConversaResolveNaTelaTests` (as quatro da Ana voltam à fila) |
+
+CSS em `Ativos/css/telas/conversas-resolve.css` (só tokens, prefixo `wa-`). A prévia: o CRM de mentira responde ao
+pulso (`Pulsos`) e ganhou `ChegouDoPaciente` (os testes da espera); a página da aula com `?espera=true` liga o
+número e a seção do sino na moldura (sem o parâmetro, as videoaulas continuam com o sino quieto).
+
+**Fotos** (relógio fixo, `PREVIA_URL=… FOTOS=70,…,79 node tools/PreviaBlazor/fotos-whatsapp.js`; a 78 pede a
+prévia com `CLINICA_NAVEGACAO` apontando para um `navegacao.json` com o app `recepcao` e a chave `whatsapp-crm`),
+em 1366 e 1024, em `docs/mockups/whatsapp-nativo/tela-real/`: `70-marcar-horario`, `71-marcar-sem-horario`,
+`72-guardar-na-ficha`, `73-perguntar-acao`, `74-perguntar-ao-profissional`, `75-passar-o-turno-faixa`,
+`76-passar-o-turno-form`, `78-contador-no-menu`, `78-sino-esperando`; os fluxos executados (1366):
+`77-cancelou-rascunho` e `79-turno-passado`.
+
+### Achados no caminho (corrigidos)
+
+- **O "Com você → Devolver à fila" ia pela rota da GESTÃO.** O app chamava `POST …/reassign`, que no CRM é o
+  "Reorganizar" e recusa com 403 quem não é admin nem supervisora ("Somente a gestão pode reorganizar…"); o
+  CRM de mentira aceitava porque a "ana" da prévia é supervisora. A dona devolve pelo `/transfer` sem
+  responsável e para a mesma fila, como o CRM web. O "Passar o turno" usa a mesma devolução. Lição em
+  `docs/agentes/convencoes.md`.
+- **Os formulários chamam a tela por `Func`, e `Func` não redesenha a tela.** Na foto 79 a notificação dizia
+  "4 conversas voltaram à fila" com o formulário ainda aberto e a lista velha — até a releitura de 7 s. Os três
+  formulários desta rodada passam por `Redesenhando(...)`; os testes da tela esperam o fechamento em 3 s (com
+  20 s, a releitura escondia o defeito; com 3 s, eles reprovaram antes da correção).
+
+### 🧑‍💻 UX · 🛠️ DX · 🤝 CX
+
+- 🧑‍💻 **UX**
+  - O paciente novo é atendido numa tela: cadastrar, conferir, **marcar** e escrever "Marquei a sua …" sem ir à
+    Agenda (de ~12–15 cliques em 3 telas para ~5 numa). O cancelamento também deixa a mensagem pronta.
+  - Quem espera resposta aparece com a secretária em outra tela: o número no "WhatsApp" do menu, a linha no sino
+    e uma notificação para a espera nova — sem repetir a cada minuto.
+  - A carteirinha e o pedido médico vão do balão à ficha em 3 cliques (antes ~8–10, passando pelo disco).
+  - A pergunta clínica chega a quem trata em 2 cliques, com a ficha anexada e o trecho citado.
+  - A troca de turno é um gesto: uma nota, e todas as conversas voltam à fila; o que não passou é dito, conversa
+    por conversa.
+- 🛠️ **DX**
+  - As regras moram na Application, puras e com teste: `PedemResposta`, `RascunhosDaConversa`, `TurnoNoWhatsApp`,
+    `GuardarNaFichaService`, `PerguntaAoProfissionalService`, `VigiaDoWhatsApp`. O Razor ganhou só pontos de
+    ligação (a seção Horários, o balão recebido, o filtro "Minhas", a camada dos formulários e o rascunho do
+    cancelar); o resto mora em `ConversasDoWhatsApp.Resolve.cs` e em componentes novos.
+  - `ConversasNaTela` e `WhatsAppDaRecepcaoService` viraram `partial` para as partes novas ficarem em arquivos
+    próprios (`ConversasNaTela.Espera.cs`, `WhatsAppDaRecepcaoService.Turno.cs`).
+  - Um record no fim do contrato (`AppPresence`) e um método no `IClienteDoCrm`; nenhuma rota nova no CRM.
+- 🤝 **CX**
+  - **Custo**: por posto logado com a aba, um POST pequeno a cada 30 s (o CRM web manda a cada 25 s) e um
+    `?desde=` a cada 60 s; a lista inteira a cada 10 min. Nenhuma migration, nenhuma tabela nova.
+  - **Mudança de operação (decidida pela direção)**: com o app novo, quem tem a aba WhatsApp (Recepção e Gerente)
+    passa a contar como conectado, e a distribuição automática do CRM passa a entregar conversas a essas pessoas
+    (setor, folga, expediente e limite continuam valendo). O painel "responsável sem sinal" da gestão deixa de ser
+    ruído.
+  - **Conformidade**: o arquivo guardado é registro clínico (`AnexoPaciente`, já na exportação e na guarda), não
+    se apaga, cancela-se com motivo, com trilha e o login de quem guardou; a pergunta ao profissional não sai do
+    banco da clínica (art. 33 não se aplica) e não vira prontuário.
+  - **Publicação**: Recepção e Gerente (os apps com a aba). O CRM não precisa de release para o pulso (a rota já
+    existia); o contrato novo só dá nome à resposta.
+
+### O que NÃO foi feito, e por quê
+
+- **O perfil padrão da Recepção não guarda na ficha.** A permissão é a das outras portas de anexar arquivo à
+  ficha (dado de saúde, art. 5º, II; regra 5 da conformidade). O botão aparece apagado e diz por quê; quem
+  decide liberar é a direção, em Acessos (por pessoa).
+- **O relato do paciente não vira registro de prontuário** (decisão de 25/10): registrar é ato médico; quem
+  trata lê no chat e registra, se for o caso.
+- **A conversa de OUTRA colega não conta na espera.** Avisar a todos sobre a conversa de alguém ensinaria a
+  ignorar o aviso; quem sai sem passar o turno aparece agora, com o pulso, no painel "responsável sem sinal" da
+  gestão.
+- **A espera conta da ÚLTIMA mensagem do paciente**, que é o que o contrato traz (`LastIncoming`): com três
+  mensagens seguidas, o aviso sai cinco minutos depois da terceira. O `waitingSince` do CRM não está no
+  contrato; entra quando a fila "mais antigas primeiro" (R4) precisar dele.
+- **"Passar o turno" devolve à FILA, não a uma pessoa.** Transferir para uma pessoa é um pedido com aceite
+  (R7, outra frente); o turno não espera aceite. O resumo do @SemDor por conversa na passagem e o "Reorganizar"
+  da gestão na tela ficaram de fora: o CRM web faz o segundo, e a nota única cobre o primeiro.
+- **O "Marcar horário" não usa o `IMarcacaoDeHorario`** (a aba Marcar da Recepção): ele troca de tela, e a
+  volta à conversa dependeria de lembrar de voltar. O formulário da agenda em modal tem as mesmas regras e
+  avisos de guia, e a tela compara os horários na hora em que ele grava.
+- **Os outros formulários da aba** (Transferir, Encerrar, Cancelar horário, Conferir ficha, Como foi, Nova
+  conversa) também chamam a tela por `Func` e podem ficar abertos até a releitura de 7 s depois de gravar — o
+  mesmo defeito da foto 79. Não mexidos aqui (são de outras frentes desta rodada); a correção é a mesma
+  (`Redesenhando`).
+- **A suíte no Postgres não rodou**: nenhuma consulta nova (a equipe vem do `UsuariosAsync` que já existia;
+  o anexo e a mensagem do chat são os serviços de sempre).
+- **No Windows** (só a `compilar-sombra` compilou o shell): conferir o número no "WhatsApp" do menu, a seção do
+  sino, o clique que abre a conversa e, na gestão do CRM, a secretária do app como conectada; e que, ao sair do
+  app, ela deixa de aparecer conectada.
+

@@ -101,3 +101,8 @@ public sealed record AppSemDorSummary(string Quer, string Feito, string Falta);
 /// <summary>GET /api/semdor/estado. Ligada falso: os botões e as etiquetas somem. UltimaFalha: o motivo só para a gestão
 /// (para os outros, "Fale com a gestão." ou vazio). 409 (desligado) e 502 (não respondeu) trazem a frase em AppError.</summary>
 public sealed record AppSemDorState(bool Ligada, bool Funcionando, DateTimeOffset? UltimoSucessoEm, DateTimeOffset? UltimaFalhaEm, string UltimaFalha);
+
+// ---------- A presença do app (25/10: quem usa só o app conta como conectado no CRM) ----------
+/// <summary>POST /api/presence (corpo "{}", com o X-CSRF-TOKEN): o pulso de "estou aqui" de quem está logado. Connected verdadeiro e
+/// LeaseSeconds = por quanto tempo o pulso vale (120 s): o app pulsa antes disso enquanto a pessoa está logada. 401 = a sessão acabou.</summary>
+public sealed record AppPresence(bool Connected, int LeaseSeconds);

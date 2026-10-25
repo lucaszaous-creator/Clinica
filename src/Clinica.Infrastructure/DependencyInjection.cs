@@ -160,6 +160,9 @@ public static class DependencyInjection
         services.AddScoped<IndicadoresService>();
         services.AddScoped<CampanhaService>();
         services.AddScoped<WhatsAppDaRecepcaoService>();
+        // A conversa resolve (25/10): guardar na ficha o arquivo recebido e perguntar a quem trata pelo chat da equipe.
+        services.AddScoped<GuardarNaFichaService>();
+        services.AddScoped<PerguntaAoProfissionalService>();
         // Documento ao paciente por WhatsApp (fila que o CRM executa) — out/2026; sem e-mail.
         // A fila tem duas portas: o desktop PÕE o pedido, a ponte do CRM o entrega.
         services.AddScoped<EnvioAoPacienteService>();

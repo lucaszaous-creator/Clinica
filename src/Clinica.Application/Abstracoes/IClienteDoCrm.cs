@@ -117,6 +117,14 @@ public interface IClienteDoCrm
     /// <summary>POST …/{id}/semdor/resumo — o que o paciente quer, o que já foi feito e o que falta. As falhas, como na sugestão.</summary>
     Task<AppSemDorSummary> ResumirComSemDorAsync(int usuarioId, string conversaId, CancellationToken ct = default);
 
+    /// <summary>
+    /// POST /api/presence — o pulso de "estou aqui" (25/10, decisão da direção: quem usa só o app conta como
+    /// conectado). Vale <see cref="AppPresence.LeaseSeconds"/> (120 s) e é o que a distribuição automática e o
+    /// painel "responsável sem sinal" do CRM leem. Quem pulsa é o <see cref="Servicos.VigiaDoWhatsApp"/>, que PARA
+    /// antes de o app sair (<c>EsquecerSessao</c>): pulso depois da saída entraria de novo no CRM.
+    /// </summary>
+    Task<AppPresence> PulsoDePresencaAsync(int usuarioId, CancellationToken ct = default);
+
     /// <summary>Esquece a sessão do CRM da pessoa (o app chama no logout): a próxima chamada entra de novo.</summary>
     void EsquecerSessao(int usuarioId);
 }

@@ -1,0 +1,24 @@
+@*
+  "MARCAR HORÁRIO" NA COLUNA DO PACIENTE DA CONVERSA (25/10, R5 — docs/whatsapp-nativo-implementacao.md §16).
+  Com a ficha conferida, a seção Horários SEMPRE oferece marcar — antes ela só aparecia quando já havia horário,
+  e o paciente novo obrigava a sair da conversa (Agenda, buscar a paciente, voltar e escrever). Só desenha: o
+  formulário é o da agenda (AgendamentoForm), aberto pela tela.
+*@
+
+@if (SemHorarios)
+{
+    <p class="wa-dica">Nenhum horário marcado nos próximos @WhatsAppDaRecepcaoService.DiasDeHorarios dias.</p>
+}
+<div class="botoes-linha wa-marcar">
+    <button type="button" class="botao mini @(SemHorarios ? "primario" : null)" disabled="@Desabilitado" title="@Dica" @onclick="AoMarcar">
+        <Icone Nome="calendario" />Marcar horário</button>
+</div>
+
+@code {
+    /// <summary>A ficha conferida ainda não tem horário à frente: a dica aparece e o botão é o principal.</summary>
+    [Parameter] public bool SemHorarios { get; set; }
+    [Parameter] public bool Desabilitado { get; set; }
+    /// <summary>Por que o botão está apagado (a metade visível das duas barreiras).</summary>
+    [Parameter] public string? Dica { get; set; }
+    [Parameter] public EventCallback AoMarcar { get; set; }
+}

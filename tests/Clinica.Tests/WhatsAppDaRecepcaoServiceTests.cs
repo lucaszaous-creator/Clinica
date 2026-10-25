@@ -451,6 +451,51 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
         await Assert.ThrowsAsync<InvalidOperationException>(() => Com(s => s.DevolverAsync(c, "ok")));
         var depois = await Com(s => s.DevolverAsync(c, "Paciente quer falar com o financeiro"));
         Assert.Null(depois.AgentId);
+        // A devolução da DONA é a transferência para a mesma fila, sem responsável — o /reassign é o "Reorganizar"
+        // da gestão e recusa a secretária comum com 403 (25/10).
+        var (rota, conversa, mudanca) = Assert.Single(_crm.Mudancas);
+        Assert.Equal(("transfer", "c-maria", null, "Recepção", "Paciente quer falar com o financeiro"),
+            (rota, conversa, mudanca.AgentId, mudanca.Queue, mudanca.Note));
+    }
+
+    // ------------------------------------------------------------------ passar o turno (25/10, D12)
+
+    private static AppConversationSummary NaLista(AppConversation c, int? versao = null, string? agente = "ana")
+        => new(c.Id, c.Name, c.Contact, c.Channel, c.Sender, c.Queue, agente, c.Closed, versao ?? c.Version, c.UpdatedAt, c.LastIncoming,
+            c.PatientId, c.PatientName, 0, "", false, false, null, null);
+
+    [Fact]
+    public async Task Passar_o_turno_devolve_cada_conversa_com_a_mesma_nota_e_nao_para_no_primeiro_erro()
+    {
+        var maria = _crm.Pôr(Conversa("c-maria", "Maria", "5522998765432") with { AgentId = "ana" });
+        var pedro = _crm.Pôr(Conversa("c-pedro", "Pedro", "5522988112233") with { AgentId = "ana" });
+        var joao = _crm.Pôr(Conversa("c-joao", "João", "5522996501010") with { AgentId = "ana" });
+        _crm.RecusasNaTransferencia.Add("c-pedro");
+
+        var r = await Com(s => s.PassarOTurnoAsync([NaLista(maria), NaLista(pedro), NaLista(joao)], "Fim do turno da manhã", "ana"));
+
+        Assert.Equal(["Maria", "João"], r.Passaram);
+        var falha = Assert.Single(r.Falharam);
+        Assert.Equal(("c-pedro", "Escolha uma fila válida."), (falha.Id, falha.Motivo));
+        Assert.All(_crm.Mudancas, m => Assert.Equal(("transfer", null, "Fim do turno da manhã"), (m.Rota, m.Mudanca.AgentId, m.Mudanca.Note)));
+        Assert.Equal(["c-maria", "c-pedro", "c-joao"], _crm.Mudancas.Select(m => m.Conversa));
+    }
+
+    [Fact]
+    public async Task Passar_o_turno_no_409_rele_e_so_repete_se_a_conversa_ainda_e_de_quem_sai()
+    {
+        // A Version mudou sozinha (o recibo de entrega): ainda é da Ana, então repete com a nova e passa.
+        var maria = _crm.Pôr(Conversa("c-maria", "Maria", "5522998765432") with { AgentId = "ana" });
+        // A Bruna assumiu no meio: não se tira a conversa dela.
+        var pedro = _crm.Pôr(Conversa("c-pedro", "Pedro", "5522988112233") with { AgentId = "bruna" });
+
+        var r = await Com(s => s.PassarOTurnoAsync([NaLista(maria, versao: maria.Version - 1), NaLista(pedro, versao: pedro.Version - 1)],
+            "Fim do turno da manhã", "ana"));
+
+        Assert.Equal(["Maria"], r.Passaram);
+        Assert.Equal(("c-pedro", TurnoNoWhatsApp.JaNaoEraSua), (r.Falharam.Single().Id, r.Falharam.Single().Motivo));
+        Assert.Equal(["c-maria", "c-maria", "c-pedro"], _crm.Mudancas.Select(m => m.Conversa));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Com(s => s.PassarOTurnoAsync([NaLista(maria)], "ok", "ana")));
     }
 
     private static SituacaoConfirmacao Situacao(ContatoCampanha c) => RodadaDeConfirmacao.Classificar(c.Status, c.EnviadoEm, c.Comentario);
@@ -606,14 +651,29 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
         public Task<AppConversation> AssumirAsync(int usuarioId, string conversaId, AppChange mudanca, CancellationToken ct = default)
             => Task.FromResult(Trocar(conversaId, c => c with { AgentId = mudanca.AgentId }));
 
+        /// <summary>As mudanças de responsável que chegaram, com a rota (25/10: devolver é /transfer, não o /reassign da gestão).</summary>
+        public List<(string Rota, string Conversa, AppChange Mudanca)> Mudancas { get; } = [];
+        /// <summary>As conversas cuja transferência o CRM recusa (400): a passagem do turno segue para as outras.</summary>
+        public HashSet<string> RecusasNaTransferencia { get; } = [];
+
         public Task<AppConversation> TransferirAsync(int usuarioId, string conversaId, AppChange mudanca, CancellationToken ct = default)
-            => Task.FromResult(Trocar(conversaId, c => c with { AgentId = mudanca.AgentId }));
+        {
+            Mudancas.Add(("transfer", conversaId, mudanca));
+            if (RecusasNaTransferencia.Contains(conversaId)) throw new RecusaDoCrm("Escolha uma fila válida.", 400);
+            if (mudanca.Version != _conversas[conversaId].Version) throw new RecusaDoCrm("A conversa mudou. Atualize e tente novamente.", 409);
+            return Task.FromResult(Trocar(conversaId, c => c with { AgentId = mudanca.AgentId }));
+        }
 
         public Task<AppConversation> ReabrirAsync(int usuarioId, string conversaId, AppChange mudanca, CancellationToken ct = default)
             => Task.FromResult(Trocar(conversaId, c => c with { Closed = false, AgentId = mudanca.AgentId }));
 
         public Task<AppConversation> DevolverAFilaAsync(int usuarioId, string conversaId, AppChange mudanca, CancellationToken ct = default)
-            => Task.FromResult(Trocar(conversaId, c => c with { AgentId = null }));
+        {
+            Mudancas.Add(("reassign", conversaId, mudanca));
+            return Task.FromResult(Trocar(conversaId, c => c with { AgentId = null }));
+        }
+
+        public Task<AppPresence> PulsoDePresencaAsync(int usuarioId, CancellationToken ct = default) => Task.FromResult(new AppPresence(true, 120));
 
         public Task<AppConversation> EncerrarAsync(int usuarioId, string conversaId, AppClose encerramento, CancellationToken ct = default)
             => Task.FromResult(Trocar(conversaId, c => c with { Closed = true }));

@@ -598,7 +598,7 @@ arquivos que você LÊ quando a tarefa toca a área (cada um abre com o índice 
   financeiro (pacotes, caixa, cartão, tributos, repasse, estoque), agenda e recepção (busca de
   paciente, lançamentos, confirmações, SMS), Consultório e prontuário (evolução, enfermagem,
   infusão, prescrição, documentos clínicos, certificação digital, LGPD), BI e direção.
-- **`docs/agentes/convencoes.md`** (197 tópicos) — como se escreve aqui: design system,
+- **`docs/agentes/convencoes.md`** (199 tópicos) — como se escreve aqui: design system,
   WPF/XAML (bindings, conversores, teto e piso de tela), Blazor, EF/Npgsql (tradução, `Task.WhenAll`,
   migrations), as checagens do `verificar-suite`, assinatura digital (DER/CMS, carimbo), impressão
   e PDF, ponte do CRM e cada rodada de UI com o que ela achou.

@@ -17,8 +17,11 @@ namespace Clinica.Ui.Blazor.Moldura;
 // e a prévia implementam versões de mentira. As REGRAS continuam onde estavam: a navegação, o
 // filtro de permissões e o sino no ShellViewModel; a senha e o travamento no AcessoService.
 
-/// <summary>Um item do menu do topo (uma tela, ou um item com abas).</summary>
-public sealed record ItemDaBarra(string Chave, string Rotulo, string? Descricao, bool Ativo);
+/// <summary>
+/// Um item do menu do topo (uma tela, ou um item com abas). <paramref name="Contador"/>: o número ao lado do
+/// rótulo — quantos pacientes esperam resposta no "WhatsApp" (25/10); nulo = nenhum.
+/// </summary>
+public sealed record ItemDaBarra(string Chave, string Rotulo, string? Descricao, bool Ativo, string? Contador = null);
 
 /// <summary>
 /// Uma entrada da barra do topo: ou um item DIRETO (a Recepção, com os principais à mostra),
@@ -27,6 +30,9 @@ public sealed record ItemDaBarra(string Chave, string Rotulo, string? Descricao,
 public sealed record GrupoDaBarra(string Rotulo, ItemDaBarra? Direto, IReadOnlyList<ItemDaBarra> Itens)
 {
     public bool Ativo => Direto?.Ativo ?? Itens.Any(i => i.Ativo);
+
+    /// <summary>O número da entrada: o do item direto, ou o do item do submenu que o tem (o submenu fechado não esconde a espera).</summary>
+    public string? Contador => Direto is not null ? Direto.Contador : Itens.Select(i => i.Contador).FirstOrDefault(c => c is not null);
 }
 
 /// <summary>Uma aba da tela composta à vista ("Caixa" → Movimento, Fechamento…).</summary>
@@ -58,6 +64,12 @@ public sealed record RespostaNoSino(object Alvo, string Titulo, string Sessao, s
 /// conversa no CRM.
 /// </summary>
 public sealed record AvisoDoSemDorNoSino(object Alvo, string Paciente, string Assunto, string Quando, bool NaoLida = false);
+
+/// <summary>
+/// Uma conversa em que o paciente espera resposta (25/10, R8): <paramref name="Quando"/> é "há 12 min". O clique abre a
+/// conversa na aba WhatsApp (<paramref name="Alvo"/> volta no clique) e marca a leitura.
+/// </summary>
+public sealed record EsperaNoSino(object Alvo, string Nome, string Quando, bool NaoLida = false);
 
 /// <summary>Uma seção do sino: só aparece para quem a tela que resolve existe.</summary>
 public sealed record SecaoDoSino<T>(bool Visivel, string Contador, IReadOnlyList<T> Linhas, string Situacao)
@@ -132,6 +144,10 @@ public interface IMolduraDoApp
     void AbrirResposta(RespostaNoSino resposta);
     /// <summary>Abre a conversa do aviso no CRM (navegador) e marca a leitura. Padrão: não faz nada.</summary>
     void AbrirAvisoDoSemDor(AvisoDoSemDorNoSino aviso) { }
+    /// <summary>Quem espera resposta no WhatsApp (25/10). Padrão: oculta (a prévia e os testes da moldura sem CRM).</summary>
+    SecaoDoSino<EsperaNoSino> EsperasNoWhatsApp => SecaoDoSino<EsperaNoSino>.Oculta;
+    /// <summary>Abre a conversa que espera na aba WhatsApp e marca a leitura. Padrão: não faz nada.</summary>
+    void AbrirEspera(EsperaNoSino espera) { }
     void AbrirConfirmacoes();
 
     /// <summary>

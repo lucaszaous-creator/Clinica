@@ -369,6 +369,26 @@ public sealed class ClienteDoCrmHttpTests : IDisposable
         Assert.Equal(ClienteDoCrmHttp.Demorou, (await Assert.ThrowsAsync<CrmIndisponivel>(() => curto.AssumirAsync(7, "c1", new AppChange(1, null, null)))).Message);
     }
 
+    // ---------- A presença do app (25/10, D12) ----------
+
+    [Fact] public async Task O_pulso_de_presenca_vai_com_o_csrf_e_renova_a_sessao_vencida()
+    {
+        await Configurar(EnderecoA);
+        crm.Rota = (p, _) => p.Caminho == "/api/presence" ? Responder(new AppPresence(true, 120)) : new HttpResponseMessage(HttpStatusCode.NotFound);
+
+        var pulso = await cliente.PulsoDePresencaAsync(7);
+
+        Assert.Equal((true, 120), (pulso.Connected, pulso.LeaseSeconds));
+        var pedido = crm.Pedidos.Last();
+        Assert.Equal(("POST", "/api/presence", "csrf-s1", "u7", "{}"), (pedido.Metodo, pedido.Caminho, pedido.Csrf, pedido.Agente, pedido.Corpo));
+
+        // A sessão do CRM venceu (2 h) com a pessoa ainda logada no app: entra de novo e repete UMA vez.
+        crm.Revogar();
+        Assert.True((await cliente.PulsoDePresencaAsync(7)).Connected);
+        Assert.Equal([401, 200], crm.Pedidos.Where(p => p.Caminho == "/api/presence").Skip(1).Select(p => p.Status));
+        Assert.Equal(2, Bilhetes());
+    }
+
     [Fact] public async Task O_anexo_e_reenviado_inteiro_quando_a_sessao_venceu()
     {
         await Configurar(EnderecoA);

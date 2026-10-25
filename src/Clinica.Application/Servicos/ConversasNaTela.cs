@@ -156,7 +156,7 @@ public sealed record EventoDaTrilha(string Texto, string Tom);
 /// texto cru, com número de horário ou data ISO.</item>
 /// </list>
 /// </summary>
-public static class ConversasNaTela
+public static partial class ConversasNaTela
 {
     private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
     private static readonly CompareInfo Comparar = PtBr.CompareInfo;
