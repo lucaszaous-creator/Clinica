@@ -13,7 +13,7 @@ namespace Clinica.Application.Servicos;
 /// <summary>Uma linha da lista de conversas, pronta para desenhar.</summary>
 public sealed record LinhaDaConversa(string Id, string Nome, string Iniciais, string TomDoAvatar, bool Sms, string Hora,
     string Previa, TickDaMensagem? Tick, int NaoLidas, SeloDoWhatsApp Selo, string Responsavel, bool Minha, bool TemResponsavel,
-    EtiquetaDoSemDor? SemDor = null, int? PacienteId = null);
+    EtiquetaDoSemDor? SemDor = null, int? PacienteId = null, EsperaNaLinha? Espera = null);
 
 /// <summary>Uma linha do modo Retenção (um caso do Acompanhamento), pronta para desenhar.</summary>
 public sealed record LinhaDaRetencao(LinhaAcompanhamento Caso, string Iniciais, string TomDoAvatar, string Dias, string TomDosDias,
@@ -361,12 +361,11 @@ public sealed class WhatsAppDaRecepcaoService(
         // O avatar: o tom é da conversa (ou do caso, antes de a conversa existir); sem nome nenhum, cinza e "?".
         var semNome = c is not null && d.Paciente is null && c.PatientId is null && !TemLetra(c.Name);
         var chave = c is null ? "caso-" + d.Caso?.Id : semNome ? null : c.Id;
-        var hoje = DateOnly.FromDateTime(agora.DateTime);
         return new ConversaDoWhatsApp(d, c?.Id ?? "", nome, semNome ? "?" : Iniciais(nome), TomDoAvatar(chave),
             ConversasNaTela.TelefoneNaTela(d.Contato), sms, c?.Queue ?? "Recepção",
             Responsavel(c?.AgentId, d.MeuAgente, d.Agentes), minha, c?.Closed ?? false, encerramento,
-            c is null ? [new ItemDaConversa(TipoNaLinhaDoTempo.Dia, ConversasNaTela.Dia(hoje, hoje))]
-                : ConversasNaTela.LinhaDoTempo(c, d.RecebidasJaLidas, agora, d.Agentes),
+            // O caso sem conversa ainda não tem o que mostrar: nem o separador "Hoje" sozinho (foto 82 da revisão).
+            c is null ? [] : ConversasNaTela.LinhaDoTempo(c, d.RecebidasJaLidas, agora, d.Agentes),
             janela, ficha, acao, abertura, ConversasNaTela.CampoFechado(janela, nome, agora));
     }
 
@@ -382,11 +381,17 @@ public sealed class WhatsAppDaRecepcaoService(
         return string.Join(" · ", partes);
     }
 
-    /// <summary>As linhas da lista de conversas, no filtro e na busca, com o selo de cada uma.</summary>
+    /// <summary>
+    /// As linhas da lista de conversas, no filtro e na busca, com o selo de cada uma. Em "Novas", a fila:
+    /// o que pede ação na frente, e a mais antiga primeiro (<see cref="ConversasNaTela.OrdenarAsNovas"/>).
+    /// </summary>
     public static IReadOnlyList<LinhaDaConversa> Linhas(PainelDoWhatsApp painel, FiltroDasConversas filtro, string? busca,
         bool soNaoLidas, DateTimeOffset agora)
-        => ConversasNaTela.Filtrar(painel.Conversas, filtro, painel.Sessao.AgentId, busca, soNaoLidas)
+    {
+        var linhas = ConversasNaTela.Filtrar(painel.Conversas, filtro, painel.Sessao.AgentId, busca, soNaoLidas)
             .Select(c => Linha(painel, c, agora)).ToList();
+        return filtro == FiltroDasConversas.Novas ? ConversasNaTela.OrdenarAsNovas(linhas, l => l.Selo) : linhas;
+    }
 
     public static LinhaDaConversa Linha(PainelDoWhatsApp painel, AppConversationSummary c, DateTimeOffset agora)
     {
@@ -400,7 +405,8 @@ public sealed class WhatsAppDaRecepcaoService(
             ConversasNaTela.EhSms(c.Channel), HoraDaLinha(c.UpdatedAt, agora),
             string.IsNullOrWhiteSpace(c.Preview) ? "Sem mensagens ainda" : MidiaDaConversa.PreviaDaLista(c.Preview), ConversasNaTela.TickDaPrevia(c),
             Math.Max(0, c.Unread), selo, Responsavel(c.AgentId, painel.Sessao.AgentId, painel.Agentes),
-            c.AgentId is not null && c.AgentId == painel.Sessao.AgentId, c.AgentId is not null, SemDorNaTela.Etiqueta(painel.SemDor, c), c.PatientId);
+            c.AgentId is not null && c.AgentId == painel.Sessao.AgentId, c.AgentId is not null,
+            SemDorNaTela.EtiquetaNaLinha(SemDorNaTela.Etiqueta(painel.SemDor, c), selo), c.PatientId, ConversasNaTela.Espera(c, agora));
     }
 
     /// <summary>Os números do seletor e dos filtros dos dois modos.</summary>

@@ -27,6 +27,8 @@ public partial class ConversasDoWhatsApp
     private readonly MemoriaDeMidia _memoriaDeMidia = new();
     private readonly HashSet<string> _midiaCarregando = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _midiaFalhou = new(StringComparer.Ordinal);
+    // A falha que tentar de novo não resolve (o CRM recusou: o WhatsApp não entregou, passou do teto): sem "Tentar de novo".
+    private readonly HashSet<string> _midiaSemVolta = new(StringComparer.Ordinal);
     private readonly SemaphoreSlim _vagasDeMidia = new(MidiasAoMesmoTempo, MidiasAoMesmoTempo);
     private MidiaDaMensagem? _midiaAmpliada;
     private GravadorDeAudio? _gravador;
@@ -44,6 +46,7 @@ public partial class ConversasDoWhatsApp
         b.AddAttribute(6, nameof(MidiaNoBalao.AoAmpliar), EventCallback.Factory.Create(this, () => _midiaAmpliada = m));
         b.AddAttribute(7, nameof(MidiaNoBalao.AoBaixar), EventCallback.Factory.Create(this, () => BaixarMidiaAsync(m)));
         b.AddAttribute(8, nameof(MidiaNoBalao.AoAbrir), EventCallback.Factory.Create(this, () => AbrirMidiaAsync(m)));
+        b.AddAttribute(9, nameof(MidiaNoBalao.PodeTentarDeNovo), !_midiaSemVolta.Contains(m.Chave));
         b.CloseComponent();
     };
 
@@ -71,6 +74,7 @@ public partial class ConversasDoWhatsApp
         if (_memoriaDeMidia.Ler(m.Chave) is { } pronta) return pronta;
         if (!_midiaCarregando.Add(m.Chave)) return null;
         _midiaFalhou.Remove(m.Chave);
+        _midiaSemVolta.Remove(m.Chave);
         StateHasChanged();
         try
         {
@@ -92,12 +96,14 @@ public partial class ConversasDoWhatsApp
         catch (CrmIndisponivel ex)
         {
             Clinica.Application.Diagnostico.Registrar("Blazor — mídia do WhatsApp não veio do CRM", ex);
-            _midiaFalhou[m.Chave] = MidiaDaConversa.Falha(m, ex.Message);
+            _midiaFalhou[m.Chave] = MidiaDaConversa.Falha(m, ex);
             return null;
         }
-        catch (InvalidOperationException ex) // RecusaDoCrm: o CRM disse por quê
+        catch (InvalidOperationException ex) // RecusaDoCrm: o CRM disse por quê — a frase dele vai ao log; a tela diz a da clínica
         {
-            _midiaFalhou[m.Chave] = MidiaDaConversa.Falha(m, ex.Message);
+            Clinica.Application.Diagnostico.Registrar("Blazor — o CRM recusou a mídia do WhatsApp (o detalhe do provedor)", ex);
+            _midiaFalhou[m.Chave] = MidiaDaConversa.Falha(m, ex);
+            _midiaSemVolta.Add(m.Chave);
             return null;
         }
         finally { _midiaCarregando.Remove(m.Chave); }
@@ -165,7 +171,8 @@ public partial class ConversasDoWhatsApp
             catch (CrmIndisponivel ex)
             {
                 Clinica.Application.Diagnostico.Registrar("Blazor — o CRM não recebeu o áudio do WhatsApp", ex);
-                Recado($"O CRM não respondeu: {ex.Message} O áudio continua aqui; tente Enviar de novo.", "erro");
+                PerdeuLigacao(ex);
+                Recado(ConversasNaTela.FalhaNaEscrita(ex, "O áudio continua aqui; tente Enviar de novo."), "erro");
                 return false;
             }
             catch (InvalidOperationException ex) // RecusaDoCrm

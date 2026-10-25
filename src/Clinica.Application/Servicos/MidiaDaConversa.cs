@@ -155,6 +155,20 @@ public static class MidiaDaConversa
     public static string RotuloDoAudio(double? segundos)
         => Tempo(segundos) is { Length: > 0 } t ? "Áudio " + t : "Áudio";
 
+    /// <summary>As velocidades do áudio, na ordem do botão (as do WhatsApp).</summary>
+    public static readonly IReadOnlyList<double> Velocidades = [1, 1.5, 2];
+
+    /// <summary>A próxima velocidade do botão: 1× → 1,5× → 2× → 1×. Fora da lista, volta a 1×.</summary>
+    public static double ProximaVelocidade(double atual)
+    {
+        for (var i = 0; i < Velocidades.Count; i++)
+            if (Math.Abs(Velocidades[i] - atual) < 0.001) return Velocidades[(i + 1) % Velocidades.Count];
+        return Velocidades[0];
+    }
+
+    /// <summary>"1×", "1,5×", "2×".</summary>
+    public static string RotuloDaVelocidade(double v) => v.ToString("0.#", PtBr) + "×";
+
     /// <summary>"820 bytes", "12 KB", "1,4 MB".</summary>
     public static string Tamanho(long bytes)
     {
@@ -163,18 +177,30 @@ public static class MidiaDaConversa
         return $"{(bytes / (1024d * 1024d)).ToString("0.#", PtBr)} MB";
     }
 
-    /// <summary>A frase da falha de carregar ("Não foi possível carregar a foto: …").</summary>
-    public static string Falha(TipoDeMidia tipo, string motivo) => Falha(tipo, motivo, null);
-
-    /// <summary>A frase da falha de carregar a mídia desta mensagem (a figurinha diz "a figurinha").</summary>
-    public static string Falha(MidiaDaMensagem midia, string motivo) => Falha(midia.Tipo, motivo, midia.Figurinha ? "a figurinha" : null);
-
-    private static string Falha(TipoDeMidia tipo, string motivo, string? objeto)
+    /// <summary>
+    /// A frase da falha de carregar, na voz da clínica (25/10/2026): nunca a frase do CRM ou do
+    /// provedor ("…endereço de mídia compatível com o provedor…") — essa vai ao <c>Diagnostico</c>.
+    /// Sem ligação (<see cref="CrmIndisponivel"/>) o arquivo pode vir na próxima tentativa; acima do
+    /// teto, não vem nunca; qualquer outra recusa: a recebida o WhatsApp não entregou (peça para
+    /// reenviar), a enviada não está mais lá.
+    /// </summary>
+    public static string Falha(MidiaDaMensagem midia, Exception motivo)
     {
-        var o = objeto ?? tipo switch { TipoDeMidia.Imagem => "a foto", TipoDeMidia.Audio => "o áudio", TipoDeMidia.Video => "o vídeo", _ => "o documento" };
-        var frase = (motivo ?? "").Trim();
-        return frase.Length == 0 ? $"Não foi possível carregar {o}." : $"Não foi possível carregar {o}: {frase}";
+        var (este, feminino) = midia.Tipo switch
+        {
+            TipoDeMidia.Imagem => (midia.Figurinha ? "esta figurinha" : "esta foto", true),
+            TipoDeMidia.Audio => ("este áudio", false),
+            TipoDeMidia.Video => ("este vídeo", false),
+            _ => ("este documento", false)
+        };
+        if (motivo is CrmIndisponivel) return $"Sem ligação com o WhatsApp da clínica agora: {este} não carregou. Tente de novo em instantes.";
+        if (motivo is RecusaDoCrm { Status: 413 }) return $"{Maiuscula(este)} passa de 16 MB, o limite do WhatsApp: não dá para mostrar aqui.";
+        return midia.Recebida
+            ? $"O WhatsApp não entregou {este}. Peça à pessoa que {(feminino ? "a" : "o")} envie de novo."
+            : $"{Maiuscula(este)} não está mais disponível para mostrar aqui.";
     }
+
+    private static string Maiuscula(string s) => s.Length == 0 ? s : char.ToUpper(s[0], PtBr) + s[1..];
 
     /// <summary>A sigla no ícone do documento ("PDF", "DOCX"), pelo nome e, sem extensão, pelo tipo; "DOC" quando não se sabe.</summary>
     public static string Sigla(string? nome, string? mime)
@@ -187,8 +213,9 @@ public static class MidiaDaConversa
 
     /// <summary>
     /// A linha de baixo do cartão e o subtítulo da foto ampliada: "Foto recebida · 214 KB",
-    /// "PDF enviado · 12 KB", "Áudio recebido · 0:06 · 102 KB". Sem o arquivo ainda, só o que se
-    /// sabe ("Vídeo recebido").
+    /// "PDF enviado · 12 KB", "Áudio recebido · 0:06". Sem o arquivo ainda, só o que se sabe
+    /// ("Vídeo recebido"). O áudio não diz o tamanho (25/10/2026): no WhatsApp, a nota de voz é
+    /// a duração — "102 KB" não diz nada a quem vai ouvir.
     /// </summary>
     public static string Descricao(MidiaDaMensagem midia, MidiaCarregada? carregada)
     {
@@ -201,7 +228,7 @@ public static class MidiaDaConversa
         };
         var partes = new List<string> { $"{nome} {(midia.Recebida ? (feminino ? "recebida" : "recebido") : (feminino ? "enviada" : "enviado"))}" };
         if (Tempo(carregada?.Duracao) is { Length: > 0 } tempo) partes.Add(tempo);
-        if (carregada is not null) partes.Add(Tamanho(carregada.Arquivo.Conteudo.LongLength));
+        if (carregada is not null && midia.Tipo != TipoDeMidia.Audio) partes.Add(Tamanho(carregada.Arquivo.Conteudo.LongLength));
         return string.Join(" · ", partes);
     }
 

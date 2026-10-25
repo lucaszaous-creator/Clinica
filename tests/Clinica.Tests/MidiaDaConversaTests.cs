@@ -38,10 +38,11 @@ public sealed class MidiaDaConversaTests
         Assert.StartsWith("data:image/webp;base64,", MidiaDaConversa.Endereco(m.Tipo, webp));
         Assert.Equal("Figurinha recebida · 3 bytes", MidiaDaConversa.Descricao(m, MidiaDaConversa.Preparar(m, webp)));
         Assert.StartsWith("figurinha-", MidiaDaConversa.NomeParaSalvar(m, webp));
-        Assert.Equal("Não foi possível carregar a figurinha.", MidiaDaConversa.Falha(m, ""));
+        Assert.Equal("O WhatsApp não entregou esta figurinha. Peça à pessoa que a envie de novo.", MidiaDaConversa.Falha(m, new RecusaDoCrm("detalhe do provedor", 404)));
         // A foto comum continua foto, e a marca numa mensagem que não é imagem não muda nada.
         var foto = MidiaDaConversa.Da("c1", Msg("in", "IMAGE"))!;
-        Assert.Equal((false, "Foto", "Não foi possível carregar a foto."), (foto.Figurinha, foto.Rotulo, MidiaDaConversa.Falha(foto, "")));
+        Assert.Equal((false, "Foto", "O WhatsApp não entregou esta foto. Peça à pessoa que a envie de novo."),
+            (foto.Figurinha, foto.Rotulo, MidiaDaConversa.Falha(foto, new RecusaDoCrm("detalhe do provedor", 404))));
         Assert.False(MidiaDaConversa.Da("c1", Msg("in", "AUDIO") with { Sticker = true })!.Figurinha);
     }
 
@@ -123,7 +124,7 @@ public sealed class MidiaDaConversaTests
         var pdf = MidiaDaConversa.Da("c1", Msg("out", "DOCUMENT", anexo: "a1", nome: "orientacoes.pdf"))!;
         Assert.Equal("PDF enviado · 12 KB", MidiaDaConversa.Descricao(pdf, new MidiaCarregada(new ArquivoDaMidia(new byte[12_400], "application/pdf", null), null, null)));
         var audio = MidiaDaConversa.Da("c1", Msg("in", "AUDIO"))!;
-        Assert.Equal("Áudio recebido · 0:06 · 2 KB", MidiaDaConversa.Descricao(audio, new MidiaCarregada(new ArquivoDaMidia(new byte[2048], "audio/ogg", null), "data:", 6.2)));
+        Assert.Equal("Áudio recebido · 0:06", MidiaDaConversa.Descricao(audio, new MidiaCarregada(new ArquivoDaMidia(new byte[2048], "audio/ogg", null), "data:", 6.2)));
     }
 
     [Theory]
@@ -145,10 +146,31 @@ public sealed class MidiaDaConversaTests
     }
 
     [Fact]
-    public void A_falha_diz_o_que_nao_carregou_e_por_que()
+    public void A_falha_e_frase_da_clinica_e_nunca_o_texto_do_CRM_ou_do_provedor()
     {
-        Assert.Equal("Não foi possível carregar o vídeo: O CRM não respondeu.", MidiaDaConversa.Falha(TipoDeMidia.Video, "O CRM não respondeu."));
-        Assert.Equal("Não foi possível carregar a foto.", MidiaDaConversa.Falha(TipoDeMidia.Imagem, " "));
+        var video = MidiaDaConversa.Da("c1", Msg("in", "VIDEO"))!;
+        const string provedor = "Este anexo não possui um endereço de mídia compatível com o provedor do WhatsApp.";
+        // O CRM recusou: o WhatsApp não entregou — a recepção pede para reenviar; o texto do provedor não aparece.
+        Assert.Equal("O WhatsApp não entregou este vídeo. Peça à pessoa que o envie de novo.", MidiaDaConversa.Falha(video, new RecusaDoCrm(provedor, 404)));
+        // Sem ligação: tentar de novo pode resolver, e a frase não diz "CRM".
+        var semLigacao = MidiaDaConversa.Falha(video, new CrmIndisponivel("O CRM não respondeu. Tente de novo em instantes."));
+        Assert.Equal("Sem ligação com o WhatsApp da clínica agora: este vídeo não carregou. Tente de novo em instantes.", semLigacao);
+        // Acima do teto e o arquivo que a clínica mandou e não está mais lá.
+        Assert.Equal("Este vídeo passa de 16 MB, o limite do WhatsApp: não dá para mostrar aqui.", MidiaDaConversa.Falha(video, new RecusaDoCrm(MidiaDaConversa.GrandeDemais, 413)));
+        var pdf = MidiaDaConversa.Da("c1", Msg("out", "DOCUMENT", anexo: "a1"))!;
+        Assert.Equal("Este documento não está mais disponível para mostrar aqui.", MidiaDaConversa.Falha(pdf, new RecusaDoCrm(provedor, 404)));
+        foreach (var frase in new[] { semLigacao, MidiaDaConversa.Falha(pdf, new RecusaDoCrm(provedor, 404)) })
+            Assert.DoesNotContain("CRM", frase);
+    }
+
+    [Fact]
+    public void A_velocidade_do_audio_gira_em_1_1_5_e_2()
+    {
+        Assert.Equal(1.5, MidiaDaConversa.ProximaVelocidade(1));
+        Assert.Equal(2, MidiaDaConversa.ProximaVelocidade(1.5));
+        Assert.Equal(1, MidiaDaConversa.ProximaVelocidade(2));
+        Assert.Equal(1, MidiaDaConversa.ProximaVelocidade(3)); // fora da lista volta ao começo
+        Assert.Equal(["1×", "1,5×", "2×"], MidiaDaConversa.Velocidades.Select(MidiaDaConversa.RotuloDaVelocidade));
     }
 
     // ---------------------------------------------------------------- salvar

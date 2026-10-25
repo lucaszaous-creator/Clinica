@@ -51,12 +51,12 @@ public sealed class RetencaoNaTelaTests
     {
         Assert.Equal(
         [
-            ("respondeu", "Responderam · decidir o próximo passo", "sucesso", "Alzira Pinto"),
+            ("respondeu", "Responderam · decidir", "sucesso", "Alzira Pinto"),
             ("dias-30", "Sem vir há 30 dias", "perigo", "Sebastião Ramos, Helena Marques"),
             ("dias-20", "Sem vir há 20 dias", "aviso", "Marcos Vinícius Teles"),
             ("dias-15", "Sem vir há 15 dias", "neutro", "Rita de Cássia Lopes"),
             ("dias-abaixo", "Sem vir há menos de 15 dias", "neutro", "Breno Dias"),
-            ("novo-bsv", "Novos no BSV · indicados, sem a 1ª sessão", "info", "Felipe Arantes"),
+            ("novo-bsv", "Novos no BSV · sem a 1ª sessão", "info", "Felipe Arantes"),
         ], Grupos(FiltroDaRetencao.ParaHoje));
     }
 
@@ -129,14 +129,14 @@ public sealed class RetencaoNaTelaTests
     public void O_selo_da_linha()
     {
         SeloDoWhatsApp Selo(LinhaAcompanhamento l) => RetencaoNaTela.Selo(l, Respostas.TryGetValue(l.PacienteId, out var u) ? u : null, Agora);
-        Assert.Equal(new SeloDoWhatsApp("Pode escrever · autorizou", "sucesso"), Selo(Sebastiao));
-        Assert.Equal(new SeloDoWhatsApp("Sem autorização · ligar", "aviso"), Selo(Helena));
-        Assert.Equal(new SeloDoWhatsApp("Indicado · convidar para a 1ª sessão", "info"), Selo(Felipe));
-        Assert.Equal(new SeloDoWhatsApp("Respondeu · decidir o próximo passo", "sucesso"), Selo(Alzira));
-        Assert.Equal(new SeloDoWhatsApp("Aguardando · próximo contato 30/10", "info"), Selo(Fernanda));
+        Assert.Equal(new SeloDoWhatsApp("Autorizou", "sucesso"), Selo(Sebastiao));
+        Assert.Equal(new SeloDoWhatsApp("Sem autorização", "aviso"), Selo(Helena));
+        Assert.Equal(new SeloDoWhatsApp("Indicado ao BSV", "info"), Selo(Felipe));
+        Assert.Equal(new SeloDoWhatsApp("Respondeu", "sucesso"), Selo(Alzira));
+        Assert.Equal(new SeloDoWhatsApp("Aguardando · 30/10", "info"), Selo(Fernanda));
         Assert.Equal(new SeloDoWhatsApp("Voltou em 23/10", "sucesso"), Selo(Ines));
         Assert.Equal(new SeloDoWhatsApp("Encerrado · Mudou de cidade", "neutro"), Selo(Geraldo));
-        Assert.Equal(new SeloDoWhatsApp("Sem telefone · atualizar a ficha", "aviso"), Selo(Sebastiao with { Telefone = "123" }));
+        Assert.Equal(new SeloDoWhatsApp("Sem telefone", "aviso"), Selo(Sebastiao with { Telefone = "123" }));
     }
 
     [Fact]
@@ -235,7 +235,7 @@ public sealed class RetencaoNaTelaTests
     [Fact]
     public void O_rodape_diz_quem_entra_e_que_nao_ha_disparo_em_massa()
     {
-        Assert.Contains("BSV, acupuntura ou os dois", RetencaoNaTela.Rodape);
-        Assert.Contains("não há disparo em massa", RetencaoNaTela.Rodape);
+        Assert.Contains("BSV, acupuntura ou os dois", RetencaoNaTela.QuemApareceAqui);
+        Assert.Contains("não há disparo em massa", RetencaoNaTela.QuemApareceAqui);
     }
 }

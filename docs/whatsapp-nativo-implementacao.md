@@ -709,3 +709,86 @@ figurinha como foto e a lista "Foto", como antes.
 - **Mandar figurinha**: a Cloud API aceita, mas a figurinha precisa ser WEBP 512×512, e o pedido é
   "simples, mas funcional" — a recepção responde com texto e emoji.
 - **Nada a fazer na figurinha animada**: o WebView2 (Chromium) anima o WEBP sozinho, como o WhatsApp.
+
+## 15. Acabamento profissional da tela (25/10/2026)
+
+A revisão "a aba WhatsApp está profissional?" (nota 7/10: nada bloqueava; incomodavam o ruído, o jargão e
+o teclado) virou esta rodada. A direção pediu "corrigir todas, sem perguntas, sem falhas nem
+redundâncias". Esta parte cuidou da LISTA, da LINHA DO TEMPO, do CABEÇALHO, do TECLADO, dos MODELOS, da
+MÍDIA e das FALHAS; as regras da coluna "Do sistema da clínica" e dos avisos que pedem ação (itens 6, 7,
+15, 16 e 22 da revisão) e as capacidades novas são de outras frentes da mesma rodada.
+
+| Item da revisão | O que mudou | Onde | Teste |
+|---|---|---|---|
+| 1 · modelos com nome técnico e `{{1}}` | Nome da clínica por modelo ("Confirmação da consulta"; o técnico só na dica); desconhecido sem prefixo e sem `_`. `{{n}}` vira `[nome]`, `[data]`… pelos MESMOS rótulos do formulário. Ordem: os que podem sair primeiro; com horário HOJE, os de confirmação; no caso aberto da retenção, os convites. Sem o selo de categoria (o "Marketing" saiu da tela). A notificação e o recado do convite também falam pelo nome da clínica | `ModeloDoWhatsApp.NomeNaTela`, `TextoNaLista`, `Ordenar` | `ModeloDoWhatsAppNaListaTests` |
+| 2 e 11 · eventos tomando a conversa | O "pendente" sai quando a agenda já registrou o fim (cada resposta da agenda resolve um); "assumiu/reabriu ao responder" sai quando o balão ao lado, a menos de 2 min, é da mesma pessoa; eventos seguidos no mesmo minuto viram uma nota, com o tom mais forte. O evento é texto cinza de 12 px centralizado, sem caixa nem ícone (o de atenção, na cor do aviso). As mensagens assentam perto do campo (`margin-top:auto`), e o caso sem conversa não mostra "Hoje · …" sozinho | `ConversasNaTela.Acabamento.cs` (`Natureza`, `Limpar`), `LinhaDoTempo`, `WhatsAppDaRecepcaoService.Compor`; `.wa-evento` | `ConversasNaTelaAcabamentoTests` (5) |
+| 3 · erro do CRM e do provedor cru na tela | Mídia: "O WhatsApp não entregou este vídeo. Peça à pessoa que o envie de novo." / "Sem ligação com o WhatsApp da clínica agora: …" / acima de 16 MB; a frase do CRM vai ao `Diagnostico`. Mídia que falhou perde o Baixar e o Abrir; o "Tentar de novo" só quando tentar pode resolver (sem ligação). Escritas, modelos, anexo, áudio e nova conversa: `FalhaNaEscrita` ("Sem ligação com o WhatsApp da clínica agora. Nada foi alterado; …"). A mensagem que não saiu diz "Não entregue. Confira o número ou envie de novo." em vez do texto do provedor. O @SemDor sem ligação diz a frase dele, não a do transporte | `MidiaDaConversa.Falha`, `ConversasNaTela.FalhaNaEscrita`/`ErroDaEntrega`, `SemDorNaTela.Falha`, `MidiaNoBalao` (`PodeTentarDeNovo`) | `MidiaDaConversaTests`, `MidiaDoWhatsAppNaTelaTests` (o vídeo do João), `SemDorNaLinhaTests` |
+| 4 · teclado | Enter envia (a nota, guarda) e Shift+Enter quebra a linha — o C# decide o envio (`EnviaPeloEnter`), o `js/conversa-do-whatsapp.js` só impede a quebra que o Enter faria. Foco no campo ao abrir a conversa e no campo da busca ao abri-la; Esc fecha a busca, os popovers (Modelos, Respostas rápidas) e o ⓘ da retenção — na gaveta, sem fechar a gaveta junto. A dica do teclado mora no próprio campo ("Mensagem · Enter envia, Shift+Enter quebra a linha"), em toda largura | `ConversasDoWhatsApp.Acabamento.cs`, `js/conversa-do-whatsapp.js` | `AcabamentoDoWhatsAppNaTelaTests` (Enter/Shift+Enter, Esc) |
+| 5 · cabeçalho ambíguo | "Com você" virou **Devolver à fila** (ícone de seta para trás); **Encerrar** com o nome a partir de 1180 px; **Resumo** com o nome a partir de 640 px de cabeçalho (em 1366, sim). Para o nome do paciente caber, o Transferir fica no ícone ⇄ (com a dica) abaixo de 820 px de cabeçalho, os botões são compactos e o nome ganha reticências de verdade | `ConversasDoWhatsApp.razor`, `conversas.css`, `Icone` (`devolver`) | `AcabamentoDoWhatsAppNaTelaTests` |
+| 8 · selos cortados | O selo nunca encolhe; quem cede é o responsável. Textos curtos: "Sem ficha", "2 fichas", "Autorizou", "Sem autorização", "Sem telefone", "Indicado ao BSV", "Respondeu", "Aguardando · 30/10", "Respondeu ao convite"; os títulos dos grupos da retenção cabem numa linha. Sem responsável, a linha não escreve "Sem responsável" (o selo e a aba "Novas" já dizem) | `ConversasNaTela.Selo`, `RetencaoNaTela.Selo`/`Agrupar`, `.wa-linha-rodape` | `ConversasNaTelaTests`, `RetencaoNaTelaTests`, `WhatsAppDaRecepcaoServiceTests`, fotos (o roteiro mede selo cortado) |
+| 9 · ✨ repetindo o selo | A etiqueta de assunto só aparece com o selo neutro da clínica; a de atenção, sempre | `SemDorNaTela.EtiquetaNaLinha` | `SemDorNaLinhaTests`, `SemDorNaTelaDoWhatsAppTests` |
+| 10 · notificação cobrindo o Enviar | A sugestão já aparece no campo (com o ↶): nenhuma notificação. A que não entrou (ela continuou escrevendo) diz por quê no recado, acima do campo | `SugerirComSemDorAsync` | `SemDorNaTelaDoWhatsAppTests` |
+| 12 · vazios fora de contexto | Sem conversa aberta, a coluna da ficha não ocupa lugar (o centro fica com ela). Um vazio por modo: "Escolha uma conversa" / "Escolha um paciente para preparar o convite", sem "7 segundos" | `ConversasNaTela.SemConversaAberta`, `.pagina.wa.sem-conversa` | `ConversasNaTelaAcabamentoTests`, `AcabamentoDoWhatsAppNaTelaTests` |
+| 13 · rodapé da retenção | O rodapé da lista é o estado da ligação nos dois modos ("Conectado", "Sem ligação desde 10:14", "WhatsApp desligado"); a explicação foi para o ⓘ "Quem aparece aqui?" ao lado da busca | `ConversasNaTela.EstadoDaLigacao`, `RetencaoNaTela.QuemApareceAqui` | idem |
+| 14 · ligação que cai no meio do uso | Faixa amarela no topo da conversa: "Sem ligação com o WhatsApp desde 10:14. O que você enviar agora pode não sair; tentando de novo…" — some na próxima leitura que der certo. Abertura que falha: "Sem ligação com o WhatsApp da clínica agora. Enquanto isso, atenda pelo celular da recepção e avise o suporte." (a falha do próprio app diz outra coisa) | `ConversasNaTela.FaixaSemLigacao`, `FalhaDeAbertura`, `FalhaDaConversa`; `_semLigacaoDesde` | `ConversasNaTelaAcabamentoTests`, `AcabamentoDoWhatsAppNaTelaTests` (o CRM cai e ela tenta enviar) |
+| 17 · tocador de áudio | Botão de velocidade à vista (1× → 1,5× → 2×; o `playbackRate` só se alcança por JS) e sem "KB" no rodapé do áudio | `MidiaDaConversa.ProximaVelocidade`/`RotuloDaVelocidade`/`Descricao`, `MidiaNoBalao` | `MidiaDaConversaTests`, `AcabamentoDoWhatsAppNaTelaTests` |
+| 18 · hora da figurinha | Estava à direita, mas solta embaixo (parecia centralizada): agora fica no canto de baixo à direita, por cima da figurinha, como no WhatsApp | `conversas-midia.css` | foto 56 |
+| 19 · contraste | Rodapé dos balões verdes e texto secundário da linha selecionada no `--cinza-700` (9,3:1; antes 4,4 e 4,3) | `conversas.css` | medido no roteiro |
+| 20 · Transferir pré-marcado | Ninguém vem marcado; o Transferir nasce desligado | `TransferirConversaForm` | `AcabamentoDoWhatsAppNaTelaTests` |
+| 21 · gaveta sem marcar a linha | A linha do paciente da gaveta fica destacada (o botão dela leva `.aberta`), e um véu leve — a sombra da própria gaveta, que não pega clique — diz que o que ficou na borda está POR TRÁS dela | `BotaoDaConversaAoLado`, `conversa-ao-lado.css` | fotos 50-painel |
+| 23 · cabeçalhos fixos da retenção | Cada grupo num bloco: o título fixo vale só dentro do próprio grupo | `ConversasDoWhatsApp.razor` (`.wa-grupo-bloco`) | fotos |
+| 24 · botões do modelo | Confirmar · Remarcar · Cancelar (o `AppTemplate.Buttons`) desenhados como etiquetas sob o balão que saiu pelo modelo. A lista de modelos do número é lida UMA vez por aba (a mesma do popover) | `ModeloDoWhatsApp.Botoes`, `PedirModelosDosBotoes` | `ModeloDoWhatsAppNaListaTests`, `AcabamentoDoWhatsAppNaTelaTests` |
+| 25 · não lidas × "N novas" | Conferido: a mesma fonte. A divisória da conversa sai das não lidas da LINHA no clique (`RecebidasJaLidas`), e a linha zera ao abrir — como o WhatsApp, que mantém a divisória enquanto a conversa está aberta. A foto da revisão tinha a Maria lida antes por outra foto da mesma prévia | — | `ConversasNaTelaTests.A_divisoria_conta_as_nao_lidas…` |
+| R4 · quem espera | No canto da hora da linha: "há 2 h" (laranja a partir de 1 h) e, faltando menos de 4 h para a janela fechar, "fecha às 14:10"; a frase inteira ("espera há 2 h", "janela fecha às 14:10") na dica e no leitor de tela. Só quando a última fala é do paciente, aberta e fora do menu; respondeu, a linha deixa de esperar NA HORA (a prévia passa a ser o que a clínica mandou, com o tick — `LinhaDepoisDaEscrita`, antes um `with` no Razor). Em "Novas", a mais ANTIGA primeiro, com o que pede ação (selo vermelho ou laranja) na frente | `ConversasNaTela.Espera`, `Filtrar`, `OrdenarAsNovas`, `LinhaDepoisDaEscrita`; `WhatsAppDaRecepcaoService.Linhas`/`Linha` | `ConversasNaTelaAcabamentoTests` (5) |
+
+**Fotos** (`docs/mockups/whatsapp-nativo/tela-real/`, refeitas com prévia recém-iniciada no relógio fixo):
+`fotos-whatsapp.js` (01–25, 30–33, 50–57), `fotos-conversa-ao-lado.js` (50–52-painel) e `fotos-semdor.js`
+(50–58-semdor). O roteiro do WhatsApp passou a achar o modelo pelo nome da clínica ("Horário remarcado") e
+ganhou duas reprovações: **selo cortado na lista** e **tela rolada para o lado por dentro** (`scrollLeft > 0`
+em qualquer elemento). A segunda nasceu provada: o foco no campo ao abrir a conversa, no celular, rolava a
+`.pagina.wa` (`overflow:hidden` também rola) enquanto a conversa ainda deslizava — a foto 31 saiu com a
+coluna da ficha à mostra e o `scrollWidth` da página não acusou. Corrigido com `FocusAsync(preventScroll: true)`;
+lição em `docs/agentes/convencoes.md`. As fotos que não saem de roteiro e mudaram (03, 20, 22-fora-do-ar, 26
+e 40, tiradas à mão) foram refeitas com o `foto.js` nos mesmos passos; as de "não configurado" (22 e 41) não
+mudaram.
+
+### 🧑‍💻 UX · 🛠️ DX · 🤝 CX
+
+- 🧑‍💻 **UX** — A conversa é a conversa: os balões têm o peso, o sistema é nota de rodapé, e o que se
+  repetia sumiu. A secretária digita e aperta Enter, como no WhatsApp Web; abre uma conversa e já
+  escreve; Esc fecha o que abriu. A fila diz quem espera e há quanto tempo, e a janela que vai fechar
+  antes de virar mensagem paga. O cabeçalho diz o que cada botão FAZ. Os modelos se chamam como a
+  clínica fala e vêm na ordem do que serve agora. Quando a ligação cai, ela vê na hora, no topo da
+  conversa, e sabe que o que enviar pode não sair; quando a tela nem abre, sabe o que fazer enquanto isso.
+- 🛠️ **DX** — Tudo o que a tela afirma de novo é função pura com teste: `ConversasNaTela.Acabamento.cs`
+  (linha do tempo limpa, espera, ordem de "Novas", frases de falha), `ModeloDoWhatsApp` (nome, texto,
+  ordem, botões), `MidiaDaConversa` (falha, velocidade), `SemDorNaTela.EtiquetaNaLinha`. Na tela, um
+  arquivo parcial novo (`ConversasDoWhatsApp.Acabamento.cs`: teclas, foco, faixa, botões do modelo) e
+  mudanças localizadas no Razor, para a junção com as outras frentes ser limpa. Um módulo JS pequeno, só
+  para o que o Blazor não alcança (impedir a quebra do Enter; `playbackRate`). Três lições em
+  `docs/agentes/convencoes.md` (tecla: estado × própria tecla; regra compacta no fim do CSS; `focus()` que
+  rola contêiner `overflow:hidden`).
+- 🤝 **CX** — Parece ferramenta de atendimento madura: sem `semdor_confirmacao_24h`, sem `{{1}}`, sem
+  "CRM" nas frases, sem a frase do provedor. Menos modelos pagos por janela perdida (a fila avisa antes).
+  Custo: uma leitura a mais de `/api/templates` por número e por abertura da aba, quando a conversa tem
+  mensagem de modelo. Nada de migration, contrato ou servidor; releases: Recepção e Gerente.
+
+### O que NÃO foi feito, e por quê
+
+- **Itens 6, 7, 15, 16 e 22** (a mesma ação em dois lugares, uma palavra por estado, contradições da
+  semente, "Responsável por…", "Como foi?") são da frente das REGRAS e da COLUNA, na mesma rodada.
+  Consequência visível aqui até a junção: a coluna do caso mostra "Mensagens: autorizou" e
+  "Situação: Autorizou" (o selo encurtado), e o aviso de "sem ficha" ainda diz "Novo contato".
+- **O "Abra uma conversa…" da coluna da ficha** ficou inalcançável (a coluna some sem conversa), mas
+  não foi apagado: o bloco é da coluna, e apagar no meio dela conflitaria com a outra frente. Sai na junção.
+- **A espera conta da ÚLTIMA mensagem do paciente**, não da primeira sem resposta: o contrato não traz
+  `waitingSince`, e o pedido era sem campo novo. Quem escreveu sábado e de novo segunda aparece "há 2 h".
+- **"Mais antigas primeiro" é a ordem de "Novas", não uma opção**: duas ordens para a mesma fila seriam
+  duas respostas à mesma pergunta.
+- **O detalhe do provedor numa mensagem que não saiu não vai ao log**: não é exceção da tela, é dado do
+  CRM, e registrá-lo a cada releitura de 7 s encheria o log. Ele continua no CRM web.
+- **Tocador de áudio próprio** (onda, arrastar): ficou o do navegador com a velocidade à vista —
+  "simples, mas funcional".
+- **A lista de modelos não se relê sozinha**: o modelo aprovado ou pausado na Meta durante o dia aparece
+  na próxima abertura da aba (como já era no popover).
+- **A suíte no Postgres não rodou**: nenhuma consulta, coluna ou migration nova.

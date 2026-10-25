@@ -4,7 +4,8 @@
   TRANSFERIR A CONVERSA (out/2026, WhatsApp da Recepção — o mockup aprovado). Para quem: as
   pessoas da equipe que o CRM devolve na sessão (menos quem está transferindo) ou uma fila. A nota
   é opcional e vai junto da transferência, para quem recebe. Quem grava é a tela (o serviço);
-  o formulário só colhe a escolha e mostra a recusa INLINE.
+  o formulário só colhe a escolha e mostra a recusa INLINE. Ninguém vem marcado (25/10/2026): um
+  Enter não pode passar a conversa a quem não foi escolhido — o Transferir nasce desligado.
 *@
 
 <Modal Titulo="Transferir a conversa" Subtitulo="@($"{Nome} passa a ser de quem você escolher. A pessoa vê a nota ao abrir.")" Largura="pequeno" AoFechar="AoFechar">
@@ -53,9 +54,6 @@
     private bool EhFila(string f) => _para == "f:" + f;
     private void EscolherAgente(string id) => _para = "a:" + id;
     private void EscolherFila(string f) => _para = "f:" + f;
-
-    protected override void OnInitialized()
-        => _para = Agentes.Count > 0 ? "a:" + Agentes[0].Id : Filas.Count > 0 ? "f:" + Filas[0] : null;
 
     private async Task ConfirmarAsync()
     {

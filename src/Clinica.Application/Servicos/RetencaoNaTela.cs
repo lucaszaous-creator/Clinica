@@ -69,8 +69,11 @@ public static class RetencaoNaTela
 {
     private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
 
-    /// <summary>O rodapé da lista (a frase do mockup).</summary>
-    public const string Rodape = "Só quem está em tratamento: BSV, acupuntura ou os dois. Dias e filas são os do Gerente (Configurações). "
+    /// <summary>
+    /// O "Quem aparece aqui?" do modo Retenção (o ⓘ ao lado dos filtros — 25/10/2026: o rodapé da lista é
+    /// do estado da ligação, nos dois modos).
+    /// </summary>
+    public const string QuemApareceAqui = "Só quem está em tratamento: BSV, acupuntura ou os dois, e passou dos dias sem vir que a direção definiu. "
         + "Um por um, revisado: aqui não há disparo em massa.";
 
     /// <summary>Quem trata na clínica: BSV, acupuntura ou os dois. Consulta avulsa não é tratamento.</summary>
@@ -127,10 +130,11 @@ public static class RetencaoNaTela
     // ---------------------------------------------------------------- a lista
 
     /// <summary>
-    /// Os grupos da lista, na ordem do mockup. Para hoje: <i>Responderam · decidir o próximo
-    /// passo</i>, <i>Sem vir há N dias</i> do maior limite ao menor (cada recall vai para o
+    /// Os grupos da lista, na ordem do mockup. Para hoje: <i>Responderam · decidir</i>,
+    /// <i>Sem vir há N dias</i> do maior limite ao menor (cada recall vai para o
     /// maior limite que já alcançou; abaixo do menor, <i>Sem vir há menos de N dias</i>) e
-    /// <i>Novos no BSV</i>. Aguardando e Fechados são um grupo cada. Grupo vazio não aparece.
+    /// <i>Novos no BSV</i>. Aguardando e Fechados são um grupo cada. Grupo vazio não aparece. Os títulos
+    /// cabem numa linha da coluna de 300 px (25/10/2026): o título fixo cortado não dizia o grupo.
     /// <paramref name="limitesDeDias"/> são os do Gerente; <paramref name="ultimaRecebidaPorPaciente"/>
     /// sai de <see cref="ConversasNaTela.UltimaRecebidaPorPaciente"/>.
     /// </summary>
@@ -160,7 +164,7 @@ public static class RetencaoNaTela
         var grupos = new List<GrupoDaRetencao>();
         var responderam = doFiltro.Where(x => x.Situacao == SituacaoNaRetencao.Respondeu).Select(x => x.Linha)
             .OrderByDescending(l => Ultima(l)).ThenBy(l => l.Paciente, StringComparer.CurrentCultureIgnoreCase).ToList();
-        grupos.AddRange(Grupo("respondeu", "Responderam · decidir o próximo passo", "sucesso", responderam));
+        grupos.AddRange(Grupo("respondeu", "Responderam · decidir", "sucesso", responderam));
 
         var paraHoje = doFiltro.Where(x => x.Situacao == SituacaoNaRetencao.ParaHoje).Select(x => x.Linha).ToList();
         var recall = paraHoje.Where(l => l.Tipo == TipoAcompanhamento.Recall).ToList();
@@ -179,7 +183,7 @@ public static class RetencaoNaTela
             var menor = limites[^1];
             grupos.AddRange(Grupo("dias-abaixo", $"Sem vir há menos de {menor} dias", "neutro", Ordenar(recall.Where(l => l.Dias < menor))));
         }
-        grupos.AddRange(Grupo("novo-bsv", "Novos no BSV · indicados, sem a 1ª sessão", "info",
+        grupos.AddRange(Grupo("novo-bsv", "Novos no BSV · sem a 1ª sessão", "info",
             Ordenar(paraHoje.Where(l => l.Tipo == TipoAcompanhamento.NovoBsv))));
         return grupos;
     }
@@ -240,7 +244,8 @@ public static class RetencaoNaTela
     /// <summary>
     /// O selo da linha: fechado com o desfecho (o selo do Acompanhamento), respondeu, aguardando,
     /// e, para hoje, o que decide o caminho — sem telefone, sem autorização (ligar), novo no
-    /// BSV ou "Pode escrever · autorizou".
+    /// BSV ou "Autorizou". Curtos (25/10/2026): na coluna de 300 px o selo é o que não pode ser
+    /// cortado; o que ele quer dizer por inteiro está no aviso da conversa ao abrir.
     /// </summary>
     public static SeloDoWhatsApp Selo(LinhaAcompanhamento l, DateTimeOffset? ultimaRecebida, DateTimeOffset agora)
     {
@@ -251,14 +256,14 @@ public static class RetencaoNaTela
                 var (texto, tom) = AcompanhamentoNaTela.Selo(l, hoje);
                 return new(texto, string.IsNullOrEmpty(tom) ? "neutro" : tom);
             case SituacaoNaRetencao.Respondeu:
-                return new("Respondeu · decidir o próximo passo", "sucesso");
+                return new("Respondeu", "sucesso");
             case SituacaoNaRetencao.Aguardando:
-                return new($"Aguardando · próximo contato {l.ProximoContato.ToString("dd/MM", PtBr)}", "info");
+                return new($"Aguardando · {l.ProximoContato.ToString("dd/MM", PtBr)}", "info");
         }
-        if (!TemTelefone(l)) return new("Sem telefone · atualizar a ficha", "aviso");
-        if (!l.Consentimento) return new("Sem autorização · ligar", "aviso");
-        if (l.Tipo == TipoAcompanhamento.NovoBsv) return new("Indicado · convidar para a 1ª sessão", "info");
-        return new("Pode escrever · autorizou", "sucesso");
+        if (!TemTelefone(l)) return new("Sem telefone", "aviso");
+        if (!l.Consentimento) return new("Sem autorização", "aviso");
+        if (l.Tipo == TipoAcompanhamento.NovoBsv) return new("Indicado ao BSV", "info");
+        return new("Autorizou", "sucesso");
     }
 
     /// <summary>O número ao lado do nome: "32 dias" (recall) ou "indicado há 3 dias" (novo no BSV).</summary>

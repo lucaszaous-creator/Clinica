@@ -5,7 +5,7 @@ sessão). O texto é o MESMO, sem reescrita: design system, WPF/XAML, Blazor, EF
 `verificar-suite`, assinatura digital, impressão, CRM e as rodadas de UI, cada uma com o defeito que a
 originou. Antes de escrever uma tela, uma consulta ou uma checagem, procure aqui a lição da área.
 
-## Índice (197 tópicos, na ordem do arquivo)
+## Índice (200 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -205,6 +205,9 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
 - Junção de branches paralelas: o git junta SEM conflito duas versões da MESMA decisão
 - O bUnit CLICA botão `disabled`, e o Postgres é que mostra
 - Leitura que chega DEPOIS redesenha entre o `Find` e o `Click` do teste
+- Tecla no Blazor: o que depende do ESTADO já desenhado é diretiva; o que depende da PRÓPRIA tecla é JS
+- Regra "compacta" escrita no FIM do CSS desfaz as `@media`/`@container` de mesma especificidade que vêm antes
+- `focus()` ROLA contêiner com `overflow:hidden`: foco em campo que ainda está entrando desloca a tela para o lado
 ---
 
 
@@ -5135,3 +5138,33 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
   família da tela mexida com `CLINICA_TESTES_POSTGRES`: é a rede que vê a corrida. ⚠️ Duas rodadas
   de `dotnet test` contra o MESMO Postgres ao mesmo tempo disputam o banco-modelo
   (`BancoDosTestes`) e falham com "transient failure" na fixture — não é defeito, é a rodada.
+- **Tecla no Blazor: o que depende do ESTADO já desenhado é diretiva; o que depende da PRÓPRIA tecla é JS**
+  (25/10/2026, o teclado do WhatsApp Web na tela nativa). `@onkeydown:preventDefault` e
+  `@onkeydown:stopPropagation` valem pelo que foi DESENHADO antes da tecla. Por isso o Esc que fecha o
+  popover sem fechar a gaveta da conversa ao lado é diretiva pura (`@onkeydown:stopPropagation="@(_popover !=
+  Popover.Nenhum)"` no campo, e fixa no popover e na busca, que só existem abertos): o estado já estava na
+  tela. Já "Enter envia, Shift+Enter quebra a linha" depende do Shift DAQUELA tecla — a diretiva só valeria
+  no render seguinte e a quebra de linha entrava no campo. Aí o JS (`js/conversa-do-whatsapp.js`) só impede
+  a quebra, e QUEM ENVIA continua sendo o C# (`TeclaAsync` + `EnviaPeloEnter`), que o bUnit testa com
+  `KeyDown(new KeyboardEventArgs { Key = "Enter", ShiftKey = … })`. A regra das duas pontas é a mesma
+  (Enter sem Shift e sem Alt; na composição de acento o Enter é do IME) e cada uma aponta para a outra no
+  comentário. E evite o `@onkeydown` num contêiner grande "para pegar o Esc de tudo": cada tecla digitada no
+  campo vira um evento a mais e um redesenho a mais da tela inteira — ponha o handler no elemento que precisa.
+- **Regra "compacta" escrita no FIM do CSS desfaz as `@media`/`@container` de mesma especificidade que vêm
+  antes** (25/10/2026, o cabeçalho da conversa). Para caber "Devolver à fila", "Resumo" e "Encerrar" em
+  ~720 px, entrou `.wa-cab-acoes .botao:not(.icone){padding:0 var(--space-3)}` no fim do `conversas.css` — e
+  ele vencia, por vir depois, as regras de 0,3,0 que reduzem os mesmos botões ao ícone (`width:34px;padding:0`)
+  em ≤ 1180 px, no celular e por `@container`: o ícone ficava espremido num botão de 34 px com 12 px de cada
+  lado. `@media` e `@container` NÃO somam especificidade. Regra: a base vai ANTES das variações que a
+  reduzem (aqui, logo depois de `.wa-cab-acoes .botao`), e a foto em 1024 e 480 é o que confere. Na mesma
+  rodada: `text-overflow:ellipsis` não age em contêiner flex — o `h2` do nome (`display:flex`) e o selo
+  (`inline-flex`) cortavam seco ("Maria das Graç"); reticências pedem `display:block` (ou o texto num
+  filho comum).
+- **`focus()` ROLA contêiner com `overflow:hidden`: foco em campo que ainda está entrando desloca a tela
+  para o lado** (25/10/2026, o foco no campo ao abrir a conversa do WhatsApp). No celular a conversa entra
+  deslizando (`transform:translateX(100%)` → `none`, 150 ms) e o `FocusAsync()` chegou no meio: o navegador
+  rolou a `.pagina.wa` — que é `overflow:hidden`, mas rola por código e por foco — até o campo, e a tela
+  ficou deslocada ~270 px, com a coluna da ficha à mostra (foto 31 em 480). O `scrollWidth` do documento não
+  mudou, então o roteiro de fotos não acusou; os testes bUnit não têm leiaute. Regra: foco posto pela tela
+  (não pelo clique da pessoa) é `FocusAsync(preventScroll: true)`; e o roteiro de fotos procura, além da
+  página larga, qualquer elemento com `scrollLeft > 0` (`fotos-whatsapp.js`, `deslocados`).

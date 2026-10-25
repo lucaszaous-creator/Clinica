@@ -74,3 +74,11 @@
 .wa-lado-seletor{display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-small-size);color:var(--texto-secundario);min-width:0}
 .wa-lado-seletor span{white-space:nowrap;font-weight:600}
 .wa-lado-seletor .campo{flex:1;min-width:0;height:32px;min-height:32px}
+
+/* ---------- De quem é a conversa ao lado (25/10/2026, item 21 da revisão) ----------
+   A linha do paciente da gaveta fica marcada (o botão dela leva .aberta — BotaoDaConversaAoLado), e um véu leve
+   (a sombra da própria gaveta, que não pega clique) diz que o que ficou cortado na borda está POR TRÁS dela. */
+tr:has(.wa-lado-abrir.aberta) > td{background:var(--acento-suave)}
+tr:has(.wa-lado-abrir.aberta) > td:first-child{box-shadow:inset 3px 0 0 var(--acento)}
+.botao.wa-lado-abrir.aberta{background:var(--acento-suave);border-color:var(--acento)}
+@media (min-width:761px){.wa-lado{box-shadow:var(--sombra-popup),0 0 0 100vmax color-mix(in srgb,var(--cinza-900) 8%,transparent)}}
