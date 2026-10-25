@@ -521,7 +521,26 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
 
     private static AppConversationSummary NaLista(AppConversation c, int? versao = null, string? agente = "ana")
         => new(c.Id, c.Name, c.Contact, c.Channel, c.Sender, c.Queue, agente, c.Closed, versao ?? c.Version, c.UpdatedAt, c.LastIncoming,
-            c.PatientId, c.PatientName, 0, "", false, false, null, null);
+            c.PatientId, c.PatientName, 0, "", false, false, null, null, PendingTransfer: c.PendingTransfer);
+
+    [Fact]
+    public async Task Devolver_e_passar_o_turno_cancelam_antes_o_pedido_de_transferencia_pendente()
+    {
+        // Com o pedido "aguardando aceite" o CRM recusa qualquer transferência, inclusive à fila (achado na junção, foto 79):
+        // quem devolve desiste do pedido, e a conversa não fica com quem saiu.
+        AppPendingTransfer Pedido(string id) => new("pedido-" + id, "ana", "bruna", "", DateTimeOffset.UtcNow);
+        var maria = _crm.Pôr(Conversa("c-maria", "Maria", "5522998765432") with { AgentId = "ana", PendingTransfer = Pedido("c-maria") });
+        var joao = _crm.Pôr(Conversa("c-joao", "João", "5522996501010") with { AgentId = "ana", PendingTransfer = Pedido("c-joao") });
+
+        var r = await Com(s => s.PassarOTurnoAsync([NaLista(maria)], "Fim do turno da manhã", "ana"));
+        var devolvido = await Com(s => s.DevolverAsync(joao, "Paciente quer falar com o financeiro"));
+
+        Assert.Equal(["Maria"], r.Passaram);
+        Assert.Empty(r.Falharam);
+        Assert.Null(devolvido.AgentId);
+        Assert.Equal([("pedido-c-maria", "cancel"), ("pedido-c-joao", "cancel")], _crm.Decisoes.Select(d => (d.Pedido, d.Acao)));
+        Assert.All(_crm.Mudancas, m => Assert.Null(m.Mudanca.AgentId));
+    }
 
     [Fact]
     public async Task Passar_o_turno_devolve_cada_conversa_com_a_mesma_nota_e_nao_para_no_primeiro_erro()
@@ -906,6 +925,9 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
             Mudancas.Add(("transfer", conversaId, mudanca));
             if (RecusasNaTransferencia.Contains(conversaId)) throw new RecusaDoCrm("Escolha uma fila válida.", 400);
             if (mudanca.Version != _conversas[conversaId].Version) throw new RecusaDoCrm("A conversa mudou. Atualize e tente novamente.", 409);
+            // Como o CRM (ConversationWorkflow): com um pedido pendente, nenhuma transferência — nem à fila.
+            if (_conversas[conversaId].PendingTransfer is not null)
+                throw new RecusaDoCrm("Já existe uma transferência aguardando aceite. Cancele antes de solicitar outra.", 409);
             return Task.FromResult(Trocar(conversaId, c => mudanca.AgentId is { } para
                 ? c with { PendingTransfer = new AppPendingTransfer("pedido-" + conversaId, "ana", para, mudanca.Note ?? "", DateTimeOffset.UtcNow) }
                 : c with { AgentId = null, Queue = mudanca.Queue ?? c.Queue }));

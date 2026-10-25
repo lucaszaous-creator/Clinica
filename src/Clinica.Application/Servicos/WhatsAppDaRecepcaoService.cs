@@ -765,7 +765,7 @@ public sealed partial class WhatsAppDaRecepcaoService(
 
     /// <summary>Devolve à fila da Recepção, com o motivo (fica na conversa como nota e na trilha). A rota: <see cref="DevolverAsync(string, int, string, string, CancellationToken)"/>.</summary>
     public Task<AppConversation> DevolverAsync(AppConversation c, string motivo, CancellationToken ct = default)
-        => DevolverAsync(c.Id, c.Version, c.Queue, motivo, ct);
+        => DevolverAsync(c.Id, c.Version, c.Queue, motivo, c.PendingTransfer, ct);
 
     /// <summary>
     /// A devolução pela DONA da conversa: a transferência para a MESMA fila, sem responsável (o que o CRM web faz no
@@ -773,13 +773,23 @@ public sealed partial class WhatsAppDaRecepcaoService(
     /// <c>/reassign</c>: aquele é o "Reorganizar" da GESTÃO (recusa com 403 quem não é admin ou supervisora,
     /// <c>ReceptionHandoffs.cs</c>), e era por ele que o "Com você → Devolver" ia — para a secretária comum, o botão
     /// respondia "Somente a gestão pode reorganizar…" (achado em 25/10, no "Passar o turno", que usa este método).
+    /// Com um PEDIDO de transferência pendente (§14) o CRM recusa qualquer transferência ("Cancele antes de
+    /// solicitar outra"): devolver cancela o pedido antes — quem devolve desiste de passar a conversa a uma pessoa —
+    /// e relê a conversa para a Version nova. Sem isso a conversa ficava com quem saiu (achado na junção, foto 79).
     /// </summary>
-    internal Task<AppConversation> DevolverAsync(string conversaId, int versao, string fila, string motivo, CancellationToken ct = default)
+    internal async Task<AppConversation> DevolverAsync(string conversaId, int versao, string fila, string motivo, AppPendingTransfer? pedido,
+        CancellationToken ct = default)
     {
         var m = motivo?.Trim() ?? "";
         if (m.Length < MinimoDoMotivoDeDevolver || m.Length > MaximoDoMotivoDeDevolver)
             throw new InvalidOperationException($"Diga por que a conversa volta à fila (de {MinimoDoMotivoDeDevolver} a {MaximoDoMotivoDeDevolver} letras).");
-        return crm.TransferirAsync(UsuarioId, conversaId, new AppChange(versao, null, fila, m), ct);
+        if (pedido is not null)
+        {
+            await crm.DecidirTransferenciaAsync(UsuarioId, pedido.Id, "cancel", new AppTransferDecision(), ct);
+            var atual = await crm.AbrirConversaAsync(UsuarioId, conversaId, ct);
+            (versao, fila) = (atual.Version, atual.Queue);
+        }
+        return await crm.TransferirAsync(UsuarioId, conversaId, new AppChange(versao, null, fila, m), ct);
     }
 
     public Task<AppConversation> TransferirAsync(AppConversation c, string? agenteId, string? fila, string? nota, CancellationToken ct = default)

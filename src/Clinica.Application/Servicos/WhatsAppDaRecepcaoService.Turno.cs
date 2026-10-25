@@ -24,7 +24,7 @@ public sealed partial class WhatsAppDaRecepcaoService
             var nome = ConversasNaTela.NomeDaConversa(c);
             try
             {
-                try { await DevolverAsync(c.Id, c.Version, c.Queue, nota, ct); }
+                try { await DevolverAsync(c.Id, c.Version, c.Queue, nota, c.PendingTransfer, ct); }
                 catch (RecusaDoCrm r) when (r.Conflito)
                 {
                     var atual = await crm.AbrirConversaAsync(UsuarioId, c.Id, ct);
@@ -33,7 +33,7 @@ public sealed partial class WhatsAppDaRecepcaoService
                         falharam.Add(new(c.Id, nome, TurnoNoWhatsApp.JaNaoEraSua));
                         continue;
                     }
-                    await DevolverAsync(atual.Id, atual.Version, atual.Queue, nota, ct);
+                    await DevolverAsync(atual.Id, atual.Version, atual.Queue, nota, atual.PendingTransfer, ct);
                 }
                 passaram.Add(nome);
             }
