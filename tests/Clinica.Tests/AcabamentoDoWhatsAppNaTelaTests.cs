@@ -132,10 +132,12 @@ public sealed class AcabamentoDoWhatsAppNaTelaTests : IClassFixture<BancoDasTela
         tela.Clicar(() => tela.Find("[data-acao=transferir]"));
         tela.WaitForAssertion(() => tela.Find(".modal"), Prazo);
         tela.FindAll(".modal input[type=radio]").Should().NotBeEmpty().And.OnlyContain(r => !r.HasAttribute("checked"));
-        var transferir = () => tela.FindAll(".modal-rodape button").Single(b => b.TextContent.Contains("Transferir"));
+        // O botão principal: "Transferir" para o setor, "Enviar o pedido" para uma pessoa (§14) — o rótulo muda com a escolha.
+        var transferir = () => tela.FindAll(".modal-rodape button.primario").Single();
         transferir().HasAttribute("disabled").Should().BeTrue("um Enter não pode passar a conversa a quem não foi escolhido");
         tela.InvokeAsync(() => tela.FindAll(".modal input[type=radio]")[0].Change(true)).GetAwaiter().GetResult();
         tela.WaitForAssertion(() => transferir().HasAttribute("disabled").Should().BeFalse(), Prazo);
+        transferir().TextContent.Should().Contain("Enviar o pedido", "a primeira escolha é uma pessoa: vai o pedido, não a conversa");
     }
 
     [Fact]
