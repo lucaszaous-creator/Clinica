@@ -5,7 +5,7 @@ sessão). O texto é o MESMO, sem reescrita: design system, WPF/XAML, Blazor, EF
 `verificar-suite`, assinatura digital, impressão, CRM e as rodadas de UI, cada uma com o defeito que a
 originou. Antes de escrever uma tela, uma consulta ou uma checagem, procure aqui a lição da área.
 
-## Índice (205 tópicos, na ordem do arquivo)
+## Índice (206 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -214,6 +214,7 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
 - Tecla no Blazor: o que depende do ESTADO já desenhado é diretiva; o que depende da PRÓPRIA tecla é JS
 - Regra "compacta" escrita no FIM do CSS desfaz as `@media`/`@container` de mesma especificidade que vêm antes
 - `focus()` ROLA contêiner com `overflow:hidden`: foco em campo que ainda está entrando desloca a tela para o lado
+- A prévia com `--no-build` mostra o binário de ANTES: compilar os testes não a atualiza
 ---
 
 
@@ -5218,3 +5219,11 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
   mudou, então o roteiro de fotos não acusou; os testes bUnit não têm leiaute. Regra: foco posto pela tela
   (não pelo clique da pessoa) é `FocusAsync(preventScroll: true)`; e o roteiro de fotos procura, além da
   página larga, qualquer elemento com `scrollLeft > 0` (`fotos-whatsapp.js`, `deslocados`).
+- **A prévia com `--no-build` mostra o binário de ANTES: compilar os testes não a atualiza** (25/10/2026,
+  junção das três frentes do WhatsApp). O `dotnet build` do `Clinica.Tests` compila o PreviaBlazor como
+  referência e copia as DLLs para a pasta dos TESTES; a pasta `tools/PreviaBlazor/bin` só muda quando o
+  próprio projeto da prévia é compilado. Subida com `dotnet run --no-build`, a prévia rodou o código da
+  manhã, e o roteiro de fotos acusou "selo cortado" em textos que já nem existiam no código — 40 falhas
+  falsas, e o risco inverso: fotografar a tela velha e chamá-la de nova. Regra: antes de fotografar,
+  `dotnet build tools/PreviaBlazor` (ou `dotnet run` sem `--no-build`) e, na dúvida, compare a hora da
+  `Clinica.Application.dll` das duas pastas.
