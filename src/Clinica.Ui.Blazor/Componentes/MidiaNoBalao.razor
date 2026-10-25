@@ -1,0 +1,148 @@
+@*
+  A MÍDIA DENTRO DO BALÃO DO WHATSAPP (24/10/2026, pedido da direção: "ver imagens, ouvir áudios e
+  baixar itens enviados dentro da tela"). Só desenha: o arquivo, o "carregando" e a falha são da
+  tela (ConversasDoWhatsApp), que guarda o que já veio do CRM (MemoriaDeMidia) para a releitura de
+  7 s não baixar tudo de novo; o que se afirma (rótulos, tamanho, sigla, descrição) vem de
+  MidiaDaConversa, na Application.
+
+  - Foto e áudio pedem o arquivo sozinhos ao aparecer (CarregaSozinha); vídeo e documento, só no
+    clique — um vídeo pode ter 16 MB.
+  - Três estados por arquivo: esqueleto enquanto chega, o arquivo, e a falha com "Tentar de novo".
+    Formato que o navegador não mostra (uma foto que veio como PDF) vira cartão com "Baixar".
+*@
+
+<div class="wa-midia wa-midia-@Classe">
+    @switch (Midia.Tipo)
+    {
+        case TipoDeMidia.Imagem:
+            @if (Carregada?.Endereco is { } foto)
+            {
+                <button type="button" class="wa-foto" aria-label="Ampliar a foto" title="Ampliar a foto" @onclick="AoAmpliar"><img src="@foto" alt="@Midia.Rotulo da conversa" /></button>
+            }
+            else if (Carregada is null && Falha is null && Esquecida)
+            {
+                <button type="button" class="wa-foto-esqueleto" @onclick="AoCarregar"><Icone Nome="imagem" /><span>Mostrar a foto</span></button>
+            }
+            else if (Carregada is null)
+            {
+                <div class="wa-foto-esqueleto @(Falha is null ? null : "falhou")" role="img" aria-label="@(Falha is null ? "Carregando a foto" : "A foto não carregou")"><Icone Nome="imagem" /></div>
+            }
+            else
+            {
+                @Arquivo("imagem")
+            }
+            break;
+
+        case TipoDeMidia.Audio:
+            <div class="wa-audio">
+                <span class="wa-audio-ic"><Icone Nome="microfone" /></span>
+                @if (Carregada?.Endereco is { } som)
+                {
+                    <audio controls preload="metadata" src="@som" aria-label="@MidiaDaConversa.RotuloDoAudio(Carregada.Duracao)"></audio>
+                }
+                else if (Falha is null && Carregada is null && Esquecida)
+                {
+                    <button type="button" class="botao mini" @onclick="AoCarregar"><Icone Nome="tocar" />Carregar o áudio</button>
+                }
+                else if (Falha is null && Carregada is null)
+                {
+                    <span class="wa-audio-esqueleto" role="status" aria-label="Carregando o áudio"></span>
+                }
+                else if (Falha is null)
+                {
+                    <span class="wa-midia-nota">Este formato não toca aqui. Baixe para ouvir.</span>
+                }
+            </div>
+            @Rodape()
+            break;
+
+        case TipoDeMidia.Video:
+            @if (Carregada?.Endereco is { } filme)
+            {
+                <video controls preload="metadata" src="@filme" aria-label="Vídeo da conversa"></video>
+            }
+            else if (Falha is null)
+            {
+                <button type="button" class="wa-video-capa" disabled="@(Carregando || Carregada is not null)" @onclick="AoCarregar">
+                    <span class="wa-video-tocar"><Icone Nome="tocar" /></span>
+                    <span>@(Carregando ? "Carregando o vídeo…" : Carregada is not null ? "Este formato não toca aqui" : "Ver o vídeo")</span>
+                </button>
+            }
+            @Rodape()
+            break;
+
+        default:
+            @Arquivo("documento")
+            break;
+    }
+    @if (Falha is { } falha)
+    {
+        <div class="wa-midia-falha" role="alert">
+            <Icone Nome="alerta" /><span>@falha</span>
+            @* O documento repete pelo próprio Abrir/Baixar; os outros, por aqui. *@
+            @if (Midia.Tipo != TipoDeMidia.Documento)
+            {
+                <button type="button" class="botao mini" disabled="@Carregando" @onclick="AoCarregar"><Icone Nome="atualizar" />Tentar de novo</button>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public MidiaDaMensagem Midia { get; set; } = default!;
+
+    /// <summary>O arquivo já trazido do CRM (nulo enquanto não veio).</summary>
+    [Parameter] public MidiaCarregada? Carregada { get; set; }
+
+    [Parameter] public bool Carregando { get; set; }
+
+    /// <summary>A frase da falha de carregar (com "Tentar de novo"), ou nulo.</summary>
+    [Parameter] public string? Falha { get; set; }
+
+    [Parameter] public EventCallback AoCarregar { get; set; }
+    [Parameter] public EventCallback AoAmpliar { get; set; }
+    [Parameter] public EventCallback AoBaixar { get; set; }
+    [Parameter] public EventCallback AoAbrir { get; set; }
+
+    private string? _pedida;
+
+    // Já veio uma vez e a memória da tela a descartou (cheia de fotos de outras conversas): o balão
+    // oferece o clique em vez de pedir de novo sozinho — pedir sozinho, numa conversa maior que a
+    // memória, faria uma foto derrubar a outra sem fim.
+    private bool Esquecida => _pedida == Midia.Chave && !Carregando && Carregada is null && Falha is null;
+
+    private string Classe => Midia.Tipo switch
+    {
+        TipoDeMidia.Imagem => "foto", TipoDeMidia.Audio => "audio", TipoDeMidia.Video => "video", _ => "documento"
+    };
+
+    // Foto e áudio pedem o arquivo ao aparecer — uma vez por mensagem (a falha espera o "Tentar de novo").
+    protected override async Task OnAfterRenderAsync(bool primeira)
+    {
+        if (!Midia.CarregaSozinha || Carregada is not null || Carregando || Falha is not null || _pedida == Midia.Chave) return;
+        _pedida = Midia.Chave;
+        await AoCarregar.InvokeAsync();
+    }
+
+    /// <summary>A linha de baixo do áudio e do vídeo: o que é, o tamanho, e o Baixar.</summary>
+    private RenderFragment Rodape() => @<div class="wa-midia-linha">
+        <small>@MidiaDaConversa.Descricao(Midia, Carregada)</small>
+        <button type="button" class="botao mini" disabled="@Carregando" @onclick="AoBaixar"><Icone Nome="baixar" />Baixar</button>
+    </div>;
+
+    /// <summary>O cartão do arquivo: documento (com Abrir), ou a foto que o navegador não mostra.</summary>
+    private RenderFragment Arquivo(string icone) => @<div class="wa-doc">
+        <span class="wa-doc-ic" aria-hidden="true">@(Midia.Tipo == TipoDeMidia.Documento ? MidiaDaConversa.Sigla(Midia.Nome ?? Carregada?.Arquivo.Nome, Carregada?.Arquivo.Mime) : null)@if (Midia.Tipo != TipoDeMidia.Documento) { <Icone Nome="@icone" /> }</span>
+        <div class="wa-doc-texto">
+            <strong title="@(Midia.Nome ?? Carregada?.Arquivo.Nome)">@(Midia.Nome ?? Carregada?.Arquivo.Nome ?? Midia.Rotulo)</strong>
+            <small>@MidiaDaConversa.Descricao(Midia, Carregada)</small>
+        </div>
+        <div class="wa-doc-acoes">
+            @if (Midia.Tipo == TipoDeMidia.Documento)
+            {
+                <button type="button" class="botao mini" disabled="@Carregando" @onclick="AoAbrir"><Icone Nome="abrir" />@(Carregando ? "Abrindo…" : "Abrir")</button>
+            }
+            <button type="button" class="botao mini" disabled="@Carregando" @onclick="AoBaixar"><Icone Nome="baixar" />Baixar</button>
+        </div>
+    </div>;
+}

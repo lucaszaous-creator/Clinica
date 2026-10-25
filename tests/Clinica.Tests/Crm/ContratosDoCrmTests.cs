@@ -17,7 +17,7 @@ namespace Clinica.Tests;
 /// </summary>
 public sealed class ContratosDoCrmTests
 {
-    const string Sha256DoContrato = "84200af20226503b53e698e576fd9126e8726331b091342f273ed456fa96dae6";
+    const string Sha256DoContrato = "7dc0717ed14a851f429a8fc8737832c1a9a5d5913b515cecd348fe4dd1156642";
 
     [Fact] public void O_contrato_e_identico_ao_do_CRM()
     {

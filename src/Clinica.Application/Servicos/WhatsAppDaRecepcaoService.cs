@@ -398,7 +398,7 @@ public sealed class WhatsAppDaRecepcaoService(
         var semNome = c.PatientId is null && !TemLetra(c.Name) && string.IsNullOrWhiteSpace(c.PatientName);
         return new LinhaDaConversa(c.Id, nome, semNome ? "?" : Iniciais(nome), TomDoAvatar(semNome ? null : c.Id),
             ConversasNaTela.EhSms(c.Channel), HoraDaLinha(c.UpdatedAt, agora),
-            string.IsNullOrWhiteSpace(c.Preview) ? "Sem mensagens ainda" : c.Preview.Trim(), ConversasNaTela.TickDaPrevia(c),
+            string.IsNullOrWhiteSpace(c.Preview) ? "Sem mensagens ainda" : MidiaDaConversa.PreviaDaLista(c.Preview), ConversasNaTela.TickDaPrevia(c),
             Math.Max(0, c.Unread), selo, Responsavel(c.AgentId, painel.Sessao.AgentId, painel.Agentes),
             c.AgentId is not null && c.AgentId == painel.Sessao.AgentId, c.AgentId is not null, SemDorNaTela.Etiqueta(painel.SemDor, c));
     }
@@ -655,9 +655,13 @@ public sealed class WhatsAppDaRecepcaoService(
         }
     }
 
-    /// <summary>Sobe UM arquivo; o id devolvido vai no envio.</summary>
-    public Task<AppAttachment> AnexarAsync(AppConversation c, Stream arquivo, string nome, string mime, CancellationToken ct = default)
-        => crm.AnexarAsync(UsuarioId, c.Id, arquivo, nome, mime, ct);
+    /// <summary>Sobe UM arquivo; o id devolvido vai no envio. <paramref name="gravacao"/>: o áudio gravado na tela (o CRM o converte para a nota de voz do WhatsApp).</summary>
+    public Task<AppAttachment> AnexarAsync(AppConversation c, Stream arquivo, string nome, string mime, bool gravacao = false, CancellationToken ct = default)
+        => crm.AnexarAsync(UsuarioId, c.Id, arquivo, nome, mime, gravacao, ct);
+
+    /// <summary>O arquivo de uma mensagem (foto, áudio, vídeo, documento), já pronto para a tela.</summary>
+    public async Task<MidiaCarregada> MidiaAsync(MidiaDaMensagem midia, CancellationToken ct = default)
+        => MidiaDaConversa.Preparar(midia, await crm.MidiaAsync(UsuarioId, midia.ConversaId, midia.Mensagem, ct));
 
     public Task<AppConversation> AssumirAsync(AppConversation c, string? meuAgente, CancellationToken ct = default)
         => crm.AssumirAsync(UsuarioId, c.Id, new AppChange(c.Version, meuAgente, c.Queue), ct);

@@ -19,9 +19,10 @@ public sealed record AppTicketLogin(string Ticket);
 public sealed record AppAgent(string Id, string Name);
 public sealed record AppInbox(string Sender, string Name);
 public sealed record AppSms(bool Enabled, string Provider);
-/// <summary>GET /api/session. Anônimo: só Csrf (e o cookie antiforgery). Logado: AgentId e o resto. O Csrf MUDA a cada login.</summary>
+/// <summary>GET /api/session. Anônimo: só Csrf (e o cookie antiforgery). Logado: AgentId e o resto. O Csrf MUDA a cada login.
+/// RecordingEnabled: o CRM converte a gravação de voz (ffmpeg) — sem ele, o app não mostra o microfone.</summary>
 public sealed record AppSession(string? AgentId, string Csrf, AppAgent[] Agents, AppInbox[] Inboxes, string[] Queues,
-    bool AttachmentsEnabled, bool SendEnabled, bool WhatsappOff, AppSms? Sms = null);
+    bool AttachmentsEnabled, bool SendEnabled, bool WhatsappOff, AppSms? Sms = null, bool RecordingEnabled = false);
 
 // ---------- A lista ----------
 /// <summary>Como a conversa terminou (o último ServiceClose). Outcome é a chave de AppWorkspace.Outcomes.</summary>

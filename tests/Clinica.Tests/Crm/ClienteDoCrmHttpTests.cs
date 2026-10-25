@@ -383,6 +383,109 @@ public sealed class ClienteDoCrmHttpTests : IDisposable
         Assert.All(envios, p => Assert.Contains("JPEG", p.Corpo));
     }
 
+    // ---------- A mídia (24/10/2026) ----------
+
+    static HttpResponseMessage Arquivo(byte[] bytes, string mime, string? nome = null)
+    {
+        var r = new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(bytes) };
+        r.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(mime);
+        if (nome is not null)
+            r.Content.Headers.ContentDisposition = new System.Net.Http.Headers.ContentDispositionHeaderValue("attachment") { FileName = "\"" + nome + "\"", FileNameStar = nome };
+        return r;
+    }
+
+    static AppMessage Mensagem(string direcao, string tipo, string id = "wamid.1", string? anexo = null)
+        => new(id, direcao, "", tipo, null, DateTimeOffset.UnixEpoch, direcao == "in" ? "received" : "seen", AttachmentId: anexo);
+
+    [Fact] public async Task A_midia_recebida_vem_da_rota_da_mensagem_sem_csrf_com_o_tipo_e_o_nome()
+    {
+        await Configurar(EnderecoA);
+        crm.Rota = (p, _) => Arquivo([137, 80, 78, 71], "image/png", "Pedido médico.png");
+
+        var a = await cliente.MidiaAsync(7, "c1", Mensagem("in", "IMAGE"));
+
+        Assert.Equal([137, 80, 78, 71], a.Conteudo);
+        Assert.Equal("image/png", a.Mime);
+        Assert.Equal("Pedido médico.png", a.Nome);
+        var pedido = crm.Pedidos.Last();
+        Assert.Equal("GET /api/conversations/c1/media/wamid.1?download=true", $"{pedido.Metodo} {pedido.Caminho}");
+        Assert.Equal("", pedido.Csrf);
+    }
+
+    [Fact] public async Task A_midia_enviada_vem_da_rota_do_anexo()
+    {
+        await Configurar(EnderecoA);
+        crm.Rota = (p, _) => Arquivo("%PDF-"u8.ToArray(), "application/pdf");
+
+        var a = await cliente.MidiaAsync(7, "c1", Mensagem("out", "DOCUMENT", anexo: "a9"));
+
+        Assert.Equal("/api/attachments/a9?download=true", crm.Pedidos.Last().Caminho);
+        Assert.Null(a.Nome);
+    }
+
+    [Fact] public async Task Mensagem_sem_arquivo_e_recusada_sem_ir_ao_CRM()
+    {
+        await Configurar(EnderecoA);
+
+        var e = await Assert.ThrowsAsync<RecusaDoCrm>(() => cliente.MidiaAsync(7, "c1", Mensagem("in", "TEXT")));
+
+        Assert.Equal(MidiaDaConversa.SemArquivo, e.Message);
+        Assert.Empty(crm.Pedidos);
+    }
+
+    [Fact] public async Task A_midia_renova_a_sessao_vencida_e_repete()
+    {
+        await Configurar(EnderecoA);
+        crm.Rota = (_, _) => Arquivo([1, 2], "audio/ogg");
+        await cliente.SessaoAsync(7);
+        crm.Revogar();
+
+        var a = await cliente.MidiaAsync(7, "c1", Mensagem("in", "AUDIO"));
+
+        Assert.Equal([1, 2], a.Conteudo);
+        Assert.Equal([401, 200], crm.Pedidos.Where(p => p.Caminho.Contains("/media/")).Select(p => p.Status));
+        Assert.Equal(2, Bilhetes());
+    }
+
+    [Fact] public async Task Arquivo_maior_que_o_teto_e_recusado_e_vazio_e_falha()
+    {
+        await Configurar(EnderecoA);
+        crm.Rota = (_, _) => Arquivo(new byte[MidiaDaConversa.Teto + 1], "video/mp4");
+        var grande = await Assert.ThrowsAsync<RecusaDoCrm>(() => cliente.MidiaAsync(7, "c1", Mensagem("in", "VIDEO")));
+        Assert.Equal(MidiaDaConversa.GrandeDemais, grande.Message);
+
+        crm.Rota = (_, _) => Arquivo([], "video/mp4");
+        var vazio = await Assert.ThrowsAsync<CrmIndisponivel>(() => cliente.MidiaAsync(7, "c1", Mensagem("in", "VIDEO")));
+        Assert.Equal(ClienteDoCrmHttp.ArquivoVazio, vazio.Message);
+    }
+
+    [Fact] public async Task A_recusa_do_CRM_na_midia_chega_com_a_frase_dele()
+    {
+        await Configurar(EnderecoA);
+        crm.Rota = (_, _) => Erro(409, "Este anexo não possui um endereço de mídia compatível com o provedor do WhatsApp.");
+
+        var e = await Assert.ThrowsAsync<RecusaDoCrm>(() => cliente.MidiaAsync(7, "c1", Mensagem("in", "VIDEO")));
+
+        Assert.Equal(409, e.Status);
+        Assert.StartsWith("Este anexo não possui", e.Message);
+    }
+
+    [Fact] public async Task A_gravacao_sobe_com_recording_true_e_o_anexo_comum_nao()
+    {
+        await Configurar(EnderecoA);
+        crm.Rota = (_, _) => Responder(new AppAttachment("a1", "c1", "gravacao.ogg", "audio/ogg", "AUDIO", 3));
+
+        await cliente.AnexarAsync(7, "c1", new MemoryStream([1, 2, 3]), "exame.pdf", "application/pdf");
+        await cliente.AnexarAsync(7, "c1", new MemoryStream([4, 5, 6]), "gravacao.webm", "audio/webm;codecs=opus", gravacao: true);
+
+        var envios = crm.Pedidos.Where(p => p.Caminho.EndsWith("/attachments")).ToList();
+        Assert.Equal(2, envios.Count);
+        Assert.DoesNotContain("name=recording", envios[0].Corpo);
+        Assert.Contains("name=recording", envios[1].Corpo);
+        Assert.Contains("filename=gravacao.webm", envios[1].Corpo);
+        Assert.All(envios, p => Assert.Equal("csrf-s1", p.Csrf));
+    }
+
     [Fact] public async Task Dois_usuarios_no_mesmo_PC_nao_dividem_a_sessao()
     {
         await Configurar(EnderecoA);

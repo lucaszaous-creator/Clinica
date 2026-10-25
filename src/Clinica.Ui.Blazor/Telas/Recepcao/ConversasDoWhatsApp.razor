@@ -319,7 +319,7 @@ else
                                 var enviada = item.Tipo == TipoNaLinhaDoTempo.Enviada;
                                 <div class="wa-m @(enviada ? "enviada" : "recebida") @(item.Seguida ? "seguida" : null)">
                                     @if (item.Anexo is { } anexo) { <span class="wa-anexo"><Icone Nome="documento" />@anexo</span> }
-                                    <div class="wa-balao">@Marcar(item.Texto)<span class="wa-m-rodape">@if (enviada && item.Autor is { } autor) { <span class="wa-autor">@autor ·</span> }@if (item.Modelo is { } m) { <span class="wa-autor" title="@($"Modelo aprovado {m}")">modelo ·</span> }<span>@item.Hora</span>@if (item.Tick is { } t) { @Tick(t) }</span></div>
+                                    <div class="wa-balao">@if (item.Midia is { } md) { @Midia(md) }@Marcar(item.Texto)<span class="wa-m-rodape">@if (enviada && item.Autor is { } autor) { <span class="wa-autor">@autor ·</span> }@if (item.Modelo is { } m) { <span class="wa-autor" title="@($"Modelo aprovado {m}")">modelo ·</span> }<span>@item.Hora</span>@if (item.Tick is { } t) { @Tick(t) }</span></div>
                                     @if (item.Erro is { } erro) { <span class="wa-m-erro">@erro</span> }
                                 </div>
                                 break;
@@ -385,6 +385,12 @@ else
                                     @if (!c.Sms && painel.Sessao.AttachmentsEnabled)
                                     {
                                         <button type="button" class="botao mini" disabled="@(!PodeEscrever || _ocupado)" @onclick="() => AnexarAsync(c)"><Icone Nome="clipe" />Anexar</button>
+                                        @* O microfone só quando o CRM converte a gravação (ffmpeg): sem isso ele recusaria o áudio. *@
+                                        @if (painel.Sessao.RecordingEnabled)
+                                        {
+                                            <GravadorDeAudio @ref="_gravador" ConversaId="@c.Id" Desabilitado="@(!PodeEscrever || _ocupado || c.Conversa is null)"
+                                                             AoEnviar="g => EnviarGravacaoAsync(c, g)" AoAvisar="@((string t) => Recado(t, "atencao"))" />
+                                        }
                                     }
                                     @if (!c.Sms)
                                     {
@@ -600,6 +606,7 @@ else
            regras, vagas e avisos de guias) — sem o cartão do horário no meio, que custava um clique. *@
         <AgendamentoForm AgendamentoId="horario" AoFechar="() => _horarioAberto = null" AoConcluir="RemarcouAsync" />
     }
+    @FotoAmpliada()
 }
 
 @code {
@@ -701,11 +708,11 @@ else
         await ConsumirPedidoAsync();
     }
 
-    /// <summary>Saiu de vista: o relógio para (a aba fica montada, oculta).</summary>
+    /// <summary>Saiu de vista: o relógio para (a aba fica montada, oculta) e a gravação de áudio é descartada (o microfone desliga).</summary>
     protected override Task AoSairAsync()
     {
         _relogio?.Change(Timeout.Infinite, Timeout.Infinite);
-        return Task.CompletedTask;
+        return _gravador?.CancelarAsync() ?? Task.CompletedTask;
     }
 
     protected override Task AoAtalhoAsync(AtalhoDeTela atalho)

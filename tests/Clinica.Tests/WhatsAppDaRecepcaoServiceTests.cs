@@ -427,6 +427,24 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task A_midia_chega_pronta_para_a_tela_e_a_gravacao_sobe_como_gravacao()
+    {
+        var c = _crm.Pôr(Conversa("c-maria", "Maria", "5522998765432", pacienteId: _maria.Id));
+        _crm.Arquivo = new ArquivoDaMidia(PreviaBlazor.MidiaDeExemplo.NotaDeVoz.Conteudo, "audio/wav", null);
+        var midia = MidiaDaConversa.Da(c.Id, new AppMessage("m-voz", "in", "", "AUDIO", null, DateTimeOffset.UtcNow, "received"))!;
+
+        var pronta = await Com(s => s.MidiaAsync(midia));
+
+        Assert.StartsWith("data:audio/wav;base64,", pronta.Endereco);
+        Assert.Equal(6.5, pronta.Duracao!.Value, 2);
+
+        await Com(s => s.AnexarAsync(c, new MemoryStream([1, 2]), "gravacao.webm", "audio/webm", gravacao: true));
+        Assert.Equal(("gravacao.webm", "audio/webm", true), _crm.UltimoAnexo);
+        await Com(s => s.AnexarAsync(c, new MemoryStream([1, 2]), "exame.pdf", "application/pdf"));
+        Assert.Equal(("exame.pdf", "application/pdf", false), _crm.UltimoAnexo);
+    }
+
+    [Fact]
     public async Task Devolver_exige_o_motivo_que_o_CRM_pede()
     {
         var c = _crm.Pôr(Conversa("c-maria", "Maria", "5522998765432", pacienteId: _maria.Id));
@@ -606,8 +624,21 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
             return Task.FromResult(Trocar(conversaId, c => c with { PatientId = ficha.PatientId, PatientName = ficha.Name }));
         }
 
-        public Task<AppAttachment> AnexarAsync(int usuarioId, string conversaId, Stream arquivo, string nome, string mime, CancellationToken ct = default)
-            => Task.FromResult(new AppAttachment("anexo-1", conversaId, nome, mime, "DOCUMENT", 10));
+        /// <summary>O último anexo pedido: (nome, mime, é gravação).</summary>
+        public (string Nome, string Mime, bool Gravacao)? UltimoAnexo { get; private set; }
+
+        public Task<AppAttachment> AnexarAsync(int usuarioId, string conversaId, Stream arquivo, string nome, string mime, bool gravacao = false,
+            CancellationToken ct = default)
+        {
+            UltimoAnexo = (nome, mime, gravacao);
+            return Task.FromResult(new AppAttachment("anexo-1", conversaId, nome, mime, gravacao ? "AUDIO" : "DOCUMENT", 10));
+        }
+
+        /// <summary>O arquivo que toda mídia devolve (o teste do serviço confere o que ele faz com ele).</summary>
+        public ArquivoDaMidia Arquivo { get; set; } = new([1, 2, 3], "application/octet-stream", null);
+
+        public Task<ArquivoDaMidia> MidiaAsync(int usuarioId, string conversaId, AppMessage mensagem, CancellationToken ct = default)
+            => Task.FromResult(Arquivo);
 
         public Task<AppTemplate[]> ModelosAsync(int usuarioId, string remetente, CancellationToken ct = default) => Task.FromResult(Array.Empty<AppTemplate>());
 

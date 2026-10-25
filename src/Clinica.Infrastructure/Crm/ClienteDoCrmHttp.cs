@@ -50,6 +50,7 @@ public sealed class ClienteDoCrmHttp : IClienteDoCrm, IDisposable
     public const string ForaDoAr = "O CRM não respondeu. Tente de novo em instantes.";
     public const string Demorou = "O CRM demorou demais para responder. Tente de novo em instantes.";
     public const string FormatoDesconhecido = "O CRM respondeu num formato que este app não conhece. Fale com a direção para atualizar o app.";
+    public const string ArquivoVazio = "O CRM devolveu o arquivo vazio. Tente de novo em instantes.";
     public const string TentativasDemais = "O CRM recebeu tentativas demais de entrada. Espere um minuto e tente de novo.";
 
     /// <summary>A frase do 400 do antiforgery do CRM (ver <see cref="CsrfRecusadoAsync"/>).</summary>
@@ -59,15 +60,17 @@ public sealed class ClienteDoCrmHttp : IClienteDoCrm, IDisposable
     public static readonly TimeSpan PrazoDaSaida = TimeSpan.FromSeconds(3);
 
     /// <summary>
-    /// Prazos por natureza de chamada: leitura 10 s, escrita 20 s, envio de arquivo 60 s e o @SemDor 35 s (o CRM espera
-    /// a Anthropic por até 30 s; com 20 s o app diria "demorou" enquanto a sugestão ainda vinha). <c>IA</c> nulo = o da escrita.
+    /// Prazos por natureza de chamada: leitura 10 s, escrita 20 s, envio de arquivo 60 s (e o arquivo de uma
+    /// mensagem, que pode ter 16 MB, também), e o @SemDor 35 s (o CRM espera a Anthropic por até 30 s; com 20 s
+    /// o app diria "demorou" enquanto a sugestão ainda vinha). <c>IA</c> nulo = o da escrita.
     /// </summary>
     internal sealed record Prazos(TimeSpan Leitura, TimeSpan Escrita, TimeSpan Envio, TimeSpan? IA = null)
     {
         public static readonly Prazos Padrao = new(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(60), TimeSpan.FromSeconds(35));
     }
 
-    private enum Natureza { Leitura, Escrita, Envio, IA }
+    /// <summary>Midia: um GET (sem csrf) com o prazo do envio — o CRM busca a recebida no provedor na primeira vez, e o arquivo pode ter 16 MB.</summary>
+    private enum Natureza { Leitura, Escrita, Envio, IA, Midia }
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
@@ -154,7 +157,8 @@ public sealed class ClienteDoCrmHttp : IClienteDoCrm, IDisposable
     public Task<AppConversation> LigarFichaAsync(int usuarioId, string conversaId, AppPatientLink ficha, CancellationToken ct = default)
         => EscreverAsync<AppConversation>(usuarioId, Conversa(conversaId, "patient"), ficha, ct);
 
-    public async Task<AppAttachment> AnexarAsync(int usuarioId, string conversaId, Stream arquivo, string nome, string mime, CancellationToken ct = default)
+    public async Task<AppAttachment> AnexarAsync(int usuarioId, string conversaId, Stream arquivo, string nome, string mime, bool gravacao = false,
+        CancellationToken ct = default)
     {
         // Lido uma vez para a memória: o 401 repete o envio, e o Stream de quem chama só se lê uma vez.
         var bytes = await LerArquivoAsync(arquivo, ct);
@@ -164,8 +168,35 @@ public sealed class ClienteDoCrmHttp : IClienteDoCrm, IDisposable
             var parte = new ByteArrayContent(bytes);
             parte.Headers.ContentType = tipo;
             var corpo = new MultipartFormDataContent { { parte, "file", nome } };
+            // O mesmo campo do CRM web (app.js, upload(..., recording)): o CRM converte a gravação para OGG/Opus.
+            if (gravacao) corpo.Add(new StringContent("true"), "recording");
             return Post(Conversa(conversaId, "attachments"), corpo);
         }, Desserializar<AppAttachment>, ct);
+    }
+
+    public Task<ArquivoDaMidia> MidiaAsync(int usuarioId, string conversaId, AppMessage mensagem, CancellationToken ct = default)
+    {
+        if (MidiaDaConversa.Rota(conversaId, mensagem) is not { } rota)
+            return Task.FromException<ArquivoDaMidia>(new RecusaDoCrm(MidiaDaConversa.SemArquivo, 404));
+        return ChamarAsync(usuarioId, Natureza.Midia, () => new HttpRequestMessage(HttpMethod.Get, rota), LerMidiaAsync, ct);
+    }
+
+    /// <summary>
+    /// Os bytes, o tipo e o nome (Content-Disposition, que o CRM manda com <c>download=true</c>). ⚠️ O
+    /// corpo já chegou inteiro quando isto roda (o envio lê com ResponseContentRead, dentro do prazo):
+    /// o teto aqui recusa o que passou dele, não evita a leitura — quem garante o tamanho é o CRM,
+    /// que não guarda arquivo maior (<c>MediaStore.Get</c>).
+    /// </summary>
+    private static async Task<ArquivoDaMidia> LerMidiaAsync(HttpResponseMessage resposta, CancellationToken ct)
+    {
+        if (resposta.Content.Headers.ContentLength > MidiaDaConversa.Teto) throw new RecusaDoCrm(MidiaDaConversa.GrandeDemais, 413);
+        var bytes = await resposta.Content.ReadAsByteArrayAsync(ct);
+        if (bytes.Length > MidiaDaConversa.Teto) throw new RecusaDoCrm(MidiaDaConversa.GrandeDemais, 413);
+        if (bytes.Length == 0) throw new CrmIndisponivel(ArquivoVazio);
+        var disposicao = resposta.Content.Headers.ContentDisposition;
+        var nome = (disposicao?.FileNameStar ?? disposicao?.FileName)?.Trim().Trim('"');
+        return new ArquivoDaMidia(bytes, resposta.Content.Headers.ContentType?.MediaType ?? "application/octet-stream",
+            string.IsNullOrWhiteSpace(nome) ? null : nome);
     }
 
     public Task<AppTemplate[]> ModelosAsync(int usuarioId, string remetente, CancellationToken ct = default)
@@ -256,7 +287,7 @@ public sealed class ClienteDoCrmHttp : IClienteDoCrm, IDisposable
         for (var renovou = false; ; renovou = true)
         {
             using var pedido = montar();
-            if (natureza != Natureza.Leitura) pedido.Headers.Add("X-CSRF-TOKEN", acesso.Csrf);
+            if (natureza is Natureza.Escrita or Natureza.Envio or Natureza.IA) pedido.Headers.Add("X-CSRF-TOKEN", acesso.Csrf);
             using var resposta = await EnviarAsync(acesso.Http, pedido, Prazo(natureza), ct);
             if (resposta.StatusCode != HttpStatusCode.Unauthorized && !await CsrfRecusadoAsync(resposta, ct))
                 return await TratarAsync(resposta, ler, ct);
@@ -290,7 +321,7 @@ public sealed class ClienteDoCrmHttp : IClienteDoCrm, IDisposable
         Natureza.Leitura => prazos.Leitura,
         Natureza.Escrita => prazos.Escrita,
         Natureza.IA => prazos.IA ?? prazos.Escrita,
-        _ => prazos.Envio,
+        _ => prazos.Envio, // Envio e Midia
     };
 
     /// <summary>Envia com prazo próprio. O corpo é lido dentro do prazo (ResponseContentRead).</summary>

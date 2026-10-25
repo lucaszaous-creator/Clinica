@@ -1,0 +1,35 @@
+@namespace Clinica.Ui.Blazor.Formularios
+@*
+  A FOTO AMPLIADA DA CONVERSA (24/10/2026, mídia na tela nativa do WhatsApp): o clique na miniatura
+  abre a foto inteira, do tamanho que a janela deixa (o Modal maximiza), com a legenda que veio junto
+  e o Baixar. Nada aqui grava: baixar passa pela tela, que pergunta onde salvar (IHostDaTela).
+*@
+
+<Modal Titulo="@Midia.Rotulo" Subtitulo="@MidiaDaConversa.Descricao(Midia, Carregada)" Largura="largo" Maximizavel="true" AoFechar="AoFechar">
+    <ChildContent>
+        @if (Carregada?.Endereco is { } foto)
+        {
+            <div class="wa-ampliada"><img src="@foto" alt="@Midia.Rotulo da conversa, ampliada" /></div>
+        }
+        else
+        {
+            <Aviso Tom="atencao" Texto="A foto não está mais na memória da tela. Feche e clique nela de novo." />
+        }
+        @if (!string.IsNullOrWhiteSpace(Midia.Mensagem.Text))
+        {
+            <p class="wa-ampliada-legenda">@Midia.Mensagem.Text</p>
+        }
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Fechar</button>
+        <button type="button" class="botao primario" disabled="@Ocupado" @onclick="AoBaixar"><Icone Nome="baixar" />Baixar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public MidiaDaMensagem Midia { get; set; } = default!;
+    [Parameter] public MidiaCarregada? Carregada { get; set; }
+    [Parameter] public bool Ocupado { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+    [Parameter] public EventCallback AoBaixar { get; set; }
+}

@@ -325,6 +325,8 @@ public sealed class CrmDeMentira : IClienteDoCrm
             _ => ModoDoSemDor.Ligado
         };
         conversas = Semear();
+        // Os anexos que a semente já "enviou" (o PDF das orientações): servidos como os que a tela sobe.
+        foreach (var a in conversas.SelectMany(c => c.AnexosDaSemente)) anexos[a.Id] = a;
     }
 
     /// <summary>Troca o <see cref="IClienteDoCrm"/> do <c>AddClinica</c> por este (prévia e <c>TelasBlazorAbremTests</c>).</summary>
@@ -351,7 +353,7 @@ public sealed class CrmDeMentira : IClienteDoCrm
     {
         await EntrarAsync(ct);
         return new AppSession(Eu, "csrf-previa", Agentes, [new AppInbox(RemetenteWhatsApp, "WhatsApp da clínica")], Filas,
-            AttachmentsEnabled: true, SendEnabled: true, WhatsappOff: false, Sms: new AppSms(true, "generic"));
+            AttachmentsEnabled: true, SendEnabled: true, WhatsappOff: false, Sms: new AppSms(true, "generic"), RecordingEnabled: true);
     }
 
     public async Task<AppConversationSummary[]> ListarConversasAsync(int usuarioId, CancellationToken ct = default)
@@ -725,7 +727,14 @@ public sealed class CrmDeMentira : IClienteDoCrm
         }
     }
 
-    public async Task<AppAttachment> AnexarAsync(int usuarioId, string conversaId, Stream arquivo, string nome, string mime, CancellationToken ct = default)
+    /// <summary>
+    /// Como o CRM: sobe o arquivo e devolve o anexo. ⚠️ A gravação (<paramref name="gravacao"/>) o CRM de
+    /// verdade converte para OGG/Opus com o ffmpeg; aqui ela fica no formato em que chegou (o WebM do
+    /// Chromium toca na prévia), com o nome "gravacao" e o tipo AUDIO — e o que não é áudio é recusado
+    /// com a mesma frase.
+    /// </summary>
+    public async Task<AppAttachment> AnexarAsync(int usuarioId, string conversaId, Stream arquivo, string nome, string mime, bool gravacao = false,
+        CancellationToken ct = default)
     {
         await EntrarAsync(ct);
         using var memoria = new MemoryStream();
@@ -741,10 +750,38 @@ public sealed class CrmDeMentira : IClienteDoCrm
         {
             var c = Achar(conversaId);
             if (c.Sender == RemetenteSms) throw new RecusaDoCrm("SMS envia somente texto: sem modelos, anexos, botões ou citações.", 400);
-            var anexo = new Anexo(Guid.NewGuid().ToString("N"), c.Id, string.IsNullOrWhiteSpace(nome) ? "arquivo" : nome.Trim(),
-                string.IsNullOrWhiteSpace(mime) ? "application/octet-stream" : mime.Trim(), memoria.ToArray());
+            if (!c.Closed && c.AgentId is { } dono && dono != Eu)
+                throw new RecusaDoCrm("Esta conversa está com outra pessoa. Peça a transferência para anexar.", 409);
+            var tipo = string.IsNullOrWhiteSpace(mime) ? "application/octet-stream" : mime.Trim();
+            if (gravacao && TipoDoAnexo(tipo) != "AUDIO") throw new RecusaDoCrm("A gravação precisa conter áudio.", 400);
+            var nomeFinal = gravacao ? MidiaDaConversa.NomeDaGravacao(tipo) : string.IsNullOrWhiteSpace(nome) ? "arquivo" : nome.Trim();
+            var anexo = new Anexo(Guid.NewGuid().ToString("N"), c.Id, nomeFinal, tipo, memoria.ToArray());
             anexos[anexo.Id] = anexo;
             return new AppAttachment(anexo.Id, c.Id, anexo.Nome, anexo.Mime, TipoDoAnexo(anexo.Mime), anexo.Bytes.Length);
+        }
+    }
+
+    /// <summary>
+    /// O arquivo de uma mensagem, pelas mesmas regras do CRM: a ENVIADA pelo anexo (da conversa), a
+    /// RECEBIDA pela mensagem com Direction "in". A recebida sem arquivo (o vídeo da semente) volta com
+    /// a frase do CRM para mídia que o provedor não entrega — é a foto do "Tentar de novo".
+    /// </summary>
+    public async Task<ArquivoDaMidia> MidiaAsync(int usuarioId, string conversaId, AppMessage mensagem, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava)
+        {
+            var c = Achar(conversaId);
+            if (MidiaDaConversa.Rota(conversaId, mensagem) is null) throw new RecusaDoCrm(MidiaDaConversa.SemArquivo, 404);
+            if (!string.IsNullOrWhiteSpace(mensagem.AttachmentId))
+            {
+                if (!anexos.TryGetValue(mensagem.AttachmentId, out var a) || a.ConversaId != c.Id) throw new RecusaDoCrm("Arquivo não encontrado.", 404);
+                return new ArquivoDaMidia(a.Bytes.ToArray(), a.Mime, a.Nome);
+            }
+            var m = c.Messages.FirstOrDefault(x => x.Id == mensagem.Id && x.Direction == "in") ?? throw new RecusaDoCrm("Mensagem não encontrada.", 404);
+            if (!c.Midias.TryGetValue(m.Id, out var arquivo))
+                throw new RecusaDoCrm("Este anexo não possui um endereço de mídia compatível com o provedor do WhatsApp.", 409);
+            return arquivo with { Conteudo = arquivo.Conteudo.ToArray() };
         }
     }
 
@@ -966,6 +1003,12 @@ public sealed class CrmDeMentira : IClienteDoCrm
         public DateTimeOffset? FichaLigadaEm { get; set; }
         public string FichaLigadaPor { get; set; } = "";
 
+        /// <summary>O arquivo de cada mensagem RECEBIDA com mídia (a que não está aqui, o "provedor" não entrega).</summary>
+        public Dictionary<string, ArquivoDaMidia> Midias { get; } = new();
+
+        /// <summary>Os anexos das mensagens que a semente "enviou" (vão para o dicionário de anexos do CRM).</summary>
+        public List<Anexo> AnexosDaSemente { get; } = new();
+
         public int Recebidas => Messages.Count(m => m.Direction == "in");
         public DateTimeOffset UltimaAtividade => Messages.Count == 0 ? UpdatedAt : Messages.Max(m => m.At);
 
@@ -975,6 +1018,25 @@ public sealed class CrmDeMentira : IClienteDoCrm
         {
             Messages.Add(new AppMessage($"wamid.previa.{Id[^4..]}.{++seq}", "in", texto, "TEXT", null, at, "received"));
             if (at > LastIncoming) LastIncoming = at;
+            return Tocar(at);
+        }
+
+        /// <summary>Uma recebida com mídia (Type do CRM: IMAGE, AUDIO, VIDEO, DOCUMENT); <paramref name="arquivo"/> nulo = o provedor não entrega.</summary>
+        public Conversa RecebidaComMidia(DateTimeOffset at, string tipo, string legenda, ArquivoDaMidia? arquivo)
+        {
+            var id = $"wamid.previa.{Id[^4..]}.{++seq}";
+            Messages.Add(new AppMessage(id, "in", legenda, tipo, null, at, "received", FileName: arquivo?.Nome));
+            if (arquivo is not null) Midias[id] = arquivo;
+            if (at > LastIncoming) LastIncoming = at;
+            return Tocar(at);
+        }
+
+        /// <summary>Uma enviada com anexo (como a tela manda: o anexo sobe antes, o envio leva o AttachmentId).</summary>
+        public Conversa EnviadaComAnexo(DateTimeOffset at, string agente, string legenda, string tipo, ArquivoDaMidia arquivo, string status)
+        {
+            var anexo = new Anexo(Guid.NewGuid().ToString("N"), Id, arquivo.Nome ?? "arquivo", arquivo.Mime, arquivo.Conteudo);
+            AnexosDaSemente.Add(anexo);
+            Messages.Add(new AppMessage(Guid.NewGuid().ToString("D"), "out", legenda, tipo, agente, at, status, AttachmentId: anexo.Id, FileName: anexo.Nome));
             return Tocar(at);
         }
 
@@ -1101,6 +1163,9 @@ public sealed class CrmDeMentira : IClienteDoCrm
             { Ficha = PessoasDoWhatsApp.Joao, AgentId = Eu };
         joao.Enviada(T(0, 6, 0), "automation", Texto(ModeloLembrete, "João", "hoje às " + RelogioDaPrevia.Hora(sessaoJoao)), "seen",
                 Modelo(ModeloLembrete, "João", "hoje às " + RelogioDaPrevia.Hora(sessaoJoao)))
+            // O pedido médico em PDF e um vídeo que o provedor não entregou (a foto do "Tentar de novo").
+            .RecebidaComMidia(T(0, 9, 38), "DOCUMENT", "", MidiaDeExemplo.PedidoMedico)
+            .RecebidaComMidia(T(0, 9, 39), "VIDEO", "O exercício que a fisio passou", null)
             .Recebida(T(0, 9, 40), "Confirmado, obrigado!")
             .Evento(T(0, 9, 40, 5), "Paciente", "Confirmação recebida; atualização da agenda pendente")
             .Evento(T(0, 9, 40, 30), "Agenda da clínica", "A agenda da clínica registrou a confirmação do horário")
@@ -1113,10 +1178,14 @@ public sealed class CrmDeMentira : IClienteDoCrm
         var roberto = new Conversa(Ids.Roberto, PessoasDoWhatsApp.Roberto.Nome, PessoasDoWhatsApp.Roberto.NoCrm, RemetenteWhatsApp)
             { Ficha = PessoasDoWhatsApp.Roberto, AgentId = Eu };
         roberto.Recebida(T(-1, 16, 48), "Boa tarde, preciso trocar a sessão da semana que vem, dá pra ser de manhã?")
+            // A mídia (24/10): a foto do pedido e a nota de voz que o paciente mandou; o PDF que a Ana mandou.
+            .RecebidaComMidia(T(-1, 16, 49), "IMAGE", "Esse é o pedido do médico", MidiaDeExemplo.Foto)
+            .RecebidaComMidia(T(-1, 16, 50), "AUDIO", "", MidiaDeExemplo.NotaDeVoz)
             .Evento(T(-1, 16, 55), ana, "Assumiu ao escrever para o paciente")
             .Enviada(T(-1, 16, 55), Eu, $"Boa tarde, Roberto! Tenho {RelogioDaPrevia.Quando(sessaoRoberto)} com a Dra. Helena. Serve?", "seen")
             .Recebida(T(-1, 17, 2), "Serve sim")
             .Evento(T(-1, 17, 3), "Agenda da clínica", "Clínica confirmou remarcação do horário #1. Nenhuma mensagem enviada ao paciente.")
+            .EnviadaComAnexo(T(-1, 17, 3, 10), Eu, "Seguem as orientações para o dia do BSV.", "DOCUMENT", MidiaDeExemplo.Orientacoes, "seen")
             .Enviada(T(-1, 17, 3, 30), Eu, $"Fica combinado então, Roberto. Até {RelogioDaPrevia.DiaDaSemana(sessaoRoberto)}!", "delivered");
         lista.Add(roberto);
 

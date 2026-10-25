@@ -5,7 +5,7 @@ sessão). O texto é o MESMO, sem reescrita: design system, WPF/XAML, Blazor, EF
 `verificar-suite`, assinatura digital, impressão, CRM e as rodadas de UI, cada uma com o defeito que a
 originou. Antes de escrever uma tela, uma consulta ou uma checagem, procure aqui a lição da área.
 
-## Índice (191 tópicos, na ordem do arquivo)
+## Índice (195 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -199,7 +199,10 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
 - Pare a prévia pelo NOME do processo: `grep "[5]212"` casa a linha do próprio shell
 - `opacity` numa célula PRENDE o menu fixo de dentro dela abaixo do fundo que o fecha
 - Tela reusada dentro de um painel: os `@media` dela olham a JANELA, não o painel
-
+- Campo estático de classe estática nasce na ORDEM DO ARQUIVO: o que usa outro declarado abaixo lê nulo
+- Bytes do navegador para o C# vão em FLUXO (`IJSStreamReference`), nunca `byte[]`: a prévia é Blazor Server e corta em 32 KB
+- Componente filho que chama a tela por `Func` (e não `EventCallback`) não a redesenha: quem chama chama `StateHasChanged`
+- Junção de branches paralelas: o git junta SEM conflito duas versões da MESMA decisão
 ---
 
 
@@ -5071,3 +5074,42 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
   gaveta. Regra: componente que aparece em duas larguras na mesma janela ganha uma classe de modo (ou
   `container-type` + `@container`), nunca só `@media`; e a foto vai na largura da JANELA, com o painel
   aberto.
+
+- **Campo estático de classe estática nasce na ORDEM DO ARQUIVO: o que usa outro declarado abaixo
+  lê nulo** (24/10/2026, mídia do WhatsApp). O `MidiaDeExemplo` da prévia gera a foto de exemplo
+  num campo estático (`Foto = new(Png(...))`), e o `Png` usa a tabela do CRC declarada MAIS
+  ABAIXO no arquivo: na hora da foto a tabela ainda era nula, o inicializador do tipo estourou
+  (`TypeInitializationException`), e o CRM de mentira — que serve a foto — não abria. Compilou
+  sem aviso; quem acusou foi o teste bUnit da tela (a tela nem abria) e o teste de regra que lia a
+  duração do WAV. Regra: em classe estática, a tabela/constante que outro campo usa vem PRIMEIRO
+  (com um comentário dizendo por quê), ou é calculada sob demanda (`Lazy`, propriedade).
+
+- **Bytes do navegador para o C# vão em FLUXO (`IJSStreamReference`), nunca `byte[]`: a prévia é
+  Blazor Server e corta em 32 KB** (24/10/2026, gravação de áudio do WhatsApp). O `parar()` do
+  `js/gravacao-de-audio.js` devolvia o `Uint8Array` e o C# o lia como `byte[]`. No app (Blazor
+  Hybrid, WebView2) funcionaria; na prévia, que é Blazor Server, a mensagem do navegador para o
+  servidor passa do limite do SignalR (32 KB) e o CIRCUITO cai — a foto 55 mostrou a tela parada
+  em "Gravando" e o console "Connection disconnected". O bUnit não vê (não há SignalR). Regra:
+  arquivo que vem do navegador é `InvokeAsync<IJSStreamReference>` + `OpenReadStreamAsync(teto)`,
+  que chega em pedaços nos dois hospedeiros (o JS só devolve o `Uint8Array`/`Blob`). No sentido
+  contrário (C# → navegador, um `data:` no `src`) não há esse limite.
+
+- **Componente filho que chama a tela por `Func` (e não `EventCallback`) não a redesenha: quem chama
+  chama `StateHasChanged`** (24/10/2026, gravação de áudio do WhatsApp). O `GravadorDeAudio`
+  precisa da RESPOSTA do envio (saiu ou não, para fechar a faixa ou guardar o áudio), então recebe
+  `Func<Gravacao, Task<bool>>`. `EventCallback` redesenha o dono depois do handler; `Func`, não: o
+  áudio era enviado, o toast aparecia, e a mensagem nova (e a frase da recusa) só surgia na
+  releitura de 7 s. O teste bUnit passava porque esperava 20 s — a releitura o salvava. Regra: o
+  método da tela chamado por `Func` termina em `finally { StateHasChanged(); }`, e o teste que
+  prova o redesenho espera MENOS que o relógio da tela (aqui 3 s), senão o relógio responde por
+  ele. O teste foi provado tirando o `StateHasChanged`: reprovou.
+
+- **Junção de branches paralelas: o git junta SEM conflito duas versões da MESMA decisão** (out/2026,
+  WhatsApp nativo: mídia × @SemDor). Cada branch acrescentou uma natureza de chamada ao
+  `ClienteDoCrmHttp` (`IA` e `Midia`). O conflito apareceu no `enum` e no prazo, e foi resolvido; mas
+  a linha que decide quem leva o CSRF (`if (natureza is Natureza.Escrita or Natureza.Envio …)`) mudou
+  só numa das branches e entrou SEM conflito na versão da outra — o @SemDor passou a sair sem CSRF e o
+  CRM o recusava como "acesso recusado". Build verde; só o teste do @SemDor
+  (`ClienteDoCrmHttpTests.O_SemDor_*`) acusou. Regra: depois de juntar branches que mexeram no mesmo
+  arquivo, rode as famílias de testes de CADA uma na árvore juntada — não só as da última — e procure
+  no arquivo juntado todo uso do valor novo de cada `enum` (`grep -n "Natureza\."`).
