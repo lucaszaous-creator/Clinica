@@ -78,7 +78,8 @@ public sealed class ConversaResolveNaTelaTests : IClassFixture<BancoDasTelas>, I
     {
         tela.WaitForAssertion(() => tela.FindAll(".wa-linha").Should().Contain(l => l.TextContent.Contains(nome)), Prazo);
         tela.Clicar(() => tela.FindAll(".wa-linha").First(l => l.TextContent.Contains(nome)));
-        tela.WaitForAssertion(() => tela.Find(".wa-cab h2").TextContent.Should().Contain(nome), Prazo);
+        // Sem ficha conferida o título é o telefone e o nome vem como "nome no WhatsApp" (§14): o nome está no cabeçalho.
+        tela.WaitForAssertion(() => tela.Find(".wa-cab").TextContent.Should().Contain(nome), Prazo);
     }
 
     private static void Mudar(IRenderedFragment tela, Func<IElement> achar, object valor)
