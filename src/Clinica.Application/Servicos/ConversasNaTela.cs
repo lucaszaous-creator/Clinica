@@ -539,6 +539,16 @@ public static class ConversasNaTela
         _ => "Encerradas"
     };
 
+    /// <summary>
+    /// O número ao lado da aba do filtro: só nas que pedem ação (Novas e Minhas), e "99+" acima de 99 — o
+    /// total de abertas ("Todas") não pede nada, e com dois dígitos nele a fileira passava da coluna da lista.
+    /// </summary>
+    public static string? ContagemDoFiltro(FiltroDasConversas f, ContagemDasConversas c)
+    {
+        int? n = f switch { FiltroDasConversas.Novas => c.Novas, FiltroDasConversas.Minhas => c.Minhas, _ => null };
+        return n switch { null => null, > 99 => "99+", var x => x.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) };
+    }
+
     /// <summary>O vazio que separa "a busca não achou" de "não há nada" (as frases do mockup).</summary>
     public static (string Titulo, string Texto) Vazio(FiltroDasConversas filtro, bool comBusca)
         => comBusca ? ("Nenhuma conversa com esse nome", "Confira o nome ou o número.")

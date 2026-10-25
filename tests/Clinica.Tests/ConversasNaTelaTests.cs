@@ -625,6 +625,16 @@ public sealed class ConversasNaTelaTests
     }
 
     [Fact]
+    public void So_Novas_e_Minhas_levam_numero_e_acima_de_99_vira_99_mais()
+    {
+        var c = new ContagemDasConversas(3, 120, 250, 9, 4);
+        Assert.Equal("3", ConversasNaTela.ContagemDoFiltro(FiltroDasConversas.Novas, c));
+        Assert.Equal("99+", ConversasNaTela.ContagemDoFiltro(FiltroDasConversas.Minhas, c));
+        Assert.Null(ConversasNaTela.ContagemDoFiltro(FiltroDasConversas.Todas, c));
+        Assert.Null(ConversasNaTela.ContagemDoFiltro(FiltroDasConversas.Encerradas, c));
+    }
+
+    [Fact]
     public void A_busca_acha_pelo_nome_sem_acento_pela_ficha_e_pelos_digitos_do_telefone()
     {
         Assert.Equal(["b"], ConversasNaTela.Filtrar(Lista, FiltroDasConversas.Todas, "ana", "antonio").Select(c => c.Id));

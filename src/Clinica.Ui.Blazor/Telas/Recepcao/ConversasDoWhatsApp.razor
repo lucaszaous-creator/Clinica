@@ -82,8 +82,8 @@ else
                     {
                         @foreach (var f in FiltrosDasConversas)
                         {
-                            var n = f switch { FiltroDasConversas.Novas => contaConversas.Novas, FiltroDasConversas.Minhas => contaConversas.Minhas, FiltroDasConversas.Todas => contaConversas.Todas, _ => (int?)null };
-                            <button type="button" aria-pressed="@Bool(_filtro == f)" @onclick="() => _filtro = f">@ConversasNaTela.Rotulo(f) @if (n is { } x) { <b>@x</b> }</button>
+                            var n = ConversasNaTela.ContagemDoFiltro(f, contaConversas);
+                            <button type="button" aria-pressed="@Bool(_filtro == f)" @onclick="() => _filtro = f">@ConversasNaTela.Rotulo(f) @if (n is not null) { <b>@n</b> }</button>
                         }
                     }
                     else

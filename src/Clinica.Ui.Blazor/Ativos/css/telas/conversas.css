@@ -69,7 +69,7 @@
 .wa-lista-topo h1 small{font-size:var(--text-small-size);font-weight:500;color:var(--texto-secundario)}
 .wa-filtros{display:flex;flex-direction:column;gap:var(--space-2);padding:0 var(--space-3) var(--space-2)}
 .wa-filtros .segmentado{align-self:stretch}
-.wa-filtros .segmentado button{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:5px 8px;font-size:var(--text-table-size)}
+.wa-filtros .segmentado button{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:5px 6px;font-size:var(--text-table-size);white-space:nowrap}
 .wa-filtros .segmentado button b{font-weight:700;font-variant-numeric:tabular-nums}
 .wa-filtros .segmentado button[aria-pressed="true"] b{color:var(--texto-invertido)}
 .wa-filtros-linha{display:flex;align-items:center;gap:var(--space-2)}
@@ -200,6 +200,12 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px;fon
 .wa-escrever-rodape .botao.mini[aria-expanded="true"]{background:var(--acento-suave);color:var(--acento)}
 .wa-atalho{margin-left:auto;font-size:var(--text-small-size);color:var(--texto-secundario);padding-right:var(--space-2)}
 .wa-escrever-rodape .botao.primario{height:34px;padding:0 var(--space-4)}
+/* Com Anexar, Áudio, Modelos, Respostas rápidas e o ✨, a dica do atalho empurrava o Enviar para a linha de baixo,
+   sozinho à esquerda (foto 50-midia em 1366). O rodapé é o contêiner (a aba, a gaveta ao lado e o celular têm
+   larguras diferentes na mesma janela): estreito, a dica sai — o Ctrl + Enter continua valendo — e o Enviar fica
+   sempre à direita, também quando quebra de linha. */
+.wa-escrever-rodape{container-type:inline-size}
+@container (max-width:700px){.wa-escrever-rodape .wa-atalho{display:none}.wa-escrever-rodape .botao.primario{margin-left:auto}}
 .wa-escrever-rodape .botao.primario:disabled{opacity:.45}
 .wa-rascunho-anexo{display:flex;align-items:center;gap:var(--space-2);margin:0 var(--space-3);padding:6px 10px;border-radius:var(--radius-control);background:var(--fundo);
   font-size:var(--text-table-size)}
