@@ -117,7 +117,7 @@ public sealed record ResultadoDoEnvio(AppConversation Conversa, string? Pendenci
 /// <item><b>O telefone não é identidade</b>: ligar a ficha é ato da recepção, nunca daqui.</item>
 /// </list>
 /// </summary>
-public sealed class WhatsAppDaRecepcaoService(
+public sealed partial class WhatsAppDaRecepcaoService(
     IClienteDoCrm crm, IClinicaRepositorio repo, IAcompanhamentoPacienteService acompanhamento,
     AvisosDeConfirmacaoService avisos, CampanhaService campanha, AgendaService agenda,
     ConsentimentoService consentimentos, ParametrosService parametros)
@@ -669,13 +669,23 @@ public sealed class WhatsAppDaRecepcaoService(
     /// <summary>O mínimo e o máximo do motivo de devolver à fila (a regra do CRM: 400 fora disso).</summary>
     public const int MinimoDoMotivoDeDevolver = 5, MaximoDoMotivoDeDevolver = 2000;
 
-    /// <summary>Devolve à fila da Recepção, com o motivo que o CRM exige (fica na trilha da conversa).</summary>
+    /// <summary>Devolve à fila da Recepção, com o motivo (fica na conversa como nota e na trilha). A rota: <see cref="DevolverAsync(string, int, string, string, CancellationToken)"/>.</summary>
     public Task<AppConversation> DevolverAsync(AppConversation c, string motivo, CancellationToken ct = default)
+        => DevolverAsync(c.Id, c.Version, c.Queue, motivo, ct);
+
+    /// <summary>
+    /// A devolução pela DONA da conversa: a transferência para a MESMA fila, sem responsável (o que o CRM web faz no
+    /// "Transferir" sem atendente — "Atendimento disponível para ser assumido pela equipe"). ⚠️ Não é o
+    /// <c>/reassign</c>: aquele é o "Reorganizar" da GESTÃO (recusa com 403 quem não é admin ou supervisora,
+    /// <c>ReceptionHandoffs.cs</c>), e era por ele que o "Com você → Devolver" ia — para a secretária comum, o botão
+    /// respondia "Somente a gestão pode reorganizar…" (achado em 25/10, no "Passar o turno", que usa este método).
+    /// </summary>
+    internal Task<AppConversation> DevolverAsync(string conversaId, int versao, string fila, string motivo, CancellationToken ct = default)
     {
         var m = motivo?.Trim() ?? "";
         if (m.Length < MinimoDoMotivoDeDevolver || m.Length > MaximoDoMotivoDeDevolver)
             throw new InvalidOperationException($"Diga por que a conversa volta à fila (de {MinimoDoMotivoDeDevolver} a {MaximoDoMotivoDeDevolver} letras).");
-        return crm.DevolverAFilaAsync(UsuarioId, c.Id, new AppChange(c.Version, null, c.Queue, m), ct);
+        return crm.TransferirAsync(UsuarioId, conversaId, new AppChange(versao, null, fila, m), ct);
     }
 
     public Task<AppConversation> TransferirAsync(AppConversation c, string? agenteId, string? fila, string? nota, CancellationToken ct = default)

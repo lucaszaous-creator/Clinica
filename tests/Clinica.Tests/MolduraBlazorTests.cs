@@ -285,6 +285,9 @@ public sealed class MolduraBlazorTests : IDisposable
         public SecaoDoSino<AvisoDoSemDorNoSino> AvisosDoSemDor { get; set; } = SecaoDoSino<AvisoDoSemDorNoSino>.Oculta;
         public List<AvisoDoSemDorNoSino> AbriuSemDor { get; } = [];
         public void AbrirAvisoDoSemDor(AvisoDoSemDorNoSino aviso) => AbriuSemDor.Add(aviso);
+        public SecaoDoSino<EsperaNoSino> EsperasNoWhatsApp { get; set; } = SecaoDoSino<EsperaNoSino>.Oculta;
+        public List<EsperaNoSino> AbriuEspera { get; } = [];
+        public void AbrirEspera(EsperaNoSino espera) => AbriuEspera.Add(espera);
         public void AbrirConfirmacoes() { }
         public void FecharSobreposicoes() { SinoAberto = false; }
         public void TrocarUsuario() => TrocouUsuario = true;
@@ -419,6 +422,49 @@ public sealed class MolduraBlazorTests : IDisposable
         moldura.AvisosDoSemDor = new(true, "0 sem resposta", [], "");
         tela.Render();
         Assert.DoesNotContain("Atenção no WhatsApp", tela.Markup);
+    }
+
+    // Quem espera resposta no WhatsApp (25/10, R8): o número no item do menu (direto e no submenu, e no grupo
+    // fechado) e uma linha por espera no sino, que abre a conversa; sem espera, nada aparece.
+    [Fact]
+    public void Quem_espera_resposta_poe_o_numero_no_menu_e_uma_linha_no_sino_que_abre_a_conversa()
+    {
+        using var ctx = Contexto();
+        var espera = new EsperaNoSino("x", "Maria das Graças", "há 12 min", NaoLida: true);
+        var moldura = new MolduraDeMentira
+        {
+            Barra =
+            [
+                new("WhatsApp", new ItemDaBarra("whatsapp-crm", "WhatsApp", null, false, "2"), []),
+                new("Mais", null, [new ItemDaBarra("caixa", "Caixa", null, false), new ItemDaBarra("whatsapp-crm", "WhatsApp", null, false, "2")])
+            ],
+            EsperasNoWhatsApp = new(true, "2 esperam resposta", [espera, new EsperaNoSino("y", "João", "há 40 min")], "")
+        };
+        var tela = ctx.RenderComponent<MolduraDoApp>(p => p.Add(x => x.Moldura, moldura));
+
+        Assert.Equal("2", tela.Find(".moldura-grupo button .moldura-contador").TextContent);
+        Assert.Equal(2, tela.FindAll(".moldura-nav .moldura-contador").Count); // o direto e o grupo "Mais" fechado
+        tela.FindAll(".moldura-grupo > button")[1].Click();
+        Assert.Equal("2", tela.Find(".moldura-submenu .moldura-item-rotulo .moldura-contador").TextContent);
+
+        tela.Find(".moldura-sino button").Click();
+        tela.WaitForAssertion(() => Assert.NotEmpty(tela.FindAll(".moldura-popover.sino")));
+        // "Não lidas": só a da Maria; "Todas": as duas.
+        tela.FindAll(".sino-abas button")[0].Click();
+        var secao = tela.FindAll(".sino-lista section").Single(s => s.TextContent.Contains("Esperando resposta no WhatsApp"));
+        Assert.Single(secao.QuerySelectorAll(".moldura-aviso"));
+        Assert.Contains("há 12 min", secao.TextContent);
+        tela.FindAll(".sino-abas button")[1].Click();
+        secao = tela.FindAll(".sino-lista section").Single(s => s.TextContent.Contains("Esperando resposta no WhatsApp"));
+        Assert.Equal(2, secao.QuerySelectorAll(".moldura-aviso").Length);
+        secao.QuerySelector(".moldura-aviso")!.Click();
+        Assert.Same(espera, Assert.Single(moldura.AbriuEspera));
+
+        moldura.EsperasNoWhatsApp = new(true, "0 esperam resposta", [], "");
+        moldura.Barra = [new("WhatsApp", new ItemDaBarra("whatsapp-crm", "WhatsApp", null, false), [])];
+        tela.Render();
+        Assert.DoesNotContain("Esperando resposta no WhatsApp", tela.Markup);
+        Assert.Empty(tela.FindAll(".moldura-nav .moldura-contador"));
     }
 
     [Fact]

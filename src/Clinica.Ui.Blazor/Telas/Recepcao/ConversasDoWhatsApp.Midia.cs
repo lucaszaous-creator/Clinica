@@ -44,6 +44,10 @@ public partial class ConversasDoWhatsApp
         b.AddAttribute(6, nameof(MidiaNoBalao.AoAmpliar), EventCallback.Factory.Create(this, () => _midiaAmpliada = m));
         b.AddAttribute(7, nameof(MidiaNoBalao.AoBaixar), EventCallback.Factory.Create(this, () => BaixarMidiaAsync(m)));
         b.AddAttribute(8, nameof(MidiaNoBalao.AoAbrir), EventCallback.Factory.Create(this, () => AbrirMidiaAsync(m)));
+        // 25/10, R9: "Guardar na ficha" (ConversasDoWhatsApp.Resolve.cs).
+        b.AddAttribute(9, nameof(MidiaNoBalao.GuardarNaFicha), GuardarNaFichaService.Cabe(m));
+        b.AddAttribute(10, nameof(MidiaNoBalao.MotivoSemGuardar), MotivoSemGuardar());
+        b.AddAttribute(11, nameof(MidiaNoBalao.AoGuardar), EventCallback.Factory.Create(this, () => AbrirGuardar(m)));
         b.CloseComponent();
     };
 

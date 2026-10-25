@@ -35,7 +35,36 @@ public sealed class MolduraDaAula : IMolduraDoApp
     private ItemDaBarra Item(string chave)
     {
         var i = _app.ItemDe(chave);
-        return new ItemDaBarra(chave, i?.Rotulo ?? chave, i?.Descricao, chave == _pai?.Chave);
+        return new ItemDaBarra(chave, i?.Rotulo ?? chave, i?.Descricao, chave == _pai?.Chave,
+            chave == Clinica.Application.Servicos.ConversaNoCrm.ChaveDaAba && _espera.Ligado
+                ? Clinica.Application.Servicos.ConversasNaTela.ContadorDoMenu(_espera.Esperando.Count) : null);
+    }
+
+    // ----- quem espera resposta no WhatsApp (25/10, só com ?espera=true na página da aula) -----
+    // O MESMO vigia do app (VigiaDoWhatsApp) sobre o CRM de mentira, uma leitura: o número no item "WhatsApp" e a seção
+    // do sino, para a foto. Sem o parâmetro, a aula continua com o sino quieto (as videoaulas não mudam).
+    private Clinica.Application.Servicos.LeituraDaEspera _espera = Clinica.Application.Servicos.LeituraDaEspera.Desligada;
+    private bool _sinoAberto;
+
+    /// <summary>Abre a conversa da espera (a página da aula liga o pedido da conversa e navega até a aba).</summary>
+    public Action<EsperaNoSino>? AoAbrirEspera { get; set; }
+
+    public async Task LerEsperaAsync(Clinica.Application.Servicos.VigiaDoWhatsApp vigia, int usuarioId)
+    {
+        _espera = await vigia.LerAsync(usuarioId, DateTimeOffset.Now);
+        Mudou?.Invoke();
+    }
+
+    public SecaoDoSino<EsperaNoSino> EsperasNoWhatsApp => _espera.Ligado
+        ? new(true, Clinica.Application.Servicos.ConversasNaTela.ContadorDoSino(_espera.Esperando.Count),
+            _espera.Esperando.Select(e => new EsperaNoSino(e.Id, e.Nome, Clinica.Application.Servicos.ConversasNaTela.HaQuanto(e.Minutos), NaoLida: true)).ToList(), "")
+        : SecaoDoSino<EsperaNoSino>.Oculta;
+
+    public void AbrirEspera(EsperaNoSino espera)
+    {
+        _sinoAberto = false;
+        AoAbrirEspera?.Invoke(espera);
+        Mudou?.Invoke();
     }
 
     public string TituloTela { get; private set; } = "";
@@ -112,20 +141,30 @@ public sealed class MolduraDaAula : IMolduraDoApp
     public int AssinaturasPendentes => 0;
     public string ResumoAssinaturas => "";
     public void AbrirFilaDeInfusao() { }
-    public bool SinoAberto => false;
-    public string ContadorDoSino => "";
+    public bool SinoAberto => _sinoAberto;
+    public string ContadorDoSino => _espera.Ligado && _espera.Esperando.Count > 0 ? _espera.Esperando.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) : "";
     public string ResumoDoSino => "Notificações";
     public SecaoDoSino<PedidoNoSino> Pedidos => SecaoDoSino<PedidoNoSino>.Oculta;
     public SecaoDoSino<RespostaNoSino> Respostas => SecaoDoSino<RespostaNoSino>.Oculta;
     public IReadOnlyList<AvisoDaSessao> Historico => [];
-    public int NaoLidas => 0;
+    public int NaoLidas => EsperasNoWhatsApp.Linhas.Count;
     public void MarcarTodasComoLidas() { }
-    public void AlternarSino() { }
+    public void AlternarSino()
+    {
+        if (!_espera.Ligado) return;
+        _sinoAberto = !_sinoAberto;
+        Mudou?.Invoke();
+    }
     public void AbrirPedido(PedidoNoSino pedido) { }
     public void AbrirTodosOsPedidos() { }
     public void AbrirResposta(RespostaNoSino resposta) { }
     public void AbrirConfirmacoes() { }
-    public void FecharSobreposicoes() { }
+    public void FecharSobreposicoes()
+    {
+        if (!_sinoAberto) return;
+        _sinoAberto = false;
+        Mudou?.Invoke();
+    }
     public void TrocarUsuario() { }
     public void Ligar(Dialogos dialogos, Notificacoes notificacoes) { }
 

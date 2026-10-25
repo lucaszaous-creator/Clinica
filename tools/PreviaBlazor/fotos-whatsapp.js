@@ -67,7 +67,23 @@ const ROTEIRO = [
   ['56-figurinha', async p => { await filtro(p, 'Minhas'); await linha(p, 'Roberto Lima'); await mostrar(p, '.wa-figurinha'); }],
   ['57-retratos-nos-avatares', async p => { await filtro(p, 'Minhas'); await linha(p, 'João Batista'); await p.locator('.wa-linha .avatar.com-foto').first().waitFor({ timeout: 8000 }); }],
   ['54-midia-gravando', async p => { await filtro(p, 'Minhas'); await linha(p, 'Roberto Lima'); await clicar(p, 'Gravar áudio'); await pausa(2600); }],
+  // A conversa resolve (25/10, §16): marcar horário pela coluna do paciente (com e sem horário à frente), guardar na ficha a foto
+  // recebida, perguntar ao profissional (a ação ao lado do balão e o formulário) e a faixa e o formulário do "Passar o turno".
+  ['70-marcar-horario', async p => { await filtro(p, 'Minhas'); await linha(p, 'Roberto Lima'); await fichaAoLado(p); await p.locator('.wa-marcar button').first().click({ timeout: 8000 }); await pausa(1500); }],
+  ['71-marcar-sem-horario', async p => { await filtro(p, 'Todas'); await linha(p, 'Fernanda'); await fichaAoLado(p); await mostrar(p, '.wa-marcar'); }],
+  ['72-guardar-na-ficha', async p => { await filtro(p, 'Minhas'); await linha(p, 'Roberto Lima'); await mostrar(p, '.wa-midia-foto');
+      await p.locator('.wa-midia-guardar button').first().click({ timeout: 8000 }); await pausa(900);
+      await p.locator('.wa-guardar-titulos label', { hasText: 'Pedido médico' }).click(); await pausa(400); }],
+  ['73-perguntar-acao', async p => { await filtro(p, 'Todas'); await linha(p, 'Lúcia'); await p.locator('.wa-m.recebida', { hasText: 'braço' }).last().hover(); await pausa(600); }],
+  ['74-perguntar-ao-profissional', async p => { await filtro(p, 'Todas'); await linha(p, 'Lúcia'); await p.locator('.wa-m.recebida', { hasText: 'braço' }).last().hover();
+      await p.locator('.wa-m.recebida', { hasText: 'braço' }).last().locator('.wa-m-acoes button').click({ timeout: 8000 }); await pausa(1200); }],
+  ['75-passar-o-turno-faixa', async p => { await filtro(p, 'Minhas'); }],
+  ['76-passar-o-turno-form', async p => { await filtro(p, 'Minhas'); await p.locator('.wa-turno button').click({ timeout: 8000 }); await pausa(900);
+      await p.locator('.modal textarea').fill('Fim do turno da manhã. A Maria espera a confirmação do horário de terça.'); await pausa(400); }],
 ];
+// Em 1024 a coluna da ficha é a gaveta do botão "Abrir a ficha do paciente": abre antes de mexer nela (sem isso o
+// scrollIntoView rolava a página de lado até a gaveta fechada).
+async function fichaAoLado(p) { const b = p.getByRole('button', { name: 'Abrir a ficha do paciente' }); if (await b.isVisible()) { await b.click(); await pausa(700); } }
 async function mostrar(p, seletor) { await p.locator(seletor).first().scrollIntoViewIfNeeded({ timeout: 8000 }); await pausa(600); }
 
 (async () => {
@@ -81,7 +97,7 @@ async function mostrar(p, seletor) { await p.locator(seletor).first().scrollInto
         const larg = await p.evaluate(() => document.documentElement.scrollWidth);
         if (larg > w) falhas.push(`${nome}-${w}: rola para o lado (${larg})`);
         // Filho que passa da borda do grupo (o "Retenção 15" passava por baixo do "+").
-        const vazam = await p.evaluate(() => [...document.querySelectorAll('.segmentado, .wa-cab-acoes, .wa-faixa, .wa-filtros, .wa-lista-topo, .wa-escrever-rodape, .wa-doc-acoes, .wa-midia-linha, .wa-gravando, .wa-audio')]
+        const vazam = await p.evaluate(() => [...document.querySelectorAll('.segmentado, .wa-cab-acoes, .wa-faixa, .wa-filtros, .wa-lista-topo, .wa-escrever-rodape, .wa-doc-acoes, .wa-midia-linha, .wa-gravando, .wa-audio, .wa-turno, .wa-marcar, .wa-guardar-arquivo')]
           .flatMap(g => { const r = g.getBoundingClientRect(); if (!r.width) return [];
             return [...g.children].filter(c => { const x = c.getBoundingClientRect(); return x.width && (x.right > r.right + 1 || x.left < r.left - 1); })
               .map(c => `${g.className.split(' ').pop()} > ${(c.textContent || c.className).trim().slice(0, 24)}`); }));
@@ -133,6 +149,38 @@ async function mostrar(p, seletor) { await p.locator(seletor).first().scrollInto
     if (!await p.locator(".wa-m.enviada .wa-audio audio").last().isVisible()) falhas.push('55: o áudio enviado não apareceu no balão');
     await p.screenshot({ path: `${DIR}/55-audio-enviado-1366.png` }); feitas.push('55'); }
   catch (e) { falhas.push('55: ' + e.message.split('\n')[0]); } await p.close(); }
+  // 77 e 79 executam de verdade (cancelar e passar o turno gravam no CRM de mentira); 78 é a moldura da aula com ?espera=true
+  // (a prévia precisa de CLINICA_NAVEGACAO apontando para um navegacao.json com o app "recepcao" e a chave "whatsapp-crm").
+  if (quer('77')) { p = await abrir(b, 1366, 900);
+  try { await filtro(p, 'Minhas'); await linha(p, 'Maria das Graças'); await p.locator('.wa-horario button', { hasText: 'Cancelar' }).first().click({ timeout: 8000 }); await pausa(900);
+    await p.locator('.modal select').selectOption('Profissional ausente'); await p.locator('.modal-rodape button.perigo').click(); await pausa(2500);
+    const rascunho = await p.locator('.wa-escrever textarea').first().inputValue();
+    if (!rascunho.includes('cancelei o seu horário')) falhas.push('77: o rascunho do cancelamento não ficou no campo');
+    await p.screenshot({ path: `${DIR}/77-cancelou-rascunho-1366.png` }); feitas.push('77'); }
+  catch (e) { falhas.push('77: ' + e.message.split('\n')[0]); } await p.close(); }
+  if (quer('78')) {
+    for (const [w, h] of [[1366, 900], [1024, 768]]) {
+      const pa = await b.newPage({ viewport: { width: w, height: h }, deviceScaleFactor: 1, locale: 'pt-BR' });
+      pa.on('console', m => { if (m.type() === 'error') erros.push(m.text()); }); pa.on('pageerror', e => erros.push(e.message));
+      try {
+        await pa.goto(URL.replace('/tela/ConversasDoWhatsApp', '/aula/recepcao/agenda-recepcao?espera=true'));
+        await pa.waitForSelector('.moldura-nav .moldura-contador', { timeout: 90000 }); await pausa(1200);
+        await pa.screenshot({ path: `${DIR}/78-contador-no-menu-${w}.png` });
+        await pa.locator('.moldura-sino button').first().click(); await pausa(900);
+        if (!await pa.locator('.sino-lista section', { hasText: 'Esperando resposta no WhatsApp' }).isVisible()) falhas.push(`78-${w}: a seção do sino não apareceu`);
+        if (await pa.evaluate(() => document.documentElement.scrollWidth) > w) falhas.push(`78-${w}: rola para o lado`);
+        await pa.screenshot({ path: `${DIR}/78-sino-esperando-${w}.png` }); feitas.push(`78-${w}`);
+      } catch (e) { falhas.push(`78-${w}: ${e.message.split('\n')[0]}`); }
+      await pa.close();
+    }
+  }
+  if (quer('79')) { p = await abrir(b, 1366, 900);
+  try { await filtro(p, 'Minhas'); await p.locator('.wa-turno button').click({ timeout: 8000 }); await pausa(900);
+    await p.locator('.modal textarea').fill('Fim do turno da manhã. A Maria espera a confirmação do horário de terça.');
+    await p.locator('.modal-rodape button.primario').click(); await pausa(3500);
+    if (await p.locator('.wa-turno').count()) falhas.push('79: as conversas não voltaram à fila');
+    await p.screenshot({ path: `${DIR}/79-turno-passado-1366.png` }); feitas.push('79'); }
+  catch (e) { falhas.push('79: ' + e.message.split('\n')[0]); } await p.close(); }
   await b.close();
   console.log('feitas:', feitas.length, '\nfalhas:', falhas.length ? falhas : 'nenhuma', '\nerros de console:', erros.length ? [...new Set(erros)].slice(0, 5) : 'nenhum');
 })();

@@ -407,6 +407,33 @@ public sealed class CrmDeMentira : IClienteDoCrm
 
     public void EsquecerSessao(int usuarioId) { }
 
+    /// <summary>Os pulsos de presença que chegaram (25/10): o teste confere que o vigia pulsa e que para.</summary>
+    public int Pulsos { get; private set; }
+
+    /// <summary>Como o <c>ReceptionSessions.Touch</c> do CRM: conectado por 120 s.</summary>
+    public async Task<AppPresence> PulsoDePresencaAsync(int usuarioId, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava) Pulsos++;
+        return new AppPresence(true, 120);
+    }
+
+    /// <summary>
+    /// O paciente escreve (25/10, para os testes da espera e do turno): a mensagem entra como recebida, a
+    /// conversa encerrada reabre sem dono — como o CRM faz com a mensagem nova.
+    /// </summary>
+    public void ChegouDoPaciente(string conversaId, string texto, DateTimeOffset? quando = null)
+    {
+        lock (trava)
+        {
+            var c = Achar(conversaId);
+            var at = quando ?? DateTimeOffset.UtcNow;
+            if (c.Closed) c.Reaberta(at);
+            c.Recebida(at, texto);
+            Gravar(c, at);
+        }
+    }
+
     // ==================================================================== o @SemDor (as frases e os 409/502 do Program.cs do CRM)
 
     public async Task<AppSemDorState> EstadoDoSemDorAsync(int usuarioId, CancellationToken ct = default)

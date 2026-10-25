@@ -104,6 +104,7 @@ else
                     }
                 </div>
             </div>
+            @if (_modo == Modo.Conversas && _filtro == FiltroDasConversas.Minhas) { @BarraDoTurno() }
             @if (_releituraFalhou)
             {
                 <div class="wa-recado"><Aviso Tom="atencao" Texto="O CRM não respondeu na última releitura. A lista pode estar desatualizada; tentamos de novo sozinhos." /></div>
@@ -321,6 +322,7 @@ else
                                     @if (item.Anexo is { } anexo) { <span class="wa-anexo"><Icone Nome="documento" />@anexo</span> }
                                     <div class="wa-balao @(item.Midia?.Figurinha == true ? "wa-balao-figurinha" : null)">@if (item.Midia is { } md) { @Midia(md) }@Marcar(item.Texto)<span class="wa-m-rodape">@if (enviada && item.Autor is { } autor) { <span class="wa-autor">@autor ·</span> }@if (item.Modelo is { } m) { <span class="wa-autor" title="@($"Modelo aprovado {m}")">modelo ·</span> }<span>@item.Hora</span>@if (item.Tick is { } t) { @Tick(t) }</span></div>
                                     @if (item.Erro is { } erro) { <span class="wa-m-erro">@erro</span> }
+                                    @if (!enviada && c.Conversa is not null) { @AcoesDaRecebida(c, item) }
                                 </div>
                                 break;
                         }
@@ -545,9 +547,9 @@ else
                         }
                     </section>
                 }
-                @if (a.Dados.Horarios.Count > 0)
+                @if (a.Dados.Horarios.Count > 0 || a.Paciente is not null)
                 {
-                    <section class="wa-secao"><h3>Horários <button type="button" class="link" @onclick="AbrirAgendaAsync">Agenda</button></h3>
+                    <section class="wa-secao"><h3>Horários @if (a.Dados.Horarios.Count > 0) { <button type="button" class="link" @onclick="AbrirAgendaAsync">Agenda</button> }</h3>
                         @foreach (var h in a.Dados.Horarios.Take(4))
                         {
                             <div class="wa-horario @(h.Tom == "perigo" ? "tom-perigo" : h.Tom == "sucesso" ? "tom-sucesso" : null)" @key="h.AgendamentoId">
@@ -561,6 +563,7 @@ else
                                     </div>
                             </div>
                         }
+                        @MarcarHorario(a)
                     </section>
                 }
                 @if (a.Dados.Confirmacao.Count > 0)
@@ -607,6 +610,7 @@ else
         <AgendamentoForm AgendamentoId="horario" AoFechar="() => _horarioAberto = null" AoConcluir="RemarcouAsync" />
     }
     @FotoAmpliada()
+    @FormulariosQueResolvem()
 }
 
 @code {
@@ -1319,8 +1323,9 @@ else
             Clinica.Application.Diagnostico.Registrar("Blazor — cancelamento pela conversa do WhatsApp", ex);
             return "Não foi possível cancelar agora. O horário continua marcado; tente de novo.";
         }
+        var preparou = PrepararRascunhoDoCancelamento(h);
         FecharForm();
-        Notificacoes.Info(pendencia ?? "Horário cancelado e liberado na agenda. Nenhuma mensagem foi ao paciente.");
+        Notificacoes.Info(pendencia ?? RascunhosDaConversa.DepoisDeCancelar(preparou));
         if (avisos.Count > 0) await Dialogos.AvisoAsync("Atenção — guias deste horário", string.Join("\n\n", avisos));
         await ReleiaDepoisDoAtoAsync();
         return null;

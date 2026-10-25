@@ -81,6 +81,14 @@
             @Arquivo("documento")
             break;
     }
+    @if (GuardarNaFicha)
+    {
+        @* 25/10, R9: a foto e o PDF que o paciente mandou vão direto aos arquivos da ficha conferida (a tela decide e grava). *@
+        <div class="wa-midia-linha wa-midia-guardar">
+            <button type="button" class="botao mini" disabled="@(MotivoSemGuardar is not null)" title="@(MotivoSemGuardar ?? "Guardar nos arquivos da ficha do paciente")"
+                    @onclick="AoGuardar"><Icone Nome="ficha" />Guardar na ficha</button>
+        </div>
+    }
     @if (Falha is { } falha)
     {
         <div class="wa-midia-falha" role="alert">
@@ -109,6 +117,12 @@
     [Parameter] public EventCallback AoAmpliar { get; set; }
     [Parameter] public EventCallback AoBaixar { get; set; }
     [Parameter] public EventCallback AoAbrir { get; set; }
+
+    /// <summary>A mensagem pode ir para a ficha (foto ou documento recebidos — <c>GuardarNaFichaService.Cabe</c>): o botão aparece.</summary>
+    [Parameter] public bool GuardarNaFicha { get; set; }
+    /// <summary>Por que esta pessoa não guarda agora (sem permissão, ficha não conferida); nulo = o botão vale.</summary>
+    [Parameter] public string? MotivoSemGuardar { get; set; }
+    [Parameter] public EventCallback AoGuardar { get; set; }
 
     private string? _pedida;
 
