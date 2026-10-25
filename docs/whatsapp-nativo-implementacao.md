@@ -575,9 +575,10 @@ ficava abaixo do fundo que o fecha (z 25). A célula das ações saiu do apagado
 
 - **A gaveta não empurra a tela** (ver a comparação). Numa janela de 1024 ela cobre a coluna de ações
   da linha: para abrir a conversa de outro paciente, fecha-se (Esc) e clica-se na outra linha.
-- **Rascunho não sobrevive ao fechar** a gaveta nem à troca de paciente nela: vive na tela, como na aba.
-  Fechar com texto digitado não pergunta (a gaveta não enxerga o rascunho da conversa sem mexer mais
-  na tela que outras frentes estão mudando).
+- ~~**Rascunho não sobrevive ao fechar a gaveta.**~~ **Resolvido na junção (24/10):** os rascunhos são
+  da janela (`Hospedagem/RascunhosDoWhatsApp`, Scoped), não da tela: fechar a gaveta ou trocar de paciente
+  nela não apaga, e a aba e a gaveta mostram o mesmo texto da mesma conversa. Teste
+  `ConversaAoLadoTests.O_rascunho_sobrevive_a_fechar_a_gaveta_e_reabrir` (reprova com o rascunho na tela).
 - **Na Ficha do balcão há duas portas** para a mesma conversa: o "WhatsApp" do crachá (novo) e o da
   aba "Convênio, contatos e LGPD" (o de antes, que a tela do paciente do Consultório também usa).
   Tirar o de lá mexeria na tela do Consultório; fica para quando a ficha administrativa for revista.

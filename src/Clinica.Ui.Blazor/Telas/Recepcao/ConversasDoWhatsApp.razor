@@ -623,20 +623,11 @@ else
     /// <summary>A leitura inteira (lista, avisos do sino, retenção) volta a cada 3 minutos.</summary>
     private static readonly TimeSpan LeituraInteira = TimeSpan.FromMinutes(3);
 
-    /// <summary>O rascunho de UMA conversa: vive na tela (nada vai ao banco), e o Guid "D" do envio só troca depois que ele sai.</summary>
-    private sealed class RascunhoDaConversa
-    {
-        public string Texto { get; set; } = "";
-        public bool Nota { get; set; }
-        public AppAttachment? Anexo { get; set; }
-        public string IdDoEnvio { get; set; } = Guid.NewGuid().ToString("D");
-        public bool TemConteudo => !string.IsNullOrWhiteSpace(Texto) || !Nota && Anexo is not null;
-        public void Saiu() { Texto = ""; Anexo = null; Nota = false; IdDoEnvio = Guid.NewGuid().ToString("D"); }
-    }
-
     private PainelDoWhatsApp? _painel;
     private ConversaDoWhatsApp? _aberta;
-    private readonly Dictionary<string, RascunhoDaConversa> _rascunhos = new(StringComparer.Ordinal);
+    // Os rascunhos são da JANELA (RascunhosDoWhatsApp): a aba e a conversa ao lado dividem o mesmo, e fechar a gaveta não apaga.
+    private RascunhosDoWhatsApp? _rascunhosDaJanela;
+    private RascunhosDoWhatsApp _rascunhos => _rascunhosDaJanela ??= Servicos.GetService<RascunhosDoWhatsApp>() ?? new RascunhosDoWhatsApp();
     private Modo _modo = Modo.Conversas;
     private FiltroDasConversas _filtro = FiltroDasConversas.Novas;
     private FiltroDaRetencao _filtroRet = FiltroDaRetencao.ParaHoje;

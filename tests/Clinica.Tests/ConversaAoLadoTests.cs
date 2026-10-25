@@ -98,6 +98,24 @@ public sealed class ConversaAoLadoTests : IClassFixture<BancoDasTelas>, IDisposa
     }
 
     [Fact]
+    public async Task O_rascunho_sobrevive_a_fechar_a_gaveta_e_reabrir()
+    {
+        // O rascunho é da janela (RascunhosDoWhatsApp), não da gaveta: fechar não apaga o que ela escrevia.
+        var maria = await PacienteAsync(PessoasDoWhatsApp.Maria.Nome);
+        var tela = AbrirFicha(maria.Id, maria.Nome);
+
+        tela.Find(".fb-acoes .wa-lado-abrir").Click();
+        tela.WaitForAssertion(() => tela.Find(".wa-lado .wa-escrever textarea"), Prazo);
+        tela.Find(".wa-lado .wa-escrever textarea").Input("Maria, confirmo terça às 14h");
+        tela.Find(".wa-lado").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+        tela.WaitForAssertion(() => tela.FindAll(".wa-lado").Should().BeEmpty(), Prazo);
+
+        tela.Find(".fb-acoes .wa-lado-abrir").Click();
+        tela.WaitForAssertion(() => tela.Find(".wa-lado .wa-escrever textarea").GetAttribute("value")
+            .Should().Be("Maria, confirmo terça às 14h"), Prazo);
+    }
+
+    [Fact]
     public async Task Paciente_sem_conversa_oferece_comecar_por_modelo_com_o_telefone_ja_preenchido()
     {
         int id;
