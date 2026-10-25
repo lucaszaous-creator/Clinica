@@ -1,3 +1,4 @@
+using Clinica.Domain.Entities;
 using Clinica.Application.Servicos;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -38,6 +39,8 @@ public sealed class PedidoDeConversaNoCrm
     public static async Task<bool> EscreverAsync(IServiceProvider servicos, IHostDaTela host, PedidoDeConversa pedido)
     {
         if (ConversaNoCrm.Telefone(pedido.Telefone) is null) return false;
+        // Quem não atende o WhatsApp da clínica (AcessoAoWhatsApp) não chega à aba por aqui.
+        if (!AcessoAoWhatsApp.Pode(SessaoUsuario.Atual)) return false;
         if (await ConversaAoLado.AbrirAsync(servicos, host, pedido)) return true;
         if (servicos.GetService<PedidoDeConversaNoCrm>() is not { } fila) return false;
         try

@@ -6,7 +6,7 @@ mora o código. Mexer numa área? Leia antes o tópico dela — vários registra
 teste pega. Lição nova de uma área entra aqui, no tópico dela; regra que vale para TODA mudança
 continua no `CLAUDE.md`.
 
-## Índice (183 tópicos, na ordem do arquivo)
+## Índice (184 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -194,6 +194,7 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
 - A RESPOSTA DO PACIENTE VIRA AVISO NO SINO E NO PAINEL DA DIREÇÃO
 - "JORNADA" ERA TERMO DE RH, E O DESENHO NÃO CABIA A SEMANA REAL
 - TENDÊNCIA E METAS POR RECORTE
+- O WHATSAPP DA CLÍNICA É DAS SECRETÁRIAS E DA DIREÇÃO
 
 ---
 
@@ -4613,3 +4614,19 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   ⚠️ **`a ?? b` entre duas navegações de ENTIDADE não traduz no EF** (`l.Atendimento ??
   l.CodigoFaturamento.Atendimento`); a rede do Npgsql pegou, e o SQLite nunca teria executado a
   consulta porque nenhum teste a chamava. Resolva o ID como escalar e entre por JOIN.
+
+- **O WHATSAPP DA CLÍNICA É DAS SECRETÁRIAS E DA DIREÇÃO** (25/10/2026, a direção: *"só quem terá
+  acesso são as secretárias e o gerente"*). A regra mora em `Domain/Entities/AcessoAoWhatsApp.cs`:
+  perfil **Recepção** ou **Gerente** E o bit `EditarAgenda` (o ajuste fino por pessoa em Acessos
+  continua: negar o bit tira o WhatsApp de uma recepcionista). Antes valia só o bit, e ele pode ser
+  concedido a qualquer função — a faturista que também agenda (parcela 58) levava junto o número
+  oficial. A MESMA regra guarda as cinco portas: o item "WhatsApp" do menu (`ShellViewModel`), a tela
+  (`ConversasDoWhatsApp`, `TelaBase.PodeWhatsApp`), o botão da conversa ao lado e o "Escrever no
+  WhatsApp" (`BotaoDaConversaAoLado`, `PedidoDeConversaNoCrm`, `ConversaAoLado`), o aviso do @SemDor no
+  sino (`AvisosDoSemDorShell`) e — a que decide de verdade — a entrada no CRM pela ponte
+  (`ClinicTeamBridge.PodeEntrar`: equipe, senha e bilhete). Quem não atende não vê o botão (função
+  que não é dela não aparece apagada); a ponte responde "Seu usuário não tem acesso ao CRM". Não é
+  um bit novo: o enum é gravado como inteiro e o último bit livre antes do sinal não se gasta com o
+  que o perfil já responde. Testes: `AcessoAoWhatsAppTests`, `PonteClinicTeamTests.
+  Bit_de_agendar_em_outro_perfil_nao_entra_no_CRM`, `ConversaAoLadoTests.Quem_nao_atende_o_WhatsApp_nao_ve_o_botao`.
+  Para valer no CRM web, a ponte precisa ser publicada na VPS 1 (roteiro da manhã §1.1).

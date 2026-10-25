@@ -33,9 +33,9 @@ public sealed partial class ShellViewModel
 
     public string SituacaoSemDor { get; private set; } = "";
 
-    /// <summary>Recepção e Gerente, e só quem pode ver a ficha (o aviso traz o primeiro nome do paciente).</summary>
-    public bool PodeVerAvisosDoSemDor => _sessaoClinica is { Autenticado: true, Perfil: PerfilAcesso.Recepcao or PerfilAcesso.Gerente }
-        && _sessaoClinica.Pode(Permissao.VerFichaPaciente);
+    /// <summary>Quem atende o WhatsApp (<see cref="AcessoAoWhatsApp"/>: recepção e direção, com o bit), e só quem pode ver a ficha (o aviso traz o primeiro nome do paciente).</summary>
+    public bool PodeVerAvisosDoSemDor => _sessaoClinica is { Autenticado: true } sessao && AcessoAoWhatsApp.Pode(sessao)
+        && sessao.Pode(Permissao.VerFichaPaciente);
 
     private void IniciarAvisosDoSemDor()
     {

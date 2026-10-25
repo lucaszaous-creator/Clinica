@@ -68,12 +68,12 @@ public sealed class ConversaAoLadoTests : IClassFixture<BancoDasTelas>, IDisposa
     }
 
     /// <summary>A Ficha do balcão aberta no paciente (o pedido que a agenda e a lista de Pacientes deixam).</summary>
-    private IRenderedComponent<Raiz> AbrirFicha(int pacienteId, string nome)
+    private IRenderedComponent<Raiz> AbrirFicha(int pacienteId, string nome, bool esperarOBotao = true)
     {
         _ctx.Services.GetRequiredService<PedidoDaFichaDoBalcao>().Definir(pacienteId, nome);
         var tipo = typeof(IHostDaTela).Assembly.GetType("Clinica.Ui.Blazor.Telas.FichaDoBalcao")!;
         var tela = _ctx.RenderComponent<Raiz>(p => p.Add(r => r.Tela, tipo));
-        tela.WaitForAssertion(() => tela.Find(".fb-acoes .wa-lado-abrir"), Prazo);
+        tela.WaitForAssertion(() => tela.Find(esperarOBotao ? ".fb-acoes .wa-lado-abrir" : ".fb-acoes"), Prazo);
         return tela;
     }
 
@@ -182,19 +182,22 @@ public sealed class ConversaAoLadoTests : IClassFixture<BancoDasTelas>, IDisposa
 
     }
 
-    [Fact]
-    public async Task Sem_o_bit_da_aba_o_botao_nasce_apagado()
+    [Theory]
+    [InlineData(PerfilAcesso.Recepcao, Permissao.Nenhuma, Permissao.EditarAgenda)]  // a recepcionista a quem a direção tirou o bit
+    [InlineData(PerfilAcesso.Faturista, Permissao.EditarAgenda, Permissao.Nenhuma)]  // o bit de agendar dado a outra função
+    public async Task Quem_nao_atende_o_WhatsApp_nao_ve_o_botao(PerfilAcesso perfil, Permissao extras, Permissao negadas)
     {
         var maria = await PacienteAsync(PessoasDoWhatsApp.Maria.Nome);
         new SessaoUsuario().Entrar(new UsuarioSistema
         {
-            Id = 9999, Nome = "Sem agenda (teste)", Login = "sem-agenda", Perfil = PerfilAcesso.Recepcao,
-            PermissoesNegadas = Permissao.EditarAgenda, SenhaHash = "-", SenhaSalt = "-", Ativo = true
+            Id = 9999, Nome = "Sem WhatsApp (teste)", Login = "sem-whatsapp", Perfil = perfil,
+            PermissoesExtras = extras | Permissao.VerFichaPaciente, PermissoesNegadas = negadas, SenhaHash = "-", SenhaSalt = "-", Ativo = true
         });
 
-        var tela = AbrirFicha(maria.Id, maria.Nome);
-
-        tela.Find(".fb-acoes .wa-lado-abrir").HasAttribute("disabled").Should().BeTrue();
+        var tela = AbrirFicha(maria.Id, maria.Nome, esperarOBotao: false);
+        // A ficha terminou de carregar (o telefone chegou ao crachá) e o botão não veio.
+        tela.WaitForAssertion(() => tela.Markup.Should().Contain("99876-5432"), Prazo);
+        tela.FindAll(".wa-lado-abrir").Should().BeEmpty();
     }
 
     /// <summary>O hospedeiro do teste: a aba WhatsApp existe (como na Recepção), a não ser que o teste a tire.</summary>

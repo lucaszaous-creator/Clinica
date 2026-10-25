@@ -72,12 +72,12 @@ public sealed class ConversaAoLado(IServiceScopeFactory escopos)
 
     /// <summary>
     /// Abre (ou troca) o painel para o paciente pedido. Falso quando ele não serve aqui — sem camada,
-    /// sem o bit da aba (<c>EditarAgenda</c>) ou sem o CRM — e quem chama segue no caminho de antes.
+    /// sem acesso ao WhatsApp (<see cref="AcessoAoWhatsApp"/>) ou sem o CRM — e quem chama segue no caminho de antes.
     /// Confere de NOVO no clique: a lista pode ter sido desenhada antes de o endereço do CRM mudar.
     /// </summary>
     public async Task<bool> AbrirAsync(IHostDaTela host, PedidoDeConversa pedido)
     {
-        if (!Disponivel || !SessaoUsuario.Atual.Pode(Permissao.EditarAgenda)) return false;
+        if (!Disponivel || !AcessoAoWhatsApp.Pode(SessaoUsuario.Atual)) return false;
         if (!await LigadaAsync(host, agora: true)) return false;
         Atual = pedido;
         Mudou?.Invoke();

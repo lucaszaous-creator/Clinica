@@ -189,7 +189,9 @@ public sealed partial class ShellViewModel : ObservableObject
             foreach (var item in modulo.Itens.Select(OrganizacaoNavegacao.Aplicar).Where(i => sessao?.Pode(i.Requer) != false
                 && (i.RequerAlgum == Permissao.Nenhuma || sessao?.PodeAlgum(i.RequerAlgum) != false)
                 && (i.PerfilExclusivo is null || sessao?.Perfil == i.PerfilExclusivo)
-                && (i.Chave != ChavesSuite.PedidosEnfermagem || sessao?.Perfil is PerfilAcesso.Recepcao or PerfilAcesso.Gerente)))
+                && (i.Chave != ChavesSuite.PedidosEnfermagem || sessao?.Perfil is PerfilAcesso.Recepcao or PerfilAcesso.Gerente)
+                // O WhatsApp da clínica é das secretárias e da direção (25/10/2026): o bit de agendar dado a outra função não o traz.
+                && (i.Chave != ConversaNoCrm.ChaveDaAba || sessao is null || AcessoAoWhatsApp.Pode(sessao))))
             {
                 // Dois módulos podem publicar a MESMA chave quando a tela subiu para o
                 // shell e pertence aos dois (a Sala de infusão, parcela 48: a enfermagem

@@ -137,6 +137,17 @@ Depois ligue o serviço. O `rollback` volta para a versão anterior e não mexe 
 
 ---
 
+### 1.1 Publicar a ponte na VPS 1 (10 min)
+
+A regra de quem atende o WhatsApp mudou (25/10, decisão da direção: **só as secretárias e o
+gerente**): perfil Recepção ou Gerente, com o acesso de editar a agenda. Quem decide a entrada no
+CRM é a **ponte**, então ela precisa ser publicada para a regra valer também no CRM web — sem
+isso, a faturista a quem a direção deu "editar agenda" ainda entraria pelo navegador. O roteiro é
+o de sempre (`docs/crm-em-producao-out2026.md` §5: `dotnet publish src/Clinica.Crm.Bridge`,
+`releases/ponte-<commit>`, `current`, `systemctl restart clinica-crm-bridge`). Conferir: entre no
+CRM web com um usuário de outro perfil que tenha "editar agenda" — a resposta é "Seu usuário não
+tem acesso ao CRM".
+
 ## 2. Publicar os apps: Recepção e Gerente (40 min)
 
 **O CRM primeiro, depois os apps.** O app novo com o CRM antigo não quebra, porque a tela

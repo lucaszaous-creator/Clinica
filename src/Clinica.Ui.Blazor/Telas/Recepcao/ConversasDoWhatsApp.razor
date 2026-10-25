@@ -30,12 +30,12 @@
 @using Microsoft.JSInterop
 @inject IJSRuntime JS
 
-@if (!Pode(Permissao.EditarAgenda))
+@if (!PodeWhatsApp)
 {
     <div class="pagina wa-estado">
         <section class="cartao lista-cartao">
             <EstadoVazio Titulo="Seu acesso não inclui o WhatsApp da clínica" Icone="cadeado"
-                         Descricao="As conversas com os pacientes ficam com quem marca na agenda. Fale com a direção da clínica." />
+                         Descricao="@AcessoAoWhatsApp.SemAcesso" />
         </section>
     </div>
 }

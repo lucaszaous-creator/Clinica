@@ -593,7 +593,7 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
 Este arquivo guarda só o que vale para TODA mudança. O conhecimento por área mora em dois
 arquivos que você LÊ quando a tarefa toca a área (cada um abre com o índice dos títulos):
 
-- **`docs/agentes/regras-de-negocio.md`** (183 tópicos) — o que o código não diz sozinho:
+- **`docs/agentes/regras-de-negocio.md`** (184 tópicos) — o que o código não diz sozinho:
   faturamento (2º código, TISS, glosa, número da guia, permissões), o circuito do particular e o
   financeiro (pacotes, caixa, cartão, tributos, repasse, estoque), agenda e recepção (busca de
   paciente, lançamentos, confirmações, SMS), Consultório e prontuário (evolução, enfermagem,
