@@ -612,5 +612,6 @@ O WhatsApp nativo na Recepção (decisão da direção, out/2026): a proposta e 
 `docs/whatsapp-nativo-na-recepcao.md` + `docs/mockups/whatsapp-nativo/`, e o roteiro de
 implementação PR a PR em `docs/whatsapp-nativo-implementacao.md` (a metade do CRM:
 `semdor-crm/docs/api-para-os-apps.md`). Para pôr no ar: `docs/whatsapp-nativo-roteiro-da-manha.md`
-(publicar o CRM na VPS 2, os apps Recepção e Gerente, ligar a tela em Configurações → Integrações e
-conferir; voltar atrás é escolher a moldura de novo, sem release).
+(publicar o CRM na VPS 2, depois os apps Recepção e Gerente, e conferir). Desde a fase 3 (out/2026)
+não há mais moldura nem escolha em Configurações: com o Endereço do CRM salvo, a aba WhatsApp é a
+tela nativa; voltar atrás é o `rollback` do CRM e o release anterior dos apps.
