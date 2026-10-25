@@ -58,6 +58,14 @@ public static class SemDorNaTela
         return new EtiquetaDoSemDor(t.Rotulo.Trim(), t.Atencao, t.Atencao ? DicaDaAtencao : DicaDoAssunto);
     }
 
+    /// <summary>
+    /// A etiqueta que a LINHA mostra (25/10/2026): só quando acrescenta — a de atenção (sintoma, reação,
+    /// reclamação) sempre; a de assunto só quando o selo da clínica é o neutro (nova, em atendimento, sem
+    /// ficha…). Com "Não vem — remarcar" ou "2 fichas" no rodapé, "✨ Remarcar" e "✨ Confirmou" só repetiam.
+    /// </summary>
+    public static EtiquetaDoSemDor? EtiquetaNaLinha(EtiquetaDoSemDor? etiqueta, SeloDoWhatsApp selo)
+        => etiqueta is { Atencao: true } || selo.Tom == "neutro" ? etiqueta : null;
+
     /// <summary>A etiqueta depois de uma escrita da tela: respondeu ou encerrou, ela sai; nota interna não responde ao paciente, fica.</summary>
     public static AppSemDorTag? EtiquetaDepoisDaEscrita(AppSemDorTag? atual, AppConversation nova)
         => nova.Closed || nova.Messages.LastOrDefault()?.Direction != "in" ? null : atual;
@@ -107,9 +115,15 @@ public static class SemDorNaTela
     public static bool PodeDesfazer(string? textoDoSemDor, string? rascunhoAgora)
         => !string.IsNullOrWhiteSpace(textoDoSemDor) && (rascunhoAgora ?? "").Trim() == textoDoSemDor.Trim();
 
-    /// <summary>A frase da falha: a do CRM quando ele disse (desligado, não respondeu, ainda não há conversa); senão, <see cref="SemResposta"/>.</summary>
+    /// <summary>
+    /// A frase da falha: a do CRM quando ele disse (desligado, não respondeu, ainda não há conversa); senão,
+    /// <see cref="SemResposta"/>. Sem ligação, a frase do transporte ("O CRM não respondeu…") não é do
+    /// @SemDor e fala do sistema: vale a da clínica (só a que o CRM escreveu sobre o @SemDor passa).
+    /// </summary>
     public static string Falha(Exception e)
-        => e is RecusaDoCrm or CrmIndisponivel && !string.IsNullOrWhiteSpace(e.Message) ? e.Message.Trim() : SemResposta;
+        => e is RecusaDoCrm && !string.IsNullOrWhiteSpace(e.Message)
+           || e is CrmIndisponivel && e.Message.TrimStart().StartsWith("O @SemDor", StringComparison.Ordinal)
+            ? e.Message.Trim() : SemResposta;
 
     /// <summary>As três linhas do resumo, com o rótulo de cada uma; campo vazio vira "—".</summary>
     public static IReadOnlyList<(string Rotulo, string Texto)> LinhasDoResumo(AppSemDorSummary r) =>

@@ -211,13 +211,13 @@ public sealed class SementeDoWhatsAppTests(BancoDasTelas banco) : IClassFixture<
         var telefones = await db.Pacientes.AsNoTracking().Select(p => p.Telefone).ToListAsync();
         var fichas = telefones.Count(t => ConversasNaTela.MesmoTelefone(t, terezinha.Contact));
         Assert.Equal(2, fichas);
-        Assert.Equal("2 fichas — conferir", ConversasNaTela.Selo(terezinha, [], fichas, null, DateTimeOffset.Now).Texto);
+        Assert.Equal("2 fichas", ConversasNaTela.Selo(terezinha, [], fichas, null, DateTimeOffset.Now).Texto);
 
         // A retenção: Helena não autorizou (só ligar) e Alzira respondeu ao convite pelo CRM.
         var linhas = await escopo.ServiceProvider.GetRequiredService<IAcompanhamentoPacienteService>().ListarAsync(banco.Gerente.Id);
         var helena = linhas.Single(l => l.Paciente == PessoasDoWhatsApp.Helena.Nome);
         Assert.True(helena.Pendente && !helena.Consentimento && RetencaoNaTela.EmTratamento(helena));
-        Assert.Equal("Sem autorização · ligar", RetencaoNaTela.Selo(helena, null, DateTimeOffset.Now).Texto);
+        Assert.Equal("Sem autorização", RetencaoNaTela.Selo(helena, null, DateTimeOffset.Now).Texto);
 
         var ultima = ConversasNaTela.UltimaRecebidaPorPaciente(lista);
         var alzira = linhas.Single(l => l.Paciente == PessoasDoWhatsApp.Alzira.Nome);

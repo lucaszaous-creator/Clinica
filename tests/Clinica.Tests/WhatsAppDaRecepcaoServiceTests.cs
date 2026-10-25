@@ -131,8 +131,8 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
         Assert.Equal("Não vem — remarcar", linhas.Single(l => l.Id == "c-maria").Selo.Texto);
         // O telefone gravado de três jeitos ("22 98811-2233", "+55 (22) 98811-2233") acha as duas fichas.
         Assert.Equal(2, painel.FichasPorConversa["c-terezinha"].Count);
-        Assert.Equal("2 fichas — conferir", linhas.Single(l => l.Id == "c-terezinha").Selo.Texto);
-        Assert.Equal("Novo contato · sem ficha", linhas.Single(l => l.Id == "c-novo").Selo.Texto);
+        Assert.Equal("2 fichas", linhas.Single(l => l.Id == "c-terezinha").Selo.Texto);
+        Assert.Equal("Sem ficha", linhas.Single(l => l.Id == "c-novo").Selo.Texto);
         Assert.Equal("?", linhas.Single(l => l.Id == "c-novo").Iniciais);
         Assert.True(painel.RetencaoPermitida);
     }

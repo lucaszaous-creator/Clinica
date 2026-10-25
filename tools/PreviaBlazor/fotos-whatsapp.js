@@ -10,8 +10,8 @@
 // ⚠️ UMA rodada por prévia RECÉM-INICIADA: os três fluxos gravam no CRM de mentira (que vive na
 // memória da prévia), e a segunda rodada fotografaria os estados já com a mensagem enviada, o
 // convite feito e a conversa assumida — e os fluxos 24 e 25 não achariam mais o que clicar.
-// Reprova (lista em "falhas") o que nenhuma rede vê: página que rola para o lado e filho que vaza
-// da borda do grupo — foi assim que apareceu o "Retenção 15" por baixo do "+".
+// Reprova (lista em "falhas") o que nenhuma rede vê: página que rola para o lado, filho que vaza
+// da borda do grupo — foi assim que apareceu o "Retenção 15" por baixo do "+" — e selo cortado na lista.
 const { chromium } = require('playwright');
 const path = require('path');
 const DIR = path.join(__dirname, '../../docs/mockups/whatsapp-nativo/tela-real');
@@ -39,14 +39,17 @@ const ROTEIRO = [
   ['02-conversa-maria', async p => { await filtro(p, 'Minhas'); await linha(p, 'Maria das Graças'); }],
   ['04-modelos', async p => { await filtro(p, 'Minhas'); await linha(p, 'Maria das Graças'); await clicar(p, 'Modelos'); }],
   ['05-modelo-preenchido', async p => { await filtro(p, 'Minhas'); await linha(p, 'Maria das Graças'); await clicar(p, 'Modelos');
-      await p.locator('.wa-popover .wa-opcao', { hasText: 'semdor_horario_remarcado' }).first().click({ timeout: 8000 }).catch(async () => { await p.locator('.wa-popover .wa-opcao').first().click(); }); await pausa(900); }],
+      await p.locator('.wa-popover .wa-opcao', { hasText: 'Horário remarcado' }).first().click({ timeout: 8000 }).catch(async () => { await p.locator('.wa-popover .wa-opcao').first().click(); }); await pausa(900); }],
   ['06-respostas-rapidas', async p => { await filtro(p, 'Minhas'); await linha(p, 'Maria das Graças'); await clicar(p, 'Respostas rápidas'); }],
   ['07-janela-fechada', async p => { await filtro(p, 'Minhas'); await linha(p, 'Carlos Eduardo'); }],
   ['08-conferir-ficha', async p => { await linha(p, 'Terezinha'); await clicar(p, /Conferir a ficha/); }],
   ['09-sem-ficha', async p => { await linha(p, '99712-0045'); }],
   ['10-transferir', async p => { await filtro(p, 'Minhas'); await linha(p, 'Maria das Graças'); await clicar(p, 'Transferir'); }],
   ['11-encerrar', async p => { await filtro(p, 'Minhas'); await linha(p, 'Maria das Graças'); await clicar(p, 'Encerrar o atendimento'); }],
-  ['12-cancelar-horario', async p => { await filtro(p, 'Minhas'); await linha(p, 'Maria das Graças'); await p.locator('.wa-horario button', { hasText: 'Cancelar' }).first().click(); await pausa(900); }],
+  // Em ≤ 1180 px a ficha é um painel por cima: abre-se antes (clicar no botão escondido rolava a página para o lado).
+  ['12-cancelar-horario', async p => { await filtro(p, 'Minhas'); await linha(p, 'Maria das Graças');
+      if (p.viewportSize().width <= 1180) await clicar(p, 'Abrir a ficha do paciente');
+      await p.locator('.wa-horario button', { hasText: 'Cancelar' }).first().click(); await pausa(900); }],
   ['13-nova-conversa', async p => { await clicar(p, 'Nova conversa'); }],
   ['14-retencao', async p => { await modo(p, 'Retenção'); }],
   ['15-retencao-convite', async p => { await modo(p, 'Retenção'); await linha(p, 'Sebastião'); }],
@@ -100,6 +103,10 @@ const ROTEIRO = [
 // Em 1024 a coluna da ficha é a gaveta do botão "Abrir a ficha do paciente": abre antes de mexer nela (sem isso o
 // scrollIntoView rolava a página de lado até a gaveta fechada).
 async function fichaAoLado(p) { const b = p.getByRole('button', { name: 'Abrir a ficha do paciente' }); if (await b.isVisible()) { await b.click(); await pausa(700); } }
+// Contêiner com overflow:hidden também ROLA (o foco num campo fora de vista o rola): a página não passa da
+// janela, mas a tela fica deslocada para o lado — o scrollWidth não vê (foto 31 em 480, 25/10/2026).
+const deslocados = p => p.evaluate(() => [...document.querySelectorAll('body *')].filter(e => e.scrollLeft > 0)
+  .map(e => (typeof e.className === 'string' && e.className.trim() ? e.className.trim().split(/\s+/).slice(0, 2).join('.') : e.tagName)));
 async function mostrar(p, seletor) { await p.locator(seletor).first().scrollIntoViewIfNeeded({ timeout: 8000 }); await pausa(600); }
 
 (async () => {
@@ -112,12 +119,16 @@ async function mostrar(p, seletor) { await p.locator(seletor).first().scrollInto
         await passos(p);
         const larg = await p.evaluate(() => document.documentElement.scrollWidth);
         if (larg > w) falhas.push(`${nome}-${w}: rola para o lado (${larg})`);
+        if ((await deslocados(p)).length) falhas.push(`${nome}-${w}: rolado para o lado por dentro: ${(await deslocados(p)).join(', ')}`);
         // Filho que passa da borda do grupo (o "Retenção 15" passava por baixo do "+").
         const vazam = await p.evaluate(() => [...document.querySelectorAll('.segmentado, .wa-cab-acoes, .wa-faixa, .wa-filtros, .wa-lista-topo, .wa-escrever-rodape, .wa-doc-acoes, .wa-midia-linha, .wa-gravando, .wa-audio, .wa-turno, .wa-marcar, .wa-guardar-arquivo')]
           .flatMap(g => { const r = g.getBoundingClientRect(); if (!r.width) return [];
             return [...g.children].filter(c => { const x = c.getBoundingClientRect(); return x.width && (x.right > r.right + 1 || x.left < r.left - 1); })
               .map(c => `${g.className.split(' ').pop()} > ${(c.textContent || c.className).trim().slice(0, 24)}`); }));
         if (vazam.length) falhas.push(`${nome}-${w}: vaza do grupo: ${[...new Set(vazam)].join(' | ')}`);
+        // O selo da linha é a informação: cortado ("Novo contato · …") reprova (25/10/2026, item 8 da revisão).
+        const cortados = await p.evaluate(() => [...document.querySelectorAll('.wa-linha-rodape .selo')].filter(s => s.scrollWidth > s.clientWidth + 1).map(s => s.textContent.trim()));
+        if (cortados.length) falhas.push(`${nome}-${w}: selo cortado na lista: ${[...new Set(cortados)].join(' | ')}`);
         await p.screenshot({ path: `${DIR}/${nome}-${w}.png` }); feitas.push(`${nome}-${w}`);
       } catch (e) { falhas.push(`${nome}-${w}: ${e.message.split('\n')[0]}`); }
       await p.close();
@@ -135,6 +146,7 @@ async function mostrar(p, seletor) { await p.locator(seletor).first().scrollInto
     try {
       await passos(p);
       if (await p.evaluate(() => document.documentElement.scrollWidth) > 480) falhas.push(`${nome}: rola para o lado`);
+      if ((await deslocados(p)).length) falhas.push(`${nome}: rolado para o lado por dentro: ${(await deslocados(p)).join(', ')}`);
       const escondidas = await p.evaluate(() => document.querySelector('.wa-conversa.aberta')
         ? [...document.querySelectorAll('.wa-cab-acoes > button')].filter(x => !x.getBoundingClientRect().width).map(x => x.getAttribute('aria-label') || x.textContent.trim()) : []);
       if (escondidas.length) falhas.push(`${nome}: ações escondidas no celular: ${escondidas.join(', ')}`);

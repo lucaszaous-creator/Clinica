@@ -139,8 +139,16 @@ public sealed record ItemDaConversa(TipoNaLinhaDoTempo Tipo, string Texto, strin
     bool Seguida = false, TickDaMensagem? Tick = null, string? Anexo = null, string? Modelo = null,
     string Tom = "neutro", string? Erro = null, string? Id = null, DateTimeOffset? At = null, MidiaDaMensagem? Midia = null);
 
-/// <summary>Um evento da trilha do CRM, traduzido para a linha do tempo.</summary>
-public sealed record EventoDaTrilha(string Texto, string Tom);
+/// <summary>
+/// O papel de um evento da trilha na limpeza da linha do tempo (25/10/2026,
+/// <see cref="ConversasNaTela.LinhaDoTempo"/>): o <see cref="Provisorio"/> ("…pendente") sai quando
+/// a agenda da clínica já disse o fim (<see cref="DaAgenda"/>); o <see cref="AoResponder"/> sai
+/// quando o balão ao lado é da mesma pessoa.
+/// </summary>
+public enum NaturezaDoEvento { Comum, Provisorio, DaAgenda, AoResponder }
+
+/// <summary>Um evento da trilha do CRM, traduzido para a linha do tempo. <see cref="Ator"/> é o nome de quem fez, como a tela lê.</summary>
+public sealed record EventoDaTrilha(string Texto, string Tom, NaturezaDoEvento Natureza = NaturezaDoEvento.Comum, string? Ator = null);
 
 /// <summary>
 /// O QUE A TELA "WHATSAPP DA CLÍNICA" AFIRMA (out/2026 — PR 2 do roteiro
@@ -358,9 +366,9 @@ public static partial class ConversasNaTela
     /// <item>o aviso do sino do paciente da ficha conferida — Não vem — remarcar, Pediu para cancelar, Sem resposta · HH:mm
     /// (o MESMO <see cref="AvisoDeConfirmacao"/>, nunca um segundo cálculo);</item>
     /// <item>mensagem não entregue (o <c>DeliveryAttention</c> do CRM);</item>
-    /// <item>sem ficha conferida: N fichas — conferir, Ficha a conferir ou Novo contato · sem ficha;</item>
+    /// <item>sem ficha conferida: N fichas, Ficha a conferir ou Sem ficha (curtos: o selo é o que não pode ser cortado na coluna da lista);</item>
     /// <item>no menu de atendimento do CRM;</item>
-    /// <item>o caso do Acompanhamento: Respondeu ao convite · decidir, ou Acompanhamento · N dias;</item>
+    /// <item>o caso do Acompanhamento: Respondeu ao convite, ou Acompanhamento · N dias;</item>
     /// <item>Confirmou · HH:mm (notícia, não pede ação);</item>
     /// <item>Aguardando paciente (a última foi da clínica), Em atendimento, ou Nova · sem responsável.</item>
     /// </list>
@@ -389,14 +397,14 @@ public static partial class ConversasNaTela
         if (c.PatientId is null)
             return fichasComOTelefone switch
             {
-                <= 0 => new("Novo contato · sem ficha", "neutro"),
+                <= 0 => new("Sem ficha", "neutro"),
                 1 => new("Ficha a conferir", "info"),
-                var n => new($"{n} fichas — conferir", "info")
+                var n => new($"{n} fichas", "info")
             };
         if (c.AwaitingMenu) return new("No menu de atendimento", "neutro");
         if (CasoDaConversa(c.PatientId, caso) is { } l)
             return RetencaoNaTela.Situacao(l, c.LastIncoming, agora) == SituacaoNaRetencao.Respondeu
-                ? new("Respondeu ao convite · decidir", "sucesso")
+                ? new("Respondeu ao convite", "sucesso")
                 : new($"Acompanhamento · {ConversaDoAcompanhamento.TempoTexto(l)}", "info");
         if (aviso is { Tipo: TipoAvisoConfirmacao.Confirmou })
             return new($"Confirmou · {HoraDaSessao(aviso.Sessao, agora)}", "sucesso");
@@ -579,7 +587,8 @@ public static partial class ConversasNaTela
     /// <summary>
     /// A lista: o filtro, "só não lidas", e a busca pelo nome (da conversa ou da ficha, sem
     /// caixa nem acento) ou pelos dígitos do telefone (a partir de <see cref="DigitosParaBuscarTelefone"/>).
-    /// A mais recente primeiro.
+    /// A mais recente primeiro; em "Novas", a mais ANTIGA primeiro (é a fila: quem espera há mais tempo
+    /// é atendido antes — e <see cref="OrdenarAsNovas"/> põe na frente o que pede ação).
     /// </summary>
     public static IReadOnlyList<AppConversationSummary> Filtrar(IEnumerable<AppConversationSummary> conversas,
         FiltroDasConversas filtro, string? meuAgente, string? busca = null, bool soNaoLidas = false)
@@ -590,7 +599,7 @@ public static partial class ConversasNaTela
             .Where(c => NoFiltro(c, filtro, meuAgente) && (!soNaoLidas || c.Unread > 0)
                 && (termo.Length == 0 || Contem(c.Name, termo) || Contem(c.PatientName, termo)
                     || digitos.Length >= DigitosParaBuscarTelefone && Telefone.Normalizar(c.Contact).Contains(digitos, StringComparison.Ordinal)))
-            .OrderByDescending(c => c.UpdatedAt).ThenBy(c => c.Id, StringComparer.Ordinal)
+            .OrderBy(c => filtro == FiltroDasConversas.Novas ? c.UpdatedAt.UtcTicks : -c.UpdatedAt.UtcTicks).ThenBy(c => c.Id, StringComparer.Ordinal)
             .ToList();
     }
 
@@ -648,11 +657,13 @@ public static partial class ConversasNaTela
     /// continuam o anterior (mesmo lado e mesmo autor, sem nada entre eles).
     /// <paramref name="nomesDosAgentes"/> é o <c>AppSession.Agents</c> (id → nome); id
     /// desconhecido vira "Equipe", nunca o id cru; saída sem autor é "Mensagem automática".
+    /// Os eventos passam pela limpeza de <see cref="Limpar"/> (25/10/2026): a linha do tempo é a
+    /// conversa, e o evento é a nota de rodapé dela.
     /// </summary>
     public static IReadOnlyList<ItemDaConversa> LinhaDoTempo(AppConversation conversa, int recebidasJaLidas, DateTimeOffset agora,
         IReadOnlyDictionary<string, string>? nomesDosAgentes = null)
     {
-        var fontes = new List<(DateTimeOffset At, int Ordem, int Indice, ItemDaConversa Item)>();
+        var fontes = new List<(DateTimeOffset At, int Ordem, int Indice, ItemDaConversa Item, EventoDaTrilha? Evento)>();
         for (var i = 0; i < conversa.Messages.Length; i++)
         {
             var m = conversa.Messages[i];
@@ -667,20 +678,19 @@ public static partial class ConversasNaTela
             fontes.Add((m.At, 0, i, new ItemDaConversa(recebida ? TipoNaLinhaDoTempo.Recebida : TipoNaLinhaDoTempo.Enviada, texto,
                 Hora(m.At, agora), recebida ? null : Agente(m.AgentId, nomesDosAgentes, "Mensagem automática"),
                 Tick: tick, Anexo: midia is not null || string.IsNullOrWhiteSpace(m.FileName) ? null : m.FileName, Modelo: m.Template?.Name,
-                Erro: tick is { Estado: EstadoDaEntrega.Falhou or EstadoDaEntrega.NaoConfirmada } && !string.IsNullOrWhiteSpace(m.Error) ? m.Error : null,
-                Id: m.Id, At: m.At, Midia: midia)));
+                Erro: ErroDaEntrega(tick, m.Error), Id: m.Id, At: m.At, Midia: midia), null));
         }
         for (var i = 0; i < conversa.Notes.Length; i++)
         {
             var n = conversa.Notes[i];
             fontes.Add((n.At, 1, i, new ItemDaConversa(TipoNaLinhaDoTempo.Nota, n.Text, Hora(n.At, agora),
-                Agente(n.AgentId, nomesDosAgentes, "Equipe"), Id: n.Id, At: n.At)));
+                Agente(n.AgentId, nomesDosAgentes, "Equipe"), Id: n.Id, At: n.At), null));
         }
         for (var i = 0; i < conversa.Audit.Length; i++)
         {
             var a = conversa.Audit[i];
             if (Evento(a, agora) is not { } e) continue;
-            fontes.Add((a.At, 2, i, new ItemDaConversa(TipoNaLinhaDoTempo.Evento, e.Texto, Hora(a.At, agora), Tom: e.Tom, At: a.At)));
+            fontes.Add((a.At, 2, i, new ItemDaConversa(TipoNaLinhaDoTempo.Evento, e.Texto, Hora(a.At, agora), Tom: e.Tom, At: a.At), e));
         }
 
         var naoLidas = conversa.Messages.Count(EhRecebida) - Math.Max(0, recebidasJaLidas);
@@ -688,7 +698,8 @@ public static partial class ConversasNaTela
         DateOnly? dia = null;
         ItemDaConversa? anterior = null;
         var recebidas = 0;
-        foreach (var (at, _, _, item) in fontes.OrderBy(f => f.At).ThenBy(f => f.Ordem).ThenBy(f => f.Indice))
+        foreach (var (at, item) in Limpar(fontes.OrderBy(f => f.At).ThenBy(f => f.Ordem).ThenBy(f => f.Indice)
+                     .Select(f => (f.At, f.Item, f.Evento)).ToList()))
         {
             var d = DateOnly.FromDateTime(at.ToOffset(agora.Offset).DateTime);
             if (d != dia)
@@ -705,6 +716,12 @@ public static partial class ConversasNaTela
             var seguida = item.Tipo is TipoNaLinhaDoTempo.Recebida or TipoNaLinhaDoTempo.Enviada or TipoNaLinhaDoTempo.Nota
                 && anterior is not null && anterior.Tipo == item.Tipo && anterior.Autor == item.Autor;
             var final = seguida ? item with { Seguida = true } : item;
+            // Dois eventos seguidos no mesmo minuto são UMA nota de rodapé ("Encerrada por Bruna. A conversa reabriu…").
+            if (item.Tipo == TipoNaLinhaDoTempo.Evento && itens.Count > 0 && itens[^1] is { Tipo: TipoNaLinhaDoTempo.Evento } ultimo && ultimo.Hora == item.Hora)
+            {
+                itens[^1] = ultimo with { Texto = ultimo.Texto + ". " + item.Texto, Tom = TomMaisForte(ultimo.Tom, item.Tom) };
+                continue;
+            }
             itens.Add(final);
             anterior = item.Tipo == TipoNaLinhaDoTempo.Evento ? null : final;
         }
@@ -792,6 +809,9 @@ public static partial class ConversasNaTela
     /// tabela não conhece vira "Movimentação registrada no CRM" — nunca o texto cru.
     /// </summary>
     public static EventoDaTrilha? Evento(AppAudit registro, DateTimeOffset agora)
+        => EventoCru(registro, agora) is { } e ? e with { Natureza = Natureza(registro), Ator = Ator(registro.Actor) } : null;
+
+    private static EventoDaTrilha? EventoCru(AppAudit registro, DateTimeOffset agora)
     {
         var acao = (registro.Action ?? "").Trim();
         var ator = Ator(registro.Actor);

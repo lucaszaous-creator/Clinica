@@ -10,7 +10,14 @@
   - A figurinha (MidiaDaMensagem.Figurinha) é imagem que se desenha pequena, sem balão e sem ampliar.
   - Três estados por arquivo: esqueleto enquanto chega, o arquivo, e a falha com "Tentar de novo".
     Formato que o navegador não mostra (uma foto que veio como PDF) vira cartão com "Baixar".
+  - Falhou: some o Baixar (e o Abrir), que falhariam do mesmo jeito; o "Tentar de novo" só quando
+    tentar pode resolver (sem ligação) — o que o CRM recusou não volta (25/10/2026).
+  - O áudio tem a velocidade à vista (1× → 1,5× → 2×), como no WhatsApp: o playbackRate é
+    propriedade do elemento, e só o js/conversa-do-whatsapp.js a alcança.
 *@
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+@implements IAsyncDisposable
 
 <div class="wa-midia wa-midia-@Classe">
     @switch (Midia.Tipo)
@@ -44,7 +51,7 @@
                 <span class="wa-audio-ic"><Icone Nome="microfone" /></span>
                 @if (Carregada?.Endereco is { } som)
                 {
-                    <audio controls preload="metadata" src="@som" aria-label="@MidiaDaConversa.RotuloDoAudio(Carregada.Duracao)"></audio>
+                    <audio controls preload="metadata" src="@som" aria-label="@MidiaDaConversa.RotuloDoAudio(Carregada.Duracao)" @ref="_audio"></audio>
                 }
                 else if (Falha is null && Carregada is null && Esquecida)
                 {
@@ -93,8 +100,7 @@
     {
         <div class="wa-midia-falha" role="alert">
             <Icone Nome="alerta" /><span>@falha</span>
-            @* O documento repete pelo próprio Abrir/Baixar; os outros, por aqui. *@
-            @if (Midia.Tipo != TipoDeMidia.Documento)
+            @if (PodeTentarDeNovo)
             {
                 <button type="button" class="botao mini" disabled="@Carregando" @onclick="AoCarregar"><Icone Nome="atualizar" />Tentar de novo</button>
             }
@@ -123,6 +129,13 @@
     /// <summary>Por que esta pessoa não guarda agora (sem permissão, ficha não conferida); nulo = o botão vale.</summary>
     [Parameter] public string? MotivoSemGuardar { get; set; }
     [Parameter] public EventCallback AoGuardar { get; set; }
+    /// <summary>A falha pode passar com outra tentativa (sem ligação); falso quando o CRM recusou o arquivo.</summary>
+    [Parameter] public bool PodeTentarDeNovo { get; set; } = true;
+
+    private const string ModuloJs = "./js/conversa-do-whatsapp.js";
+    private ElementReference _audio;
+    private IJSObjectReference? _modulo;
+    private double _velocidade = 1;
 
     private string? _pedida;
 
@@ -136,6 +149,12 @@
         TipoDeMidia.Imagem => Midia.Figurinha ? "figurinha" : "foto", TipoDeMidia.Audio => "audio", TipoDeMidia.Video => "video", _ => "documento"
     };
 
+    // O áudio que saiu da memória volta num elemento novo, que toca em 1×: o rótulo acompanha.
+    protected override void OnParametersSet()
+    {
+        if (Carregada?.Endereco is null) _velocidade = 1;
+    }
+
     // Foto e áudio pedem o arquivo ao aparecer — uma vez por mensagem (a falha espera o "Tentar de novo").
     protected override async Task OnAfterRenderAsync(bool primeira)
     {
@@ -144,11 +163,37 @@
         await AoCarregar.InvokeAsync();
     }
 
-    /// <summary>A linha de baixo do áudio e do vídeo: o que é, o tamanho, e o Baixar.</summary>
+    /// <summary>A linha de baixo do áudio e do vídeo: o que é, a velocidade (áudio tocando aqui) e o Baixar — que some quando a mídia falhou.</summary>
     private RenderFragment Rodape() => @<div class="wa-midia-linha">
         <small>@MidiaDaConversa.Descricao(Midia, Carregada)</small>
-        <button type="button" class="botao mini" disabled="@Carregando" @onclick="AoBaixar"><Icone Nome="baixar" />Baixar</button>
+        @if (Midia.Tipo == TipoDeMidia.Audio && Carregada?.Endereco is not null)
+        {
+            <button type="button" class="botao mini wa-velocidade" title="Velocidade do áudio" aria-label="@($"Velocidade {MidiaDaConversa.RotuloDaVelocidade(_velocidade)}: tocar em {MidiaDaConversa.RotuloDaVelocidade(MidiaDaConversa.ProximaVelocidade(_velocidade))}")"
+                    @onclick="TrocarVelocidadeAsync">@MidiaDaConversa.RotuloDaVelocidade(_velocidade)</button>
+        }
+        @if (Falha is null)
+        {
+            <button type="button" class="botao mini" disabled="@Carregando" @onclick="AoBaixar"><Icone Nome="baixar" />Baixar</button>
+        }
     </div>;
+
+    /// <summary>1× → 1,5× → 2× → 1×. A taxa vai ao elemento pelo módulo (sem ele — o teste —, só o rótulo muda).</summary>
+    private async Task TrocarVelocidadeAsync()
+    {
+        _velocidade = MidiaDaConversa.ProximaVelocidade(_velocidade);
+        try
+        {
+            _modulo ??= await JS.InvokeAsync<IJSObjectReference>("import", ModuloJs);
+            if (_modulo is not null) await _modulo.InvokeVoidAsync("velocidade", _audio, _velocidade);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException) { /* o balão pode ter saído */ }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try { if (_modulo is not null) await _modulo.DisposeAsync(); }
+        catch (Exception ex) when (ex is JSDisconnectedException or TaskCanceledException) { /* a janela fechou */ }
+    }
 
     /// <summary>O cartão do arquivo: documento (com Abrir), ou a foto que o navegador não mostra.</summary>
     private RenderFragment Arquivo(string icone) => @<div class="wa-doc">
@@ -157,12 +202,15 @@
             <strong title="@(Midia.Nome ?? Carregada?.Arquivo.Nome)">@(Midia.Nome ?? Carregada?.Arquivo.Nome ?? Midia.Rotulo)</strong>
             <small>@MidiaDaConversa.Descricao(Midia, Carregada)</small>
         </div>
-        <div class="wa-doc-acoes">
-            @if (Midia.Tipo == TipoDeMidia.Documento)
-            {
-                <button type="button" class="botao mini" disabled="@Carregando" @onclick="AoAbrir"><Icone Nome="abrir" />@(Carregando ? "Abrindo…" : "Abrir")</button>
-            }
-            <button type="button" class="botao mini" disabled="@Carregando" @onclick="AoBaixar"><Icone Nome="baixar" />Baixar</button>
-        </div>
+        @if (Falha is null)
+        {
+            <div class="wa-doc-acoes">
+                @if (Midia.Tipo == TipoDeMidia.Documento)
+                {
+                    <button type="button" class="botao mini" disabled="@Carregando" @onclick="AoAbrir"><Icone Nome="abrir" />@(Carregando ? "Abrindo…" : "Abrir")</button>
+                }
+                <button type="button" class="botao mini" disabled="@Carregando" @onclick="AoBaixar"><Icone Nome="baixar" />Baixar</button>
+            </div>
+        }
     </div>;
 }

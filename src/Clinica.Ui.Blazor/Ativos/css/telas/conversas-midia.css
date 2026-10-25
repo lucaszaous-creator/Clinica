@@ -12,8 +12,11 @@
    Como no WhatsApp: a imagem solta, sem o balão em volta; a hora vira uma pílula sobre o fundo. Vem
    depois do conversas.css, então a mesma especificidade do ".wa-m.enviada .wa-balao" perde para esta. */
 .wa-m .wa-balao.wa-balao-figurinha{display:flex;flex-direction:column;align-items:flex-end;background:transparent;border-color:transparent;box-shadow:none;padding:0}
-.wa-balao-figurinha .wa-m-rodape{float:none;display:inline-flex;margin-top:var(--space-1);padding:2px var(--space-2);
-  border-radius:var(--radius-pilula);background:var(--superficie);box-shadow:var(--sombra-cartao)}
+/* A hora fica no canto de baixo à direita da figurinha, por cima dela, como no WhatsApp (item 18 da revisão: solta
+   embaixo, ela parecia centralizada). */
+.wa-balao-figurinha .wa-m-rodape{float:none;display:inline-flex;margin-right:var(--space-1);
+  padding:2px var(--space-2);border-radius:var(--radius-pilula);background:var(--superficie);box-shadow:var(--sombra-cartao)}
+.wa-m .wa-balao.wa-balao-figurinha .wa-midia + .wa-m-rodape{margin-top:calc(-1 * var(--space-6))}
 .wa-figurinha{display:block;width:128px;height:128px;object-fit:contain}
 .wa-midia-figurinha .wa-foto-esqueleto{width:128px;aspect-ratio:1}
 
@@ -51,6 +54,8 @@ button.wa-foto-esqueleto:hover{background:var(--cinza-200)}
 .wa-midia-linha{display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap}
 .wa-midia-linha small{flex:1;min-width:0;color:var(--texto-secundario);font-size:var(--text-small-size);font-variant-numeric:tabular-nums}
 .wa-midia .botao.mini{height:26px;background:var(--superficie)}
+/* A velocidade do áudio à vista (item 17): 1× → 1,5× → 2×. */
+.wa-midia .botao.mini.wa-velocidade{min-width:44px;justify-content:center;font-weight:700;font-variant-numeric:tabular-nums}
 .wa-midia-nota{font-size:var(--text-small-size);color:var(--texto-secundario)}
 
 /* ---------- Documento: o cartão com a sigla, o nome, Abrir e Baixar ---------- */

@@ -227,7 +227,7 @@ public sealed class ConversasNaTelaTests
         Assert.Empty(ConversasNaTela.AvisosDaConversa(999, avisos, PacienteDoAgendamento));
         // Mesmo que a tela passe os avisos, conversa SEM ficha não ganha selo de confirmação.
         var semFicha = WhatsAppDeTeste.Resumo(paciente: null);
-        Assert.Equal("Novo contato · sem ficha", ConversasNaTela.Selo(semFicha, avisos, 0, null, Agora).Texto);
+        Assert.Equal("Sem ficha", ConversasNaTela.Selo(semFicha, avisos, 0, null, Agora).Texto);
     }
 
     [Fact]
@@ -242,9 +242,9 @@ public sealed class ConversasNaTelaTests
 
         Assert.Equal(new SeloDoWhatsApp("Mensagem não entregue · conferir", "perigo"),
             ConversasNaTela.Selo(WhatsAppDeTeste.Resumo(paciente: 101, falhaDeEntrega: true), [], 1, null, Agora));
-        Assert.Equal(new SeloDoWhatsApp("2 fichas — conferir", "info"), ConversasNaTela.Selo(WhatsAppDeTeste.Resumo(), [], 2, null, Agora));
+        Assert.Equal(new SeloDoWhatsApp("2 fichas", "info"), ConversasNaTela.Selo(WhatsAppDeTeste.Resumo(), [], 2, null, Agora));
         Assert.Equal(new SeloDoWhatsApp("Ficha a conferir", "info"), ConversasNaTela.Selo(WhatsAppDeTeste.Resumo(), [], 1, null, Agora));
-        Assert.Equal(new SeloDoWhatsApp("Novo contato · sem ficha", "neutro"), ConversasNaTela.Selo(WhatsAppDeTeste.Resumo(), [], 0, null, Agora));
+        Assert.Equal(new SeloDoWhatsApp("Sem ficha", "neutro"), ConversasNaTela.Selo(WhatsAppDeTeste.Resumo(), [], 0, null, Agora));
         Assert.Equal("No menu de atendimento", ConversasNaTela.Selo(WhatsAppDeTeste.Resumo(paciente: 101, noMenu: true), [], 1, null, Agora).Texto);
 
         Assert.Equal(new SeloDoWhatsApp("Aguardando paciente", "neutro"),
@@ -262,7 +262,7 @@ public sealed class ConversasNaTelaTests
         Assert.Equal(new SeloDoWhatsApp("Acompanhamento · 20 dias", "info"), ConversasNaTela.Selo(aguardando, [], 1, caso, Agora));
 
         var respondeu = aguardando with { LastIncoming = new DateTimeOffset(2026, 10, 23, 20, 40, 0, TimeSpan.Zero) }; // 17:40 em Brasília
-        Assert.Equal(new SeloDoWhatsApp("Respondeu ao convite · decidir", "sucesso"), ConversasNaTela.Selo(respondeu, [], 1, caso, Agora));
+        Assert.Equal(new SeloDoWhatsApp("Respondeu ao convite", "sucesso"), ConversasNaTela.Selo(respondeu, [], 1, caso, Agora));
 
         // O caso de OUTRA ficha, o fechado e o de consulta não aparecem.
         Assert.Equal("Em atendimento", ConversasNaTela.Selo(aguardando, [], 1, caso with { PacienteId = 555 }, Agora).Texto);
@@ -596,7 +596,7 @@ public sealed class ConversasNaTelaTests
         ]);
         var itens = ConversasNaTela.LinhaDoTempo(conversa, 0, Agora, WhatsAppDeTeste.Agentes).Where(i => i.Tipo == TipoNaLinhaDoTempo.Enviada).ToList();
         Assert.Equal(("Mensagem automática", "lembrete_sessao"), (itens[0].Autor, itens[0].Modelo));
-        Assert.Equal(("Equipe", "A Meta recusou o envio."), (itens[1].Autor, itens[1].Erro));
+        Assert.Equal(("Equipe", "Não entregue. Confira o número ou envie de novo."), (itens[1].Autor, itens[1].Erro));
         Assert.Equal("Mensagem automática", itens[2].Autor);
         Assert.Null(itens[2].Erro);
     }
@@ -674,7 +674,7 @@ public sealed class ConversasNaTelaTests
     [Fact]
     public void Os_filtros_e_as_contagens_da_lista()
     {
-        Assert.Equal(["a", "f"], ConversasNaTela.Filtrar(Lista, FiltroDasConversas.Novas, "ana").Select(c => c.Id));
+        Assert.Equal(["f", "a"], ConversasNaTela.Filtrar(Lista, FiltroDasConversas.Novas, "ana").Select(c => c.Id)); // a fila: a mais antiga primeiro
         Assert.Equal(["b"], ConversasNaTela.Filtrar(Lista, FiltroDasConversas.Minhas, "ana").Select(c => c.Id));
         Assert.Empty(ConversasNaTela.Filtrar(Lista, FiltroDasConversas.Minhas, null));
         Assert.Equal(["a", "e", "b", "c", "f"], ConversasNaTela.Filtrar(Lista, FiltroDasConversas.Todas, "ana").Select(c => c.Id));

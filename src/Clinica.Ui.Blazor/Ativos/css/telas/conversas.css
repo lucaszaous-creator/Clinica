@@ -11,7 +11,7 @@
    balão enviado, o "conectado"). Ação primária continua no acento do app. */
 
 /* ---------- A tela ocupa o palco inteiro; quem rola é cada coluna ---------- */
-.pagina.wa{height:100%;max-width:none;padding:0;gap:0;display:grid;grid-template-columns:340px minmax(0,1fr) 320px;
+.pagina.wa{height:100%;max-width:none;padding:0;gap:0;display:grid;grid-template-columns:320px minmax(0,1fr) 320px;
   grid-template-areas:"lista conversa ficha";background:var(--superficie);position:relative;overflow:hidden}
 .wa-lista,.wa-conversa,.wa-ficha{display:flex;flex-direction:column;min-height:0;min-width:0}
 .wa-lista{grid-area:lista;border-right:1px solid var(--borda)}
@@ -86,6 +86,8 @@
 .wa-linha:hover{background:var(--fundo)}
 .wa-linha:focus-visible{outline:2px solid var(--foco);outline-offset:-2px}
 .wa-linha[aria-current="true"]{background:var(--acento-suave)}
+/* O texto secundário da linha selecionada: o cinza secundário no azul suave ficava em 4,3:1 (item 19). */
+.wa-linha[aria-current="true"] :is(.wa-linha-previa,.wa-linha-hora:not(.tom-aviso),.wa-linha-tratamento,.wa-linha-quem:not(.minha)){color:var(--cinza-700)}
 .wa-linha .avatar{width:44px;height:44px;font-size:14px}
 .wa-linha-corpo{display:flex;flex-direction:column;gap:2px;min-width:0}
 .wa-linha-topo{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-2)}
@@ -99,8 +101,17 @@
 .wa-nao-lidas{min-width:20px;height:20px;padding:0 6px;border-radius:var(--radius-pilula);background:var(--sucesso);color:var(--texto-invertido);
   font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
 .wa-linha-rodape{display:flex;align-items:center;gap:var(--space-2);margin-top:2px;min-height:18px}
-.wa-linha-rodape .selo{margin-left:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-.wa-linha-quem{font-size:var(--text-small-size);color:var(--texto-secundario);margin-left:auto;white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
+/* O selo é a informação: nunca encolhe (os textos são curtos — ConversasNaTela/RetencaoNaTela.Selo). Quem cede é o
+   responsável (25/10/2026, item 8 da revisão: "Novo contato · …" cortado em 1024). Sem responsável, a linha não diz
+   "Sem responsável": o selo ("Nova", "Sem ficha"…) e a aba "Novas" já dizem, e o texto só disputava lugar. */
+.wa-linha-rodape .selo{margin-left:0;white-space:nowrap;flex:none;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.wa-linha-quem{font-size:var(--text-small-size);color:var(--texto-secundario);margin-left:auto;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;
+  flex:0 1000 auto;min-width:0;overflow:hidden}
+.wa-linha-quem > span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.wa-linha-quem .icone{flex:none}
+/* R4: quem espera a clínica ("há 2 h") e a janela que vai fechar ("fecha às 14:10") no canto da hora, como as caixas de
+   atendimento: a frase inteira está na dica. Laranja a partir de 1 h — também na linha não lida, que seria verde. */
+.wa-linha .wa-linha-hora.wa-espera.tom-aviso{color:var(--aviso-texto);font-weight:600}
 .wa-linha-quem.minha{color:var(--acento);font-weight:600}
 .wa-lista-rodape{padding:var(--space-2) var(--space-4);border-top:1px solid var(--borda);font-size:var(--text-small-size);color:var(--texto-secundario);
   display:flex;align-items:center;gap:var(--space-2)}
@@ -124,6 +135,10 @@
 .wa-cab-acoes{display:flex;align-items:center;gap:var(--space-1);flex:none}
 .wa-cab-acoes .botao{height:34px}
 .wa-cab-acoes .botao.icone{width:34px}
+/* As ações escritas ("Devolver à fila", "Resumo", "Encerrar") numa coluna de ~720 px: botões mais compactos (25/10/2026). Antes
+   das regras que as reduzem ao ícone, que ganham por virem depois. E o nome com reticências de verdade (num h2 flex não há). */
+.wa-cab-acoes .botao:not(.icone){padding:0 var(--space-3);font-size:var(--text-table-size);gap:6px}
+.wa-cab-quem h2{display:block}
 .wa-faixa{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-3);padding:6px var(--space-4);
   background:var(--superficie);border-bottom:1px solid var(--borda);font-size:var(--text-small-size);color:var(--texto-secundario)}
 .wa-faixa .selo{margin-left:0;display:inline-flex;align-items:center;gap:4px}
@@ -138,14 +153,16 @@
 .wa-mensagens{flex:1;min-height:0;overflow-y:auto;padding:var(--space-4) var(--space-6);display:flex;flex-direction:column;gap:2px;
   background-color:var(--fundo);
   background-image:radial-gradient(var(--cinza-200) 1px,transparent 1px);background-size:var(--space-6) var(--space-6)}
+/* A conversa curta assenta perto do campo, como no WhatsApp: o vão fica em cima (item 11 da revisão). */
+.wa-mensagens > :first-child{margin-top:auto}
 .wa-dia{align-self:center;font-size:var(--text-small-size);font-weight:600;color:var(--texto-secundario);padding:3px 10px;margin:var(--space-3) 0 var(--space-2);
   border-radius:var(--radius-pilula);background:var(--superficie);box-shadow:var(--sombra-cartao);border:1px solid var(--borda)}
-.wa-evento{align-self:center;display:inline-flex;align-items:center;gap:var(--space-2);max-width:min(520px,100%);padding:var(--space-2) var(--space-3);margin:var(--space-2) 0;
-  border:1px solid var(--borda);border-radius:var(--radius-control);background:var(--superficie);font-size:var(--text-small-size);color:var(--texto-secundario);text-align:left}
-.wa-evento svg{width:14px;height:14px;flex:none;color:var(--acento)}
-.wa-evento.alerta svg{color:var(--aviso)}
-.wa-evento.ok svg{color:var(--sucesso-forte)}
-.wa-evento time{font-variant-numeric:tabular-nums;color:var(--texto-primario);font-weight:600}
+/* O evento do sistema é nota de rodapé da conversa (25/10/2026, item 2 da revisão): texto cinza pequeno e centralizado,
+   sem caixa nem ícone — o peso visual é dos balões, como no WhatsApp Business. O de atenção fica na cor do aviso. */
+.wa-evento{align-self:center;max-width:min(520px,100%);margin:var(--space-1) 0;padding:0 var(--space-3);font-size:var(--text-small-size);
+  line-height:1.4;color:var(--texto-secundario);text-align:center}
+.wa-evento.aviso{color:var(--aviso-texto)}
+.wa-evento time{font-variant-numeric:tabular-nums}
 .wa-novas{align-self:stretch;display:flex;align-items:center;gap:var(--space-3);margin:var(--space-2) 0;font-size:var(--text-small-size);font-weight:600;color:var(--sucesso-forte)}
 .wa-novas::before,.wa-novas::after{content:"";flex:1;height:1px;background:var(--verde-100)}
 .wa-m{display:flex;flex-direction:column;max-width:min(560px,76%);margin-top:var(--space-2)}
@@ -165,6 +182,8 @@
   font-size:11px;color:var(--texto-secundario);font-variant-numeric:tabular-nums;line-height:1}
 .wa-m .wa-balao .wa-m-rodape{position:relative;top:4px}
 .wa-m-rodape .wa-autor{color:var(--texto-secundario)}
+/* No verde do balão enviado o cinza secundário ficava em 4,4:1; o cinza do corpo passa de 4,5:1 (item 19). */
+.wa-m.enviada .wa-m-rodape,.wa-m.enviada .wa-m-rodape .wa-autor{color:var(--cinza-700)}
 .wa-tick{display:inline-flex;width:16px;height:12px;color:var(--texto-secundario)}
 .wa-tick svg{width:16px;height:12px}
 .wa-tick.lida{color:var(--info)}
@@ -201,14 +220,9 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px;fon
 .wa-escrever-rodape .botao.mini{height:30px;border-color:transparent;background:transparent;font-weight:500;color:var(--cinza-700)}
 .wa-escrever-rodape .botao.mini:hover:not(:disabled){background:var(--fundo);border-color:transparent}
 .wa-escrever-rodape .botao.mini[aria-expanded="true"]{background:var(--acento-suave);color:var(--acento)}
-.wa-atalho{margin-left:auto;font-size:var(--text-small-size);color:var(--texto-secundario);padding-right:var(--space-2)}
-.wa-escrever-rodape .botao.primario{height:34px;padding:0 var(--space-4)}
-/* Com Anexar, Áudio, Modelos, Respostas rápidas e o ✨, a dica do atalho empurrava o Enviar para a linha de baixo,
-   sozinho à esquerda (foto 50-midia em 1366). O rodapé é o contêiner (a aba, a gaveta ao lado e o celular têm
-   larguras diferentes na mesma janela): estreito, a dica sai — o Ctrl + Enter continua valendo — e o Enviar fica
-   sempre à direita, também quando quebra de linha. */
-.wa-escrever-rodape{container-type:inline-size}
-@container (max-width:700px){.wa-escrever-rodape .wa-atalho{display:none}.wa-escrever-rodape .botao.primario{margin-left:auto}}
+/* O Enviar fica sempre à direita, também quando o rodapé quebra de linha. A dica do teclado ("Enter envia, Shift+Enter
+   quebra a linha") mora no próprio campo (25/10/2026): no rodapé ela sumia em 1366 e 1024, onde mais se usa. */
+.wa-escrever-rodape .botao.primario{height:34px;padding:0 var(--space-4);margin-left:auto}
 .wa-escrever-rodape .botao.primario:disabled{opacity:.45}
 .wa-rascunho-anexo{display:flex;align-items:center;gap:var(--space-2);margin:0 var(--space-3);padding:6px 10px;border-radius:var(--radius-control);background:var(--fundo);
   font-size:var(--text-table-size)}
@@ -383,9 +397,6 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px;fon
 .wa-cab-acoes .botao .icone{width:16px;height:16px}
 .wa-escrever-rodape .botao .icone{width:16px;height:16px}
 .wa-faixa .icone{width:12px;height:12px}
-.wa-evento .icone{width:14px;height:14px;flex:none;color:var(--acento)}
-.wa-evento.sucesso .icone{color:var(--sucesso-forte)}
-.wa-evento.aviso .icone{color:var(--aviso)}
 .wa-m.nota .wa-balao b .icone{width:13px;height:13px}
 .wa-janela-ic .icone,.wa-anexo .icone,.wa-rascunho-anexo .icone{width:18px;height:18px}
 .wa-recado{margin:var(--space-2) var(--space-6) 0}
@@ -418,11 +429,16 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px;fon
 .wa-escrever-rodape .botao.mini.wa-semdor-desfazer{min-width:30px;padding:0 var(--space-2);justify-content:center;font-size:var(--text-body-size)}
 .wa-semdor-brilho{font-weight:400;line-height:1;font-size:var(--text-body-size)}
 .wa-cab-acoes .botao.wa-semdor-acao{color:var(--violeta-600);gap:6px}
-/* O rótulo "Resumo" só onde sobra cabeçalho: em 1024 e 1366 ele espremia o nome do paciente (fotos 53). Abaixo
+/* O rótulo "Resumo" só onde sobra cabeçalho (desde 25/10, a partir de 640 px: com "Devolver à fila" e "Encerrar" o
+   nome ainda cabe em 1366 e 1024 — item 5 da revisão; antes, 820 px, por causa das fotos 53). Abaixo
    disso fica o ✨, do tamanho do buscar, com o nome inteiro na dica e no leitor de tela. O contêiner é o
    CABEÇALHO (não a coluna): a contenção de leiaute não alcança os popovers nem a linha do tempo. */
 .wa-cab{container-type:inline-size}
-@container (max-width:820px){.wa-cab-acoes .botao.wa-semdor-acao span{display:none}.wa-cab-acoes .botao.wa-semdor-acao{width:34px;padding:0;justify-content:center}}
+/* Com "Devolver à fila", "Resumo" e "Encerrar" escritos, o Transferir fica no ícone (⇄, com a dica) abaixo de 820 px: em 1366
+   a coluna da conversa tem ~700 px e o nome do paciente precisa de lugar (25/10/2026). */
+@container (max-width:820px){.wa-cab-acoes .botao[data-acao=transferir] span{display:none}.wa-cab-acoes .botao[data-acao=transferir]{width:34px;padding:0;justify-content:center}}
+.wa-cab-meta > span{white-space:nowrap}
+@container (max-width:640px){.wa-cab-acoes .botao.wa-semdor-acao span{display:none}.wa-cab-acoes .botao.wa-semdor-acao{width:34px;padding:0;justify-content:center}}
 .wa-cab-acoes .botao.wa-semdor-acao:hover:not(:disabled){background:var(--violeta-50)}
 /* "Escrevendo…": um ponto que pulsa — parado com movimento reduzido. */
 .wa-semdor-pensando{display:inline-block;width:8px;height:8px;border-radius:var(--radius-pilula);background:var(--violeta-600);flex:none;
@@ -441,11 +457,7 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px;fon
   border-radius:var(--radius-control);background:var(--aviso-suave);color:var(--aviso-texto);font-size:var(--text-small-size);line-height:1.4}
 .wa-semdor-aviso span:nth-child(2){flex:1;min-width:0}
 .wa-semdor-aviso .botao.icone{width:24px;height:24px;flex:none}
-@media (max-width:1180px){.wa-semdor-resumo{margin-left:var(--space-4);margin-right:var(--space-4)}
-  /* Com o ↶, o rodapé (que aqui reserva o canto da bolinha do chat) quebrava e o Enviar caía sozinho à esquerda
-     (foto 52 em 1024): sai a dica do atalho — o Ctrl + Enter continua valendo — e o Enviar fica à direita. */
-  .wa-escrever-rodape:has(.wa-semdor-desfazer) .wa-atalho{display:none}
-  .wa-escrever-rodape:has(.wa-semdor-desfazer) .botao.primario{margin-left:auto}}
+@media (max-width:1180px){.wa-semdor-resumo{margin-left:var(--space-4);margin-right:var(--space-4)}}
 @media (max-width:760px){.wa-semdor-resumo dl{grid-template-columns:minmax(0,1fr)}.wa-semdor-resumo dd{margin-bottom:var(--space-1)}}
 @media (prefers-reduced-motion:reduce){.wa-semdor-pensando{animation:none;opacity:.7}.wa-semdor-resumo{animation:none}}
 
@@ -455,3 +467,22 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px;fon
 .wa-resolver li .icone{margin-top:2px}
 .wa-resolver li.tom-perigo .icone{color:var(--erro)}
 .wa-resolver li.tom-aviso .icone{color:var(--aviso)}
+/* ---------- O acabamento profissional (25/10/2026 — docs/whatsapp-nativo-implementacao.md §15) ---------- */
+/* Sem conversa aberta, a coluna da ficha não ocupa lugar (item 12): o centro fica com o espaço. */
+@media (min-width:1181px){.pagina.wa.sem-conversa{grid-template-columns:320px minmax(0,1fr);grid-template-areas:"lista conversa"}}
+.pagina.wa.sem-conversa .wa-ficha{display:none}
+/* A ligação caiu no meio do uso (item 14): a faixa amarela no topo da conversa, acima do que ela escreve. */
+.wa-sem-ligacao{display:flex;align-items:flex-start;gap:var(--space-2);padding:var(--space-2) var(--space-4);background:var(--aviso-suave);
+  color:var(--aviso-texto);border-bottom:1px solid var(--laranja-100);font-size:var(--text-table-size);line-height:1.4}
+.wa-sem-ligacao .icone{width:16px;height:16px;flex:none;margin-top:2px}
+/* "Encerrar" com o nome a partir de 1180 px; abaixo, o ✓ com a dica (item 5). */
+@media (max-width:1180px){.wa-cab-acoes .botao.wa-encerrar span{display:none}.wa-cab-acoes .botao.wa-encerrar{width:34px;padding:0;justify-content:center}}
+/* O "Quem aparece aqui?" da Retenção (item 13): a explicação saiu do rodapé, que é do estado da ligação. */
+.wa-filtros-linha .botao.icone.wa-quem-aparece{width:34px;height:34px;flex:none;color:var(--texto-secundario)}
+.wa-filtros-linha .botao.icone.wa-quem-aparece[aria-expanded="true"]{color:var(--acento);background:var(--acento-suave)}
+.wa-quem-aparece-texto{margin:0;padding:var(--space-2) var(--space-3);border-radius:var(--radius-control);background:var(--cinza-50);
+  font-size:var(--text-small-size);line-height:1.45;color:var(--texto-secundario)}
+/* Os botões do modelo aprovado (item 24): as etiquetas que a pessoa recebeu, sob o balão — não se clicam aqui. */
+.wa-m-botoes{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:var(--space-1);margin-top:var(--space-1);max-width:100%}
+.wa-m-botoes span{padding:var(--space-1) var(--space-3);border:1px solid var(--borda);border-radius:var(--radius-pilula);background:var(--superficie);
+  font-size:var(--text-small-size);font-weight:600;color:var(--cinza-700);white-space:nowrap}

@@ -33,6 +33,8 @@ public sealed record TrechoDaPrevia(string Texto, bool Variavel);
 /// </summary>
 public static class ModeloDoWhatsApp
 {
+    private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
+
     public const string LembreteSessao = "lembrete_sessao";
     public const string RetornoTratamento = "retorno_tratamento";
     public const string DocumentoPronto = "documento_pronto";
@@ -169,6 +171,99 @@ public static class ModeloDoWhatsApp
                 return $"Preencha o campo \"{v.Rotulo}\".";
         return null;
     }
+
+    // ---------------------------------------------------------------- a lista dos modelos (25/10/2026)
+
+    /// <summary>
+    /// O nome que a recepção lê, por modelo aprovado — o técnico (<c>semdor_confirmacao_24h</c>) fica só na
+    /// dica do botão, para quem configura. Os de produção (prefixo <c>semdor_</c>) e os do mockup.
+    /// </summary>
+    private static readonly Dictionary<string, string> NomesNaTela = new(StringComparer.OrdinalIgnoreCase)
+    {
+        [LembreteSessao] = "Lembrete da sessão (com o atendimento)",
+        ["semdor_lembrete_sessao"] = "Lembrete da sessão",
+        ["semdor_confirmacao_24h"] = "Confirmação da consulta",
+        ["semdor_agendamento_confirmado"] = "Horário marcado",
+        ["semdor_horario_remarcado"] = "Horário remarcado",
+        ["semdor_falta_reagendar"] = "Faltou · remarcar",
+        ["semdor_vaga_disponivel"] = "Vaga disponível",
+        [RecallReal] = "Convite para voltar",
+        [RetornoTratamento] = "Convite para voltar (com os dias)",
+        ["recall_semdor"] = "Convite para novo agendamento",
+        [PrimeiroContato] = "Primeiro contato",
+        [IniciarAtendimentoReal] = "Começar o atendimento",
+        [DocumentoPronto] = "Documento pronto",
+        ["semdor_documento"] = "Documento enviado",
+        ["semdor_retorno_contato"] = "Retorno do seu contato",
+        ["semdor_retomar_conversa"] = "Retomar a conversa",
+        ["semdor_informacao_pendente"] = "Informação pendente",
+        ["semdor_orcamento"] = "Orçamento",
+    };
+
+    /// <summary>O que cada variável vira no texto da lista: "Olá, [nome]! … {{2}}" → "… [data]".</summary>
+    private static readonly Dictionary<string, string> MarcasNaLista = new(StringComparer.Ordinal)
+    {
+        [PrimeiroNome] = "nome", [Atendimento] = "atendimento", [DiaEHora] = "data", [Tratamento] = "tratamento",
+        [Dias] = "dias", [Documento] = "documento", [Assunto] = "assunto", [NovoDiaEHora] = "nova data",
+        [DiaPerdido] = "data perdida", [DiaLivre] = "data livre", [OQueFalta] = "o que falta", [Orcamento] = "orçamento",
+    };
+
+    /// <summary>
+    /// O nome do modelo na tela: o da tabela; desconhecido, o técnico sem o prefixo e sem os sublinhados
+    /// ("semdor_aviso_feriado" → "Aviso feriado") — nunca o identificador cru.
+    /// </summary>
+    public static string NomeNaTela(string? nome)
+    {
+        var n = (nome ?? "").Trim();
+        if (NomesNaTela.TryGetValue(n, out var rotulo)) return rotulo;
+        if (n.StartsWith("semdor_", StringComparison.OrdinalIgnoreCase)) n = n["semdor_".Length..];
+        n = n.Replace('_', ' ').Trim();
+        return n.Length == 0 ? "Modelo aprovado" : char.ToUpper(n[0], PtBr) + n[1..];
+    }
+
+    /// <summary>
+    /// O texto do modelo na lista: cada <c>{{n}}</c> vira o nome da variável entre colchetes ("[nome]",
+    /// "[data]"), pelos mesmos rótulos do formulário (<see cref="Rotulos"/>); modelo desconhecido, "[variável n]".
+    /// </summary>
+    public static string TextoNaLista(AppTemplate modelo)
+    {
+        var rotulos = Rotulos(modelo);
+        return Variavel.Replace(modelo.Text ?? "", m =>
+        {
+            var n = int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture);
+            var rotulo = rotulos is not null && n >= 1 && n <= rotulos.Count ? rotulos[n - 1] : null;
+            return rotulo is not null && MarcasNaLista.TryGetValue(rotulo, out var marca) ? $"[{marca}]" : $"[variável {n}]";
+        });
+    }
+
+    /// <summary>Os modelos que confirmam a presença: os primeiros quando a pessoa tem horário HOJE.</summary>
+    private static readonly HashSet<string> DeConfirmacao = new(StringComparer.OrdinalIgnoreCase)
+        { LembreteSessao, "semdor_lembrete_sessao", "semdor_confirmacao_24h" };
+
+    /// <summary>
+    /// A ordem da lista, por pertinência: os que a clínica aceita enviar primeiro; depois, na conversa
+    /// de um caso aberto da retenção, os convites (<see cref="WhatsAppDaRecepcaoService.ModelosDeConvite"/>);
+    /// com horário HOJE, os de confirmação; o resto pelo nome que a recepção lê.
+    /// </summary>
+    public static IReadOnlyList<AppTemplate> Ordenar(IEnumerable<AppTemplate> modelos, ContextoDoModelo contexto)
+    {
+        var retencao = contexto.Caso is { Pendente: true };
+        var horarioHoje = contexto.Sessao is { } s && DateOnly.FromDateTime(s) == contexto.Hoje;
+        int Pertinencia(AppTemplate m)
+            => retencao && WhatsAppDaRecepcaoService.ModelosDeConvite.Contains(m.Name ?? "") ? 0
+                : horarioHoje && DeConfirmacao.Contains(m.Name ?? "") ? 0 : 1;
+        return modelos.OrderByDescending(m => m.Supported).ThenBy(Pertinencia)
+            .ThenBy(m => NomeNaTela(m.Name), StringComparer.Create(PtBr, ignoreCase: true)).ToList();
+    }
+
+    /// <summary>
+    /// Os botões do modelo aprovado (<see cref="AppTemplate.Buttons"/>), para a tela desenhá-los sob o balão
+    /// da mensagem que saiu por ele — como o WhatsApp mostra ao paciente. Sem o modelo na lista do CRM, nenhum.
+    /// </summary>
+    public static IReadOnlyList<string> Botoes(string? nome, IEnumerable<AppTemplate>? modelos)
+        => string.IsNullOrWhiteSpace(nome) || modelos is null ? []
+            : modelos.FirstOrDefault(m => string.Equals(m.Name, nome, StringComparison.OrdinalIgnoreCase))?.Buttons?
+                .Where(b => !string.IsNullOrWhiteSpace(b)).Select(b => b.Trim()).ToList() ?? [];
 
     /// <summary>A escolha que vai no <c>AppReply.Template</c>: nome, idioma e os valores, sem espaço sobrando.</summary>
     public static AppTemplateSelection Selecao(AppTemplate modelo, IReadOnlyList<string> valores)

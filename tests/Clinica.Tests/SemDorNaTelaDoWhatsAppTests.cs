@@ -81,8 +81,13 @@ public sealed class SemDorNaTelaDoWhatsAppTests : IClassFixture<BancoDasTelas>, 
 
         // A etiqueta de atenção é vermelha; as outras, do @SemDor. Quem já recebeu resposta não tem etiqueta.
         tela.WaitForAssertion(() => Linha(tela, "Lúcia Andrade").QuerySelector(".wa-etiqueta.tom-perigo")!.TextContent.Should().Contain("Urgência clínica"), Prazo);
-        Linha(tela, "Maria das Graças").QuerySelector(".wa-etiqueta.tom-semdor")!.TextContent.Should().Contain("Remarcar");
         Linha(tela, "Roberto Lima").QuerySelector(".wa-etiqueta").Should().BeNull("a última mensagem é da clínica");
+        // A de assunto só onde acrescenta (25/10): o selo neutro da clínica ("Sem ficha") ganha "✨ Valores"; o que já
+        // diz o assunto ("Não vem — remarcar", "2 fichas") não ganha "✨ Remarcar" nem "✨ Confirmou" ao lado.
+        tela.FindAll(".wa-etiqueta.tom-semdor").Should().ContainSingle().Which.TextContent.Should().Contain("Valores");
+        foreach (var linha in tela.FindAll(".wa-linha").Where(l => l.QuerySelector(".wa-etiqueta.tom-semdor") is not null))
+            linha.QuerySelector(".wa-linha-rodape .selo")!.ClassList.Should().Contain("tom-neutro");
+        Linha(tela, "Maria das Graças").QuerySelector(".wa-etiqueta").Should().BeNull("o selo da clínica já diz que ela não vem");
 
         var antes = (await Crm.AbrirConversaAsync(1, CrmDeMentira.Ids.Maria)).Messages.Length;
         AbrirConversa(tela, "Maria das Graças");

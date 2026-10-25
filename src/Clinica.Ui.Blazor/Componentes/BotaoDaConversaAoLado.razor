@@ -9,6 +9,8 @@
     função que não existe aqui é resquício.
   - As duas barreiras: quem não atende o WhatsApp nem vê o botão; nasce apagado sem telefone, e o
     clique confere de novo o acesso e o telefone.
+  - Com a gaveta aberta neste paciente, o botão fica marcado (.aberta) e a linha dele se destaca
+    (conversa-ao-lado.css): a recepção vê de quem é a conversa ao lado (25/10/2026).
 *@
 @inherits TelaBase
 @inject ConversaAoLado Painel
@@ -16,7 +18,7 @@
 @if (_ligada && Painel.Disponivel && PodeWhatsApp)
 {
     var semTelefone = ConversaNoCrm.Telefone(Telefone) is null;
-    <button type="button" class="botao @(ComRotulo ? null : "mini icone") wa-lado-abrir" disabled="@semTelefone"
+    <button type="button" class="botao @(ComRotulo ? null : "mini icone") wa-lado-abrir @(Painel.Atual?.PacienteId == PacienteId ? "aberta" : null)" disabled="@semTelefone"
             title="@(semTelefone ? "Sem telefone no cadastro." : "Abrir a conversa no WhatsApp ao lado, sem sair desta tela")"
             aria-label="@($"Conversa no WhatsApp com {Nome}")" @onclick="AbrirAsync"><Icone Nome="chat" />@if (ComRotulo) { <text>WhatsApp</text> }</button>
 }
@@ -32,7 +34,19 @@
 
     private bool _ligada;
 
-    protected override async Task OnInitializedAsync() => _ligada = await Painel.LigadaAsync(Host);
+    protected override async Task OnInitializedAsync()
+    {
+        Painel.Mudou += Redesenhar;
+        _ligada = await Painel.LigadaAsync(Host);
+    }
+
+    private void Redesenhar() => _ = InvokeAsync(StateHasChanged);
+
+    public override void Dispose()
+    {
+        Painel.Mudou -= Redesenhar;
+        base.Dispose();
+    }
 
     private async Task AbrirAsync()
     {

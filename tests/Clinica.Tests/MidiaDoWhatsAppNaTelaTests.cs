@@ -132,7 +132,7 @@ public sealed class MidiaDoWhatsAppNaTelaTests : IClassFixture<BancoDasTelas>, I
     }
 
     [Fact]
-    public void O_documento_recebido_abre_e_o_video_que_nao_veio_mostra_a_falha_com_tentar_de_novo()
+    public void O_documento_recebido_abre_e_o_video_que_nao_veio_diz_a_frase_da_clinica_sem_Baixar()
     {
         var tela = AbrirConversa("João Batista");
 
@@ -140,9 +140,13 @@ public sealed class MidiaDoWhatsAppNaTelaTests : IClassFixture<BancoDasTelas>, I
         tela.WaitForAssertion(() => _host.Abertos.Should().ContainSingle().Which.Should().Be("Pedido medico - Joao.pdf"), Prazo);
 
         tela.Clicar(() => tela.FindAll(".wa-video-capa").Single());
+        // A frase é da clínica (o texto do provedor fica no log), e o que não adianta some: o CRM recusou o
+        // arquivo, então nem "Baixar" nem "Tentar de novo" — falhariam do mesmo jeito.
         tela.WaitForAssertion(() => tela.Find(".wa-midia-falha").TextContent.Should()
-            .Contain("Não foi possível carregar o vídeo: Este anexo não possui um endereço de mídia compatível"), Prazo);
-        tela.Find(".wa-midia-falha button").TextContent.Should().Contain("Tentar de novo");
+            .Contain("O WhatsApp não entregou este vídeo. Peça à pessoa que o envie de novo."), Prazo);
+        var video = tela.Find(".wa-midia-video");
+        video.TextContent.Should().NotContain("provedor").And.NotContain("CRM");
+        video.QuerySelectorAll("button").Select(b => b.TextContent).Should().NotContain(t => t.Contains("Baixar") || t.Contains("Tentar de novo"));
     }
 
     [Fact]
