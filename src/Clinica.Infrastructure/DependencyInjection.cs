@@ -163,6 +163,8 @@ public static class DependencyInjection
         // A conversa resolve (25/10): guardar na ficha o arquivo recebido e perguntar a quem trata pelo chat da equipe.
         services.AddScoped<GuardarNaFichaService>();
         services.AddScoped<PerguntaAoProfissionalService>();
+        // A renovação diária da fila do recall (aba WhatsApp e Acompanhamento dividem o dia).
+        services.AddSingleton<RecallDoDia>();
         // Documento ao paciente por WhatsApp (fila que o CRM executa) — out/2026; sem e-mail.
         // A fila tem duas portas: o desktop PÕE o pedido, a ponte do CRM o entrega.
         services.AddScoped<EnvioAoPacienteService>();

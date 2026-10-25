@@ -223,13 +223,79 @@ public sealed class CampanhaService
         var contato = await _repo.ObterContatoAsync(contatoId, ct)
             ?? throw new InvalidOperationException("Contato não encontrado.");
 
+        Responder(contato, comentario);
+        await _repo.SalvarAsync(ct);
+        return contato;
+    }
+
+    private static void Responder(ContatoCampanha contato, string? comentario)
+    {
         contato.Status = StatusContato.Respondido;
         contato.RespondidoEm = DateTime.Now;
         contato.EnviadoEm ??= contato.RespondidoEm;
         if (!string.IsNullOrWhiteSpace(comentario)) contato.Comentario = comentario.Trim();
+    }
 
+    // ==================== A confirmação de UM horário, sem depender da rodada (25/10) ====================
+
+    /// <summary>
+    /// A resposta do paciente a UM horário — "confirmo" ou "não vou" dita na conversa do WhatsApp ou ao telefone —
+    /// gravada no contato de confirmação daquele horário, exista a rodada ou não. Antes, sem a rodada gerada em
+    /// Confirmações, não havia onde gravar: a recepção ia a outra tela, e o "não vem" contado pelo paciente nem
+    /// chegava ao painel do Gerente. A resposta é a MESMA da tela Confirmações (<see cref="RegistrarRespostaAsync"/>),
+    /// e o aviso que ela gera continua decidido num lugar só (<see cref="AvisosDeConfirmacao.Decidir"/>).
+    /// </summary>
+    public async Task<ContatoCampanha> RegistrarRespostaDoHorarioAsync(int agendamentoId, string comentario, CancellationToken ct = default)
+    {
+        var contato = await ContatoDoHorarioAsync(agendamentoId, ct);
+        Responder(contato, comentario);
         await _repo.SalvarAsync(ct);
         return contato;
+    }
+
+    /// <summary>
+    /// O lembrete deste horário SAIU (o modelo de lembrete enviado pela conversa do WhatsApp da clínica): o horário conta
+    /// como avisado, com quem mandou e quando — no ENVIO, nunca no clique que só abre a conversa (D11, 25/10: quem
+    /// clicava em "Avisar" e desistia deixava "avisado" sem mensagem nenhuma). Falso, sem gravar nada, quando o paciente
+    /// já respondeu ou o horário saiu da rodada: o lembrete repetido não apaga a resposta que ele deu.
+    /// </summary>
+    public async Task<bool> RegistrarLembreteDoHorarioAsync(int agendamentoId, string operador, CancellationToken ct = default)
+    {
+        var contato = await ContatoDoHorarioAsync(agendamentoId, ct);
+        var situacao = RodadaDeConfirmacao.Classificar(contato.Status, contato.EnviadoEm, contato.Comentario);
+        if (situacao is not (SituacaoConfirmacao.NaoAvisado or SituacaoConfirmacao.AvisadoSemResposta)) return false;
+        contato.Canal = CanalContato.WhatsApp;
+        contato.EnviadoEm = DateTime.Now;
+        contato.EnviadoPor = operador;
+        if (contato.Status == StatusContato.Pendente) contato.Status = StatusContato.Enviado;
+        await _repo.SalvarAsync(ct);
+        return true;
+    }
+
+    /// <summary>
+    /// O contato de confirmação do horário: o que já existe (da rodada, do lembrete automático, de uma resposta
+    /// anterior) ou um NOVO, com a mesma origem <c>AGD:{id}</c> e os mesmos campos que a ponte do CRM grava
+    /// (<c>ClinicAgendaBridge</c>) — o índice único de (Tipo, Origem) continua impedindo o segundo. Novo só para
+    /// horário ainda marcado e futuro: confirmar o que já passou ou saiu da agenda seria inventar a resposta.
+    /// Não salva: quem chama grava o contato junto com a resposta, num <c>SaveChanges</c> só.
+    /// </summary>
+    private async Task<ContatoCampanha> ContatoDoHorarioAsync(int agendamentoId, CancellationToken ct)
+    {
+        if (await _repo.ContatoDeConfirmacaoDoAgendamentoAsync(agendamentoId, ct) is { } existente) return existente;
+        var horario = await _repo.ObterAgendamentoAsync(agendamentoId, ct)
+            ?? throw new InvalidOperationException("Horário não encontrado na agenda.");
+        if (horario.Status != StatusAgendamento.Agendado || horario.DataHora <= DateTime.Now)
+            throw new InvalidOperationException("Este horário não está mais marcado para a frente: não há confirmação a registrar.");
+        var novo = new ContatoCampanha
+        {
+            PacienteId = horario.PacienteId,
+            Tipo = TipoContato.ConfirmacaoSessao,
+            Origem = ContatoCampanha.OrigemDeAgendamento(horario.Id),
+            AgendamentoId = horario.Id,
+            Referencia = DateOnly.FromDateTime(horario.DataHora)
+        };
+        await _repo.AdicionarContatoAsync(novo, ct);
+        return novo;
     }
 
     /// <summary>

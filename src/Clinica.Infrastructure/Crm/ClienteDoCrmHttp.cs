@@ -145,6 +145,15 @@ public sealed class ClienteDoCrmHttp : IClienteDoCrm, IDisposable
     public Task<AppConversation> TransferirAsync(int usuarioId, string conversaId, AppChange mudanca, CancellationToken ct = default)
         => EscreverAsync<AppConversation>(usuarioId, Conversa(conversaId, "transfer"), mudanca, ct);
 
+    // A ação vai no caminho, só as três que o CRM conhece: nada que a tela mande vira outro segmento de rota.
+    public Task<AppTransferDecided> DecidirTransferenciaAsync(int usuarioId, string pedidoId, string acao, AppTransferDecision decisao,
+        CancellationToken ct = default)
+    {
+        if (acao is not ("accept" or "reject" or "cancel"))
+            return Task.FromException<AppTransferDecided>(new ArgumentOutOfRangeException(nameof(acao), acao, "accept, reject ou cancel."));
+        return EscreverAsync<AppTransferDecided>(usuarioId, "/api/transfers/" + Uri.EscapeDataString(pedidoId) + "/" + acao, decisao, ct);
+    }
+
     public Task<AppConversation> ReabrirAsync(int usuarioId, string conversaId, AppChange mudanca, CancellationToken ct = default)
         => EscreverAsync<AppConversation>(usuarioId, Conversa(conversaId, "reopen"), mudanca, ct);
 

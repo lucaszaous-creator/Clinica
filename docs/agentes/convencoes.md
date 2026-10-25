@@ -5,7 +5,7 @@ sessão). O texto é o MESMO, sem reescrita: design system, WPF/XAML, Blazor, EF
 `verificar-suite`, assinatura digital, impressão, CRM e as rodadas de UI, cada uma com o defeito que a
 originou. Antes de escrever uma tela, uma consulta ou uma checagem, procure aqui a lição da área.
 
-## Índice (199 tópicos, na ordem do arquivo)
+## Índice (202 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -207,6 +207,10 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
 - Leitura que chega DEPOIS redesenha entre o `Find` e o `Click` do teste
 - Rota do CRM se escolhe por QUEM ela aceita, não só pela forma
 - Leitor de fundo que entra sozinho num serviço PARA antes da saída e cancela o que está em voo
+- Regra que ALARGA leva junto as frases que descreviam a regra antiga
+- Uma porta por pergunta se faz por BOTÃO, não por cartão
+- Rótulo longo em grade `auto minmax(0,1fr)` espreme o valor até uma letra por linha
+- Palavra de estado que aparece nas videoaulas não se troca só na tela
 ---
 
 
@@ -5155,3 +5159,29 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
   Regra: todo relógio que fala com um cliente de login automático tem dono (a janela), para antes da saída e
   cancela, não só "não agenda a próxima"; e o teste confere que, parado, nada mais chega ao serviço
   (`EsperaNoWhatsAppTests.O_pulso_vai_ao_CRM_e_para_de_vez_quando_o_vigia_para`).
+- **Regra que ALARGA leva junto as frases que descreviam a regra antiga** (25/10/2026, WhatsApp R2). O
+  "sem resposta" do sino passou a contar o lembrete AUTOMÁTICO do WhatsApp (gravado pela ponte), além do
+  link do SMS antigo. Os testes da regra, da consulta e da tradução passaram; o alerta do painel do Gerente
+  continuava dizendo "O SMS saiu há mais de 3 h e o paciente não clicou no link" — agora sobre lembretes
+  que nunca foram SMS nem tiveram link. Nenhum teste lia a frase; o `grep "SMS"` pedido na revisão é que
+  achou (`PainelDirecaoService`). Regra: quando uma regra passa a contar mais casos, procure o VOCABULÁRIO
+  da regra antiga (o canal, "link", "clicou") em TODO leitor do resultado — sino, painel, tela, CSV —, não
+  só na tela que motivou a mudança.
+- **Uma porta por pergunta se faz por BOTÃO, não por cartão** (25/10/2026, WhatsApp item 6). A primeira
+  versão escondia todos os botões do horário da coluna quando o aviso da conversa "cuidava" dele — e levou
+  junto o **Cancelar**, que só a coluna oferecia: a recepção perdia um gesto que tinha ontem (a regra 3 do
+  faturamento vale aqui). A foto mostrou o cartão sem botão nenhum. Regra: tirar da coluna só o MESMO
+  botão que o aviso já mostra para aquele horário (`ConversasNaTela.AvisoOferece(acao, botao, agendamentoId)`),
+  e conferir na foto que cada gesto continua tendo uma porta.
+- **Rótulo longo em grade `auto minmax(0,1fr)` espreme o valor até uma letra por linha** (25/10/2026,
+  WhatsApp item 15). "Responsável pelo acompanhamento" no `<dl class="wa-pares">` alargou a coluna `auto` dos
+  rótulos até a coluna dos valores ficar com a largura de duas letras: "Acupun/tura", "autori/zou". Nenhuma
+  rede vê; a foto em 1366 viu. Regra: a coluna do rótulo é `fit-content(45%)` — o rótulo quebra a linha, o
+  valor nunca fica estreito — e rótulo novo e longo numa grade de pares é fotografado antes do commit.
+- **Palavra de estado que aparece nas videoaulas não se troca só na tela** (25/10/2026, WhatsApp item 7). O
+  pedido era "Sem resposta" em vez de "Não confirmou". A pílula da agenda (`RodadaDeConfirmacao.SeloSemResposta`)
+  é citada no catálogo de treinamento (`Clinica.Desktop.Shell/Treinamento/catalogo.json`) e nos roteiros
+  gravados (`tools/treinamento/gravacao/roteiros`): trocá-la sem regravar faria a aula ensinar uma tela que
+  não existe mais. A palavra nova ficou no WhatsApp (`RodadaDeConfirmacao.SemResposta`, um lugar só), e a
+  agenda espera a regravação. Regra: antes de renomear um rótulo de tela,
+  `grep -rn "rótulo" src/Clinica.Desktop.Shell/Treinamento tools/treinamento`.

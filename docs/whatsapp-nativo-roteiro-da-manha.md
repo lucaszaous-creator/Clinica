@@ -252,6 +252,31 @@ verdade: tudo o que sai, sai pelo número oficial da clínica.
 Se a tela mostrar "O CRM não respondeu" ou "não aceitou o acesso", veja o log do app
 (`Diagnostico`) antes de mexer em qualquer coisa.
 
+### 4.1 Ligar o pedido de confirmação automático (recomendado, 5 min)
+
+Decisão D11 (25/10, `docs/whatsapp-nativo-implementacao.md` §14): **recomendado ligar**. É uma chave
+do CRM na VPS 2, não um release: liga e desliga sem tocar nos apps.
+
+1. No **CRM pelo navegador**, entre com um usuário da **gestão** (só a gestão vê a Automação).
+2. Abra **Mais → Automação → Ajustar modelos e horário** e confira: o número oficial, o modelo
+   **`semdor_lembrete_sessao`** (aprovado na Meta, com os botões Confirmar, Remarcar e Cancelar) e a
+   **hora**. O padrão é **06:00 do dia da sessão** (`ReminderHour` 6); "24 h antes" é a opção 0 (a véspera).
+   Salve.
+3. Volte a **Mais → Automação** e ligue **Pedido de confirmação**. O aviso diz "sai às 06:00 do dia da sessão".
+4. Confira no dia seguinte, com um paciente de teste marcado para o dia: às 06:00 o lembrete chega ao
+   celular; tocando **Confirmar**, a agenda do balcão mostra "Confirmou" e o sino avisa; sem tocar em
+   nada, depois de 3 h o sino da Recepção e o painel do Gerente mostram **"sem resposta"** — a mesma
+   palavra do CRM (R2).
+
+| | Ligado | Desligado (como hoje) |
+|---|---|---|
+| 🧑‍💻 UX | Some a maior parte dos ~5 cliques por paciente da rodada; a recepção cuida só de quem não respondeu ou não vem. A mensagem de remarcação passa a dizer "Antes da sessão chega o lembrete para você confirmar." | A recepção avisa um por um pelo **Avisar os que faltam** (o aviso conta quando o lembrete SAI pela conversa). A mensagem de remarcação não promete lembrete. |
+| 🛠️ DX | Nada a construir: a automação, a ponte e o aviso "sem resposta" já existem. | — |
+| 🤝 CX | **Custo:** cada lembrete é uma mensagem de modelo de **utilidade, cobrada pela Meta** — uma por sessão marcada para o dia. Lembrete de horário marcado é transacional, não marketing. | Sem custo de mensagem; o custo é o tempo da recepção. |
+
+Desligar é o mesmo caminho: **Mais → Automação → Pedido de confirmação**. Nada no app precisa de
+versão nova para isso: a frase do lembrete na remarcação acompanha a chave na próxima leitura da aba.
+
 ### Se algo der errado
 
 - **A aba WhatsApp não abre ou o CRM não responde:** as secretárias seguem no **CRM pelo

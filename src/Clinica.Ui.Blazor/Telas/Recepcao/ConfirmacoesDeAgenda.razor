@@ -25,13 +25,13 @@
 
 <div class="pagina confirmacoes @(Carregando && _todas.Count > 0 ? "carregando" : null)">
     <CabecalhoPagina Sobretitulo="Relacionamento · Confirmações" Titulo="Confirmações de agenda"
-                     Subtitulo="Avisar quem vem: o SMS automático com link de resposta e o WhatsApp da clínica, um clique por paciente.">
+                     Subtitulo="Avisar quem vem pelo WhatsApp da clínica, um paciente por vez, e acompanhar a resposta de cada um.">
         <button type="button" class="botao" disabled="@(!PodeEditar)" @onclick="GerarAsync"
                 title="@(PodeEditar ? "Põe na rodada as sessões do dia que ainda não estão nela. Clicar duas vezes não repete ninguém." : SemAcesso)">
             <Icone Nome="lista" />Gerar rodada
         </button>
         <button type="button" class="botao primario" disabled="@(!PodeEditar || _placar.NaoAvisados == 0)" @onclick="AvisarProximoAsync"
-                title="Abre o WhatsApp do próximo que falta avisar — um clique por paciente, porque o número é o da clínica.">
+                title="Abre a conversa do próximo que falta avisar. Ele conta como avisado quando o lembrete sai — abrir e desistir não marca nada.">
             <Icone Nome="enviar" />@(_placar.NaoAvisados == 0 ? "Todos avisados" : $"Avisar os que faltam · {_placar.NaoAvisados}")
         </button>
         <button type="button" class="botao icone" @onclick="() => CarregarAsync()" title="Atualizar (F5)" aria-label="Atualizar a rodada"><Icone Nome="atualizar" /></button>
@@ -77,7 +77,7 @@
             <div class="aviso atencao conf-destaque" role="status">
                 <Icone Nome="alerta" />
                 <span><b>@(_placar.PediramRemarcar == 1 ? "1 paciente avisou que não vem ou pediu para remarcar" : $"{_placar.PediramRemarcar} pacientes avisaram que não vêm ou pediram para remarcar")</b>
-                    — ligue, remarque e libere o horário. A resposta pelo SMS não cancela a sessão sozinha.</span>
+                    — ligue, remarque e libere o horário. A resposta do paciente não cancela a sessão sozinha.</span>
                 <button type="button" class="botao mini" @onclick="() => Filtrar(SituacaoConfirmacao.PediuRemarcar)">Mostrar quem</button>
             </div>
         }
@@ -219,7 +219,26 @@
     /// <summary>Metade visível; a que impede é o <c>Exigir</c> em cada comando.</summary>
     private static bool PodeEditar => Pode(Permissao.EditarAgenda);
 
-    protected override Task OnInitializedAsync() => CarregarAsync();
+    private ConversaAoLado? _aoLado;
+
+    protected override Task OnInitializedAsync()
+    {
+        // O aviso pela conversa ao lado é gravado quando o lembrete SAI (D11, 25/10): fechada a gaveta, a rodada relê em silêncio.
+        _aoLado = Servicos.GetService<ConversaAoLado>();
+        if (_aoLado is not null) _aoLado.Mudou += GavetaMudou;
+        return CarregarAsync();
+    }
+
+    private void GavetaMudou()
+    {
+        if (_aoLado?.Atual is null && !Descartada) _ = InvokeAsync(() => CarregarAsync(silencioso: true));
+    }
+
+    public override void Dispose()
+    {
+        if (_aoLado is not null) _aoLado.Mudou -= GavetaMudou;
+        base.Dispose();
+    }
 
     /// <summary>Volta à aba: relê por trás, sem limpar (a outra máquina pode ter avisado alguém).</summary>
     protected override Task AoVoltarAsync() => CarregarAsync(silencioso: true);
@@ -333,10 +352,14 @@
     // ==================== a linha ====================
 
     /// <summary>
-    /// Abre o WhatsApp com a mensagem pronta e — quando é o AVISO — registra o envio. Um
+    /// Abre o WhatsApp com a mensagem pronta e — quando é o AVISO pelo wa.me — registra o envio. Um
     /// clique por paciente de propósito: o número é o da clínica, e disparo em massa por ali
     /// leva ao bloqueio. Sem telefone ou sem abrir, NADA é registrado: marcar "avisado" aqui
     /// faria a rodada dizer que o paciente foi avisado quando ninguém falou com ele.
+    /// Pelo WhatsApp da clínica (a conversa ao lado, D11 25/10) o clique NÃO registra: o horário conta
+    /// como avisado quando o modelo de lembrete SAI pela conversa (WhatsAppDaRecepcaoService.HorarioDoLembrete) —
+    /// quem abre e desiste não deixa "avisado". Pelo wa.me do computador o app não vê o envio, e o clique continua
+    /// sendo o registro (o de sempre).
     /// </summary>
     private async Task WhatsappAsync(SessaoDaRodada l, bool registrar)
     {
@@ -346,8 +369,9 @@
         var link = QuemMeDeveTela.LinkWhatsApp(l.Telefone, texto);
         if (link is null) { Dizer($"{l.Paciente}: telefone ausente ou inválido no cadastro.", erro: true); return; }
 
-        if (!await PedidoDeConversaNoCrm.EscreverAsync(Servicos, Host, new(l.Telefone ?? "", l.NomeCru, l.PacienteId, texto))
-            && !await Host.AbrirEnderecoAsync(link))
+        // A conversa da clínica abriu: o aviso é gravado no ENVIO do lembrete, lá (D11).
+        if (await PedidoDeConversaNoCrm.EscreverAsync(Servicos, Host, new(l.Telefone ?? "", l.NomeCru, l.PacienteId, texto))) return;
+        if (!await Host.AbrirEnderecoAsync(link))
         {
             var copiou = await Host.CopiarAsync(link);
             Notificacoes.Erro(copiou

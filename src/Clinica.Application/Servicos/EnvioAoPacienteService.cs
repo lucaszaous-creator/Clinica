@@ -211,7 +211,7 @@ public sealed class EnvioAoPacienteService
         var agora = _agora();
         if (await EmAbertoAsync(papel, agora, ct) is { } aberto)
             return new(true, $"{papel.Descricao} já está na fila do CRM desde {aberto.CriadoEm:HH:mm} — "
-                + "não foi pedido de novo. Acompanhe em CRM → Envios do Clínico.");
+                + $"não foi pedido de novo. {QuandoSair}");
 
         var (pdf, nome) = await papel.Gerar(ct);
         var nomeClinica = await NomeDaClinicaAsync(ct);
@@ -243,8 +243,14 @@ public sealed class EnvioAoPacienteService
 
         return new(true, $"{papel.Descricao} na fila do CRM para o WhatsApp {paciente.TelefoneFormatado}. "
             + "O CRM envia em instantes quando está ligado; o pedido vale por 24 horas. "
-            + "Acompanhe em CRM → Envios do Clínico.");
+            + QuandoSair);
     }
+
+    /// <summary>
+    /// Onde a clínica vê o envio (R3, 25/10): na conversa do paciente no WhatsApp da clínica, onde ele aparece quando
+    /// sai. Antes a frase mandava a pessoa a "CRM → Envios do Clínico", a tela de outro sistema que a recepção não abre.
+    /// </summary>
+    public const string QuandoSair = "Quando sair, ele aparece na conversa do paciente no WhatsApp da clínica.";
 
     // ==================== WhatsApp deste computador ====================
 

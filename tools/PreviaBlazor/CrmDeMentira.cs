@@ -642,6 +642,10 @@ public sealed class CrmDeMentira : IClienteDoCrm
         }
     }
 
+    /// <summary>
+    /// Como o CRM (<c>Store.RequestTransfer</c>): para uma PESSOA a conversa não muda de mãos — nasce o pedido, que
+    /// passa quando ela aceitar; para a fila (o setor), passa na hora, sem responsável. Um pedido pendente por vez.
+    /// </summary>
     public async Task<AppConversation> TransferirAsync(int usuarioId, string conversaId, AppChange mudanca, CancellationToken ct = default)
     {
         await EntrarAsync(ct);
@@ -651,17 +655,61 @@ public sealed class CrmDeMentira : IClienteDoCrm
             Conferir(c, mudanca.Version);
             Dono(c);
             if (mudanca.Queue is null || !Filas.Contains(mudanca.Queue)) throw new RecusaDoCrm("Escolha uma fila válida.", 400);
-            if (mudanca.AgentId is not null && Agentes.All(a => a.Id != mudanca.AgentId)) throw new RecusaDoCrm("Atendente inválido.", 400);
+            if (mudanca.AgentId is not null && (mudanca.AgentId == Eu || Agentes.All(a => a.Id != mudanca.AgentId)))
+                throw new RecusaDoCrm("Escolha outro atendente habilitado na fila de destino.", 400);
+            if (c.Pedido is not null) throw new RecusaDoCrm("Já existe uma transferência aguardando aceite. Cancele antes de solicitar outra.", 409);
             var contexto = (mudanca.Note ?? "").Trim();
-            if (contexto.Length > 2000) throw new RecusaDoCrm("O contexto da transferência deve ter até 2.000 caracteres.", 400);
+            if (contexto.Length > 2000) throw new RecusaDoCrm("Confira a fila e o contexto opcional de até 2.000 caracteres.", 400);
             var agora = DateTimeOffset.UtcNow;
-            if (contexto.Length > 0) c.Notes.Add(new(Guid.NewGuid().ToString("D"), "Transferência: " + contexto, Eu, agora));
-            var filaAnterior = c.Queue;
-            c.AgentId = mudanca.AgentId;
-            c.Queue = mudanca.Queue;
-            c.Audit.Add(new(agora, Nome(Eu), $"Transferiu de {filaAnterior} / {Nome(Eu)} para {c.Queue} / {Pessoa(c.AgentId)}"));
+            if (mudanca.AgentId is { } para)
+            {
+                c.Pedir(new AppPendingTransfer(Guid.NewGuid().ToString("D"), Eu, para, contexto, agora), mudanca.Queue);
+                c.Audit.Add(new(agora, Nome(Eu), $"Solicitou transferência para {Nome(para)} / {mudanca.Queue}; aguardando aceite"));
+            }
+            else
+            {
+                if (contexto.Length > 0) c.Notes.Add(new(Guid.NewGuid().ToString("D"), "Encaminhamento à fila: " + contexto, Eu, agora));
+                c.AgentId = null;
+                c.Queue = mudanca.Queue;
+                c.Audit.Add(new(agora, Nome(Eu), $"Encaminhou para a fila {c.Queue}, sem responsável"));
+            }
             Gravar(c, agora);
             return Foto(c);
+        }
+    }
+
+    /// <summary>
+    /// Como o CRM (<c>Store.DecideTransfer</c>): aceitar e recusar são de quem recebe; cancelar, de quem pediu; recusar
+    /// pede o motivo (3 a 500 letras); repetir a mesma decisão é inofensivo. Aqui todo mundo é a <see cref="Eu"/>: ela
+    /// aceita o que pediram para ela e cancela o que ela pediu.
+    /// </summary>
+    public async Task<AppTransferDecided> DecidirTransferenciaAsync(int usuarioId, string pedidoId, string acao, AppTransferDecision decisao,
+        CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava)
+        {
+            if (acao is not ("accept" or "reject" or "cancel")) throw new RecusaDoCrm("Ação inválida.", 400);
+            var c = conversas.FirstOrDefault(x => x.Pedido?.Id == pedidoId || x.Decididos.ContainsKey(pedidoId))
+                    ?? throw new RecusaDoCrm("Transferência não encontrada.", 404);
+            if (c.Decididos.TryGetValue(pedidoId, out var ja))
+                return ja == acao ? new AppTransferDecided(c.Id) : throw new RecusaDoCrm("Esta transferência não está mais pendente.", 409);
+            var pedido = c.Pedido!;
+            if (acao == "cancel" ? pedido.From != Eu : pedido.To != Eu) throw new RecusaDoCrm("Esta solicitação não pode ser alterada por você.", 403);
+            var motivo = (decisao.Reason ?? "").Trim();
+            if (motivo.Length > 500 || acao == "reject" && motivo.Length < 3) throw new RecusaDoCrm("Ao recusar, informe um motivo de 3 a 500 caracteres.", 400);
+            var agora = DateTimeOffset.UtcNow;
+            if (acao == "accept")
+            {
+                c.AgentId = Eu;
+                c.Queue = c.FilaDoPedido;
+                if (pedido.Note.Length > 0) c.Notes.Add(new(Guid.NewGuid().ToString("D"), "Transferência: " + pedido.Note, pedido.From, agora));
+            }
+            var verbo = acao == "accept" ? "Aceitou" : acao == "reject" ? "Recusou" : "Cancelou";
+            c.Audit.Add(new(agora, Nome(Eu), verbo + " a transferência" + (motivo.Length > 0 ? ": " + motivo : "")));
+            c.Decidir(acao);
+            Gravar(c, agora);
+            return new AppTransferDecided(c.Id);
         }
     }
 
@@ -896,6 +944,12 @@ public sealed class CrmDeMentira : IClienteDoCrm
 
     private static void Gravar(Conversa c, DateTimeOffset agora)
     {
+        // Como o CRM (NormalizeConversationWorkflow): encerrar, trocar o responsável ou a fila derruba o pedido pendente.
+        if (c.Pedido is not null && (c.Closed || c.AgentId != c.DonoDoPedido || c.Queue != c.FilaDeOrigem))
+        {
+            c.Audit.Add(new(agora, "Sistema", "Solicitação de transferência invalidada: O atendimento foi encerrado ou teve o responsável/fila alterado."));
+            c.Decidir("invalidated");
+        }
         c.Version++;
         c.UpdatedAt = agora;
     }
@@ -984,7 +1038,7 @@ public sealed class CrmDeMentira : IClienteDoCrm
 
     private AppConversation Foto(Conversa c) => new(c.Id, c.Name, c.Contact, c.Channel, c.Sender, c.Queue, c.AgentId, c.Closed,
         c.Version, c.UpdatedAt, c.LastIncoming, c.PatientId, c.PatientName, c.Messages.ToArray(), c.Notes.ToArray(),
-        c.Audit.OrderBy(a => a.At).ToArray(), c.Resolutions.ToArray(), c.ClosedAt);
+        c.Audit.OrderBy(a => a.At).ToArray(), c.Resolutions.ToArray(), c.ClosedAt, c.Pedido);
 
     private AppConversationSummary Linha(Conversa c, int usuarioId)
     {
@@ -997,7 +1051,8 @@ public sealed class CrmDeMentira : IClienteDoCrm
             Resolution: c.Closed ? c.Resolutions.LastOrDefault() : null, c.ClosedAt,
             PreviewDirection: ultima?.Direction ?? "in", PreviewStatus: ultima?.Status ?? "",
             // A regra do CRM (Program.cs): a etiqueta só vale enquanto o paciente espera a clínica.
-            Semdor: SemDor != ModoDoSemDor.Desligado && !c.Closed && ultima?.Direction == "in" ? Etiquetas.GetValueOrDefault(c.Id) : null);
+            Semdor: SemDor != ModoDoSemDor.Desligado && !c.Closed && ultima?.Direction == "in" ? Etiquetas.GetValueOrDefault(c.Id) : null,
+            PendingTransfer: c.Pedido);
     }
 
     private sealed record Anexo(string Id, string ConversaId, string Nome, string Mime, byte[] Bytes);
@@ -1024,6 +1079,30 @@ public sealed class CrmDeMentira : IClienteDoCrm
         public List<AppAudit> Audit { get; } = new();
         public List<AppResolution> Resolutions { get; } = new();
         public int NaoLidasIniciais { get; set; }
+
+        /// <summary>O pedido de transferência para uma pessoa que espera o aceite (o AppPendingTransfer do CRM).</summary>
+        public AppPendingTransfer? Pedido { get; private set; }
+        /// <summary>Com quem e em que fila a conversa estava quando o pedido nasceu (mudou, o pedido cai), e para que fila ele leva.</summary>
+        public string? DonoDoPedido { get; private set; }
+        public string FilaDeOrigem { get; private set; } = "";
+        public string FilaDoPedido { get; private set; } = "";
+        /// <summary>Os pedidos já decididos (id → ação): repetir a mesma decisão é inofensivo, como no CRM.</summary>
+        public Dictionary<string, string> Decididos { get; } = new();
+
+        public void Pedir(AppPendingTransfer pedido, string fila)
+        {
+            Pedido = pedido;
+            DonoDoPedido = AgentId;
+            FilaDeOrigem = Queue;
+            FilaDoPedido = fila;
+        }
+
+        public void Decidir(string acao)
+        {
+            if (Pedido is null) return;
+            Decididos[Pedido.Id] = acao;
+            Pedido = null;
+        }
 
         /// <summary>A ficha que a recepção já conferiu (procurada no banco na primeira chamada).</summary>
         public PessoasDoWhatsApp.Pessoa? Ficha { get; set; }
@@ -1257,7 +1336,11 @@ public sealed class CrmDeMentira : IClienteDoCrm
             { AgentId = "bruna", NaoLidasIniciais = 1 };
         lucia.Evento(T(-1, 15, 40), bruna, "Assumiu ao escrever para o paciente")
             .Enviada(T(-1, 15, 40, 5), "bruna", "Boa tarde, Lúcia! Qualquer dúvida depois da sessão, é só escrever por aqui.", "seen")
-            .Recebida(T(0, 10, 6), "Bom dia. Depois da acupuntura de ontem o braço ficou inchado e vermelho onde colocaram a agulha, e está doendo. É normal?");
+            .Recebida(T(0, 10, 6), "Bom dia. Depois da acupuntura de ontem o braço ficou inchado e vermelho onde colocaram a agulha, e está doendo. É normal?")
+            // A Bruna está no caixa e pediu para a Ana assumir (R7): a Ana vê "Bruna Reis quer passar esta conversa para você".
+            .Evento(T(0, 10, 9), bruna, "Solicitou transferência para " + ana + " / Recepção; aguardando aceite");
+        lucia.Pedir(new AppPendingTransfer("0f6a1e2b-7000-4c3d-9a10-000000000010", "bruna", Eu,
+            "Reação no braço depois da acupuntura de ontem. Estou no caixa: você vê com a Dra. Helena?", T(0, 10, 9)), "Recepção");
         lista.Add(lucia);
 
         return lista;

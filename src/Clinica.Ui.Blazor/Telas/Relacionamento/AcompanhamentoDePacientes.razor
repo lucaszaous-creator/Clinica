@@ -326,7 +326,8 @@
     /// A fila, a configuração (motivos e responsáveis), os dias do recall e o nome da clínica —
     /// SEQUENCIAL no mesmo escopo, com contador de geração e tudo publicado depois do último
     /// await. Na primeira abertura gera o recall com os dias da CONFIGURAÇÃO (como a tela WPF):
-    /// sem isso, quem sumiu desde ontem só entraria na fila no clique de alguém.
+    /// sem isso, quem sumiu desde ontem só entraria na fila no clique de alguém. Uma vez por dia no
+    /// app: a aba WhatsApp renova a mesma fila ao ler a Retenção (RecallDoDia, 25/10).
     /// </summary>
     private async Task CarregarAsync(bool silencioso = false)
     {
@@ -342,7 +343,14 @@
             var dias = await parametros.ObterDiasInatividadeRecallAsync();
             if (!_recallGerado)
             {
-                await servico.GerarRecallAsync(UsuarioId, dias);
+                // Uma vez por dia neste app, dividida com a aba WhatsApp (RecallDoDia): é a mesma renovação, e ela não duplica caso.
+                var doDia = sp.GetRequiredService<RecallDoDia>();
+                var hoje = DateOnly.FromDateTime(DateTime.Today);
+                if (doDia.Reservar(hoje))
+                {
+                    try { await servico.GerarRecallAsync(UsuarioId, dias); }
+                    catch { doDia.Liberar(hoje); throw; }
+                }
                 _recallGerado = true;
             }
             var config = await servico.ConfiguracaoAsync(UsuarioId);

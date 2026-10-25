@@ -208,21 +208,76 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
         Assert.Contains(db.Auditoria.ToList(), e => e.Acao == "PedidoDeCancelamentoRevertido" && e.Operador == _ana.Login);
     }
 
+    /// <summary>
+    /// R1 (25/10): o paciente diz "confirmo" ou "não vou" na conversa e a resposta vai à agenda SEM a rodada de
+    /// Confirmações: o contato de confirmação do horário nasce com a MESMA origem AGD:{id} da ponte do CRM, uma vez só, e
+    /// o "não vem" chega ao sino (e ao Gerente) pela mesma decisão de sempre.
+    /// </summary>
     [Fact]
-    public async Task Confirmar_horario_fora_da_rodada_recusa_sem_inventar_resposta()
+    public async Task Confirmar_e_nao_vem_sem_rodada_criam_o_contato_do_horario_e_o_aviso_chega_ao_sino()
     {
-        int ag;
+        int a1, a2;
         using (var db = Db())
         {
-            var a = new Agendamento { PacienteId = _maria.Id, DataHora = DateTime.Today.AddDays(2).AddHours(9) };
-            db.Agendamentos.Add(a);
+            var h1 = new Agendamento { PacienteId = _maria.Id, DataHora = DateTime.Today.AddDays(1).AddHours(9) };
+            var h2 = new Agendamento { PacienteId = _pedro.Id, DataHora = DateTime.Today.AddDays(1).AddHours(11) };
+            db.Agendamentos.AddRange(h1, h2);
             db.SaveChanges();
-            ag = a.Id;
+            (a1, a2) = (h1.Id, h2.Id);
         }
-        var erro = await Assert.ThrowsAsync<InvalidOperationException>(() => Com(s => s.ConfirmouPorTelefoneAsync(ag)));
-        Assert.Contains("rodada", erro.Message);
+
+        await Com(s => s.ConfirmouPorTelefoneAsync(a1));
+        await Com(s => s.NaoVemAsync(a2));
+        await Com(s => s.ConfirmouPorTelefoneAsync(a1)); // o segundo clique não cria outro contato
+
+        using var depois = Db();
+        var contatos = depois.Contatos.ToList();
+        Assert.Equal(2, contatos.Count);
+        var c1 = contatos.Single(c => c.AgendamentoId == a1);
+        Assert.Equal((ContatoCampanha.OrigemDeAgendamento(a1), TipoContato.ConfirmacaoSessao, _maria.Id), (c1.Origem, c1.Tipo, c1.PacienteId));
+        Assert.Equal(SituacaoConfirmacao.Confirmou, Situacao(c1));
+        Assert.Equal(SituacaoConfirmacao.PediuRemarcar, Situacao(contatos.Single(c => c.AgendamentoId == a2)));
+        using var escopo = _sp.CreateScope();
+        var avisos = await escopo.ServiceProvider.GetRequiredService<AvisosDeConfirmacaoService>().ListarAsync(DateTime.Now, DateTime.Today);
+        Assert.Contains(avisos, a => a.AgendamentoId == a2 && a.Tipo == TipoAvisoConfirmacao.NaoVem);
+    }
+
+    [Fact]
+    public async Task Horario_que_ja_passou_ou_saiu_da_agenda_nao_ganha_resposta_inventada()
+    {
+        int passou, cancelado;
+        using (var db = Db())
+        {
+            var h1 = new Agendamento { PacienteId = _maria.Id, DataHora = DateTime.Now.AddHours(-2) };
+            var h2 = new Agendamento { PacienteId = _maria.Id, DataHora = DateTime.Today.AddDays(2).AddHours(9), Status = StatusAgendamento.Cancelado };
+            db.Agendamentos.AddRange(h1, h2);
+            db.SaveChanges();
+            (passou, cancelado) = (h1.Id, h2.Id);
+        }
+        Assert.Contains("não está mais marcado", (await Assert.ThrowsAsync<InvalidOperationException>(() => Com(s => s.ConfirmouPorTelefoneAsync(passou)))).Message);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Com(s => s.NaoVemAsync(cancelado)));
         using var depois = Db();
         Assert.Empty(depois.Contatos.ToList());
+    }
+
+    [Fact]
+    public async Task Horario_futuro_sem_rodada_tem_confirmar_e_nao_vem_na_coluna()
+    {
+        using (var db = Db())
+        {
+            db.Agendamentos.AddRange(
+                new Agendamento { PacienteId = _maria.Id, DataHora = DateTime.Today.AddDays(1).AddHours(9) },
+                new Agendamento { PacienteId = _maria.Id, DataHora = DateTime.Today }); // hoje à 00:00: já passou, e ainda está na coluna
+            db.SaveChanges();
+        }
+        _crm.Pôr(Conversa("c-maria", "Maria", "5522998765432", pacienteId: _maria.Id, nomeDaFicha: _maria.Nome));
+        var painel = await Com(s => s.LerAsync());
+        var aberta = await Com(s => s.AbrirAsync(painel, "c-maria", 0));
+
+        var futuro = aberta.Dados.Horarios.Single(h => h.Quando > DateTime.Now);
+        Assert.True(futuro.PodeConfirmar && futuro.PodeNaoVem);
+        var jaPassou = aberta.Dados.Horarios.Single(h => h.Quando < DateTime.Now);
+        Assert.False(jaPassou.PodeConfirmar || jaPassou.PodeNaoVem);
     }
 
     [Fact]
@@ -383,13 +438,17 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
     }
 
     [Fact]
-    public void Rascunho_de_remarcacao_diz_o_que_a_clinica_fez()
+    public void Rascunho_de_remarcacao_diz_o_que_a_clinica_fez_e_so_promete_o_lembrete_ligado()
     {
         var hoje = new DateOnly(2026, 10, 24);
         var novo = new HorarioDoPaciente(1, new DateTime(2026, 10, 28, 14, 0, 0), "", "", "", "", false, false, false, 2,
             ModalidadeAtendimento.AcupunturaSimples, "Dra. Helena");
-        Assert.Equal("Combinado, Maria! Remarquei a sua acupuntura para quarta-feira, 28/10 às 14:00 com Dra. Helena. O lembrete chega na manhã do dia.",
-            WhatsAppDaRecepcaoService.RascunhoDeRemarcacao("Maria das Graças Silva", novo, hoje));
+        Assert.Equal("Combinado, Maria! Remarquei a sua acupuntura para quarta-feira, 28/10 às 14:00 com Dra. Helena.",
+            WhatsAppDaRecepcaoService.RascunhoDeRemarcacao("Maria das Graças Silva", novo, hoje, lembreteAutomatico: false));
+        Assert.Equal("Combinado, Maria! Remarquei a sua acupuntura para quarta-feira, 28/10 às 14:00 com Dra. Helena. Antes da sessão chega o lembrete para você confirmar.",
+            WhatsAppDaRecepcaoService.RascunhoDeRemarcacao("Maria das Graças Silva", novo, hoje, lembreteAutomatico: true));
+        // Sessão de hoje: o lembrete do dia já passou (ou nem sai), e a mensagem não o promete (R3).
+        Assert.DoesNotContain("lembrete", WhatsAppDaRecepcaoService.RascunhoDeRemarcacao("Maria", novo with { Quando = new DateTime(2026, 10, 24, 18, 0, 0) }, hoje, lembreteAutomatico: true));
     }
 
     [Fact]
@@ -498,6 +557,190 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
         await Assert.ThrowsAsync<InvalidOperationException>(() => Com(s => s.PassarOTurnoAsync([NaLista(maria)], "ok", "ana")));
     }
 
+    // ------------------------------------------------------------------ 25/10: o lembrete conta no ENVIO (D11)
+
+    private static readonly AppTemplate Lembrete = new("semdor_lembrete_sessao", "pt_BR", "APPROVED", "Olá, {{1}}! Sua sessão é {{2}}.", 2, true, "", [], "UTILITY");
+
+    [Fact]
+    public async Task O_lembrete_enviado_pela_conversa_marca_o_horario_como_avisado_e_o_clique_sozinho_nao()
+    {
+        int ag;
+        using (var db = Db())
+        {
+            var h = new Agendamento { PacienteId = _maria.Id, DataHora = DateTime.Today.AddDays(1).AddHours(9) };
+            db.Agendamentos.Add(h);
+            db.SaveChanges();
+            ag = h.Id;
+        }
+        var conversa = _crm.Pôr(Conversa("c-maria", "Maria", "5522998765432", pacienteId: _maria.Id, nomeDaFicha: _maria.Nome));
+        var painel = await Com(s => s.LerAsync());
+        var aberta = await Com(s => s.AbrirAsync(painel, "c-maria", 0));
+        var outro = Lembrete with { Name = "semdor_retorno_contato", Text = "Olá, {{1}}!", Parameters = 1 };
+
+        Assert.Null(WhatsAppDaRecepcaoService.HorarioDoLembrete(aberta, outro, WhatsAppDaRecepcaoService.Agora));
+        var horario = WhatsAppDaRecepcaoService.HorarioDoLembrete(aberta, Lembrete, WhatsAppDaRecepcaoService.Agora);
+        Assert.Equal(ag, horario);
+        // Abrir a conversa (o "Avisar" de Confirmações) não grava nada: só o envio grava.
+        using (var antes = Db()) Assert.Empty(antes.Contatos.ToList());
+
+        var r = await Com(s => s.EnviarModeloAsync(conversa, "5522333300000", Lembrete, ["Maria", "amanhã às 09:00"], null, Guid.NewGuid().ToString("D"), horario));
+
+        Assert.Null(r.Pendencia);
+        using var depois = Db();
+        var c = Assert.Single(depois.Contatos.ToList());
+        Assert.Equal((ag, SituacaoConfirmacao.AvisadoSemResposta, _ana.Login, CanalContato.WhatsApp), (c.AgendamentoId!.Value, Situacao(c), c.EnviadoPor, c.Canal));
+        // O lembrete que a recepção mandou à mão não vira "sem resposta" no sino: ali quem registra a resposta é ela.
+        Assert.NotEqual(RodadaDeConfirmacao.LembreteAutomatico, c.EnviadoPor);
+    }
+
+    [Fact]
+    public async Task O_lembrete_repetido_nao_apaga_a_resposta_que_o_paciente_ja_deu()
+    {
+        var (ag, contato) = HorarioComContato(_maria, StatusContato.Respondido, RodadaDeConfirmacao.RespostaRemarcar);
+        var conversa = _crm.Pôr(Conversa("c-maria", "Maria", "5522998765432", pacienteId: _maria.Id, nomeDaFicha: _maria.Nome));
+
+        var r = await Com(s => s.EnviarModeloAsync(conversa, "5522333300000", Lembrete, ["Maria", "amanhã às 10:00"], null, Guid.NewGuid().ToString("D"), ag));
+
+        Assert.Null(r.Pendencia);
+        using var db = Db();
+        Assert.Equal(SituacaoConfirmacao.PediuRemarcar, Situacao(db.Contatos.Single(x => x.Id == contato)));
+    }
+
+    // ------------------------------------------------------------------ 25/10: a transferência entre pessoas (R7)
+
+    [Fact]
+    public async Task Transferir_para_uma_pessoa_vira_pedido_e_quem_pediu_cancela_pelo_id_dele()
+    {
+        var c = _crm.Pôr(Conversa("c-maria", "Maria", "5522998765432", pacienteId: _maria.Id) with { AgentId = "ana" });
+
+        var pedido = await Com(s => s.TransferirAsync(c, "bruna", null, "ver o pacote"));
+
+        Assert.Equal("ana", pedido.AgentId);
+        Assert.Equal(("bruna", "ver o pacote"), (pedido.PendingTransfer!.To, pedido.PendingTransfer.Note));
+        // Recusar sem motivo não sai daqui; cancelar vai ao CRM com o id do pedido.
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Com(s => s.RecusarTransferenciaAsync(pedido, "ok")));
+        Assert.Empty(_crm.Decisoes);
+        var cancelada = await Com(s => s.CancelarTransferenciaAsync(pedido));
+        Assert.Equal(("pedido-c-maria", "cancel", (string?)null), _crm.Decisoes.Single());
+        Assert.Null(cancelada.PendingTransfer);
+        // Sem pedido, aceitar nem chega ao CRM.
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Com(s => s.AceitarTransferenciaAsync(cancelada)));
+        // Para o setor passa na hora, sem responsável.
+        var setor = await Com(s => s.TransferirAsync(cancelada, null, "Agendamento", null));
+        Assert.Null(setor.AgentId);
+        Assert.Null(setor.PendingTransfer);
+    }
+
+    [Fact]
+    public async Task Quem_recebe_o_pedido_ve_o_aviso_e_o_selo_e_aceita()
+    {
+        _crm.Pôr(Conversa("c-maria", "Maria", "5522998765432", pacienteId: _maria.Id, nomeDaFicha: _maria.Nome)
+            with { AgentId = "bruna", PendingTransfer = new AppPendingTransfer("p-1", "bruna", "ana", "Ela quer o valor do pacote.", DateTimeOffset.UtcNow) });
+        var painel = await Com(s => s.LerAsync());
+
+        var linha = WhatsAppDaRecepcaoService.Linhas(painel, FiltroDasConversas.Todas, null, false, WhatsAppDaRecepcaoService.Agora).Single();
+        Assert.Equal("Transferência para você", linha.Selo.Texto);
+        var aberta = await Com(s => s.AbrirAsync(painel, "c-maria", 0));
+        Assert.Equal(TipoDaAcaoPedida.TransferenciaParaVoce, aberta.Acao?.Tipo);
+        Assert.Equal("Bruna quer passar esta conversa para você.", aberta.Acao!.Titulo);
+
+        var aceita = await Com(s => s.AceitarTransferenciaAsync(aberta.Conversa!));
+        Assert.Equal(("p-1", "accept"), (_crm.Decisoes.Single().Pedido, _crm.Decisoes.Single().Acao));
+        Assert.Equal("ana", aceita.AgentId);
+        Assert.Null(aceita.PendingTransfer);
+    }
+
+    // ------------------------------------------------------------------ 25/10: "Para resolver" (R6)
+
+    [Fact]
+    public async Task Para_resolver_traz_os_alertas_da_ficha_do_balcao_e_nada_sem_o_bit_da_ficha()
+    {
+        using (var db = Db())
+        {
+            var p = db.Pacientes.Single(x => x.Id == _maria.Id);
+            p.Carteirinha = "0 064 1234 5678 9";
+            p.ValidadeCarteirinha = DateOnly.FromDateTime(DateTime.Today.AddDays(-3));
+            db.SaveChanges();
+        }
+
+        var r = await Com(s => s.ParaResolverAsync(_maria.Id));
+
+        Assert.Equal(_maria.Id, r.PacienteId);
+        Assert.False(r.Falhou);
+        Assert.Contains(r.Alertas, a => a.EhVermelho && a.Descricao.StartsWith("Carteirinha vencida", StringComparison.Ordinal));
+        // O serviço de elegibilidade não filtra por permissão: sem o bit da Ficha do balcão, nada é lido.
+        var caixa = new UsuarioSistema { Nome = "Caixa", Login = "caixa", Perfil = PerfilAcesso.Recepcao, PermissoesNegadas = Permissao.VerFichaPaciente,
+            SenhaHash = "-", SenhaSalt = "-", Ativo = true };
+        using (var db = Db()) { db.Usuarios.Add(caixa); db.SaveChanges(); }
+        new SessaoUsuario().Entrar(caixa);
+        Assert.Empty((await Com(s => s.ParaResolverAsync(_maria.Id))).Alertas);
+    }
+
+    // ------------------------------------------------------------------ 25/10: a fila do recall se renova pela aba (item 8)
+
+    [Fact]
+    public async Task Ler_a_aba_renova_a_fila_do_recall_uma_vez_por_dia_sem_duplicar_caso()
+    {
+        using (var db = Db())
+        {
+            for (var i = 0; i < 3; i++)
+            {
+                var data = DateOnly.FromDateTime(DateTime.Today.AddDays(-75 - i * 7));
+                db.Atendimentos.Add(new Atendimento { PacienteId = _sebastiao.Id, Modalidade = ModalidadeAtendimento.AcupunturaSimples, Data = data,
+                    RealizadoEm = data.ToDateTime(new TimeOnly(10, 0)) });
+            }
+            db.SaveChanges();
+        }
+
+        var painel = await Com(s => s.LerAsync());
+
+        Assert.Contains(painel.Retencao, l => l.PacienteId == _sebastiao.Id && l.Tipo == TipoAcompanhamento.Recall);
+        Assert.False(_sp.GetRequiredService<RecallDoDia>().Reservar(DateOnly.FromDateTime(DateTime.Today)), "o dia já foi renovado");
+        await Com(s => s.LerAsync());
+        using var depois = Db();
+        Assert.Single(depois.Acompanhamentos.Where(a => a.PacienteId == _sebastiao.Id).ToList());
+    }
+
+    // ------------------------------------------------------------------ 25/10: o que a tela afirma (itens 15 e 16, R3)
+
+    [Fact]
+    public async Task Sem_ficha_conferida_o_titulo_e_o_telefone_e_o_nome_do_perfil_vai_rotulado()
+    {
+        _crm.Pôr(Conversa("c-terezinha", "Terezinha Souza", "5522988112233"));
+        _crm.Pôr(Conversa("c-maria", "Maria", "5522998765432", pacienteId: _maria.Id, nomeDaFicha: _maria.Nome));
+        var painel = await Com(s => s.LerAsync());
+
+        var semConferir = await Com(s => s.AbrirAsync(painel, "c-terezinha", 0));
+        Assert.Equal("(22) 98811-2233", semConferir.Nome);
+        Assert.Equal("Terezinha Souza", semConferir.NomeNoWhatsApp);
+        Assert.Equal("Terezinha Souza (nome no WhatsApp)", semConferir.NomeDoPerfil);
+        Assert.Equal("?", semConferir.Iniciais);
+        var conferida = await Com(s => s.AbrirAsync(painel, "c-maria", 0));
+        Assert.Equal(_maria.Nome, conferida.Nome);
+        Assert.Null(conferida.NomeNoWhatsApp);
+        Assert.False(conferida.SemTelefone);
+    }
+
+    [Fact]
+    public async Task O_caso_sem_telefone_abre_sem_WhatsApp_e_o_contato_mostra_o_nome_de_quem_fez()
+    {
+        var semTelefone = new Paciente { Nome = "Helena Marques" };
+        using (var db = Db()) { db.Pacientes.Add(semTelefone); db.SaveChanges(); }
+        var id = CasoDeRecall(semTelefone, autorizou: false);
+        using (var db = Db())
+        {
+            db.ContatosAcompanhamento.Add(new ContatoAcompanhamento { AcompanhamentoPacienteId = id, Idempotencia = Guid.NewGuid(), Em = DateTime.Now,
+                Operador = _ana.Login, Canal = CanalContato.Telefone, Resultado = "Não atendeu" });
+            db.SaveChanges();
+        }
+        var painel = await Com(s => s.LerAsync());
+
+        var aberta = await Com(s => s.AbrirCasoAsync(painel, painel.Retencao.Single(l => l.Id == id)));
+
+        Assert.True(aberta.SemTelefone);
+        Assert.Equal(_ana.Nome, Assert.Single(aberta.Dados.Contatos, x => x.Canal == CanalContato.Telefone).Operador);
+    }
+
     private static SituacaoConfirmacao Situacao(ContatoCampanha c) => RodadaDeConfirmacao.Classificar(c.Status, c.EnviadoEm, c.Comentario);
 
     // ------------------------------------------------------------------ o @SemDor (24/10)
@@ -604,7 +847,8 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
         public Task<AppConversationSummary[]> ListarConversasAsync(int usuarioId, CancellationToken ct = default)
             => Task.FromResult(_conversas.Values.Select(c => new AppConversationSummary(c.Id, c.Name, c.Contact, c.Channel, c.Sender, c.Queue,
                 c.AgentId, c.Closed, c.Version, c.UpdatedAt, c.LastIncoming, c.PatientId, c.PatientName, _naoLidas.GetValueOrDefault(c.Id),
-                c.Messages.LastOrDefault()?.Text ?? "", false, false, null, c.ClosedAt, Semdor: Etiquetas.GetValueOrDefault(c.Id))).ToArray());
+                c.Messages.LastOrDefault()?.Text ?? "", false, false, null, c.ClosedAt, Semdor: Etiquetas.GetValueOrDefault(c.Id),
+                PendingTransfer: c.PendingTransfer)).ToArray());
 
         public Task<AppConversationsSince> ListarDesdeAsync(int usuarioId, DateTimeOffset desde, CancellationToken ct = default)
             => Task.FromResult(new AppConversationsSince([], [], DateTimeOffset.UtcNow));
@@ -656,12 +900,27 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
         /// <summary>As conversas cuja transferência o CRM recusa (400): a passagem do turno segue para as outras.</summary>
         public HashSet<string> RecusasNaTransferencia { get; } = [];
 
+        /// <summary>Como o CRM: para uma pessoa nasce o pedido (a conversa fica com quem pediu); para a fila, passa na hora.</summary>
         public Task<AppConversation> TransferirAsync(int usuarioId, string conversaId, AppChange mudanca, CancellationToken ct = default)
         {
             Mudancas.Add(("transfer", conversaId, mudanca));
             if (RecusasNaTransferencia.Contains(conversaId)) throw new RecusaDoCrm("Escolha uma fila válida.", 400);
             if (mudanca.Version != _conversas[conversaId].Version) throw new RecusaDoCrm("A conversa mudou. Atualize e tente novamente.", 409);
-            return Task.FromResult(Trocar(conversaId, c => c with { AgentId = mudanca.AgentId }));
+            return Task.FromResult(Trocar(conversaId, c => mudanca.AgentId is { } para
+                ? c with { PendingTransfer = new AppPendingTransfer("pedido-" + conversaId, "ana", para, mudanca.Note ?? "", DateTimeOffset.UtcNow) }
+                : c with { AgentId = null, Queue = mudanca.Queue ?? c.Queue }));
+        }
+
+        /// <summary>As decisões que chegaram: (pedido, ação, motivo).</summary>
+        public List<(string Pedido, string Acao, string? Motivo)> Decisoes { get; } = [];
+
+        public Task<AppTransferDecided> DecidirTransferenciaAsync(int usuarioId, string pedidoId, string acao, AppTransferDecision decisao,
+            CancellationToken ct = default)
+        {
+            Decisoes.Add((pedidoId, acao, decisao.Reason));
+            var c = _conversas.Values.Single(x => x.PendingTransfer?.Id == pedidoId);
+            Trocar(c.Id, x => acao == "accept" ? x with { AgentId = x.PendingTransfer!.To, PendingTransfer = null } : x with { PendingTransfer = null });
+            return Task.FromResult(new AppTransferDecided(c.Id));
         }
 
         public Task<AppConversation> ReabrirAsync(int usuarioId, string conversaId, AppChange mudanca, CancellationToken ct = default)

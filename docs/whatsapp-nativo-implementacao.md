@@ -710,6 +710,78 @@ figurinha como foto e a lista "Foto", como antes.
   "simples, mas funcional" — a recepção responde com texto e emoji.
 - **Nada a fazer na figurinha animada**: o WebView2 (Chromium) anima o WEBP sozinho, como o WhatsApp.
 
+## 14. A tela diz a verdade: regras, frases e transferência (25/10/2026)
+
+O pedido da direção depois das revisões de 25/10 (`3-casos-de-uso.md`, R1–R7 e D11; `2-profissional.md`, itens 6, 7,
+15, 16 e 22): *"corrigir todas, sem perguntas, profissional, sem falhas nem redundâncias"*. Esta frente cuidou das
+REGRAS e das FRASES; a aparência, o teclado, a lista e a linha do tempo foram de outra frente, e as capacidades novas
+(marcar pela conversa, guardar arquivo na ficha, perguntar ao profissional, presença e passar o turno), de uma terceira.
+
+| Peça | Onde | Teste |
+|---|---|---|
+| **R1** — Confirmar e "Não vem" pela conversa sem a rodada de Confirmações: o contato de confirmação do horário é obtido ou criado com a MESMA origem `AGD:{id}` da ponte (`ClinicAgendaBridge`), num `SaveChanges` só com a resposta; só para horário marcado e futuro. O cartão do horário tem **Confirmar** e **Não vem** sempre que a ficha está conferida e o horário é futuro | `CampanhaService.RegistrarRespostaDoHorarioAsync` (+ `ContatoDoHorarioAsync`), `WhatsAppDaRecepcaoService.ConfirmouPorTelefoneAsync`/`NaoVemAsync`/`Horarios`, o cartão em `ConversasDoWhatsApp.razor` | `WhatsAppDaRecepcaoServiceTests.Confirmar_e_nao_vem_sem_rodada_criam_o_contato_do_horario_e_o_aviso_chega_ao_sino`, `Horario_que_ja_passou_ou_saiu_da_agenda_nao_ganha_resposta_inventada`, `Horario_futuro_sem_rodada_tem_confirmar_e_nao_vem_na_coluna` |
+| **R2** — "Sem resposta" com a regra do CRM: o lembrete AUTOMÁTICO (gravado pela ponte com `RodadaDeConfirmacao.LembreteAutomatico`, sem link) pede resposta como o link do SMS pedia. O lembrete à mão continua fora. A frase do painel do Gerente que falava de SMS e link foi junto | `AvisosDeConfirmacao` (`ContatoParaAvisoDeConfirmacao.PedeResposta`), a projeção em `ClinicaRepositorio.ConsultaContatosParaAvisosDeConfirmacao`, a ponte usa a constante, `PainelDirecaoService` | `AvisosDeConfirmacaoTests.O_lembrete_automatico_do_WhatsApp_pede_resposta_e_o_manual_nao`, `TraducaoNoNpgsqlTests.Contatos_para_avisos_de_confirmacao_traduzem_sem_foto` (agora com `EnviadoPor`) |
+| **R3** — as frases que prometiam o que não acontece: (a) Transferir para uma PESSOA é "pedido enviado; passa quando ela aceitar" (o setor passa na hora), no formulário e na notificação; (b) a remarcação só promete o lembrete com o automático LIGADO (`AppSession.RemindersEnabled`) e sessão a partir de amanhã; (c) Confirmações não fala mais do SMS com link; (d) o envio de documento diz "aparece na conversa do paciente no WhatsApp da clínica", não "CRM → Envios do Clínico" | `TransferirConversaForm.razor`, `ConversasNaTela.FraseDaTransferencia`, `WhatsAppDaRecepcaoService.RascunhoDeRemarcacao`, `ConfirmacoesDeAgenda.razor`, `EnvioAoPacienteService.QuandoSair`; no grep pedido ("SMS", "lembrete", "CRM →"): o aviso "A resposta pelo SMS não cancela", o "SMS sem resposta desde" do sino e o alerta do Gerente | `ConversasNaTelaTests.A_frase_da_transferencia_diz_se_foi_pedido_ou_se_passou`, `WhatsAppDaRecepcaoServiceTests.Rascunho_de_remarcacao_diz_o_que_a_clinica_fez_e_so_promete_o_lembrete_ligado`, `AvisosDeConfirmacaoTests` (as frases) |
+| **R7** — Aceitar/Recusar a transferência na tela: o pedido pendente no contrato (`AppPendingTransfer` no fim de `AppConversation` e `AppConversationSummary`), a rota `POST /api/transfers/{id}/{accept\|reject\|cancel}`; no app, `IClienteDoCrm.DecidirTransferenciaAsync`, o aviso "Fulana quer passar esta conversa para você · Aceitar / Recusar" (antes de tudo, para quem recebe), "Aguardando o aceite de Fulana · Cancelar o pedido" (para quem pediu, depois dos avisos de confirmação), o selo "Transferência para você" / "Aguardando aceite · Fulana", Transferir apagado com pedido pendente, e o formulário com pessoa OU setor, sem nada marcado (item 20) | `ApiParaOsApps.cs` ≡ `ContratosDoCrm.cs`, `Store.PendingTransferOf` (CRM), `ClienteDoCrmHttp`, `WhatsAppDaRecepcaoService.Aceitar/Recusar/CancelarTransferenciaAsync`, `ConversasNaTela.PedeAcao/Selo`, o CRM de mentira | `ApiParaOsAppsTests.Transferir_para_uma_pessoa_vira_pedido_*`, `Quem_pediu_cancela_*`, `Sessao_diz_se_o_lembrete_automatico_esta_ligado`; `ClienteDoCrmHttpTests.A_decisao_da_transferencia_*`, `A_recusa_da_transferencia_*`; `ConversasNaTelaTests.O_pedido_de_transferencia_*`, `O_selo_diz_*`; `WhatsAppDaRecepcaoServiceTests.Transferir_para_uma_pessoa_*`, `Quem_recebe_o_pedido_*`; `RegrasDoWhatsAppNaTelaTests` (bUnit: aceitar, pedir, cancelar) |
+| **D11** — o "avisado" do Avisar de Confirmações é gravado no ENVIO do modelo de lembrete pela conversa (o horário é o primeiro marcado e futuro da ficha conferida — o mesmo que preenche o "Dia e hora"), não no clique que abre a conversa; o lembrete repetido não apaga a resposta que o paciente já deu. Pelo wa.me do computador o clique continua sendo o registro (o app não vê o envio). Fechada a gaveta, Confirmações relê | `CampanhaService.RegistrarLembreteDoHorarioAsync`, `ModeloDoWhatsApp.Lembretes`, `WhatsAppDaRecepcaoService.HorarioDoLembrete` + `EnviarModeloAsync(..., lembreteDoHorario)`, `ConfirmacoesDeAgenda.razor` | `WhatsAppDaRecepcaoServiceTests.O_lembrete_enviado_pela_conversa_marca_o_horario_como_avisado_e_o_clique_sozinho_nao`, `O_lembrete_repetido_nao_apaga_a_resposta_que_o_paciente_ja_deu` |
+| **D11 (configuração)** — ligar o pedido de confirmação automático: recomendado, com o custo (mensagem de utilidade cobrada pela Meta) | `docs/whatsapp-nativo-roteiro-da-manha.md` §4.1 | — |
+| **R6** — "Para resolver" na coluna do paciente: os alertas da Ficha do balcão (`ElegibilidadeService` → `FichaAdministrativaNaTela.AlertaDe`), lidos DEPOIS de a conversa estar desenhada, uma vez por troca de paciente, com o bit da Ficha do balcão (`VerFichaPaciente` — o serviço não filtra; sem o bit nada é lido); três estados (lendo, não conferiu, lista/"Nada pendente na ficha") | `WhatsAppDaRecepcaoService.ParaResolverAsync`, `DadosDaConversa.ParaResolver` (no fim), `ConversasDoWhatsApp.ParaResolver.cs`, `Componentes/ParaResolverNaConversa.razor` | `WhatsAppDaRecepcaoServiceTests.Para_resolver_traz_os_alertas_da_ficha_do_balcao_e_nada_sem_o_bit_da_ficha`; a semente (Maria: carteirinha vence em 20 dias) |
+| **Item 6** — uma porta por pergunta: o que o aviso da conversa já mostra sai da coluna, BOTÃO A BOTÃO e só para aquele horário (Cancelar continua); o selo da ficha no cabeçalho é estado quando o aviso tem "Conferir a ficha"/"Buscar ficha"; "Cadastrar paciente" é o nome único; o mesmo verbo nos dois lugares ("Confirmar", "Manter o horário") | `ConversasNaTela.AvisoOferece`, `RotuloDeCadastrar`, `ConversasDoWhatsApp.razor` | `ConversasNaTelaTests.O_que_o_aviso_oferece_sai_da_coluna_so_para_aquele_horario`, `RegrasDoWhatsAppNaTelaTests.Sem_resposta_e_a_mesma_palavra_*` |
+| **Item 7** — "Sem resposta" na linha, na coluna e no aviso, de um lugar só | `RodadaDeConfirmacao.SemResposta` | `ConversasNaTelaTests.Sem_resposta_e_pediu_cancelar_pedem_os_botoes_da_agenda`, bUnit |
+| **Item 15** — o canal certo do lembrete (a semente do Carlos tinha o contato como SMS); o nome de quem fez o contato do caso (não o login); "Responsável pelo acompanhamento" rotulado (e a grade de pares com o rótulo em no máximo 45%); conversa sem telefone sem "WhatsApp", janela e selo do canal; a semente com a Bruna Reis dos dois lados | `WhatsAppDaRecepcaoService.ComNomeDeQuemFez`, `ConversaDoWhatsApp.SemTelefone`, `conversas.css` (`.wa-pares`), `Sementes/ConversasDoWhatsApp.cs` | `WhatsAppDaRecepcaoServiceTests.O_caso_sem_telefone_abre_sem_WhatsApp_e_o_contato_mostra_o_nome_de_quem_fez`, bUnit (o canal do Carlos) |
+| **Item 16** — sem ficha conferida, o título é o telefone e o nome do perfil vem rotulado ("Terezinha Souza (nome no WhatsApp)"; no SMS, "nome na conversa"); as iniciais viram "?" | `WhatsAppDaRecepcaoService.Compor`, `ConversaDoWhatsApp.NomeNoWhatsApp`/`NomeDoPerfil` | `Sem_ficha_conferida_o_titulo_e_o_telefone_e_o_nome_do_perfil_vai_rotulado`, bUnit (Lúcia) |
+| **Item 22** — "Como foi?" com botões neutros, e na coluna só depois de um convite ou ligação (`Tentativas > 0`) e quando o aviso ainda não o mostra | `RetencaoNaTela.BotoesDoComoFoi`/`ComoFoiNaColuna` | `RetencaoNaTelaTests.Os_cinco_como_foi_*`, `O_como_foi_da_coluna_so_aparece_*` |
+| **Item 8** — a fila do recall se renova quando a aba lê a Retenção, uma vez por dia no app (dividida com a tela Acompanhamento), pelo MESMO `GerarRecallAsync` (que não duplica caso); só para quem tem `GerenciarCampanhas`; a falha vai ao log e libera o dia | `RecallDoDia` (singleton), `WhatsAppDaRecepcaoService.RetencaoAsync`, `AcompanhamentoDePacientes.razor` | `WhatsAppDaRecepcaoServiceTests.Ler_a_aba_renova_a_fila_do_recall_uma_vez_por_dia_sem_duplicar_caso` |
+
+**O contrato** (os dois arquivos idênticos, SHA-256 `dbbf45cdc079cf755db7d9f39ef3d1c078ed61d28d89901a18d0a7db33cd7ad9` nas duas
+constantes): `AppSession.RemindersEnabled`, `AppConversationSummary.PendingTransfer`, `AppConversation.PendingTransfer`
+(todos no fim, com padrão) e os records `AppPendingTransfer`, `AppTransferDecision`, `AppTransferDecided`. A metade do CRM
+está em `semdor-crm/docs/api-para-os-apps.md` §11. **Ordem de publicação: CRM primeiro**; o app novo com o CRM antigo
+não mostra Aceitar nem promete lembrete (o comportamento seguro).
+
+**Fotos** (relógio fixo, `FOTOS=60,61,62,63,64,65,66,67 node tools/PreviaBlazor/fotos-whatsapp.js`), em 1366 e 1024, em
+`docs/mockups/whatsapp-nativo/tela-real/`: `60-transferencia-para-voce`, `61-transferir-pessoa-ou-setor`,
+`62-aguardando-aceite`, `63-sem-resposta-uma-palavra`, `64-para-resolver`, `65-nome-no-whatsapp`,
+`66-retencao-sem-telefone` e `67-retencao-responsavel`. Três correções vieram delas: o rótulo "Responsável pelo
+acompanhamento" espremia os valores até uma letra por linha (a grade de pares passou a limitar o rótulo); a primeira
+versão do item 6 escondia o Cancelar do horário (passou a ser botão a botão); e, em 1024, o formulário de Transferir
+continuava aberto depois de gravar até a batida de 7 s — os formulários da tela a chamam por `Func`, e fechar não a
+redesenhava (`FecharForm` agora redesenha; vale para todos os formulários da tela). Lições em `docs/agentes/convencoes.md`.
+
+### 🧑‍💻 UX · 🛠️ DX · 🤝 CX
+
+- 🧑‍💻 **UX** — o paciente diz "confirmo" na conversa e a secretária confirma ali, com ou sem rodada (antes: Confirmações
+  → Gerar rodada → achar a linha). O "Avisar" deixa de marcar avisado quem não recebeu nada. Quem recebe uma
+  transferência aceita na própria tela; quem pede vê que está esperando. A coluna responde "a carteirinha venceu?", "tem
+  guia glosada?" sem abrir a ficha. Cada estado tem uma palavra, cada gesto uma porta, e nenhuma frase ao paciente
+  promete lembrete que não sai.
+- 🛠️ **DX** — as regras moram na Application, puras e com teste (`AvisoOferece`, `ComoFoiNaColuna`, `PedeAcao`/`Selo`
+  com o pedido, `HorarioDoLembrete`, `FraseDaTransferencia`); a tela ganhou um arquivo à parte (`ParaResolver.cs`) e
+  um componente, para conviver com as outras frentes. Nenhuma migration; uma condição na projeção do sino (com a rede
+  do Npgsql); um método no cliente do CRM; um singleton de uma data.
+- 🤝 **CX** — sem custo novo ligado por padrão; ligar o lembrete automático é decisão com custo (Meta, utilidade) e
+  está no roteiro como recomendado. A passagem entre pessoas deixa de ficar pendurada até alguém abrir o CRM web, e o
+  "não vem" contado na conversa chega ao painel do Gerente. Releases: CRM primeiro, depois Recepção e Gerente.
+
+### O que NÃO foi feito, e por quê
+
+- **A pílula da AGENDA continua "Não confirmou".** Trocar para "Sem resposta" no app inteiro tornaria as videoaulas e o
+  catálogo de treinamento (que citam "Não confirmou") uma aula sobre uma tela que não existe mais. A palavra nova vale
+  no WhatsApp, de um lugar só (`RodadaDeConfirmacao.SemResposta`); a agenda troca quando as aulas forem regravadas.
+- **O lembrete à mão não vira "sem resposta" no sino**, e o CRM web o mostra como "sem resposta" (ele não sabe quem
+  mandou o lembrete: a ponte só diz "notified"). Alinhar exige a ponte dizer, no snapshot, se o lembrete pede resposta
+  (`ClinicContracts.cs`, outro contrato) — ficou fora desta rodada; a regra do app segue a decisão de que ali quem
+  julga é a recepção.
+- **"Fulana está nesta conversa"** (presença na conversa), **passar o turno** e **aviso de espera fora da aba** são da
+  frente de capacidades novas.
+- **O pedido para uma pessoa de outra fila** só aparece para quem vê aquela fila (`AccessPolicy` do CRM); a recepção
+  trabalha numa fila só.
+- **O cabeçalho em si** (rótulos "Com você", ✓ do encerrar — item 5) é da frente de aparência. Desta frente entrou só
+  uma regra nele: "Assumir" nasce apagado quando a conversa está com OUTRA pessoa (o CRM recusaria com 409; o caminho é
+  ela transferir, e quem recebe aceita no aviso), e "Transferir" apagado com um pedido pendente.
+- **A suíte no Postgres não rodou aqui** (os três agentes disputariam o mesmo banco-modelo): a consulta do sino mudou e
+  a tradução está na rede do Npgsql; quem junta as branches roda `CLINICA_TESTES_POSTGRES`.
+
 ## 16. A conversa resolve: marcar, guardar, perguntar, avisar e passar o turno (25/10/2026)
 
 O pedido da direção, depois da revisão dos casos de uso (R5, R8, R9, R10 e D12): *"corrigir todas, sem

@@ -305,6 +305,37 @@ public sealed class ClienteDoCrmHttpTests : IDisposable
         Assert.Contains("\"agentId\":null", escritas.Single(p => p.Caminho.EndsWith("/reassign")).Corpo);
     }
 
+    // ---------- A transferência para uma pessoa: aceitar, recusar, cancelar (25/10) ----------
+
+    [Fact] public async Task A_decisao_da_transferencia_vai_pela_rota_do_pedido_com_o_csrf_e_o_motivo()
+    {
+        await Configurar(EnderecoA);
+        crm.Rota = (p, _) => p.Caminho.StartsWith("/api/transfers/", StringComparison.Ordinal)
+            ? Responder(new AppTransferDecided("c1"))
+            : new HttpResponseMessage(HttpStatusCode.NotFound);
+
+        var aceito = await cliente.DecidirTransferenciaAsync(7, "p 1", "accept", new AppTransferDecision());
+        await cliente.DecidirTransferenciaAsync(7, "p 1", "reject", new AppTransferDecision("Estou no caixa agora."));
+        await cliente.DecidirTransferenciaAsync(7, "p 1", "cancel", new AppTransferDecision());
+
+        Assert.Equal("c1", aceito.ConversationId);
+        var depois = crm.Pedidos.Skip(3).ToList();
+        Assert.Equal(["POST /api/transfers/p%201/accept csrf=csrf-s1", "POST /api/transfers/p%201/reject csrf=csrf-s1",
+            "POST /api/transfers/p%201/cancel csrf=csrf-s1"], depois.Select(p => $"{p.Metodo} {p.Caminho} csrf={p.Csrf}"));
+        Assert.Contains("\"reason\":\"Estou no caixa agora.\"", depois[1].Corpo);
+        // Ação que o CRM não conhece nem sai daqui (nada da tela vira outro segmento de rota).
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => cliente.DecidirTransferenciaAsync(7, "p1", "../reassign", new AppTransferDecision()));
+        Assert.Equal(3, crm.Pedidos.Skip(3).Count());
+    }
+
+    [Fact] public async Task A_recusa_da_transferencia_chega_com_a_frase_do_CRM()
+    {
+        await Configurar(EnderecoA);
+        crm.Rota = (_, _) => Erro(409, "Esta transferência não está mais pendente.");
+        var erro = await Assert.ThrowsAsync<RecusaDoCrm>(() => cliente.DecidirTransferenciaAsync(7, "p1", "accept", new AppTransferDecision()));
+        Assert.Equal(("Esta transferência não está mais pendente.", 409), (erro.Message, erro.Status));
+    }
+
     // ---------- O @SemDor (24/10) ----------
 
     [Fact] public async Task O_SemDor_vai_pelo_caminho_autenticado_com_o_csrf_e_volta_nos_records_do_contrato()

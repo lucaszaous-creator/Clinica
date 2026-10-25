@@ -337,13 +337,26 @@ public static class RetencaoNaTela
             ModeloDoConvite(l));
     }
 
-    /// <summary>Os cinco "Como foi?" na ordem do mockup, com os rótulos do Acompanhamento.</summary>
+    /// <summary>
+    /// Os cinco "Como foi?" na ordem do mockup, com os rótulos do Acompanhamento. Todos NEUTROS (item 22 da revisão,
+    /// 25/10): "Quer marcar" em azul parecia a resposta já escolhida. Só o "Não quer voltar" leva o contorno de perigo,
+    /// porque encerra o caso.
+    /// </summary>
     public static IReadOnlyList<BotaoPedido> BotoesDoComoFoi() =>
     [
-        new(BotaoDaAcao.Desfecho, AcompanhamentoNaTela.Rotulo(DesfechoContato.QuerMarcar), Primario: true, Desfecho: DesfechoContato.QuerMarcar),
+        new(BotaoDaAcao.Desfecho, AcompanhamentoNaTela.Rotulo(DesfechoContato.QuerMarcar), Desfecho: DesfechoContato.QuerMarcar),
         new(BotaoDaAcao.Desfecho, AcompanhamentoNaTela.Rotulo(DesfechoContato.PediuOutraData), Desfecho: DesfechoContato.PediuOutraData),
         new(BotaoDaAcao.Desfecho, AcompanhamentoNaTela.Rotulo(DesfechoContato.AguardandoPlano), Desfecho: DesfechoContato.AguardandoPlano),
         new(BotaoDaAcao.Desfecho, AcompanhamentoNaTela.Rotulo(DesfechoContato.NaoRespondeu), Desfecho: DesfechoContato.NaoRespondeu),
         new(BotaoDaAcao.Desfecho, AcompanhamentoNaTela.Rotulo(DesfechoContato.NaoQuerVoltar), Perigo: true, Desfecho: DesfechoContato.NaoQuerVoltar)
     ];
+
+    /// <summary>
+    /// O "Como foi?" aparece na coluna do paciente? Só depois de um contato de verdade com ele — um convite ou uma
+    /// ligação registrados no caso (<see cref="LinhaAcompanhamento.Tentativas"/>; a abertura do ciclo não conta) — e
+    /// só quando o aviso da conversa ainda não o mostra (item 22 e item 6 da revisão, 25/10: antes ele aparecia para
+    /// quem nem tinha sido convidado, e nos dois lugares ao mesmo tempo).
+    /// </summary>
+    public static bool ComoFoiNaColuna(LinhaAcompanhamento caso, AcaoPedida? acaoDaConversa)
+        => caso.Pendente && caso.Tentativas > 0 && !ConversasNaTela.AvisoOferece(acaoDaConversa, BotaoDaAcao.Desfecho);
 }

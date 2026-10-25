@@ -275,7 +275,8 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px;fon
 .wa-pessoa-nome{display:flex;flex-direction:column;min-width:0;gap:2px}
 .wa-pessoa-nome strong{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wa-pessoa-nome span{font-size:var(--text-small-size);color:var(--texto-secundario)}
-.wa-pares{display:grid;grid-template-columns:auto minmax(0,1fr);gap:5px var(--space-3);margin:0;font-size:var(--text-table-size)}
+/* O rótulo ocupa no máximo 45% da coluna e quebra a linha: "Responsável pelo acompanhamento" (item 15) não espreme o valor. */
+.wa-pares{display:grid;grid-template-columns:fit-content(45%) minmax(0,1fr);gap:5px var(--space-3);margin:0;font-size:var(--text-table-size)}
 .wa-pares dt{color:var(--texto-secundario)}
 .wa-pares dd{margin:0;font-weight:600;min-width:0;overflow-wrap:anywhere;display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px}
 .wa-pares dd .selo{margin-left:0}
@@ -447,3 +448,10 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px;fon
   .wa-escrever-rodape:has(.wa-semdor-desfazer) .botao.primario{margin-left:auto}}
 @media (max-width:760px){.wa-semdor-resumo dl{grid-template-columns:minmax(0,1fr)}.wa-semdor-resumo dd{margin-bottom:var(--space-1)}}
 @media (prefers-reduced-motion:reduce){.wa-semdor-pensando{animation:none;opacity:.7}.wa-semdor-resumo{animation:none}}
+
+/* ---------- "Para resolver" na coluna do paciente (R6, 25/10): os alertas da Ficha do balcão ---------- */
+.wa-resolver ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--space-2);font-size:var(--text-table-size)}
+.wa-resolver li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--space-2);align-items:start;line-height:1.4}
+.wa-resolver li .icone{margin-top:2px}
+.wa-resolver li.tom-perigo .icone{color:var(--erro)}
+.wa-resolver li.tom-aviso .icone{color:var(--aviso)}

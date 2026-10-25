@@ -207,20 +207,26 @@ else
                 var r = Rascunho(c);
                 <div class="wa-cab">
                     <button type="button" class="botao icone fantasma wa-voltar" aria-label="Voltar à lista" @onclick="FecharConversa"><Icone Nome="esquerda" /></button>
-                    @Avatar(c.Conversa?.PatientId ?? c.Paciente?.Id, c.Iniciais, c.TomDoAvatar, @<span class="wa-canal @(c.Sms ? "sms" : null)"><Icone Nome="@(c.Sms ? "sms" : "chat")" /></span>)
+                    @* Sem telefone não há WhatsApp: nem o selo do canal no avatar (item 15). *@
+                    @Avatar(c.Conversa?.PatientId ?? c.Paciente?.Id, c.Iniciais, c.TomDoAvatar, c.SemTelefone ? null : @<span class="wa-canal @(c.Sms ? "sms" : null)"><Icone Nome="@(c.Sms ? "sms" : "chat")" /></span>)
                     <div class="wa-cab-quem"><h2>@c.Nome</h2>
-                        <div class="wa-cab-meta">@* Sem nome, o título já é o telefone: não repete. *@@if (!string.IsNullOrWhiteSpace(c.Telefone) && c.Telefone != c.Nome) { <span>@c.Telefone</span><span>·</span> }<span>@(c.Sms ? "SMS" : "WhatsApp")</span>
+                        <div class="wa-cab-meta">@* Sem nome, o título já é o telefone: não repete. Sem ficha conferida, o nome do perfil vai rotulado (item 16). *@@if (!string.IsNullOrWhiteSpace(c.Telefone) && c.Telefone != c.Nome) { <span>@c.Telefone</span><span>·</span> }@if (c.NomeDoPerfil is { } doPerfil) { <span title="O nome que a pessoa usa na conversa: ele não diz qual ficha é a dela">@doPerfil</span> }@if (!c.SemTelefone && (c.NomeDoPerfil is null || c.Sms)) { if (c.NomeDoPerfil is not null) { <span>·</span> } <span>@(c.Sms ? "SMS" : "WhatsApp")</span> }
+                            @* O selo da ficha é o ESTADO; a ação (conferir, buscar) mora no aviso da conversa quando ele a oferece (item 6). *@
                             @if (c.Ficha.Estado == EstadoFicha.Conferida)
                             {
                                 <span class="selo tom-sucesso" title="@c.Ficha.Dica">@c.Ficha.Texto</span>
                             }
-                            else if (c.Ficha.Estado == EstadoFicha.AConferir)
+                            else if (c.Ficha.Estado == EstadoFicha.AConferir && !ConversasNaTela.AvisoOferece(c.Acao, BotaoDaAcao.ConferirFicha))
                             {
                                 <button type="button" class="selo tom-info" title="@c.Ficha.Dica" @onclick="AbrirConferirFicha">@c.Ficha.Texto</button>
                             }
-                            else
+                            else if (c.Ficha.Estado == EstadoFicha.Nenhuma && !ConversasNaTela.AvisoOferece(c.Acao, BotaoDaAcao.BuscarFicha))
                             {
                                 <button type="button" class="selo tom-neutro" title="@c.Ficha.Dica" @onclick="() => _fichaAberta = true">@c.Ficha.Texto</button>
+                            }
+                            else
+                            {
+                                <span class="selo tom-@c.Ficha.Tom" title="@c.Ficha.Dica">@c.Ficha.Texto</span>
                             }
                         </div></div>
                     <div class="wa-cab-acoes">
@@ -232,9 +238,12 @@ else
                             }
                             else
                             {
-                                <button type="button" class="botao primario" title="Esta conversa passa a ser sua" disabled="@(!PodeEscrever || _ocupado)" @onclick="AssumirAsync"><Icone Nome="pessoa" /><span>Assumir</span></button>
+                                @* De outra pessoa o CRM recusa o "assumir" (409): o caminho é ela transferir — com o pedido, "Aceitar" no aviso. *@
+                                <button type="button" class="botao primario" title="@(conv.AgentId is null ? "Esta conversa passa a ser sua" : $"Está com {c.Responsavel}: peça a transferência")"
+                                        disabled="@(!PodeEscrever || _ocupado || conv.AgentId is not null)" @onclick="AssumirAsync"><Icone Nome="pessoa" /><span>Assumir</span></button>
                             }
-                            <button type="button" class="botao" data-acao="transferir" disabled="@(!PodeEscrever || _ocupado || !c.Minha)" title="@(c.Minha ? "Passar a conversa a outra pessoa ou fila" : SoComVoce)" @onclick="() => _form = Form.Transferir"><Icone Nome="transferir" /><span>Transferir</span></button>
+                            <button type="button" class="botao" data-acao="transferir" disabled="@(!PodeEscrever || _ocupado || !c.Minha || conv.PendingTransfer is not null)"
+                                    title="@(!c.Minha ? SoComVoce : conv.PendingTransfer is not null ? "Já há um pedido de transferência aguardando o aceite: cancele-o antes de pedir outro" : "Passar a conversa a outra pessoa (pedido) ou a um setor (na hora)")" @onclick="() => _form = Form.Transferir"><Icone Nome="transferir" /><span>Transferir</span></button>
                         }
                         @if (SemDorLigado && c.Conversa is { } paraResumir)
                         {
@@ -258,7 +267,11 @@ else
                 <div class="wa-faixa">
                     <span>Fila <b>@c.Fila</b></span><i></i>
                     <span>@if (c.Responsavel == "Sem responsável") { @c.Responsavel } else if (c.Minha) { <text>Com <b>você</b></text> } else { <text>Com <b>@c.Responsavel</b></text> }</span>
-                    @if (c.Janela.Estado == SituacaoDaJanela.SemJanela)
+                    @if (c.SemTelefone)
+                    {
+                        @* Sem telefone não há janela de 24 h a mostrar: o bloco de baixo já diz "Sem telefone no cadastro" (item 15). *@
+                    }
+                    else if (c.Janela.Estado == SituacaoDaJanela.SemJanela)
                     {
                         <span class="selo tom-neutro"><Icone Nome="sms" />@c.Janela.Texto</span>
                     }
@@ -497,9 +510,10 @@ else
                             <dt>Sessões</dt><dd>@caso.TotalSessoes.ToString(Formato.PtBr)@(caso.PacoteComSaldo ? " · pacote com saldo" : "")</dd>
                             <dt>Mensagens</dt><dd>@if (caso.Consentimento) { <span class="selo tom-sucesso">autorizou</span> } else { <span class="selo tom-aviso">sem autorização · ligar</span> }</dd>
                             <dt>Situação</dt><dd><span class="selo tom-@selo.Tom">@selo.Texto</span></dd>
-                            <dt>Responsável</dt><dd>@ConversaDoAcompanhamento.Dono(caso, SessaoUsuario.Atual.UsuarioId)</dd>
+                            @* "pelo acompanhamento": o responsável do CASO, que não é o da conversa do CRM (item 15). *@
+                            <dt>Responsável pelo acompanhamento</dt><dd>@ConversaDoAcompanhamento.Dono(caso, SessaoUsuario.Atual.UsuarioId)</dd>
                         </dl>
-                        @if (caso.Pendente && PodeAcompanhar)
+                        @if (PodeAcompanhar && RetencaoNaTela.ComoFoiNaColuna(caso, a.Acao))
                         {
                             <h4>Como foi?</h4>
                             <div class="wa-desfechos">@foreach (var b in RetencaoNaTela.BotoesDoComoFoi()) { @Botao(a, b, mini: true) }</div>
@@ -523,14 +537,21 @@ else
                         {
                             <SeletorDePaciente Placeholder="Nome ou documento" SelecionadoChanged="p => LigarFichaEscolhidaAsync(a, p)" />
                         }
-                        <button type="button" class="botao" disabled="@(!Pode(Permissao.EditarPaciente) || _ocupado)" @onclick="() => CadastrarAsync(a)"><Icone Nome="mais" />Cadastrar com este telefone</button>
+                        @if (!ConversasNaTela.AvisoOferece(a.Acao, BotaoDaAcao.CadastrarPaciente))
+                        {
+                            <button type="button" class="botao" disabled="@(!Pode(Permissao.EditarPaciente) || _ocupado)" title="Abre o cadastro com o telefone da conversa já preenchido" @onclick="() => CadastrarAsync(a)"><Icone Nome="mais" />@ConversasNaTela.RotuloDeCadastrar</button>
+                        }
                     </section>
                 }
                 else if (a.Ficha.Estado == EstadoFicha.AConferir)
                 {
                     <section class="wa-secao"><h3>@(a.Dados.Candidatas.Count == 1 ? "Uma ficha com este telefone" : $"{a.Dados.Candidatas.Count} fichas com este telefone")</h3>
                         <p class="wa-dica">@string.Join(" e ", a.Dados.Candidatas.Select(f => f.Nome)). Confira com quem está no telefone.</p>
-                        <button type="button" class="botao primario" disabled="@(!PodeEscrever)" @onclick="AbrirConferirFicha"><Icone Nome="pessoa" />Conferir a ficha</button></section>
+                        @if (!ConversasNaTela.AvisoOferece(a.Acao, BotaoDaAcao.ConferirFicha))
+                        {
+                            <button type="button" class="botao primario" disabled="@(!PodeEscrever)" @onclick="AbrirConferirFicha"><Icone Nome="pessoa" />Conferir a ficha</button>
+                        }
+                    </section>
                 }
                 else if (a.Paciente is { } p)
                 {
@@ -546,6 +567,11 @@ else
                             </dl>
                         }
                     </section>
+                    @* O que resolver com este paciente: os alertas da Ficha do balcão, com o mesmo bit dela (R6). *@
+                    @if (Pode(Permissao.VerFichaPaciente))
+                    {
+                        <ParaResolverNaConversa Estado="@a.Dados.ParaResolver" />
+                    }
                 }
                 @if (a.Dados.Horarios.Count > 0 || a.Paciente is not null)
                 {
@@ -555,12 +581,15 @@ else
                             <div class="wa-horario @(h.Tom == "perigo" ? "tom-perigo" : h.Tom == "sucesso" ? "tom-sucesso" : null)" @key="h.AgendamentoId">
                                 <div class="wa-horario-topo"><b>@h.QuandoTexto</b><span class="selo tom-@h.Tom">@h.Situacao</span></div>
                                 <small>@h.Detalhe</small>
-                                    <div class="botoes-linha">
-                                        @if (h.PodeConfirmar) { <button type="button" class="botao mini @(h.Tom == "aviso" ? "primario" : null)" disabled="@(!PodeEscrever || _ocupado)" @onclick="() => ConfirmouAsync(h.AgendamentoId)"><Icone Nome="check" />Confirmar</button> }
-                                        @if (h.PodeManter) { <button type="button" class="botao mini" disabled="@(!PodeEscrever || _ocupado)" @onclick="() => ManterAsync(h.AgendamentoId)">Manter</button> }
-                                        <button type="button" class="botao mini @(h.Tom == "perigo" ? "primario" : null)" disabled="@(!PodeEscrever || _ocupado)" @onclick="() => _horarioAberto = h.AgendamentoId"><Icone Nome="calendario" />Remarcar</button>
-                                        <button type="button" class="botao mini contorno-perigo" disabled="@(!PodeEscrever || _ocupado)" @onclick="() => AbrirCancelar(h, null)">Cancelar</button>
-                                    </div>
+                                @* O que o aviso da conversa já oferece para este horário não se repete aqui: o mesmo botão em dois lugares (item 6). *@
+                                @{ var avisoTem = (BotaoDaAcao b) => ConversasNaTela.AvisoOferece(a.Acao, b, h.AgendamentoId); }
+                                <div class="botoes-linha">
+                                    @if (h.PodeConfirmar && !avisoTem(BotaoDaAcao.ConfirmouPorTelefone)) { <button type="button" class="botao mini @(h.Tom == "aviso" ? "primario" : null)" disabled="@(!PodeEscrever || _ocupado)" title="O paciente confirmou (aqui na conversa ou ao telefone)" @onclick="() => ConfirmouAsync(h.AgendamentoId)"><Icone Nome="check" />Confirmar</button> }
+                                    @if (h.PodeNaoVem && !avisoTem(BotaoDaAcao.NaoVem)) { <button type="button" class="botao mini" disabled="@(!PodeEscrever || _ocupado)" title="O paciente avisou que não vem: o sino e o Gerente ficam sabendo, e o horário continua marcado até você remarcar ou cancelar" @onclick="() => NaoVemAsync(h.AgendamentoId)">Não vem</button> }
+                                    @if (h.PodeManter && !avisoTem(BotaoDaAcao.ManterHorario)) { <button type="button" class="botao mini" disabled="@(!PodeEscrever || _ocupado)" @onclick="() => ManterAsync(h.AgendamentoId)">Manter o horário</button> }
+                                    @if (!avisoTem(BotaoDaAcao.Remarcar)) { <button type="button" class="botao mini @(h.Tom == "perigo" ? "primario" : null)" disabled="@(!PodeEscrever || _ocupado)" @onclick="() => _horarioAberto = h.AgendamentoId"><Icone Nome="calendario" />Remarcar</button> }
+                                    @if (!avisoTem(BotaoDaAcao.AceitarCancelamento)) { <button type="button" class="botao mini contorno-perigo" disabled="@(!PodeEscrever || _ocupado)" @onclick="() => AbrirCancelar(h, null)">Cancelar</button> }
+                                </div>
                             </div>
                         }
                         @MarcarHorario(a)
@@ -918,6 +947,8 @@ else
         {
             if (g == _geracaoConversa) _carregandoConversa = false;
         }
+        // "Para resolver" (R6): lido DEPOIS de a conversa estar na tela, uma vez por troca de paciente (ConversasDoWhatsApp.ParaResolver.cs).
+        if (g == _geracaoConversa) await ParaResolverDaConversaAsync();
     }
 
     private bool ConversaDoCasoMudou(LinhaAcompanhamento caso) => _aberta?.Caso?.Id != caso.Id;
@@ -1006,7 +1037,7 @@ else
             _painel = painel with { Conversas = painel.Conversas.Select(x => x.Id != nova.Id ? x : x with
             {
                 AgentId = nova.AgentId, Closed = nova.Closed, Version = nova.Version, UpdatedAt = nova.UpdatedAt,
-                PatientId = nova.PatientId, PatientName = nova.PatientName, Queue = nova.Queue, Unread = 0,
+                PatientId = nova.PatientId, PatientName = nova.PatientName, Queue = nova.Queue, Unread = 0, PendingTransfer = nova.PendingTransfer,
                 Semdor = SemDorNaTela.EtiquetaDepoisDaEscrita(x.Semdor, nova)
             }).ToList() };
     }
@@ -1029,7 +1060,8 @@ else
     private Task TeclaAsync(ConversaDoWhatsApp c, KeyboardEventArgs e)
         => e.Key == "Enter" && (e.CtrlKey || e.MetaKey) ? EnviarAsync(c) : Task.CompletedTask;
 
-    private Task AssumirAsync() => _aberta?.Conversa is { } c
+    // Só a conversa sem responsável se assume (a de outra pessoa passa pela transferência): a mesma condição que apaga o botão.
+    private Task AssumirAsync() => _aberta?.Conversa is { AgentId: null } c
         ? GravarNoCrmAsync(s => s.AssumirAsync(c, _painel?.Sessao.AgentId), "A conversa é sua. Ela aparece em \"Minhas\".")
         : Task.CompletedTask;
 
@@ -1055,8 +1087,10 @@ else
     private async Task<string?> TransferirAsync(string? agente, string? fila, string? nota)
     {
         if (_aberta?.Conversa is not { } c) return "A conversa não está mais aberta.";
-        var nova = await GravarNoCrmAsync(s => s.TransferirAsync(c, agente, fila, nota), "Conversa transferida.");
+        var nova = await GravarNoCrmAsync(s => s.TransferirAsync(c, agente, fila, nota), null, "transferir a conversa");
         if (nova is null) return _recado;
+        // Para uma pessoa o pedido foi enviado; só o setor passa na hora (R3): a frase diz qual dos dois aconteceu.
+        Notificacoes.Sucesso(ConversasNaTela.FraseDaTransferencia(nova, _painel?.Agentes));
         FecharForm();
         return null;
     }
@@ -1229,7 +1263,8 @@ else
         {
             using var escopo = Escopo();
             var resultado = await escopo.ServiceProvider.GetRequiredService<WhatsAppDaRecepcaoService>()
-                .EnviarModeloAsync(c.Conversa, remetente, modelo, _valores, caso, r.IdDoEnvio);
+                .EnviarModeloAsync(c.Conversa, remetente, modelo, _valores, caso, r.IdDoEnvio,
+                    WhatsAppDaRecepcaoService.HorarioDoLembrete(c, modelo, WhatsAppDaRecepcaoService.Agora));
             if (Descartada) return;
             r.IdDoEnvio = Guid.NewGuid().ToString("D");
             _popover = Popover.Nenhum;
@@ -1354,7 +1389,8 @@ else
             var r = Rascunho(a);
             if (string.IsNullOrWhiteSpace(r.Texto))
             {
-                r.Texto = WhatsAppDaRecepcaoService.RascunhoDeRemarcacao(a.Paciente?.Nome ?? a.Nome, novo, DateOnly.FromDateTime(DateTime.Today));
+                r.Texto = WhatsAppDaRecepcaoService.RascunhoDeRemarcacao(a.Paciente?.Nome ?? a.Nome, novo, DateOnly.FromDateTime(DateTime.Today),
+                    _painel?.Sessao.RemindersEnabled == true);
                 return true;
             }
         }
@@ -1445,7 +1481,7 @@ else
     private static string? IconeDoBotao(BotaoPedido b) => b.Acao switch
     {
         BotaoDaAcao.Remarcar => "calendario",
-        BotaoDaAcao.ConfirmouPorTelefone or BotaoDaAcao.JaLiguei => "check",
+        BotaoDaAcao.ConfirmouPorTelefone or BotaoDaAcao.JaLiguei or BotaoDaAcao.AceitarTransferencia => "check",
         BotaoDaAcao.BuscarFicha => "busca",
         BotaoDaAcao.PrepararConvite or BotaoDaAcao.PrepararMensagem => "modelo",
         BotaoDaAcao.NotaInterna => "nota",
@@ -1491,6 +1527,15 @@ else
             case BotaoDaAcao.ColherAutorizacao:
                 if ((c.Paciente?.Id ?? c.Caso?.PacienteId) is { } pid) await AbrirFichaAsync(pid, "Colha a autorização de mensagens pelo termo, na ficha do paciente.");
                 break;
+            case BotaoDaAcao.AceitarTransferencia when c.Conversa is { } paraAceitar:
+                await GravarNoCrmAsync(s => s.AceitarTransferenciaAsync(paraAceitar), "A conversa é sua agora.", "aceitar a transferência");
+                break;
+            case BotaoDaAcao.RecusarTransferencia when c.Conversa is { } paraRecusar:
+                await RecusarTransferenciaAsync(paraRecusar);
+                break;
+            case BotaoDaAcao.CancelarTransferencia when c.Conversa is { } paraCancelar:
+                await GravarNoCrmAsync(s => s.CancelarTransferenciaAsync(paraCancelar), "Pedido cancelado. A conversa continua com você.", "cancelar o pedido de transferência");
+                break;
             case BotaoDaAcao.AtualizarTelefone:
                 if (!Exigir(Permissao.EditarPaciente, "atualizar a ficha")) return;
                 if (c.Caso?.PacienteId is { } paciente && Servicos.GetService<FormulariosDoPaciente>() is { Disponivel: true } formularios)
@@ -1502,16 +1547,34 @@ else
         }
     }
 
+    /// <summary>Recusar pede o motivo (o CRM o exige e o guarda na trilha). Cancelar a pergunta é null: nada acontece.</summary>
+    private async Task RecusarTransferenciaAsync(AppConversation c)
+    {
+        if (!Exigir(Permissao.EditarAgenda, "recusar a transferência")) return;
+        var motivo = await Dialogos.PerguntarTextoAsync("Recusar a transferência",
+            $"Por que você não pode ficar com a conversa? Quem pediu lê o motivo ({WhatsAppDaRecepcaoService.MinimoDoMotivoDeRecusar} letras ou mais).");
+        if (motivo is null) return;
+        if (motivo.Trim().Length < WhatsAppDaRecepcaoService.MinimoDoMotivoDeRecusar)
+        {
+            Recado($"O motivo precisa de pelo menos {WhatsAppDaRecepcaoService.MinimoDoMotivoDeRecusar} letras. O pedido continua aguardando.", "erro");
+            return;
+        }
+        await GravarNoCrmAsync(s => s.RecusarTransferenciaAsync(c, motivo), "Transferência recusada. A conversa continua com quem pediu.", "recusar a transferência");
+    }
+
     private void AbrirConferirFicha()
     {
         if (!Exigir(Permissao.EditarAgenda, "ligar a ficha à conversa") || _aberta is not { Dados.Candidatas.Count: > 0 }) return;
         _form = Form.ConferirFicha;
     }
 
+    // Os formulários chamam a tela por Func (não EventCallback): sem o StateHasChanged, o formulário que gravou
+    // ficava aberto até a próxima batida de 7 s (visto na foto 62 em 1024; lição em convencoes.md).
     private void FecharForm()
     {
         _form = Form.Nenhum;
         _horarioACancelar = null;
+        StateHasChanged();
     }
 
     // ==================================================================== navegação
