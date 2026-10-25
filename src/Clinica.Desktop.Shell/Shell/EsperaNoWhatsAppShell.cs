@@ -43,8 +43,8 @@ public sealed partial class ShellViewModel
     /// <summary>O número no item "WhatsApp" do menu: quantos pacientes esperam resposta (nada quando ninguém).</summary>
     public string? ContadorDoWhatsApp => WhatsAppLigado ? ConversasNaTela.ContadorDoMenu(EsperasNoWhatsApp.Count) : null;
 
-    /// <summary>Quem tem a aba WhatsApp neste app (o item do menu só existe com EditarAgenda).</summary>
-    public bool PodeVigiarWhatsApp => _sessaoClinica is { Autenticado: true } && _sessaoClinica.Pode(Permissao.EditarAgenda)
+    /// <summary>Quem atende o WhatsApp (<see cref="AcessoAoWhatsApp"/>) e tem a aba neste app.</summary>
+    public bool PodeVigiarWhatsApp => _sessaoClinica is { Autenticado: true } sessao && AcessoAoWhatsApp.Pode(sessao)
         && Itens.Any(i => i.Chave == ConversaNoCrm.ChaveDaAba);
 
     private bool NaAbaDoWhatsApp => Itens.Any(i => i.Chave == ConversaNoCrm.ChaveDaAba && i.EstaAtivo);
