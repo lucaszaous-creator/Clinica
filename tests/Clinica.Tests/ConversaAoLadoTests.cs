@@ -77,13 +77,20 @@ public sealed class ConversaAoLadoTests : IClassFixture<BancoDasTelas>, IDisposa
         return tela;
     }
 
+    /// <summary>Clica como a pessoa: só depois de o botão acender (a ficha carregou o telefone). O bUnit clica botão apagado.</summary>
+    private static void ClicarNoWhatsApp(IRenderedComponent<Raiz> tela)
+    {
+        tela.WaitForAssertion(() => tela.Find(".fb-acoes .wa-lado-abrir").HasAttribute("disabled").Should().BeFalse(), Prazo);
+        tela.Find(".fb-acoes .wa-lado-abrir").Click();
+    }
+
     [Fact]
     public async Task O_WhatsApp_da_ficha_abre_a_conversa_do_paciente_ao_lado_e_o_Esc_fecha()
     {
         var maria = await PacienteAsync(PessoasDoWhatsApp.Maria.Nome);
         var tela = AbrirFicha(maria.Id, maria.Nome);
 
-        tela.Find(".fb-acoes .wa-lado-abrir").Click();
+        ClicarNoWhatsApp(tela);
 
         tela.WaitForAssertion(() => tela.Find(".wa-lado .wa-cab h2").TextContent.Should().Be(maria.Nome), Prazo);
         tela.Find(".wa-lado .pagina.wa").ClassList.Should().Contain("wa-ao-lado");
@@ -104,13 +111,13 @@ public sealed class ConversaAoLadoTests : IClassFixture<BancoDasTelas>, IDisposa
         var maria = await PacienteAsync(PessoasDoWhatsApp.Maria.Nome);
         var tela = AbrirFicha(maria.Id, maria.Nome);
 
-        tela.Find(".fb-acoes .wa-lado-abrir").Click();
+        ClicarNoWhatsApp(tela);
         tela.WaitForAssertion(() => tela.Find(".wa-lado .wa-escrever textarea"), Prazo);
         tela.Find(".wa-lado .wa-escrever textarea").Input("Maria, confirmo terça às 14h");
         tela.Find(".wa-lado").KeyDown(new KeyboardEventArgs { Key = "Escape" });
         tela.WaitForAssertion(() => tela.FindAll(".wa-lado").Should().BeEmpty(), Prazo);
 
-        tela.Find(".fb-acoes .wa-lado-abrir").Click();
+        ClicarNoWhatsApp(tela);
         tela.WaitForAssertion(() => tela.Find(".wa-lado .wa-escrever textarea").GetAttribute("value")
             .Should().Be("Maria, confirmo terça às 14h"), Prazo);
     }
@@ -128,7 +135,7 @@ public sealed class ConversaAoLadoTests : IClassFixture<BancoDasTelas>, IDisposa
         }
         var tela = AbrirFicha(id, "Paciente Sem Conversa Teste");
 
-        tela.Find(".fb-acoes .wa-lado-abrir").Click();
+        ClicarNoWhatsApp(tela);
 
         tela.WaitForAssertion(() => tela.Find(".wa-lado").TextContent.Should().Contain("Ainda não há conversa com Paciente"), Prazo);
         tela.FindAll(".wa-lado button").Single(b => b.TextContent.Contains(ConversaAoLadoNaTela.Comecar)).Click();
@@ -148,7 +155,7 @@ public sealed class ConversaAoLadoTests : IClassFixture<BancoDasTelas>, IDisposa
         await crm.LigarFichaAsync(1, sms.Id, new AppPatientLink(maria.Id, maria.Nome));
         var tela = AbrirFicha(maria.Id, maria.Nome);
 
-        tela.Find(".fb-acoes .wa-lado-abrir").Click();
+        ClicarNoWhatsApp(tela);
 
         tela.WaitForAssertion(() => tela.Find(".wa-lado .wa-lado-seletor select").GetAttribute("value").Should().Be(sms.Id), Prazo);
         tela.FindAll(".wa-lado .wa-lado-seletor option").Should().HaveCount(2);

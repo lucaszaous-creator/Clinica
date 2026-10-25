@@ -5,7 +5,7 @@ sessão). O texto é o MESMO, sem reescrita: design system, WPF/XAML, Blazor, EF
 `verificar-suite`, assinatura digital, impressão, CRM e as rodadas de UI, cada uma com o defeito que a
 originou. Antes de escrever uma tela, uma consulta ou uma checagem, procure aqui a lição da área.
 
-## Índice (195 tópicos, na ordem do arquivo)
+## Índice (196 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -203,6 +203,7 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
 - Bytes do navegador para o C# vão em FLUXO (`IJSStreamReference`), nunca `byte[]`: a prévia é Blazor Server e corta em 32 KB
 - Componente filho que chama a tela por `Func` (e não `EventCallback`) não a redesenha: quem chama chama `StateHasChanged`
 - Junção de branches paralelas: o git junta SEM conflito duas versões da MESMA decisão
+- O bUnit CLICA botão `disabled`, e o Postgres é que mostra
 ---
 
 
@@ -5113,3 +5114,12 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
   (`ClienteDoCrmHttpTests.O_SemDor_*`) acusou. Regra: depois de juntar branches que mexeram no mesmo
   arquivo, rode as famílias de testes de CADA uma na árvore juntada — não só as da última — e procure
   no arquivo juntado todo uso do valor novo de cada `enum` (`grep -n "Natureza\."`).
+
+- **O bUnit CLICA botão `disabled`, e o Postgres é que mostra** (out/2026, conversa ao lado). O botão
+  "WhatsApp" da Ficha do balcão nasce apagado até a ficha carregar o telefone. No SQLite a carga
+  termina antes do clique do teste e tudo passa; no Postgres (`CLINICA_TESTES_POSTGRES`) o teste
+  clicou ANTES — o bUnit não respeita `disabled` — e a gaveta abriu com o telefone vazio. No
+  navegador o botão apagado não responde, mas a regra das duas barreiras vale por isso mesmo: o
+  clique agora também recusa sem telefone. Regra: teste que clica espera o botão ACENDER
+  (`WaitForAssertion(... HasAttribute("disabled").Should().BeFalse())`), e todo `@onclick` de botão que
+  nasce apagado confere de novo, no clique, a condição que o apaga.

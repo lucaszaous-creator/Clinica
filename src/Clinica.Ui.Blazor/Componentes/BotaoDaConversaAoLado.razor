@@ -35,6 +35,8 @@
     private async Task AbrirAsync()
     {
         if (!Exigir(Permissao.EditarAgenda, "abrir a conversa do WhatsApp da clínica")) return;
+        // A segunda barreira do "sem telefone": a ficha ainda carregando (ou sem telefone) não abre gaveta vazia.
+        if (ConversaNoCrm.Telefone(Telefone) is null) { Notificacoes.Info("Sem telefone no cadastro deste paciente."); return; }
         if (!await Painel.AbrirAsync(Host, new PedidoDeConversa(Telefone ?? "", Nome, PacienteId, Texto)))
             Notificacoes.Info("O WhatsApp da clínica não está disponível agora neste aplicativo. Tente de novo em instantes.");
     }

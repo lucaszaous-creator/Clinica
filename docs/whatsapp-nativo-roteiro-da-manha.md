@@ -231,6 +231,10 @@ verdade: tudo o que sai, sai pelo número oficial da clínica.
 | ☐ | **Remarcar** um horário do paciente de teste pela coluna da direita. A agenda do balcão mostra a mudança. Depois, desfaça. |
 | ☐ | **Retenção.** O seletor Conversas / Retenção mostra os grupos. Quem não autorizou mensagens só tem "Já liguei". **Não envie convite a paciente real** neste teste. |
 | ☐ | **O sino leva à conversa.** Um aviso de confirmação no sino abre a conversa certa. |
+| ☐ | **Mídia.** Mande do seu celular uma foto, um áudio e um PDF: a foto aparece no balão (clique amplia), o áudio toca, o PDF abre e baixa. |
+| ☐ | **Gravar áudio.** O microfone aparece só se o CRM tiver o conversor de gravações; o Windows pede permissão do microfone na primeira vez. Grave 3 s e envie ao seu celular. |
+| ☐ | **@SemDor** (se estiver ligado na VPS 2): ✨ com o campo vazio sugere a resposta; com texto, corrige, e ↶ volta. "✨ Resumo" mostra o resumo. |
+| ☐ | **Conversa ao lado.** Na Agenda do dia, o ícone do WhatsApp na linha do paciente de teste abre a conversa à direita; escreva algo, feche com Esc e abra de novo: o texto continua. |
 | ☐ | **Trocar usuário.** "Trocar usuário" reabre o app. Entre com outra pessoa, responda à conversa de teste e confira que a mensagem sai **com o nome dela**, não com o da anterior. |
 
 Se a tela mostrar "O CRM não respondeu" ou "não aceitou o acesso", veja o log do app
@@ -332,20 +336,25 @@ Nada disso trava o que está acima. São decisões para a próxima rodada.
 
 ## 7. O que NÃO foi feito, e por quê
 
-- **Ligar por máquina.** O plano original dizia "liga numa máquina, depois nas outras". A
-  configuração da clínica mora no banco e vale para todas. Uma escolha por máquina seria uma
-  segunda configuração para manter. Ligar antes de a clínica abrir e conferir resolve o mesmo
-  risco com zero peça nova.
-- **A troca no meio do uso.** A aba fica montada o dia inteiro, e trocar a tela por baixo de
-  quem está escrevendo apagaria o rascunho. A escolha é relida quando a pessoa **volta** à aba
-  WhatsApp ou abre o app; quem está com a aba aberta continua na tela que tinha.
-- **O logout do Faturamento.** Ele não tem a aba WhatsApp nem sessão no CRM.
+O que tinha ficado "para depois" foi feito em 24/10, a pedido da direção: **remarcar direto na
+conversa** (o formulário de remarcar da própria agenda, sem o cartão do horário no meio), **mídia**
+(ver foto, ouvir áudio, ver vídeo, abrir e baixar documento, recebidos e enviados), **gravar áudio**,
+**o @SemDor** (✨ sugerir ou corrigir, resumo, etiqueta na lista; o aviso de atenção no sino abre a
+conversa na aba), **a fase 2** (a conversa ao lado da Agenda do dia, da Ficha, de Confirmações e do
+Acompanhamento) e **a fase 3** (a moldura saiu inteira). Detalhes em
+`docs/whatsapp-nativo-implementacao.md` §10 a §12. Continua de fora:
+
 - **Publicar, criar tag ou disparar workflow.** O roteiro é para a direção executar. Nenhum
   comando acima foi rodado.
-- **Formulário próprio de remarcar.** Remarcar abre a janela do horário da agenda (a mesma das
-  listas do dia), e a mensagem "Combinado…" fica pronta como rascunho. Uma segunda tela de
-  remarcar seria a segunda verdade da agenda.
-- **Gravação de áudio e @SemDor** na tela nova: continuam no CRM web.
+- **O logout do Faturamento.** Ele não tem a aba WhatsApp nem sessão no CRM.
+- **Microfone e @SemDor de verdade não foram testados aqui**: a chave da Anthropic e o conversor de
+  gravações ficam na VPS 2, e o microfone é do Windows da clínica. Conferir na parte 4.
+- **Ouvir a gravação antes de enviar, capa do vídeo e tamanho do documento antes de baixar**: o
+  WhatsApp Web também não mostra o tamanho antes; os outros dois pedem peça nova (gravação em dois
+  passos; baixar o vídeo inteiro para tirar a capa).
+- **A gaveta ao lado cobre a tela em vez de empurrá-la**: empurrar exigiria que cada tela coubesse
+  em ~900 px. Em 1024, a coluna de ações da Agenda do dia fica sob a gaveta; fecha-se com Esc.
+- **O destino da tela Acompanhamento** (funil e taxa de retorno) continua com a direção.
 
 ---
 
@@ -356,41 +365,41 @@ CRM primeiro (ele é publicado antes).
 
 ### PR do `semdor-crm`
 
-**Título:** API para os apps da clínica: contrato, `?desde=` e o teste que trava a forma (PR 0 do WhatsApp nativo)
+**Título:** API para os apps da clínica e o fim do modo Recepção (WhatsApp nativo)
 
 ```markdown
 ## O que muda
 
-A Recepção vai trocar a moldura do CRM por uma tela nativa que fala com `/api/*`. Este PR
-transforma a API interna do front num contrato para os apps.
+A aba WhatsApp da Recepção vira uma tela nativa do app que fala com `/api/*`. Este PR faz a API
+virar contrato para os apps e tira daqui a moldura (fase 3).
 
-- `ApiParaOsApps.cs`: os records `App*` que a tela lê e escreve (idêntico ao `ContratosDoCrm.cs`
-  do Clinica; SHA-256 conferido nos dois repositórios).
-- `GET /api/conversations` ganha `previewDirection` e `previewStatus` (o tick da lista). Nada sai
-  nem muda de nome; o `app.js` continua igual.
-- `GET /api/conversations?desde=ISO` devolve só o que mudou (`ListaDesde`, margem de 5 s porque o
-  `Store.Save` carimba `UpdatedAt` antes de confirmar).
-- `ApiParaOsAppsTests` (13): cada rota pelo app em memória; reprova campo do record que some do
-  JSON; o fluxo de entrada por bilhete; o SHA-256 do contrato.
+- `ApiParaOsApps.cs`: os records `App*` que o app lê e escreve, idênticos ao `ContratosDoCrm.cs`
+  do Clinica (SHA-256 conferido nos dois repositórios). Campos novos sempre no fim, com padrão:
+  `AppReply.ContactRecordedByApp`, `AppConversationSummary.Semdor`, `AppSession.RecordingEnabled`.
+- `GET /api/conversations` com o tick da lista e `?desde=` (só o que mudou, inclusive a etiqueta
+  nova do @SemDor, guardada fora da conversa).
+- **@SemDor para os apps**: as rotas de estado, sugestão e resumo entram no contrato.
+- **O convite da retenção não conta duas tentativas**: quando o app já gravou o contato no
+  Acompanhamento, o CRM não manda o aviso dele à ponte.
+- **Fase 3: o modo Recepção sai inteiro.** Saem o `?modo=recepcao`, o `modo-recepcao.js`, o
+  `CRM_EMBED_ORIGINS`, os cookies `SameSite=None` da moldura e os testes deles; o CSP volta a
+  `frame-ancestors 'none'`. **Fica** a entrada por bilhete (`POST /api/login/ticket`).
 - **Mudança de comportamento:** sem perfil gravado, o administrador padrão é quem é administrador
-  no Clinica, e não o primeiro da lista da ponte (`Store.TeamProfiles` segue `WorkspaceStore.Team`).
-- `Settings.ReadEmbedOrigins`: `new[]` no `Split` (o compilador do SDK 8.0.1xx achava ambíguo).
-- **O convite da retenção não conta duas vezes** (decisão da direção, 24/10): `AppReply` ganha
-  `ContactRecordedByApp` no fim, com padrão `false`. Quando o app já gravou o contato no
-  Acompanhamento, o CRM não manda o aviso dele à ponte. Texto livre e os demais modelos seguem
-  como antes.
+  no Clinica, e não o primeiro da lista da ponte.
 
 ## UX · DX · CX
 
-- 🧑‍💻 **UX:** nada muda no CRM web. É o que permite a conversa e a ficha na mesma janela da Recepção.
-- 🛠️ **DX:** um arquivo de records, um teste que trava a forma, um parâmetro. Mudar a resposta
-  passa a ser mudar um record, e o teste diz onde dói.
-- 🤝 **CX:** sem servidor novo; o `?desde=` reduz o tráfego da VPS 2. A mudança de administrador
-  padrão é a única coisa que alguém pode notar (ver Equipe depois de publicar).
+- 🧑‍💻 **UX:** o CRM web não muda para quem o usa no navegador. A secretária passa a ter a conversa,
+  a ficha, a agenda, a mídia e o @SemDor na mesma janela da Recepção.
+- 🛠️ **DX:** um arquivo de records e um teste que trava a forma nos dois repositórios; a moldura,
+  com três peças e dois testes, deixa de existir.
+- 🤝 **CX:** sem servidor novo. ⚠️ Publicar este CRM deixa a aba WhatsApp das Recepções ANTIGAS em
+  branco até elas atualizarem: publique o CRM e os apps em sequência, fora do horário (roteiro da
+  manhã). A linha `CRM_EMBED_ORIGINS` do `production.env` pode sair.
 
 ## Testes
 
-`dotnet test SemDor.Crm.sln -c Debug`: 841 de 841 (821 do CRM + 20 da ponte). `node --test tests/*.test.cjs`: 158 de 158.
+`dotnet test SemDor.Crm.sln -c Debug`: 818 + 20 (ponte). `node --test tests/*.test.cjs`: 149.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 
@@ -399,63 +408,56 @@ https://claude.ai/code/session_01HpPiBY5jRicdjB3mfhNSrv
 
 ### PR do `Clinica`
 
-**Título:** WhatsApp nativo na Recepção: a tela, a retenção, o cliente do CRM e a escolha no Gerente
+**Título:** WhatsApp nativo na Recepção: a tela, a mídia, o @SemDor, a conversa ao lado e o fim da moldura
 
 ```markdown
 ## O que muda
 
-A aba WhatsApp da Recepção deixa de ser só o CRM numa moldura: com a escolha "Tela nova" no
-Gerente → Configurações → Integrações, ela vira uma tela da casa. A moldura continua sendo o
-padrão até a direção ligar, e volta com um clique.
+A aba WhatsApp da Recepção é uma tela da casa (Blazor), sobre a API do CRM. A moldura do CRM saiu.
 
-- **Cliente do CRM** (`IClienteDoCrm`, `ClienteDoCrmHttp`): entra pelo bilhete de sempre, sessão
-  por pessoa, renova sozinho no 401 e no CSRF recusado, pausa 1 min depois de acesso recusado,
-  avisa o CRM no logout.
-- **Regras puras** (`ConversasNaTela`, `RetencaoNaTela`, `ModeloDoWhatsApp`): janela de 24 h,
-  ticks com os status reais, o selo de cada conversa (a mesma lista do sino), o aviso que pede
-  ação, a linha do tempo, os grupos da retenção com os dias do Gerente, os doze modelos `semdor_*`.
-- **A tela** (`ConversasDoWhatsApp`, `WhatsAppDaRecepcaoService`, `Formularios/WhatsApp/*`) e o
-  roteador da aba (`WhatsAppDaRecepcao`).
-- **A escolha no Gerente** (`ChaveWhatsAppNativo`, `ConfiguracoesDaClinicaNaTela`) e a saída do
-  CRM no fechamento do app (`SaidaDoCrm` na `JanelaDoApp`).
-- **As pontas para as outras telas**: "Cadastrar com este telefone" abre o cadastro com o número
-  da conversa já preenchido; "Ver caso" abre o Acompanhamento direto na conversa do caso
-  (`PedidoDoAcompanhamento.PedirCaso`).
-- **Prévia e teste sem CRM de verdade**: `CrmDeMentira` + semente `ConversasDoWhatsApp`.
-- Sem migration. Duas consultas novas no repositório (em `TraducaoNoNpgsqlTests`) e
-  `AgendaService.CancelarComMotivoAsync` (o mesmo cancelamento, com o motivo na auditoria).
+- **A tela** (`ConversasDoWhatsApp`, `WhatsAppDaRecepcaoService`, `Formularios/WhatsApp/*`):
+  conversas, janela de 24 h, os doze modelos `semdor_*`, conferir de quem é a ficha, retenção com
+  convite, cadastrar com o telefone da conversa, "Ver caso" no Acompanhamento, remarcar direto no
+  formulário da agenda, celular (≤ 760 px) com todas as ações.
+- **Mídia**: foto (miniatura e ampliada), áudio, vídeo e documento recebidos e enviados, com abrir
+  e baixar; **gravar áudio** (o microfone só aparece com o conversor de gravações no CRM; o WebView2
+  libera o microfone só para a origem do app).
+- **@SemDor**: ✨ sugere ou corrige a resposta (↶ volta), resumo da conversa, etiqueta de assunto na
+  lista; o aviso de atenção no sino abre a conversa na aba.
+- **Fase 2, a conversa ao lado**: uma gaveta à direita da Agenda do dia, da Ficha, de Confirmações
+  e do Acompanhamento, com a mesma tela de conversa; o rascunho é da janela e sobrevive à gaveta.
+- **Fase 3, a moldura sai inteira**: `WhatsAppNoCrm`, o roteador da aba, a escolha em Configurações,
+  o parâmetro dela e o endereço com `?modo=recepcao`. Fica o bilhete de entrada.
+- **Cliente do CRM** (`IClienteDoCrm`, `ClienteDoCrmHttp`): sessão por pessoa pelo bilhete, renova
+  no 401 e no CSRF recusado, prazos próprios para mídia e @SemDor.
+- Sem migration.
 
 ## As regras de tela de quem atende
 
-1. **Uma porta por pergunta:** conversa, ficha, agenda, confirmação e caso na mesma tela; a
-   retenção é um modo da mesma lista, não outra aba.
-2. **Função que saiu, sai inteira:** a moldura fica até a fase 3, quando sai com o `modo=recepcao`
-   do CRM (roteiro em `docs/whatsapp-nativo-implementacao.md`).
-3. **O que pede ação vira aviso:** os selos vêm da mesma lista do sino; o sino abre a conversa.
-4. **O telefone não é identidade:** duas fichas no telefone abrem "Qual ficha é esta pessoa?"; a
-   ficha ligada nunca troca sozinha.
+1. **Uma porta por pergunta:** a mesma tela de conversa na aba e na gaveta ao lado; remarcar usa o
+   formulário da agenda.
+2. **Função que saiu, sai inteira:** a moldura saiu do app e do CRM, com testes e textos.
+3. **O que pede ação vira aviso:** os selos vêm da lista do sino; o aviso do @SemDor abre a conversa.
+4. **O telefone não é identidade:** duas fichas no telefone abrem "Qual ficha é esta pessoa?".
 5. **Relacionamento é de quem trata:** a retenção só traz BSV, acupuntura e os dois.
-6. **Responsivo:** 1024 e 1366 fotografados; em 1024 a ficha vira painel; no celular, um painel
-   por vez.
+6. **Responsivo:** fotos em 1366, 1024 e 480; o roteiro de fotos reprova rolagem lateral, botão
+   que vaza do grupo e ação escondida no celular.
 
 ## UX · DX · CX
 
-Ver `docs/whatsapp-nativo-roteiro-da-manha.md` §6 e `docs/whatsapp-nativo-na-recepcao.md`.
+Ver `docs/whatsapp-nativo-implementacao.md` (§7 a §12) e `docs/whatsapp-nativo-roteiro-da-manha.md` §6.
 
 ## Testes
 
 - Locais (Linux): build `--no-incremental` sem warning; `compilar-sombra` (13 projetos WPF);
-  `verificar-suite`; as famílias tocadas em SQLite; as famílias das consultas e escritas novas
-  no Postgres; o `TelasBlazorAbremTests` em SQLite (com as famílias do WhatsApp, do CRM e do
-  Acompanhamento: 430 de 430) e **no Postgres** (161 de 161, depois de corrigir a semente da
-  Equipe, que quebrava em cinco dias de cada sete).
-- Fotos: `node tools/PreviaBlazor/fotos-whatsapp.js` (44, em 1366, 1024 e 480), que reprova
-  rolagem lateral, botão que vaza do grupo e ação escondida no celular.
-- **Não rodou localmente:** a suíte inteira e os cinco apps no Windows (é este CI); os testes do
-  tablet e a web de leitura (não foram tocados).
+  `verificar-suite`; `TelasBlazorAbremTests` e as famílias do WhatsApp, do CRM, do Acompanhamento,
+  de Configurações, da mídia, do @SemDor e da conversa ao lado (596 de 596 na árvore juntada); as
+  telas também no Postgres.
+- Fotos: `tools/PreviaBlazor/fotos-whatsapp.js`, `fotos-semdor.js` e `fotos-conversa-ao-lado.js`.
+- **Não rodou localmente:** a suíte inteira e os cinco apps no Windows (é este CI); o microfone real
+  e o @SemDor real (VPS 2); o tablet e a web de leitura (não foram tocados).
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 
 https://claude.ai/code/session_01HpPiBY5jRicdjB3mfhNSrv
 ```
-
