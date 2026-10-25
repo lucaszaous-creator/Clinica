@@ -477,11 +477,118 @@ VPS 2 — a tela acompanha sem release.
 
 **O que NÃO foi feito, e por quê**
 
-- **A etiqueta de atenção não toca o sino da Recepção** (no CRM web ela toca o sino de lá). O sino dos apps é
-  o `AvisosDeConfirmacaoService`, da agenda; levar a ele um aviso que nasce no CRM é peça nova (leitura
-  periódica do CRM no sino) e pede decisão da direção. Na tela, a etiqueta vermelha já aparece na lista.
+- ~~**A etiqueta de atenção não toca o sino da Recepção.**~~ **Corrigido na junção (24/10):** o sino dos
+  apps já recebe os avisos do @SemDor pela ponte (`AvisosDoSemDorShell`, com `CRM_SEMDOR_APPS_ENABLED`); o
+  que faltava era o clique, que abria o CRM no navegador. Agora o sino lê o id da conversa do link
+  (`AvisosDoSemDorRegras.ConversaDoLink`) e abre a conversa na aba WhatsApp do app
+  (`PedidoDeConversa.ConversaId`; teste `PedidoDeConversaDoSinoTests`).
 - **Atalho de teclado para o ✨**: o CRM web não tem; ficou de fora para não inventar um.
 - **A chamada real à Anthropic** não foi feita aqui (a chave fica na VPS 2), como no CRM: o primeiro uso real
   é em produção, e o aviso da gestão diz o motivo se falhar.
 - **A semente ganhou uma conversa** (Lúcia, com a Bruna, sem ficha) para mostrar a etiqueta de atenção: a
   contagem "Todas" das fotos anteriores passa de 8 para 9 abertas na prévia.
+
+## 11. Fase 2 — a conversa ao lado (24/10)
+
+O pedido: *"a conversa vira um painel ao lado da Agenda do dia, da Ficha, de Confirmações e do
+Acompanhamento, sem trocar de tela"*. Feito na branch `wa-painel` e juntado depois da fase 3: a aba é
+sempre a tela nativa, e o painel só depende de o CRM ter endereço.
+
+### O desenho
+
+Uma **gaveta à direita** (460 px; a tela inteira no celular) com a **mesma tela de conversa** da aba
+WhatsApp, no modo painel: sem a lista e sem a coluna da ficha (a tela de trás já é a ficha), direto
+na conversa do paciente. Fecha pelo X e pelo Esc; o Tab não sai dela. Trocar de tela pelo menu não
+a fecha (a conversa é do paciente, não da tela), menos quando a aba WhatsApp fica à vista.
+
+| Peça | Onde | Teste |
+|---|---|---|
+| Qual conversa abrir: as LIGADAS à ficha, a mais recente primeiro; sem nenhuma, as do telefone da ficha que ainda não têm ficha (com o aviso de conferir) — nunca a conversa ligada a OUTRA ficha com o mesmo número; as frases do aviso, do seletor e do "sem conversa" | `Application/Servicos/ConversaAoLadoNaTela.cs` | `ConversaAoLadoNaTelaTests` (5) |
+| Se o painel serve: o CRM com endereço (a moldura saiu na fase 3) | `WhatsAppDaRecepcaoService.ConversaAoLadoAsync` | `ConversaAoLadoTests` |
+| O serviço do painel (Scoped, um por navegador): `AbrirAsync`, `Fechar`, `LigadaAsync` (lida uma vez por minuto para os botões das listas; relida no clique) | `Ui.Blazor/Hospedagem/ConversaAoLado.cs` | idem |
+| A gaveta, montada uma vez na `Raiz` e no `PalcoDeTelas`, antes das camadas dos formulários e dos diálogos | `Componentes/CamadaDaConversaAoLado.razor` | idem |
+| O modo painel da tela de conversa: o parâmetro `AoLado` (um `PedidoDeConversa`) e três pontos de ligação; o resto num arquivo à parte | `ConversasDoWhatsApp.razor` + `ConversasDoWhatsApp.AoLado.cs`, `TopoDaConversaAoLado.razor`, `SemConversaAoLado.razor` | idem, e o `TelasBlazorAbremTests` clica dentro da gaveta |
+| O botão "WhatsApp" das linhas: Agenda do dia, Acompanhamento (onde o passo já não é "Falar no WhatsApp") e o crachá da Ficha do balcão | `Componentes/BotaoDaConversaAoLado.razor` | idem |
+| O "Escrever no WhatsApp" que já existia (Confirmações, a aba Convênio da ficha, Retornos a marcar, a janela do horário, a conversa do Acompanhamento) passa a abrir a gaveta | `PedidoDeConversaNoCrm.EscreverAsync` (um ponto só) | idem |
+| Onde a aba WhatsApp não existe para quem entrou, o botão some | `IHostDaTela.TemTela` (WPF: `NavegacaoSuite.Existe`; padrão "não") | `O_botao_some_no_app_sem_a_aba_WhatsApp` |
+| CSS da gaveta e do modo painel (os `@media` do `conversas.css` olham a JANELA; o modo painel repete o que lá vale em ≤ 760 px) | `Ativos/css/telas/conversa-ao-lado.css` | fotos |
+
+**Paciente sem conversa:** com caso no Acompanhamento, o painel abre o convite da retenção (o mesmo
+da aba); sem caso, "Ainda não há conversa com Fulano" e **Começar com um modelo**, que abre a mesma
+"Nova conversa" da aba já com o telefone, o nome e a ficha. **Mais de uma conversa** (dois números,
+ou WhatsApp e SMS): abre a mais recente e mostra o seletor. **Conversa só do telefone**: o aviso
+"Pelo telefone da ficha" fica acima dela, e a ficha não se liga sozinha (diferente do pedido que leva
+à aba, que liga): quem confere é a recepção, pelo "Conferir a ficha" que a própria conversa já pede.
+
+Fotos (relógio fixo, `node tools/PreviaBlazor/fotos-conversa-ao-lado.js`): `docs/mockups/whatsapp-nativo/tela-real/`
+`50-painel-{agenda,ficha,confirmacoes,acompanhamento}-{1366,1024}.png`, `50-painel-agenda-480.png`,
+`51-painel-sem-conversa-*.png` e `52-painel-nova-conversa-*.png`. O roteiro reprova página que rola
+para o lado, gaveta que não abriu (ou abriu na conversa errada) e filho que vaza da gaveta.
+
+### As opções comparadas
+
+| Opção | 🧑‍💻 UX | 🛠️ DX | 🤝 CX |
+|---|---|---|---|
+| Navegar para a aba (o de antes) | troca de tela; voltar perde o lugar na lista | nada novo | a recepção alterna entre telas o dia inteiro |
+| **Gaveta POR CIMA, à direita (escolhida)** | a tela de trás não muda de leiaute nem de rolagem; o que fica à esquerda continua clicável; no celular a gaveta é a tela toda | uma camada, um serviço, a mesma tela de conversa; nada depende do leiaute de cada tela | a mesma conversa nas cinco portas; nenhum servidor novo |
+| Gaveta que EMPURRA a tela (a tela encolhe 460 px) | nada fica coberto | cada tela teria de caber em ~900 px numa janela de 1366, e os `@media` delas olham a janela: a Agenda do dia já rola por dentro em 1024 | risco de tabela cortada em telas que ninguém fotografou assim |
+| Uma segunda tela de conversa, só para o painel | igual à escolhida | duas telas para a mesma pergunta (regra 1), e cada correção feita duas vezes | divergência entre a aba e o painel |
+
+### 🧑‍💻 UX · 🛠️ DX · 🤝 CX
+
+- 🧑‍💻 **UX**
+  - Um clique no ícone do WhatsApp da linha (ou no "WhatsApp" do crachá da ficha) abre a conversa
+    daquele paciente à direita, no tempo de abrir a aba (a leitura é a mesma, mostrada com o esqueleto). A tela de trás
+    fica como estava. Esc ou X fecha. A gaveta só cobre a direita: o cabeçalho da moldura, o menu e o
+    lado esquerdo da tela continuam à mão. As notificações e o chat da equipe vão para a esquerda da
+    gaveta em vez de cobrir o Enviar.
+  - O que a conversa já sabe fazer está lá: responder, nota interna, modelos, respostas rápidas,
+    janela de 24 h, assumir, transferir, encerrar, o aviso que pede ação (remarcar, confirmou por
+    telefone, conferir a ficha, "Como foi?").
+  - Sem o bit `EditarAgenda` o ícone nasce apagado e diz por quê; sem telefone no cadastro, também.
+    No app, quem não tem o bit nem tem a aba, e o ícone não aparece.
+- 🛠️ **DX**
+  - A regra de qual conversa abrir e as frases moram em `ConversaAoLadoNaTela` (puro, com teste); a
+    tela de conversa ganhou um parâmetro, um `@class`, dois `@if` e uma linha no `OnInitializedAsync`
+    — o resto mora em `ConversasDoWhatsApp.AoLado.cs`, para as outras frentes que mexem na tela não
+    esbarrarem.
+  - Botão novo que abra a conversa do paciente: `<BotaoDaConversaAoLado PacienteId Nome Telefone />`.
+    Botão que já chamava `PedidoDeConversaNoCrm.EscreverAsync` ganhou a gaveta sem mudar.
+  - O `TelasBlazorAbremTests` passou a ter a aba WhatsApp no hospedeiro do teste: os ícones aparecem
+    e a gaveta é explorada como um formulário. O `PalcoTrocaRepetidaTests` ganhou o CRM de mentira (a
+    semente liga a tela nativa, e sem ele a aba ia ao HTTP de verdade e acusava "o CRM não respondeu").
+- 🤝 **CX**
+  - **Custo:** nenhuma migration, nenhum servidor, nenhuma chamada nova ao CRM (as mesmas da aba).
+    Releases: Recepção e Gerente (os dois apps com a aba WhatsApp). O Financeiro e o Consultório
+    levam o código (as telas são compartilhadas), mas lá a aba não existe e nada aparece.
+  - **Risco:** sem o endereço do CRM, o caminho é o de antes (o wa.me). Defeito no painel se
+    corrige com release; até lá, a aba WhatsApp e o CRM no navegador continuam.
+
+### Achado de passagem (corrigido)
+
+Nas fotos, o menu "⋯" de uma linha **cancelada** da Agenda do dia não abria nenhum item: a opacidade
+da linha apagada (`tr.apagada td{opacity:.72}`) abria um contexto de empilhamento, e o menu (fixo, z 30)
+ficava abaixo do fundo que o fecha (z 25). A célula das ações saiu do apagado (`rec-dia.css`). Lição em
+`docs/agentes/convencoes.md`.
+
+### O que NÃO foi feito, e por quê
+
+- **A gaveta não empurra a tela** (ver a comparação). Numa janela de 1024 ela cobre a coluna de ações
+  da linha: para abrir a conversa de outro paciente, fecha-se (Esc) e clica-se na outra linha.
+- **Rascunho não sobrevive ao fechar** a gaveta nem à troca de paciente nela: vive na tela, como na aba.
+  Fechar com texto digitado não pergunta (a gaveta não enxerga o rascunho da conversa sem mexer mais
+  na tela que outras frentes estão mudando).
+- **Na Ficha do balcão há duas portas** para a mesma conversa: o "WhatsApp" do crachá (novo) e o da
+  aba "Convênio, contatos e LGPD" (o de antes, que a tela do paciente do Consultório também usa).
+  Tirar o de lá mexeria na tela do Consultório; fica para quando a ficha administrativa for revista.
+- **Confirmações não ganhou ícone novo**: os dois botões que ela já tinha (Avisar/Lembrar e o "Abrir a
+  conversa" da linha que respondeu) abrem a gaveta. O "Avisar" continua registrando o aviso no clique,
+  como já fazia com a aba e com o wa.me — com a tela nativa, o aviso de verdade sai quando a secretária
+  envia; alinhar o registro ao envio é mudança de regra da rodada, não de tela.
+- **O destino da tela Acompanhamento** (funil e taxa de retorno) continua com a direção: a gaveta não o
+  decide, e a fila dela segue igual.
+- **Dentro da própria aba WhatsApp**, o "Confirmar pelo WhatsApp" da janela do horário abre a gaveta por
+  cima da aba (raro: a conversa já está à vista). Não fechado porque o serviço do painel não conhece a
+  tela atual; fecha-se pelo Esc.
+- **A suíte no Postgres não rodou**: nada de consulta, coluna ou migration nova (a única leitura nova é
+  a configuração que já existia).

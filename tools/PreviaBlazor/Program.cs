@@ -92,6 +92,9 @@ sealed class HostDaPrevia(PreviaBlazor.AulaAtual aula) : IHostDaTela
     // Fora da aula não há para onde ir; dentro dela, a moldura troca a tela como no app.
     public Task<bool> NavegarAsync(string chave) => Task.FromResult(aula.Navegar(chave));
 
+    // Na aula, o que a moldura do app conhece; fora dela (/tela/…), a prévia mostra tudo o que a tela tem.
+    public bool TemTela(string chave) => aula.Moldura?.Conhece(chave) ?? true;
+
     public Task<bool> AbrirEnderecoAsync(string url) => Task.FromResult(false);
 
     public Task<bool> AbrirFichaDoPacienteAsync(int pacienteId) => Task.FromResult(false);

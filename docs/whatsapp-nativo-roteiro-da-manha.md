@@ -284,9 +284,11 @@ Nada disso trava o que está acima. São decisões para a próxima rodada.
 
 ### O que fica para as fases 2 e 3
 
-- **Fase 2 (depois de a tela nova estar em uso):** a conversa vira um **painel ao lado** da
-  Agenda do dia, da Ficha, de Confirmações e do Acompanhamento, sem trocar de tela. Então se
-  decide o destino da tela Acompanhamento.
+- ~~**Fase 2**~~ **Feita em 24/10** (branch `wa-painel`, `docs/whatsapp-nativo-implementacao.md` §10): a
+  conversa abre numa **gaveta à direita** da Agenda do dia, da Ficha, de Confirmações e do
+  Acompanhamento, sem trocar de tela — a mesma tela de conversa da aba, no modo painel. Para conferir
+  na clínica: na Agenda do dia, o ícone do WhatsApp na linha de um paciente abre a conversa dele à
+  direita; Esc fecha. Continua com a direção o destino da tela Acompanhamento.
 - **Fase 3: feita em 24/10 (decisão da direção).** A moldura saiu inteira: a tela
   `WhatsAppNoCrm`, o roteador da aba, o CSS, a semente, a escolha em Configurações e, no CRM, o
   `modo=recepcao`, o `modo-recepcao.js`, o `CRM_EMBED_ORIGINS` e os testes deles. A entrada por

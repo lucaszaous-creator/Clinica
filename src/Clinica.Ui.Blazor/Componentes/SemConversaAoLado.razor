@@ -1,0 +1,31 @@
+@*
+  O PACIENTE AINDA SEM CONVERSA, no painel ao lado (out/2026, fase 2 do WhatsApp nativo): quem começa é a
+  clínica, por um modelo aprovado — o botão abre a MESMA "Nova conversa" da aba WhatsApp, já com o
+  telefone, o nome e a ficha. Se a pessoa escrever enquanto o painel está aberto, a releitura de 7 s da
+  conversa traz a conversa dela, e o painel oferece abri-la em vez de dizer que não há nenhuma.
+*@
+<div class="wa-vazia">
+    @if (Chegou)
+    {
+        <EstadoVazio Titulo="Chegou uma conversa deste paciente" Icone="chat" Descricao="A pessoa escreveu enquanto o painel estava aberto.">
+            <button type="button" class="botao primario" @onclick="AoAbrir"><Icone Nome="chat" />Abrir a conversa</button>
+        </EstadoVazio>
+    }
+    else
+    {
+        var (titulo, texto) = ConversaAoLadoNaTela.SemConversa(Nome);
+        <EstadoVazio Titulo="@titulo" Descricao="@texto" Icone="chat">
+            <button type="button" class="botao primario" disabled="@(!Pode)" title="@(Pode ? null : "Seu acesso não inclui o WhatsApp da clínica.")"
+                    @onclick="AoComecar"><Icone Nome="modelo" />@ConversaAoLadoNaTela.Comecar</button>
+        </EstadoVazio>
+    }
+</div>
+
+@code {
+    [Parameter] public string? Nome { get; set; }
+    [Parameter] public bool Pode { get; set; }
+    /// <summary>A releitura achou uma conversa do paciente depois que o painel abriu.</summary>
+    [Parameter] public bool Chegou { get; set; }
+    [Parameter] public EventCallback AoComecar { get; set; }
+    [Parameter] public EventCallback AoAbrir { get; set; }
+}

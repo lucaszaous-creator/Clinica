@@ -250,6 +250,9 @@ public sealed class PalcoTrocaRepetidaTests : IClassFixture<BancoDasTelas>, IDis
                      d.ServiceType == typeof(ClinicaDbContext)).ToList())
             ctx.Services.Remove(d);
         ctx.Services.AddDbContext<ClinicaDbContext>(o => o.UseSqlite(_banco.Conexao).AddInterceptors(consultas));
+        // O CRM de mentira, como no TelasBlazorAbremTests: a semente liga a tela NATIVA do WhatsApp, e sem ele
+        // a aba ia ao HTTP de verdade (crm.exemplo.invalid) e a troca acusava "o CRM não respondeu".
+        PreviaBlazor.CrmDeMentira.Registrar(ctx.Services);
         ctx.Services.AddTelasBlazor();
         ctx.Services.AddSingleton<IHostDaTela, HostSemDisco>();
         return ctx;

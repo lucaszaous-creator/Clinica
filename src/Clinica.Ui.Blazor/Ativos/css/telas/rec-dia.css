@@ -53,7 +53,10 @@
 .rd-tabela td{vertical-align:middle;padding-top:var(--space-3);padding-bottom:var(--space-3)}
 .rd-tabela tbody tr.rd-linha td:first-child{box-shadow:inset 4px 0 0 var(--cor-grupo)}
 .rd-tabela tbody tr.grupo-em-atendimento td{background:var(--acento-suave)}
-.rd-tabela tr.apagada td{opacity:.72}
+/* A célula das AÇÕES fica fora do apagado: opacidade abre um contexto de empilhamento, e o menu "⋯"
+   (fixo, z 30) ficava preso nele, ABAIXO do fundo que fecha o menu (z 25) — nenhum item clicava na
+   linha cancelada (achado nas fotos da conversa ao lado, out/2026). */
+.rd-tabela tr.apagada td:not(.rd-col-acoes){opacity:.72}
 .rd-tabela tr.apagada .rd-avatar{filter:grayscale(1)}
 .rd-col-hora{width:104px}
 .rd-col-prof{width:190px}

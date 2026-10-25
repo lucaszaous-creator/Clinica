@@ -145,6 +145,13 @@ public sealed class WhatsAppDaRecepcaoService(
     public Task<bool> ConfiguradoAsync(CancellationToken ct = default) => crm.ConfiguradoAsync(ct);
 
     /// <summary>
+    /// A conversa AO LADO das telas de trabalho (fase 2, 24/10) serve? Com o CRM com endereço (a moldura
+    /// saiu na fase 3: a aba é sempre a tela nativa). Sem endereço, os botões "Escrever no WhatsApp"
+    /// seguem no wa.me. Se a aba existe para quem entrou é o hospedeiro que diz.
+    /// </summary>
+    public Task<bool> ConversaAoLadoAsync(CancellationToken ct = default) => crm.ConfiguradoAsync(ct);
+
+    /// <summary>
     /// A leitura INTEIRA da aba (ao abrir, e a cada poucos minutos): a sessão e a área de
     /// trabalho do CRM, a lista de conversas, os avisos do sino (a MESMA lista dele) com o dono
     /// de cada horário, as fichas dos telefones sem ficha conferida e a fila do Acompanhamento
