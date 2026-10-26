@@ -400,6 +400,73 @@ public sealed class ClienteDoCrmHttpTests : IDisposable
         Assert.Equal(ClienteDoCrmHttp.Demorou, (await Assert.ThrowsAsync<CrmIndisponivel>(() => curto.AssumirAsync(7, "c1", new AppChange(1, null, null)))).Message);
     }
 
+    // ---------- A auditoria do atendimento (26/10) ----------
+
+    [Fact] public async Task A_auditoria_vai_pelas_quatro_rotas_e_volta_nos_records_do_contrato()
+    {
+        await Configurar(EnderecoA);
+        var em = new DateTimeOffset(2026, 10, 26, 12, 0, 0, TimeSpan.Zero);
+        var nota = new AppQualityAnswer("courtesy", 2, "Cumprimentou pelo nome.", ["m1"]);
+        var revisao = new AppQualityReview("ana", 2, "final", "gerente", em, [nota], "resolved", "Bom atendimento.", "", null, 100m);
+        crm.Rota = (p, _) => (p.Metodo, p.Caminho) switch
+        {
+            ("GET", "/api/quality/painel?dias=30") => Responder(new AppQualityPanel(em.AddDays(-30), em,
+                [new AppQualityAgent("ana", "Ana Lima", 14, 6.5, 11, 13, 1, 6, 1, 1, 3, 84.5m, 2)], true)),
+            ("GET", "/api/quality/fila") => Responder(new[]
+                { new AppQualityItem("c 1", "ana", "Ana Lima", "Maria", em, "Sorteio da semana", "para-conferir", 80m, null, false) }),
+            ("GET", "/api/quality/c%201") => Responder(new AppQualityDetail(Conversa("c 1"), "abc",
+                [new AppQualityCriterion("courtesy", "Cordialidade e respeito", "A comunicação foi respeitosa?")],
+                [new AppQualityFinding("awaiting", "attention", "Mensagem aguardando resposta", "20 min", ["m2"])], ["ana"], [revisao])),
+            ("POST", "/api/quality") => Responder(revisao),
+            _ => new HttpResponseMessage(HttpStatusCode.NotFound),
+        };
+
+        var painel = await cliente.PainelDaAuditoriaAsync(7, 30);
+        var fila = await cliente.FilaDaAuditoriaAsync(7);
+        var detalhe = await cliente.DetalheDaAuditoriaAsync(7, "c 1");
+        var salva = await cliente.SalvarAuditoriaAsync(7, new AppQualitySave("c 1", "ana", 1, "abc", "final", [nota], "resolved", "Bom atendimento.", "", null));
+
+        Assert.Equal(("ana", 6.5, 84.5m, 2), (painel.Agents[0].AgentId, painel.Agents[0].FirstReplyMedianMinutes, painel.Agents[0].AverageScore, painel.Agents[0].ToReview));
+        Assert.True(painel.SemDorEnabled);
+        Assert.Equal(("c 1", "para-conferir", 80m, (decimal?)null), (fila[0].ConversationId, fila[0].State, fila[0].SuggestedScore, fila[0].Score));
+        Assert.Equal(("c 1", "abc", "courtesy", "awaiting"), (detalhe.Conversation.Id, detalhe.Fingerprint, detalhe.Criteria[0].Id, detalhe.Findings[0].Code));
+        Assert.Equal(["m1"], detalhe.History[0].Answers[0].MessageIds);
+        Assert.Equal((2, "final", 100m), (salva.Version, salva.State, salva.Score));
+        // As leituras sem csrf; o salvar com o csrf da sessão; o id da conversa escapado (nada da tela vira outro segmento).
+        var depois = crm.Pedidos.Skip(3).ToList();
+        Assert.Equal(["GET /api/quality/painel?dias=30 csrf=", "GET /api/quality/fila csrf=", "GET /api/quality/c%201 csrf=", "POST /api/quality csrf=csrf-s1"],
+            depois.Select(p => $"{p.Metodo} {p.Caminho} csrf={p.Csrf}"));
+        Assert.Equal("application/json", depois[3].TipoDoCorpo);
+        var corpo = JsonSerializer.Deserialize<AppQualitySave>(depois[3].Corpo, Json)!;
+        Assert.Equal(("c 1", "ana", 1, "abc", "final", "resolved"), (corpo.ConversationId, corpo.SubjectId, corpo.Version, corpo.Fingerprint, corpo.State, corpo.Outcome));
+        Assert.Equal(("courtesy", (int?)2, "m1"), (corpo.Answers[0].Criterion, corpo.Answers[0].Score, corpo.Answers[0].MessageIds[0]));
+        Assert.Equal(1, Bilhetes());
+    }
+
+    [Fact] public async Task Na_auditoria_o_403_de_quem_nao_e_da_gestao_e_o_409_da_conversa_que_mudou_chegam_como_recusa()
+    {
+        await Configurar(EnderecoA);
+        const string soGestao = "Esta função está disponível para supervisores e administradores.";
+        const string mudou = "A conversa mudou durante a avaliação. Atualize a auditoria e confira as novas mensagens antes de salvar.";
+        crm.Rota = (p, _) => p.Metodo == "POST" ? Erro(409, mudou) : Erro(403, soGestao);
+        var avaliacao = new AppQualitySave("c1", "ana", 0, "velha", "draft", [], "inconclusive", "", "", null);
+
+        var painel = await Assert.ThrowsAsync<RecusaDoCrm>(() => cliente.PainelDaAuditoriaAsync(7, 7));
+        var fila = await Assert.ThrowsAsync<RecusaDoCrm>(() => cliente.FilaDaAuditoriaAsync(7));
+        var detalhe = await Assert.ThrowsAsync<RecusaDoCrm>(() => cliente.DetalheDaAuditoriaAsync(7, "c1"));
+        var conflito = await Assert.ThrowsAsync<RecusaDoCrm>(() => cliente.SalvarAuditoriaAsync(7, avaliacao));
+
+        Assert.All(new[] { painel, fila, detalhe }, e => Assert.Equal((soGestao, 403, false), (e.Message, e.Status, e.Conflito)));
+        Assert.Equal((mudou, true), (conflito.Message, conflito.Conflito));
+        // Recusa não é sessão vencida: nem bilhete novo, nem repetição do salvar.
+        Assert.Single(crm.Pedidos, p => p.Caminho == "/api/quality");
+        Assert.Equal(1, Bilhetes());
+
+        crm.Rota = (_, _) => Erro(400, "Preencha os cinco critérios de auditoria.");
+        var invalida = await Assert.ThrowsAsync<RecusaDoCrm>(() => cliente.SalvarAuditoriaAsync(7, avaliacao));
+        Assert.Equal(("Preencha os cinco critérios de auditoria.", 400), (invalida.Message, invalida.Status));
+    }
+
     // ---------- A presença do app (25/10, D12) ----------
 
     [Fact] public async Task O_pulso_de_presenca_vai_com_o_csrf_e_renova_a_sessao_vencida()

@@ -1,0 +1,707 @@
+@*
+  AUDITORIA DO ATENDIMENTO (26/10, pedido da direção). A pergunta: "como as secretárias estão atendendo no
+  WhatsApp?". O @SemDor pré-avalia uma amostra semanal por secretária, citando as mensagens; a gerente lê, confirma
+  ou corrige — A NOTA QUE VALE É SEMPRE A DELA. Tudo mora no CRM (/api/quality); a tela lê e grava pelo
+  AuditoriaDoAtendimentoService, e o que ela afirma (rótulos, tons, frases, a ordem da fila, o formulário e o que
+  falta para concluir) vem de AuditoriaNaTela (Application, com teste). Aqui só se desenha.
+
+  - Permissão: VerAuditoria — a da fiscalização, só da direção por padrão. Ver e avaliar usam o MESMO bit (a
+    avaliação mora no CRM, não muda nada da clínica); as duas barreiras valem nos botões que gravam. O CRM tem a
+    segunda tranca: só a gestão (administrador ou supervisor) — o 403 vira o estado "sem permissão".
+  - Estados: sem o bit, CRM sem endereço ("ainda não foi ligado"), 403, falha (FalhaDeLeitura, com tentar de novo),
+    carregando e vazio. O 409 ao gravar relê a conversa e MANTÉM o que a gerente escreveu (só troca a impressão e a
+    versão que o CRM confere).
+  - A conversa mostra as mensagens e as notas internas, MARCADAS como nota (o paciente nunca as viu); as da
+    secretária avaliada e as citadas no critério em foco ficam destacadas. Nota interna não serve de evidência.
+  - Lista e detalhe na mesma aba: abrir um item troca a vista; "Voltar à fila" pergunta antes de descartar o que foi
+    escrito. Volta à aba: relê a lista em silêncio, nunca por baixo de um formulário aberto.
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@using Clinica.Application.Abstracoes
+@using Clinica.Crm.Contracts
+@using Microsoft.JSInterop
+@inherits TelaBase
+@inject IJSRuntime JS
+
+<div class="pagina aa @(_carregando && _painel is not null ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Direção · Desempenho" Titulo="Auditoria do atendimento"
+                     Subtitulo="Como as secretárias atendem no WhatsApp: os números de cada uma e as conversas da semana para conferir.">
+        @if (_aberto is null)
+        {
+            <div class="aa-periodo">
+                <span>Período</span>
+                <div class="segmentado" role="group" aria-label="Período">
+                    @foreach (var d in AuditoriaNaTela.Periodos)
+                    {
+                        var dias = d;
+                        <button type="button" aria-pressed="@(dias == _dias ? "true" : "false")" @onclick="() => TrocarPeriodoAsync(dias)">@dias dias</button>
+                    }
+                </div>
+            </div>
+            <button type="button" class="botao" @onclick="() => CarregarAsync()" title="Ler de novo (F5)"><Icone Nome="atualizar" />Atualizar</button>
+        }
+    </CabecalhoPagina>
+
+    <div class="aa-faixa" role="note" id="aa-topo">
+        <Icone Nome="info" />
+        <p><strong>@AuditoriaNaTela.FaixaDaNota</strong> <span>@AuditoriaNaTela.FaixaDaTransparencia</span></p>
+    </div>
+
+    @if (!Pode(Permissao.VerAuditoria))
+    {
+        <section class="cartao lista-cartao">
+            <EstadoVazio Titulo="Seu acesso não alcança a auditoria do atendimento" Icone="cadeado"
+                         Descricao="A auditoria do atendimento pede a permissão de ler a auditoria. Fale com a direção da clínica." />
+        </section>
+    }
+    else if (_naoConfigurado)
+    {
+        <section class="cartao lista-cartao">
+            <EstadoVazio Titulo="O WhatsApp da clínica ainda não foi ligado aqui" Icone="chat"
+                         Descricao="A auditoria lê as conversas do CRM. A direção informa o endereço do CRM em Administração → Configurações → Integrações." />
+        </section>
+    }
+    else if (_semPermissao is not null)
+    {
+        <section class="cartao lista-cartao">
+            <EstadoVazio Titulo="@AuditoriaNaTela.TituloSemPermissao" Icone="cadeado" Descricao="@_semPermissao" />
+        </section>
+    }
+    else if (_painel is null && _erro is not null)
+    {
+        <section class="cartao">
+            <FalhaDeLeitura Titulo="@AuditoriaNaTela.TituloDaFalha" Detalhe="@_erro" AoTentarDeNovo="() => CarregarAsync()" />
+        </section>
+    }
+    else if (_painel is not { } painel)
+    {
+        <div class="cartao cartao-corpo"><Esqueleto Altura="140" /></div>
+        <div class="cartao cartao-corpo aa-espaco"><Esqueleto Altura="260" /></div>
+    }
+    else if (_aberto is not null)
+    {
+        @Detalhe(painel)
+    }
+    else
+    {
+        @if (!painel.Painel.SemDorEnabled)
+        {
+            <Aviso Tom="info" Texto="@("O @SemDor não está pré-avaliando a amostra agora: nada novo entra para conferir. As avaliações já feitas continuam aqui, e a amostra semanal é ligada no CRM (fale com o suporte).")" />
+        }
+
+        <section class="aa-bloco" aria-label="Por secretária">
+            <div class="aa-bloco-titulo">
+                <h2>Por secretária</h2>
+                <p>@painel.Periodo · primeira resposta em minutos ÚTEIS (seg–sex 7h–19h, sáb 7h–13h); no prazo = em até @AuditoriaNaTela.PrazoDaRespostaEmMinutos min úteis.</p>
+            </div>
+            @if (painel.Painel.Agents.Length == 0)
+            {
+                <section class="cartao lista-cartao">
+                    <EstadoVazio Titulo="Nenhuma secretária no CRM" Icone="pessoas"
+                                 Descricao="A auditoria mostra quem tem o perfil de atendente no CRM. A gestão não se audita aqui." />
+                </section>
+            }
+            else
+            {
+                <div class="aa-secretarias">
+                    @foreach (var a in painel.Painel.Agents)
+                    {
+                        var c = AuditoriaNaTela.Cartao(a);
+                        var id = a.AgentId;
+                        <article class="cartao aa-sec @(_filtro == id ? "escolhida" : null)" @key="id">
+                            <header class="aa-sec-topo">
+                                <h3 title="@a.Name">@a.Name</h3>
+                                @if (a.ToReview > 0)
+                                {
+                                    <Selo Tom="aviso" Dica="@("Rascunhos do @SemDor esperando a sua conferência")">@a.ToReview para conferir</Selo>
+                                }
+                            </header>
+                            <div class="aa-sec-nota">
+                                <span class="aa-nota tom-@c.TomDaNota">@c.Nota</span>
+                                <span class="aa-sec-nota-texto">nota média<br />@c.Avaliacoes</span>
+                            </div>
+                            <dl class="pares aa-pares">
+                                <dt>Conversas</dt><dd>@a.Conversations</dd>
+                                <dt>1ª resposta (mediana)</dt><dd>@c.PrimeiraResposta</dd>
+                                <dt>Em até @AuditoriaNaTela.PrazoDaRespostaEmMinutos min</dt><dd class="tom-texto-@c.TomDoPrazo">@c.NoPrazo</dd>
+                                <dt>Esperando agora</dt><dd class="@(a.WaitingNow > 0 ? "tom-texto-aviso" : null)">@a.WaitingNow</dd>
+                                <dt>Resolvidas</dt><dd>@a.Resolved</dd>
+                                <dt>Sem retorno do paciente</dt><dd>@a.NoResponse</dd>
+                                <dt>Transferências</dt><dd>@a.Transfers</dd>
+                            </dl>
+                            <button type="button" class="botao mini aa-sec-filtrar" aria-pressed="@(_filtro == id ? "true" : "false")"
+                                    @onclick="() => Filtrar(id)">
+                                <Icone Nome="filtro" />@(_filtro == id ? "Mostrar todas na fila" : "Ver a fila dela")
+                            </button>
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+
+        <section class="cartao lista-cartao aa-bloco" aria-label="Para auditar">
+            <div class="cartao-titulo">
+                <div>
+                    <h2>Para auditar</h2>
+                    <p>As conversas escolhidas nos últimos 30 dias: as que esperam você primeiro, depois a mais recente.</p>
+                </div>
+                @if (painel.Painel.Agents.Length > 0)
+                {
+                    <label class="aa-filtro">
+                        <span>Secretária</span>
+                        <select class="campo" value="@(_filtro ?? "")" @onchange="e => Filtrar(e.Value?.ToString())">
+                            <option value="">Todas</option>
+                            @foreach (var a in painel.Painel.Agents)
+                            {
+                                <option value="@a.AgentId">@a.Name</option>
+                            }
+                        </select>
+                    </label>
+                }
+            </div>
+            @{
+                var fila = AuditoriaNaTela.FiltrarFila(painel.Fila, _filtro);
+            }
+            @if (fila.Count == 0)
+            {
+                <EstadoVazio Titulo="@(_filtro is null ? "Nada para auditar agora" : "Nada desta secretária na fila")" Icone="ok"
+                             Descricao="@(_filtro is null
+                                 ? (painel.Painel.SemDorEnabled ? "Toda semana o @SemDor escolhe algumas conversas encerradas de cada secretária — reclamações e esperas longas primeiro — e elas aparecem aqui." : "A fila se enche quando a amostra semanal do @SemDor está ligada no CRM.")
+                                 : "É um filtro: escolha Todas para ver a fila inteira.")" />
+            }
+            else
+            {
+                <div class="tabela-rolagem">
+                    <table class="lista aa-fila">
+                        <thead>
+                            <tr>
+                                <th>Encerrada</th>
+                                <th>Secretária</th>
+                                <th>Paciente</th>
+                                <th>Motivo</th>
+                                <th>Situação</th>
+                                <th class="direita" title="A nota que o rascunho do @@SemDor daria">@@SemDor</th>
+                                <th class="direita">Nota final</th>
+                                <th class="direita"><span class="aa-sr">Ação</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var i in fila)
+                            {
+                                var item = i;
+                                <tr @key="@(i.ConversationId + "|" + i.SubjectId)">
+                                    <td class="nao-quebra">@AuditoriaNaTela.Quando(i.At, AuditoriaDoAtendimentoService.Agora)</td>
+                                    <td><span class="principal">@i.SubjectName</span></td>
+                                    <td>@i.PatientName</td>
+                                    <td><Selo Tom="@AuditoriaNaTela.TomDoMotivo(i.Reason)">@i.Reason</Selo></td>
+                                    <td class="nao-quebra">
+                                        <Selo Tom="@AuditoriaNaTela.TomDoEstado(i.State)">@AuditoriaNaTela.RotuloDoEstado(i.State)</Selo>
+                                        @if (i.Stale)
+                                        {
+                                            <Selo Tom="info" Dica="Chegaram mensagens depois da última avaliação: confira de novo.">mudou depois</Selo>
+                                        }
+                                    </td>
+                                    <td class="direita numero">@AuditoriaNaTela.NotaFinal(i.SuggestedScore)</td>
+                                    <td class="direita numero"><span class="aa-nota mini tom-@AuditoriaNaTela.TomDaNotaFinal(i.Score)">@AuditoriaNaTela.NotaFinal(i.Score)</span></td>
+                                    <td class="direita">
+                                        <button type="button" class="botao mini @(i.State == AuditoriaNaTela.ParaConferir ? "primario" : null)"
+                                                @onclick="() => AbrirAsync(item)">
+                                            @(i.State == AuditoriaNaTela.ParaConferir ? "Conferir" : "Abrir")
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    private RenderFragment Detalhe(PainelDaAuditoria painel) => __builder =>
+    {
+        var item = _aberto!;
+        <section class="cartao aa-detalhe" aria-label="Auditar a conversa">
+            <div class="aa-detalhe-topo">
+                <button type="button" class="botao fantasma" @onclick="VoltarAsync"><Icone Nome="esquerda" />Voltar à fila</button>
+                <div class="aa-detalhe-titulo">
+                    <h2>@(_detalhe?.Paciente ?? item.PatientName) <span class="aa-com">com @item.SubjectName</span></h2>
+                    <p>
+                        <Selo Tom="@AuditoriaNaTela.TomDoMotivo(item.Reason)">@item.Reason</Selo>
+                        <Selo Tom="@AuditoriaNaTela.TomDoEstado(item.State)">@AuditoriaNaTela.RotuloDoEstado(item.State)</Selo>
+                        @if (_detalhe is { OutrasPessoas.Count: > 0 } od)
+                        {
+                            <span class="aa-outras">Também participaram: @string.Join(", ", od.OutrasPessoas)</span>
+                        }
+                    </p>
+                </div>
+            </div>
+
+            @if (_erroDetalhe is not null && _detalhe is null)
+            {
+                <FalhaDeLeitura Titulo="A conversa não abriu" Detalhe="@_erroDetalhe" AoTentarDeNovo="() => AbrirAsync(item)" />
+            }
+            else if (_detalhe is not { } det || _form is not { } form)
+            {
+                <div class="cartao-corpo"><Esqueleto Altura="320" /></div>
+            }
+            else
+            {
+                <div class="aa-detalhe-corpo">
+                    <div class="aa-conversa" aria-label="A conversa">
+                        <p class="aa-conversa-legenda">
+                            <span class="aa-legenda avaliada">mensagem de @item.SubjectName</span>
+                            @if (Foco(form) is { } emFoco)
+                            {
+                                <span class="aa-legenda evidencia">citada em “@emFoco.Criterio.Title”</span>
+                            }
+                        </p>
+                        @if (det.Linhas.Count == 0)
+                        {
+                            <EstadoVazio Titulo="A conversa não tem mensagens" Icone="chat" />
+                        }
+                        @{ string? diaAnterior = null; }
+                        @foreach (var l in det.Linhas)
+                        {
+                            var linha = l;
+                            if (l.Dia != diaAnterior)
+                            {
+                                diaAnterior = l.Dia;
+                                <div class="aa-dia"><span>@l.Dia</span></div>
+                            }
+                            var citada = !l.Nota && Foco(form) is { } f && f.Evidencias.Contains(l.Id);
+                            <div class="aa-m @l.Tipo @(l.DaAvaliada ? "da-avaliada" : null) @(citada ? "citada" : null)" id="@("aa-m-" + l.Id)" @key="@(l.Tipo + l.Id)">
+                                <div class="aa-balao">
+                                    <span class="aa-autor">
+                                        @if (l.Nota)
+                                        {
+                                            <Icone Nome="nota" /><b>Nota interna</b><span>— o paciente não vê · @l.Autor</span>
+                                        }
+                                        else
+                                        {
+                                            @l.Autor
+                                        }
+                                    </span>
+                                    <span class="aa-texto">@l.Texto</span>
+                                    <span class="aa-rodape">
+                                        @if (l.Situacao is not null) { <span class="aa-falhou">@l.Situacao</span> }
+                                        <span>@l.Hora</span>
+                                        @if (!l.Nota && Foco(form) is { } alvo)
+                                        {
+                                            <button type="button" class="botao mini @(citada ? "primario" : "fantasma")" disabled="@(!Pode(Permissao.VerAuditoria))"
+                                                    title="@(citada ? "Tirar das evidências de “" + alvo.Criterio.Title + "”" : "Citar como evidência de “" + alvo.Criterio.Title + "”")"
+                                                    @onclick="() => AlternarEvidencia(alvo, linha)">
+                                                @(citada ? "Citada" : "Citar")
+                                            </button>
+                                        }
+                                    </span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="aa-avaliacao">
+                        @if (item.Stale)
+                        {
+                            <Aviso Tom="atencao" Texto="A conversa mudou depois da última avaliação: chegaram mensagens novas. Leia antes de confirmar." />
+                        }
+                        @if (form.JaConcluida)
+                        {
+                            <Aviso Tom="info" Texto="Você já concluiu esta avaliação. Gravar de novo guarda uma nova versão; a anterior fica no histórico." />
+                        }
+                        else if (form.PartiuDoSemDor)
+                        {
+                            <Aviso Tom="info" Texto="@("As notas abaixo são a sugestão do @SemDor. Leia a conversa, confirme ou corrija cada uma — a nota que vale é a sua.")" />
+                        }
+
+                        @if (det.Detalhe.Findings.Length > 0)
+                        {
+                            <div class="aa-achados">
+                                <h3>O que o sistema achou</h3>
+                                <ul>
+                                    @foreach (var a in det.Detalhe.Findings)
+                                    {
+                                        var achado = a;
+                                        <li class="tom-@AuditoriaNaTela.TomDoAchado(a.Level)">
+                                            <strong>@a.Title</strong>
+                                            <span>@a.Description</span>
+                                            @if (a.MessageIds.FirstOrDefault(m => det.Mensagem(m) is not null) is { } primeira)
+                                            {
+                                                <button type="button" class="botao mini fantasma" @onclick="() => RolarAteAsync(primeira)">
+                                                    Ver @(achado.MessageIds.Length == 1 ? "a mensagem" : $"as {achado.MessageIds.Length} mensagens")
+                                                </button>
+                                            }
+                                        </li>
+                                    }
+                                </ul>
+                            </div>
+                        }
+
+                        <div class="aa-criterios">
+                            <h3>Os cinco critérios <span class="aa-prevista">Nota prevista: <span class="aa-nota mini tom-@AuditoriaNaTela.TomDaNotaFinal(Prevista(form))">@AuditoriaNaTela.NotaFinal(Prevista(form))</span></span></h3>
+                            @foreach (var r in form.Criterios)
+                            {
+                                var resp = r;
+                                var focado = _foco == r.Criterio.Id;
+                                <article class="aa-criterio @(focado ? "em-foco" : null)" @key="r.Criterio.Id" @onclick="() => Focar(resp)">
+                                    <header>
+                                        <h4>@r.Criterio.Title</h4>
+                                        @if (r.ComoOSemDorSugeriu)
+                                        {
+                                            <Selo Tom="info">Sugestão do @@SemDor</Selo>
+                                        }
+                                        else if (r.SugestaoDoSemDor is { } s)
+                                        {
+                                            <Selo Tom="neutro" Dica="@s.Reason">O @@SemDor sugeriu: @AuditoriaNaTela.RotuloDaNota(s.Score)</Selo>
+                                        }
+                                    </header>
+                                    <p class="aa-guia">@r.Criterio.Guide</p>
+                                    <div class="aa-opcoes" role="radiogroup" aria-label="@("Nota de " + r.Criterio.Title)">
+                                        @foreach (var o in AuditoriaNaTela.Opcoes)
+                                        {
+                                            var opcao = o;
+                                            <button type="button" role="radio" class="aa-opcao tom-@o.Tom" aria-checked="@(r.Nota == o.Valor ? "true" : "false")"
+                                                    disabled="@(!Pode(Permissao.VerAuditoria))" @onclick="() => DarNota(resp, opcao.Valor)">@o.Rotulo</button>
+                                        }
+                                    </div>
+                                    <textarea class="campo" rows="2" maxlength="@AuditoriaNaTela.TetoDaJustificativa" aria-label="@("Justificativa de " + r.Criterio.Title)"
+                                              placeholder="Por que esta nota? Cite o que foi dito." @bind="resp.Justificativa" @bind:after="Alterou"></textarea>
+                                    <div class="aa-evidencias">
+                                        @if (r.Evidencias.Count == 0)
+                                        {
+                                            <span class="aa-dica">@(focado ? "Clique em Citar nas mensagens da conversa para usá-las como evidência." : "Nenhuma mensagem citada. Escolha este critério para citar.")</span>
+                                        }
+                                        @foreach (var id in r.Evidencias.ToList())
+                                        {
+                                            var mid = id;
+                                            var m = det.Mensagem(id);
+                                            <span class="aa-chip">
+                                                <button type="button" class="aa-chip-ir" title="Ir até a mensagem" @onclick="() => RolarAteAsync(mid)">
+                                                    @(m is null ? "Mensagem fora desta conversa" : AuditoriaNaTela.Evidencia(m))
+                                                </button>
+                                                <button type="button" class="aa-chip-tirar" title="Tirar esta evidência" aria-label="Tirar esta evidência"
+                                                        disabled="@(!Pode(Permissao.VerAuditoria))" @onclick="() => TirarEvidencia(resp, mid)"><Icone Nome="x" /></button>
+                                            </span>
+                                        }
+                                    </div>
+                                </article>
+                            }
+                        </div>
+
+                        <div class="aa-fecho">
+                            <div class="aa-resultado">
+                                <span class="campo-rotulo">Resultado da conversa</span>
+                                <div class="segmentado" role="group" aria-label="Resultado da conversa">
+                                    @foreach (var (chave, rotulo) in AuditoriaNaTela.Resultados)
+                                    {
+                                        var k = chave;
+                                        <button type="button" aria-pressed="@(form.Resultado == k ? "true" : "false")" disabled="@(!Pode(Permissao.VerAuditoria))"
+                                                @onclick="() => EscolherResultado(k)">@rotulo</button>
+                                    }
+                                </div>
+                            </div>
+                            <Campo Rotulo="Devolutiva para a secretária" Dica="O que você vai dizer a ela: o que foi bem e o que melhorar." Classe="largo">
+                                <textarea class="campo" rows="3" maxlength="@AuditoriaNaTela.TetoDaDevolutiva" @bind="form.Devolutiva" @bind:after="Alterou"></textarea>
+                            </Campo>
+                            <div class="aa-plano">
+                                <Campo Rotulo="Plano de ação" Dica="O próximo passo combinado (com o paciente ou com a secretária).">
+                                    <textarea class="campo" rows="2" maxlength="@AuditoriaNaTela.TetoDoPlano" @bind="form.PlanoDeAcao" @bind:after="Alterou"></textarea>
+                                </Campo>
+                                <Campo Rotulo="Prazo">
+                                    <input type="date" class="campo" @bind="form.Prazo" @bind:after="Alterou" />
+                                </Campo>
+                                @if (form.PlanoDeAcao.Trim().Length > 0)
+                                {
+                                    <label class="alternar"><input type="checkbox" @bind="form.AcaoCumprida" @bind:after="Alterou" /> Plano cumprido</label>
+                                }
+                            </div>
+                            <Aviso Texto="@_recado" Tom="@_recadoTom" />
+                            <div class="aa-botoes">
+                                <button type="button" class="botao" disabled="@(_gravando || !Pode(Permissao.VerAuditoria))" @onclick="() => GravarAsync(final: false)">
+                                    <Icone Nome="nota" />Guardar rascunho
+                                </button>
+                                <button type="button" class="botao primario" disabled="@(_gravando || !Pode(Permissao.VerAuditoria))" @onclick="() => GravarAsync(final: true)">
+                                    <Icone Nome="check" />Confirmar avaliação
+                                </button>
+                            </div>
+                        </div>
+
+                        @if (det.Historico.Count > 0)
+                        {
+                            <div class="aa-historico">
+                                <h3>Histórico desta avaliação</h3>
+                                <ol>
+                                    @foreach (var v in det.Historico)
+                                    {
+                                        <li>
+                                            <span class="aa-hist-quem">v@(v.Versao) · @v.Quem</span>
+                                            <span>@v.Estado · @v.Quando</span>
+                                            <span class="aa-nota mini tom-@v.Tom" title="@(v.Estado == "Rascunho" ? "A nota que as notas do rascunho dariam" : null)">@v.Nota</span>
+                                        </li>
+                                    }
+                                </ol>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </section>
+    };
+
+    private int _dias = AuditoriaNaTela.Periodos[0];
+    private PainelDaAuditoria? _painel;
+    private bool _carregando, _naoConfigurado;
+    private string? _erro, _semPermissao, _filtro;
+    private int _geracao, _geracaoDetalhe;
+
+    private AppQualityItem? _aberto;
+    private DetalheDaAuditoria? _detalhe;
+    private FormularioDaAuditoria? _form;
+    private string? _erroDetalhe, _foco, _recado;
+    private string _recadoTom = "info";
+    private bool _gravando, _alterado, _rolarAoTopo;
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    /// <summary>Abriu um item lá embaixo na fila: o detalhe começa do topo (a faixa fica no alto da página, então centrá-la é subir tudo).</summary>
+    protected override async Task OnAfterRenderAsync(bool primeira)
+    {
+        if (!_rolarAoTopo) return;
+        _rolarAoTopo = false;
+        try { await JS.InvokeVoidAsync("clinicaChat.rolarAte", "aa-topo"); }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException) { /* a vista pode ter mudado */ }
+    }
+
+    /// <summary>Volta à aba: relê a lista em silêncio — nunca por baixo de um formulário aberto.</summary>
+    protected override Task AoVoltarAsync() => _aberto is null ? CarregarAsync(silencioso: true) : Task.CompletedTask;
+
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho)
+        => atalho == AtalhoDeTela.Atualizar && _aberto is null ? CarregarAsync(silencioso: _painel is not null) : Task.CompletedTask;
+
+    private Task TrocarPeriodoAsync(int dias)
+    {
+        if (dias == _dias) return Task.CompletedTask;
+        _dias = dias;
+        return CarregarAsync();
+    }
+
+    private void Filtrar(string? secretariaId)
+        => _filtro = string.IsNullOrWhiteSpace(secretariaId) || secretariaId == _filtro ? null : secretariaId;
+
+    // ==================================================================== leituras
+
+    /// <summary>
+    /// O painel e a fila. Contador de geração (trocar o período duas vezes rápido não deixa os números de um sob o
+    /// rótulo do outro) e publicação depois do último await. Silenciosa: a falha não apaga o que está na tela.
+    /// </summary>
+    private async Task CarregarAsync(bool silencioso = false)
+    {
+        if (!Pode(Permissao.VerAuditoria)) return;
+        var g = ++_geracao;
+        _carregando = true;
+        if (!silencioso) { _erro = null; _semPermissao = null; }
+        try
+        {
+            using var escopo = Escopo();
+            var servico = escopo.ServiceProvider.GetRequiredService<AuditoriaDoAtendimentoService>();
+            if (!await servico.ConfiguradoAsync())
+            {
+                if (g != _geracao || Descartada) return;
+                _naoConfigurado = true;
+                _painel = null;
+                return;
+            }
+            var painel = await servico.LerAsync(_dias);
+            if (g != _geracao || Descartada) return;
+            _naoConfigurado = false;
+            _semPermissao = null;
+            _erro = null;
+            _painel = painel;
+        }
+        catch (CrmNaoConfigurado)
+        {
+            if (g != _geracao || Descartada) return;
+            _naoConfigurado = true;
+            _painel = null;
+        }
+        catch (Exception ex) when (AuditoriaNaTela.SemPermissao(ex))
+        {
+            if (g != _geracao || Descartada) return;
+            _semPermissao = AuditoriaNaTela.DescricaoSemPermissao(ex);
+            _painel = null;
+        }
+        catch (Exception ex)
+        {
+            if (g != _geracao || Descartada) return;
+            if (ex is not RecusaDoCrm) Clinica.Application.Diagnostico.Registrar("Blazor — a auditoria do atendimento não pôde ser lida", ex);
+            if (silencioso && _painel is not null) return;
+            _erro = AuditoriaNaTela.FalhaDeAbertura(ex);
+            _painel = null;
+        }
+        finally
+        {
+            if (g == _geracao) _carregando = false;
+        }
+    }
+
+    /// <summary>Abre um item da fila: a conversa composta e o formulário (do rascunho do @SemDor quando a última versão é dele).</summary>
+    private async Task AbrirAsync(AppQualityItem item)
+    {
+        if (_painel is not { } painel) return;
+        var g = ++_geracaoDetalhe;
+        _aberto = item;
+        _detalhe = null;
+        _form = null;
+        _erroDetalhe = null;
+        _recado = null;
+        _foco = null;
+        _alterado = false;
+        _rolarAoTopo = true;
+        try
+        {
+            using var escopo = Escopo();
+            var det = await escopo.ServiceProvider.GetRequiredService<AuditoriaDoAtendimentoService>().AbrirAsync(item, painel.Nomes);
+            if (g != _geracaoDetalhe || Descartada) return;
+            _detalhe = det;
+            _form = AuditoriaNaTela.Formulario(det.Detalhe, item.SubjectId);
+            _foco = _form.Criterios.FirstOrDefault()?.Criterio.Id;
+        }
+        catch (Exception ex)
+        {
+            if (g != _geracaoDetalhe || Descartada) return;
+            if (ex is not RecusaDoCrm) Clinica.Application.Diagnostico.Registrar("Blazor — a conversa da auditoria não abriu", ex);
+            _erroDetalhe = AuditoriaNaTela.FalhaDaConversa(ex);
+        }
+    }
+
+    private async Task VoltarAsync()
+    {
+        if (_alterado && !await Dialogos.ConfirmarAsync("Sair sem gravar?",
+                "O que você escreveu nesta avaliação ainda não foi gravado. Guarde o rascunho para continuar depois.", confirmar: "Sair sem gravar"))
+            return;
+        ++_geracaoDetalhe;
+        _aberto = null;
+        _detalhe = null;
+        _form = null;
+        _alterado = false;
+        await CarregarAsync(silencioso: true);
+    }
+
+    // ==================================================================== o formulário
+
+    private RespostaDoCriterio? Foco(FormularioDaAuditoria form) => form.Criterios.FirstOrDefault(r => r.Criterio.Id == _foco);
+
+    private static decimal? Prevista(FormularioDaAuditoria form) => AuditoriaNaTela.NotaPrevista(form.Criterios.Select(r => r.Nota));
+
+    private void Focar(RespostaDoCriterio r) => _foco = r.Criterio.Id;
+
+    private void Alterou() => _alterado = true;
+
+    private void DarNota(RespostaDoCriterio r, int nota)
+    {
+        _foco = r.Criterio.Id;
+        r.Nota = nota;
+        _alterado = true;
+    }
+
+    private void EscolherResultado(string chave)
+    {
+        if (_form is null) return;
+        _form.Resultado = chave;
+        _alterado = true;
+    }
+
+    private void AlternarEvidencia(RespostaDoCriterio r, MensagemNaAuditoria m)
+    {
+        if (AuditoriaNaTela.AlternarEvidencia(r, m)) _alterado = true;
+        else if (!m.Nota) Notificacoes.Info($"Cada critério cita até {AuditoriaNaTela.TetoDeEvidencias} mensagens.");
+    }
+
+    private void TirarEvidencia(RespostaDoCriterio r, string id)
+    {
+        if (r.Evidencias.Remove(id)) _alterado = true;
+    }
+
+    private async Task RolarAteAsync(string mensagemId)
+    {
+        try { await JS.InvokeVoidAsync("clinicaChat.rolarAte", "aa-m-" + mensagemId); }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException) { /* a vista pode ter mudado */ }
+    }
+
+    /// <summary>
+    /// "Confirmar avaliação" (final) e "Guardar rascunho": as duas barreiras, uma gravação por vez. O que falta e a
+    /// recusa do CRM ficam INLINE; o 409 relê a conversa e mantém o que foi escrito; o CRM fora do ar avisa e vai ao log.
+    /// Confirmar volta à fila (a próxima espera); o rascunho fica na conversa.
+    /// </summary>
+    private async Task GravarAsync(bool final)
+    {
+        if (!Exigir(Permissao.VerAuditoria, final ? "confirmar a avaliação do atendimento" : "guardar a avaliação do atendimento")) return;
+        if (_gravando || _form is not { } form || _aberto is not { } item || _painel is not { } painel) return;
+        _gravando = true;
+        _recado = null;
+        try
+        {
+            using var escopo = Escopo();
+            var servico = escopo.ServiceProvider.GetRequiredService<AuditoriaDoAtendimentoService>();
+            var gravada = await servico.SalvarAsync(form, final);
+            if (Descartada) return;
+            Notificacoes.Sucesso(AuditoriaNaTela.Gravou(gravada));
+            _alterado = false;
+            if (final)
+            {
+                _gravando = false;
+                await VoltarAsync();
+                return;
+            }
+            var g = ++_geracaoDetalhe;
+            var det = await servico.AbrirAsync(item, painel.Nomes);
+            if (g != _geracaoDetalhe || Descartada) return;
+            _detalhe = det;
+            AuditoriaNaTela.Rebasear(form, det.Detalhe);
+        }
+        catch (RecusaDoCrm r) when (r.Conflito)
+        {
+            Recado(AuditoriaNaTela.Conflito(r), "atencao");
+            await RelerMantendoAsync(item, painel, form);
+        }
+        catch (InvalidOperationException ex) // o que falta no formulário, e a RecusaDoCrm com a frase do CRM
+        {
+            Recado(ex.Message, "erro");
+        }
+        catch (CrmIndisponivel ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — o CRM não respondeu ao gravar a auditoria", ex);
+            Recado(ConversasNaTela.FalhaNaEscrita(ex, "Nada foi gravado; tente de novo em instantes."), "erro");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — a auditoria do atendimento não pôde ser gravada", ex);
+            Recado("A avaliação não pôde ser gravada agora. Nada foi gravado; tente de novo em instantes.", "erro");
+        }
+        finally { _gravando = false; }
+    }
+
+    /// <summary>Depois do 409: a conversa nova, o formulário intacto com a impressão e a versão do CRM.</summary>
+    private async Task RelerMantendoAsync(AppQualityItem item, PainelDaAuditoria painel, FormularioDaAuditoria form)
+    {
+        var g = ++_geracaoDetalhe;
+        try
+        {
+            using var escopo = Escopo();
+            var det = await escopo.ServiceProvider.GetRequiredService<AuditoriaDoAtendimentoService>().AbrirAsync(item, painel.Nomes);
+            if (g != _geracaoDetalhe || Descartada) return;
+            _detalhe = det;
+            AuditoriaNaTela.Rebasear(form, det.Detalhe);
+        }
+        catch (Exception ex)
+        {
+            if (g != _geracaoDetalhe || Descartada) return;
+            if (ex is not RecusaDoCrm) Clinica.Application.Diagnostico.Registrar("Blazor — a conversa da auditoria não foi relida depois do conflito", ex);
+            Recado(AuditoriaNaTela.FalhaDaConversa(ex), "erro");
+        }
+    }
+
+    private void Recado(string texto, string tom) { _recado = texto; _recadoTom = tom; }
+}

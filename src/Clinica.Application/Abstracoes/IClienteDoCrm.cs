@@ -143,6 +143,28 @@ public interface IClienteDoCrm
     /// </summary>
     Task<AppPresence> PulsoDePresencaAsync(int usuarioId, CancellationToken ct = default);
 
+    // ---------- A auditoria do atendimento (26/10): a gerente confere o atendimento das secretárias no app do Gerente ----------
+    // Só a gestão (admin ou supervisor no CRM): para os outros, as quatro rotas são RecusaDoCrm 403 com a frase do CRM.
+
+    /// <summary>GET /api/quality/painel?dias= — os números de cada secretária no período (<paramref name="dias"/>: 7 ou 30).</summary>
+    Task<AppQualityPanel> PainelDaAuditoriaAsync(int usuarioId, int dias, CancellationToken ct = default);
+
+    /// <summary>GET /api/quality/fila — as conversas a conferir (rascunho do @SemDor) e as já avaliadas, com o porquê de cada uma.</summary>
+    Task<AppQualityItem[]> FilaDaAuditoriaAsync(int usuarioId, CancellationToken ct = default);
+
+    /// <summary>
+    /// GET /api/quality/{id} — a conversa inteira, o <c>Fingerprint</c> que o salvar devolve, os cinco critérios, os achados
+    /// do sistema, quem da equipe participou e o histórico de avaliações (a mais nova primeiro).
+    /// </summary>
+    Task<AppQualityDetail> DetalheDaAuditoriaAsync(int usuarioId, string conversaId, CancellationToken ct = default);
+
+    /// <summary>
+    /// POST /api/quality — guarda a avaliação da gerente como versão NOVA (nenhuma é sobrescrita) e devolve a versão gravada.
+    /// <see cref="RecusaDoCrm.Conflito"/> (409): a conversa mudou depois do detalhe (o <c>Fingerprint</c>) ou outra versão foi
+    /// salva antes (a <c>Version</c>) — releia o detalhe. 400: a frase da validação ("Preencha os cinco critérios…"), inline.
+    /// </summary>
+    Task<AppQualityReview> SalvarAuditoriaAsync(int usuarioId, AppQualitySave avaliacao, CancellationToken ct = default);
+
     /// <summary>Esquece a sessão do CRM da pessoa (o app chama no logout): a próxima chamada entra de novo.</summary>
     void EsquecerSessao(int usuarioId);
 }
