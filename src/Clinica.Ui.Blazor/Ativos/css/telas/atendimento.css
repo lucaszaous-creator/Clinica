@@ -148,3 +148,25 @@
 
 /* O aviso da conclusão automática, no cabeçalho da tela do paciente. */
 .tp-aviso-conclusao{flex-basis:100%;margin:0;color:var(--texto-secundario);font-size:var(--text-small-size);text-align:right}
+
+/* Na folha do médico com a tela na altura da janela (tela-paciente.css): a folha ocupa o resto da
+   altura e o EDITOR leva o que sobra — rola por dentro, e a página não rola. */
+@media (min-width:1101px) and (min-height:560px){
+  .na-folha .at-folha-pagina{flex:1 1 auto;min-height:0;grid-template-rows:minmax(0,1fr);align-items:stretch}
+  .na-folha .at-coluna-folha{min-height:0}
+  /* Rola por DENTRO quando a janela é baixa demais para o piso do editor: cortar seria pior. O
+     rodapé é sticky, então o Salvar continua no pé do cartão. */
+  .na-folha .at-coluna-folha > .cartao{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow-y:auto}
+  .na-folha .at-cabecalho{padding-top:var(--space-2);padding-bottom:var(--space-2)}
+  .na-folha .at-registro{flex:1 1 auto;min-height:0}
+  .na-folha .at-editor{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;padding-top:var(--space-2);padding-bottom:var(--space-2)}
+  .na-folha .at-editor .editor-clinico{flex:1 1 auto;min-height:0}
+  /* O mínimo em LINHAS do componente vira um piso pequeno: aqui quem decide a altura é a janela. */
+  .na-folha .at-editor .editor-texto{flex:1 1 auto;min-height:10em !important;overflow-y:auto}
+  .na-folha .at-detalhe{margin-bottom:var(--space-2)}
+  /* Os avisos numa linha só (alergia · uso contínuo · …): empilhados, comiam a altura do texto. */
+  .na-folha .at-avisos{flex-direction:row;flex-wrap:wrap;gap:var(--space-1) var(--space-4);padding:var(--space-1) var(--space-3);margin-bottom:var(--space-2)}
+  .na-folha .at-contexto{padding-bottom:var(--space-2)}
+  .na-folha .at-personalizados{flex:none;max-height:30%;overflow-y:auto}
+  .na-folha .at-coluna-lado{min-height:0;overflow-y:auto}
+}

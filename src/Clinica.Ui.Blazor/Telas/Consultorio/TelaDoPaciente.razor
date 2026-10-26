@@ -19,7 +19,7 @@
 @inherits TelaBase
 @implements ITelaDoPaciente
 
-<div class="pagina tela-paciente">
+<div class="pagina tela-paciente @(NaFolhaDoMedico ? "na-folha" : null)">
     @if (_contexto is not { } ctx)
     {
         <section class="cartao">
@@ -114,7 +114,9 @@
                     }
                     <button type="button" class="botao fantasma" @onclick="VoltarAsync">Trocar paciente</button>
                 </div>
-                @if (!string.IsNullOrWhiteSpace(_avisoConclusaoAutomatica))
+                @* Na folha do médico a ORIENTAÇÃO ("ao salvar, conclui…") sai: o botão do rodapé já diz isso
+                   ("Salvar e concluir sessão") e a linha comia a altura do notebook. Pendência continua aqui. *@
+                @if (!string.IsNullOrWhiteSpace(_avisoConclusaoAutomatica) && !(NaFolhaDoMedico && _avisoEhOrientacao))
                 {
                     <p class="tp-aviso-conclusao">@_avisoConclusaoAutomatica</p>
                 }
@@ -321,6 +323,8 @@
     private bool _mostrarMateriais;
     private bool _materiaisAbertos;
     private string? _avisoConclusaoAutomatica;
+    /// <summary>O aviso é só a orientação de como concluir (não uma pendência) — some na folha do médico.</summary>
+    private bool _avisoEhOrientacao;
 
     private IJanelasDoAtendimentoClinico Janelas
         => Servicos.GetService<IJanelasDoAtendimentoClinico>() ?? JanelasDoAtendimentoClinicoIndisponiveis.Instancia;
@@ -362,6 +366,7 @@
     {
         var mostrar = false;
         string? aviso = null;
+        var orientacao = false;
         if (_horario is { } horario && ctx.AgendamentoId is { } id)
         {
             try
@@ -378,6 +383,7 @@
                           && (politica.Abrange(horario) || registrado);
                 aviso = await p.GetRequiredService<AgendaService>().PendenciaEnfermagemAsync(id)
                         ?? await Janelas.PendenciaDeConclusaoAutomaticaAsync(id);
+                orientacao = aviso is null && horario.FimAtendimentoEm is null;
                 if (horario.FimAtendimentoEm is null)
                     aviso ??= SessaoUsuario.Atual.Perfil == PerfilAcesso.Gerente
                         ? FinalizacaoDaSessao.OrientacaoGerente
@@ -391,6 +397,7 @@
         if (_contexto != ctx) return;
         _mostrarMateriais = mostrar;
         _avisoConclusaoAutomatica = aviso;
+        _avisoEhOrientacao = orientacao;
     }
 
     /// <summary>

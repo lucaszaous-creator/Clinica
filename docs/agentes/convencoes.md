@@ -5287,3 +5287,11 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
   `SectionId` com um `object` criado pela tela (`ITelaDoPaciente.ExtraDoRail`); quem não tem rail
   devolve nulo e a seção desenha o bloco no lugar de antes. **Ao entregar markup a outro componente,
   o endereço é da INSTÂNCIA — nome global é a variável estática da renderização.**
+  ⚠️ **E a folha cabe na janela SEM rolar a página** (o pedido seguinte da clínica, notebook de
+  1280×720): quem dá altura é o PALCO (`.palco-tela`, contêiner de altura fixa que rola sozinho), então
+  a tela do paciente na folha do médico (`.na-folha`) toma `height:100%` e passa a altura adiante numa
+  cadeia flex/grid com `min-height:0` em CADA elo — um elo sem ele faz o filho crescer com o conteúdo e
+  a página volta a rolar. O editor leva o que sobra e rola por dentro; o cartão rola por dentro quando
+  a janela é baixa demais (cortar seria pior), com o rodapé sticky. Abaixo de 560 px de altura ou de
+  1101 de largura volta a rolagem de página. ⚠️ A PRÉVIA rola o `body`, não um palco: a página
+  `/atendimento-medico` embrulha a `Raiz` num `.palco-tela`, senão a foto mostraria outra coisa.

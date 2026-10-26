@@ -7,7 +7,10 @@
 
 @if (_pronto)
 {
-    <Raiz Tela="typeof(Clinica.Ui.Blazor.Telas.TelaDoPaciente)" />
+    @* O contêiner que rola sozinho, como o palco do app: é ele que dá à tela a altura da janela. *@
+    <div class="palco-tela">
+        <Raiz Tela="typeof(Clinica.Ui.Blazor.Telas.TelaDoPaciente)" />
+    </div>
 }
 
 @code {
@@ -20,6 +23,9 @@
         // Entra como o MÉDICO da prévia (Sementes/AcessosDaClinica): a foto mostra o que quem atende vê.
         var medico = await db.Usuarios.FirstOrDefaultAsync(u => u.Login == "medico.previa");
         if (medico is not null) new Clinica.Domain.Entities.SessaoUsuario().Entrar(medico);
+        // Os campos personalizados da semente ("Nº de agulhas", "Aparelho usado") são da prévia: esta
+        // clínica não tem nenhum cadastrado, e a foto mostra a folha como ela a terá.
+        await db.CamposPersonalizadosProntuario.ExecuteUpdateAsync(s => s.SetProperty(x => x.Ativo, false));
         var hoje = DateTime.Today;
         // O primeiro horário de HOJE dele ainda em aberto: o paciente na sala.
         var horario = await db.Agendamentos.Include(a => a.Paciente)
