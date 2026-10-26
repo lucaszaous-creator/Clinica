@@ -5,7 +5,7 @@ sessão). O texto é o MESMO, sem reescrita: design system, WPF/XAML, Blazor, EF
 `verificar-suite`, assinatura digital, impressão, CRM e as rodadas de UI, cada uma com o defeito que a
 originou. Antes de escrever uma tela, uma consulta ou uma checagem, procure aqui a lição da área.
 
-## Índice (180 tópicos, na ordem do arquivo)
+## Índice (206 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -189,7 +189,32 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
 - "QUAL PACOTE DEBITA" ESTAVA ESCRITO TRÊS VEZES
 - A VENDA DE PACOTE TINHA UMA PORTA, E ELA PERGUNTAVA O QUE A TELA JÁ SABIA
 - Três armadilhas de XAML que a releitura do próprio diff pegou
-
+- Classe de tela Blazor nova leva o PREFIXO da tela: `entrada`, `saida` e `dica` já são do comum
+- Arquivo novo da prévia que uma SEMENTE usa entra também no `ValidarLayoutWindows.csproj`
+- `textarea` herda a fonte da casa pela regra COMUM, não por remendo de tela
+- Parâmetro `string` de componente Razor recebe expressão com `@`; sem ela recebe o TEXTO
+- Semente com data relativa a "hoje" respeita a JORNADA de quem tem agenda protegida
+- CSS de tela é importado no TOPO do `clinica.css`: regra de tela com a MESMA especificidade de uma comum PERDE
+- Peça nova numa linha de largura FIXA entra onde há folga — e o rótulo cede por CONTÊINER, no menor elemento
+- Pare a prévia pelo NOME do processo: `grep "[5]212"` casa a linha do próprio shell
+- `opacity` numa célula PRENDE o menu fixo de dentro dela abaixo do fundo que o fecha
+- Tela reusada dentro de um painel: os `@media` dela olham a JANELA, não o painel
+- Campo estático de classe estática nasce na ORDEM DO ARQUIVO: o que usa outro declarado abaixo lê nulo
+- Bytes do navegador para o C# vão em FLUXO (`IJSStreamReference`), nunca `byte[]`: a prévia é Blazor Server e corta em 32 KB
+- Componente filho que chama a tela por `Func` (e não `EventCallback`) não a redesenha: quem chama chama `StateHasChanged`
+- Junção de branches paralelas: o git junta SEM conflito duas versões da MESMA decisão
+- O bUnit CLICA botão `disabled`, e o Postgres é que mostra
+- Leitura que chega DEPOIS redesenha entre o `Find` e o `Click` do teste
+- Rota do CRM se escolhe por QUEM ela aceita, não só pela forma
+- Leitor de fundo que entra sozinho num serviço PARA antes da saída e cancela o que está em voo
+- Regra que ALARGA leva junto as frases que descreviam a regra antiga
+- Uma porta por pergunta se faz por BOTÃO, não por cartão
+- Rótulo longo em grade `auto minmax(0,1fr)` espreme o valor até uma letra por linha
+- Palavra de estado que aparece nas videoaulas não se troca só na tela
+- Tecla no Blazor: o que depende do ESTADO já desenhado é diretiva; o que depende da PRÓPRIA tecla é JS
+- Regra "compacta" escrita no FIM do CSS desfaz as `@media`/`@container` de mesma especificidade que vêm antes
+- `focus()` ROLA contêiner com `overflow:hidden`: foco em campo que ainda está entrando desloca a tela para o lado
+- A prévia com `--no-build` mostra o binário de ANTES: compilar os testes não a atualiza
 ---
 
 
@@ -4964,3 +4989,241 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
   conversor (é `DataTrigger`, como o resto da suíte); e um `_` como parâmetro de lambda
   colide com o descarte quando o corpo também usa `_` — o `compilar-sombra` acusou o
   `CS0029` em segundos, sete minutos antes de o CI o acusar.
+
+- **Classe de tela Blazor nova leva o PREFIXO da tela: `entrada`, `saida` e `dica` já são do
+  comum** (out/2026, mockup `docs/mockups/whatsapp-nativo/`). As bolhas da conversa nasceram
+  `.conv-m.entrada` / `.conv-m.saida` e o atalho do teclado `.dica` — três nomes que o CSS
+  comum já usa: `.entrada` é a TELA DE ENTRADA (login) em `moldura.css`, com
+  `min-height:100vh`, e `.dica` é o tooltip ABSOLUTO do gráfico em `clinica.css`. Resultado:
+  cada mensagem recebida virou uma caixa da altura da janela e "Ctrl + Enter envia" apareceu
+  flutuando sobre o cabeçalho. Nenhuma rede acusa (é CSS válido); só a foto. Regra: toda
+  classe que uma tela cria leva o prefixo dela (`conv-`, `ctx-`, `ficha-`), e antes de usar
+  um nome curto, `grep -n "^\.nome\b\|\.nome{" Ativos/css/clinica.css Ativos/css/telas/moldura.css`.
+
+- **Arquivo novo da prévia que uma SEMENTE usa entra também no `ValidarLayoutWindows.csproj`**
+  (out/2026, WhatsApp nativo). As sementes de `tools/PreviaBlazor/Sementes/*.cs` são compiladas em
+  TRÊS lugares: a prévia, o `Clinica.Tests` e o `tools/ValidarLayoutWindows` (que o CI do Windows
+  roda). A semente do WhatsApp passou a usar classes do `CrmDeMentira.cs`; o agente o incluiu no
+  `Clinica.Tests.csproj` e esqueceu o validador. Prévia e testes verdes, CI vermelho. Só o
+  `compilar-sombra` acusou. E o validador não tem `using System.IO` implícito. Antes de commitar
+  uma semente que usa arquivo de fora de `Sementes/`: `grep -rn "PreviaBlazor/Sementes" --include=*.csproj`
+  e inclua o arquivo em todos.
+
+- **`textarea` herda a fonte da casa pela regra COMUM, não por remendo de tela** (out/2026,
+  WhatsApp nativo). O `clinica.css` fazia `button,select,input{font:inherit}` e deixava o
+  `textarea` de fora: o navegador desenha o campo de várias linhas (e o texto de exemplo dele) em
+  fonte de máquina de escrever. Duas telas já tinham remendado localmente
+  (`fat-pendencias.css`, `configuracoes.css`) e cada formulário novo repetia o defeito. A regra
+  comum agora inclui o `textarea`; os remendos locais ficaram inofensivos. Defeito que aparece
+  em DUAS telas é da regra comum: conserte lá.
+
+
+- **Parâmetro `string` de componente Razor recebe expressão com `@`; sem ela recebe o TEXTO**
+  (out/2026, WhatsApp nativo, "Cadastrar com este telefone"). Em `PacienteId="f.PacienteId"` o
+  Razor avalia a expressão porque o parâmetro é `int?`; em `TelefoneInicial="f.TelefoneInicial"`,
+  com o parâmetro `string`, ele passa a frase literal `"f.TelefoneInicial"` — compila sem aviso e
+  o campo do cadastro abriu com esse texto escrito. Só o teste bUnit que lia o `value` do campo
+  pegou. Regra: atributo de componente que leva expressão começa com `@` sempre
+  (`TelefoneInicial="@f.TelefoneInicial"`), e parâmetro novo `string` nasce com um teste que lê o
+  que ele mostra.
+
+- **Semente com data relativa a "hoje" respeita a JORNADA de quem tem agenda protegida**
+  (out/2026). A sessão do Dr. Caio nas férias dele era `hoje + 20` às 15h; ele só atende terça e
+  quinta, e no Postgres o gatilho `CK_Agenda_Protegida` recusava a semente em cinco dias de cada
+  sete. O SQLite não tem o gatilho, então a prévia e o CI nunca viram. Regra: horário semeado para
+  profissional com `AgendaProtegida` escolhe um dia da jornada dele (procure o dia, não some um
+  número fixo), e o horário que "já estava marcado" antes de um bloqueio é gravado num
+  `SaveChanges` ANTERIOR ao do bloqueio. Para conferir: a família com `CLINICA_TESTES_POSTGRES` e
+  `faketime` em cada dia da semana.
+
+- **CSS de tela é importado no TOPO do `clinica.css`: regra de tela com a MESMA especificidade de
+  uma comum PERDE** (out/2026, WhatsApp nativo). O `.wa-modo button{padding:6px 10px;gap:6px}`
+  nunca se aplicou: o `.segmentado button` do `clinica.css` (padding 12 px, gap 6 px) vem depois
+  dos `@import url("telas/…")` e vence no empate. O seletor de modo ficou 26 px mais largo que a
+  coluna e o "Retenção 15" passava por baixo do "+". Só a foto mostrou, e só a medida explicou
+  (`getComputedStyle(botao).padding` dizia 12 px). Regra: ao estilizar um componente comum
+  (`segmentado`, `botao`, `selo`, `campo`) dentro de uma tela, some a classe dele ao seletor
+  (`.segmentado.wa-modo button`) ou prefixe pela tela (`.wa-filtros .segmentado button`). O
+  roteiro de fotos do WhatsApp passou a acusar filho que vaza do grupo
+  (`.segmentado`, `.wa-cab-acoes`, `.wa-faixa`…).
+
+- **Peça nova numa linha de largura FIXA entra onde há folga — e o rótulo cede por CONTÊINER, no menor
+  elemento** (out/2026, @SemDor na tela de WhatsApp). A etiqueta "✨ Remarcar" nasceu no rodapé da linha da
+  lista, ao lado do selo da situação e do responsável: na coluna de 300 px (1024) o selo virou "N…" e o
+  responsável vazou da linha. Nenhuma rede pega; o roteiro de fotos acusou "vaza do grupo" porque passou a
+  olhar `.wa-linha-rodape`. A saída foi pôr a etiqueta no começo da linha da PRÉVIA — ela resume aquela
+  mensagem, e o que encolhe ali é o texto, não a situação. Do mesmo jeito, o "✨ Resumo" no cabeçalho da
+  conversa espremia o nome do paciente em 1024 e 1366: o rótulo cede por `@container`, e o contêiner é o
+  CABEÇALHO (`.wa-cab{container-type:inline-size}`), não a coluna — `container-type` liga a contenção de
+  leiaute, que faz do elemento o bloco de contenção dos filhos `fixed`/`absolute` e um contexto de
+  empilhamento; na coluna inteira, os popovers e a linha do tempo passariam a depender disso. Regra: antes de
+  acrescentar à linha, some a largura do que já está nela na menor largura da tela (300 px de lista, ~520 px
+  de conversa em 1180), e ponha o grupo novo no roteiro de vazamento das fotos.
+
+- **Pare a prévia pelo NOME do processo: `grep "[5]212"` casa a linha do próprio shell** (out/2026). O truque
+  do colchete (`ps -eo pid,args | grep "[P]reviaBlazor"`) só esconde o `grep`; quando o MESMO comando também
+  sobe a prévia (`… --urls http://127.0.0.1:5212`), a linha do `bash -c` que o roda contém o texto procurado,
+  o `kill` a acerta e o comando morre no meio (código 144, sem saída). Filtre pelo nome:
+  `ps -eo pid,comm,args | awk '($2 ~ /^(dotnet|faketime|PreviaBlazor)$/) && /127\.0\.0\.1:5212/ {print $1}'`
+  — e só a SUA porta: outras prévias (de outros agentes) podem estar no ar ao lado.
+
+- **`opacity` numa célula PRENDE o menu fixo de dentro dela abaixo do fundo que o fecha** (out/2026,
+  fotos da conversa ao lado). Na Agenda do dia, `tr.apagada td{opacity:.72}` apagava a linha cancelada
+  — e opacidade menor que 1 abre um CONTEXTO DE EMPILHAMENTO. O menu "⋯" da linha (`position:fixed`,
+  z 30) ficou preso dentro dele, e o fundo transparente que fecha o menu (z 25, fora da tabela) passou
+  a ficar POR CIMA: todo clique num item caía no fundo e só fechava o menu. Nenhuma rede viu (o bUnit
+  não tem leiaute); a foto também não — quem acusou foi o Playwright recusando o clique ("outro
+  elemento recebe o clique"), e a medida explicou (`elementFromPoint` devolvia o fundo; subir os pais
+  com `getComputedStyle` achou o `opacity:0.72`). Regra: menu, popover ou dica com `position:fixed` e
+  z-index não mora dentro de quem tem `opacity`, `transform`, `filter` ou `isolation` — tire a célula
+  das ações do efeito (`td:not(.rd-col-acoes)`) ou desenhe o menu fora da tabela.
+
+- **Tela reusada dentro de um painel: os `@media` dela olham a JANELA, não o painel** (out/2026,
+  conversa ao lado). A conversa do WhatsApp foi para uma gaveta de 460 px, mas numa janela de 1366 os
+  `@media (max-width:760px)` do `conversas.css` não valem: os botões do cabeçalho voltariam com rótulo
+  e o rodapé do campo apertaria. O modo painel (`.wa-ao-lado`, em `conversa-ao-lado.css`) repete o que
+  lá vale em ≤ 760 px com um seletor MAIS específico, e o roteiro de fotos acusa filho que vaza da
+  gaveta. Regra: componente que aparece em duas larguras na mesma janela ganha uma classe de modo (ou
+  `container-type` + `@container`), nunca só `@media`; e a foto vai na largura da JANELA, com o painel
+  aberto.
+
+- **Campo estático de classe estática nasce na ORDEM DO ARQUIVO: o que usa outro declarado abaixo
+  lê nulo** (24/10/2026, mídia do WhatsApp). O `MidiaDeExemplo` da prévia gera a foto de exemplo
+  num campo estático (`Foto = new(Png(...))`), e o `Png` usa a tabela do CRC declarada MAIS
+  ABAIXO no arquivo: na hora da foto a tabela ainda era nula, o inicializador do tipo estourou
+  (`TypeInitializationException`), e o CRM de mentira — que serve a foto — não abria. Compilou
+  sem aviso; quem acusou foi o teste bUnit da tela (a tela nem abria) e o teste de regra que lia a
+  duração do WAV. Regra: em classe estática, a tabela/constante que outro campo usa vem PRIMEIRO
+  (com um comentário dizendo por quê), ou é calculada sob demanda (`Lazy`, propriedade).
+
+- **Bytes do navegador para o C# vão em FLUXO (`IJSStreamReference`), nunca `byte[]`: a prévia é
+  Blazor Server e corta em 32 KB** (24/10/2026, gravação de áudio do WhatsApp). O `parar()` do
+  `js/gravacao-de-audio.js` devolvia o `Uint8Array` e o C# o lia como `byte[]`. No app (Blazor
+  Hybrid, WebView2) funcionaria; na prévia, que é Blazor Server, a mensagem do navegador para o
+  servidor passa do limite do SignalR (32 KB) e o CIRCUITO cai — a foto 55 mostrou a tela parada
+  em "Gravando" e o console "Connection disconnected". O bUnit não vê (não há SignalR). Regra:
+  arquivo que vem do navegador é `InvokeAsync<IJSStreamReference>` + `OpenReadStreamAsync(teto)`,
+  que chega em pedaços nos dois hospedeiros (o JS só devolve o `Uint8Array`/`Blob`). No sentido
+  contrário (C# → navegador, um `data:` no `src`) não há esse limite.
+
+- **Componente filho que chama a tela por `Func` (e não `EventCallback`) não a redesenha: quem chama
+  chama `StateHasChanged`** (24/10/2026, gravação de áudio do WhatsApp). O `GravadorDeAudio`
+  precisa da RESPOSTA do envio (saiu ou não, para fechar a faixa ou guardar o áudio), então recebe
+  `Func<Gravacao, Task<bool>>`. `EventCallback` redesenha o dono depois do handler; `Func`, não: o
+  áudio era enviado, o toast aparecia, e a mensagem nova (e a frase da recusa) só surgia na
+  releitura de 7 s. O teste bUnit passava porque esperava 20 s — a releitura o salvava. Regra: o
+  método da tela chamado por `Func` termina em `finally { StateHasChanged(); }`, e o teste que
+  prova o redesenho espera MENOS que o relógio da tela (aqui 3 s), senão o relógio responde por
+  ele. O teste foi provado tirando o `StateHasChanged`: reprovou.
+
+- **Junção de branches paralelas: o git junta SEM conflito duas versões da MESMA decisão** (out/2026,
+  WhatsApp nativo: mídia × @SemDor). Cada branch acrescentou uma natureza de chamada ao
+  `ClienteDoCrmHttp` (`IA` e `Midia`). O conflito apareceu no `enum` e no prazo, e foi resolvido; mas
+  a linha que decide quem leva o CSRF (`if (natureza is Natureza.Escrita or Natureza.Envio …)`) mudou
+  só numa das branches e entrou SEM conflito na versão da outra — o @SemDor passou a sair sem CSRF e o
+  CRM o recusava como "acesso recusado". Build verde; só o teste do @SemDor
+  (`ClienteDoCrmHttpTests.O_SemDor_*`) acusou. Regra: depois de juntar branches que mexeram no mesmo
+  arquivo, rode as famílias de testes de CADA uma na árvore juntada — não só as da última — e procure
+  no arquivo juntado todo uso do valor novo de cada `enum` (`grep -n "Natureza\."`).
+
+- **O bUnit CLICA botão `disabled`, e o Postgres é que mostra** (out/2026, conversa ao lado). O botão
+  "WhatsApp" da Ficha do balcão nasce apagado até a ficha carregar o telefone. No SQLite a carga
+  termina antes do clique do teste e tudo passa; no Postgres (`CLINICA_TESTES_POSTGRES`) o teste
+  clicou ANTES — o bUnit não respeita `disabled` — e a gaveta abriu com o telefone vazio. No
+  navegador o botão apagado não responde, mas a regra das duas barreiras vale por isso mesmo: o
+  clique agora também recusa sem telefone. Regra: teste que clica espera o botão ACENDER
+  (`WaitForAssertion(... HasAttribute("disabled").Should().BeFalse())`), e todo `@onclick` de botão que
+  nasce apagado confere de novo, no clique, a condição que o apaga.
+- **Leitura que chega DEPOIS redesenha entre o `Find` e o `Click` do teste** (25/10/2026, o retrato
+  da ficha no avatar do WhatsApp). A tela publica a lista e, em seguida, busca as miniaturas sem
+  segurar a lista; quando elas chegam, a tela redesenha. No SQLite a busca termina antes de o teste
+  clicar; no Postgres ela caiu entre o `FindAll(...)` e o `.Click()`, e o bUnit recusou o clique
+  ("There is no event handler with ID") em seis testes de dois arquivos que nada tinham a ver com
+  foto. Regra: em tela que publica alguma coisa depois de abrir, o teste acha e age no MESMO passo
+  do renderizador — `tela.Clicar(() => tela.Find(...))` e `tela.Digitar(...)`
+  (`tests/Clinica.Tests/CliqueNoMesmoPasso.cs`, o `InvokeAsync` que o bUnit recomenda). E rode a
+  família da tela mexida com `CLINICA_TESTES_POSTGRES`: é a rede que vê a corrida. ⚠️ Duas rodadas
+  de `dotnet test` contra o MESMO Postgres ao mesmo tempo disputam o banco-modelo
+  (`BancoDosTestes`) e falham com "transient failure" na fixture — não é defeito, é a rodada.
+- **Rota do CRM se escolhe por QUEM ela aceita, não só pela forma** (25/10/2026, o "Passar o turno"). O
+  "Com você → Devolver à fila" da tela nativa chamava `POST …/reassign` — a forma (`AppChange` com
+  `AgentId` nulo) batia, o teste do serviço com o CRM falso passava e o CRM de mentira da prévia aceitava
+  porque a "ana" de lá é supervisora. No CRM de verdade o `/reassign` é o "Reorganizar" da GESTÃO
+  (`ReceptionHandoffs.cs`: `403` para quem não é admin nem supervisora), e o próprio
+  `ApiParaOsAppsTests.Devolver_a_fila_pela_gestao…` já mostrava a Ana recusada. A dona devolve pelo
+  `/transfer` sem responsável, como o CRM web faz. Regra: antes de ligar um botão do app a uma rota do CRM,
+  leia o filtro de PAPEL da rota (`TeamProfiles`, `WorkflowAccess`, `Role is "admin" or "supervisor"`) e
+  teste a rota em `ApiParaOsAppsTests` com a pessoa COMUM; o CRM de mentira entra como gestão e não vê isso.
+- **Leitor de fundo que entra sozinho num serviço PARA antes da saída e cancela o que está em voo**
+  (25/10/2026, o pulso de presença do app). O `ClienteDoCrmHttp` entra de novo pelo bilhete no `401`. Um
+  pulso que saísse logo antes do fechamento e voltasse depois do `/api/logout` tomaria `401` e ENTRARIA DE
+  NOVO: a pessoa sairia do app e continuaria "conectada" no CRM por 2 h — nada falha, só deixa de fazer o
+  que promete. O `VigiaDoWhatsApp` para no `PararAvisosGlobais` (antes do `SairDoCrm` da `JanelaDoApp`) e o
+  `Parar()` cancela o `CancellationToken` da chamada em voo (a reentrada espera a vaga com o mesmo token).
+  Regra: todo relógio que fala com um cliente de login automático tem dono (a janela), para antes da saída e
+  cancela, não só "não agenda a próxima"; e o teste confere que, parado, nada mais chega ao serviço
+  (`EsperaNoWhatsAppTests.O_pulso_vai_ao_CRM_e_para_de_vez_quando_o_vigia_para`).
+- **Regra que ALARGA leva junto as frases que descreviam a regra antiga** (25/10/2026, WhatsApp R2). O
+  "sem resposta" do sino passou a contar o lembrete AUTOMÁTICO do WhatsApp (gravado pela ponte), além do
+  link do SMS antigo. Os testes da regra, da consulta e da tradução passaram; o alerta do painel do Gerente
+  continuava dizendo "O SMS saiu há mais de 3 h e o paciente não clicou no link" — agora sobre lembretes
+  que nunca foram SMS nem tiveram link. Nenhum teste lia a frase; o `grep "SMS"` pedido na revisão é que
+  achou (`PainelDirecaoService`). Regra: quando uma regra passa a contar mais casos, procure o VOCABULÁRIO
+  da regra antiga (o canal, "link", "clicou") em TODO leitor do resultado — sino, painel, tela, CSV —, não
+  só na tela que motivou a mudança.
+- **Uma porta por pergunta se faz por BOTÃO, não por cartão** (25/10/2026, WhatsApp item 6). A primeira
+  versão escondia todos os botões do horário da coluna quando o aviso da conversa "cuidava" dele — e levou
+  junto o **Cancelar**, que só a coluna oferecia: a recepção perdia um gesto que tinha ontem (a regra 3 do
+  faturamento vale aqui). A foto mostrou o cartão sem botão nenhum. Regra: tirar da coluna só o MESMO
+  botão que o aviso já mostra para aquele horário (`ConversasNaTela.AvisoOferece(acao, botao, agendamentoId)`),
+  e conferir na foto que cada gesto continua tendo uma porta.
+- **Rótulo longo em grade `auto minmax(0,1fr)` espreme o valor até uma letra por linha** (25/10/2026,
+  WhatsApp item 15). "Responsável pelo acompanhamento" no `<dl class="wa-pares">` alargou a coluna `auto` dos
+  rótulos até a coluna dos valores ficar com a largura de duas letras: "Acupun/tura", "autori/zou". Nenhuma
+  rede vê; a foto em 1366 viu. Regra: a coluna do rótulo é `fit-content(45%)` — o rótulo quebra a linha, o
+  valor nunca fica estreito — e rótulo novo e longo numa grade de pares é fotografado antes do commit.
+- **Palavra de estado que aparece nas videoaulas não se troca só na tela** (25/10/2026, WhatsApp item 7). O
+  pedido era "Sem resposta" em vez de "Não confirmou". A pílula da agenda (`RodadaDeConfirmacao.SeloSemResposta`)
+  é citada no catálogo de treinamento (`Clinica.Desktop.Shell/Treinamento/catalogo.json`) e nos roteiros
+  gravados (`tools/treinamento/gravacao/roteiros`): trocá-la sem regravar faria a aula ensinar uma tela que
+  não existe mais. A palavra nova ficou no WhatsApp (`RodadaDeConfirmacao.SemResposta`, um lugar só), e a
+  agenda espera a regravação. Regra: antes de renomear um rótulo de tela,
+  `grep -rn "rótulo" src/Clinica.Desktop.Shell/Treinamento tools/treinamento`.
+- **Tecla no Blazor: o que depende do ESTADO já desenhado é diretiva; o que depende da PRÓPRIA tecla é JS**
+  (25/10/2026, o teclado do WhatsApp Web na tela nativa). `@onkeydown:preventDefault` e
+  `@onkeydown:stopPropagation` valem pelo que foi DESENHADO antes da tecla. Por isso o Esc que fecha o
+  popover sem fechar a gaveta da conversa ao lado é diretiva pura (`@onkeydown:stopPropagation="@(_popover !=
+  Popover.Nenhum)"` no campo, e fixa no popover e na busca, que só existem abertos): o estado já estava na
+  tela. Já "Enter envia, Shift+Enter quebra a linha" depende do Shift DAQUELA tecla — a diretiva só valeria
+  no render seguinte e a quebra de linha entrava no campo. Aí o JS (`js/conversa-do-whatsapp.js`) só impede
+  a quebra, e QUEM ENVIA continua sendo o C# (`TeclaAsync` + `EnviaPeloEnter`), que o bUnit testa com
+  `KeyDown(new KeyboardEventArgs { Key = "Enter", ShiftKey = … })`. A regra das duas pontas é a mesma
+  (Enter sem Shift e sem Alt; na composição de acento o Enter é do IME) e cada uma aponta para a outra no
+  comentário. E evite o `@onkeydown` num contêiner grande "para pegar o Esc de tudo": cada tecla digitada no
+  campo vira um evento a mais e um redesenho a mais da tela inteira — ponha o handler no elemento que precisa.
+- **Regra "compacta" escrita no FIM do CSS desfaz as `@media`/`@container` de mesma especificidade que vêm
+  antes** (25/10/2026, o cabeçalho da conversa). Para caber "Devolver à fila", "Resumo" e "Encerrar" em
+  ~720 px, entrou `.wa-cab-acoes .botao:not(.icone){padding:0 var(--space-3)}` no fim do `conversas.css` — e
+  ele vencia, por vir depois, as regras de 0,3,0 que reduzem os mesmos botões ao ícone (`width:34px;padding:0`)
+  em ≤ 1180 px, no celular e por `@container`: o ícone ficava espremido num botão de 34 px com 12 px de cada
+  lado. `@media` e `@container` NÃO somam especificidade. Regra: a base vai ANTES das variações que a
+  reduzem (aqui, logo depois de `.wa-cab-acoes .botao`), e a foto em 1024 e 480 é o que confere. Na mesma
+  rodada: `text-overflow:ellipsis` não age em contêiner flex — o `h2` do nome (`display:flex`) e o selo
+  (`inline-flex`) cortavam seco ("Maria das Graç"); reticências pedem `display:block` (ou o texto num
+  filho comum).
+- **`focus()` ROLA contêiner com `overflow:hidden`: foco em campo que ainda está entrando desloca a tela
+  para o lado** (25/10/2026, o foco no campo ao abrir a conversa do WhatsApp). No celular a conversa entra
+  deslizando (`transform:translateX(100%)` → `none`, 150 ms) e o `FocusAsync()` chegou no meio: o navegador
+  rolou a `.pagina.wa` — que é `overflow:hidden`, mas rola por código e por foco — até o campo, e a tela
+  ficou deslocada ~270 px, com a coluna da ficha à mostra (foto 31 em 480). O `scrollWidth` do documento não
+  mudou, então o roteiro de fotos não acusou; os testes bUnit não têm leiaute. Regra: foco posto pela tela
+  (não pelo clique da pessoa) é `FocusAsync(preventScroll: true)`; e o roteiro de fotos procura, além da
+  página larga, qualquer elemento com `scrollLeft > 0` (`fotos-whatsapp.js`, `deslocados`).
+- **A prévia com `--no-build` mostra o binário de ANTES: compilar os testes não a atualiza** (25/10/2026,
+  junção das três frentes do WhatsApp). O `dotnet build` do `Clinica.Tests` compila o PreviaBlazor como
+  referência e copia as DLLs para a pasta dos TESTES; a pasta `tools/PreviaBlazor/bin` só muda quando o
+  próprio projeto da prévia é compilado. Subida com `dotnet run --no-build`, a prévia rodou o código da
+  manhã, e o roteiro de fotos acusou "selo cortado" em textos que já nem existiam no código — 40 falhas
+  falsas, e o risco inverso: fotografar a tela velha e chamá-la de nova. Regra: antes de fotografar,
+  `dotnet build tools/PreviaBlazor` (ou `dotnet run` sem `--no-build`) e, na dúvida, compare a hora da
+  `Clinica.Application.dll` das duas pastas.

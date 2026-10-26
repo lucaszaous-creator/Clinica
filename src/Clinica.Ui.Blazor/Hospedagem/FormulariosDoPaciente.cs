@@ -74,10 +74,14 @@ public sealed class FormulariosDoPaciente(IServiceScopeFactory escopos)
         return resposta is not null;
     }
 
-    /// <summary>O cadastro de um paciente NOVO. Nulo = desistiu (ou não há onde abrir).</summary>
-    public Task<PacienteCadastrado?> CadastrarAsync()
+    /// <summary>
+    /// O cadastro de um paciente NOVO. Nulo = desistiu (ou não há onde abrir). <paramref name="telefone"/>
+    /// já preenche o campo (out/2026, WhatsApp nativo: "Cadastrar com este telefone" — quem escreveu pelo
+    /// WhatsApp não precisa ditar o número que a conversa já tem); a recepção pode mudá-lo antes de gravar.
+    /// </summary>
+    public Task<PacienteCadastrado?> CadastrarAsync(string? telefone = null)
         => Disponivel
-            ? Abrir(new FormularioDoPacienteAberto(TipoFormularioDoPaciente.Cadastro, null, null))
+            ? Abrir(new FormularioDoPacienteAberto(TipoFormularioDoPaciente.Cadastro, null, null, telefone))
             : Task.FromResult<PacienteCadastrado?>(null);
 
     /// <summary>A edição do cadastro. Verdadeiro = gravou.</summary>
@@ -129,11 +133,13 @@ public sealed class FormulariosDoPaciente(IServiceScopeFactory escopos)
 public enum TipoFormularioDoPaciente { Cadastro, Convenio }
 
 /// <summary>Um formulário pedido: qual, de quem (nulo = paciente novo) e a ficha já lida (o convênio).</summary>
-public sealed class FormularioDoPacienteAberto(TipoFormularioDoPaciente tipo, int? pacienteId, Paciente? paciente)
+public sealed class FormularioDoPacienteAberto(TipoFormularioDoPaciente tipo, int? pacienteId, Paciente? paciente, string? telefoneInicial = null)
 {
     public TipoFormularioDoPaciente Tipo { get; } = tipo;
     public int? PacienteId { get; } = pacienteId;
     public Paciente? Paciente { get; } = paciente;
+    /// <summary>O telefone que o cadastro NOVO já abre preenchido (nulo = campo vazio, como sempre).</summary>
+    public string? TelefoneInicial { get; } = telefoneInicial;
 
     internal TaskCompletionSource<PacienteCadastrado?> Resposta { get; } =
         new(TaskCreationOptions.RunContinuationsAsynchronously);

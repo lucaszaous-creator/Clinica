@@ -1,0 +1,105 @@
+/* A MÍDIA DO WHATSAPP (24/10/2026, docs/whatsapp-nativo-implementacao.md "Mídia e áudio"): a foto,
+   o áudio, o vídeo e o documento DENTRO do balão (Componentes/MidiaNoBalao.razor), a foto ampliada
+   (Formularios/WhatsApp/MidiaAmpliadaForm.razor) e a gravação no rodapé do campo de escrever
+   (Componentes/GravadorDeAudio.razor). Arquivo à parte do conversas.css para a mídia e a conversa
+   crescerem sem se atropelar; classes com o prefixo wa- da tela. */
+
+/* O balão é white-space:pre-wrap (o texto do paciente): a mídia volta ao normal. */
+.wa-balao .wa-midia{white-space:normal;display:flex;flex-direction:column;gap:var(--space-2);margin:var(--space-1) 0 var(--space-1)}
+.wa-balao .wa-midia + .wa-m-rodape{margin-top:0}
+
+/* ---------- Figurinha (25/10) ----------
+   Como no WhatsApp: a imagem solta, sem o balão em volta; a hora vira uma pílula sobre o fundo. Vem
+   depois do conversas.css, então a mesma especificidade do ".wa-m.enviada .wa-balao" perde para esta. */
+.wa-m .wa-balao.wa-balao-figurinha{display:flex;flex-direction:column;align-items:flex-end;background:transparent;border-color:transparent;box-shadow:none;padding:0}
+/* A hora fica no canto de baixo à direita da figurinha, por cima dela, como no WhatsApp (item 18 da revisão: solta
+   embaixo, ela parecia centralizada). */
+.wa-balao-figurinha .wa-m-rodape{float:none;display:inline-flex;margin-right:var(--space-1);
+  padding:2px var(--space-2);border-radius:var(--radius-pilula);background:var(--superficie);box-shadow:var(--sombra-cartao)}
+.wa-m .wa-balao.wa-balao-figurinha .wa-midia + .wa-m-rodape{margin-top:calc(-1 * var(--space-6))}
+.wa-figurinha{display:block;width:128px;height:128px;object-fit:contain}
+.wa-midia-figurinha .wa-foto-esqueleto{width:128px;aspect-ratio:1}
+
+/* ---------- Foto ---------- */
+.wa-foto{display:block;padding:0;border:0;background:none;cursor:zoom-in;border-radius:var(--radius-control);overflow:hidden;line-height:0;max-width:100%}
+.wa-foto img{display:block;max-width:min(300px,100%);max-height:300px;width:auto;height:auto;border-radius:var(--radius-control)}
+.wa-foto:focus-visible{outline:2px solid var(--foco);outline-offset:2px}
+.wa-foto-esqueleto{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--space-2);width:260px;max-width:100%;aspect-ratio:4/3;
+  border:0;border-radius:var(--radius-control);color:var(--cinza-300);font:inherit;font-size:var(--text-small-size);
+  background:linear-gradient(90deg,var(--cinza-100),var(--cinza-50),var(--cinza-100));background-size:200% 100%;animation:brilho 1.2s linear infinite}
+.wa-foto-esqueleto .icone{width:32px;height:32px}
+.wa-foto-esqueleto.falhou,button.wa-foto-esqueleto{animation:none;background:var(--cinza-100)}
+button.wa-foto-esqueleto{cursor:pointer;color:var(--texto-secundario)}
+button.wa-foto-esqueleto:hover{background:var(--cinza-200)}
+
+/* ---------- Áudio: o tocador do navegador, na cor da casa ---------- */
+.wa-audio{display:flex;align-items:center;gap:var(--space-2);min-width:min(300px,100%)}
+.wa-audio-ic{flex:none;display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--radius-pilula);
+  background:var(--acento);color:var(--texto-invertido)}
+.wa-audio-ic .icone{width:18px;height:18px}
+.wa-m.enviada .wa-audio-ic{background:var(--sucesso-forte)}
+.wa-audio audio{flex:1;min-width:0;height:36px;accent-color:var(--acento)}
+.wa-audio-esqueleto{flex:1;height:10px;border-radius:var(--radius-pilula);
+  background:linear-gradient(90deg,var(--cinza-100),var(--cinza-50),var(--cinza-100));background-size:200% 100%;animation:brilho 1.2s linear infinite}
+
+/* ---------- Vídeo ---------- */
+.wa-midia-video video{display:block;max-width:min(320px,100%);max-height:320px;border-radius:var(--radius-control);background:var(--cinza-900)}
+.wa-video-capa{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--space-2);width:260px;max-width:100%;aspect-ratio:16/9;
+  border:0;border-radius:var(--radius-control);background:var(--cinza-900);color:var(--texto-invertido);font:inherit;font-size:var(--text-small-size);cursor:pointer}
+.wa-video-capa:disabled{cursor:progress;opacity:.85}
+.wa-video-tocar{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:var(--radius-pilula);background:var(--acento)}
+.wa-video-tocar .icone{width:20px;height:20px}
+
+/* A linha de baixo do áudio e do vídeo: o que é e o Baixar. */
+.wa-midia-linha{display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap}
+.wa-midia-linha small{flex:1;min-width:0;color:var(--texto-secundario);font-size:var(--text-small-size);font-variant-numeric:tabular-nums}
+.wa-midia .botao.mini{height:26px;background:var(--superficie)}
+/* A velocidade do áudio à vista (item 17): 1× → 1,5× → 2×. */
+.wa-midia .botao.mini.wa-velocidade{min-width:44px;justify-content:center;font-weight:700;font-variant-numeric:tabular-nums}
+.wa-midia-nota{font-size:var(--text-small-size);color:var(--texto-secundario)}
+
+/* ---------- Documento: o cartão com a sigla, o nome, Abrir e Baixar ---------- */
+.wa-doc{display:grid;grid-template-columns:40px minmax(0,1fr);align-items:center;gap:var(--space-1) var(--space-3);padding:var(--space-2) var(--space-3);
+  min-width:min(300px,100%);border:1px solid var(--borda);border-radius:var(--radius-control);background:var(--fundo)}
+.wa-m.enviada .wa-doc{background:var(--verde-50);border-color:var(--verde-100)}
+.wa-doc-ic{display:inline-flex;align-items:center;justify-content:center;width:40px;height:46px;border-radius:var(--radius-pequeno);
+  background:var(--erro);color:var(--texto-invertido);font-size:11px;font-weight:700;letter-spacing:.02em}
+.wa-midia-foto .wa-doc-ic{background:var(--acento)}
+.wa-doc-ic .icone{width:20px;height:20px}
+.wa-doc-texto{display:flex;flex-direction:column;gap:2px;min-width:0}
+.wa-doc-texto strong{font-size:var(--text-table-size);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wa-doc-texto small{color:var(--texto-secundario);font-size:var(--text-small-size)}
+.wa-doc-acoes{grid-column:1 / -1;display:flex;gap:var(--space-2);justify-content:flex-end}
+
+/* A falha de carregar, com o Tentar de novo. */
+.wa-midia-falha{display:flex;align-items:center;flex-wrap:wrap;gap:var(--space-2);font-size:var(--text-small-size);color:var(--erro-texto)}
+.wa-midia-falha > span{flex:1 1 160px;min-width:0}
+.wa-midia-falha .icone{width:16px;height:16px;flex:none}
+
+/* ---------- A foto ampliada ---------- */
+.wa-ampliada{display:flex;align-items:center;justify-content:center;background:var(--cinza-900);border-radius:var(--radius-control);padding:var(--space-2)}
+.wa-ampliada img{display:block;max-width:100%;max-height:70vh;object-fit:contain}
+.modal.maximizado .wa-ampliada img{max-height:calc(100vh - 220px)}
+.wa-ampliada-legenda{margin:var(--space-3) 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+
+/* ---------- Gravando: a faixa toma o lugar do rodapé e o campo de texto sai ---------- */
+.wa-escrever-rodape:has(> .wa-gravando) > :not(.wa-gravando){display:none}
+.wa-escrever:has(.wa-gravando) textarea,.wa-escrever:has(.wa-gravando) .wa-rascunho-anexo{display:none}
+.wa-gravando{flex:1 1 100%;display:flex;align-items:center;gap:var(--space-2);min-width:0;padding-top:var(--space-2)}
+.wa-gravando-ponto{flex:none;width:10px;height:10px;border-radius:var(--radius-pilula);background:var(--cinza-300)}
+.wa-gravando.ativo .wa-gravando-ponto{background:var(--erro);animation:wa-pulsar 1s ease-in-out infinite}
+.wa-gravando-tempo{font-variant-numeric:tabular-nums;font-weight:600;min-width:3.2em}
+.wa-gravando-texto{flex:1;min-width:0;color:var(--texto-secundario);font-size:var(--text-small-size);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wa-escrever-rodape .wa-gravando .botao.primario{margin-left:auto}
+@keyframes wa-pulsar{50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.wa-gravando.ativo .wa-gravando-ponto,.wa-foto-esqueleto,.wa-audio-esqueleto{animation:none}}
+
+/* Sem a coluna da ficha, o rodapé deixa o lugar da bolinha do chat da equipe: o microfone fica só ícone (o nome vai no title). */
+@media (max-width:1180px){
+  .wa-escrever-rodape .wa-gravar-rotulo{display:none}
+}
+@media (max-width:760px){
+  .wa-foto img{max-width:100%}
+  .wa-audio{min-width:0}
+  .wa-doc{min-width:0}
+}

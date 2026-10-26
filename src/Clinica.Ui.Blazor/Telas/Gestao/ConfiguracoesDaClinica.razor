@@ -330,7 +330,7 @@
                     <h3>Endereço do CRM</h3>
                     <div class="campos">
                         <Campo Rotulo="Endereço" Classe="largo"
-                               Dica="O mesmo que se abre no navegador, só o começo (https e o domínio, sem caminho). No servidor do CRM, CRM_EMBED_ORIGINS precisa ter https://0.0.0.0 — é o que deixa o CRM abrir dentro do app. Em branco, a aba WhatsApp mostra como ligar.">
+                               Dica="O mesmo que se abre no navegador, só o começo (https e o domínio, sem caminho). Em branco, a aba WhatsApp mostra como ligar.">
                             <input class="campo" maxlength="200" placeholder="https://crm.suaclinica.com.br" @bind="_enderecoCrm" @bind:after="MudouCrm" />
                         </Campo>
                     </div>
@@ -343,6 +343,7 @@
                 </div>
             </footer>
         </section>
+
 
         <section class="cfg-bloco">
             @Cabeca("Publicação de documentos assinados", "Receita, atestado, pedido de exame e declaração assinados digitalmente ganham um QR Code que o farmacêutico abre com a câmera. Prontuário NUNCA é publicado.", _pendPublicacao)

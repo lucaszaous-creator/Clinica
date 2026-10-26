@@ -87,4 +87,17 @@ public static class AvisosDoSemDorRegras
     /// <summary>Só abre no navegador o que é https, sem usuário e senha no endereço.</summary>
     public static bool LinkSeguro(string? link)
         => Uri.TryCreate(link, UriKind.Absolute, out var u) && u.Scheme == Uri.UriSchemeHttps && u.UserInfo.Length == 0;
+
+    /// <summary>
+    /// A conversa do aviso (o CRM manda <c>…/#inbox/{id}</c>): é por ela que o sino abre a conversa na
+    /// aba WhatsApp do próprio app (fase 3, 24/10: a moldura saiu). Nulo = link sem conversa.
+    /// </summary>
+    public static string? ConversaDoLink(string? link)
+    {
+        if (!Uri.TryCreate(link, UriKind.Absolute, out var u)) return null;
+        const string prefixo = "#inbox/";
+        if (!u.Fragment.StartsWith(prefixo, StringComparison.Ordinal)) return null;
+        var id = Uri.UnescapeDataString(u.Fragment[prefixo.Length..]).Trim();
+        return id.Length is > 0 and <= 120 && !id.Contains('/') ? id : null;
+    }
 }

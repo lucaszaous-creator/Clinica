@@ -45,6 +45,7 @@ public sealed class MolduraDaSuite : IMolduraDoApp, IDisposable
         _vm.PedidosNoSino.CollectionChanged += MudouColecao;
         _vm.RespostasNoSino.CollectionChanged += MudouColecao;
         _vm.AvisosDoSemDor.CollectionChanged += MudouColecao;
+        _vm.EsperasNoWhatsApp.CollectionChanged += MudouColecao;
         foreach (var item in _vm.Itens) item.PropertyChanged += MudouNoViewModel;
         if (_snackbar is not null)
         {
@@ -71,8 +72,10 @@ public sealed class MolduraDaSuite : IMolduraDoApp, IDisposable
             g.Itens.Select(Item).ToList()))
         .ToList();
 
-    private static ItemDaBarra Item(ItemMenuModulo i)
-        => new(i.Chave, i.Rotulo, string.IsNullOrWhiteSpace(i.DescricaoMenu) ? null : i.DescricaoMenu, i.EstaAtivo);
+    // O "WhatsApp" leva o número de quem espera resposta (25/10, R8 — EsperaNoWhatsAppShell).
+    private ItemDaBarra Item(ItemMenuModulo i)
+        => new(i.Chave, i.Rotulo, string.IsNullOrWhiteSpace(i.DescricaoMenu) ? null : i.DescricaoMenu, i.EstaAtivo,
+            i.Chave == Clinica.Application.Servicos.ConversaNoCrm.ChaveDaAba ? _vm.ContadorDoWhatsApp : null);
 
     public IReadOnlyList<AbaDaTela> Abas => _vm.TelaAtual is TelaComAbas abas
         ? abas.Rotulos.Select((r, i) => new AbaDaTela(r, i == abas.Selecionada)).ToList()
@@ -138,6 +141,17 @@ public sealed class MolduraDaSuite : IMolduraDoApp, IDisposable
     public void AbrirAvisoDoSemDor(AvisoDoSemDorNoSino aviso)
     {
         if (aviso.Alvo is AvisoDoSemDorShell original) _vm.AbrirAvisoDoSemDor(original);
+    }
+
+    public SecaoDoSino<EsperaNoSino> EsperasNoWhatsApp => _vm.PodeVigiarWhatsApp && _vm.WhatsAppLigado
+        ? new(true, Clinica.Application.Servicos.ConversasNaTela.ContadorDoSino(_vm.EsperasNoWhatsApp.Count),
+            _vm.EsperasNoWhatsApp.Select(e => new EsperaNoSino(e, e.Nome, e.Quando, _vm.EsperaNaoLida(e.Chave))).ToList(),
+            _vm.SituacaoWhatsApp)
+        : SecaoDoSino<EsperaNoSino>.Oculta;
+
+    public void AbrirEspera(EsperaNoSino espera)
+    {
+        if (espera.Alvo is EsperaNoWhatsAppShell original) _vm.AbrirEsperaNoWhatsApp(original);
     }
 
     private static string Tom(Clinica.Application.Modelos.TipoAvisoConfirmacao tipo) => tipo switch
@@ -263,6 +277,7 @@ public sealed class MolduraDaSuite : IMolduraDoApp, IDisposable
         _vm.PedidosNoSino.CollectionChanged -= MudouColecao;
         _vm.RespostasNoSino.CollectionChanged -= MudouColecao;
         _vm.AvisosDoSemDor.CollectionChanged -= MudouColecao;
+        _vm.EsperasNoWhatsApp.CollectionChanged -= MudouColecao;
         foreach (var item in _vm.Itens) item.PropertyChanged -= MudouNoViewModel;
         if (_snackbar is not null)
         {

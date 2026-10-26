@@ -201,6 +201,11 @@
     [Parameter] public string? ModalidadeCodigo { get; set; }
     /// <summary>Pedido da lista de espera que este horário atende (fecha ao salvar, pelo ChamarAsync).</summary>
     [Parameter] public int? PedidoListaEsperaId { get; set; }
+    /// <summary>
+    /// Horário NOVO já com o paciente, travado (25/10: o "Marcar horário" da conversa do WhatsApp — a ficha é a
+    /// que a recepção conferiu na conversa, e o formulário não deixa trocar de pessoa no meio).
+    /// </summary>
+    [Parameter] public int? PacienteId { get; set; }
     /// <summary>Título da porta de um horário NOVO ("Chamar Fulano da lista de espera").</summary>
     [Parameter] public string? Titulo { get; set; }
     /// <summary>Título da porta de um horário que JÁ EXISTE ("Editar o horário"); nulo = "Remarcar horário".</summary>
@@ -280,6 +285,17 @@
                 {
                     _mensagem = "Este pedido já saiu da lista de espera.";
                 }
+            }
+
+            if (PacienteId is { } pacienteId && AgendamentoId is null && _paciente is null)
+            {
+                _paciente = await sp.GetRequiredService<PacienteService>().ObterAsync(pacienteId);
+                if (_paciente is null)
+                {
+                    _falha = "A ficha deste paciente não foi encontrada. Marque pela Agenda.";
+                    return;
+                }
+                _pacienteTravado = true;
             }
 
             if (AgendamentoId is { } id)

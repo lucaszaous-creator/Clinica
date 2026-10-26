@@ -1,0 +1,62 @@
+@namespace Clinica.Ui.Blazor.Formularios
+@*
+  CANCELAR UM HORÁRIO PELA CONVERSA (out/2026, WhatsApp da Recepção). O cancelamento é o da
+  agenda (AgendaService: as guias do dia ficam suspensas), com o MOTIVO obrigatório na trilha;
+  a equipe vê a nota na conversa. Nenhuma mensagem vai ao paciente — quem avisa é a recepção,
+  revisando (regra 3 do CRM).
+*@
+
+<Modal Titulo="@($"Cancelar {Horario.QuandoTexto.ToLowerInvariant()}")" Subtitulo="@($"{Horario.Detalhe}. O horário é liberado e as guias do dia ficam suspensas (regra da agenda).")" Largura="pequeno" AoFechar="AoFechar">
+    <ChildContent>
+        <div class="campos">
+            <Campo Rotulo="Motivo" Obrigatorio="true" Classe="largo">
+                <select class="campo" value="@_motivo" @onchange="e => _motivo = e.Value?.ToString() ?? string.Empty">
+                    <option value="">Escolha…</option>
+                    @foreach (var m in Motivos) { <option value="@m">@m</option> }
+                </select>
+            </Campo>
+            <Campo Rotulo="@(_motivo == Outro ? "Qual" : "Detalhe (opcional)")" Obrigatorio="@(_motivo == Outro)" Classe="largo">
+                <textarea class="campo" rows="2" maxlength="300" @bind="_detalhe" @bind:event="oninput"></textarea>
+            </Campo>
+        </div>
+        <Aviso Tom="erro" Texto="@_erro" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Voltar</button>
+        <button type="button" class="botao perigo" disabled="@(!Pronto || _ocupado)" @onclick="ConfirmarAsync">@(_ocupado ? "Cancelando…" : "Cancelar o horário")</button>
+    </Rodape>
+</Modal>
+
+@code {
+    private const string Outro = "Outro";
+    private static readonly string[] Motivos = ["Paciente pediu", "Profissional ausente", "Convênio não autorizou", Outro];
+
+    [Parameter, EditorRequired] public HorarioDoPaciente Horario { get; set; } = default!;
+    /// <summary>"Paciente pediu" já escolhido quando o pedido veio do próprio paciente (aceitar o cancelamento).</summary>
+    [Parameter] public string? MotivoInicial { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+    [Parameter, EditorRequired] public Func<string, Task<string?>> AoConfirmar { get; set; } = default!;
+
+    private string _motivo = "";
+    private string? _detalhe;
+    private string? _erro;
+    private bool _ocupado;
+
+    private bool Pronto => _motivo.Length > 0 && (_motivo != Outro || !string.IsNullOrWhiteSpace(_detalhe));
+
+    protected override void OnInitialized() => _motivo = MotivoInicial ?? "";
+
+    private async Task ConfirmarAsync()
+    {
+        if (!Pronto || _ocupado) return;
+        _ocupado = true;
+        _erro = null;
+        try
+        {
+            var motivo = _motivo == Outro ? _detalhe!.Trim()
+                : string.IsNullOrWhiteSpace(_detalhe) ? _motivo : $"{_motivo} · {_detalhe.Trim()}";
+            _erro = await AoConfirmar(motivo);
+        }
+        finally { _ocupado = false; }
+    }
+}

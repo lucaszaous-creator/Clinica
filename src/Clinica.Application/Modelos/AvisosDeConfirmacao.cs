@@ -15,7 +15,10 @@ public enum TipoAvisoConfirmacao
     /// </summary>
     NaoVem,
 
-    /// <summary>O lembrete com link saiu e o paciente não clicou. Ver <see cref="AvisosDeConfirmacao.EsperaPorResposta"/>.</summary>
+    /// <summary>
+    /// O lembrete que pede resposta saiu e o paciente não respondeu: o automático do WhatsApp da clínica (com os botões)
+    /// ou o link do SMS antigo. Ver <see cref="AvisosDeConfirmacao.EsperaPorResposta"/>.
+    /// </summary>
     SemResposta,
 
     /// <summary>
@@ -29,6 +32,8 @@ public enum TipoAvisoConfirmacao
 /// O contato de confirmação de UM horário futuro, com o que a decisão precisa — a projeção
 /// de <c>IClinicaRepositorio.ContatosParaAvisosDeConfirmacaoAsync</c>. Sem a ficha, sem o
 /// agendamento inteiro: são nove colunas por linha, a cada minuto, em todo posto.
+/// <see cref="PedeResposta"/>: o lembrete saiu de um jeito que espera a resposta do PACIENTE — o automático do
+/// WhatsApp da clínica (<see cref="RodadaDeConfirmacao.LembreteAutomatico"/>, com os botões) ou o link do SMS antigo.
 /// </summary>
 public sealed record ContatoParaAvisoDeConfirmacao(
     int AgendamentoId,
@@ -36,7 +41,7 @@ public sealed record ContatoParaAvisoDeConfirmacao(
     DateTime Sessao,
     string? Profissional,
     StatusContato Status,
-    bool TemLink,
+    bool PedeResposta,
     DateTime? EnviadoEm,
     DateTime? RespondidoEm,
     string? Comentario);
@@ -73,11 +78,11 @@ public sealed record AvisoDeConfirmacao(
 public static class AvisosDeConfirmacao
 {
     /// <summary>
-    /// Quanto o lembrete espera antes de virar "sem resposta": <b>3 horas</b>. O SMS sai ~24 h
-    /// antes (<see cref="Clinica.Domain.ConfirmacaoPorLink.AntecedenciaPadraoHoras"/>), e quem
-    /// vai responder responde na primeira hora; menos que isso acusaria de silêncio quem
-    /// ainda nem leu, e a recepção ligaria para quem ia clicar. Três horas ainda deixam o
-    /// resto do expediente para a ligação.
+    /// Quanto o lembrete espera antes de virar "sem resposta": <b>3 horas</b> — a mesma espera do CRM
+    /// (<c>ReceptionNotices.SilenceAfter</c>). Quem vai responder responde na primeira hora; menos que isso
+    /// acusaria de silêncio quem ainda nem leu, e a recepção ligaria para quem ia tocar no botão. O lembrete
+    /// automático sai às 06:00 do dia (ou 24 h antes, conforme o CRM): três horas ainda deixam o resto do
+    /// expediente para a ligação.
     /// </summary>
     public static readonly TimeSpan EsperaPorResposta = TimeSpan.FromHours(3);
 
@@ -114,10 +119,11 @@ public static class AvisosDeConfirmacao
     /// <item><b>Não vem</b> sempre, de qualquer origem, enquanto o horário seguir marcado: é a
     /// pendência que só a ligação resolve.</item>
     /// <item><b>Sem resposta</b> — conservador de propósito: o contato está <c>Enviado</c> (nem
-    /// respondido nem dispensado), saiu COM LINK (só o SMS tem link: no WhatsApp manual e na
-    /// ligação a resposta é a recepção quem registra, e "não respondeu" ali é julgamento dela),
-    /// foi enviado há pelo menos <see cref="EsperaPorResposta"/> e a sessão ainda está no
-    /// horizonte. O momento do aviso é o envio + a espera.</item>
+    /// respondido nem dispensado), o lembrete PEDE RESPOSTA ao paciente (o automático do WhatsApp da
+    /// clínica, com os botões, ou o link do SMS antigo — a mesma regra do CRM, que mostra o mesmo caso
+    /// como "sem resposta"; no lembrete que a recepção manda à mão e na ligação, a resposta é ela quem
+    /// registra, e "não respondeu" ali é julgamento dela), foi enviado há pelo menos
+    /// <see cref="EsperaPorResposta"/> e a sessão ainda está no horizonte. O momento do aviso é o envio + a espera.</item>
     /// </list>
     /// Ordem: o que pede ação primeiro (não vem, sem resposta), e dentro de cada tipo pela
     /// hora da sessão — a mais próxima é a que tem menos tempo para a ligação.
@@ -150,7 +156,7 @@ public static class AvisosDeConfirmacao
                     avisos.Add(Aviso(c, TipoAvisoConfirmacao.Confirmou, respondido));
                     break;
                 case SituacaoConfirmacao.AvisadoSemResposta
-                    when c.Status == StatusContato.Enviado && c.TemLink
+                    when c.Status == StatusContato.Enviado && c.PedeResposta
                          && c.EnviadoEm is { } enviado && agora - enviado >= EsperaPorResposta:
                     avisos.Add(Aviso(c, TipoAvisoConfirmacao.SemResposta, enviado + EsperaPorResposta));
                     break;
@@ -238,7 +244,8 @@ public static class AvisosDeConfirmacao
     }
 
     // Abreviação escrita à mão, como em RodadaDeConfirmacao.TituloDoDia: o "ddd" do pt-BR do .NET põe ponto.
-    private static string DiaDaSemana(DayOfWeek d) => d switch
+    // Interna: a janela de 24 h do WhatsApp (ConversasNaTela) fala do dia com a mesma abreviação.
+    internal static string DiaDaSemana(DayOfWeek d) => d switch
     {
         DayOfWeek.Monday => "seg", DayOfWeek.Tuesday => "ter", DayOfWeek.Wednesday => "qua",
         DayOfWeek.Thursday => "qui", DayOfWeek.Friday => "sex", DayOfWeek.Saturday => "sáb", _ => "dom"
@@ -254,7 +261,7 @@ public static class AvisosDeConfirmacao
             TipoAvisoConfirmacao.Confirmou => $"{a.Paciente} confirmou a sessão de {quando}{com}",
             TipoAvisoConfirmacao.NaoVem => $"{a.Paciente} avisou que NÃO VEM — {quando}{com}: ligue para remarcar",
             TipoAvisoConfirmacao.PediuCancelar => $"{a.Paciente} pediu para CANCELAR — {quando}{com}: aceite o cancelamento na agenda",
-            _ => $"{a.Paciente} não respondeu ao lembrete de {quando}{com}: vale uma ligação"
+            _ => $"{a.Paciente}: {RodadaDeConfirmacao.SemResposta.ToLowerInvariant()} ao lembrete de {quando}{com} — vale uma ligação"
         };
     }
 
@@ -264,14 +271,14 @@ public static class AvisosDeConfirmacao
         TipoAvisoConfirmacao.Confirmou => $"{a.Paciente} confirmou",
         TipoAvisoConfirmacao.NaoVem => $"{a.Paciente} NÃO VEM — ligar para remarcar",
         TipoAvisoConfirmacao.PediuCancelar => $"{a.Paciente} pediu para CANCELAR — aceitar na agenda",
-        _ => $"{a.Paciente} não respondeu ao lembrete"
+        _ => $"{a.Paciente}: {RodadaDeConfirmacao.SemResposta.ToLowerInvariant()} ao lembrete"
     };
 
     /// <summary>A sessão de que se fala: "amanhã 14:00 · Dra. Ana".</summary>
     public static string Sessao(AvisoDeConfirmacao a, DateTime agora)
         => QuandoDaSessao(a.Sessao, agora) + (string.IsNullOrWhiteSpace(a.Profissional) ? "" : $" · {a.Profissional}");
 
-    /// <summary>Desde quando: "respondeu às 10:42", "avisou ontem às 18:40", "SMS sem resposta desde 12:00".</summary>
+    /// <summary>Desde quando: "respondeu às 10:42", "avisou ontem às 18:40", "lembrete sem resposta desde 12:00" (o canal não entra: o SMS saiu na fase 3).</summary>
     public static string Detalhe(AvisoDeConfirmacao a, DateTime agora)
     {
         if (a.Momento == DateTime.MinValue) return a.Tipo switch
@@ -299,7 +306,7 @@ public static class AvisosDeConfirmacao
             TipoAvisoConfirmacao.Confirmou => $"respondeu {quando}",
             TipoAvisoConfirmacao.NaoVem => $"avisou {quando}",
             TipoAvisoConfirmacao.PediuCancelar => $"pediu {quando}",
-            _ => $"SMS sem resposta desde {desde}"
+            _ => $"lembrete {RodadaDeConfirmacao.SemResposta.ToLowerInvariant()} desde {desde}"
         };
     }
 }

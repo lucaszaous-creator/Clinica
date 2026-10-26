@@ -1,0 +1,74 @@
+<div class="moldura">
+  <header class="moldura-topo">
+    <div class="moldura-marca">
+      <img src="logo-cor.png" alt="Clínica SemDor" />
+      <span class="moldura-separador" aria-hidden="true"></span>
+      <span class="moldura-app" title="Recepção">Recepção</span>
+    </div>
+    <nav class="moldura-nav" aria-label="Navegação principal">
+      <ul role="menubar">
+        <li class="moldura-grupo"><button type="button" role="menuitem">Início</button></li>
+        <li class="moldura-grupo"><button type="button" role="menuitem">Agenda {{icone:abaixo}}</button></li>
+        <li class="moldura-grupo"><button type="button" role="menuitem">Pacientes {{icone:abaixo}}</button></li>
+        <li class="moldura-grupo"><button type="button" role="menuitem">Marcar {{icone:abaixo}}</button></li>
+        <li class="moldura-grupo"><button type="button" role="menuitem">Relacionamento {{icone:abaixo}}</button></li>
+        <li class="moldura-grupo ativo"><button type="button" role="menuitem" aria-current="page">WhatsApp</button></li>
+      </ul>
+      <button type="button" class="moldura-treinamento">Treinamento</button>
+    </nav>
+    <div class="moldura-busca">
+      <input class="campo" id="busca-telas" type="search" placeholder="Buscar tela (Ctrl+F)" aria-label="Buscar tela" />
+    </div>
+    <div class="moldura-acoes">
+      <div class="moldura-sino" id="sino">
+        <button type="button" class="botao icone fantasma" id="sino-botao" title="Notificações" aria-label="Notificações" aria-expanded="false">{{icone:sino}}</button>
+        <span class="moldura-contador sobre" id="sino-contador" aria-hidden="true">3</span>
+        <div id="sino-popover" hidden></div>
+      </div>
+      <div class="moldura-conta">
+        <button type="button" class="moldura-usuario" title="Ana Paula · Recepção">
+          <span class="avatar pequeno" aria-hidden="true">AP</span>
+          <span class="moldura-usuario-nome">Ana Paula</span>
+          {{icone:abaixo}}
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="moldura-corpo">
+  <main class="moldura-area">
+  <div class="palco-tela">
+  <div class="pagina wa" id="wa">
+
+    <!-- Coluna 1: a lista (do CRM) -->
+    <aside class="wa-lista" aria-label="Conversas">
+      <div class="wa-lista-topo">
+        <h1 class="sr-so"><span id="wa-total"></span></h1>
+        <div class="segmentado wa-modo" role="group" aria-label="O que a lista mostra" id="wa-modo"></div>
+        <button type="button" class="botao icone" id="wa-nova" title="Nova conversa" aria-label="Nova conversa">{{icone:mais}}</button>
+      </div>
+      <div class="wa-filtros">
+        <div class="segmentado" role="group" aria-label="Quais conversas" id="wa-filtro"></div>
+        <div class="wa-filtros-linha">
+          <div class="busca">{{icone:busca}}<input class="campo" id="wa-busca" type="search" placeholder="Nome ou telefone" aria-label="Buscar conversa" autocomplete="off" /></div>
+          <button type="button" class="chip" id="wa-so-nao-lidas" aria-pressed="false" title="Só as não lidas">Não lidas</button>
+        </div>
+      </div>
+      <div class="wa-linhas" id="wa-linhas" role="listbox" aria-label="Lista de conversas"></div>
+      <div class="wa-lista-rodape" id="wa-lista-rodape"></div>
+    </aside>
+
+    <!-- Coluna 2: a conversa (do CRM) -->
+    <section class="wa-conversa" id="wa-conversa" aria-label="Conversa"></section>
+
+    <!-- Coluna 3: o paciente (do Clinica) -->
+    <aside class="wa-ficha" id="wa-ficha" aria-label="Ficha, agenda e confirmação do paciente"></aside>
+  </div>
+  </div>
+  </main>
+  <div class="chat-flutuante"><button type="button" class="chat-bola" title="Chat da equipe" aria-label="Chat da equipe, 2 mensagens não lidas">{{icone:chat}}<span class="chat-contador">2</span></button></div>
+  </div>
+</div>
+
+<div id="wa-modal" hidden></div>
+<div class="notificacoes" id="wa-notificacoes" aria-live="polite"></div>

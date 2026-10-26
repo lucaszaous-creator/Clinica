@@ -42,7 +42,9 @@
 @import url("telas/rec-confirmacoes.css");
 @import url("telas/rec-retornos.css");
 @import url("telas/rec-atendimento.css");
-@import url("telas/whatsapp-crm.css");
+@import url("telas/conversas.css");
+@import url("telas/conversas-midia.css");
+@import url("telas/conversas-resolve.css");
 @import url("telas/rec-lancamentos.css");
 @import url("telas/rec-consultas.css");
 @import url("telas/rec-pagamentos.css");
@@ -101,6 +103,8 @@
 @import url("telas/chat-equipe.css");
 @import url("telas/treinamento.css");
 @import url("telas/assinatura.css");
+/* A conversa do WhatsApp ao lado das telas da Recepção (fase 2, 24/10): a gaveta e o modo painel. */
+@import url("telas/conversa-ao-lado.css");
 
 :root{
   /* A fonte da casa é a Segoe UI; a Variable é a que o Windows 11 desenha nos apps novos.
@@ -120,7 +124,7 @@ body{
   font-family:var(--font-ui);font-size:var(--text-body-size);color:var(--texto-primario);
   -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
 }
-button,select,input{font:inherit;color:inherit}
+button,select,input,textarea{font:inherit;color:inherit} /* textarea também: sem isto o navegador usa a fonte de máquina de escrever (duas telas já tinham remendado localmente) */
 
 /* ---------- Página ---------- */
 .pagina{padding:var(--space-6) var(--space-8) var(--space-10);max-width:1440px;margin:0 auto;

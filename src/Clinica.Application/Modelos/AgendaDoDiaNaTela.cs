@@ -87,6 +87,9 @@ public sealed record LinhaAgendaDoDia
     public string Convenio { get; init; } = string.Empty;
     public string? Observacoes { get; init; }
     public byte[]? Foto { get; init; }
+
+    /// <summary>O telefone do cadastro (o botão do WhatsApp da linha abre a conversa ao lado com ele).</summary>
+    public string? Telefone { get; init; }
     public required StatusAgendamento Situacao { get; init; }
     public required EtapaFila Etapa { get; init; }
     public required bool EhEncaixe { get; init; }
@@ -297,6 +300,7 @@ public static class AgendaDoDiaNaTela
             Convenio = a.Paciente?.ConvenioNome ?? string.Empty,
             Observacoes = a.Observacoes,
             Foto = a.Paciente?.FotoMiniatura,
+            Telefone = a.Paciente?.Telefone,
             Situacao = a.Status,
             Etapa = a.Etapa,
             EhEncaixe = a.Encaixe,

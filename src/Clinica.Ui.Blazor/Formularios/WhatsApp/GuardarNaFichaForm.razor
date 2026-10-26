@@ -1,0 +1,88 @@
+@namespace Clinica.Ui.Blazor.Formularios
+@*
+  GUARDAR NA FICHA O ARQUIVO QUE O PACIENTE MANDOU (25/10, R9 — docs/whatsapp-nativo-implementacao.md §16).
+  O que é (Carteirinha, Pedido médico, Exame, Outro) e a data do DOCUMENTO (obrigatória, nunca futura). Quem
+  grava é a tela, pelo GuardarNaFichaService (as regras moram lá, com teste); o formulário só colhe a escolha e
+  mostra a recusa INLINE.
+*@
+
+<Modal Titulo="Guardar na ficha" Subtitulo="@($"Vai para os arquivos da ficha de {Paciente}, onde quem atende vê.")" Largura="pequeno" AoFechar="AoFechar">
+    <ChildContent>
+        <div class="wa-guardar-arquivo">
+            @if (Endereco is { } foto)
+            {
+                <img src="@foto" alt="@Rotulo" />
+            }
+            else
+            {
+                <span class="wa-doc-ic" aria-hidden="true"><Icone Nome="documento" /></span>
+            }
+            <span class="wa-guardar-nome"><strong>@Rotulo</strong>@if (!string.IsNullOrWhiteSpace(NomeDoArquivo)) { <small>@NomeDoArquivo</small> }</span>
+        </div>
+        <div class="wa-opcoes wa-guardar-titulos" role="radiogroup" aria-label="O que é este arquivo">
+            @foreach (var t in GuardarNaFichaService.Titulos)
+            {
+                <label class="wa-escolha sem-avatar @(_escolhido == t ? "marcada" : null)">
+                    <input type="radio" name="wa-guardar-titulo" checked="@(_escolhido == t)" @onchange="() => _escolhido = t" />
+                    <span class="wa-escolha-texto"><strong>@t</strong></span>
+                </label>
+            }
+        </div>
+        <div class="campos">
+            @if (_escolhido == GuardarNaFichaService.Outro)
+            {
+                <Campo Rotulo="O que é" Obrigatorio="true" Classe="largo">
+                    <input class="campo" maxlength="160" placeholder="Ex.: Laudo da ressonância" @bind="_escrito" @bind:event="oninput" />
+                </Campo>
+            }
+            <Campo Rotulo="Data do documento" Obrigatorio="true" Dica="A data que está no documento — nunca futura.">
+                <input class="campo" type="date" max="@Hoje.ToString("yyyy-MM-dd")" value="@(_data?.ToString("yyyy-MM-dd"))" @onchange="TrocarData" />
+            </Campo>
+        </div>
+        <Aviso Tom="info" Texto="Registro clínico: não se apaga. Se for engano, cancela-se na ficha, com o motivo." />
+        <Aviso Tom="erro" Texto="@_erro" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" disabled="@(_ocupado || Impedimento is not null)" title="@Impedimento" @onclick="ConfirmarAsync">
+            <Icone Nome="ficha" />@(_ocupado ? "Guardando…" : "Guardar na ficha")</button>
+    </Rodape>
+</Modal>
+
+@code {
+    /// <summary>O nome da ficha conferida da conversa.</summary>
+    [Parameter, EditorRequired] public string Paciente { get; set; } = "";
+    /// <summary>"Foto recebida", "PDF recebido".</summary>
+    [Parameter] public string Rotulo { get; set; } = "";
+    [Parameter] public string? NomeDoArquivo { get; set; }
+    /// <summary>O <c>data:</c> da foto (a miniatura); nulo no documento.</summary>
+    [Parameter] public string? Endereco { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+    /// <summary>Guarda (título, data) e devolve a frase da recusa, ou nulo.</summary>
+    [Parameter, EditorRequired] public Func<string, DateOnly, Task<string?>> AoConfirmar { get; set; } = default!;
+
+    private string? _escolhido;
+    private string? _escrito;
+    private DateOnly? _data;
+    private string? _erro;
+    private bool _ocupado;
+
+    private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
+
+    private string? Titulo => GuardarNaFichaService.Titulo(_escolhido, _escrito);
+
+    private string? Impedimento => GuardarNaFichaService.Impedimento(Titulo, _data, Hoje);
+
+    private void TrocarData(ChangeEventArgs e)
+        => _data = DateOnly.TryParseExact(e.Value?.ToString(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : null;
+
+    private async Task ConfirmarAsync()
+    {
+        if (_ocupado || Titulo is not { } titulo || _data is not { } data) return;
+        if (Impedimento is { } falta) { _erro = falta; return; }
+        _ocupado = true;
+        _erro = null;
+        try { _erro = await AoConfirmar(titulo, data); }
+        finally { _ocupado = false; }
+    }
+}

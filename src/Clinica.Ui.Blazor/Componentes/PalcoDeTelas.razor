@@ -10,6 +10,7 @@
 @inject Clinica.Ui.Blazor.Hospedagem.Dialogos Dialogos
 @inject Clinica.Ui.Blazor.Hospedagem.FormulariosDoPaciente Formularios
 @inject Clinica.Ui.Blazor.Hospedagem.JanelasNaTela Janelas
+@inject Clinica.Ui.Blazor.Hospedagem.ConversaAoLado ConversaAoLado
 @using Microsoft.JSInterop
 @inject IJSRuntime JS
 
@@ -19,6 +20,7 @@
         <Raiz Tela="t.Tela" Sinal="t.Sinal" ComCamadas="false" />
     </div>
 }
+<CamadaDaConversaAoLado />
 <CamadaDoPaciente />
 <CamadaDeJanelas />
 <CamadaDeDialogos />
@@ -42,10 +44,20 @@
         // Os diálogos e os formulários do paciente desistem ao trocar de tela; os FORMULÁRIOS abertos
         // por código (JanelasNaTela) ficam montados e ocultos com a tela dona — a folha pela metade
         // volta inteira quando a tela volta.
-        if (Palco.Atual != _atual) { _atual = Palco.Atual; Dialogos.DesistirDeTodos(); Formularios.DesistirDeTodos(); }
+        if (Palco.Atual != _atual) { _atual = Palco.Atual; Dialogos.DesistirDeTodos(); Formularios.DesistirDeTodos(); FecharConversaAoLadoNaAbaWhatsApp(); }
         Janelas.TelaAtual = Palco.Atual;
         StateHasChanged();
     });
+
+    /// <summary>
+    /// A conversa AO LADO continua aberta quando se troca de tela (ela é do paciente, não da tela) — menos
+    /// quando a tela que fica à vista é a própria aba WhatsApp: a mesma conversa, inteira, não fica em dobro.
+    /// </summary>
+    private void FecharConversaAoLadoNaAbaWhatsApp()
+    {
+        if (Palco.Telas.FirstOrDefault(t => t.Id == Palco.Atual)?.Tela == typeof(Clinica.Ui.Blazor.Telas.ConversasDoWhatsApp))
+            ConversaAoLado.Fechar();
+    }
 
     private Microsoft.JSInterop.DotNetObjectReference<PalcoDeTelas>? _ref;
 

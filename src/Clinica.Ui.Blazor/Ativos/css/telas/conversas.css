@@ -1,0 +1,488 @@
+/* Estilo PRÓPRIO da tela "WhatsApp da clínica" nativa (Telas/Recepcao/ConversasDoWhatsApp.razor,
+   out/2026 — docs/whatsapp-nativo-implementacao.md). Nasceu do conversas.css do mockup aprovado
+   (docs/mockups/whatsapp-nativo/), que já era só token; o que mudou aqui está marcado "no app".
+
+   ⚠️ Toda classe leva o prefixo da tela (wa-): "entrada", "saida" e "dica" já são do comum
+   (a tela de entrada em moldura.css, o tooltip do gráfico em clinica.css) e colidiram na
+   primeira versão deste mockup. Lição em docs/agentes/convencoes.md.
+
+   O WhatsApp reconhecível, nos tokens da casa: lista à esquerda, balões sobre um "papel de
+   parede" discreto, ticks de entrega, e o verde SÓ no que é do canal (o selo do canal, o
+   balão enviado, o "conectado"). Ação primária continua no acento do app. */
+
+/* ---------- A tela ocupa o palco inteiro; quem rola é cada coluna ---------- */
+.pagina.wa{height:100%;max-width:none;padding:0;gap:0;display:grid;grid-template-columns:320px minmax(0,1fr) 320px;
+  grid-template-areas:"lista conversa ficha";background:var(--superficie);position:relative;overflow:hidden}
+.wa-lista,.wa-conversa,.wa-ficha{display:flex;flex-direction:column;min-height:0;min-width:0}
+.wa-lista{grid-area:lista;border-right:1px solid var(--borda)}
+.wa-conversa{grid-area:conversa;background:var(--fundo);position:relative}
+.wa-ficha{grid-area:ficha;border-left:1px solid var(--borda);background:var(--cinza-50)}
+
+/* O caret, a seleção e as barras de rolagem também são da casa. */
+.wa{caret-color:var(--acento);scrollbar-color:var(--cinza-300) transparent;scrollbar-width:thin}
+.wa ::selection{background:var(--acento-tint)}
+.wa *::-webkit-scrollbar{width:8px;height:8px}
+.wa *::-webkit-scrollbar-thumb{background:var(--cinza-300);border-radius:var(--radius-pilula)}
+.wa *::-webkit-scrollbar-track{background:transparent}
+
+/* ---------- Avatares: um tom por pessoa, estável ---------- */
+.wa .avatar{position:relative;flex:none;font-weight:700}
+.wa .avatar.tom-azul{background:var(--azul-100);color:var(--azul-700)}
+.wa .avatar.tom-teal{background:var(--teal-50);color:var(--teal-600)}
+.wa .avatar.tom-violeta{background:var(--violeta-50);color:var(--violeta-600)}
+.wa .avatar.tom-rosa{background:var(--rosa-50);color:var(--rosa-600)}
+.wa .avatar.tom-ciano{background:var(--ciano-100);color:var(--ciano-700)}
+.wa .avatar.tom-laranja{background:var(--laranja-100);color:var(--laranja-700)}
+.wa .avatar.tom-cinza{background:var(--cinza-100);color:var(--cinza-700)}
+/* O retrato da ficha (25/10, ConversasDoWhatsApp.Fotos.cs): a foto ocupa o círculo; o selo do canal continua por cima, fora dele. */
+.wa .avatar.com-foto{background:var(--superficie);padding:0}
+.wa .avatar.com-foto img{display:block;width:100%;height:100%;border-radius:50%;object-fit:cover}
+.wa-canal{position:absolute;right:-2px;bottom:-2px;width:16px;height:16px;border-radius:50%;display:grid;place-items:center;
+  background:var(--sucesso);color:var(--texto-invertido);border:2px solid var(--superficie)}
+.wa-canal.sms{background:var(--cinza-500)}
+.wa-canal svg{width:9px;height:9px}
+
+/* ---------- Coluna 1: a lista — dois modos: Conversas e Retenção (o Acompanhamento, de onde se escreve) ---------- */
+.wa-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);margin:-1px}
+/* Sem ícone: a coluna tem largura fixa (340/300 px) e ícone + nome + contagem de dois dígitos não
+   cabem nos dois botões — o "Retenção 15" passava por baixo do "+". */
+.wa-modo{flex:1;min-width:0}
+.segmentado.wa-modo button{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:6px 10px;font-weight:600}
+.wa-modo button b{font-weight:700;font-variant-numeric:tabular-nums;min-width:18px;height:18px;padding:0 5px;border-radius:var(--radius-pilula);
+  background:var(--acento-suave);color:var(--acento);font-size:11px;display:inline-flex;align-items:center;justify-content:center}
+.wa-modo button[aria-pressed="true"] b{background:rgba(255,255,255,.22);color:var(--texto-invertido)}
+.wa-resumo{padding:0 var(--space-4) var(--space-2);font-size:var(--text-small-size);color:var(--texto-secundario);line-height:1.4}
+.wa-resumo b{color:var(--texto-primario)}
+.wa-grupo{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);padding:6px var(--space-4);
+  background:var(--cinza-50);border-bottom:1px solid var(--borda);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:var(--text-secao-tracking);color:var(--texto-secundario)}
+.wa-grupo span{font-variant-numeric:tabular-nums}
+/* Uma linha só: o título fixo que quebra em duas fica com a segunda linha por baixo do grupo seguinte (300 px). */
+.wa-grupo b{font-weight:inherit;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wa-dias{font-size:var(--text-small-size);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.wa-dias.tom-perigo{color:var(--erro-texto)}
+.wa-dias.tom-aviso{color:var(--aviso-texto)}
+.wa-dias.tom-neutro{color:var(--texto-secundario)}
+.wa-dias.tom-sucesso{color:var(--sucesso-forte)}
+.wa-linha-tratamento{font-size:var(--text-table-size);color:var(--texto-secundario);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wa-linha-tratamento b{color:var(--texto-primario);font-weight:600}
+
+/* ---------- Coluna 1: a lista (comum aos dois modos) ---------- */
+.wa-lista-topo{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-3) var(--space-3) var(--space-2) var(--space-4)}
+.wa-lista-topo h1{font-size:var(--text-h3-size);font-weight:var(--text-h3-weight);margin:0;flex:1;min-width:0;display:flex;align-items:baseline;gap:var(--space-2)}
+.wa-lista-topo h1 small{font-size:var(--text-small-size);font-weight:500;color:var(--texto-secundario)}
+.wa-filtros{display:flex;flex-direction:column;gap:var(--space-2);padding:0 var(--space-3) var(--space-2)}
+.wa-filtros .segmentado{align-self:stretch}
+.wa-filtros .segmentado button{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:5px 6px;font-size:var(--text-table-size);white-space:nowrap}
+.wa-filtros .segmentado button b{font-weight:700;font-variant-numeric:tabular-nums}
+.wa-filtros .segmentado button[aria-pressed="true"] b{color:var(--texto-invertido)}
+.wa-filtros-linha{display:flex;align-items:center;gap:var(--space-2)}
+.wa-filtros-linha .busca{flex:1;min-width:0}
+.wa-filtros-linha .busca .campo{height:34px;min-height:34px;border-radius:var(--radius-pilula)}
+.wa-filtros-linha .chip{height:34px}
+.wa-linhas{flex:1;min-height:0;overflow-y:auto;border-top:1px solid var(--borda)}
+.wa-linha{display:grid;grid-template-columns:44px minmax(0,1fr);gap:var(--space-3);width:100%;padding:var(--space-3) var(--space-3) var(--space-3) var(--space-4);
+  border:0;border-bottom:1px solid var(--cinza-100);background:transparent;text-align:left;font:inherit;color:var(--texto-primario);cursor:pointer;
+  transition:background var(--duracao-rapida)}
+.wa-linha:hover{background:var(--fundo)}
+.wa-linha:focus-visible{outline:2px solid var(--foco);outline-offset:-2px}
+.wa-linha[aria-current="true"]{background:var(--acento-suave)}
+/* O texto secundário da linha selecionada: o cinza secundário no azul suave ficava em 4,3:1 (item 19). */
+.wa-linha[aria-current="true"] :is(.wa-linha-previa,.wa-linha-hora:not(.tom-aviso),.wa-linha-tratamento,.wa-linha-quem:not(.minha)){color:var(--cinza-700)}
+.wa-linha .avatar{width:44px;height:44px;font-size:14px}
+.wa-linha-corpo{display:flex;flex-direction:column;gap:2px;min-width:0}
+.wa-linha-topo{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-2)}
+.wa-linha-nome{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wa-linha-hora{font-size:var(--text-small-size);color:var(--texto-secundario);white-space:nowrap;font-variant-numeric:tabular-nums}
+.wa-linha.nao-lida .wa-linha-hora{color:var(--sucesso-forte);font-weight:600}
+.wa-linha-previa{display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-table-size);color:var(--texto-secundario);min-height:20px}
+.wa-linha-previa .wa-tick{flex:none}
+.wa-linha-previa span.texto{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wa-linha.nao-lida .wa-linha-previa span.texto{color:var(--texto-primario);font-weight:500}
+.wa-nao-lidas{min-width:20px;height:20px;padding:0 6px;border-radius:var(--radius-pilula);background:var(--sucesso);color:var(--texto-invertido);
+  font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
+.wa-linha-rodape{display:flex;align-items:center;gap:var(--space-2);margin-top:2px;min-height:18px}
+/* O selo é a informação: nunca encolhe (os textos são curtos — ConversasNaTela/RetencaoNaTela.Selo). Quem cede é o
+   responsável (25/10/2026, item 8 da revisão: "Novo contato · …" cortado em 1024). Sem responsável, a linha não diz
+   "Sem responsável": o selo ("Nova", "Sem ficha"…) e a aba "Novas" já dizem, e o texto só disputava lugar. */
+.wa-linha-rodape .selo{margin-left:0;white-space:nowrap;flex:none;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.wa-linha-quem{font-size:var(--text-small-size);color:var(--texto-secundario);margin-left:auto;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;
+  flex:0 1000 auto;min-width:0;overflow:hidden}
+.wa-linha-quem > span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.wa-linha-quem .icone{flex:none}
+/* R4: quem espera a clínica ("há 2 h") e a janela que vai fechar ("fecha às 14:10") no canto da hora, como as caixas de
+   atendimento: a frase inteira está na dica. Laranja a partir de 1 h — também na linha não lida, que seria verde. */
+.wa-linha .wa-linha-hora.wa-espera.tom-aviso{color:var(--aviso-texto);font-weight:600}
+.wa-linha-quem.minha{color:var(--acento);font-weight:600}
+.wa-lista-rodape{padding:var(--space-2) var(--space-4);border-top:1px solid var(--borda);font-size:var(--text-small-size);color:var(--texto-secundario);
+  display:flex;align-items:center;gap:var(--space-2)}
+.wa-ponto{width:8px;height:8px;border-radius:50%;background:var(--sucesso);flex:none}
+.wa-ponto.fora{background:var(--erro)}
+.wa-conexao{display:flex;flex-direction:column;min-width:0;line-height:1.3}
+.wa-conexao b{font-weight:600;color:var(--texto-primario)}
+.wa-conexao small{font-size:inherit;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wa-linhas .vazio-estado{padding:var(--space-10) var(--space-4)}
+
+/* ---------- Coluna 2: a conversa ---------- */
+.wa-cab{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-2) var(--space-3) var(--space-2) var(--space-4);min-height:64px;
+  background:var(--superficie);border-bottom:1px solid var(--borda)}
+.wa-cab .avatar{width:40px;height:40px;font-size:13px}
+.wa-cab-quem{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.wa-cab-quem h2{margin:0;font-size:15px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;gap:var(--space-2)}
+.wa-cab-meta{display:flex;flex-wrap:wrap;align-items:center;gap:2px var(--space-2);font-size:var(--text-small-size);color:var(--texto-secundario)}
+.wa-cab-meta .selo{margin-left:0}
+.wa-cab-meta button.selo{border:0;cursor:pointer;font:inherit;font-size:11px;font-weight:600}
+.wa-cab-meta button.selo:hover{text-decoration:underline}
+.wa-cab-acoes{display:flex;align-items:center;gap:var(--space-1);flex:none}
+.wa-cab-acoes .botao{height:34px}
+.wa-cab-acoes .botao.icone{width:34px}
+/* As ações escritas ("Devolver à fila", "Resumo", "Encerrar") numa coluna de ~720 px: botões mais compactos (25/10/2026). Antes
+   das regras que as reduzem ao ícone, que ganham por virem depois. E o nome com reticências de verdade (num h2 flex não há). */
+.wa-cab-acoes .botao:not(.icone){padding:0 var(--space-3);font-size:var(--text-table-size);gap:6px}
+.wa-cab-quem h2{display:block}
+.wa-faixa{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-3);padding:6px var(--space-4);
+  background:var(--superficie);border-bottom:1px solid var(--borda);font-size:var(--text-small-size);color:var(--texto-secundario)}
+.wa-faixa .selo{margin-left:0;display:inline-flex;align-items:center;gap:4px}
+.wa-faixa .selo svg{width:11px;height:11px}
+.wa-faixa i{width:1px;height:12px;background:var(--borda)}
+.wa-busca-conversa{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-4);background:var(--superficie);border-bottom:1px solid var(--borda)}
+.wa-busca-conversa .busca{flex:1}
+.wa-busca-conversa .busca .campo{height:34px;min-height:34px}
+.wa-busca-conversa small{color:var(--texto-secundario);white-space:nowrap}
+
+/* O papel de parede: pontos da cor da borda, bem apagados — WhatsApp reconhecível sem imagem. */
+.wa-mensagens{flex:1;min-height:0;overflow-y:auto;padding:var(--space-4) var(--space-6);display:flex;flex-direction:column;gap:2px;
+  background-color:var(--fundo);
+  background-image:radial-gradient(var(--cinza-200) 1px,transparent 1px);background-size:var(--space-6) var(--space-6)}
+/* A conversa curta assenta perto do campo, como no WhatsApp: o vão fica em cima (item 11 da revisão). */
+.wa-mensagens > :first-child{margin-top:auto}
+.wa-dia{align-self:center;font-size:var(--text-small-size);font-weight:600;color:var(--texto-secundario);padding:3px 10px;margin:var(--space-3) 0 var(--space-2);
+  border-radius:var(--radius-pilula);background:var(--superficie);box-shadow:var(--sombra-cartao);border:1px solid var(--borda)}
+/* O evento do sistema é nota de rodapé da conversa (25/10/2026, item 2 da revisão): texto cinza pequeno e centralizado,
+   sem caixa nem ícone — o peso visual é dos balões, como no WhatsApp Business. O de atenção fica na cor do aviso. */
+.wa-evento{align-self:center;max-width:min(520px,100%);margin:var(--space-1) 0;padding:0 var(--space-3);font-size:var(--text-small-size);
+  line-height:1.4;color:var(--texto-secundario);text-align:center}
+.wa-evento.aviso{color:var(--aviso-texto)}
+.wa-evento time{font-variant-numeric:tabular-nums}
+.wa-novas{align-self:stretch;display:flex;align-items:center;gap:var(--space-3);margin:var(--space-2) 0;font-size:var(--text-small-size);font-weight:600;color:var(--sucesso-forte)}
+.wa-novas::before,.wa-novas::after{content:"";flex:1;height:1px;background:var(--verde-100)}
+.wa-m{display:flex;flex-direction:column;max-width:min(560px,76%);margin-top:var(--space-2)}
+.wa-m.seguida{margin-top:0}
+.wa-m.recebida{align-self:flex-start}
+.wa-m.enviada{align-self:flex-end;align-items:flex-end}
+.wa-m.nota{align-self:stretch;max-width:none;align-items:stretch}
+.wa-balao{position:relative;padding:6px 10px 6px 12px;border-radius:var(--radius-card);line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere;
+  background:var(--superficie);color:var(--texto-primario);box-shadow:var(--sombra-cartao);border:1px solid var(--borda)}
+.wa-m.recebida:not(.seguida) .wa-balao{border-top-left-radius:var(--radius-pequeno)}
+.wa-m.enviada .wa-balao{background:var(--verde-100);border-color:var(--verde-100)}
+.wa-m.enviada:not(.seguida) .wa-balao{border-top-right-radius:var(--radius-pequeno)}
+.wa-m.nota .wa-balao{background:var(--aviso-suave);border-color:var(--laranja-100);color:var(--aviso-texto);border-radius:var(--radius-control)}
+.wa-m.nota .wa-balao b{display:inline-flex;align-items:center;gap:6px;margin-right:6px}
+.wa-m.nota .wa-balao b svg{width:13px;height:13px}
+.wa-m-rodape{display:inline-flex;align-items:center;gap:4px;justify-content:flex-end;margin-top:-2px;float:right;padding-left:var(--space-3);
+  font-size:11px;color:var(--texto-secundario);font-variant-numeric:tabular-nums;line-height:1}
+.wa-m .wa-balao .wa-m-rodape{position:relative;top:4px}
+.wa-m-rodape .wa-autor{color:var(--texto-secundario)}
+/* No verde do balão enviado o cinza secundário ficava em 4,4:1; o cinza do corpo passa de 4,5:1 (item 19). */
+.wa-m.enviada .wa-m-rodape,.wa-m.enviada .wa-m-rodape .wa-autor{color:var(--cinza-700)}
+.wa-tick{display:inline-flex;width:16px;height:12px;color:var(--texto-secundario)}
+.wa-tick svg{width:16px;height:12px}
+.wa-tick.lida{color:var(--info)}
+.wa-tick.falhou{color:var(--erro)}
+.wa-m.nova .wa-balao{animation:wa-surgir var(--duracao-normal) ease-out}
+@keyframes wa-surgir{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.wa-anexo{display:inline-flex;align-items:center;gap:var(--space-2);padding:6px 10px;border-radius:var(--radius-control);background:var(--fundo);border:1px solid var(--borda);
+  font-size:var(--text-table-size);margin-bottom:4px}
+.wa-anexo svg{width:16px;height:16px;color:var(--acento)}
+/* O sublinhado forte é o que aparece nos três balões: no laranja da nota o fundo suave some (foto 21). */
+mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px;font-weight:600;box-shadow:inset 0 -2px 0 var(--aviso)}
+
+/* O que PEDE AÇÃO entra na conversa como aviso com os botões da agenda — a regra é a do Clinica. */
+.wa-acao{margin:var(--space-2) var(--space-6) 0;flex-wrap:wrap;align-items:center;gap:var(--space-2) var(--space-3);padding:var(--space-3) var(--space-4)}
+.wa-acao .wa-acao-texto{flex:1 1 300px;min-width:0;font-size:var(--text-table-size)}
+.wa-acao strong{display:block;margin-bottom:2px;font-size:var(--text-body-size)}
+.wa-acao .botoes-linha{flex-wrap:wrap;justify-content:flex-start}
+
+/* Escrever: um bloco com os dois modos; a nota interna muda a cor do bloco inteiro. */
+.wa-escrever-wrap{position:relative}
+.wa-escrever{margin:var(--space-2) var(--space-6) var(--space-4);border:1px solid var(--borda);border-radius:var(--radius-card);background:var(--superficie);
+  box-shadow:var(--sombra-cartao);display:flex;flex-direction:column;transition:background var(--duracao-normal),border-color var(--duracao-normal)}
+.wa-escrever:focus-within{border-color:var(--foco);box-shadow:0 0 0 3px var(--acento-tint)}
+.wa-escrever.nota{background:var(--aviso-suave);border-color:var(--laranja-100)}
+.wa-escrever.nota:focus-within{box-shadow:0 0 0 3px var(--laranja-100)}
+.wa-escrever-abas{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-3) 0}
+.wa-escrever-abas .segmentado button{padding:4px 10px;font-size:var(--text-small-size);display:inline-flex;align-items:center;gap:6px}
+.wa-escrever-abas small{color:var(--texto-secundario);font-size:var(--text-small-size)}
+.wa-escrever.nota .wa-escrever-abas small{color:var(--aviso-texto)}
+.wa-escrever textarea{border:0;background:transparent;resize:none;padding:var(--space-2) var(--space-3);min-height:44px;max-height:180px;font:inherit;line-height:1.45;
+  color:var(--texto-primario);outline:none;width:100%}
+.wa-escrever textarea::placeholder{color:var(--texto-secundario)}
+.wa-escrever-rodape{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1);padding:0 var(--space-2) var(--space-2) var(--space-2)}
+.wa-escrever-rodape .botao.mini{height:30px;border-color:transparent;background:transparent;font-weight:500;color:var(--cinza-700)}
+.wa-escrever-rodape .botao.mini:hover:not(:disabled){background:var(--fundo);border-color:transparent}
+.wa-escrever-rodape .botao.mini[aria-expanded="true"]{background:var(--acento-suave);color:var(--acento)}
+/* O Enviar fica sempre à direita, também quando o rodapé quebra de linha. A dica do teclado ("Enter envia, Shift+Enter
+   quebra a linha") mora no próprio campo (25/10/2026): no rodapé ela sumia em 1366 e 1024, onde mais se usa. */
+.wa-escrever-rodape .botao.primario{height:34px;padding:0 var(--space-4);margin-left:auto}
+.wa-escrever-rodape .botao.primario:disabled{opacity:.45}
+.wa-rascunho-anexo{display:flex;align-items:center;gap:var(--space-2);margin:0 var(--space-3);padding:6px 10px;border-radius:var(--radius-control);background:var(--fundo);
+  font-size:var(--text-table-size)}
+.wa-rascunho-anexo .fechar{width:24px;height:24px;font-size:18px;margin-left:auto}
+
+/* Fora da janela de 24 h: o campo livre some e a tela diz o porquê e o caminho (um modelo aprovado). */
+.wa-janela-fechada{margin:var(--space-2) var(--space-6) var(--space-4);padding:var(--space-3) var(--space-4);border:1px solid var(--borda);border-radius:var(--radius-card);
+  background:var(--superficie);display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2) var(--space-4)}
+.wa-janela-ic{width:36px;height:36px;border-radius:var(--radius-control);display:grid;place-items:center;background:var(--cinza-100);color:var(--cinza-700);flex:none}
+.wa-janela-ic svg{width:18px;height:18px}
+.wa-janela-texto{flex:1 1 260px;min-width:0;font-size:var(--text-table-size);color:var(--texto-secundario)}
+.wa-janela-texto strong{display:block;color:var(--texto-primario);font-size:var(--text-body-size)}
+.wa-encerrada{margin:var(--space-2) var(--space-6) var(--space-4);padding:var(--space-3) var(--space-4);border-radius:var(--radius-card);background:var(--superficie);border:1px solid var(--borda);
+  display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3);font-size:var(--text-table-size);color:var(--texto-secundario)}
+.wa-encerrada strong{color:var(--texto-primario)}
+.wa-encerrada .botao{margin-left:auto}
+
+/* Vazio: nenhuma conversa escolhida */
+.wa-vazia{flex:1;display:flex;align-items:center;justify-content:center;padding:var(--space-8)}
+.wa-vazia .vazio-estado{max-width:380px}
+
+/* ---------- Popovers do escrever (modelos, respostas rápidas): por cima, nunca cortados ---------- */
+.wa-popover{position:absolute;left:var(--space-6);right:var(--space-6);bottom:calc(100% + var(--space-2));z-index:20;max-width:560px;
+  background:var(--superficie);border:1px solid var(--borda);border-radius:var(--radius-card);box-shadow:var(--sombra-popup);display:flex;flex-direction:column;
+  max-height:min(440px,70vh);overflow:hidden;animation:wa-surgir var(--duracao-normal) ease-out}
+.wa-popover-topo{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-3) var(--space-4) var(--space-2)}
+.wa-popover-topo h3{margin:0;font-size:var(--text-table-size);font-weight:700;flex:1}
+.wa-popover-topo small{color:var(--texto-secundario)}
+.wa-popover-lista{overflow-y:auto;padding:0 var(--space-2) var(--space-2);display:flex;flex-direction:column;gap:2px}
+.wa-opcao{display:flex;flex-direction:column;gap:2px;width:100%;text-align:left;border:0;background:transparent;padding:var(--space-2) var(--space-3);border-radius:var(--radius-control);
+  cursor:pointer;font:inherit;color:var(--texto-primario)}
+.wa-opcao:hover{background:var(--fundo)}
+.wa-opcao:focus-visible{outline:2px solid var(--foco);outline-offset:-2px}
+.wa-opcao strong{font-size:var(--text-table-size);display:flex;align-items:center;gap:var(--space-2)}
+.wa-opcao strong .selo{margin-left:0}
+.wa-opcao span{font-size:var(--text-small-size);color:var(--texto-secundario);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wa-modelo-form{padding:var(--space-3) var(--space-4) var(--space-4);display:flex;flex-direction:column;gap:var(--space-3);border-top:1px solid var(--borda);overflow-y:auto}
+.wa-modelo-previa{padding:var(--space-3);border-radius:var(--radius-card);background:var(--verde-100);line-height:1.45;white-space:pre-wrap;font-size:var(--text-table-size)}
+/* O preenchido se marca SEM padding: a prévia mostra o espaçamento exato da mensagem (o "Maria !" da caixinha não existe no WhatsApp). */
+.wa-modelo-previa var{font-style:normal;color:var(--acento);font-weight:600;text-decoration:underline dotted;text-underline-offset:3px}
+.wa-modelo-form .botoes-linha{justify-content:flex-end}
+
+/* ---------- Coluna 3, no modo Retenção: o CASO do Acompanhamento vem antes da ficha ---------- */
+.wa-caso{background:var(--superficie)}
+.wa-caso h4{margin:var(--space-2) 0 0;font-size:var(--text-small-size);font-weight:700;color:var(--texto-secundario);text-transform:uppercase;letter-spacing:var(--text-secao-tracking)}
+.wa-desfechos{display:flex;flex-wrap:wrap;gap:var(--space-1)}
+.wa-desfechos .botao.mini{height:30px}
+.wa-convite{margin:var(--space-2) var(--space-6) var(--space-4);padding:var(--space-4);border:1px solid var(--verde-100);border-radius:var(--radius-card);background:var(--superficie);
+  display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3) var(--space-4);box-shadow:var(--sombra-cartao)}
+.wa-convite .wa-janela-ic{background:var(--verde-100);color:var(--sucesso-forte)}
+.wa-convite .wa-janela-texto strong{margin-bottom:2px}
+@media (max-width:1180px){.wa-convite{margin-left:var(--space-4);margin-right:var(--space-4)}}
+
+/* ---------- Coluna 3: o paciente, lido do Clinica ---------- */
+.wa-ficha{overflow-y:auto}
+.wa-ficha-topo{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-3) var(--space-3) 0 var(--space-4)}
+.wa-ficha-topo h2{margin:0;font-size:var(--text-secao-size);font-weight:700;text-transform:uppercase;letter-spacing:var(--text-secao-tracking);color:var(--texto-secundario);flex:1}
+.wa-secao{padding:var(--space-4);border-bottom:1px solid var(--borda);display:flex;flex-direction:column;gap:var(--space-2)}
+.wa-secao:last-child{border-bottom:0}
+.wa-secao > h3{margin:0;font-size:var(--text-table-size);font-weight:700;color:var(--texto-primario);display:flex;align-items:center;justify-content:space-between;gap:var(--space-2)}
+.wa-secao > h3 .link{font-size:var(--text-small-size)}
+.wa-pessoa{display:flex;align-items:center;gap:var(--space-3)}
+.wa-pessoa .avatar{width:48px;height:48px;font-size:16px}
+.wa-pessoa-nome{display:flex;flex-direction:column;min-width:0;gap:2px}
+.wa-pessoa-nome strong{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wa-pessoa-nome span{font-size:var(--text-small-size);color:var(--texto-secundario)}
+/* O rótulo ocupa no máximo 45% da coluna e quebra a linha: "Responsável pelo acompanhamento" (item 15) não espreme o valor. */
+.wa-pares{display:grid;grid-template-columns:fit-content(45%) minmax(0,1fr);gap:5px var(--space-3);margin:0;font-size:var(--text-table-size)}
+.wa-pares dt{color:var(--texto-secundario)}
+.wa-pares dd{margin:0;font-weight:600;min-width:0;overflow-wrap:anywhere;display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px}
+.wa-pares dd .selo{margin-left:0}
+.wa-selos{display:flex;flex-wrap:wrap;gap:var(--space-1)}
+.wa-selos .selo{margin-left:0}
+.wa-horario{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-3);border:1px solid var(--borda);border-radius:var(--radius-control);background:var(--superficie)}
+.wa-horario.tom-perigo{border-color:var(--vermelho-100);background:var(--erro-suave)}
+.wa-horario.tom-sucesso{border-color:var(--verde-100)}
+.wa-horario-topo{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2)}
+.wa-horario-topo b{font-variant-numeric:tabular-nums}
+.wa-horario-topo .selo{margin-left:0;white-space:nowrap}
+.wa-horario small{color:var(--texto-secundario);font-size:var(--text-small-size);line-height:1.4}
+.wa-horario .botoes-linha{justify-content:flex-start;flex-wrap:wrap}
+.wa-horario.apagado{opacity:.72}
+.wa-horario.apagado .wa-horario-topo b{text-decoration:line-through;text-decoration-color:var(--cinza-300)}
+.wa-tempo{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:var(--text-table-size)}
+.wa-tempo li{display:grid;grid-template-columns:48px minmax(0,1fr);gap:var(--space-2);align-items:start}
+.wa-tempo time{color:var(--texto-secundario);font-variant-numeric:tabular-nums;font-size:var(--text-small-size);padding-top:2px;white-space:nowrap}
+.wa-tempo li span{min-width:0;line-height:1.4}
+.wa-dica{font-size:var(--text-small-size);color:var(--texto-secundario);line-height:1.45;margin:0}
+.wa-sem-ficha{display:flex;flex-direction:column;gap:var(--space-2)}
+.wa-sem-ficha .busca .campo{height:34px;min-height:34px}
+.wa-candidatos{display:flex;flex-direction:column;gap:2px}
+.wa-candidato{display:grid;grid-template-columns:32px minmax(0,1fr);gap:var(--space-2);align-items:center;width:100%;text-align:left;border:1px solid var(--borda);
+  border-radius:var(--radius-control);background:var(--superficie);padding:6px 8px;cursor:pointer;font:inherit;color:var(--texto-primario)}
+.wa-candidato:hover{border-color:var(--acento);background:var(--acento-suave)}
+.wa-candidato .avatar{width:32px;height:32px;font-size:11px}
+.wa-candidato span{display:block;font-size:var(--text-small-size);color:var(--texto-secundario)}
+.wa-candidato strong{font-size:var(--text-table-size)}
+
+/* Só aparece em janela estreita: o botão que abre a coluna do paciente por cima da conversa. */
+.wa-so-estreito{display:none!important}
+.wa-ficha-fechar{display:none}
+@media (max-width:1180px){
+  .pagina.wa{grid-template-columns:300px minmax(0,1fr);grid-template-areas:"lista conversa"}
+  .wa-so-estreito{display:inline-flex!important}
+  .wa-ficha{position:absolute;top:0;right:0;bottom:0;width:min(340px,100%);transform:translateX(100%);
+    transition:transform var(--duracao-normal) ease-out;z-index:25}
+  /* A sombra só com o painel aberto: fechado ele fica fora da tela, mas a sombra vazava na borda direita (foto de 1024). */
+  .wa-ficha.aberta{transform:none;box-shadow:var(--sombra-popup)}
+  .wa-ficha-fechar{display:inline-flex}
+  .wa-mensagens{padding:var(--space-3) var(--space-4)}
+  .wa-acao,.wa-escrever,.wa-janela-fechada,.wa-encerrada{margin-left:var(--space-4);margin-right:var(--space-4)}
+  .wa-popover{left:var(--space-4);right:var(--space-4)}
+  /* Sem a coluna da ficha, a bolinha do chat da equipe cai sobre o canto do Enviar: o rodapé deixa o lugar dela. */
+  .wa-escrever-rodape,.wa-convite,.wa-janela-fechada{padding-right:calc(var(--space-12) + var(--space-8))}
+  /* A lista tem 300 px: o seletor de modo e os filtros apertam. */
+  .segmentado.wa-modo button{padding:6px 4px;gap:4px;font-size:var(--text-table-size)}
+  .wa-filtros .segmentado button{padding:5px 4px;font-size:var(--text-small-size);white-space:nowrap}
+}
+/* Celular: um painel por vez — a lista, e a conversa por cima dela com "voltar". */
+.wa-voltar{display:none}
+@media (max-width:760px){
+  .pagina.wa{grid-template-columns:1fr;grid-template-areas:"lista"}
+  .wa-lista{border-right:0}
+  .wa-conversa{position:absolute;inset:0;z-index:20;transform:translateX(100%);transition:transform var(--duracao-normal) ease-out}
+  .wa-conversa.aberta{transform:none}
+  .wa-voltar{display:inline-flex}
+  .wa-cab{padding-left:var(--space-2)}
+  .wa-cab-acoes .botao:not(.icone) span{display:none}
+  .wa-cab-acoes .botao:not(.icone){width:34px;padding:0;justify-content:center}
+  .wa-m{max-width:88%}
+  .wa-faixa{display:none}
+  /* Transferir, buscar e encerrar ficam como ícones: no celular a secretária também passa e encerra a conversa. */
+  .wa-cab-meta .selo,.wa-cab-meta .selo + span{display:none}
+  .wa-cab-meta{flex-wrap:nowrap;white-space:nowrap;overflow:hidden}
+  /* A dica (número oficial / só a equipe vê) desce para a linha de baixo em vez de quebrar os botões. */
+  .wa-escrever-abas{flex-wrap:wrap}
+  .wa-escrever-abas .segmentado button{white-space:nowrap}
+  .wa-escrever-abas small{flex-basis:100%}
+}
+@media (max-width:480px){
+  /* Sem o avatar, o nome cabe ao lado das cinco ações. */
+  .wa-cab > .avatar{display:none}
+}
+@media (prefers-reduced-motion:reduce){.wa-conversa,.wa-ficha{transition:none}.wa-m.nova .wa-balao,.wa-popover{animation:none}}
+
+/* ---------- Formulários (Modal da casa): conferir a ficha, transferir, encerrar, outras vagas, cancelar ---------- */
+.wa-opcoes{display:flex;flex-direction:column;gap:var(--space-2)}
+.wa-escolha{display:grid;grid-template-columns:20px 40px minmax(0,1fr);gap:var(--space-3);align-items:start;padding:var(--space-3);
+  border:1px solid var(--borda);border-radius:var(--radius-control);cursor:pointer;background:var(--superficie);transition:border-color var(--duracao-rapida),background var(--duracao-rapida)}
+.wa-escolha:hover{border-color:var(--borda-hover)}
+.wa-escolha.marcada{border-color:var(--acento);background:var(--acento-suave)}
+.wa-escolha input{width:16px;height:16px;margin:3px 0 0;accent-color:var(--acento)}
+.wa-escolha .avatar{width:40px;height:40px;font-size:13px}
+.wa-escolha.sem-avatar{grid-template-columns:20px minmax(0,1fr)}
+.wa-escolha-texto{display:flex;flex-direction:column;gap:4px;min-width:0}
+.wa-escolha-texto strong{font-size:15px}
+.wa-escolha-texto span{font-size:var(--text-small-size);color:var(--texto-secundario)}
+.wa-conferir{display:flex;flex-wrap:wrap;gap:var(--space-1) var(--space-4);margin:0;font-size:var(--text-small-size)}
+.wa-conferir div{display:flex;gap:6px}
+.wa-conferir dt{color:var(--texto-secundario)}
+.wa-conferir dd{margin:0;font-weight:600;font-variant-numeric:tabular-nums}
+
+/* ---------- No app ---------- */
+/* Remarcar não tem formulário aqui: abre a janela do horário da agenda (HorarioDaAgendaForm),
+   a mesma das listas do dia — por isso o bloco das vagas do mockup saiu. */
+.wa-linha-corpo .wa-tick svg,.wa-m-rodape .wa-tick svg{width:16px;height:12px}
+.wa-linha-previa .icone{width:14px;height:14px;flex:none}
+.wa-tick.aviso{color:var(--aviso)}
+.wa-m-erro{display:block;margin-top:var(--space-1);font-size:var(--text-small-size);color:var(--erro-texto)}
+.wa-acao .icone{width:18px;height:18px;flex:none;margin-top:2px}
+.wa-acao{display:flex}
+.wa-cab-acoes .botao .icone{width:16px;height:16px}
+.wa-escrever-rodape .botao .icone{width:16px;height:16px}
+.wa-faixa .icone{width:12px;height:12px}
+.wa-m.nota .wa-balao b .icone{width:13px;height:13px}
+.wa-janela-ic .icone,.wa-anexo .icone,.wa-rascunho-anexo .icone{width:18px;height:18px}
+.wa-recado{margin:var(--space-2) var(--space-6) 0}
+.wa-lista-topo .wa-sr + .segmentado{margin:0}
+.wa-cab-quem h2 .selo{font-size:11px}
+.wa-modelo-form .campos{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
+.wa-escrever textarea{field-sizing:content}
+/* No app a tela mora no palco (absoluto, altura da área); fora dele (a prévia, /tela/…) ocupa a janela. */
+.pagina.wa{height:100vh}
+.palco-tela .pagina.wa{height:100%}
+.wa-sem-ficha .botao{justify-content:flex-start}
+.wa-escrever-abas .segmentado button:disabled,.wa-cab-acoes .botao:disabled{opacity:.5;cursor:not-allowed}
+.wa-sem-acesso{padding:var(--space-8)}
+@media (max-width:1180px){.wa-recado{margin-left:var(--space-4);margin-right:var(--space-4)}}
+/* Os estados antes da tela (sem acesso, CRM sem endereço, falha, carregando): um cartão no topo da página. */
+.pagina.wa-estado{display:flex;flex-direction:column;gap:var(--space-2);padding-bottom:var(--space-4)}
+
+/* ---------- O @SemDor das secretárias (24/10): a IA lê e redige; quem envia é a secretária ----------
+   O violeta é a cor DELE (a etiqueta, o ✨, o resumo): distingue o que a IA leu do que a clínica escreveu.
+   Os seletores levam a classe do componente comum junto (.selo., .botao.): regra de tela com a MESMA
+   especificidade de uma comum perde, porque o clinica.css vem depois dos @import (convencoes.md). */
+/* A etiqueta abre a linha da prévia: ela resume aquela mensagem, e o rodapé (situação + responsável) não tem
+   folga na coluna de 300 px. Quem encolhe é o texto da prévia, não o selo da situação. */
+.wa-linha-previa .selo.wa-etiqueta{flex:none;max-width:60%;margin-left:0;display:inline-flex;align-items:center;gap:3px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.selo.wa-etiqueta.tom-semdor{background:var(--violeta-50);color:var(--violeta-600)}
+.wa-escrever-rodape .botao.mini.wa-semdor-sugerir{min-width:30px;padding:0 var(--space-2);justify-content:center;gap:6px;color:var(--violeta-600)}
+.wa-escrever-rodape .botao.mini.wa-semdor-sugerir:hover:not(:disabled){background:var(--violeta-50)}
+.wa-escrever-rodape .botao.mini.wa-semdor-sugerir.escrevendo{opacity:1;color:var(--violeta-600)}
+.wa-escrever-rodape .botao.mini.wa-semdor-desfazer{min-width:30px;padding:0 var(--space-2);justify-content:center;font-size:var(--text-body-size)}
+.wa-semdor-brilho{font-weight:400;line-height:1;font-size:var(--text-body-size)}
+.wa-cab-acoes .botao.wa-semdor-acao{color:var(--violeta-600);gap:6px}
+/* O rótulo "Resumo" só onde sobra cabeçalho (desde 25/10, a partir de 640 px: com "Devolver à fila" e "Encerrar" o
+   nome ainda cabe em 1366 e 1024 — item 5 da revisão; antes, 820 px, por causa das fotos 53). Abaixo
+   disso fica o ✨, do tamanho do buscar, com o nome inteiro na dica e no leitor de tela. O contêiner é o
+   CABEÇALHO (não a coluna): a contenção de leiaute não alcança os popovers nem a linha do tempo. */
+.wa-cab{container-type:inline-size}
+/* Com "Devolver à fila", "Resumo" e "Encerrar" escritos, o Transferir fica no ícone (⇄, com a dica) abaixo de 820 px: em 1366
+   a coluna da conversa tem ~700 px e o nome do paciente precisa de lugar (25/10/2026). */
+@container (max-width:820px){.wa-cab-acoes .botao[data-acao=transferir] span{display:none}.wa-cab-acoes .botao[data-acao=transferir]{width:34px;padding:0;justify-content:center}}
+.wa-cab-meta > span{white-space:nowrap}
+@container (max-width:640px){.wa-cab-acoes .botao.wa-semdor-acao span{display:none}.wa-cab-acoes .botao.wa-semdor-acao{width:34px;padding:0;justify-content:center}}
+.wa-cab-acoes .botao.wa-semdor-acao:hover:not(:disabled){background:var(--violeta-50)}
+/* "Escrevendo…": um ponto que pulsa — parado com movimento reduzido. */
+.wa-semdor-pensando{display:inline-block;width:8px;height:8px;border-radius:var(--radius-pilula);background:var(--violeta-600);flex:none;
+  animation:wa-semdor-pulso 1s ease-in-out infinite}
+@keyframes wa-semdor-pulso{0%,100%{opacity:.25;transform:scale(.8)}50%{opacity:1;transform:none}}
+.wa-semdor-resumo{margin:var(--space-2) var(--space-6) 0;padding:var(--space-3) var(--space-4);border:1px solid var(--borda);border-radius:var(--radius-card);
+  background:var(--violeta-50);font-size:var(--text-table-size);color:var(--texto-primario);animation:wa-surgir var(--duracao-normal) ease-out}
+.wa-semdor-resumo header{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);margin-bottom:var(--space-1)}
+.wa-semdor-resumo header strong{color:var(--violeta-600)}
+.wa-semdor-resumo header .botao.icone{width:28px;height:28px}
+.wa-semdor-resumo dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--space-1) var(--space-3);margin:0}
+.wa-semdor-resumo dt{color:var(--texto-secundario);font-weight:600;white-space:nowrap}
+.wa-semdor-resumo dd{margin:0;overflow-wrap:anywhere;line-height:1.4}
+.wa-semdor-resumo small{display:block;margin-top:var(--space-2);color:var(--texto-secundario);font-size:var(--text-small-size)}
+.wa-semdor-aviso{display:flex;align-items:center;gap:var(--space-2);margin:0 var(--space-3) var(--space-2);padding:var(--space-2) var(--space-3);
+  border-radius:var(--radius-control);background:var(--aviso-suave);color:var(--aviso-texto);font-size:var(--text-small-size);line-height:1.4}
+.wa-semdor-aviso span:nth-child(2){flex:1;min-width:0}
+.wa-semdor-aviso .botao.icone{width:24px;height:24px;flex:none}
+@media (max-width:1180px){.wa-semdor-resumo{margin-left:var(--space-4);margin-right:var(--space-4)}}
+@media (max-width:760px){.wa-semdor-resumo dl{grid-template-columns:minmax(0,1fr)}.wa-semdor-resumo dd{margin-bottom:var(--space-1)}}
+@media (prefers-reduced-motion:reduce){.wa-semdor-pensando{animation:none;opacity:.7}.wa-semdor-resumo{animation:none}}
+
+/* ---------- "Para resolver" na coluna do paciente (R6, 25/10): os alertas da Ficha do balcão ---------- */
+.wa-resolver ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--space-2);font-size:var(--text-table-size)}
+.wa-resolver li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--space-2);align-items:start;line-height:1.4}
+.wa-resolver li .icone{margin-top:2px}
+.wa-resolver li.tom-perigo .icone{color:var(--erro)}
+.wa-resolver li.tom-aviso .icone{color:var(--aviso)}
+/* ---------- O acabamento profissional (25/10/2026 — docs/whatsapp-nativo-implementacao.md §15) ---------- */
+/* Sem conversa aberta, a coluna da ficha não ocupa lugar (item 12): o centro fica com o espaço. */
+@media (min-width:1181px){.pagina.wa.sem-conversa{grid-template-columns:320px minmax(0,1fr);grid-template-areas:"lista conversa"}}
+.pagina.wa.sem-conversa .wa-ficha{display:none}
+/* A ligação caiu no meio do uso (item 14): a faixa amarela no topo da conversa, acima do que ela escreve. */
+.wa-sem-ligacao{display:flex;align-items:flex-start;gap:var(--space-2);padding:var(--space-2) var(--space-4);background:var(--aviso-suave);
+  color:var(--aviso-texto);border-bottom:1px solid var(--laranja-100);font-size:var(--text-table-size);line-height:1.4}
+.wa-sem-ligacao .icone{width:16px;height:16px;flex:none;margin-top:2px}
+/* "Encerrar" com o nome a partir de 1180 px; abaixo, o ✓ com a dica (item 5). */
+@media (max-width:1180px){.wa-cab-acoes .botao.wa-encerrar span{display:none}.wa-cab-acoes .botao.wa-encerrar{width:34px;padding:0;justify-content:center}}
+/* O "Quem aparece aqui?" da Retenção (item 13): a explicação saiu do rodapé, que é do estado da ligação. */
+.wa-filtros-linha .botao.icone.wa-quem-aparece{width:34px;height:34px;flex:none;color:var(--texto-secundario)}
+.wa-filtros-linha .botao.icone.wa-quem-aparece[aria-expanded="true"]{color:var(--acento);background:var(--acento-suave)}
+.wa-quem-aparece-texto{margin:0;padding:var(--space-2) var(--space-3);border-radius:var(--radius-control);background:var(--cinza-50);
+  font-size:var(--text-small-size);line-height:1.45;color:var(--texto-secundario)}
+/* Os botões do modelo aprovado (item 24): as etiquetas que a pessoa recebeu, sob o balão — não se clicam aqui. */
+.wa-m-botoes{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:var(--space-1);margin-top:var(--space-1);max-width:100%}
+.wa-m-botoes span{padding:var(--space-1) var(--space-3);border:1px solid var(--borda);border-radius:var(--radius-pilula);background:var(--superficie);
+  font-size:var(--text-small-size);font-weight:600;color:var(--cinza-700);white-space:nowrap}

@@ -67,6 +67,7 @@ public sealed partial class ShellViewModel
         _relogioAvisos?.Start(); _ = AtualizarPedidosGlobaisAsync();
         IniciarAvisosConfirmacao();
         IniciarAvisosDoSemDor();
+        IniciarVigiaDoWhatsApp();
     }
     public void PararAvisosGlobais()
     {
@@ -77,6 +78,7 @@ public sealed partial class ShellViewModel
         if (Snackbar is not null) Snackbar.PropertyChanged -= MudouSnackbar;
         PararAvisosConfirmacao();
         PararAvisosDoSemDor();
+        PararVigiaDoWhatsApp();
     }
 
     /// <summary>

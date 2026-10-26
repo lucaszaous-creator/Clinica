@@ -50,6 +50,29 @@ public class TraducaoNoNpgsqlTests
         if (filtro == FiltroListaPacientes.EmTratamento) sql.Should().Contain("EXISTS");
     }
     [Fact]
+    public void Fichas_por_telefone_traduzem_a_limpeza_do_numero_no_banco_sem_a_foto()
+    {
+        using var db = Postgres();
+        var sql = new ClinicaRepositorio(db).ConsultaFichasComTelefone(["22998765432", "5522998765432"], 6).ToQueryString();
+        sql.Should().Contain("replace").And.Contain("LIMIT").And.NotContain("FotoMiniatura").And.NotContain("Observacoes");
+    }
+
+    [Fact]
+    public void Miniaturas_traduzem_em_projecao_sem_a_ficha()
+    {
+        using var db = Postgres();
+        var sql = new ClinicaRepositorio(db).ConsultaMiniaturas([1, 2]).ToQueryString();
+        sql.Should().Contain("FotoMiniatura").And.Contain("IS NOT NULL").And.NotContain("\"Nome\"").And.NotContain("Observacoes");
+    }
+
+    [Fact]
+    public void Donos_dos_horarios_traduzem_em_projecao()
+    {
+        using var db = Postgres();
+        new ClinicaRepositorio(db).ConsultaPacientesDosAgendamentos([1, 2]).ToQueryString().Should().Contain("PacienteId").And.NotContain("JOIN");
+    }
+
+    [Fact]
     public void Marcacoes_da_conferencia_traduzem_sem_trazer_a_ficha_inteira()
     {
         using var db = Postgres();
@@ -899,7 +922,8 @@ public class TraducaoNoNpgsqlTests
     /// <summary>
     /// As respostas dos pacientes no sino (out/2026): navegação ao agendamento, ao paciente e
     /// ao profissional, com <c>??</c> entre duas COLUNAS (NomeCurto ?? Nome — coalescência de
-    /// escalar, que traduz; a de ENTIDADE não traduziria) e o booleano do link.
+    /// escalar, que traduz; a de ENTIDADE não traduziria) e o booleano "pede resposta" (o link do
+    /// SMS antigo OU o remetente do lembrete automático da ponte, 25/10).
     /// </summary>
     [Fact]
     public void Contatos_para_avisos_de_confirmacao_traduzem_sem_foto()
@@ -908,7 +932,7 @@ public class TraducaoNoNpgsqlTests
         var sql = new ClinicaRepositorio(db).ConsultaContatosParaAvisosDeConfirmacao(
             new DateTime(2026, 10, 19, 8, 0, 0), new DateTime(2026, 10, 21, 0, 0, 0)).ToQueryString();
         sql.Should().Contain("\"DataHora\"").And.Contain("COALESCE").And.Contain("\"TokenResposta\"")
-            .And.Contain("ORDER BY");
+            .And.Contain("\"EnviadoPor\"").And.Contain("ORDER BY");
         sql.Should().NotContain("FotoMiniatura");
     }
 }

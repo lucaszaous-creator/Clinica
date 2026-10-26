@@ -154,7 +154,7 @@
                                             <span class="acomp-dono" title="@l.Responsavel"><span class="avatar acomp-avatar">@ConversaDoAcompanhamento.Iniciais(l.Responsavel)</span>@ConversaDoAcompanhamento.Dono(l, UsuarioId)</span>
                                         }
                                     </td>
-                                    <td class="direita nao-quebra" @onclick:stopPropagation="true">@Botao(l, passo)</td>
+                                    <td class="direita nao-quebra" @onclick:stopPropagation="true"><span class="botoes-linha acomp-acoes">@if (passo is not (PassoAcompanhamento.Contatar or PassoAcompanhamento.TentarDeNovo)) { <BotaoDaConversaAoLado PacienteId="l.PacienteId" Nome="@l.Paciente" Telefone="@l.Telefone" /> }@Botao(l, passo)</span></td>
                                 </tr>
                             }
                         </tbody>
@@ -243,6 +243,7 @@
 
     // Formulários abertos.
     private LinhaAcompanhamento? _conversa;
+    private int? _casoPedido;
     private CanalContato? _canalInicial;
     private bool _maisFiltros, _gerarRecall, _configurar, _equipe;
 
@@ -273,10 +274,41 @@
         return CarregarAsync(silencioso: true);
     }
 
-    /// <summary>O contador "Retornos" do Início pede a fila de retornos (PedidoDoAcompanhamento).</summary>
+    /// <summary>
+    /// O contador "Retornos" do Início pede a fila de retornos; o "Ver caso" do WhatsApp pede o caso de
+    /// uma pessoa, que abre DEPOIS da leitura (é ela que traz a linha) — ver <see cref="AbrirCasoPedido"/>.
+    /// </summary>
     private void AtenderPedido()
     {
-        if (Servicos.GetService<PedidoDoAcompanhamento>()?.ConsumirRetornos() == true) MostrarRetornos();
+        var pedido = Servicos.GetService<PedidoDoAcompanhamento>();
+        if (pedido is null) return;
+        if (pedido.ConsumirRetornos()) MostrarRetornos();
+        if (pedido.ConsumirCaso() is { } caso) _casoPedido = caso;
+    }
+
+    /// <summary>
+    /// Abre a conversa do caso pedido, já na fila do tipo dele. Não passa por cima de formulário aberto
+    /// (pode haver texto digitado); o caso que saiu da fila avisa em vez de abrir nada.
+    /// </summary>
+    private void AbrirCasoPedido()
+    {
+        if (_casoPedido is not { } id) return;
+        _casoPedido = null;
+        if (_todos.FirstOrDefault(x => x.Id == id) is not { } l)
+        {
+            Notificacoes.Info("Este caso não está mais na fila do acompanhamento.");
+            return;
+        }
+        if (FormularioAberto && _conversa?.Id != id)
+        {
+            Notificacoes.Info($"Feche o que está aberto para ver o caso de {l.Paciente}.");
+            return;
+        }
+        _retornos = false;
+        _tipo = l.Tipo;
+        _faixa = null;
+        Refiltrar();
+        if (_conversa?.Id != id) AbrirConversa(l, null);
     }
 
     /// <summary>F5 relê e Ctrl+P exporta o CSV — pelo MESMO caminho dos botões, com as duas barreiras.</summary>
@@ -294,7 +326,8 @@
     /// A fila, a configuração (motivos e responsáveis), os dias do recall e o nome da clínica —
     /// SEQUENCIAL no mesmo escopo, com contador de geração e tudo publicado depois do último
     /// await. Na primeira abertura gera o recall com os dias da CONFIGURAÇÃO (como a tela WPF):
-    /// sem isso, quem sumiu desde ontem só entraria na fila no clique de alguém.
+    /// sem isso, quem sumiu desde ontem só entraria na fila no clique de alguém. Uma vez por dia no
+    /// app: a aba WhatsApp renova a mesma fila ao ler a Retenção (RecallDoDia, 25/10).
     /// </summary>
     private async Task CarregarAsync(bool silencioso = false)
     {
@@ -310,7 +343,14 @@
             var dias = await parametros.ObterDiasInatividadeRecallAsync();
             if (!_recallGerado)
             {
-                await servico.GerarRecallAsync(UsuarioId, dias);
+                // Uma vez por dia neste app, dividida com a aba WhatsApp (RecallDoDia): é a mesma renovação, e ela não duplica caso.
+                var doDia = sp.GetRequiredService<RecallDoDia>();
+                var hoje = DateOnly.FromDateTime(DateTime.Today);
+                if (doDia.Reservar(hoje))
+                {
+                    try { await servico.GerarRecallAsync(UsuarioId, dias); }
+                    catch { doDia.Liberar(hoje); throw; }
+                }
                 _recallGerado = true;
             }
             var config = await servico.ConfiguracaoAsync(UsuarioId);
@@ -340,6 +380,7 @@
             _naoVerificado = false;
             _carregou = true;
             Refiltrar();
+            AbrirCasoPedido();
         }
         catch (Exception ex)
         {
@@ -444,6 +485,12 @@
             await escopo.ServiceProvider.GetRequiredService<IAcompanhamentoPacienteService>().ValidarContatoAsync(UsuarioId, l.Id);
         }, "Blazor — contato do acompanhamento não pôde ser conferido");
         if (!conferido) return;
+        // Fase 2 (24/10): com a tela nativa do WhatsApp, a conversa abre AO LADO da fila, com a mensagem
+        // como rascunho (sem conversa ainda, o convite por modelo, que grava o contato no caso ao sair). O
+        // "Como foi?" aparece na conversa quando a pessoa responde; antes, pela linha daqui. Sem a tela
+        // nativa, o wa.me e a conversa daqui, como antes.
+        if (await ConversaAoLado.AbrirAsync(Servicos, Host, new PedidoDeConversa(l.Telefone ?? "", l.Paciente, l.PacienteId, AcompanhamentoNaTela.Mensagem(l, _nomeClinica))))
+            return;
         var link = PainelPendenciasFaturamento.LinkWhatsApp(l.Telefone, AcompanhamentoNaTela.Mensagem(l, null), _nomeClinica);
         if (link is null) { await Dialogos.AvisoAsync("WhatsApp", PainelPendenciasFaturamento.SemTelefone(l.Paciente)); return; }
         abriu = await Host.AbrirEnderecoAsync(link);

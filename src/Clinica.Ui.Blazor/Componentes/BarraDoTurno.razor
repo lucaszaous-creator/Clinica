@@ -1,0 +1,18 @@
+@*
+  "PASSAR O TURNO" NO FILTRO MINHAS (25/10, D12 — docs/whatsapp-nativo-implementacao.md §16): todas as conversas
+  abertas de quem está saindo voltam à fila num gesto, com uma nota. Só desenha: o formulário e a devolução são
+  da tela.
+*@
+
+<div class="wa-turno">
+    <span>@(Quantas == 1 ? "1 conversa com você" : $"{Quantas} conversas com você")</span>
+    <button type="button" class="botao mini" disabled="@Desabilitado" title="@(Dica ?? "Devolver todas as suas conversas abertas à fila, com uma nota")" @onclick="AoPassar">
+        <Icone Nome="transferir" />Passar o turno</button>
+</div>
+
+@code {
+    [Parameter] public int Quantas { get; set; }
+    [Parameter] public bool Desabilitado { get; set; }
+    [Parameter] public string? Dica { get; set; }
+    [Parameter] public EventCallback AoPassar { get; set; }
+}

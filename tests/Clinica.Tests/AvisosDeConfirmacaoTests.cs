@@ -14,8 +14,9 @@ namespace Clinica.Tests;
 /// AS RESPOSTAS DOS PACIENTES VIRAM AVISO (out/2026): confirmou, não vem e lembrete sem
 /// resposta, no sino da Recepção/Gerente e no painel da direção, pela MESMA decisão
 /// (<see cref="AvisosDeConfirmacao"/>). O que estes testes protegem:
-/// 1. "Sem resposta" é CONSERVADOR: só SMS com link, enviado há 3 h ou mais, sessão futura
-///    no horizonte — e o horizonte da sexta enxerga a segunda.
+/// 1. "Sem resposta" é CONSERVADOR: só o lembrete que pede resposta (o automático do WhatsApp
+///    da clínica, gravado pela ponte do CRM, ou o link do SMS antigo), enviado há 3 h ou mais,
+///    sessão futura no horizonte — e o horizonte da sexta enxerga a segunda.
 /// 2. Confirmação que a própria recepção marcou NÃO é notícia; a do paciente é.
 /// 3. "Não vem" fica até o horário ser remarcado ou cancelado — de qualquer origem.
 /// 4. Cada aviso pisca UMA vez, e reabrir o app não repete o dia.
@@ -86,7 +87,7 @@ public class AvisosDeConfirmacaoTests : IDisposable
     // ==================== Sem resposta ====================
 
     [Fact]
-    public void Sem_resposta_e_o_SMS_com_link_enviado_ha_tres_horas_ou_mais()
+    public void Sem_resposta_e_o_lembrete_que_pede_resposta_enviado_ha_tres_horas_ou_mais()
     {
         var amanha9h = Agora.Date.AddDays(1).AddHours(9);
         var avisos = Decidir(
@@ -104,7 +105,7 @@ public class AvisosDeConfirmacaoTests : IDisposable
     {
         var amanha9h = Agora.Date.AddDays(1).AddHours(9);
         Decidir(
-            Contato(1, amanha9h, link: false),                 // WhatsApp manual: quem registra é a recepção
+            Contato(1, amanha9h, link: false),                 // lembrete manual: quem registra é a recepção
             Contato(2, amanha9h, StatusContato.Pendente),      // não saiu
             Contato(3, amanha9h, StatusContato.Dispensado),    // saiu da rodada por decisão
             new ContatoParaAvisoDeConfirmacao(4, "Sem carimbo", amanha9h, null, StatusContato.Enviado,
@@ -240,7 +241,7 @@ public class AvisosDeConfirmacaoTests : IDisposable
                 TipoAvisoConfirmacao.NaoVem, Agora), Agora)
             .Should().Be("João avisou que NÃO VEM — seg, 19/10 09:00 (Dra. Ana): ligue para remarcar");
         AvisosDeConfirmacao.Frase(new(1, "Ana", Agora.AddHours(4), null, TipoAvisoConfirmacao.SemResposta, Agora), Agora)
-            .Should().Be("Ana não respondeu ao lembrete de hoje 14:00: vale uma ligação");
+            .Should().Be("Ana: sem resposta ao lembrete de hoje 14:00 — vale uma ligação");
     }
 
     [Fact]
@@ -252,7 +253,8 @@ public class AvisosDeConfirmacaoTests : IDisposable
         AvisosDeConfirmacao.Sessao(a, Agora).Should().Be("amanhã 09:00 · Dra. Ana");
         AvisosDeConfirmacao.Detalhe(a, Agora).Should().Be("avisou ontem às 18:40");
         AvisosDeConfirmacao.Detalhe(a with { Tipo = TipoAvisoConfirmacao.SemResposta, Momento = Agora.AddHours(-1) }, Agora)
-            .Should().Be("SMS sem resposta desde 09:00");
+            .Should().Be("lembrete sem resposta desde 09:00", "o SMS saiu na fase 3: o canal não entra na frase");
+        AvisosDeConfirmacao.Titulo(a with { Tipo = TipoAvisoConfirmacao.SemResposta }).Should().Be("João: sem resposta ao lembrete");
         AvisosDeConfirmacao.Detalhe(a with { Momento = DateTime.MinValue }, Agora).Should().Be("avisou que não vai");
     }
 
@@ -281,7 +283,7 @@ public class AvisosDeConfirmacaoTests : IDisposable
 
     private async Task<int> SessaoComContatoAsync(string nome, DateTime quando, StatusContato status,
         string? comentario = null, DateTime? respondido = null, bool link = true,
-        StatusAgendamento situacao = StatusAgendamento.Agendado, int? profissionalId = null)
+        StatusAgendamento situacao = StatusAgendamento.Agendado, int? profissionalId = null, string? enviadoPor = null)
     {
         var p = new Paciente { Nome = nome, Telefone = "(11) 98765-4321", Convenio = Convenio.UnimedIntercambio, Sexo = Sexo.Feminino };
         _db.Pacientes.Add(p);
@@ -297,7 +299,8 @@ public class AvisosDeConfirmacaoTests : IDisposable
         {
             PacienteId = p.Id, AgendamentoId = ag.Id, Tipo = TipoContato.ConfirmacaoSessao,
             Origem = ContatoCampanha.OrigemDeAgendamento(ag.Id), Referencia = DateOnly.FromDateTime(quando),
-            Status = status, Canal = CanalContato.Sms, EnviadoEm = Agora.AddHours(-20), RespondidoEm = respondido,
+            Status = status, Canal = link ? CanalContato.Sms : CanalContato.WhatsApp, EnviadoEm = Agora.AddHours(-20), RespondidoEm = respondido,
+            EnviadoPor = enviadoPor,
             Comentario = comentario, TokenResposta = link ? $"TOKEN{ag.Id:D7}" : null
         });
         await _db.SaveChangesAsync();
@@ -327,11 +330,33 @@ public class AvisosDeConfirmacaoTests : IDisposable
         linhas.Select(l => l.Paciente).Should().Equal("Ana", "João");
         linhas.Single(l => l.Paciente == "João").Profissional.Should().Be("Dra. Ana");
         linhas.Single(l => l.Paciente == "Ana").Profissional.Should().Be("Dr. Bruno Lima");
-        linhas.Should().OnlyContain(l => l.TemLink);
+        linhas.Should().OnlyContain(l => l.PedeResposta);
 
         var avisos = await new AvisosDeConfirmacaoService(_repo).ListarAsync(Agora, InicioDoDia);
         avisos.Select(a => (a.AgendamentoId, a.Tipo)).Should().Equal(
             (naoVem, TipoAvisoConfirmacao.NaoVem), (semResposta, TipoAvisoConfirmacao.SemResposta));
+    }
+
+    /// <summary>
+    /// R2 (25/10): o lembrete AUTOMÁTICO do WhatsApp da clínica — gravado pela ponte do CRM sem link, com
+    /// <see cref="RodadaDeConfirmacao.LembreteAutomatico"/> — pede resposta como o link do SMS pedia, e o silêncio dele
+    /// chega ao sino (o CRM já o mostrava como "sem resposta": a mesma regra nas duas pontas). O lembrete que a recepção
+    /// mandou à mão continua fora: ali a resposta chega na conversa e quem registra é ela.
+    /// </summary>
+    [Fact]
+    public async Task O_lembrete_automatico_do_WhatsApp_pede_resposta_e_o_manual_nao()
+    {
+        var amanha = Agora.Date.AddDays(1);
+        var automatico = await SessaoComContatoAsync("Carlos", amanha.AddHours(9), StatusContato.Enviado, link: false,
+            enviadoPor: RodadaDeConfirmacao.LembreteAutomatico);
+        await SessaoComContatoAsync("Rita", amanha.AddHours(10), StatusContato.Enviado, link: false, enviadoPor: "ana");
+        await SessaoComContatoAsync("Bia", amanha.AddHours(11), StatusContato.Enviado, link: false);
+
+        var linhas = await _repo.ContatosParaAvisosDeConfirmacaoAsync(Agora, AvisosDeConfirmacao.FimDoHorizonte(Agora));
+        linhas.Where(l => l.PedeResposta).Select(l => l.Paciente).Should().Equal("Carlos");
+
+        var avisos = await new AvisosDeConfirmacaoService(_repo).ListarAsync(Agora, InicioDoDia);
+        avisos.Should().ContainSingle().Which.Should().Match<AvisoDeConfirmacao>(a => a.AgendamentoId == automatico && a.Tipo == TipoAvisoConfirmacao.SemResposta);
     }
 
     [Fact]

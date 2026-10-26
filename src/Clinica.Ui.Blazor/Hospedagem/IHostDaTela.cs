@@ -55,6 +55,14 @@ public interface IHostDaTela
     Task<bool> NavegarAsync(string chave);
 
     /// <summary>
+    /// A tela da chave existe NESTE executável e está ao alcance de quem entrou — sem navegar. É o que
+    /// faz um botão SUMIR onde o destino não existe (a conversa ao lado do WhatsApp só aparece onde há a
+    /// aba WhatsApp: não no Faturamento nem no Consultório). O padrão é "não": hospedeiro que não sabe
+    /// responder não mostra botão para o que talvez não exista.
+    /// </summary>
+    bool TemTela(string chave) => false;
+
+    /// <summary>
     /// Volta para a tela de onde se veio (o histórico do shell). Falso = não há para onde
     /// voltar (ou o hospedeiro não tem histórico — a prévia, os testes); quem chama escolhe
     /// um destino. É o caminho de volta da ficha aberta por cima de outra tela.

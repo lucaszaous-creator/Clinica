@@ -33,13 +33,13 @@
                         @if (g.Direto is { } direto)
                         {
                             <button type="button" role="menuitem" aria-current="@(direto.Ativo ? "page" : null)"
-                                    @onclick="() => Navegar(direto.Chave)">@g.Rotulo</button>
+                                    @onclick="() => Navegar(direto.Chave)">@g.Rotulo@Contador(direto.Contador)</button>
                         }
                         else
                         {
                             <button type="button" role="menuitem" aria-haspopup="true" aria-expanded="@(aberto ? "true" : "false")"
                                     @onclick="() => Alternar(g)">
-                                @g.Rotulo <Icone Nome="abaixo" />
+                                @g.Rotulo@Contador(g.Contador) <Icone Nome="abaixo" />
                             </button>
                             @if (aberto)
                             {
@@ -50,7 +50,7 @@
                                         <li>
                                             <button type="button" role="menuitem" class="@(i.Ativo ? "ativo" : null)"
                                                     @onclick="() => Navegar(i.Chave)">
-                                                <span class="moldura-item-rotulo">@i.Rotulo</span>
+                                                <span class="moldura-item-rotulo">@i.Rotulo@Contador(i.Contador)</span>
                                                 @if (!string.IsNullOrWhiteSpace(i.Descricao))
                                                 {
                                                     <span class="moldura-item-descricao">@i.Descricao</span>
@@ -131,6 +131,7 @@
                     var respostas = Moldura.Respostas.Linhas.Where(x => !soNaoLidas || x.NaoLida).ToList();
                     var pedidos = Moldura.Pedidos.Linhas.Where(x => !soNaoLidas || x.NaoLida).ToList();
                     var semdor = Moldura.AvisosDoSemDor.Linhas.Where(x => !soNaoLidas || x.NaoLida).ToList();
+                    var esperas = Moldura.EsperasNoWhatsApp.Linhas.Where(x => !soNaoLidas || x.NaoLida).ToList();
                     <div class="moldura-popover sino" role="dialog" aria-label="Notificações">
                         <div class="sino-cab">
                             <h2>Notificações</h2>
@@ -175,6 +176,33 @@
                                     @if (!soNaoLidas && !string.IsNullOrWhiteSpace(Moldura.AvisosDoSemDor.Situacao))
                                     {
                                         <p class="moldura-situacao">@Moldura.AvisosDoSemDor.Situacao</p>
+                                    }
+                                </section>
+                            }
+                            @* Quem espera resposta no WhatsApp (25/10, R8): uma linha por espera, abre a conversa na aba. *@
+                            @if (Moldura.EsperasNoWhatsApp.Visivel && (esperas.Count > 0 || (!soNaoLidas && !string.IsNullOrWhiteSpace(Moldura.EsperasNoWhatsApp.Situacao))))
+                            {
+                                <section>
+                                    <header><h3>Esperando resposta no WhatsApp</h3><span>@Moldura.EsperasNoWhatsApp.Contador</span></header>
+                                    @foreach (var e in esperas)
+                                    {
+                                        var espera = e;
+                                        <button type="button" class="moldura-aviso @(espera.NaoLida ? "nao-lida" : null)" title="Abrir a conversa"
+                                                @onclick="() => Moldura.AbrirEspera(espera)">
+                                            <span class="sino-ic sem-resposta" aria-hidden="true"><Icone Nome="chat" /></span>
+                                            <span class="sino-texto">
+                                                <span class="sino-tit"><strong>@espera.Nome</strong> · espera resposta</span>
+                                                <span class="sino-meta">@espera.Quando · WhatsApp da clínica</span>
+                                            </span>
+                                            @if (espera.NaoLida)
+                                            {
+                                                <span class="sino-ponto" title="Não lida"></span>
+                                            }
+                                        </button>
+                                    }
+                                    @if (!soNaoLidas && !string.IsNullOrWhiteSpace(Moldura.EsperasNoWhatsApp.Situacao))
+                                    {
+                                        <p class="moldura-situacao">@Moldura.EsperasNoWhatsApp.Situacao</p>
                                     }
                                 </section>
                             }
@@ -255,11 +283,11 @@
                                     }
                                 </section>
                             }
-                            @if (soNaoLidas && respostas.Count == 0 && pedidos.Count == 0 && semdor.Count == 0)
+                            @if (soNaoLidas && respostas.Count == 0 && pedidos.Count == 0 && semdor.Count == 0 && esperas.Count == 0)
                             {
                                 <div class="sino-vazio"><Icone Nome="check" /><p>Você está em dia. Nada novo desde a última vez.</p></div>
                             }
-                            else if (!soNaoLidas && !Moldura.Respostas.Visivel && !Moldura.Pedidos.Visivel && semdor.Count == 0 && Moldura.Historico.Count == 0)
+                            else if (!soNaoLidas && !Moldura.Respostas.Visivel && !Moldura.Pedidos.Visivel && semdor.Count == 0 && esperas.Count == 0 && Moldura.Historico.Count == 0)
                             {
                                 <div class="sino-vazio"><Icone Nome="sino" /><p>Nenhum aviso desde que você entrou.</p></div>
                             }
@@ -373,6 +401,17 @@
         TomNotificacao.Sucesso => "check",
         TomNotificacao.Erro => "alerta",
         _ => "info"
+    };
+
+    /// <summary>O número ao lado do rótulo do menu (quem espera resposta no "WhatsApp", 25/10); nada sem número.</summary>
+    private static RenderFragment Contador(string? n) => b =>
+    {
+        if (string.IsNullOrEmpty(n)) return;
+        b.OpenElement(0, "span");
+        b.AddAttribute(1, "class", "moldura-contador");
+        b.AddAttribute(2, "title", n == "1" ? "1 paciente espera resposta" : $"{n} pacientes esperam resposta");
+        b.AddContent(3, n);
+        b.CloseElement();
     };
 
     private static string MetaDaResposta(RespostaNoSino r)

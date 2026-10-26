@@ -1,0 +1,42 @@
+/* A CONVERSA RESOLVE (25/10, docs/whatsapp-nativo-implementacao.md §16): marcar horário pela coluna do
+   paciente, guardar na ficha o arquivo recebido, perguntar ao profissional pelo chat da equipe e passar o
+   turno. Arquivo à parte do conversas.css (as outras frentes da tela mexem lá); só tokens, prefixo wa-. */
+
+/* ---------- Passar o turno: a faixa do filtro "Minhas" ---------- */
+.wa-turno{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);flex-wrap:wrap;
+  margin:0 var(--space-3) var(--space-2);padding:var(--space-2) var(--space-3);border:1px solid var(--borda);border-radius:var(--radius-control);
+  background:var(--fundo);font-size:var(--text-small-size);color:var(--texto-secundario)}
+.wa-turno .botao.mini{white-space:nowrap}
+.wa-turno-lista{list-style:none;margin:0 0 var(--space-3);padding:0;display:flex;flex-direction:column;gap:var(--space-1);max-height:220px;overflow:auto}
+.wa-turno-lista li{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-1) var(--space-2);border-radius:var(--radius-pequeno);background:var(--fundo)}
+.wa-turno-lista li span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--texto-primario)}
+.wa-turno-lista li small{color:var(--texto-secundario);font-size:var(--text-small-size)}
+.wa-turno-lista .icone{width:14px;height:14px;color:var(--acento);flex:none}
+
+/* ---------- Marcar horário: no fim da seção Horários ---------- */
+.wa-marcar{margin-top:var(--space-2)}
+
+/* ---------- Perguntar ao profissional: ao lado do balão recebido ----------
+   Ao passar o mouse ou com o foco do teclado (a linha do tempo não vira uma fileira de botões); fora do
+   balão, na sobra à direita dele (o balão vai até 76% da largura). Em tela de toque, sempre à vista. */
+.wa-m.recebida{position:relative}
+.wa-m-acoes{position:absolute;left:100%;top:var(--space-1);margin-left:var(--space-1);opacity:0;transition:opacity var(--duracao-normal) ease}
+.wa-m.recebida:hover .wa-m-acoes,.wa-m-acoes:focus-within{opacity:1}
+.wa-m-acoes .botao.mini.icone{background:var(--superficie);box-shadow:var(--sombra-cartao)}
+@media (hover:none){.wa-m-acoes{opacity:1}}
+@media (prefers-reduced-motion:reduce){.wa-m-acoes{transition:none}}
+.wa-citacao{margin:0 0 var(--space-3);padding:var(--space-2) var(--space-3);border-left:3px solid var(--acento);border-radius:var(--radius-pequeno);
+  background:var(--fundo);white-space:pre-wrap;overflow-wrap:anywhere;max-height:160px;overflow:auto;color:var(--texto-primario)}
+.wa-perguntar-quem{max-height:240px;overflow:auto;margin-bottom:var(--space-3)}
+
+/* ---------- Guardar na ficha: o botão sob a foto/o documento, e o formulário ---------- */
+.wa-midia-guardar{margin-top:calc(var(--space-1) * -1)}
+.wa-guardar-arquivo{display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-3);padding:var(--space-2);
+  border:1px solid var(--borda);border-radius:var(--radius-control);background:var(--fundo)}
+.wa-guardar-arquivo img{width:64px;height:64px;object-fit:cover;border-radius:var(--radius-pequeno);flex:none}
+.wa-guardar-arquivo .wa-doc-ic{flex:none}
+.wa-guardar-nome{display:flex;flex-direction:column;gap:2px;min-width:0}
+.wa-guardar-nome small{color:var(--texto-secundario);font-size:var(--text-small-size);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wa-guardar-titulos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:var(--space-3)}
+.wa-guardar-titulos .wa-escolha{padding:var(--space-2) var(--space-3)}
+@media (max-width:480px){.wa-guardar-titulos{grid-template-columns:minmax(0,1fr)}}

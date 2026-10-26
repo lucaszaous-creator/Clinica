@@ -55,6 +55,8 @@
 .moldura-contador{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:var(--radius-pilula);
   background:var(--erro);color:var(--texto-invertido);font-size:11px;font-weight:700;line-height:1}
 .moldura-contador.sobre{position:absolute;top:2px;right:0;pointer-events:none}
+/* O número de quem espera resposta no item "WhatsApp" do menu (25/10): ao lado do rótulo, também no submenu. */
+.moldura-item-rotulo .moldura-contador{margin-left:var(--space-2);vertical-align:1px}
 .moldura-sino,.moldura-conta{position:relative}
 .moldura-sino .botao.icone svg{width:19px;height:19px}
 .moldura-veu{position:fixed;inset:0;z-index:35;background:transparent}

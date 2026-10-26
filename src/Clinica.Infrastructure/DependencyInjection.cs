@@ -20,6 +20,9 @@ public static class DependencyInjection
         services.AddSingleton<ILeituraParalela, LeituraParalela>();
         services.AddScoped<IAcompanhamentoPacienteService, AcompanhamentoPacienteService>();
         services.AddScoped<IEntradaNoCrmService, EntradaNoCrmService>();
+        // A API do CRM para a tela nativa do WhatsApp (out/2026): SINGLETON — as sessões (uma por
+        // usuário do app) sobrevivem aos escopos por operação da tela; o banco, ele lê por escopo próprio.
+        services.AddSingleton<IClienteDoCrm, Crm.ClienteDoCrmHttp>();
         services.AddScoped<IComissaoRecuperacaoService, ComissaoRecuperacaoService>();
         services.AddScoped<IChatEquipeService, ChatEquipeService>();
         services.AddScoped<AvisosDoSemDorService>();
@@ -156,6 +159,12 @@ public static class DependencyInjection
         services.AddScoped<DocumentosFinanceirosPdfService>();
         services.AddScoped<IndicadoresService>();
         services.AddScoped<CampanhaService>();
+        services.AddScoped<WhatsAppDaRecepcaoService>();
+        // A conversa resolve (25/10): guardar na ficha o arquivo recebido e perguntar a quem trata pelo chat da equipe.
+        services.AddScoped<GuardarNaFichaService>();
+        services.AddScoped<PerguntaAoProfissionalService>();
+        // A renovação diária da fila do recall (aba WhatsApp e Acompanhamento dividem o dia).
+        services.AddSingleton<RecallDoDia>();
         // Documento ao paciente por WhatsApp (fila que o CRM executa) — out/2026; sem e-mail.
         // A fila tem duas portas: o desktop PÕE o pedido, a ponte do CRM o entrega.
         services.AddScoped<EnvioAoPacienteService>();

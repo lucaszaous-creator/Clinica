@@ -123,6 +123,20 @@ node tools/PreviaBlazor/foto.js http://127.0.0.1:5199/tela/Caixa /tmp/novo.png 1
 ```
 
 O `foto.js` imprime os erros do console: tela bonita com erro no console não está pronta.
+
+**Fotografe com o relógio fixo** quando a semente usa horários relativos (a do WhatsApp usa):
+de madrugada a prévia mostraria "hoje 07:00" ou "sexta às 02:30". Com `faketime`
+(`apt-get install -y faketime`) a prévia sobe numa sexta de expediente:
+
+```bash
+TZ=America/Sao_Paulo faketime -f '@2026-10-23 10:12:00' dotnet run --project tools/PreviaBlazor --urls http://127.0.0.1:5199
+```
+
+⚠️ Para parar a prévia, não use `pkill -f "tools/PreviaBlazor"` no MESMO comando que tem esse texto:
+o `pkill` mata o próprio shell. Pegue os PIDs pelo NOME do processo e pela SUA porta —
+`ps -eo pid,comm,args | awk '($2 ~ /^(dotnet|faketime|PreviaBlazor)$/) && /127\.0\.0\.1:5199/ {print $1}'` —
+porque `grep "[P]reviaBlazor"` também casa a linha do shell quando o mesmo comando sobe a prévia
+(lição em `docs/agentes/convencoes.md`).
 A prévia roda os MESMOS serviços do app (`AddClinica`) sobre um SQLite em memória; sem
 sessão autenticada, `Pode` libera tudo (como no app fora do login).
 

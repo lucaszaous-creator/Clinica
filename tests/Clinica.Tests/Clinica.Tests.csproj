@@ -34,6 +34,10 @@
     <!-- As MESMAS sementes fictícias da prévia: o teste das telas abre cada uma com os dados que
          foram fotografados (TelasBlazorAbremTests). -->
     <Compile Include="../../tools/PreviaBlazor/Sementes/*.cs" Link="PreviaBlazor/Sementes/%(Filename)%(Extension)" />
+    <!-- E o CRM de mentira que a semente do WhatsApp acompanha (as fichas e o relógio são os mesmos). -->
+    <Compile Include="../../tools/PreviaBlazor/CrmDeMentira.cs" Link="PreviaBlazor/CrmDeMentira.cs" />
+    <!-- E a mídia de exemplo que ele serve (a foto, a nota de voz e os PDFs das conversas). -->
+    <Compile Include="../../tools/PreviaBlazor/MidiaDeExemplo.cs" Link="PreviaBlazor/MidiaDeExemplo.cs" />
     <ProjectReference Include="..\..\src\Clinica.Domain\Clinica.Domain.csproj" />
     <ProjectReference Include="..\..\src\Clinica.Application\Clinica.Application.csproj" />
     <ProjectReference Include="..\..\src\Clinica.Infrastructure\Clinica.Infrastructure.csproj" />

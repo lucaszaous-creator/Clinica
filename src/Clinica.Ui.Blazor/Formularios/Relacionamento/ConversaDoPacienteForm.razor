@@ -337,7 +337,15 @@
         // fica no número oficial e a mensagem enviada entra sozinha no histórico deste caso. Este
         // formulário continua aberto aqui atrás, para o "Como foi?" quando ela voltar.
         var pedido = new PedidoDeConversa(Linha.Telefone!, Linha.Paciente, Linha.PacienteId, AcompanhamentoNaTela.Mensagem(Linha, NomeClinica));
-        if (await PedidoDeConversaNoCrm.EscreverAsync(Servicos, Host, pedido)) { _canal = CanalContato.WhatsApp; return; }
+        if (await PedidoDeConversaNoCrm.EscreverAsync(Servicos, Host, pedido))
+        {
+            _canal = CanalContato.WhatsApp;
+            // Fase 2 (24/10): com a tela nativa, a conversa abriu AO LADO — este formulário sai da frente
+            // dela (ele a cobriria). O "Como foi?" volta pela linha do caso, ou pelo aviso da conversa
+            // quando a pessoa responde.
+            if (Servicos.GetService<ConversaAoLado>()?.Atual is not null) await AoFechar.InvokeAsync();
+            return;
+        }
         // Sem a aba (app sem o item, CRM sem endereço): o wa.me de antes.
         var link = PainelPendenciasFaturamento.LinkWhatsApp(Linha.Telefone, AcompanhamentoNaTela.Mensagem(Linha, null), NomeClinica);
         if (link is not null && await Host.AbrirEnderecoAsync(link)) { _canal = CanalContato.WhatsApp; return; }
