@@ -159,6 +159,90 @@ public sealed class CrmDeMentiraTests
                     $"{linha.Name}: «{a.Actor}: {a.Action}» não está na tabela de ConversasNaTela.Evento");
             }
     }
+
+    // ---------- A auditoria do atendimento (26/10) ----------
+
+    [Fact]
+    public async Task A_fila_da_auditoria_traz_tres_rascunhos_do_SemDor_com_provas_da_conversa_e_duas_avaliadas()
+    {
+        var crm = Falso();
+
+        var fila = await crm.FilaDaAuditoriaAsync(Usuario);
+
+        Assert.Equal(5, fila.Length);
+        Assert.Equal(["para-conferir", "para-conferir", "para-conferir", "avaliada", "avaliada"], fila.Select(i => i.State));
+        Assert.Equal([(Ids.Maria, "ana"), (Ids.Alzira, "bruna"), (Ids.Lucia, "bruna")],
+            fila.Take(3).Select(i => (i.ConversationId, i.SubjectId)).OrderBy(x => x.ConversationId));
+        Assert.All(fila, i => Assert.False(i.Stale));
+        Assert.Equal((80m, (decimal?)null), (fila.Single(i => i.ConversationId == Ids.Maria).SuggestedScore, fila.Single(i => i.ConversationId == Ids.Maria).Score));
+        Assert.Equal((100m, 90m), (fila.Single(i => i.ConversationId == Ids.Roberto).SuggestedScore!.Value, fila.Single(i => i.ConversationId == Ids.Roberto).Score!.Value));
+
+        // Cada rascunho é do @SemDor e cada prova é uma mensagem DAQUELA conversa.
+        foreach (var item in fila)
+        {
+            var detalhe = await crm.DetalheDaAuditoriaAsync(Usuario, item.ConversationId);
+            var rascunho = detalhe.History.Single(r => r.ReviewerId == CrmDeMentira.RevisorSemDor && r.SubjectId == item.SubjectId);
+            Assert.Equal(("draft", 1, (decimal?)null), (rascunho.State, rascunho.Version, rascunho.Score));
+            Assert.Equal(["courtesy", "understanding", "clarity", "resolution", "followup"], rascunho.Answers.Select(a => a.Criterion));
+            Assert.All(rascunho.Answers.SelectMany(a => a.MessageIds), id => Assert.Contains(detalhe.Conversation.Messages, m => m.Id == id));
+            Assert.Contains(item.SubjectId, detalhe.Subjects);
+        }
+        var criterios = (await crm.DetalheDaAuditoriaAsync(Usuario, Ids.Maria)).Criteria;
+        Assert.Equal(["Cordialidade e respeito", "Entendimento da necessidade", "Clareza da orientação", "Encaminhamento e resolução",
+            "Confirmação e continuidade"], criterios.Select(c => c.Title));
+
+        var painel = await crm.PainelDaAuditoriaAsync(Usuario, 7);
+        Assert.Equal(["Ana Lima", "Bruna Reis", "Carla Mendes"], painel.Agents.Select(a => a.Name));
+        Assert.Equal([1, 2, 0], painel.Agents.Select(a => a.ToReview));
+        Assert.Equal([1, 1, 0], painel.Agents.Select(a => a.Reviewed));
+        Assert.Null(painel.Agents[2].AverageScore);
+    }
+
+    [Fact]
+    public async Task Salvar_a_auditoria_confere_versao_e_impressao_e_a_final_vale_a_media_vezes_50()
+    {
+        var crm = Falso();
+        var detalhe = await crm.DetalheDaAuditoriaAsync(Usuario, Ids.Maria);
+        var rascunho = detalhe.History.Single(r => r.SubjectId == "ana");
+        var notas = rascunho.Answers.Select(a => a with { Score = a.Criterion == "followup" ? 2 : a.Score }).ToArray(); // 2,2,2,1,2
+        AppQualitySave Final(int versao, string impressao) => new(Ids.Maria, "ana", versao, impressao, "final", notas, "followup",
+            "Boa condução.", "Confirmar o novo horário.", DateTimeOffset.UtcNow.AddDays(1));
+
+        var velha = await Assert.ThrowsAsync<RecusaDoCrm>(() => crm.SalvarAuditoriaAsync(Usuario, Final(0, detalhe.Fingerprint)));
+        Assert.Equal(("Outra revisão foi salva. Atualize antes de continuar.", 409), (velha.Message, velha.Status));
+        var incompleta = await Assert.ThrowsAsync<RecusaDoCrm>(() =>
+            crm.SalvarAuditoriaAsync(Usuario, Final(1, detalhe.Fingerprint) with { Answers = notas[..4] }));
+        Assert.Equal(("Preencha os cinco critérios de auditoria.", 400), (incompleta.Message, incompleta.Status));
+
+        var salva = await crm.SalvarAuditoriaAsync(Usuario, Final(1, detalhe.Fingerprint));
+        Assert.Equal((2, "final", CrmDeMentira.Eu, 90m), (salva.Version, salva.State, salva.ReviewerId, salva.Score!.Value));
+        Assert.Equal("avaliada", (await crm.FilaDaAuditoriaAsync(Usuario)).Single(i => i.ConversationId == Ids.Maria).State);
+
+        // A paciente escreveu depois: a avaliação fica desatualizada e a impressão antiga é 409.
+        crm.ChegouDoPaciente(Ids.Maria, "Obrigada!");
+        Assert.True((await crm.FilaDaAuditoriaAsync(Usuario)).Single(i => i.ConversationId == Ids.Maria).Stale);
+        var mudou = await Assert.ThrowsAsync<RecusaDoCrm>(() => crm.SalvarAuditoriaAsync(Usuario, Final(2, detalhe.Fingerprint)));
+        Assert.True(mudou.Conflito);
+        Assert.StartsWith("A conversa mudou durante a avaliação.", mudou.Message);
+    }
+
+    [Fact]
+    public async Task Quem_nao_e_da_gestao_toma_403_nas_quatro_rotas_da_auditoria()
+    {
+        var crm = Falso();
+        crm.DaGestao = false;
+
+        var recusas = new[]
+        {
+            await Assert.ThrowsAsync<RecusaDoCrm>(() => crm.PainelDaAuditoriaAsync(Usuario, 30)),
+            await Assert.ThrowsAsync<RecusaDoCrm>(() => crm.FilaDaAuditoriaAsync(Usuario)),
+            await Assert.ThrowsAsync<RecusaDoCrm>(() => crm.DetalheDaAuditoriaAsync(Usuario, Ids.Maria)),
+            await Assert.ThrowsAsync<RecusaDoCrm>(() => crm.SalvarAuditoriaAsync(Usuario,
+                new AppQualitySave(Ids.Maria, "ana", 1, "x", "draft", [], "inconclusive", "", "", null))),
+        };
+
+        Assert.All(recusas, r => Assert.Equal((CrmDeMentira.SoGestao, 403), (r.Message, r.Status)));
+    }
 }
 
 /// <summary>A semente do WhatsApp + o CRM de mentira, sobre o mesmo banco das telas.</summary>

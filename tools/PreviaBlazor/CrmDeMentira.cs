@@ -159,6 +159,12 @@ public static class RelogioDaPrevia
 /// <c>SemDorSecretariaDemo</c> do CRM) e põe etiquetas nas linhas de quem espera a clínica — uma delas de atenção
 /// (a Lúcia). <see cref="VariavelDoModo"/> = <c>semdor-desligado</c> (a IA desligada: sem botão nem etiqueta) ou
 /// <c>semdor-falhando</c> (ligada, sem responder: a frase do 502); nos testes, a propriedade <see cref="SemDor"/>.
+///
+/// <b>A auditoria do atendimento</b> (26/10, o app do Gerente): o painel das três secretárias (Ana, Bruna e Carla — os
+/// números de outros dias são fixos; as avaliações e o "esperando agora" vêm da memória), a fila com três rascunhos do
+/// @SemDor e duas conversas já avaliadas (<see cref="SemearAuditoria"/>), o detalhe com os critérios e os achados do
+/// <c>QualityAudit.cs</c> do CRM e o salvar com as regras e as frases dele (impressão, versão, os cinco critérios). A
+/// propriedade <see cref="DaGestao"/> falsa faz as quatro rotas darem o 403 de quem não é supervisora.
 /// </summary>
 public sealed class CrmDeMentira : IClienteDoCrm
 {
@@ -305,6 +311,8 @@ public sealed class CrmDeMentira : IClienteDoCrm
     private readonly Dictionary<string, Anexo> anexos = new();
     private readonly HashSet<string> emVoo = new();
     private readonly SemaphoreSlim leituraDoBanco = new(1, 1);
+    private readonly List<EntradaDaFila> entradasDaFila;
+    private readonly List<Avaliacao> avaliacoes;
     private bool fichasProcuradas;
     private (bool Configurado, DateTimeOffset LidoEm)? endereco;
 
@@ -325,6 +333,7 @@ public sealed class CrmDeMentira : IClienteDoCrm
             _ => ModoDoSemDor.Ligado
         };
         conversas = Semear();
+        (entradasDaFila, avaliacoes) = SemearAuditoria();
         // Os anexos que a semente já "enviou" (o PDF das orientações): servidos como os que a tela sobe.
         foreach (var a in conversas.SelectMany(c => c.AnexosDaSemente)) anexos[a.Id] = a;
     }
@@ -521,6 +530,334 @@ public sealed class CrmDeMentira : IClienteDoCrm
         var r = string.Join(' ', palavras).Trim();
         r = char.ToUpper(r[0], CultureInfo.GetCultureInfo("pt-BR")) + r[1..];
         return r.EndsWith('.') || r.EndsWith('?') || r.EndsWith('!') ? r : r + ".";
+    }
+
+    // ==================================================================== a auditoria do atendimento (26/10: QualityAudit.cs do CRM)
+
+    /// <summary>A frase do 403 do CRM (<c>WorkspaceStore.RequireManager</c>) para quem não é da gestão.</summary>
+    public const string SoGestao = "Esta função está disponível para supervisores e administradores.";
+
+    /// <summary>O revisor do rascunho noturno: o @SemDor (o <c>ReviewerId</c> do contrato).</summary>
+    public const string RevisorSemDor = "semdor";
+
+    /// <summary>A pessoa é da gestão no CRM? A "ana" da prévia é supervisora; falso = as quatro rotas da auditoria dão 403.</summary>
+    public bool DaGestao { get; set; } = true;
+
+    /// <summary>Os cinco critérios, com os ids, os títulos e as perguntas do <c>QualityAudit.Criteria</c> do CRM.</summary>
+    public static readonly AppQualityCriterion[] Criterios =
+    [
+        new("courtesy", "Cordialidade e respeito", "A comunicação foi respeitosa, acolhedora e adequada ao contexto? Avalie as palavras utilizadas; não presuma emoções ou intenções."),
+        new("understanding", "Entendimento da necessidade", "A atendente identificou o pedido e esclareceu informações necessárias, sem ignorar dúvidas do paciente?"),
+        new("clarity", "Clareza da orientação", "A resposta foi compreensível, específica e coerente com a pergunta? Não avalie a correção de uma conduta médica por este formulário."),
+        new("resolution", "Encaminhamento e resolução", "O pedido foi resolvido ou encaminhado com responsável e próximo passo claros? Encerrar a conversa não comprova resolução."),
+        new("followup", "Confirmação e continuidade", "Quando necessário, houve confirmação do entendimento, combinação do retorno e verificação de dúvidas restantes?"),
+    ];
+
+    /// <summary>Uma versão guardada, com a impressão da conversa no momento em que foi salva (o <c>Stale</c> da fila).</summary>
+    private sealed record Avaliacao(string ConversaId, AppQualityReview Review, string Impressao);
+
+    /// <summary>Uma linha da fila: a conversa, a secretária avaliada e por que entrou.</summary>
+    private sealed record EntradaDaFila(string ConversaId, string AtendenteId, string Motivo);
+
+    private sealed record Periodo(int Conversas, double? Mediana, int NoPrazo, int Medidas, int Resolvidas, int SemRetorno, int Transferencias);
+
+    /// <summary>Os números de uma secretária que o falso não tem como medir (conversas de outros dias): fixos e plausíveis.
+    /// O histórico entra só nos 30 dias; as avaliações e o "esperando agora" vêm do que está em memória.</summary>
+    private sealed record NumerosDoPainel(string Id, Periodo Semana, Periodo Mes, int AvaliadasAntes, decimal MediaAntes);
+
+    private static readonly NumerosDoPainel[] Painel =
+    [
+        new(Eu, new(14, 6.5, 11, 13, 6, 1, 1), new(58, 7.0, 44, 52, 27, 4, 3), 3, 84m),
+        new("bruna", new(12, 12.0, 7, 11, 5, 2, 3), new(49, 10.5, 33, 45, 22, 6, 9), 4, 78m),
+        new("carla", new(9, 9.5, 6, 8, 4, 0, 0), new(37, 8.0, 28, 34, 18, 2, 1), 2, 90m),
+    ];
+
+    public async Task<AppQualityPanel> PainelDaAuditoriaAsync(int usuarioId, int dias, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        ConferirGestao();
+        if (dias is not (7 or 30)) throw new RecusaDoCrm("Escolha o período de 7 ou 30 dias.", 400);
+        lock (trava)
+        {
+            var ate = DateTimeOffset.UtcNow;
+            var de = ate.AddDays(-dias);
+            var itens = Fila();
+            var linhas = Painel.Select(n =>
+            {
+                var p = dias == 7 ? n.Semana : n.Mes;
+                // A avaliação que vale é a final mais nova de cada conversa: avaliar de novo não conta duas vezes.
+                var notas = avaliacoes.Where(a => a.Review.SubjectId == n.Id && a.Review.State == "final")
+                    .GroupBy(a => a.ConversaId).Select(g => g.MaxBy(a => a.Review.Version)!.Review)
+                    .Where(r => r.ReviewedAt >= de && r.Score is not null).Select(r => r.Score!.Value).ToList();
+                var quantas = notas.Count + (dias == 30 ? n.AvaliadasAntes : 0);
+                var soma = notas.Sum() + (dias == 30 ? n.AvaliadasAntes * n.MediaAntes : 0m);
+                var esperando = conversas.Count(c => !c.Closed && c.AgentId == n.Id && c.Messages.LastOrDefault()?.Direction == "in");
+                return new AppQualityAgent(n.Id, Nome(n.Id), p.Conversas, p.Mediana, p.NoPrazo, p.Medidas, esperando, p.Resolvidas, p.SemRetorno,
+                    p.Transferencias, quantas, quantas == 0 ? null : Math.Round(soma / quantas, 1),
+                    itens.Count(i => i.SubjectId == n.Id && i.State == "para-conferir"));
+            }).ToArray();
+            return new AppQualityPanel(de, ate, linhas, SemDor != ModoDoSemDor.Desligado);
+        }
+    }
+
+    public async Task<AppQualityItem[]> FilaDaAuditoriaAsync(int usuarioId, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        ConferirGestao();
+        lock (trava) return Fila();
+    }
+
+    public async Task<AppQualityDetail> DetalheDaAuditoriaAsync(int usuarioId, string conversaId, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        ConferirGestao();
+        lock (trava)
+        {
+            var c = Achar(conversaId);
+            AvancarEnvios(c);
+            return new AppQualityDetail(Foto(c), Impressao(c), Criterios.ToArray(), Achados(c, DateTimeOffset.UtcNow).ToArray(), Participantes(c),
+                avaliacoes.Where(a => a.ConversaId == c.Id).OrderByDescending(a => a.Review.ReviewedAt).ThenByDescending(a => a.Review.Version)
+                    .Select(a => a.Review).ToArray());
+        }
+    }
+
+    /// <summary>As regras e as frases do <c>QualityAudit.Save</c> do CRM; quem salva é a <see cref="Eu"/>.</summary>
+    public async Task<AppQualityReview> SalvarAuditoriaAsync(int usuarioId, AppQualitySave avaliacao, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        ConferirGestao();
+        lock (trava)
+        {
+            var c = Achar(avaliacao.ConversationId);
+            if (avaliacao.Fingerprint != Impressao(c))
+                throw new RecusaDoCrm("A conversa mudou durante a avaliação. Atualize a auditoria e confira as novas mensagens antes de salvar.", 409);
+            if (!Participantes(c).Contains(avaliacao.SubjectId) || Agentes.All(a => a.Id != avaliacao.SubjectId))
+                throw new RecusaDoCrm("Selecione uma atendente participante desta conversa.", 400);
+            var versao = Versoes(c.Id, avaliacao.SubjectId).FirstOrDefault()?.Review.Version ?? 0;
+            if (avaliacao.Version != versao) throw new RecusaDoCrm("Outra revisão foi salva. Atualize antes de continuar.", 409);
+            if (avaliacao.State is not ("draft" or "final") || avaliacao.Outcome is not ("resolved" or "followup" or "inconclusive"))
+                throw new RecusaDoCrm("Situação da revisão inválida.", 400);
+            if (avaliacao.Answers is null || avaliacao.Answers.Length != Criterios.Length
+                || avaliacao.Answers.Select(a => a.Criterion).Distinct().Count() != Criterios.Length)
+                throw new RecusaDoCrm("Preencha os cinco critérios de auditoria.", 400);
+            var final = avaliacao.State == "final";
+            var respondeu = c.Messages.Any(m => Enviada(m) && m.AgentId == avaliacao.SubjectId);
+            foreach (var r in avaliacao.Answers)
+            {
+                if (Criterios.All(k => k.Id != r.Criterion) || r.Score is < -1 or > 2 || r.Reason is null || r.Reason.Length > 2000
+                    || r.MessageIds is null || r.MessageIds.Length > 30 || r.MessageIds.Any(id => c.Messages.All(m => m.Id != id)))
+                    throw new RecusaDoCrm("Critério ou evidência inválidos.", 400);
+                if (final && (r.Score is null || r.Reason.Trim().Length < 10 || r.Score >= 0 && r.MessageIds.Length == 0))
+                    throw new RecusaDoCrm("Para concluir, avalie os cinco critérios e justifique cada um. Critérios avaliáveis exigem pelo menos uma mensagem como evidência.", 400);
+                if (r.Score >= 0 && r.Criterion is "courtesy" or "clarity"
+                    && (!respondeu || !r.MessageIds.Any(id => c.Messages.Any(m => m.Id == id && Enviada(m) && m.AgentId == avaliacao.SubjectId))))
+                    throw new RecusaDoCrm("Cordialidade e clareza precisam de uma resposta confirmada da própria atendente como evidência. Caso contrário, use Não avaliável.", 400);
+            }
+            if (avaliacao.Feedback is null || avaliacao.Feedback.Length > 4000 || avaliacao.Action is null || avaliacao.Action.Length > 2000)
+                throw new RecusaDoCrm("Limite de texto excedido.", 400);
+            var agora = DateTimeOffset.UtcNow;
+            var temAcao = avaliacao.Action.Trim().Length > 0;
+            if (temAcao && (avaliacao.DueAt is not { } prazo || prazo.Year < 2020 || prazo > agora.AddYears(2)))
+                throw new RecusaDoCrm("Defina um prazo válido para o plano de ação.", 400);
+            if (avaliacao.ActionDone && !temAcao) throw new RecusaDoCrm("Informe a ação antes de marcá-la como concluída.", 400);
+            if (final && avaliacao.Outcome == "followup" && !temAcao)
+                throw new RecusaDoCrm("Registre o próximo passo e o prazo para um atendimento que precisa de retorno.", 400);
+
+            var gravada = new AppQualityReview(avaliacao.SubjectId, versao + 1, avaliacao.State, Eu, agora, avaliacao.Answers.ToArray(),
+                avaliacao.Outcome, avaliacao.Feedback, avaliacao.Action, temAcao ? avaliacao.DueAt : null, final ? Nota(avaliacao.Answers) : null);
+            avaliacoes.Add(new(c.Id, gravada, Impressao(c)));
+            if (!entradasDaFila.Any(e => e.ConversaId == c.Id && e.AtendenteId == avaliacao.SubjectId))
+                entradasDaFila.Add(new(c.Id, avaliacao.SubjectId, "Escolhida pela gestão"));
+            return gravada;
+        }
+    }
+
+    private void ConferirGestao()
+    {
+        if (!DaGestao) throw new RecusaDoCrm(SoGestao, 403);
+    }
+
+    /// <summary>A fila: primeiro o que espera a gerente, depois o já avaliado; dentro de cada grupo, a conversa mais recente antes.</summary>
+    private AppQualityItem[] Fila()
+        => entradasDaFila.Select(e =>
+        {
+            var c = Achar(e.ConversaId);
+            var versoes = Versoes(e.ConversaId, e.AtendenteId);
+            var ultima = versoes.FirstOrDefault();
+            var avaliada = ultima?.Review.State == "final";
+            var rascunho = versoes.FirstOrDefault(v => v.Review.ReviewerId == RevisorSemDor)?.Review;
+            return new AppQualityItem(c.Id, e.AtendenteId, Nome(e.AtendenteId), c.PatientName.Length > 0 ? c.PatientName : c.Name,
+                c.UltimaAtividade, e.Motivo, avaliada ? "avaliada" : "para-conferir", rascunho is null ? null : Nota(rascunho.Answers),
+                avaliada ? ultima!.Review.Score : null, ultima is not null && ultima.Impressao != Impressao(c));
+        }).OrderBy(i => i.State == "avaliada").ThenByDescending(i => i.At).ToArray();
+
+    /// <summary>As versões de uma secretária numa conversa, a mais nova primeiro.</summary>
+    private List<Avaliacao> Versoes(string conversaId, string atendenteId)
+        => avaliacoes.Where(a => a.ConversaId == conversaId && a.Review.SubjectId == atendenteId).OrderByDescending(a => a.Review.Version).ToList();
+
+    /// <summary>A nota 0–100 do CRM: a média dos critérios avaliáveis (≥ 0) × 50, arredondada; nenhum avaliável = nula.</summary>
+    private static decimal? Nota(AppQualityAnswer[] notas)
+    {
+        var validas = notas.Where(a => a.Score >= 0).Select(a => a.Score!.Value).ToArray();
+        return validas.Length == 0 ? null : Math.Round((decimal)validas.Average() * 50m, 0);
+    }
+
+    /// <summary>Resposta da equipe que conta (o <c>ServiceMetrics.HumanSent</c> do CRM): saiu de uma pessoa e o provedor aceitou.</summary>
+    private static bool Enviada(AppMessage m) => m.Direction == "out" && !string.IsNullOrWhiteSpace(m.AgentId) && m.AgentId != "automation"
+        && m.Status is "accepted" or "delivered" or "seen" or "simulated";
+
+    /// <summary>Quem da equipe participou: quem respondeu e o responsável atual (o <c>QualityAudit.Subjects</c>).</summary>
+    private static string[] Participantes(Conversa c)
+        => c.Messages.Where(Enviada).Select(m => m.AgentId).Append(c.AgentId).Where(a => !string.IsNullOrWhiteSpace(a)).Cast<string>().Distinct().ToArray();
+
+    /// <summary>A impressão da conversa (o <c>QualityAudit.Fingerprint</c>): muda com mensagem nova, envio confirmado, dono, fila ou encerramento.</summary>
+    private static string Impressao(Conversa c) => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(
+        System.Text.Json.JsonSerializer.Serialize(new
+        {
+            c.Closed, c.Queue, c.AgentId,
+            messages = c.Messages.Select(m => new { m.Id, m.Direction, m.Text, m.Type, m.AgentId, m.At, m.AttachmentId, m.FileName, sent = Enviada(m) })
+        })))).ToLowerInvariant();
+
+    /// <summary>O que o sistema acha sem IA, com as frases do <c>QualityAudit.Findings</c> do CRM.</summary>
+    private static List<AppQualityFinding> Achados(Conversa c, DateTimeOffset agora)
+    {
+        var achados = new List<AppQualityFinding>();
+        var ordem = c.Messages.OrderBy(m => m.At).ToArray();
+        var ultimaResposta = ordem.LastOrDefault(Enviada);
+        var esperando = ordem.Where(m => m.Direction == "in" && (ultimaResposta is null || m.At > ultimaResposta.At)).ToArray();
+        if (esperando.Length > 0)
+        {
+            var minutos = Math.Max(0, (int)(agora - esperando[0].At).TotalMinutes);
+            achados.Add(new("awaiting", c.Closed || minutos >= 15 ? "attention" : "info",
+                c.Closed ? "Encerrada com mensagem sem resposta posterior" : "Mensagem aguardando resposta",
+                $"{minutos} min corridos desde a primeira mensagem pendente. Esse tempo inclui períodos fora do expediente e não é uma avaliação da atendente.",
+                esperando.Select(m => m.Id).ToArray()));
+        }
+        var pedidos = ordem.Where(m => m.Direction == "in" && System.Text.RegularExpressions.Regex.IsMatch(m.Text,
+            "não entendi|nao entendi|não resolveu|nao resolveu|não responderam|nao responderam|quero reclamar|preciso falar com",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant)).TakeLast(5).ToArray();
+        if (pedidos.Length > 0)
+            achados.Add(new("clarification", "attention", "Pedido de esclarecimento ou reclamação a conferir",
+                "Expressão localizada no texto do paciente. Leia as respostas seguintes antes de concluir se o problema permanece.", pedidos.Select(m => m.Id).ToArray()));
+        var midias = ordem.Where(m => m.Type is "AUDIO" or "VIDEO" or "IMAGE" or "DOCUMENT").ToArray();
+        if (midias.Length > 0)
+            achados.Add(new("media", "info", "Há anexos para revisão humana",
+                "Esta triagem não transcreve nem interpreta áudios, imagens, vídeos ou documentos. Abra o conteúdo antes de avaliar.", midias.Select(m => m.Id).ToArray()));
+        var falhas = ordem.Where(m => m.Direction == "out" && m.AgentId != "automation" && m.Status is "failed" or "uncertain" or "sending").ToArray();
+        if (falhas.Length > 0)
+            achados.Add(new("delivery", "attention", "Envio com falha ou sem confirmação",
+                "As mensagens indicadas não contam como resposta confirmada nesta triagem. Confira o status antes de atribuir uma falha de atendimento.",
+                falhas.Select(m => m.Id).ToArray()));
+        if (!ordem.Any(Enviada))
+            achados.Add(new("no_reply", "info", "Sem resposta confirmada no histórico",
+                "Pode ser um atendimento recente ou ainda não assumido. Não há base para avaliar a cordialidade de uma resposta inexistente.", []));
+        return achados;
+    }
+
+    /// <summary>
+    /// A fila e as versões da semente, sobre as conversas do mockup: três rascunhos do @SemDor para a gerente conferir
+    /// (Maria/Ana, Lúcia/Bruna, Alzira/Bruna) e duas já avaliadas (Roberto/Ana, Antônio/Bruna — o rascunho e a final).
+    /// As evidências são os ids das mensagens DESTA execução (as enviadas têm Guid novo a cada processo).
+    /// </summary>
+    private (List<EntradaDaFila> Fila, List<Avaliacao> Avaliacoes) SemearAuditoria()
+    {
+        DateTimeOffset T(int dias, int h, int m) => RelogioDaPrevia.EmUtc(dias, h, m);
+        var fila = new List<EntradaDaFila>();
+        var guardadas = new List<Avaliacao>();
+        Conversa C(string id) => conversas.Single(c => c.Id == id);
+        static string[] Dela(Conversa c, string agente) => c.Messages.Where(m => Enviada(m) && m.AgentId == agente).Select(m => m.Id).ToArray();
+        static string[] DoPaciente(Conversa c) => c.Messages.Where(m => m.Direction == "in").Select(m => m.Id).ToArray();
+        static AppQualityAnswer N(string criterio, int nota, string razao, params string[] provas) => new(criterio, nota, razao, provas);
+
+        void Guardar(Conversa c, string atendente, string estado, string revisor, DateTimeOffset em, AppQualityAnswer[] notas, string resultado,
+            string retorno, string acao = "", DateTimeOffset? prazo = null)
+        {
+            var versao = guardadas.Count(a => a.ConversaId == c.Id && a.Review.SubjectId == atendente) + 1;
+            guardadas.Add(new(c.Id, new AppQualityReview(atendente, versao, estado, revisor, em, notas, resultado, retorno, acao,
+                acao.Length == 0 ? null : prazo, estado == "final" ? Nota(notas) : null), Impressao(c)));
+        }
+
+        // ----- Maria / Ana: remarcação bem conduzida, mas o novo horário ainda não foi confirmado à paciente.
+        var maria = C(Ids.Maria);
+        var anaNaMaria = Dela(maria, Eu);
+        var doPacienteMaria = DoPaciente(maria);
+        fila.Add(new(maria.Id, Eu, "Sorteio da semana"));
+        Guardar(maria, Eu, "draft", RevisorSemDor, T(0, 10, 11),
+        [
+            N("courtesy", 2, "Cumprimentou pelo nome e acolheu o pedido sem cobrança.", anaNaMaria),
+            N("understanding", 2, "Entendeu que era remarcar e ofereceu horários à tarde, como a paciente prefere.", [doPacienteMaria[0], .. anaNaMaria]),
+            N("clarity", 2, "Deu dois horários com dia, hora e profissional.", anaNaMaria),
+            N("resolution", 1, "A paciente escolheu o horário, mas a remarcação ainda não foi confirmada a ela.", doPacienteMaria[^1]),
+            N("followup", 1, "Falta confirmar o novo horário por escrito.", doPacienteMaria[^1]),
+        ], "followup", "Boa condução; falta fechar a remarcação com a paciente.", "Confirmar à paciente o novo horário marcado na agenda.", T(0, 18, 0));
+
+        // ----- Lúcia / Bruna: relato de reação ao tratamento sem resposta; a transferência à Ana ainda não foi aceita.
+        var lucia = C(Ids.Lucia);
+        var queixa = DoPaciente(lucia)[^1];
+        fila.Add(new(lucia.Id, "bruna", "Espera longa"));
+        Guardar(lucia, "bruna", "draft", RevisorSemDor, T(0, 10, 10),
+        [
+            N("courtesy", 2, "A mensagem depois da sessão foi cordial e deixou o canal aberto.", Dela(lucia, "bruna")),
+            N("understanding", 0, "A paciente relatou inchaço e dor depois da sessão e ainda não teve resposta.", queixa),
+            N("clarity", -1, "Não há resposta da atendente à pergunta para avaliar."),
+            N("resolution", 1, "Pediu a transferência com o contexto, mas a paciente segue sem retorno.", queixa),
+            N("followup", 0, "Ninguém avisou a paciente de que o caso está sendo visto.", queixa),
+        ], "followup", "Relato de reação ao tratamento sem resposta: conferir a espera.", "Responder à paciente com a orientação da Dra. Helena ainda hoje.", T(0, 12, 0));
+
+        // ----- Alzira / Bruna: respondeu ao convite de retorno ontem e ninguém respondeu.
+        var alzira = C(Ids.Alzira);
+        var resposta = DoPaciente(alzira)[^1];
+        fila.Add(new(alzira.Id, "bruna", "Retorno sem resposta"));
+        Guardar(alzira, "bruna", "draft", RevisorSemDor, T(0, 7, 0),
+        [
+            N("courtesy", 2, "O convite foi gentil e chamou a paciente pelo nome.", Dela(alzira, "bruna")),
+            N("understanding", 1, "A paciente disse quando quer voltar; ninguém confirmou que a clínica vai procurá-la.", resposta),
+            N("clarity", -1, "A única mensagem da atendente é o modelo do convite."),
+            N("resolution", 1, "O retorno ficou em aberto: falta combinar quem procura a paciente e quando.", resposta),
+            N("followup", 0, "Sem resposta à paciente desde ontem à tarde.", resposta),
+        ], "followup", "A paciente quer voltar em duas semanas: registrar o retorno.", "Responder e marcar o contato de retorno para daqui a duas semanas.", T(13, 10, 0));
+
+        // ----- Roberto / Ana: avaliada. O @SemDor sugeriu 100; a gerente tirou um ponto da continuidade (90).
+        var roberto = C(Ids.Roberto);
+        var anaNoRoberto = roberto.Messages.Where(m => Enviada(m) && m.AgentId == Eu).ToList();
+        var oferta = anaNoRoberto.First(m => m.Type == "TEXT").Id;
+        var orientacoes = anaNoRoberto.First(m => m.Type == "DOCUMENT").Id;
+        var fechamento = anaNoRoberto.Last().Id;
+        var doPacienteRoberto = DoPaciente(roberto);
+        var serveSim = roberto.Messages.First(m => m.Direction == "in" && m.Text == "Serve sim").Id;
+        AppQualityAnswer[] RobertoComum(int continuidade, string razao, params string[] provas) =>
+        [
+            N("courtesy", 2, "Cordial do início ao fim, sempre pelo nome.", oferta, fechamento),
+            N("understanding", 2, "Considerou o pedido, a foto e o áudio antes de oferecer o horário da manhã.", doPacienteRoberto[0], oferta),
+            N("clarity", 2, "Dia, hora e profissional na mesma mensagem, e as orientações em PDF.", oferta, orientacoes),
+            N("resolution", 2, "Remarcou e o paciente confirmou.", serveSim),
+            N("followup", continuidade, razao, provas),
+        ];
+        fila.Add(new(roberto.Id, Eu, "Sorteio da semana"));
+        Guardar(roberto, Eu, "draft", RevisorSemDor, T(0, 7, 0), RobertoComum(2, "Fechou o combinado com o dia da sessão.", fechamento),
+            "resolved", "Atendimento completo, sem pendência.");
+        Guardar(roberto, Eu, "final", Eu, T(0, 9, 30), RobertoComum(1, "Não perguntou se as orientações ficaram claras.", orientacoes),
+            "resolved", "Boa condução: ouviu tudo o que o paciente mandou e fechou o combinado. Na próxima, pergunte se as orientações ficaram claras.");
+
+        // ----- Antônio / Bruna (SMS): avaliada com 100; o @SemDor tinha sugerido 90.
+        var antonio = C(Ids.Antonio);
+        var brunaNoAntonio = Dela(antonio, "bruna");
+        var doPacienteAntonio = DoPaciente(antonio);
+        AppQualityAnswer[] AntonioComum(int continuidade, string razao) =>
+        [
+            N("courtesy", 2, "Tratou o paciente com respeito, pelo nome.", brunaNoAntonio),
+            N("understanding", 2, "Entendeu o pedido do bloqueio e marcou na hora.", doPacienteAntonio[0], brunaNoAntonio[0]),
+            N("clarity", 2, "Dia, hora, profissional e a orientação de chegar 15 min antes.", brunaNoAntonio),
+            N("resolution", 2, "Marcou o BSV e encerrou com o resultado certo.", brunaNoAntonio),
+            N("followup", continuidade, razao, doPacienteAntonio[^1]),
+        ];
+        fila.Add(new(antonio.Id, "bruna", "Sorteio da semana"));
+        Guardar(antonio, "bruna", "draft", RevisorSemDor, T(0, 7, 0), AntonioComum(1, "Encerrou logo depois da resposta do paciente."),
+            "resolved", "Atendimento resolvido pelo SMS.");
+        Guardar(antonio, "bruna", "final", Eu, T(0, 9, 40), AntonioComum(2, "O paciente confirmou que entendeu antes de encerrar."),
+            "resolved", "Atendimento completo pelo SMS: marcou, orientou a chegar antes e o paciente confirmou.");
+
+        return (fila, guardadas);
     }
 
     // ==================================================================== escritas

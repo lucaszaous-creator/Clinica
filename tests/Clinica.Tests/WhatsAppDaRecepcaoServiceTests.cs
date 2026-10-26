@@ -1025,6 +1025,20 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
             return Task.FromResult(new AppSemDorSummary("Remarcar", "Nada ainda", "Responder"));
         }
 
+        // A auditoria do atendimento (26/10) é do app do Gerente: este serviço não a chama; o falso só responde vazio.
+        public Task<AppQualityPanel> PainelDaAuditoriaAsync(int usuarioId, int dias, CancellationToken ct = default)
+            => Task.FromResult(new AppQualityPanel(DateTimeOffset.UtcNow.AddDays(-dias), DateTimeOffset.UtcNow, [], true));
+
+        public Task<AppQualityItem[]> FilaDaAuditoriaAsync(int usuarioId, CancellationToken ct = default)
+            => Task.FromResult(Array.Empty<AppQualityItem>());
+
+        public Task<AppQualityDetail> DetalheDaAuditoriaAsync(int usuarioId, string conversaId, CancellationToken ct = default)
+            => Task.FromResult(new AppQualityDetail(_conversas[conversaId], "impressao", [], [], [], []));
+
+        public Task<AppQualityReview> SalvarAuditoriaAsync(int usuarioId, AppQualitySave avaliacao, CancellationToken ct = default)
+            => Task.FromResult(new AppQualityReview(avaliacao.SubjectId, avaliacao.Version + 1, avaliacao.State, "ana", DateTimeOffset.UtcNow,
+                avaliacao.Answers, avaliacao.Outcome, avaliacao.Feedback, avaliacao.Action, avaliacao.DueAt, null));
+
         public void EsquecerSessao(int usuarioId) { }
     }
 

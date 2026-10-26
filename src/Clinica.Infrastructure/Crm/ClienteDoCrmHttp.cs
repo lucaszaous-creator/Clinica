@@ -237,6 +237,20 @@ public sealed class ClienteDoCrmHttp : IClienteDoCrm, IDisposable
         => ChamarAsync(usuarioId, Natureza.Escrita, () => Post("/api/presence", new StringContent("{}", System.Text.Encoding.UTF8, "application/json")),
             Desserializar<AppPresence>, ct);
 
+    // A auditoria do atendimento (26/10): leituras e escrita comuns — sessão por bilhete, csrf no POST, 401 renova UMA vez.
+    // O 403 de quem não é da gestão e o 409 da conversa que mudou chegam como RecusaDoCrm com a frase do CRM.
+    public Task<AppQualityPanel> PainelDaAuditoriaAsync(int usuarioId, int dias, CancellationToken ct = default)
+        => LerAsync<AppQualityPanel>(usuarioId, "/api/quality/painel?dias=" + dias.ToString(System.Globalization.CultureInfo.InvariantCulture), ct);
+
+    public Task<AppQualityItem[]> FilaDaAuditoriaAsync(int usuarioId, CancellationToken ct = default)
+        => LerAsync<AppQualityItem[]>(usuarioId, "/api/quality/fila", ct);
+
+    public Task<AppQualityDetail> DetalheDaAuditoriaAsync(int usuarioId, string conversaId, CancellationToken ct = default)
+        => LerAsync<AppQualityDetail>(usuarioId, "/api/quality/" + Uri.EscapeDataString(conversaId), ct);
+
+    public Task<AppQualityReview> SalvarAuditoriaAsync(int usuarioId, AppQualitySave avaliacao, CancellationToken ct = default)
+        => EscreverAsync<AppQualityReview>(usuarioId, "/api/quality", avaliacao, ct);
+
     public void EsquecerSessao(int usuarioId)
     {
         // O HttpClient antigo não é descartado aqui: uma chamada dele pode estar em andamento

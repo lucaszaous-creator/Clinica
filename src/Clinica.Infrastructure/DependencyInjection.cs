@@ -160,6 +160,8 @@ public static class DependencyInjection
         services.AddScoped<IndicadoresService>();
         services.AddScoped<CampanhaService>();
         services.AddScoped<WhatsAppDaRecepcaoService>();
+        // A auditoria do atendimento (26/10): a gerente confere o atendimento das secretárias no CRM.
+        services.AddScoped<AuditoriaDoAtendimentoService>();
         // A conversa resolve (25/10): guardar na ficha o arquivo recebido e perguntar a quem trata pelo chat da equipe.
         services.AddScoped<GuardarNaFichaService>();
         services.AddScoped<PerguntaAoProfissionalService>();

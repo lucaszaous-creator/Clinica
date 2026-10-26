@@ -121,3 +121,40 @@ public sealed record AppSemDorState(bool Ligada, bool Funcionando, DateTimeOffse
 /// <summary>POST /api/presence (corpo "{}", com o X-CSRF-TOKEN): o pulso de "estou aqui" de quem está logado. Connected verdadeiro e
 /// LeaseSeconds = por quanto tempo o pulso vale (120 s): o app pulsa antes disso enquanto a pessoa está logada. 401 = a sessão acabou.</summary>
 public sealed record AppPresence(bool Connected, int LeaseSeconds);
+
+// ---------- A auditoria do atendimento (26/10: a gerente confere o atendimento das secretárias; o @SemDor pré-avalia) ----------
+// Só a gestão (perfil admin ou supervisor no CRM): 403 com AppError para os outros. A nota que vale é sempre a da gerente;
+// o rascunho do @SemDor é uma AppQualityReview com ReviewerId "semdor" e State "draft".
+/// <summary>Um dos cinco critérios da auditoria. Guide: a pergunta que a gerente responde ao dar a nota.</summary>
+public sealed record AppQualityCriterion(string Id, string Title, string Guide);
+/// <summary>Os números de uma secretária no período (GET /api/quality/painel). FirstReplyMedianMinutes: minutos ÚTEIS até a primeira
+/// resposta (seg–sex 7h–19h, sáb 7h–13h), nulo sem resposta medida. RepliedOnTime: quantas das RepliesMeasured saíram em até 15 min
+/// úteis. WaitingNow: conversas dela esperando resposta agora. Resolved/NoResponse: encerramentos do período pelo resultado.
+/// Transfers: transferências que ela pediu. Reviewed/AverageScore: avaliações FINAIS da gerente (nota 0–100). ToReview: rascunhos
+/// do @SemDor esperando a gerente.</summary>
+public sealed record AppQualityAgent(string AgentId, string Name, int Conversations, double? FirstReplyMedianMinutes, int RepliedOnTime,
+    int RepliesMeasured, int WaitingNow, int Resolved, int NoResponse, int Transfers, int Reviewed, decimal? AverageScore, int ToReview);
+/// <summary>GET /api/quality/painel?dias=7|30 — o painel por secretária. SemDorEnabled: o @SemDor está pré-avaliando a amostra.</summary>
+public sealed record AppQualityPanel(DateTimeOffset From, DateTimeOffset To, AppQualityAgent[] Agents, bool SemDorEnabled);
+/// <summary>Uma linha de GET /api/quality/fila. Reason: por que entrou ("Reclamação do paciente", "Espera longa", "Sorteio da semana"…).
+/// State: "para-conferir" (rascunho do @SemDor) | "avaliada" (a gerente concluiu). SuggestedScore: a nota do rascunho; Score: a da
+/// gerente. Stale: a conversa mudou depois da última avaliação.</summary>
+public sealed record AppQualityItem(string ConversationId, string SubjectId, string SubjectName, string PatientName, DateTimeOffset At,
+    string Reason, string State, decimal? SuggestedScore, decimal? Score, bool Stale);
+/// <summary>A nota de um critério: Score -1 = não avaliável, 0 = não atendeu, 1 = em parte, 2 = atendeu. MessageIds: as mensagens
+/// que provam a nota (ids de AppMessage).</summary>
+public sealed record AppQualityAnswer(string Criterion, int? Score, string Reason, string[] MessageIds);
+/// <summary>Uma avaliação guardada (cada versão fica: o rascunho do @SemDor e a da gerente). Score 0–100 só na final.
+/// Outcome: "resolved" | "followup" | "inconclusive". ActionDone: o plano de ação foi cumprido.</summary>
+public sealed record AppQualityReview(string SubjectId, int Version, string State, string ReviewerId, DateTimeOffset ReviewedAt,
+    AppQualityAnswer[] Answers, string Outcome, string Feedback, string Action, DateTimeOffset? DueAt, decimal? Score, bool ActionDone = false);
+/// <summary>O que o sistema achou na conversa sem IA (espera, reclamação, anexo, falha de envio). Level "attention" | "info".</summary>
+public sealed record AppQualityFinding(string Code, string Level, string Title, string Description, string[] MessageIds);
+/// <summary>GET /api/quality/{conversationId}: a conversa inteira, o Fingerprint que o POST devolve, os critérios, os achados,
+/// quem da equipe participou (Subjects: ids de AppAgent) e o histórico de avaliações (a mais nova primeiro).</summary>
+public sealed record AppQualityDetail(AppConversation Conversation, string Fingerprint, AppQualityCriterion[] Criteria,
+    AppQualityFinding[] Findings, string[] Subjects, AppQualityReview[] History);
+/// <summary>POST /api/quality — a avaliação da gerente. Version: a da última avaliação desta secretária nesta conversa (0 se nenhuma);
+/// Fingerprint: o do detalhe (409 se a conversa mudou). State "final" exige os cinco critérios justificados. Resposta: AppQualityReview.</summary>
+public sealed record AppQualitySave(string ConversationId, string SubjectId, int Version, string Fingerprint, string State,
+    AppQualityAnswer[] Answers, string Outcome, string Feedback, string Action, DateTimeOffset? DueAt, bool ActionDone = false);
