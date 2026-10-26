@@ -5295,3 +5295,14 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
   a janela é baixa demais (cortar seria pior), com o rodapé sticky. Abaixo de 560 px de altura ou de
   1101 de largura volta a rolagem de página. ⚠️ A PRÉVIA rola o `body`, não um palco: a página
   `/atendimento-medico` embrulha a `Raiz` num `.palco-tela`, senão a foto mostraria outra coisa.
+  ⛔ **E "cabe na janela" se mede pelo que ficou ESCONDIDO, não pela caixa que cresceu** (a cliente
+  achou "falta a infusão": o EMITIR rolava por dentro da coluna e a infusão estava abaixo da borda,
+  sem sinal nenhum). Três erros meus de método, e a regra de cada um: (1) **a altura de projeto é a
+  que SOBRA no app** — 1280×720 menos barra de tarefas, título da janela e o topo da moldura (68 px)
+  dá ~570, não os 680 que fotografei; (2) **o dia CHEIO é o caso de projeto** — termo pendente, BSV e
+  "Já saiu hoje" crescem a coluna, e por isso o termo foi para a linha de avisos da folha e o "Já saiu
+  hoje" para o rodapé, recolhido; (3) **"visível" não basta, a caixa precisa de ALTURA ÚTIL** — com
+  `min-height:0` nos elos de dentro, o piso posto no texto não segurava e a caixa encolheu a uma
+  linha; o piso mora no contêiner (`.at-editor`). `tools/PreviaBlazor/conferir-folha.js` mede tudo
+  isso sem rolar nada (à vista, não recortado, texto ≥ 180 px) em cada tamanho, normal e dia cheio:
+  rode-o antes de mandar foto.

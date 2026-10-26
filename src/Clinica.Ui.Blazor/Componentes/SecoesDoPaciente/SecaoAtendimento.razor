@@ -27,21 +27,32 @@
     <div class="at-folha-pagina @(_historicoAberto || Tela.ExtraDoRail is null ? null : "at-sem-coluna")">
         <div class="at-coluna-folha">
             <section class="cartao">
+                @* A data, o contexto (última sessão + o que a enfermagem aferiu hoje) e o histórico numa linha
+                   só: cada linha a menos aqui é altura a mais para escrever no notebook. *@
                 <div class="cartao-corpo at-cabecalho">
                     <label class="at-consulta">Consulta de
                         <input type="date" class="campo" disabled="@(!PodeEditar)" @bind="r.Data" aria-label="Data da sessão" /></label>
+                    @if (!string.IsNullOrWhiteSpace(f.LinhaDeContexto))
+                    {
+                        <p class="at-contexto">@f.LinhaDeContexto</p>
+                    }
                     <button type="button" class="botao fantasma" aria-pressed="@(_historicoAberto ? "true" : "false")" @onclick="() => _historicoAberto = !_historicoAberto">
                         <Icone Nome="historico" />@(_historicoAberto ? "Fechar o histórico" : "Consultar histórico")</button>
                 </div>
 
-                @if (!string.IsNullOrWhiteSpace(f.LinhaDeContexto))
-                {
-                    <p class="at-contexto">@f.LinhaDeContexto</p>
-                }
-
-                @if (f.AlertasClinicos.Count + f.Alertas.Count > 0)
+                @if (f.AlertasClinicos.Count + f.Alertas.Count > 0 || f.TermoPendente is not null)
                 {
                     <div class="at-avisos" role="list" aria-label="Avisos sobre o paciente">
+                        @if (f.TermoPendente is { } termo)
+                        {
+                            @* O termo pendente é AVISO que pede ação, perto de quem escreve — não um papel do EMITIR:
+                               na coluna de baixo do rail ele caía abaixo da borda no notebook. *@
+                            var (rotuloTermo, dicaTermo) = AlertasDaFolha.DoTermo(termo);
+                            <div class="at-aviso grave" role="listitem">
+                                <button type="button" class="botao mini @(termo.AssinaturaRemotaAguardaConferencia ? "at-termo-conferir" : "contorno-perigo") at-termo"
+                                        disabled="@(!Pode(Permissao.ColherAssinaturaPaciente) || _ocupado)" title="@dicaTermo" @onclick="ColherTermoAsync">@rotuloTermo</button>
+                            </div>
+                        }
                         @foreach (var a in f.AlertasClinicos.Concat(f.Alertas))
                         {
                             <div class="at-aviso @(a.Grave ? "grave" : null)" role="listitem">
@@ -171,6 +182,27 @@
                                 }
                             </div>
                             <div class="botoes-linha">
+                                @if (f.SaiuHoje.Count > 0)
+                                {
+                                    @* Os papéis desta consulta, no rodapé que está sempre à vista. Recolhidos: abrem por cima. *@
+                                    <details class="at-saiu-hoje">
+                                        <summary class="botao fantasma">Já saiu hoje (@f.SaiuHoje.Count)</summary>
+                                        <ul class="at-saiu">
+                                            @foreach (var papel in f.SaiuHoje)
+                                            {
+                                                <li class="@(papel.Cancelado ? "cancelado" : null)">
+                                                    <span><b>@papel.Rotulo</b> @papel.Numero<span class="secundario">@papel.Detalhe</span></span>
+                                                    @if (!papel.Cancelado)
+                                                    {
+                                                        <button type="button" class="botao mini" disabled="@_ocupado" @onclick="() => SegundaViaAsync(papel)">2ª via</button>
+                                                        <button type="button" class="botao mini" disabled="@(_ocupado || !Pode(Permissao.VerProntuario))"
+                                                                title="E-mail (recomendado) ou WhatsApp pelo CRM" @onclick="() => Enviar(papel)">Enviar…</button>
+                                                    }
+                                                </li>
+                                            }
+                                        </ul>
+                                    </details>
+                                }
                                 <button type="button" class="botao fantasma" disabled="@(!PodeImprimir || _ocupado)" @onclick="ImprimirFichaAsync"
                                         title="Imprime a ficha do atendimento (Ctrl+P) — o papel sai do que está gravado">
                                     <Icone Nome="imprimir" />Imprimir</button>
@@ -265,7 +297,8 @@
                         @(string.IsNullOrEmpty(cartao.Pendencia) ? cartao.Heranca : cartao.Pendencia)</span>
                 </button>
             }
-            <button type="button" class="at-papel" disabled="@(!Pode(Permissao.Prescrever) || _ocupado)" @onclick="PrescreverInfusaoAsync">
+            <button type="button" class="at-papel" disabled="@(!Pode(Permissao.Prescrever) || _ocupado)" @onclick="PrescreverInfusaoAsync"
+                title="A folha da sala de infusão, ligada a esta sessão.">
                 <Icone Nome="editar" />
                 <b>Prescrição de infusão</b>
                 <span class="texto-secundario">A folha da sala de infusão, ligada a esta sessão.</span>
@@ -279,31 +312,6 @@
                         @(f.BsvIndicado ? "Em acompanhamento BSV" : "Novo paciente de BSV")</button>
                 }
             </div>
-            @if (f.TermoPendente is { } termo)
-            {
-                var (rotuloTermo, dicaTermo) = AlertasDaFolha.DoTermo(termo);
-                <button type="button" class="botao @(termo.AssinaturaRemotaAguardaConferencia ? "at-termo-conferir" : "contorno-perigo") at-termo"
-                        disabled="@(!Pode(Permissao.ColherAssinaturaPaciente) || _ocupado)" title="@dicaTermo" @onclick="ColherTermoAsync">@rotuloTermo</button>
-            }
-
-            @if (f.SaiuHoje.Count > 0)
-            {
-                <h4 class="at-lado-subtitulo">Já saiu hoje</h4>
-                <ul class="at-saiu">
-                    @foreach (var papel in f.SaiuHoje)
-                    {
-                        <li class="@(papel.Cancelado ? "cancelado" : null)">
-                            <span><b>@papel.Rotulo</b> @papel.Numero<span class="secundario">@papel.Detalhe</span></span>
-                            @if (!papel.Cancelado)
-                            {
-                                <button type="button" class="botao mini" disabled="@_ocupado" @onclick="() => SegundaViaAsync(papel)">2ª via</button>
-                                <button type="button" class="botao mini" disabled="@(_ocupado || !Pode(Permissao.VerProntuario))"
-                                        title="E-mail (recomendado) ou WhatsApp pelo CRM" @onclick="() => Enviar(papel)">Enviar…</button>
-                            }
-                        </li>
-                    }
-                </ul>
-            }
         </section>;
 
     private RenderFragment EvaSelect(string rotulo, int? valor, Action<int?> definir) =>
