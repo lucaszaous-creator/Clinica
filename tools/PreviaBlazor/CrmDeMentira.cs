@@ -626,6 +626,18 @@ public sealed class CrmDeMentira : IClienteDoCrm
         }
     }
 
+    public async Task MarcarNaoLidaAsync(int usuarioId, string conversaId, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava)
+        {
+            var c = Achar(conversaId);
+            if (c.Recebidas == 0) throw new RecusaDoCrm("Não há mensagem recebida para marcar como não lida.", 400);
+            // Como o /unread do CRM: a última recebida volta a contar, só para quem pediu.
+            lidas[(usuarioId, c.Id)] = c.Recebidas - 1;
+        }
+    }
+
     public async Task<AppConversation> AssumirAsync(int usuarioId, string conversaId, AppChange mudanca, CancellationToken ct = default)
     {
         await EntrarAsync(ct);
