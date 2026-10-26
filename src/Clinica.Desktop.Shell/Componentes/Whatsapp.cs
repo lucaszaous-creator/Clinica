@@ -50,11 +50,6 @@ public static class Whatsapp
         => Clinica.Application.Modelos.MensagensDeContato.ConfirmacaoDeSessao(
             nomePaciente, quando, DateOnly.FromDateTime(DateTime.Today), nomeClinica);
 
-    /// <summary>O convite para marcar o retorno pedido por quem atendeu (a fila "Retornos a marcar").</summary>
-    public static string ConviteDeRetorno(string nomePaciente, DateOnly retornoEm, string profissional, string? nomeClinica = null)
-        => Clinica.Application.Modelos.MensagensDeContato.ConviteDeRetorno(
-            nomePaciente, retornoEm, profissional, nomeClinica);
-
     /// <summary>Mensagem padrão da pesquisa de satisfação — o TEXTO mora em <see cref="Clinica.Application.Modelos.MensagensDeContato.PesquisaDeSatisfacao"/>.</summary>
     public static string PesquisaDeSatisfacao(string nomePaciente, string? nomeClinica = null)
         => Clinica.Application.Modelos.MensagensDeContato.PesquisaDeSatisfacao(nomePaciente, nomeClinica);

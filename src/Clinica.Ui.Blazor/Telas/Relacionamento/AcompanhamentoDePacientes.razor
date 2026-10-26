@@ -22,15 +22,15 @@
 
 <div class="pagina acompanhamento @(Carregando && _todos.Count > 0 ? "carregando" : null)">
     <CabecalhoPagina Sobretitulo="Relacionamento · Acompanhamento" Titulo="Acompanhamento de pacientes"
-                     Subtitulo="Quem sumiu, as indicações de BSV e os retornos que o profissional pediu — do primeiro contato até a sessão realizada.">
-        @if (_tipo == TipoAcompanhamento.Recall && !_retornos)
+                     Subtitulo="Quem sumiu e as indicações de BSV — do primeiro contato até a sessão realizada.">
+        @if (_tipo == TipoAcompanhamento.Recall)
         {
             <button type="button" class="botao" disabled="@(!PodeAcompanhar)" @onclick="AbrirGerarRecall"
                     title="@(PodeAcompanhar ? "Buscar quem está há N dias ou mais sem retornar e pôr na fila" : SemAcesso)">
                 <Icone Nome="atualizar" />Gerar recall (@_diasRecall dias)
             </button>
         }
-        <button type="button" class="botao" disabled="@(!PodeAcompanhar || _retornos)" @onclick="ExportarAsync" title="A lista à vista, com a coluna de quem pode receber mensagem (Ctrl+P)">
+        <button type="button" class="botao" disabled="@(!PodeAcompanhar)" @onclick="ExportarAsync" title="A lista à vista, com a coluna de quem pode receber mensagem (Ctrl+P)">
             <Icone Nome="baixar" />Exportar CSV
         </button>
         <button type="button" class="botao icone" @onclick="() => CarregarAsync()" title="Atualizar (F5)" aria-label="Atualizar a lista"><Icone Nome="atualizar" /></button>
@@ -52,14 +52,6 @@
         <section class="cartao lista-cartao">
             <FalhaDeLeitura Titulo="Não foi possível ler a fila de acompanhamento" Detalhe="@_erroLeitura" AoTentarDeNovo="() => CarregarAsync()" />
         </section>
-    }
-    else if (_retornos)
-    {
-        @* Fase 2 (docs/crm-na-recepcao.md): os "Retornos a marcar" moram aqui — a mesma fila, as mesmas ações. *@
-        <section class="cartao lista-cartao">
-            <div class="filtros acomp-barra">@Filas</div>
-        </section>
-        <RetornosAMarcar Embutida="true" />
     }
     else if (!_carregou)
     {
@@ -207,23 +199,15 @@
     private string? _nomeClinica;
     private int _diasRecall = 60;
     private bool _recallGerado;
-    // A terceira fila (fase 2): os retornos pedidos pelo profissional, sem horário ainda.
-    private bool _retornos;
-    private int? _pendentesRetornos;
 
-    /// <summary>As três filas — o mesmo seletor na lista do acompanhamento e na dos retornos.</summary>
+    /// <summary>As duas filas (a terceira, dos retornos pedidos, saiu com o "Retorno sugerido" em 26/10/2026).</summary>
     private RenderFragment Filas => __builder =>
     {
         <div class="segmentado" role="group" aria-label="Qual fila">
-            <button type="button" aria-pressed="@Bool(!_retornos && _tipo == TipoAcompanhamento.Recall)" @onclick="() => TrocarTipo(TipoAcompanhamento.Recall)"
+            <button type="button" aria-pressed="@Bool(_tipo == TipoAcompanhamento.Recall)" @onclick="() => TrocarTipo(TipoAcompanhamento.Recall)"
                     title="Quem parou de vir — por modalidade">Recall · <b>@_pendentesRecall</b></button>
-            <button type="button" aria-pressed="@Bool(!_retornos && _tipo == TipoAcompanhamento.NovoBsv)" @onclick="() => TrocarTipo(TipoAcompanhamento.NovoBsv)"
+            <button type="button" aria-pressed="@Bool(_tipo == TipoAcompanhamento.NovoBsv)" @onclick="() => TrocarTipo(TipoAcompanhamento.NovoBsv)"
                     title="As indicações de BSV do profissional configurado, até a 1ª sessão">Novos BSV · <b>@_pendentesBsv</b></button>
-            @if (Pode(Permissao.VerAgenda))
-            {
-                <button type="button" aria-pressed="@Bool(_retornos)" @onclick="MostrarRetornos"
-                        title="Quem saiu do atendimento com pedido de retorno e ainda não tem horário">Retornos pedidos@(_pendentesRetornos is { } n ? " · " : "")@if (_pendentesRetornos is { } r) { <b>@r</b> }</button>
-            }
         </div>
     };
 
@@ -275,14 +259,12 @@
     }
 
     /// <summary>
-    /// O contador "Retornos" do Início pede a fila de retornos; o "Ver caso" do WhatsApp pede o caso de
-    /// uma pessoa, que abre DEPOIS da leitura (é ela que traz a linha) — ver <see cref="AbrirCasoPedido"/>.
+    /// O "Ver caso" do WhatsApp pede o caso de uma pessoa, que abre DEPOIS da leitura (é ela que traz a linha) — ver <see cref="AbrirCasoPedido"/>.
     /// </summary>
     private void AtenderPedido()
     {
         var pedido = Servicos.GetService<PedidoDoAcompanhamento>();
         if (pedido is null) return;
-        if (pedido.ConsumirRetornos()) MostrarRetornos();
         if (pedido.ConsumirCaso() is { } caso) _casoPedido = caso;
     }
 
@@ -304,7 +286,6 @@
             Notificacoes.Info($"Feche o que está aberto para ver o caso de {l.Paciente}.");
             return;
         }
-        _retornos = false;
         _tipo = l.Tipo;
         _faixa = null;
         Refiltrar();
@@ -355,13 +336,6 @@
             }
             var config = await servico.ConfiguracaoAsync(UsuarioId);
             var linhas = await servico.ListarAsync(UsuarioId);
-            // A contagem da fila de retornos (o número no seletor). Falha aqui não derruba a fila principal.
-            int? retornos = null;
-            if (Pode(Permissao.VerAgenda))
-            {
-                try { retornos = (await sp.GetRequiredService<RetornosAMarcarService>().ListarAsync()).Count; }
-                catch (Exception ex) { Clinica.Application.Diagnostico.Registrar("Blazor — contagem dos retornos a marcar não pôde ser lida", ex); }
-            }
             string? nome = _nomeClinica;
             if (nome is null)
             {
@@ -371,7 +345,6 @@
             if (geracao != _geracao || Descartada) return;
 
             _todos = linhas;
-            _pendentesRetornos = retornos;
             _motivos = config.Motivos;
             _responsaveis = config.Responsaveis;
             _diasRecall = dias;
@@ -411,8 +384,7 @@
         _resumo = ConversaDoAcompanhamento.Resumo(_linhas.Count, _naFila, Filtrada);
     }
 
-    private void TrocarTipo(TipoAcompanhamento tipo) { _retornos = false; _tipo = tipo; _faixa = null; Refiltrar(); }
-    private void MostrarRetornos() { if (Pode(Permissao.VerAgenda)) _retornos = true; }
+    private void TrocarTipo(TipoAcompanhamento tipo) { _tipo = tipo; _faixa = null; Refiltrar(); }
     private void TrocarEscopo(bool minha) { _minha = minha; Refiltrar(); }
 
     /// <summary>O funil é o filtro: clicar escolhe a faixa; clicar de novo limpa.</summary>

@@ -21,7 +21,7 @@ public interface IMarcacaoDeHorario
     Task<bool> MarcarAsync(int pacienteId, int? profissionalId, string? modalidadeCodigo);
 
     /// <summary>
-    /// Marcação já num DIA (out/2026, "Retornos a marcar": a data sugerida por quem atendeu).
+    /// Marcação já num DIA (out/2026).
     /// O padrão cai na marcação sem dia — abre em hoje e a recepção troca a data; quem
     /// hospeda e sabe pré-preencher o dia (a ponte da Recepção) sobrescreve este método.
     /// </summary>

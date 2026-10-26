@@ -446,8 +446,7 @@ public sealed class ModuloRecepcao : IModuloApp
             Chave = ChaveLancamentos, Rotulo = "Lan\u00E7amentos", Glifo = "\uE9D5", Icone = "lista",
             Grupo = GrupoSidebar.Atendimento, Requer = Permissao.LancarAtendimento
         },
-        // "Retornos a marcar" saiu do menu na fase 2 (out/2026, docs/crm-na-recepcao.md): é a fila
-        // "Retornos pedidos" do Acompanhamento — uma porta só para quem a recepção chama de volta.
+        // "Retornos a marcar" saiu do sistema em 26/10/2026, com o "Retorno sugerido" (pedido da clínica).
         // O "Canal de SMS" saiu na fase 3: o CRM é o único remetente de SMS (docs/canal-sms.md).
         // Chamar de volta quem parou de vir (parcela 48). Quem telefona é o BALCÃO — e é
         // por isso que ela continua aqui, virando aba de "Marketing / Recall" só onde a

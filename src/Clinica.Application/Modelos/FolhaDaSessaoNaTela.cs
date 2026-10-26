@@ -98,6 +98,18 @@ public sealed class RascunhoDaSessao
     public static IReadOnlyList<int> EscalaEva { get; } =
         Enumerable.Range(Evolucao.EvaMinima, Evolucao.EvaMaxima - Evolucao.EvaMinima + 1).ToList();
 
+    /// <summary>O par da EVA: 1 melhorou, -1 piorou, 0 igual; nulo sem os dois valores.</summary>
+    public int? SentidoDaEva => EvaAntes is { } antes && EvaDepois is { } depois ? Math.Sign(antes - depois) : null;
+
+    /// <summary>A frase do par ao lado dos seletores ("8 → 3 · melhora de 5"); vazia sem os dois valores.</summary>
+    public string ResultadoDaEva => (EvaAntes, EvaDepois) switch
+    {
+        ({ } antes, { } depois) when antes > depois => $"{antes} → {depois} · melhora de {antes - depois}",
+        ({ } antes, { } depois) when antes < depois => $"{antes} → {depois} · piora de {depois - antes}",
+        ({ } antes, { }) => $"{antes} → {antes} · sem mudança",
+        _ => string.Empty,
+    };
+
     /// <summary>
     /// A descrição do CID digitado — a metade que PEGA o erro ("M54.4" no lugar de "M54.5").
     /// Código fora do catálogo não é recusado: a frase diz que ele não foi reconhecido.
@@ -108,13 +120,15 @@ public sealed class RascunhoDaSessao
 
     /// <summary>
     /// Os campos do detalhe que ESTA sessão já tem escritos. Os personalizados NÃO entram:
-    /// eles estão à vista na folha, e o selo conta o que está escondido atrás do clique.
+    /// eles estão à vista na folha, e o selo conta o que está escondido atrás do clique. O motivo
+    /// do retorno também não: ele saiu da tela com o "Retorno sugerido" (26/10/2026), e contá-lo
+    /// anunciaria um campo que a janela não mostra.
     /// </summary>
     public int CamposDetalhados =>
         new[]
         {
             QueixaPrincipal, HistoriaDoencaAtual, ExameFisico, HipoteseDiagnostica, CidSessao,
-            Conduta, Orientacoes, PlanoTerapeutico, RetornoSugeridoNota, Encaminhamento
+            Conduta, Orientacoes, PlanoTerapeutico, Encaminhamento
         }.Count(v => !string.IsNullOrWhiteSpace(v));
 
     public bool TemCamposDetalhados => CamposDetalhados > 0;

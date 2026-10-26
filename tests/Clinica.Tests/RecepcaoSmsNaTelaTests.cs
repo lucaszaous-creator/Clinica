@@ -8,8 +8,8 @@ using Xunit;
 namespace Clinica.Tests;
 
 /// <summary>
-/// O que as telas Blazor de Confirmações e Retornos a marcar AFIRMAM (out/2026). O Canal de SMS
-/// saiu na fase 3 Recepção×CRM (quem manda SMS é só o CRM). As duas só desenham: cada frase,
+/// O que a tela Blazor de Confirmações AFIRMA (out/2026). O Canal de SMS
+/// saiu na fase 3 Recepção×CRM (quem manda SMS é só o CRM). Ela só desenha: cada frase,
 /// contagem e recorte daqui é o que a recepcionista lê.
 /// </summary>
 public class RecepcaoSmsNaTelaTests
@@ -119,36 +119,5 @@ public class RecepcaoSmsNaTelaTests
         ConfirmacoesNaTela.ResultadoDaGeracao(2, 1).Should().Be("2 sessão(ões) para avisar. 1 já estavam na rodada.");
         ConfirmacoesNaTela.ResultadoDaGeracao(0, 4).Should().StartWith("Nada novo");
         ConfirmacoesNaTela.ResultadoDaGeracao(0, 0).Should().Be("Nenhuma sessão marcada para este dia.");
-    }
-
-    // ==================== Retornos a marcar ====================
-
-    private static RetornoAMarcar Retorno(int id, int atraso, DateOnly? marcado = null, string? nota = "rever") =>
-        new(id, $"P{id}", "(21) 98123-4567", Amanha.AddDays(-10), Amanha.AddDays(-atraso), nota, 1, "Dra. Helena", atraso)
-        { MarcadoPara = marcado };
-
-    [Fact]
-    public void Todos_e_a_fila_de_trabalho_e_o_ja_marcado_so_aparece_no_chip_dele()
-    {
-        var todas = new[] { Retorno(1, 5), Retorno(2, -3), Retorno(3, -20), Retorno(4, -2, Amanha) };
-        RetornosAMarcarNaTela.Recortar(todas, null).Select(r => r.PacienteId).Should().Equal(1, 2, 3);
-        RetornosAMarcarNaTela.Recortar(todas, FaixaRetorno.JaMarcado).Should().ContainSingle().Which.PacienteId.Should().Be(4);
-
-        var c = RetornosAMarcarNaTela.Contar(todas);
-        c.Should().Be(new ContagemRetornos(3, 1, 1, 1, 1));
-        RetornosAMarcarNaTela.Resumo(todas).Should().Be("3 retorno(s) a marcar · 1 com a data sugerida já passada");
-        RetornosAMarcarNaTela.Resumo([]).Should().StartWith("Ninguém");
-    }
-
-    [Fact]
-    public void Marcar_o_atrasado_abre_em_hoje_e_a_nota_some_da_linha_para_quem_nao_le_prontuario()
-    {
-        var hoje = Amanha;
-        RetornosAMarcarNaTela.DiaParaMarcar(Retorno(1, 5), hoje).Should().Be(hoje);
-        RetornosAMarcarNaTela.DiaParaMarcar(Retorno(2, -3), hoje).Should().Be(hoje.AddDays(3));
-
-        var linhas = new[] { Retorno(1, 1, nota: "ver exames") };
-        RetornosAMarcarNaTela.SemNotaSeNaoPode(linhas, podeVerNota: false).Single().Nota.Should().BeNull();
-        RetornosAMarcarNaTela.SemNotaSeNaoPode(linhas, podeVerNota: true).Single().Nota.Should().Be("ver exames");
     }
 }

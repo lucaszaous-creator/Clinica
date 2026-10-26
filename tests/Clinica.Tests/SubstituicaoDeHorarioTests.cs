@@ -325,20 +325,4 @@ public class SubstituicaoDeHorarioTests : IDisposable
         (await _conciliacao.LevantarAsync(Hoje)).Parados.Select(p => p.AgendamentoId)
             .Should().Contain(horario, "o horário voltou a ser pergunta");
     }
-
-    [Fact]
-    public async Task Horario_posterior_substituido_nao_cobre_o_retorno_a_marcar()
-    {
-        var paciente = await PacienteAsync();
-        var dia = Hoje.AddDays(-5);
-        var (horario, sessao) = await CasoRealAsync(paciente, dia);
-
-        (await _repo.HorariosAtivosDosPacientesAsync([paciente], dia)).Should().HaveCount(2,
-            "antes: o horário parado e o encaixe");
-
-        await _agenda.SubstituirPorSessaoAsync(horario, sessao, "flavia@");
-
-        (await _repo.HorariosAtivosDosPacientesAsync([paciente], dia)).Should().ContainSingle(
-            "a lista é POSITIVA (agendado, realizado): o substituído não é 'horário posterior'");
-    }
 }

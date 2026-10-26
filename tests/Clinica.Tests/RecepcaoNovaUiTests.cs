@@ -9,7 +9,7 @@ namespace Clinica.Tests;
 
 /// <summary>
 /// As regras que as telas novas da Recepção AFIRMAM (out/2026, mockups aprovados): os vãos
-/// livres e os dias fechados da Visão geral, o chip "Já marcados" dos retornos e o placar
+/// livres e os dias fechados da Visão geral e o placar
 /// da rodada de confirmação. Moram na Application — o projeto WPF não compila aqui.
 /// </summary>
 public class RecepcaoNovaUiTests
@@ -93,33 +93,6 @@ public class RecepcaoNovaUiTests
             Motivo = "feriado municipal"
         };
         VaosDaAgenda.Fechados(null, Segunda, Segunda, [feriado]).Should().ContainSingle();
-    }
-
-    // ==================== Retornos: "Já marcados" ====================
-
-    private static readonly DateOnly Hoje = new(2026, 9, 10);
-
-    private static RetornoSugerido Sugestao(int paciente, DateOnly sessao, DateOnly retorno)
-        => new(paciente, paciente, $"P{paciente}", "21999990000", sessao, retorno, null, 7, null, "Helena");
-
-    [Fact]
-    public void Ja_marcado_fica_no_chip_dele_com_a_data_e_sai_da_fila()
-    {
-        var sugestoes = new[]
-        {
-            Sugestao(1, new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 8)),
-            Sugestao(2, new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 15))
-        };
-        var horarios = new[] { new HorarioPosterior(1, new DateTime(2026, 9, 9, 10, 0, 0)) };
-
-        var todos = RetornosAMarcar.MontarComMarcados(sugestoes, horarios, Hoje);
-        var fila = RetornosAMarcar.Montar(sugestoes, horarios, Hoje);
-
-        fila.Select(l => l.PacienteId).Should().Equal(2);
-        var marcado = todos.Single(l => l.PacienteId == 1);
-        marcado.Faixa.Should().Be(FaixaRetorno.JaMarcado);
-        marcado.SituacaoTexto.Should().Be("marcado para 09/09");
-        todos.Single(l => l.PacienteId == 2).Faixa.Should().Be(FaixaRetorno.EstaSemana);
     }
 
     // ==================== Confirmações ====================

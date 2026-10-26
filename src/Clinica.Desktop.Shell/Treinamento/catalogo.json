@@ -7439,7 +7439,6 @@
       "Cobre as guias do 2º código",
       "Peça o documento pelo WhatsApp",
       "Confirme as sessões de amanhã",
-      "Marque os retornos pedidos",
       "Faça o recall do dia",
       "Parabenize os aniversariantes",
       "Atualize o início",
@@ -7521,11 +7520,6 @@
         "Inicio": 150.53,
         "Titulo": "15. Confirme as sessões de amanhã",
         "Texto": "Conta quantos pacientes de amanhã falta avisar e quantos não responderam. O clique leva às Confirmações."
-      },
-      {
-        "Inicio": 160.1,
-        "Titulo": "16. Marque os retornos pedidos",
-        "Texto": "Retornos que o médico pediu e ainda não têm horário. O clique leva à fila de Retornos a marcar."
       },
       {
         "Inicio": 168.96,
@@ -8743,105 +8737,6 @@
     ],
     "Duracao": 158.93,
     "Sha256": "2948535444e9f2cfbf68ae2fae6b7d5bd5f0f4f67c0b49aa823fb7ef6d4ae270"
-  },
-  {
-    "Id": "retornos-a-marcar",
-    "Titulo": "Retornos a marcar",
-    "Categoria": "Recepção",
-    "Descricao": "Quem saiu do atendimento com pedido de retorno e ainda não tem horário — para convidar ou marcar já.",
-    "Telas": [
-      "retornos-a-marcar"
-    ],
-    "Funcoes": [
-      "Conheça a fila de retornos",
-      "Veja os atrasados",
-      "Veja os desta semana",
-      "Veja os mais adiante",
-      "Confira os já marcados",
-      "Leia o resumo da fila",
-      "Leia a linha do retorno",
-      "Veja para quando é",
-      "Leia a nota do profissional",
-      "Convide pelo WhatsApp",
-      "Sem telefone, ligue",
-      "Atualize a fila",
-      "Saiba o que vai no convite",
-      "Marque o horário"
-    ],
-    "Capitulos": [
-      {
-        "Inicio": 7.52,
-        "Titulo": "1. Conheça a fila de retornos",
-        "Texto": "Aqui aparece quem o profissional pediu para voltar e ainda não tem horário. A linha some sozinha quando o horário é marcado."
-      },
-      {
-        "Inicio": 18.07,
-        "Titulo": "2. Veja os atrasados",
-        "Texto": "Os chips contam e filtram a fila. Atrasados são os retornos cuja data sugerida já passou: comece por eles."
-      },
-      {
-        "Inicio": 27.52,
-        "Titulo": "3. Veja os desta semana",
-        "Texto": "Esta semana mostra os retornos sugeridos para os próximos dias. Clique de novo no chip para ver a fila inteira."
-      },
-      {
-        "Inicio": 37.44,
-        "Titulo": "4. Veja os mais adiante",
-        "Texto": "Mais adiante são os retornos com data mais longe. Dá para marcar com antecedência."
-      },
-      {
-        "Inicio": 45.6,
-        "Titulo": "5. Confira os já marcados",
-        "Texto": "Já marcados mostra quem pediu retorno e já ganhou horário. Servem só para conferir; não há o que fazer."
-      },
-      {
-        "Inicio": 60.35,
-        "Titulo": "6. Leia o resumo da fila",
-        "Texto": "O resumo diz quantos retornos há para marcar e quantos já passaram da data sugerida."
-      },
-      {
-        "Inicio": 68.3,
-        "Titulo": "7. Leia a linha do retorno",
-        "Texto": "Cada linha traz o paciente com o telefone, quem pediu o retorno e em que sessão, e para quando."
-      },
-      {
-        "Inicio": 77,
-        "Titulo": "8. Veja para quando é",
-        "Texto": "O selo diz se o retorno está atrasado, é para amanhã ou daqui a quantos dias; abaixo, a data sugerida."
-      },
-      {
-        "Inicio": 85.82,
-        "Titulo": "9. Leia a nota do profissional",
-        "Texto": "A nota explica o motivo do retorno. Só aparece para quem tem acesso ao prontuário e nunca vai na mensagem ao paciente."
-      },
-      {
-        "Inicio": 96.09,
-        "Titulo": "10. Convide pelo WhatsApp",
-        "Texto": "Convidar abre o WhatsApp com o convite pronto: diz quem pediu o retorno e para quando, sem o motivo clínico."
-      },
-      {
-        "Inicio": 105.42,
-        "Titulo": "11. Sem telefone, ligue",
-        "Texto": "Sem telefone no cadastro, o convite fica apagado. Ligue para o paciente ou complete a ficha."
-      },
-      {
-        "Inicio": 113.72,
-        "Titulo": "12. Atualize a fila",
-        "Texto": "Relê a fila agora, para tirar quem acabou de ganhar horário em outra máquina. Atalho: F5."
-      },
-      {
-        "Inicio": 122,
-        "Titulo": "13. Saiba o que vai no convite",
-        "Texto": "O convite nunca leva o motivo clínico. Marcar horário abre a marcação com o paciente e o profissional já preenchidos."
-      },
-      {
-        "Inicio": 132.15,
-        "Titulo": "14. Marque o horário",
-        "Texto": "Marcar horário leva à marcação já com o paciente, a data sugerida e quem pediu o retorno. Basta escolher a hora."
-      }
-    ],
-    "Duracao": 148.67,
-    "Sha256": "0ce7b0d9bdc581087c4879a1af634950555d5b45f9fa14e1f373d9bdc5aaaefe"
   },
   {
     "Id": "consultorio-sala-infusao",

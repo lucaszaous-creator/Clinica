@@ -5,7 +5,7 @@ sessão). O texto é o MESMO, sem reescrita: design system, WPF/XAML, Blazor, EF
 `verificar-suite`, assinatura digital, impressão, CRM e as rodadas de UI, cada uma com o defeito que a
 originou. Antes de escrever uma tela, uma consulta ou uma checagem, procure aqui a lição da área.
 
-## Índice (208 tópicos, na ordem do arquivo)
+## Índice (209 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -217,6 +217,7 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
 - A prévia com `--no-build` mostra o binário de ANTES: compilar os testes não a atualiza
 - Telefone que vai ao CRM tira o prefixo de DISCAGEM antes do 55 — em toda porta, inclusive na BUSCA
 - Menu de contexto no Blazor: a regra na Application, `aria-disabled` para a dica, `preventDefault` no elemento e a posição no JS
+- Blazor Sections: o lugar de destino é um objeto POR INSTÂNCIA, nunca um nome global
 ---
 
 
@@ -5275,3 +5276,33 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
      `:stopPropagation` (o Esc do menu não chega aos `@onkeydown` da tela, que fecham os popovers dela).
      As setas, que dependem da PRÓPRIA tecla, são JS (o tópico "Tecla no Blazor…" acima). Menu que fica
      aberto sob a rolagem aponta para a linha errada.
+
+- **Blazor Sections: o lugar de destino é um objeto POR INSTÂNCIA, nunca um nome global**
+  (out/2026, folha do médico aprovada pela clínica). O EMITIR passou a morar DEBAIXO DO RAIL da tela
+  do paciente, que é de outro componente: a seção o entrega por `SectionContent`/`SectionOutlet`. A
+  primeira versão usou `SectionName` com uma constante — e dois testes reprovaram com *"There is
+  already a subscriber to the content with the given section ID"*: o registro de seções é UM por
+  renderizador, e o palco mantém telas montadas no MESMO navegador. Duas telas do paciente vivas
+  disputariam a mesma área, e o EMITIR de um paciente poderia aparecer na tela de outro. A saída é
+  `SectionId` com um `object` criado pela tela (`ITelaDoPaciente.ExtraDoRail`); quem não tem rail
+  devolve nulo e a seção desenha o bloco no lugar de antes. **Ao entregar markup a outro componente,
+  o endereço é da INSTÂNCIA — nome global é a variável estática da renderização.**
+  ⚠️ **E a folha cabe na janela SEM rolar a página** (o pedido seguinte da clínica, notebook de
+  1280×720): quem dá altura é o PALCO (`.palco-tela`, contêiner de altura fixa que rola sozinho), então
+  a tela do paciente na folha do médico (`.na-folha`) toma `height:100%` e passa a altura adiante numa
+  cadeia flex/grid com `min-height:0` em CADA elo — um elo sem ele faz o filho crescer com o conteúdo e
+  a página volta a rolar. O editor leva o que sobra e rola por dentro; o cartão rola por dentro quando
+  a janela é baixa demais (cortar seria pior), com o rodapé sticky. Abaixo de 560 px de altura ou de
+  1101 de largura volta a rolagem de página. ⚠️ A PRÉVIA rola o `body`, não um palco: a página
+  `/atendimento-medico` embrulha a `Raiz` num `.palco-tela`, senão a foto mostraria outra coisa.
+  ⛔ **E "cabe na janela" se mede pelo que ficou ESCONDIDO, não pela caixa que cresceu** (a cliente
+  achou "falta a infusão": o EMITIR rolava por dentro da coluna e a infusão estava abaixo da borda,
+  sem sinal nenhum). Três erros meus de método, e a regra de cada um: (1) **a altura de projeto é a
+  que SOBRA no app** — 1280×720 menos barra de tarefas, título da janela e o topo da moldura (68 px)
+  dá ~570, não os 680 que fotografei; (2) **o dia CHEIO é o caso de projeto** — termo pendente, BSV e
+  "Já saiu hoje" crescem a coluna, e por isso o termo foi para a linha de avisos da folha e o "Já saiu
+  hoje" para o rodapé, recolhido; (3) **"visível" não basta, a caixa precisa de ALTURA ÚTIL** — com
+  `min-height:0` nos elos de dentro, o piso posto no texto não segurava e a caixa encolheu a uma
+  linha; o piso mora no contêiner (`.at-editor`). `tools/PreviaBlazor/conferir-folha.js` mede tudo
+  isso sem rolar nada (à vista, não recortado, texto ≥ 180 px) em cada tamanho, normal e dia cheio:
+  rode-o antes de mandar foto.
