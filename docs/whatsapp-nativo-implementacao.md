@@ -1041,3 +1041,149 @@ recepção digitou.
   entregou nada para aquele número; ficam como histórico.
 - **A dúvida da autorização de quem nunca passou por um termo do BSV**: `docs/fase3-recepcao-crm.md`
   §6.5.
+
+
+## 18. O botão direito: o menu de contexto (25/10/2026)
+
+O pedido da direção: *"possíveis interações com o clique no botão direito"* na aba WhatsApp. Até aqui o
+botão direito não fazia nada de útil na tela (abria o menu do próprio WebView2). Agora ele abre um menu
+em dois lugares: numa **conversa da lista** e numa **mensagem** (o balão recebido ou enviado; notas
+internas e eventos da trilha não têm menu). Nada sai ao paciente sem a pessoa confirmar, e não há regra
+nova: cada item leva ao que a tela já fazia.
+
+| Peça | Onde | Teste |
+|---|---|---|
+| **A regra** — qual item aparece, em que ordem, e por que um deles está desabilitado | `MenuDoWhatsApp` (Application): `ItemDeMenu<TAcao>` (ação, rótulo, ícone, `Motivo`, `Perigo`, `GrupoNovo`; habilitado = sem motivo), `AcaoNaConversa`, `AcaoNaMensagem`, `AcessoNoMenu` (o bit de escrever, `VerFichaPaciente`, as permissões do `GuardarNaFichaService`, o @SemDor ligado), `DaConversa`, `DaMensagem`, `MotivoParaNaoReenviar` e os textos `ComDataEHora`, `ComecoDaNota`, `DetalhesDaEntrega` | `MenuDoWhatsAppTests` (11 casos: a fila, a minha, a de outra pessoa, a encerrada, a leitura, a ficha, citar, reenviar, a mídia, os textos e a citação) |
+| **O componente** — desenha, posiciona, foca e fecha | `Componentes/MenuDeContexto.razor` (genérico em `TAcao`), `Ativos/js/menu-de-contexto.js` (`posicionar`, as setas, `selecaoEm`), `.menu-contexto*` em `clinica.css` (só tokens) | pelos testes da tela, abaixo |
+| **A ligação na tela** | `Telas/Recepcao/ConversasDoWhatsApp.MenuDeContexto.cs` (arquivo próprio); no Razor, só o `@oncontextmenu` da linha e do balão (com `data-mensagem` para achar a seleção) e os dois `<MenuDeContexto>` | `RegrasDoWhatsAppNaTelaTests.Botao_direito_na_lista_mostra_o_menu_da_conversa_e_marca_como_nao_lida` e `Botao_direito_na_mensagem_responde_citando_e_a_citacao_vai_ao_CRM` |
+| **A citação** ("Responder citando") | `CitacaoNaConversa` + `ConversasNaTela.Citacao` (o primeiro nome de quem escreveu e o começo do texto, até `LetrasDaCitacao` = 90 letras; sem texto, o tipo do arquivo); `ItemDaConversa.Citacao` (o balão mostra o que cita, quando a citada está na conversa); `RascunhoDaConversa.Citada` (a faixa "Respondendo a …" acima do campo, com × para tirar; nota interna não cita); `WhatsAppDaRecepcaoService.ResponderAsync(..., citada)` manda o `ReplyToId` que o contrato já tinha (no SMS, recusa) | `MenuDoWhatsAppTests.A_citacao_mostra_quem_escreveu_e_o_comeco_e_o_balao_a_carrega`; o teste da mensagem acima (o `ReplyToId` chega ao CRM de mentira) |
+| **A leitura** | `WhatsAppDaRecepcaoService.MarcarNaoLidaAsync` (→ `IClienteDoCrm.MarcarNaoLidaAsync`, `POST /api/conversations/{id}/unread`) e `MarcarLidaAsync` (lê a conversa e manda o `/read` de sempre, sem abri-la na tela); `ClienteDoCrmHttp` e o CRM de mentira da prévia | o teste da lista acima |
+
+**Fotos** (`tools/PreviaBlazor/fotos-whatsapp.js`), em 1366 e 1024, em
+`docs/mockups/whatsapp-nativo/tela-real/`: `80-menu-da-conversa`, `81-menu-da-mensagem`,
+`82-responder-citando`, `83-menu-no-canto` (o menu aberto perto da borda, puxado para dentro) e
+`84-respondeu-citando`.
+
+### O menu de uma conversa da lista
+
+"Sem o bit" é sempre a dica **"Seu acesso não alcança escrever no WhatsApp"**; "só com você" é
+**"Só quem está com a conversa: assuma antes"** (`MenuDoWhatsApp.SoComVoce`).
+
+| Item | Quando aparece | Quando vem desabilitado (a dica) |
+|---|---|---|
+| Abrir | sempre | nunca |
+| Reabrir | conversa encerrada | sem o bit |
+| Devolver à fila | aberta e com quem vê | sem o bit |
+| Assumir | aberta e não está com quem vê | sem o bit; com outra pessoa: "Está com outra pessoa: peça a transferência" |
+| Transferir… | aberta | sem o bit; "só com você"; já há pedido: "Já há um pedido de transferência aguardando o aceite" |
+| Nota interna | aberta | sem o bit; "só com você" |
+| Marcar como lida | há não lidas | nunca (a marca de leitura é de quem vê: não pede o bit) |
+| Marcar como não lida | não há não lidas | sem recebida: "Ainda não há mensagem recebida" |
+| Copiar telefone | sempre | "Sem telefone" |
+| Abrir a ficha | a conversa tem ficha ligada | sem `VerFichaPaciente`: "Seu acesso não alcança a ficha do paciente" |
+| Ligar a ficha… | sem ficha ligada | sem o bit |
+| Resumo do @SemDor | o @SemDor ligado | sem o bit |
+| Encerrar… (vermelho) | aberta | sem o bit; "só com você" |
+
+### O menu de uma mensagem
+
+"Janela" é a de 24 h do WhatsApp; "com você" é a conversa estar com quem vê.
+
+| Item | Quando aparece | Quando vem desabilitado (a dica) |
+|---|---|---|
+| Responder citando | sempre | sem o bit; SMS: "O SMS não cita mensagens"; janela fechada: "Janela de 24 h fechada: só modelo, que não cita"; sem id: "Esta mensagem ainda não tem o número do WhatsApp" |
+| Copiar a seleção | só com texto selecionado DENTRO deste balão no instante do clique | — |
+| Copiar o texto | sempre | "A mensagem não tem texto" (foto sem legenda, áudio) |
+| Copiar com data e hora | sempre | idem; copia "[21/10 07:34] Alice: Confirmar" |
+| Reenviar… | enviada que **falhou** ou que o WhatsApp **não confirmou** | sem o bit; modelo: "Modelo se reenvia escolhendo de novo em Modelos"; arquivo: "Arquivo se reenvia anexando de novo"; sem texto; janela fechada: "Janela de 24 h fechada: só modelo"; "só com você" |
+| Usar como rascunho | enviada | sem o bit; sem texto ou modelo: "Só texto escrito vira rascunho (modelo se escolhe em Modelos)" |
+| Salvar o arquivo… | a mensagem tem mídia | — |
+| Guardar na ficha | mídia que o paciente mandou | sem ficha: "Ligue a ficha antes: o telefone não é identidade"; sem a permissão: "Guardar na ficha pede "editar prontuário" (Acessos)" |
+| Nota interna sobre esta mensagem | sempre | sem o bit; "só com você". Com o campo vazio, a nota começa com "Sobre a mensagem das 17:02 ("…"): " |
+| Detalhes da entrega | enviada com tick | — (um aviso com Situação, Enviada, Por, Modelo e O que fazer) |
+
+### As decisões
+
+- **Desabilitado com o motivo, em vez de sumir.** Item que some ensina que a ação não existe; o item
+  apagado com a dica ensina onde ela mora e o que falta ("assuma antes", "ligue a ficha antes"). É o
+  desenho dos botões da conversa (§16). Só some o que não faz sentido naquele objeto: "Reabrir" numa
+  conversa aberta, "Reenviar" numa mensagem entregue, "Guardar na ficha" sem arquivo.
+- **`aria-disabled`, e não `disabled`.** O botão `disabled` não mostra o `title` no Chromium (o
+  WebView2): a dica, que é a razão de o item estar ali, não apareceria. Com `aria-disabled="true"` o
+  leitor de tela anuncia "indisponível", o CSS apaga o item, o componente ignora o clique
+  (`EscolherAsync` confere `Habilitado`) e as setas o pulam.
+- **O menu é ATALHO, nunca uma segunda regra.** A regra 1 ("uma porta por pergunta") vale para a
+  decisão: cada item chama o MESMO handler do botão do topo, do aviso ou do balão (`AssumirAsync`,
+  `DevolverAsync`, os formulários de Transferir e Encerrar, `AbrirGuardar`, `BaixarMidiaAsync`,
+  `ResumirComSemDorAsync`…), com o mesmo `Exigir`. Na lista, o que precisa da conversa aberta primeiro
+  a abre e depois chama o handler; copiar o telefone, abrir a ficha e a leitura não abrem nada.
+- **Reenviar é um envio NOVO, com pergunta.** O CRM nunca repete sozinho um envio incerto (é o que
+  torna o envio idempotente pelo `IdDoEnvio`): mandar de novo com o mesmo id não reenviaria nada. O
+  reenvio usa um id novo e, por isso, se a primeira tiver chegado, a pessoa recebe duas — a confirmação
+  diz isso ("Se a primeira chegou, a pessoa recebe duas vezes. Confira com ela antes, se puder."). Só
+  texto escrito, com a janela aberta e a conversa com quem vê; modelo e arquivo se reenviam pelo
+  caminho deles.
+- **Marcar como não lida fecha a conversa, se ela estiver aberta.** Aberta, a próxima leitura a
+  marcaria lida de novo, e o clique não teria efeito visível. A lista acompanha na hora (a linha volta
+  a ter não lida) e a releitura confirma. O `/unread` volta só a ÚLTIMA recebida, só para quem pediu;
+  a colega não vê diferença.
+- **"Copiar a seleção" só com seleção dentro daquele balão.** O JS (`selecaoEm`) confere que a seleção
+  está dentro do `[data-mensagem]` clicado: texto selecionado noutro lugar da tela não vira um item
+  que copia outra coisa.
+- **Posição e foco no JS, depois de desenhar.** O menu nasce invisível no ponto do clique; o
+  `posicionar` mede, puxa para dentro da janela (margem de 8 px), mostra e foca o primeiro item
+  habilitado. Fecha no Esc, no Tab, no clique ou botão direito fora, na rolagem do mouse e sempre
+  depois de escolher.
+
+### Dependência do CRM: publique o CRM ANTES dos apps
+
+"Marcar como não lida" usa a rota nova **`POST /api/conversations/{id}/unread`**, implementada no
+`semdor-crm` na branch `claude/marcar-como-nao-lida` (commit `51ad693`): a marca de leitura de quem
+pede vira recebidas − 1; 400 sem recebida; não muda a versão da conversa nem entra na auditoria; o
+`?desde=` passa a trazer a conversa de quem mudou a marca. O contrato (`ApiParaOsApps.cs`) **não
+mudou** (mesmo SHA-256), e a citação usa o `ReplyToId` que ele já tinha.
+
+**Ordem:** juntar e publicar o CRM na VPS 2, depois Recepção e Gerente. Com o app novo e o CRM
+antigo, o resto do menu funciona e só "Marcar como não lida" falha (404; a tela diz que nada foi
+alterado). "Marcar como lida" usa o `/read` de sempre e não depende da publicação.
+
+### 🧑‍💻 UX · 🛠️ DX · 🤝 CX
+
+- 🧑‍💻 **UX**
+  - O que a secretária faz numa conversa sem precisar lê-la (copiar o telefone, abrir a ficha, marcar
+    como lida ou não lida) é um clique a partir da lista; o resto abre a conversa e já faz a ação.
+  - Responder citando é o gesto do WhatsApp do celular: a faixa "Respondendo a Roberto" acima do campo,
+    o × para desistir, e o paciente recebe a resposta citada. O balão da tela mostra a citação também.
+  - Mensagem que não saiu se reenvia sem redigitar, com a pergunta que evita a duplicata às cegas.
+  - O item apagado diz por quê, no próprio menu. Aberto o menu, o teclado anda nele (setas, Home, End,
+    Enter; Esc e Tab fecham), e o leitor de tela ouve "Ações da conversa" / "Ações da mensagem".
+- 🛠️ **DX**
+  - A regra mora em `MenuDoWhatsApp` (Application, pura, com teste); a tela ganhou um arquivo próprio
+    (`ConversasDoWhatsApp.MenuDeContexto.cs`) e, no Razor, dois `@oncontextmenu` e dois componentes.
+  - `MenuDeContexto` é componente da casa, genérico em `TAcao`, com o JS e o CSS dele
+    (`docs/telas-blazor.md` §4): o próximo menu de contexto não redesenha nada.
+  - Um método novo no `IClienteDoCrm` (`MarcarNaoLidaAsync`), sem mudar o contrato. Lição em
+    `docs/agentes/convencoes.md` ("Menu de contexto no Blazor…").
+- 🤝 **CX**
+  - **Custo**: nenhum envio sem a pessoa clicar; o reenvio é UMA mensagem, com confirmação. "Marcar
+    como lida" pela lista lê a conversa e marca (uma ida e volta a mais que abri-la).
+  - **Risco**: o reenvio pode duplicar se a primeira tiver chegado — por isso a pergunta, e por isso
+    só para "falhou" e "não confirmada". Nenhuma migration.
+  - **Publicação**: o CRM na VPS 2 (a rota `/unread`) primeiro, depois Recepção e Gerente.
+
+### O que NÃO foi feito, e por quê
+
+- **As linhas do modo Retenção não têm menu.** Só a lista de Conversas ganhou o `@oncontextmenu`; o
+  caso da retenção é outra pergunta (o Acompanhamento), com os botões dele na coluna. Aberto o caso,
+  os balões da conversa têm o menu da mensagem como sempre.
+- **Notas internas e eventos da trilha não têm menu**: não são mensagem ao paciente.
+- **Não há atalho de teclado para ABRIR o menu** (Shift+F10, a tecla Menu). O componente não trata
+  essas teclas, e se o WebView2 dispara o `contextmenu` na linha focada não foi conferido; o balão
+  nem recebe foco. Aberto o menu, o teclado anda nele.
+- **O foco não volta à linha ou ao balão depois de fechar.** Quem abriu pelo mouse não sente; quem
+  usa teclado recomeça do topo.
+- **Toque longo (tela de toque) não abre o menu.** O toque segue com os botões que já aparecem sempre.
+- **"Perguntar ao profissional" e "Marcar horário" não estão no menu**: já são um botão ao lado do
+  balão e na coluna da ficha.
+- **Reenviar modelo ou arquivo**: o modelo se escolhe de novo em Modelos e o arquivo se anexa de novo
+  — reenviar por aqui pularia as conferências desses caminhos.

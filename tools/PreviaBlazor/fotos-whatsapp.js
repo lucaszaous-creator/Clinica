@@ -4,7 +4,8 @@
 //   TZ=America/Sao_Paulo faketime -f '@2026-10-23 10:12:00' dotnet run --project tools/PreviaBlazor --urls http://127.0.0.1:5199
 //   node tools/PreviaBlazor/fotos-whatsapp.js
 // PREVIA_URL troca a prévia (padrão http://127.0.0.1:5199 — outra porta para quem roda duas ao mesmo
-// tempo) e FOTOS escolhe quais tirar, por prefixo separado por vírgula (FOTOS=50,51,55 só a mídia).
+// tempo) e FOTOS escolhe quais tirar, por prefixo separado por vírgula (FOTOS=50,51,55 só a mídia; FOTOS=8 o botão
+// direito, 80–84). CANAL=chrome usa o Chrome instalado no lugar do Chromium do Playwright (Windows sem o navegador baixado).
 // O microfone é o falso do Chromium (--use-fake-device-for-media-stream): a foto "gravando" e o
 // fluxo 55 gravam um tom de verdade, que o CRM de mentira guarda.
 // ⚠️ UMA rodada por prévia RECÉM-INICIADA: os três fluxos gravam no CRM de mentira (que vive na
@@ -93,6 +94,24 @@ const ROTEIRO = [
   ['65-nome-no-whatsapp', async p => { await linha(p, 'Terezinha'); }],
   ['66-retencao-sem-telefone', async p => { await modo(p, 'Retenção'); await linha(p, 'Helena Martins'); }],
   ['67-retencao-responsavel', async p => { await modo(p, 'Retenção'); await linha(p, 'Alzira'); }],
+  // O botão direito (out/2026): o menu numa conversa da lista e num balão, o "Responder citando" com a barra acima do
+  // campo, e o menu aberto rente ao canto de baixo à direita — o menu-de-contexto.js o puxa para dentro da janela
+  // (em 1024 a conversa vai até a borda direita; em 1366 a ficha fica ao lado e o que se prova é a borda de baixo).
+  ['80-menu-da-conversa', async p => { await filtro(p, 'Minhas'); await direito(p, p.locator('.wa-linha', { hasText: 'Roberto Lima' }).first()); }],
+  ['81-menu-da-mensagem', async p => { await filtro(p, 'Minhas'); await linha(p, 'Roberto Lima'); await direito(p, balaoServeSim(p)); }],
+  ['82-responder-citando', async p => { await filtro(p, 'Minhas'); await linha(p, 'Roberto Lima'); await direito(p, balaoServeSim(p));
+      await p.getByRole('menuitem', { name: 'Responder citando' }).click({ timeout: 8000 }); await pausa(900);
+      await p.locator('.wa-rascunho-citacao').waitFor({ timeout: 8000 }); }],
+  ['83-menu-no-canto', async p => { await filtro(p, 'Minhas'); await linha(p, 'Roberto Lima');
+      const ultimo = p.locator('.wa-m.enviada .wa-balao').last(); await ultimo.scrollIntoViewIfNeeded(); await pausa(400);
+      const caixa = await ultimo.boundingBox();
+      await direito(p, ultimo, { x: caixa.width - 12, y: caixa.height - 12 }); // 12 px: no canto arredondado o clique cai no .wa-m
+      const m = await p.locator('.menu-contexto').boundingBox(), clique = { x: caixa.x + caixa.width - 12, y: caixa.y + caixa.height - 12 };
+      console.log(`83-${p.viewportSize().width}: clique em ${Math.round(clique.x)},${Math.round(clique.y)}; menu em ${Math.round(m.x)},${Math.round(m.y)} ${Math.round(m.width)}×${Math.round(m.height)}`);
+      if (m.x >= clique.x - 1 && m.y >= clique.y - 1) falhas.push(`83-${p.viewportSize().width}: o menu não foi puxado para dentro (abriu no ponto do clique)`); }],
+  // A conversa da Lúcia está com a Bruna: Assumir, Transferir, Nota interna e Encerrar aparecem desabilitados (com o motivo no title).
+  ['85-menu-desabilitado', async p => { await filtro(p, 'Todas'); await direito(p, p.locator('.wa-linha', { hasText: 'Lúcia' }).first());
+      if (!await p.locator('.menu-contexto [aria-disabled=true]').count()) falhas.push(`85-${p.viewportSize().width}: nenhum item desabilitado no menu`); }],
   ['62-aguardando-aceite', async p => { await filtro(p, 'Minhas'); await linha(p, 'Roberto Lima');
     // A largura anterior já enviou o pedido (o CRM de mentira guarda): cancela e pede de novo.
     if (await p.locator('.wa-acao button', { hasText: 'Cancelar o pedido' }).count()) await clicar(p, 'Cancelar o pedido');
@@ -108,9 +127,13 @@ async function fichaAoLado(p) { const b = p.getByRole('button', { name: 'Abrir a
 const deslocados = p => p.evaluate(() => [...document.querySelectorAll('body *')].filter(e => e.scrollLeft > 0)
   .map(e => (typeof e.className === 'string' && e.className.trim() ? e.className.trim().split(/\s+/).slice(0, 2).join('.') : e.tagName)));
 async function mostrar(p, seletor) { await p.locator(seletor).first().scrollIntoViewIfNeeded({ timeout: 8000 }); await pausa(600); }
+// O botão direito e a espera pelo menu: ele nasce invisível e o menu-de-contexto.js o mostra depois de posicionar.
+async function direito(p, alvo, posicao) { await alvo.click({ button: 'right', timeout: 8000, ...(posicao ? { position: posicao } : {}) });
+  await p.locator('.menu-contexto').waitFor({ state: 'visible', timeout: 8000 }); await pausa(600); }
+const balaoServeSim = p => p.locator('.wa-m.recebida .wa-balao', { hasText: 'Serve sim' }).first();
 
 (async () => {
-  const b = await chromium.launch({ args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] });
+  const b = await chromium.launch({ ...(process.env.CANAL ? { channel: process.env.CANAL } : {}), args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] });
   for (const [nome, passos] of ROTEIRO) {
     if (!quer(nome)) continue;
     for (const [w, h] of [[1366, 900], [1024, 768]]) {
@@ -121,7 +144,7 @@ async function mostrar(p, seletor) { await p.locator(seletor).first().scrollInto
         if (larg > w) falhas.push(`${nome}-${w}: rola para o lado (${larg})`);
         if ((await deslocados(p)).length) falhas.push(`${nome}-${w}: rolado para o lado por dentro: ${(await deslocados(p)).join(', ')}`);
         // Filho que passa da borda do grupo (o "Retenção 15" passava por baixo do "+").
-        const vazam = await p.evaluate(() => [...document.querySelectorAll('.segmentado, .wa-cab-acoes, .wa-faixa, .wa-filtros, .wa-lista-topo, .wa-escrever-rodape, .wa-doc-acoes, .wa-midia-linha, .wa-gravando, .wa-audio, .wa-turno, .wa-marcar, .wa-guardar-arquivo')]
+        const vazam = await p.evaluate(() => [...document.querySelectorAll('.segmentado, .wa-cab-acoes, .wa-faixa, .wa-filtros, .wa-lista-topo, .wa-escrever-rodape, .wa-doc-acoes, .wa-midia-linha, .wa-gravando, .wa-audio, .wa-turno, .wa-marcar, .wa-guardar-arquivo, .menu-contexto, .wa-rascunho-citacao')]
           .flatMap(g => { const r = g.getBoundingClientRect(); if (!r.width) return [];
             return [...g.children].filter(c => { const x = c.getBoundingClientRect(); return x.width && (x.right > r.right + 1 || x.left < r.left - 1); })
               .map(c => `${g.className.split(' ').pop()} > ${(c.textContent || c.className).trim().slice(0, 24)}`); }));
@@ -129,6 +152,12 @@ async function mostrar(p, seletor) { await p.locator(seletor).first().scrollInto
         // O selo da linha é a informação: cortado ("Novo contato · …") reprova (25/10/2026, item 8 da revisão).
         const cortados = await p.evaluate(() => [...document.querySelectorAll('.wa-linha-rodape .selo')].filter(s => s.scrollWidth > s.clientWidth + 1).map(s => s.textContent.trim()));
         if (cortados.length) falhas.push(`${nome}-${w}: selo cortado na lista: ${[...new Set(cortados)].join(' | ')}`);
+        // O menu do botão direito inteiro dentro da janela, e nenhum rótulo cortado dentro dele.
+        const menu = await p.evaluate(() => { const m = document.querySelector('.menu-contexto'); if (!m) return null; const r = m.getBoundingClientRect();
+          return { fora: r.left < 0 || r.top < 0 || r.right > innerWidth || r.bottom > innerHeight,
+                   cortados: [...m.querySelectorAll('[role=menuitem]')].filter(b => b.scrollWidth > b.clientWidth + 1).map(b => b.textContent.trim()) }; });
+        if (menu?.fora) falhas.push(`${nome}-${w}: o menu passa da borda da janela`);
+        if (menu?.cortados.length) falhas.push(`${nome}-${w}: rótulo cortado no menu: ${menu.cortados.join(' | ')}`);
         await p.screenshot({ path: `${DIR}/${nome}-${w}.png` }); feitas.push(`${nome}-${w}`);
       } catch (e) { falhas.push(`${nome}-${w}: ${e.message.split('\n')[0]}`); }
       await p.close();
@@ -209,6 +238,22 @@ async function mostrar(p, seletor) { await p.locator(seletor).first().scrollInto
     if (await p.locator('.wa-turno').count()) falhas.push('79: as conversas não voltaram à fila');
     await p.screenshot({ path: `${DIR}/79-turno-passado-1366.png` }); feitas.push('79'); }
   catch (e) { falhas.push('79: ' + e.message.split('\n')[0]); } await p.close(); }
+  // 84 envia de verdade a resposta citando o "Serve sim" (o CRM de mentira guarda): a citação dentro do balão enviado.
+  // Nas duas larguras — a segunda rodada envia outra, e a foto mostra a última.
+  if (quer('84')) {
+    for (const [w, h] of [[1366, 900], [1024, 768]]) {
+      p = await abrir(b, w, h);
+      try { await filtro(p, 'Minhas'); await linha(p, 'Roberto Lima'); await direito(p, balaoServeSim(p));
+        await p.getByRole('menuitem', { name: 'Responder citando' }).click({ timeout: 8000 }); await pausa(900);
+        await p.locator('.wa-escrever textarea').first().fill('Combinado, Roberto! Fica confirmado então.');
+        await clicar(p, 'Enviar'); await pausa(2000);
+        const citacao = p.locator('.wa-m.enviada .wa-citacao').last();
+        if (!await citacao.isVisible()) falhas.push(`84-${w}: a citação não apareceu no balão enviado`);
+        else { await citacao.scrollIntoViewIfNeeded(); await pausa(400); }
+        await p.screenshot({ path: `${DIR}/84-respondeu-citando-${w}.png` }); feitas.push(`84-${w}`); }
+      catch (e) { falhas.push(`84-${w}: ${e.message.split('\n')[0]}`); } await p.close();
+    }
+  }
   await b.close();
   console.log('feitas:', feitas.length, '\nfalhas:', falhas.length ? falhas : 'nenhuma', '\nerros de console:', erros.length ? [...new Set(erros)].slice(0, 5) : 'nenhum');
 })();

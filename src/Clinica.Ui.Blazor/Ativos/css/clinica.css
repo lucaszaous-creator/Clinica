@@ -187,6 +187,20 @@ h1{font-size:28px;font-weight:700;letter-spacing:-.01em;margin:0;line-height:1.1
   font:inherit;font-weight:400;color:var(--texto-primario);cursor:pointer;white-space:nowrap}
 .kpi-menu-lista button:hover:not(:disabled){background:var(--fundo)}
 .kpi-menu-lista button:disabled{color:var(--texto-secundario);cursor:default}
+/* O menu do botão direito (MenuDeContexto, out/2026): nasce VISÍVEL no ponto do clique e o js/menu-de-contexto.js
+   o puxa para dentro da janela (sem o JS ele continua usável). O fundo é transparente: só fecha o menu. */
+.menu-contexto-fundo{position:fixed;inset:0;z-index:55;background:transparent}
+.menu-contexto{position:fixed;z-index:56;display:flex;flex-direction:column;min-width:220px;max-width:320px;
+  background:var(--superficie);border:1px solid var(--borda);border-radius:var(--radius-control);box-shadow:var(--sombra-popup);
+  padding:var(--space-1);outline:none}
+.menu-contexto button{display:flex;align-items:center;gap:var(--space-2);border:0;background:transparent;text-align:left;
+  padding:var(--space-2) var(--space-3);border-radius:var(--radius-pequeno);font:inherit;font-weight:400;color:var(--texto-primario);
+  cursor:pointer;white-space:nowrap}
+.menu-contexto button .icone,.menu-contexto button svg{flex:none;width:16px;height:16px;color:var(--texto-secundario)}
+.menu-contexto button:hover:not([aria-disabled=true]),.menu-contexto button:focus-visible{background:var(--fundo);outline:none}
+.menu-contexto button[aria-disabled=true]{color:var(--texto-secundario);cursor:default;opacity:.55}
+.menu-contexto button.perigo:not([aria-disabled=true]),.menu-contexto button.perigo:not([aria-disabled=true]) svg{color:var(--erro-texto)}
+.menu-contexto hr{border:0;border-top:1px solid var(--borda);margin:var(--space-1) 0}
 .kpi-valor{font-family:var(--font-num);font-size:var(--text-kpi-size);font-weight:700;letter-spacing:-.02em;
   font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kpi-nota{color:var(--texto-secundario);font-size:var(--text-small-size);line-height:1.4}

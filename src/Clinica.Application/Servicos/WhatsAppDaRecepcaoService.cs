@@ -720,11 +720,27 @@ public sealed partial class WhatsAppDaRecepcaoService(
     /// rascunho: o MESMO no segundo clique e na repetição depois de uma resposta perdida — é
     /// o que torna o envio idempotente no CRM.
     /// </summary>
-    public Task<AppConversation> ResponderAsync(AppConversation c, string texto, string? anexoId, string idDoEnvio, CancellationToken ct = default)
+    /// <param name="citada">O id da mensagem que a resposta cita ("Responder citando", botão direito): o WhatsApp a mostra
+    /// em cima da resposta. Só WhatsApp — o SMS não cita, e o CRM recusa.</param>
+    public Task<AppConversation> ResponderAsync(AppConversation c, string texto, string? anexoId, string idDoEnvio, CancellationToken ct = default,
+        string? citada = null)
     {
         if (string.IsNullOrWhiteSpace(texto) && anexoId is null) throw new InvalidOperationException("Escreva a mensagem ou anexe um arquivo.");
+        if (citada is not null && ConversasNaTela.EhSms(c.Channel)) throw new InvalidOperationException("O SMS não cita mensagens: envie sem a citação.");
         var id = IdDoEnvio(idDoEnvio);
-        return ComVersaoNovaAsync(c, v => crm.ResponderAsync(UsuarioId, c.Id, new AppReply(v, id, texto?.Trim() ?? "", anexoId), ct), ct);
+        return ComVersaoNovaAsync(c, v => crm.ResponderAsync(UsuarioId, c.Id, new AppReply(v, id, texto?.Trim() ?? "", anexoId, ReplyToId: citada), ct), ct);
+    }
+
+    /// <summary>"Marcar como não lida" (botão direito da lista): a última recebida volta a contar, só para quem pediu.</summary>
+    public Task MarcarNaoLidaAsync(string conversaId, CancellationToken ct = default) => crm.MarcarNaoLidaAsync(UsuarioId, conversaId, ct);
+
+    /// <summary>"Marcar como lida" sem abrir a conversa (botão direito da lista): lê as recebidas e marca todas.</summary>
+    public async Task MarcarLidaAsync(string conversaId, CancellationToken ct = default)
+    {
+        var u = UsuarioId;
+        var conversa = await crm.AbrirConversaAsync(u, conversaId, ct);
+        var recebidas = conversa.Messages.Count(m => string.Equals(m.Direction, "in", StringComparison.OrdinalIgnoreCase));
+        if (recebidas > 0) await crm.MarcarLidaAsync(u, conversaId, new AppReadMarker(recebidas), ct);
     }
 
     /// <summary>Guarda uma nota interna (nunca vai ao paciente).</summary>

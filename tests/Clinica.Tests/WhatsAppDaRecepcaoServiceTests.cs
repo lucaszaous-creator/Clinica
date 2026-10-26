@@ -928,6 +928,14 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
             return Task.CompletedTask;
         }
 
+        public List<string> NaoLidas { get; } = [];
+
+        public Task MarcarNaoLidaAsync(int usuarioId, string conversaId, CancellationToken ct = default)
+        {
+            NaoLidas.Add(conversaId);
+            return Task.CompletedTask;
+        }
+
         public Task<AppConversation> AssumirAsync(int usuarioId, string conversaId, AppChange mudanca, CancellationToken ct = default)
             => Task.FromResult(Trocar(conversaId, c => c with { AgentId = mudanca.AgentId }));
 

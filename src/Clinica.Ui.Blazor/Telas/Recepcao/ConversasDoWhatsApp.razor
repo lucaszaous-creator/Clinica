@@ -130,8 +130,8 @@ else
                     }
                     @foreach (var l in linhas)
                     {
-                        <button type="button" role="option" @key="l.Id" class="wa-linha @(l.NaoLidas > 0 ? "nao-lida" : null)" aria-current="@Bool(_aberta?.Id == l.Id)" aria-selected="@Bool(_aberta?.Id == l.Id)"
-                                @onclick="() => AbrirConversaAsync(l.Id, l.NaoLidas, null)">
+                        <button type="button" role="option" @key="l.Id" class="wa-linha @(l.NaoLidas > 0 ? "nao-lida" : null) @(_menuDaConversa is not null && _conversaDoMenu == l.Id ? "no-menu" : null)" aria-current="@Bool(_aberta?.Id == l.Id)" aria-selected="@Bool(_aberta?.Id == l.Id)"
+                                @onclick="() => AbrirConversaAsync(l.Id, l.NaoLidas, null)" @oncontextmenu="e => AbrirMenuDaConversa(l.Id, e)" @oncontextmenu:preventDefault="true">
                             @Avatar(l.PacienteId, l.Iniciais, l.TomDoAvatar, @<span class="wa-canal @(l.Sms ? "sms" : null)" title="@(l.Sms ? "SMS" : "WhatsApp")"><Icone Nome="@(l.Sms ? "sms" : "chat")" /></span>)
                             <span class="wa-linha-corpo">
                                 <span class="wa-linha-topo"><span class="wa-linha-nome">@l.Nome</span>@if (l.Espera is { } espera) { <span class="wa-linha-hora wa-espera tom-@espera.Tom" title="@($"{espera.Texto} (a última mensagem: {l.Hora})")" aria-label="@espera.Texto">@espera.Curto</span> } else { <span class="wa-linha-hora">@l.Hora</span> }</span>
@@ -341,7 +341,8 @@ else
                                 var enviada = item.Tipo == TipoNaLinhaDoTempo.Enviada;
                                 <div class="wa-m @(enviada ? "enviada" : "recebida") @(item.Seguida ? "seguida" : null)">
                                     @if (item.Anexo is { } anexo) { <span class="wa-anexo"><Icone Nome="documento" />@anexo</span> }
-                                    <div class="wa-balao @(item.Midia?.Figurinha == true ? "wa-balao-figurinha" : null)">@if (item.Midia is { } md) { @Midia(md) }@Marcar(item.Texto)<span class="wa-m-rodape">@if (enviada && item.Autor is { } autor) { <span class="wa-autor">@autor ·</span> }@if (item.Modelo is { } m) { <span class="wa-autor" title="@($"Modelo aprovado: {ModeloDoWhatsApp.NomeNaTela(m)} ({m})")">modelo ·</span> }<span>@item.Hora</span>@if (item.Tick is { } t) { @Tick(t) }</span></div>
+                                    <div class="wa-balao @(item.Midia?.Figurinha == true ? "wa-balao-figurinha" : null) @(_menuDaMensagem is not null && item.Id is not null && _mensagemDoMenu?.Id == item.Id ? "no-menu" : null)" data-mensagem="@item.Id"
+                                         @oncontextmenu="e => AbrirMenuDaMensagemAsync(c, item, e)" @oncontextmenu:preventDefault="true">@if (item.Citacao is { } cit) { <span class="wa-citacao"><b>@cit.Autor</b>@cit.Trecho</span> }@if (item.Midia is { } md) { @Midia(md) }@Marcar(item.Texto)<span class="wa-m-rodape">@if (enviada && item.Autor is { } autor) { <span class="wa-autor">@autor ·</span> }@if (item.Modelo is { } m) { <span class="wa-autor" title="@($"Modelo aprovado: {ModeloDoWhatsApp.NomeNaTela(m)} ({m})")">modelo ·</span> }<span>@item.Hora</span>@if (item.Tick is { } t) { @Tick(t) }</span></div>
                                     @if (BotoesDoModelo(c, item) is { Count: > 0 } botoesDoModelo) { <div class="wa-m-botoes" aria-label="Botões que a pessoa recebeu">@foreach (var b in botoesDoModelo) { <span>@b</span> }</div> }
                                     @if (item.Erro is { } erro) { <span class="wa-m-erro">@erro</span> }
                                     @if (!enviada && c.Conversa is not null) { @AcoesDaRecebida(c, item) }
@@ -400,6 +401,11 @@ else
                             {
                                 <div class="wa-rascunho-anexo"><Icone Nome="documento" /><span>@anexo.Name · @Math.Max(1, anexo.Size / 1024) KB</span>
                                     <button type="button" class="fechar" aria-label="Tirar o anexo" @onclick="() => r.Anexo = null">×</button></div>
+                            }
+                            @if (!r.Nota && r.Citada is { } citada)
+                            {
+                                <div class="wa-rascunho-citacao"><Icone Nome="mensagem" /><span><b>Respondendo a @citada.Autor</b><span class="trecho">@citada.Trecho</span></span>
+                                    <button type="button" class="fechar" aria-label="Tirar a citação" @onclick="() => r.Citada = null">×</button></div>
                             }
                             <textarea rows="1" placeholder="@(r.Nota ? "Nota para a equipe · Enter guarda, Shift+Enter quebra a linha" : "Mensagem · Enter envia, Shift+Enter quebra a linha")" aria-label="@(r.Nota ? "Nota interna" : "Mensagem")"
                                       maxlength="4000" @bind="r.Texto" @bind:event="oninput" @ref="_campoEl" @onkeydown="e => TeclaAsync(c, e)" @onkeydown:stopPropagation="@(_popover != Popover.Nenhum)"></textarea>
@@ -648,6 +654,11 @@ else
     }
     @FotoAmpliada()
     @FormulariosQueResolvem()
+    @* O botão direito (ConversasDoWhatsApp.MenuDeContexto.cs): a regra dos itens é do MenuDoWhatsApp. *@
+    <MenuDeContexto TAcao="AcaoNaConversa" Itens="_menuDaConversa" X="_menuX" Y="_menuY" Rotulo="Ações da conversa"
+                    AoEscolher="AoEscolherNaConversaAsync" AoFechar="FecharMenus" />
+    <MenuDeContexto TAcao="AcaoNaMensagem" Itens="_menuDaMensagem" X="_menuX" Y="_menuY" Rotulo="Ações da mensagem"
+                    AoEscolher="AoEscolherNaMensagemAsync" AoFechar="FecharMenus" />
 }
 
 @code {
@@ -1057,7 +1068,8 @@ else
         var texto = r.Texto;
         var anexo = r.Anexo?.Id;
         var id = r.IdDoEnvio;
-        var nova = await GravarNoCrmAsync(s => nota ? s.AnotarAsync(conversa, texto, id) : s.ResponderAsync(conversa, texto, anexo, id),
+        var citada = nota ? null : r.Citada?.Id;
+        var nova = await GravarNoCrmAsync(s => nota ? s.AnotarAsync(conversa, texto, id) : s.ResponderAsync(conversa, texto, anexo, id, citada: citada),
             nota ? "Nota guardada. Só a equipe vê." : null);
         if (nova is null) return;
         r.Saiu();
