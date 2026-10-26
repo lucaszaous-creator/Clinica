@@ -93,6 +93,10 @@ public sealed class EsperaNoWhatsAppTests
         Assert.Contains(primeira.Esperando, e => e.Id == CrmDeMentira.Ids.Terezinha);
         Assert.DoesNotContain(primeira.Esperando, e => e.Id == CrmDeMentira.Ids.Lucia); // é da Bruna
         Assert.Empty(primeira.Novas); // abrir o app não é uma rajada de avisos
+        // O número do menu é o MESMO da aba "Conversas" da tela: as abertas com mensagem não lida.
+        var conversas = await crm.ListarConversasAsync(7);
+        Assert.Equal(ConversasNaTela.Contagens(conversas, (await crm.SessaoAsync(7)).AgentId).NaoLidas, primeira.NaoLidas);
+        Assert.True(primeira.NaoLidas > 0);
 
         // O Carlos (da Ana) escreve; dez minutos depois, a espera dele é nova — anunciada UMA vez.
         crm.ChegouDoPaciente(CrmDeMentira.Ids.Carlos, "Vou sim, obrigado", DateTimeOffset.UtcNow);

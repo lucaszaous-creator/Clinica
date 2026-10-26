@@ -40,8 +40,12 @@ public sealed partial class ShellViewModel
     /// <summary>A frase da última leitura que falhou (a lista que fica pode estar velha); vazio quando leu.</summary>
     public string SituacaoWhatsApp { get; private set; } = "";
 
-    /// <summary>O número no item "WhatsApp" do menu: quantos pacientes esperam resposta (nada quando ninguém).</summary>
-    public string? ContadorDoWhatsApp => WhatsAppLigado ? ConversasNaTela.ContadorDoMenu(EsperasNoWhatsApp.Count) : null;
+    /// <summary>Quantas conversas abertas têm mensagem não lida (a última leitura do vigia).</summary>
+    public int NaoLidasNoWhatsApp { get; private set; }
+
+    /// <summary>O número no item "WhatsApp" do menu: as conversas não lidas — o mesmo da aba "Conversas" da tela (nada quando zero).
+    /// O sino continua com quem ESPERA resposta há 5 min (<see cref="EsperasNoWhatsApp"/>).</summary>
+    public string? ContadorDoWhatsApp => WhatsAppLigado ? ConversasNaTela.ContadorDoMenu(NaoLidasNoWhatsApp) : null;
 
     /// <summary>Quem atende o WhatsApp (<see cref="AcessoAoWhatsApp"/>) e tem a aba neste app.</summary>
     public bool PodeVigiarWhatsApp => _sessaoClinica is { Autenticado: true } sessao && AcessoAoWhatsApp.Pode(sessao)
@@ -54,7 +58,8 @@ public sealed partial class ShellViewModel
         if (_whatsAppEmCena || !PodeVigiarWhatsApp || _servicos.GetService<IClienteDoCrm>() is not { } crm) return;
         _whatsAppEmCena = true;
         _vigia = new VigiaDoWhatsApp(crm);
-        _relogioWhatsApp ??= new DispatcherTimer { Interval = VigiaDoWhatsApp.Pulso };
+        // O relógio bate no ritmo da leitura (15 s); o pulso de presença vai junto — vale 120 s, bater mais não custa nada.
+        _relogioWhatsApp ??= new DispatcherTimer { Interval = VigiaDoWhatsApp.RitmoDaEspera };
         _relogioWhatsApp.Tick -= BatidaWhatsApp; _relogioWhatsApp.Tick += BatidaWhatsApp;
         _relogioWhatsApp.Start();
         _ = BaterWhatsAppAsync(lerEspera: true);
@@ -107,6 +112,7 @@ public sealed partial class ShellViewModel
             EsperasNoWhatsApp.Clear();
             foreach (var l in linhas) EsperasNoWhatsApp.Add(l);
             WhatsAppLigado = leitura.Ligado;
+            NaoLidasNoWhatsApp = leitura.NaoLidas;
             SituacaoWhatsApp = "";
             _esperaFalhou = false;
             EsperasMudaram(linhas.Select(l => l.Chave));
