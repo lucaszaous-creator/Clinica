@@ -621,6 +621,42 @@ public sealed class CrmDeMentira : IClienteDoCrm
         }
     }
 
+    /// <summary>A falha que a evolução devolve no lugar dos números (nula = responde): o teste da seção derruba SÓ ela.</summary>
+    public Exception? FalhaDaEvolucao { get; set; }
+
+    /// <summary>
+    /// A evolução semana a semana (GET /api/quality/evolucao): números FICTÍCIOS e fixos, um desenho por secretária — a Ana
+    /// melhora a nota depois de uma devolutiva há cinco semanas, a Bruna é estável (com nota já na semana corrente), a Carla mantém a nota e piora o tempo da
+    /// primeira resposta. Há semanas sem avaliação (nota nula: buraco no gráfico), e a semana corrente é parcial (poucas
+    /// conversas). As avaliações feitas na prévia não entram aqui.
+    /// </summary>
+    public async Task<AppQualityTrend> EvolucaoDaAuditoriaAsync(int usuarioId, int semanas, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        ConferirGestao();
+        if (FalhaDaEvolucao is { } falha) throw falha;
+        if (semanas is < 4 or > 26) throw new RecusaDoCrm("Escolha de 4 a 26 semanas.", 400);
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        var segunda = hoje.AddDays(-(((int)hoje.DayOfWeek + 6) % 7));
+        var inicios = Enumerable.Range(0, semanas).Select(i => segunda.AddDays(-7 * (semanas - 1 - i))).ToArray();
+        // k = semanas atrás (0 = a corrente). Cada linha: conversas, mediana da 1ª resposta, no prazo/medidas, nota e avaliações.
+        AppQualityWeek Semana(DateOnly inicio, int k, string id)
+        {
+            var parcial = k == 0;
+            (int conversas, double mediana, decimal? nota, int avaliacoes) = id switch
+            {
+                Eu => (parcial ? 4 : 13 + k % 3, 7.0 + (k % 2) * 0.5, k is 0 or 7 ? (decimal?)null : k >= 5 ? 66m + k % 3 * 2 : 82m + (4 - k) * 2, k >= 5 ? 1 : 2),
+                "bruna" => (parcial ? 3 : 11 + k % 2, 11.0 + (k % 3) * 0.5, k is 3 or 9 ? (decimal?)null : 78m + (k % 2) * 2, 1),
+                _ => (parcial ? 2 : 9, k >= 10 ? 6.0 : 14.5 - k * 0.9, k is 0 or 2 or 6 ? (decimal?)null : 88m + (k % 2) * 2, 1),
+            };
+            var medidas = conversas - 1;
+            var noPrazo = (int)Math.Round(medidas * Math.Clamp(1.2 - mediana / 15.0, 0.2, 0.95));
+            return new AppQualityWeek(inicio, conversas, Math.Round(mediana, 1), noPrazo, medidas, nota, nota is null ? 0 : (parcial ? 1 : avaliacoes));
+        }
+        return new AppQualityTrend(inicios, Painel.Select(n => new AppQualityTrendAgent(n.Id, Nome(n.Id),
+            inicios.Select((d, i) => Semana(d, semanas - 1 - i, n.Id)).ToArray())).ToArray());
+    }
+
     /// <summary>As regras e as frases do <c>QualityAudit.Save</c> do CRM; quem salva é a <see cref="Eu"/>.</summary>
     public async Task<AppQualityReview> SalvarAuditoriaAsync(int usuarioId, AppQualitySave avaliacao, CancellationToken ct = default)
     {

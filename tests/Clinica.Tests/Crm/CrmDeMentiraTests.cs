@@ -243,10 +243,29 @@ public sealed class CrmDeMentiraTests
 
         Assert.All(recusas, r => Assert.Equal((CrmDeMentira.SoGestao, 403), (r.Message, r.Status)));
     }
+
+    [Fact]
+    public async Task A_evolucao_traz_as_segundas_ate_a_corrente_com_buracos_e_recusa_fora_de_4_a_26()
+    {
+        var crm = Falso();
+        var evolucao = await crm.EvolucaoDaAuditoriaAsync(Usuario, 8);
+
+        Assert.Equal(8, evolucao.Weeks.Length);
+        Assert.All(evolucao.Weeks, d => Assert.Equal(DayOfWeek.Monday, d.DayOfWeek));
+        Assert.Equal(evolucao.Weeks.Order(), evolucao.Weeks);
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        Assert.InRange(hoje.DayNumber - evolucao.Weeks[^1].DayNumber, 0, 6); // a última é a semana corrente
+        Assert.Equal(3, evolucao.Agents.Length);
+        Assert.All(evolucao.Agents, a => Assert.Equal(evolucao.Weeks, a.Weeks.Select(w => w.WeekStart)));
+        Assert.Contains(evolucao.Agents.SelectMany(a => a.Weeks), w => w.AverageScore is null && w.Reviewed == 0);
+        Assert.All(evolucao.Agents, a => Assert.True(a.Weeks[^1].Conversations < a.Weeks[^2].Conversations, "a semana corrente é parcial"));
+
+        Assert.Equal(400, (await Assert.ThrowsAsync<RecusaDoCrm>(() => crm.EvolucaoDaAuditoriaAsync(Usuario, 3))).Status);
+        crm.DaGestao = false;
+        Assert.Equal(403, (await Assert.ThrowsAsync<RecusaDoCrm>(() => crm.EvolucaoDaAuditoriaAsync(Usuario, 8))).Status);
+    }
 }
 
-/// <summary>A semente do WhatsApp + o CRM de mentira, sobre o mesmo banco das telas.</summary>
-[Collection(ColecaoDiagnostico.Nome)]
 public sealed class SementeDoWhatsAppTests(BancoDasTelas banco) : IClassFixture<BancoDasTelas>
 {
     private ServiceProvider Servicos()
@@ -309,4 +328,5 @@ public sealed class SementeDoWhatsAppTests(BancoDasTelas banco) : IClassFixture<
         var fernanda = linhas.Single(l => l.Paciente == PessoasDoWhatsApp.Fernanda.Nome);
         Assert.Equal(SituacaoNaRetencao.Aguardando, RetencaoNaTela.Situacao(fernanda, ultima.GetValueOrDefault(fernanda.PacienteId), DateTimeOffset.Now));
     }
+
 }

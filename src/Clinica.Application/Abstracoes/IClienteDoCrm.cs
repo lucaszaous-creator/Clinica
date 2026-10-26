@@ -165,6 +165,13 @@ public interface IClienteDoCrm
     /// </summary>
     Task<AppQualityReview> SalvarAuditoriaAsync(int usuarioId, AppQualitySave avaliacao, CancellationToken ct = default);
 
+    /// <summary>
+    /// GET /api/quality/evolucao?semanas= — os números de cada secretária semana a semana (<paramref name="semanas"/>: de 4 a 26;
+    /// as segundas-feiras, a mais antiga primeiro, e a última é a semana corrente, parcial). A nota da semana é a média das
+    /// avaliações FINAIS da gerente sobre as conversas encerradas nela — nula sem avaliação. 403 como as outras rotas.
+    /// </summary>
+    Task<AppQualityTrend> EvolucaoDaAuditoriaAsync(int usuarioId, int semanas, CancellationToken ct = default);
+
     /// <summary>Esquece a sessão do CRM da pessoa (o app chama no logout): a próxima chamada entra de novo.</summary>
     void EsquecerSessao(int usuarioId);
 }

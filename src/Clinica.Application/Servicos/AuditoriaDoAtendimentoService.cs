@@ -12,7 +12,7 @@ namespace Clinica.Application.Servicos;
 /// (id → nome) para a conversa. A fila já vem ORDENADA (<see cref="AuditoriaNaTela.OrdenarFila"/>).
 /// </summary>
 public sealed record PainelDaAuditoria(AppQualityPanel Painel, IReadOnlyList<AppQualityItem> Fila,
-    IReadOnlyDictionary<string, string> Nomes, int Dias)
+    IReadOnlyDictionary<string, string> Nomes, int Dias, EvolucaoLida? Evolucao = null)
 {
     /// <summary>"de 19/10 a 26/10" — o intervalo que o CRM mediu (no fuso de quem lê).</summary>
     public string Periodo => AuditoriaNaTela.Periodo(Painel.From, Painel.To);
@@ -121,7 +121,30 @@ public sealed class AuditoriaDoAtendimentoService(IClienteDoCrm crm)
         var sessao = await crm.SessaoAsync(u, ct);
         var painel = await crm.PainelDaAuditoriaAsync(u, d, ct);
         var fila = await crm.FilaDaAuditoriaAsync(u, ct);
-        return new PainelDaAuditoria(painel, AuditoriaNaTela.OrdenarFila(fila), AuditoriaNaTela.Nomes(sessao.Agents, painel, fila), d);
+        var evolucao = await LerEvolucaoAsync(ct);
+        return new PainelDaAuditoria(painel, AuditoriaNaTela.OrdenarFila(fila), AuditoriaNaTela.Nomes(sessao.Agents, painel, fila), d, evolucao);
+    }
+
+    /// <summary>
+    /// A evolução semana a semana (<see cref="EvolucaoNaTela.SemanasLidas"/>, sempre: a tela recorta 8 ou 12). A falha NÃO
+    /// derruba o painel: volta como a frase da seção (o 403, o CRM fora do ar), e o erro inesperado vai ao log.
+    /// </summary>
+    public async Task<EvolucaoLida> LerEvolucaoAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return new EvolucaoLida(await crm.EvolucaoDaAuditoriaAsync(UsuarioId, EvolucaoNaTela.SemanasLidas, ct), null);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex) when (AuditoriaNaTela.SemPermissao(ex))
+        {
+            return new EvolucaoLida(null, AuditoriaNaTela.DescricaoSemPermissao(ex), SemPermissao: true);
+        }
+        catch (Exception ex)
+        {
+            if (ex is not RecusaDoCrm) Diagnostico.Registrar("Auditoria do atendimento — a evolução não pôde ser lida", ex);
+            return new EvolucaoLida(null, AuditoriaNaTela.FalhaDaEvolucao(ex));
+        }
     }
 
     /// <summary>A conversa de um item da fila, composta para a tela.</summary>
@@ -553,6 +576,12 @@ public static class AuditoriaNaTela
         => e is CrmIndisponivel
             ? $"{ConversasNaTela.SemLigacao(e)} Os números não estão zerados — eles não puderam ser lidos. Tente de novo em instantes."
             : e is RecusaDoCrm r ? r.Message : "A auditoria não pôde ser lida agora. Tente de novo em instantes; se continuar, avise o suporte.";
+
+    /// <summary>A evolução não veio (o painel e a fila continuam na tela).</summary>
+    public static string FalhaDaEvolucao(Exception e)
+        => e is CrmIndisponivel
+            ? $"{ConversasNaTela.SemLigacao(e)} A evolução não pôde ser lida; os números de cima continuam valendo. Tente de novo em instantes."
+            : e is RecusaDoCrm r ? r.Message : "A evolução não pôde ser lida agora. Tente de novo em instantes; se continuar, avise o suporte.";
 
     /// <summary>A conversa não abriu.</summary>
     public static string FalhaDaConversa(Exception e) => e is RecusaDoCrm r ? r.Message : ConversasNaTela.FalhaDaConversa(e);

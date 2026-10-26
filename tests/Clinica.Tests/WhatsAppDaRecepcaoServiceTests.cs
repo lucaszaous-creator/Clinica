@@ -1039,6 +1039,9 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
             => Task.FromResult(new AppQualityReview(avaliacao.SubjectId, avaliacao.Version + 1, avaliacao.State, "ana", DateTimeOffset.UtcNow,
                 avaliacao.Answers, avaliacao.Outcome, avaliacao.Feedback, avaliacao.Action, avaliacao.DueAt, null));
 
+        public Task<AppQualityTrend> EvolucaoDaAuditoriaAsync(int usuarioId, int semanas, CancellationToken ct = default)
+            => Task.FromResult(new AppQualityTrend([], []));
+
         public void EsquecerSessao(int usuarioId) { }
     }
 

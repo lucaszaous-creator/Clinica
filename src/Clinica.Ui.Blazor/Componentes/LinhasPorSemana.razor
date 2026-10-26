@@ -1,0 +1,91 @@
+@*
+  Várias linhas por semana, uma por pessoa (27/10, a Evolução da auditoria do atendimento) — SVG com tokens, sem
+  biblioteca. Quem decide TUDO o que aparece (escala, coordenadas, buraco sem dado, semana corrente parcial, rótulos,
+  dicas) é EvolucaoNaTela, na Application, com teste; aqui só se desenha. As regras de leitura (skill de visualização):
+  - uma cor por PESSOA, a mesma nos dois gráficos (vaga da paleta categórica validada; da 5ª em diante, cinza com nome);
+  - semana sem dado é BURACO na linha, nunca zero; a semana corrente (parcial) vem tracejada, com o marcador vazado e
+    a faixa "parcial";
+  - linha de 2 px, marcador de 8 px com anel da cor do fundo, grade de 1 px contínua e apagada;
+  - o nome na ponta da linha (até 4 pessoas, sem rótulos colados) — a legenda da seção e a tabela continuam dizendo;
+  - a coluna inteira da semana é o alvo do cursor e do teclado: a dica traz todas as pessoas daquela semana.
+  Número dentro do SVG em cultura INVARIANTE (EvolucaoNaTela.N).
+*@
+
+<figure class="lps">
+    <figcaption class="lps-titulo">@Grafico.Titulo</figcaption>
+    @if (!Grafico.TemDado)
+    {
+        <div class="lps-vazio">Sem dados nas semanas escolhidas.</div>
+    }
+    else
+    {
+        <svg viewBox="0 0 @N(GraficoDaEvolucao.Largura) @N(GraficoDaEvolucao.Altura)" role="img" aria-label="@Grafico.Descricao">
+            @if (Grafico.Semanas.LastOrDefault() is { Parcial: true } parcial)
+            {
+                var fim = Math.Min(parcial.Inicio + parcial.Largura, GraficoDaEvolucao.Largura - GraficoDaEvolucao.Dir + 6);
+                <rect class="lps-faixa-parcial" x="@N(parcial.Inicio)" y="@N(GraficoDaEvolucao.Topo)"
+                      width="@N(Math.Max(0, fim - parcial.Inicio))" height="@N(GraficoDaEvolucao.Base - GraficoDaEvolucao.Topo)" />
+                @Texto(parcial.X, GraficoDaEvolucao.Topo - 6, "middle", "lps-parcial", "parcial")
+            }
+            <g class="lps-grade">
+                @foreach (var m in Grafico.Marcas)
+                {
+                    <line x1="@N(GraficoDaEvolucao.Esq)" x2="@N(GraficoDaEvolucao.Largura - GraficoDaEvolucao.Dir)" y1="@N(m.Y)" y2="@N(m.Y)" />
+                    @Texto(GraficoDaEvolucao.Esq - 6, m.Y + 4, "end", "lps-eixo", m.Texto)
+                }
+            </g>
+            @if (Grafico.Referencia is { } r)
+            {
+                <line class="lps-referencia" x1="@N(GraficoDaEvolucao.Esq)" x2="@N(GraficoDaEvolucao.Largura - GraficoDaEvolucao.Dir)" y1="@N(r.Y)" y2="@N(r.Y)" />
+                @Texto(GraficoDaEvolucao.Esq + 4, r.Y - 4, "start", "lps-eixo", r.Texto)
+            }
+            @foreach (var s in Grafico.Semanas.Where(s => s.MostraRotulo))
+            {
+                @Texto(s.X, GraficoDaEvolucao.Base + 18, "middle", "lps-eixo", s.Rotulo)
+            }
+            @foreach (var l in Grafico.Linhas)
+            {
+                <g class="lps-serie serie-@l.Cor" @key="l.AgentId">
+                    @foreach (var t in l.Trechos)
+                    {
+                        <polyline class="@(t.Parcial ? "lps-linha parcial" : "lps-linha")" points="@t.Pontos" />
+                    }
+                    @foreach (var p in l.Marcadores)
+                    {
+                        <circle class="@(p.Parcial ? "lps-ponto parcial" : "lps-ponto")" cx="@N(p.X)" cy="@N(p.Y!.Value)" r="4" />
+                    }
+                    @if (l.RotuloY is { } y && l.Marcadores.LastOrDefault() is { } ponta)
+                    {
+                        @Texto(ponta.X + 9, y + 4, "start", "lps-nome", PrimeiroNome(l.Nome))
+                    }
+                </g>
+            }
+            @foreach (var s in Grafico.Semanas)
+            {
+                <rect class="lps-alvo" x="@N(s.Inicio)" y="@N(GraficoDaEvolucao.Topo)" width="@N(s.Largura)"
+                      height="@N(GraficoDaEvolucao.Base - GraficoDaEvolucao.Topo)" tabindex="0" aria-label="@s.Dica"><title>@s.Dica</title></rect>
+            }
+        </svg>
+    }
+</figure>
+
+@code {
+    [Parameter, EditorRequired] public GraficoDaEvolucao Grafico { get; set; } = default!;
+
+    private static string N(double v) => EvolucaoNaTela.N(v);
+
+    /// <summary>Na ponta da linha cabe o primeiro nome; o nome inteiro está na legenda, na dica e na tabela.</summary>
+    private static string PrimeiroNome(string nome) => nome.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? nome;
+
+    // `<text>` é palavra reservada do Razor: o texto do SVG sai pelo construtor da árvore (como no GraficoLinha).
+    private static RenderFragment Texto(double x, double y, string ancora, string classe, string conteudo) => b =>
+    {
+        b.OpenElement(0, "text");
+        b.AddAttribute(1, "x", N(x));
+        b.AddAttribute(2, "y", N(y));
+        b.AddAttribute(3, "text-anchor", ancora);
+        b.AddAttribute(4, "class", classe);
+        b.AddContent(5, conteudo);
+        b.CloseElement();
+    };
+}

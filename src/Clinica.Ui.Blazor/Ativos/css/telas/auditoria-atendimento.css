@@ -139,3 +139,50 @@
 .aa-historico li{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2) var(--space-3);color:var(--texto-secundario)}
 .aa-hist-quem{color:var(--texto-primario);font-weight:600}
 .aa-historico .aa-nota{margin-left:auto}
+
+/* ---------- A Evolução (27/10): dois gráficos de linha pequenos, uma cor por secretária ----------
+   A cor vem da vaga (EvolucaoNaTela.Cores): .serie-1..4 = a paleta categórica de web-extras.css, .serie-0 = cinza.
+   Texto nunca na cor da série: a identidade é a chave (o traço curto) ao lado do nome. */
+.aa-evolucao .cartao-titulo{padding:var(--space-4) var(--space-6) 0}
+.aa-evolucao .cartao-titulo .segmentado{align-self:center}
+.aa-evolucao-corpo{display:flex;flex-direction:column;gap:var(--space-4);container-type:inline-size}
+.aa-evolucao .serie-1{--cor-serie:var(--categoria-1)}
+.aa-evolucao .serie-2{--cor-serie:var(--categoria-2)}
+.aa-evolucao .serie-3{--cor-serie:var(--categoria-3)}
+.aa-evolucao .serie-4{--cor-serie:var(--categoria-4)}
+.aa-evolucao .serie-0{--cor-serie:var(--categoria-outras)}
+.aa-chave{display:inline-block;flex:none;width:16px;height:0;border-top:2px solid var(--cor-serie,var(--cinza-500));border-radius:var(--radius-pequeno);vertical-align:middle}
+.aa-legenda-series{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:var(--space-2) var(--space-4);font-size:var(--text-small-size);color:var(--texto-primario)}
+.aa-legenda-series li{display:inline-flex;align-items:center;gap:6px}
+.aa-legenda-series .aa-chave-parcial{color:var(--texto-secundario)}
+.aa-legenda-series .aa-chave-parcial .aa-chave{border-top:2px dashed var(--cinza-500)}
+.aa-graficos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-4)}
+@container (max-width:760px){.aa-graficos{grid-template-columns:minmax(0,1fr)}}
+.aa-tendencias{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--space-2);font-size:var(--text-table-size)}
+.aa-tendencias li{display:flex;flex-wrap:wrap;align-items:center;gap:4px var(--space-2);color:var(--texto-secundario)}
+.aa-tendencias strong{color:var(--texto-primario)}
+.aa-tendencias .selo{margin-left:0}
+.aa-tabela-evolucao summary{cursor:pointer;color:var(--acento);font-size:var(--text-small-size);font-weight:600}
+.aa-tabela-evolucao[open] summary{margin-bottom:var(--space-2)}
+.aa-tabela-numeros caption{text-align:left;padding:var(--space-2) 0;font-size:var(--text-small-size);font-weight:600;color:var(--texto-secundario)}
+.aa-tabela-evolucao .tabela-rolagem + .tabela-rolagem{margin-top:var(--space-3)}
+
+/* O componente LinhasPorSemana (Componentes/LinhasPorSemana.razor). */
+.lps{margin:0;min-width:0}
+.lps-titulo{margin-bottom:var(--space-1);font-size:var(--text-table-size);font-weight:600;color:var(--texto-primario)}
+.lps svg{display:block;width:100%;height:auto;overflow:visible}
+.lps-vazio{padding:var(--space-8) var(--space-4);text-align:center;color:var(--texto-secundario);font-size:var(--text-small-size);
+  border:1px dashed var(--borda);border-radius:var(--radius-control)}
+.lps-grade line{stroke:var(--cinza-200);stroke-width:1}
+.lps-referencia{stroke:var(--cinza-500);stroke-width:1}
+.lps-eixo{fill:var(--texto-secundario);font-size:11px;font-variant-numeric:tabular-nums}
+.lps-parcial{fill:var(--texto-secundario);font-size:10px}
+.lps-faixa-parcial{fill:var(--cinza-50)}
+.lps-linha{fill:none;stroke:var(--cor-serie);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.lps-linha.parcial{stroke-dasharray:4 4}
+.lps-ponto{fill:var(--cor-serie);stroke:var(--superficie);stroke-width:2}
+.lps-ponto.parcial{fill:var(--superficie);stroke:var(--cor-serie)}
+.lps-nome{fill:var(--texto-primario);font-size:11px;font-weight:600}
+.lps-alvo{fill:transparent;cursor:crosshair;outline:none}
+.lps-alvo:hover,.lps-alvo:focus-visible{fill:var(--cinza-500);fill-opacity:.08}
+.lps-alvo:focus-visible{stroke:var(--foco);stroke-width:1}

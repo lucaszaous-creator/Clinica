@@ -130,6 +130,63 @@ public sealed class AuditoriaDoAtendimentoNaTelaTests : IClassFixture<BancoDasTe
         tela.WaitForAssertion(() => tela.Markup.Should().Contain("ainda não foi ligado aqui"), Prazo);
     }
 
+    // ---------- A Evolução (27/10) ----------
+
+    [Fact]
+    public void A_evolucao_desenha_os_dois_graficos_a_legenda_a_semana_parcial_e_a_tendencia_de_cada_uma()
+    {
+        var tela = Abrir();
+        tela.WaitForAssertion(() => tela.FindAll(".aa-evolucao .lps svg").Should().HaveCount(2), Prazo);
+
+        tela.FindAll(".aa-evolucao .lps-titulo").Select(t => t.TextContent).Should()
+            .Equal("Nota média da gerente (0–100)", "1ª resposta (min úteis)");
+        tela.FindAll(".aa-legenda-series li").Should().HaveCount(4, "três secretárias e a chave da semana em andamento");
+        tela.FindAll(".aa-tendencias li").Should().HaveCount(3);
+        tela.Find(".aa-tendencias").TextContent.Should().Contain("Nota subiu", "a Ana da prévia melhora depois da devolutiva");
+        tela.FindAll(".aa-evolucao polyline.parcial").Should().NotBeEmpty("a semana corrente vem tracejada");
+        tela.FindAll(".aa-evolucao .lps-parcial").Should().HaveCount(2);
+        tela.FindAll(".aa-evolucao rect.lps-alvo").Should().HaveCount(16, "8 semanas em cada gráfico, cada uma alvo da dica");
+        tela.Find(".aa-evolucao rect.lps-alvo title").TextContent.Should().Contain("Semana de");
+    }
+
+    [Fact]
+    public void Semana_sem_avaliacao_e_buraco_na_linha_e_12_semanas_recorta_sem_ir_ao_CRM()
+    {
+        var tela = Abrir();
+        tela.WaitForAssertion(() => tela.FindAll(".aa-evolucao .lps svg").Should().HaveCount(2), Prazo);
+
+        // A Bruna (segunda cor) não tem avaliação numa semana do meio: a linha da nota vem em DOIS trechos, sem descer ao zero.
+        var nota = tela.FindAll(".aa-evolucao .lps")[0];
+        nota.QuerySelectorAll(".serie-2 polyline:not(.parcial)").Length.Should().Be(2);
+
+        tela.Clicar(() => tela.FindAll(".aa-evolucao .segmentado button").First(b => b.TextContent.Contains("12")));
+        tela.WaitForAssertion(() => tela.FindAll(".aa-evolucao rect.lps-alvo").Should().HaveCount(24), Prazo);
+    }
+
+    [Fact]
+    public void O_403_da_evolucao_fica_so_na_secao()
+    {
+        Crm.FalhaDaEvolucao = new RecusaDoCrm(CrmDeMentira.SoGestao, 403);
+        var tela = Abrir();
+        tela.WaitForAssertion(() => tela.Find(".aa-evolucao").TextContent.Should().Contain(AuditoriaNaTela.TituloSemPermissao), Prazo);
+        tela.FindAll(".aa-evolucao .lps").Should().BeEmpty();
+        tela.FindAll(".aa-sec").Should().NotBeEmpty("o painel por secretária continua");
+        tela.FindAll(".aa-fila tbody tr").Should().NotBeEmpty("a fila continua");
+    }
+
+    [Fact]
+    public void A_falha_da_evolucao_fica_so_na_secao_e_tentar_de_novo_rele_so_ela()
+    {
+        Crm.FalhaDaEvolucao = new CrmIndisponivel("caiu");
+        var tela = Abrir();
+        tela.WaitForAssertion(() => tela.Find(".aa-evolucao").TextContent.Should().Contain("Não foi possível ler a evolução"), Prazo);
+        tela.FindAll(".aa-fila tbody tr").Should().NotBeEmpty();
+
+        Crm.FalhaDaEvolucao = null;
+        tela.Clicar(() => tela.Find(".aa-evolucao .vazio-estado.falha button"));
+        tela.WaitForAssertion(() => tela.FindAll(".aa-evolucao .lps svg").Should().HaveCount(2), Prazo);
+    }
+
     private sealed class HostMudo : IHostDaTela
     {
         public Task<string?> ExportarCsvAsync(IReadOnlyList<string> cabecalho, IReadOnlyList<IReadOnlyList<string>> linhas, string nomeArquivo) => Task.FromResult<string?>(null);

@@ -139,6 +139,8 @@
             }
         </section>
 
+        @Evolucao()
+
         <section class="cartao lista-cartao aa-bloco" aria-label="Para auditar">
             <div class="cartao-titulo">
                 <div>
@@ -450,8 +452,135 @@
         </section>
     };
 
+    /// <summary>
+    /// A EVOLUÇÃO (27/10): a direção quer ver se a devolutiva faz efeito. Dois gráficos pequenos lado a lado — a nota da
+    /// gerente e a 1ª resposta —, uma linha por secretária, e a frase de tendência de cada uma. A falha da evolução fica
+    /// SÓ aqui (o painel e a fila continuam); 8 ↔ 12 semanas recorta o que já foi lido (EvolucaoNaTela.SemanasLidas).
+    /// </summary>
+    private RenderFragment Evolucao() => __builder =>
+    {
+        <section class="cartao aa-bloco aa-evolucao" aria-label="Evolução">
+            <div class="cartao-titulo">
+                <div>
+                    <h2>Evolução</h2>
+                    <p>Semana a semana, a devolutiva está fazendo efeito? A nota é a média das suas avaliações das conversas encerradas na semana; a última semana ainda está em andamento.</p>
+                </div>
+                @if (_evolucao?.Dados is not null)
+                {
+                    <div class="segmentado" role="group" aria-label="Semanas na evolução">
+                        @foreach (var j in EvolucaoNaTela.Janelas)
+                        {
+                            var janela = j;
+                            <button type="button" aria-pressed="@(janela == _semanas ? "true" : "false")" @onclick="() => _semanas = janela">@janela semanas</button>
+                        }
+                    </div>
+                }
+            </div>
+            @if (_evolucao is not { } ev)
+            {
+                <div class="cartao-corpo"><Esqueleto Altura="220" /></div>
+            }
+            else if (ev.SemPermissao)
+            {
+                <EstadoVazio Titulo="@AuditoriaNaTela.TituloSemPermissao" Icone="cadeado" Descricao="@ev.Erro" />
+            }
+            else if (ev.Dados is not { } dados)
+            {
+                <FalhaDeLeitura Titulo="Não foi possível ler a evolução" Detalhe="@ev.Erro" AoTentarDeNovo="TentarEvolucaoAsync" />
+            }
+            else if (dados.Agents.Length == 0 || dados.Weeks.Length == 0)
+            {
+                <EstadoVazio Titulo="Ainda não há semanas para comparar" Icone="grafico"
+                             Descricao="A evolução aparece quando as secretárias têm conversas no CRM." />
+            }
+            else
+            {
+                var recorte = EvolucaoNaTela.Recorte(dados, _semanas);
+                var cores = EvolucaoNaTela.Cores(dados.Agents);
+                var nota = EvolucaoNaTela.GraficoDaNota(recorte, cores);
+                var resposta = EvolucaoNaTela.GraficoDaResposta(recorte, cores);
+                <div class="cartao-corpo aa-evolucao-corpo @(_relendoEvolucao ? "carregando" : null)">
+                    <ul class="aa-legenda-series" aria-label="Legenda: uma cor por secretária">
+                        @foreach (var l in nota.Linhas)
+                        {
+                            <li class="serie-@l.Cor"><span class="aa-chave" aria-hidden="true"></span>@l.Nome</li>
+                        }
+                        <li class="aa-chave-parcial"><span class="aa-chave" aria-hidden="true"></span>semana em andamento</li>
+                    </ul>
+                    <div class="aa-graficos">
+                        <LinhasPorSemana Grafico="nota" />
+                        <LinhasPorSemana Grafico="resposta" />
+                    </div>
+                    <ul class="aa-tendencias">
+                        @foreach (var t in EvolucaoNaTela.Tendencias(dados, cores))
+                        {
+                            <li class="serie-@t.Cor" @key="t.AgentId">
+                                <span class="aa-chave" aria-hidden="true"></span>
+                                <strong>@t.Nome</strong>
+                                <Selo Tom="@t.TomDaNota">@t.RotuloDaNota</Selo>
+                                <span>@t.Nota @t.Resposta</span>
+                            </li>
+                        }
+                    </ul>
+                    <details class="aa-tabela-evolucao">
+                        <summary>Ver os números em tabela</summary>
+                        @TabelaDaEvolucao("Nota média da gerente (avaliações)", EvolucaoNaTela.CabecalhoDaTabela(recorte), EvolucaoNaTela.TabelaDaNota(recorte, cores))
+                        @TabelaDaEvolucao("1ª resposta (mediana, min úteis)", EvolucaoNaTela.CabecalhoDaTabela(recorte), EvolucaoNaTela.TabelaDaResposta(recorte, cores))
+                    </details>
+                </div>
+            }
+        </section>
+    };
+
+    private static RenderFragment TabelaDaEvolucao(string titulo, IReadOnlyList<string> semanas, IReadOnlyList<LinhaDaTabela> linhas) => __builder =>
+    {
+        <div class="tabela-rolagem">
+            <table class="lista aa-tabela-numeros">
+                <caption>@titulo</caption>
+                <thead>
+                    <tr>
+                        <th>Secretária</th>
+                        @foreach (var s in semanas) { <th class="direita nao-quebra">@s</th> }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var l in linhas)
+                    {
+                        <tr>
+                            <td class="nao-quebra">@l.Nome</td>
+                            @foreach (var v in l.Valores) { <td class="direita numero nao-quebra">@v</td> }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    };
+
+    /// <summary>"Tentar de novo" da seção: relê SÓ a evolução (o painel e a fila ficam como estão).</summary>
+    private async Task TentarEvolucaoAsync()
+    {
+        if (!Pode(Permissao.VerAuditoria)) return;
+        var g = ++_geracaoEvolucao;
+        _relendoEvolucao = true;
+        try
+        {
+            using var escopo = Escopo();
+            var lida = await escopo.ServiceProvider.GetRequiredService<AuditoriaDoAtendimentoService>().LerEvolucaoAsync();
+            if (g != _geracaoEvolucao || Descartada) return;
+            _evolucao = lida;
+        }
+        finally
+        {
+            if (g == _geracaoEvolucao) _relendoEvolucao = false;
+        }
+    }
+
     private int _dias = AuditoriaNaTela.Periodos[0];
     private PainelDaAuditoria? _painel;
+    private EvolucaoLida? _evolucao;
+    private int _semanas = EvolucaoNaTela.Janelas[0];
+    private bool _relendoEvolucao;
+    private int _geracaoEvolucao;
     private bool _carregando, _naoConfigurado;
     private string? _erro, _semPermissao, _filtro;
     private int _geracao, _geracaoDetalhe;
@@ -519,6 +648,8 @@
             _semPermissao = null;
             _erro = null;
             _painel = painel;
+            _evolucao = painel.Evolucao;
+            ++_geracaoEvolucao; // um "Tentar de novo" da seção ainda em voo não escreve por cima desta leitura
         }
         catch (CrmNaoConfigurado)
         {
