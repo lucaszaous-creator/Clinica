@@ -251,6 +251,9 @@ public sealed class ClienteDoCrmHttp : IClienteDoCrm, IDisposable
     public Task<AppQualityReview> SalvarAuditoriaAsync(int usuarioId, AppQualitySave avaliacao, CancellationToken ct = default)
         => EscreverAsync<AppQualityReview>(usuarioId, "/api/quality", avaliacao, ct);
 
+    public Task<AppQualityTrend> EvolucaoDaAuditoriaAsync(int usuarioId, int semanas, CancellationToken ct = default)
+        => LerAsync<AppQualityTrend>(usuarioId, "/api/quality/evolucao?semanas=" + semanas.ToString(System.Globalization.CultureInfo.InvariantCulture), ct);
+
     public void EsquecerSessao(int usuarioId)
     {
         // O HttpClient antigo não é descartado aqui: uma chamada dele pode estar em andamento

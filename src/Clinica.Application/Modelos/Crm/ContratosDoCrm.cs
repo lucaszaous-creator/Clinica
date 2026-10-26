@@ -158,3 +158,12 @@ public sealed record AppQualityDetail(AppConversation Conversation, string Finge
 /// Fingerprint: o do detalhe (409 se a conversa mudou). State "final" exige os cinco critérios justificados. Resposta: AppQualityReview.</summary>
 public sealed record AppQualitySave(string ConversationId, string SubjectId, int Version, string Fingerprint, string State,
     AppQualityAnswer[] Answers, string Outcome, string Feedback, string Action, DateTimeOffset? DueAt, bool ActionDone = false);
+/// <summary>Uma semana de uma secretária (GET /api/quality/evolucao). WeekStart: a segunda-feira (data de Brasília). Conversations:
+/// conversas em que ela escreveu; FirstReplyMedianMinutes, RepliedOnTime e RepliesMeasured: como no AppQualityAgent. AverageScore:
+/// média das avaliações FINAIS da gerente sobre as conversas encerradas na semana (nulo sem avaliação); Reviewed: quantas.</summary>
+public sealed record AppQualityWeek(DateOnly WeekStart, int Conversations, double? FirstReplyMedianMinutes, int RepliedOnTime,
+    int RepliesMeasured, decimal? AverageScore, int Reviewed);
+public sealed record AppQualityTrendAgent(string AgentId, string Name, AppQualityWeek[] Weeks);
+/// <summary>GET /api/quality/evolucao?semanas=8 (de 4 a 26): Weeks são as segundas-feiras, a mais antiga primeiro; a última é a
+/// semana corrente, ainda parcial. Cada secretária traz uma AppQualityWeek por semana, na mesma ordem.</summary>
+public sealed record AppQualityTrend(DateOnly[] Weeks, AppQualityTrendAgent[] Agents);

@@ -467,6 +467,38 @@ public sealed class ClienteDoCrmHttpTests : IDisposable
         Assert.Equal(("Preencha os cinco critérios de auditoria.", 400), (invalida.Message, invalida.Status));
     }
 
+    [Fact] public async Task A_evolucao_vai_por_GET_sem_csrf_e_volta_semana_a_semana_com_a_nota_nula_sem_avaliacao()
+    {
+        await Configurar(EnderecoA);
+        var semanas = new[] { new DateOnly(2026, 10, 19), new DateOnly(2026, 10, 26) };
+        crm.Rota = (p, _) => (p.Metodo, p.Caminho) switch
+        {
+            ("GET", "/api/quality/evolucao?semanas=12") => Responder(new AppQualityTrend(semanas,
+                [new AppQualityTrendAgent("ana", "Ana Lima", [
+                    new AppQualityWeek(semanas[0], 14, 6.5, 11, 13, 84.5m, 2),
+                    new AppQualityWeek(semanas[1], 3, null, 0, 0, null, 0)])])),
+            _ => new HttpResponseMessage(HttpStatusCode.NotFound),
+        };
+
+        var evolucao = await cliente.EvolucaoDaAuditoriaAsync(7, 12);
+
+        Assert.Equal(semanas, evolucao.Weeks);
+        var ana = Assert.Single(evolucao.Agents);
+        Assert.Equal(("ana", 2), (ana.AgentId, ana.Weeks.Length));
+        Assert.Equal((new DateOnly(2026, 10, 19), 84.5m, 2, 6.5), (ana.Weeks[0].WeekStart, ana.Weeks[0].AverageScore, ana.Weeks[0].Reviewed, ana.Weeks[0].FirstReplyMedianMinutes));
+        Assert.Equal(((decimal?)null, (double?)null), (ana.Weeks[1].AverageScore, ana.Weeks[1].FirstReplyMedianMinutes));
+        Assert.Equal(["GET /api/quality/evolucao?semanas=12 csrf="], crm.Pedidos.Skip(3).Select(p => $"{p.Metodo} {p.Caminho} csrf={p.Csrf}"));
+    }
+
+    [Fact] public async Task Na_evolucao_o_403_de_quem_nao_e_da_gestao_chega_como_recusa()
+    {
+        await Configurar(EnderecoA);
+        crm.Rota = (_, _) => Erro(403, "Esta função está disponível para supervisores e administradores.");
+        var e = await Assert.ThrowsAsync<RecusaDoCrm>(() => cliente.EvolucaoDaAuditoriaAsync(7, 8));
+        Assert.Equal(403, e.Status);
+        Assert.Equal(1, Bilhetes());
+    }
+
     // ---------- A presença do app (25/10, D12) ----------
 
     [Fact] public async Task O_pulso_de_presenca_vai_com_o_csrf_e_renova_a_sessao_vencida()
