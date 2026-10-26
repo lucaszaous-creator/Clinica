@@ -285,8 +285,14 @@
 @code {
     /// <summary>O bloco EMITIR — debaixo do rail da tela, ou ao lado da folha quando ela não tem rail.</summary>
     private RenderFragment BlocoEmitir(FolhaDoAtendimento f) =>
-        @<section class="cartao at-emitir" aria-label="Emitir">
-            <h3 class="at-lado-titulo">EMITIR</h3>
+        @* Pedido da clínica (26/10/2026): fechado, o bloco é só "EMITIR"; os papéis aparecem ao passar
+           o mouse, ao focar pelo teclado ou no toque do título (o tablet não tem mouse). *@
+        @<section class="cartao at-emitir @(_emitirAberto ? "aberto" : null)" aria-label="Emitir">
+            <h3 class="at-lado-titulo">
+                <button type="button" class="at-emitir-alternar" aria-expanded="@(_emitirAberto ? "true" : "false")"
+                        aria-controls="at-emitir-itens" @onclick="() => _emitirAberto = !_emitirAberto">EMITIR</button>
+            </h3>
+            <div class="at-emitir-itens" id="at-emitir-itens">
             @foreach (var cartao in _cartoes)
             {
                 <button type="button" class="at-papel" disabled="@(!cartao.PodeEmitir || _ocupado)" @onclick="() => Emitir(cartao)"
@@ -312,6 +318,7 @@
                         @(f.BsvIndicado ? "Em acompanhamento BSV" : "Novo paciente de BSV")</button>
                 }
             </div>
+            </div>
         </section>;
 
     private RenderFragment EvaSelect(string rotulo, int? valor, Action<int?> definir) =>
@@ -336,6 +343,8 @@
     private IReadOnlyList<FolhaParaEntregar> _cartoes = [];
     private HerancaDaSessao? _herancaMontada;
     private bool _historicoAberto;
+    /// <summary>EMITIR fechado mostra só o título; abre ao passar o mouse (CSS) ou no toque do título (tablet).</summary>
+    private bool _emitirAberto;
     private bool _detalheAberto;
     private bool _modelosAbertos;
     private bool _mapaAberto;

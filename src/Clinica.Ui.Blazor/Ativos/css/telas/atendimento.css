@@ -79,6 +79,12 @@
 .tp-coluna-esquerda:has(.at-emitir){position:static}
 .at-heranca{color:var(--acento)}
 .at-emitir-acoes{flex-wrap:wrap}
+/* Fechado = só o título; abre no hover, no foco do teclado ou no toque (.aberto). Aberto, o
+   invólucro é `contents`: os papéis seguem o leiaute do bloco (lista, janela baixa, faixa). */
+.at-emitir-alternar{all:unset;display:block;width:100%;cursor:pointer;font:inherit;color:inherit;letter-spacing:inherit}
+.at-emitir-alternar:focus-visible{outline:2px solid var(--acento);outline-offset:2px;border-radius:var(--radius-control)}
+.at-emitir-itens{display:none}
+.at-emitir:hover .at-emitir-itens,.at-emitir:focus-within .at-emitir-itens,.at-emitir.aberto .at-emitir-itens{display:contents}
 .at-termo{width:100%}
 .at-termo-conferir{background:var(--aviso-suave);color:var(--aviso-texto);border-color:var(--aviso)}
 .at-saiu{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--space-1)}
