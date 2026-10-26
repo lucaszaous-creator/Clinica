@@ -135,8 +135,15 @@ public sealed class RegrasDoWhatsAppNaTelaTests : IClassFixture<BancoDasTelas>, 
         var rotulos = horario.QuerySelectorAll("button").Select(b => b.TextContent.Trim()).ToList();
         rotulos.Should().NotContain(r => r.EndsWith("Confirmar") || r == "Não vem");
         rotulos.Should().Contain(r => r.EndsWith("Remarcar")).And.Contain("Cancelar");
-        // A confirmação de hoje diz o canal certo: o automático do WhatsApp, não o SMS (item 15).
-        tela.Find(".wa-ficha").TextContent.Should().Contain("WhatsApp enviado pelo número oficial (automático)").And.NotContain("SMS enviado");
+        // A confirmação de hoje diz o canal certo: o automático do WhatsApp, não o SMS (item 15). A frase
+        // é conferida SEMPRE pela regra; na tela, só quando a sessão do Carlos ainda cai HOJE — o relógio
+        // da prévia desloca a semente pela hora em que a suíte roda, e depois das ~18h a sessão das "16:00"
+        // vira amanhã e o painel da confirmação de hoje (com razão) não aparece. Era uma falha por horário.
+        Clinica.Application.Servicos.WhatsAppDaRecepcaoService.QuemEnviou("CRM · WhatsApp").Should().Be(" pelo número oficial (automático)");
+        var ficha = tela.Find(".wa-ficha").TextContent;
+        ficha.Should().NotContain("SMS enviado");
+        if (RelogioDaPrevia.Em(0, 16, 0).Date == DateTime.Today)
+            ficha.Should().Contain("WhatsApp enviado pelo número oficial (automático)");
     }
 
     // O BOTÃO DIREITO (out/2026): o menu nasce no clique, o item desabilitado diz por quê, e o escolhido chama o mesmo
