@@ -294,10 +294,11 @@ public sealed partial class WhatsAppDaRecepcaoService(
     /// </summary>
     public static IReadOnlyList<string> Variantes(string? telefone)
     {
-        var d = Telefone.Normalizar(telefone);
+        var d = Telefone.SemPrefixoDeDiscagem(Telefone.Normalizar(telefone));
         if (d.Length is < 10 or > 13) return [];
         var sem = d.Length is 12 or 13 && d.StartsWith("55", StringComparison.Ordinal) ? d[2..] : d;
-        return sem.Length is 10 or 11 ? [sem, "55" + sem] : [d];
+        // A ficha às vezes guarda o 0 do interurbano ("022998999334"): a busca no banco compara dígitos, então ele entra.
+        return sem.Length is 10 or 11 ? [sem, "55" + sem, "0" + sem] : [d];
     }
 
     /// <summary>O número no formato que o CRM grava (dígitos, com o 55), ou nulo quando ele não serve para mensagem.</summary>
@@ -359,7 +360,8 @@ public sealed partial class WhatsAppDaRecepcaoService(
             var p = await repo.ObterPacienteAsync(id, ct);
             if (p is not null)
             {
-                var autorizou = await consentimentos.VigenteAsync(id, FinalidadeConsentimento.ComunicacaoEMarketing, ct);
+                // Só quem RECUSOU (PARAR, "Não" no termo) fica sem mensagem; sem registro conta como autorizado (termo do BSV).
+                var autorizou = (await repo.PacientesComMensagensLiberadasAsync([id], ct)).Contains(id);
                 cartao = Cartao(p, contato, autorizou, hoje);
             }
             var marcados = await repo.AgendamentosDoPacienteNoPeriodoAsync(id, hoje, hoje.AddDays(DiasDeHorarios), ct);
@@ -411,7 +413,8 @@ public sealed partial class WhatsAppDaRecepcaoService(
         var ficha = c is null
             ? ConversasNaTela.EstadoDaFicha(d.Caso?.PacienteId, d.Caso?.Paciente, 1)
             : ConversasNaTela.EstadoDaFicha(c, d.Candidatas.Count);
-        var acao = ConversasNaTela.PedeAcao(c, d.Avisos, d.Candidatas.Count, d.Caso, agora, d.MeuAgente, d.Agentes);
+        var acao = ConversasNaTela.PedeAcao(c, d.Avisos, d.Candidatas.Count, d.Caso, agora, d.MeuAgente, d.Agentes,
+            d.Candidatas is [var unica] ? unica : null);
         var abertura = d.Caso is { } caso && (c is null || c.Messages.Length == 0) ? RetencaoNaTela.Abertura(caso, c, agora) : null;
         var minha = c?.AgentId is { } a && a == d.MeuAgente;
         var encerramento = c is { Closed: true } ? Encerramento(c, d.Agentes, d.Resultados, agora) : null;
@@ -538,7 +541,7 @@ public sealed partial class WhatsAppDaRecepcaoService(
         return new CartaoDoPaciente(p.Id, p.Nome, Iniciais(p.Nome), cab.Idade, cab.Telefone,
             ConversasNaTela.MesmoTelefone(contatoDaConversa, p.Telefone), cab.Convenio, cab.Carteirinha, cab.CarteirinhaVencida,
             FimDoDocumento(p.Documento), mensagensAutorizadas,
-            mensagensAutorizadas ? "Autorizou mensagens" : "Não autorizou mensagens · a ação é ligar");
+            mensagensAutorizadas ? "Liberadas" : "Pediu para não receber · a ação é ligar");
     }
 
     /// <summary>

@@ -16,7 +16,7 @@ public static class Whatsapp
     /// </summary>
     public static string? Abrir(string? telefone, string nomePaciente, string mensagem)
     {
-        var fone = Telefone.Normalizar(telefone);
+        var fone = Telefone.SemPrefixoDeDiscagem(Telefone.Normalizar(telefone));
         if (fone.Length is < 10 or > 13)
             return $"{nomePaciente}: telefone ausente ou inválido no cadastro.";
 

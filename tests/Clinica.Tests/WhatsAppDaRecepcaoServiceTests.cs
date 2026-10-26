@@ -102,8 +102,8 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
     private int CasoDeRecall(Paciente p, bool autorizou)
     {
         using var db = Db();
-        if (autorizou)
-            db.Consentimentos.Add(new ConsentimentoLgpd { PacienteId = p.Id, Finalidade = FinalidadeConsentimento.ComunicacaoEMarketing, Concedido = true });
+        // Sem registro conta como autorizado (termo do BSV, out/2026): "não autorizou" aqui é a RECUSA gravada.
+        db.Consentimentos.Add(new ConsentimentoLgpd { PacienteId = p.Id, Finalidade = FinalidadeConsentimento.ComunicacaoEMarketing, Concedido = autorizou });
         var caso = new AcompanhamentoPaciente
         {
             PacienteId = p.Id, Tipo = TipoAcompanhamento.Recall, Modalidade = ModalidadeAtendimento.AcupunturaSimples,
@@ -172,6 +172,23 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
         Assert.Equal(EstadoFicha.AConferir, aberta.Ficha.Estado);
         Assert.Equal(TipoDaAcaoPedida.ConferirFicha, aberta.Acao?.Tipo);
         Assert.Empty(_crm.Lidas);
+    }
+
+    // Out/2026: a ficha que guarda o 0 do interurbano ("022998999334") é achada pela conversa do número certo
+    // (55 22 99899-9334) e, sendo a única, o aviso liga num clique — sem abrir a janela de conferência.
+    [Fact]
+    public async Task Ficha_unica_com_zero_na_frente_liga_num_clique()
+    {
+        var jamile = new Paciente { Nome = "Jamile Leandro Barcelos", Telefone = "022998999334" };
+        using (var db = Db()) { db.Pacientes.Add(jamile); db.SaveChanges(); }
+        _crm.Pôr(Conversa("c-jamile", "Jamili", "5522998999334"));
+        var painel = await Com(s => s.LerAsync());
+
+        var aberta = await Com(s => s.AbrirAsync(painel, "c-jamile", 0));
+
+        Assert.Equal(jamile.Id, Assert.Single(aberta.Dados.Candidatas).Id);
+        Assert.Equal("É Jamile Leandro Barcelos?", aberta.Acao?.Titulo);
+        Assert.Equal([BotaoDaAcao.LigarFicha, BotaoDaAcao.BuscarFicha], aberta.Acao!.Botoes.Select(b => b.Acao));
     }
 
     [Fact]
@@ -345,7 +362,7 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Sem_autorizacao_nenhum_convite_sai_para_o_CRM()
+    public async Task Quem_recusou_mensagens_nao_recebe_convite_pelo_CRM()
     {
         var casoId = CasoDeRecall(_sebastiao, autorizou: false);
         var painel = await Com(s => s.LerAsync());
@@ -432,7 +449,7 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
         Assert.Equal("cinza", WhatsAppDaRecepcaoService.TomDoAvatar(null));
         Assert.Equal("final 42", WhatsAppDaRecepcaoService.FimDoDocumento("123.456.789-42"));
         Assert.Equal("—", WhatsAppDaRecepcaoService.FimDoDocumento(null));
-        Assert.Equal(["22998765432", "5522998765432"], WhatsAppDaRecepcaoService.Variantes("5522998765432"));
+        Assert.Equal(["22998765432", "5522998765432", "022998765432"], WhatsAppDaRecepcaoService.Variantes("5522998765432"));
         Assert.Empty(WhatsAppDaRecepcaoService.Variantes("123"));
         Assert.Equal("5522998765432", WhatsAppDaRecepcaoService.ContatoParaOCrm("(22) 99876-5432"));
     }

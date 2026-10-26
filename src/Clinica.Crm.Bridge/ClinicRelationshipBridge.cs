@@ -53,7 +53,8 @@ public sealed class ClinicRelationshipBridge(ClinicaDbContext db, ConsultaServic
         var ids = absent.Concat(started).Concat(cases.Select(c => c.PacienteId)).Concat(renew.Select(r => r.PacienteId)).Distinct().ToArray();
         var patients = await db.Pacientes.AsNoTracking().Where(p => ids.Contains(p.Id))
             .Select(p => new { p.Id, p.Nome, p.Telefone, p.Convenio, p.ConvenioCodigo }).ToDictionaryAsync(p => p.Id, ct);
-        var consent = (await new ClinicaRepositorio(db).PacientesComConsentimentoVigenteAsync(FinalidadeConsentimento.ComunicacaoEMarketing, ids, ct)).ToHashSet();
+        // Só quem RECUSOU fica de fora; sem registro conta como autorizado (termo do BSV, out/2026).
+        var consent = (await new ClinicaRepositorio(db).PacientesComMensagensLiberadasAsync(ids, ct)).ToHashSet();
         var shared = (await db.Pacientes.AsNoTracking().Select(p => p.Telefone).ToListAsync(ct))
             .GroupBy(ClinicAgendaBridge.Phone).Where(g => g.Key.Length > 0 && g.Count() > 1).Select(g => g.Key).ToHashSet();
 

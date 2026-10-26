@@ -129,8 +129,8 @@ public sealed class RetencaoNaTelaTests
     public void O_selo_da_linha()
     {
         SeloDoWhatsApp Selo(LinhaAcompanhamento l) => RetencaoNaTela.Selo(l, Respostas.TryGetValue(l.PacienteId, out var u) ? u : null, Agora);
-        Assert.Equal(new SeloDoWhatsApp("Autorizou", "sucesso"), Selo(Sebastiao));
-        Assert.Equal(new SeloDoWhatsApp("Sem autorização", "aviso"), Selo(Helena));
+        Assert.Equal(new SeloDoWhatsApp("Pode convidar", "sucesso"), Selo(Sebastiao));
+        Assert.Equal(new SeloDoWhatsApp("Pediu para não receber", "aviso"), Selo(Helena));
         Assert.Equal(new SeloDoWhatsApp("Indicado ao BSV", "info"), Selo(Felipe));
         Assert.Equal(new SeloDoWhatsApp("Respondeu", "sucesso"), Selo(Alzira));
         Assert.Equal(new SeloDoWhatsApp("Aguardando · 30/10", "info"), Selo(Fernanda));

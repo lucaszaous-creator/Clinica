@@ -390,7 +390,8 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px;fon
    a mesma das listas do dia — por isso o bloco das vagas do mockup saiu. */
 .wa-linha-corpo .wa-tick svg,.wa-m-rodape .wa-tick svg{width:16px;height:12px}
 .wa-linha-previa .icone{width:14px;height:14px;flex:none}
-.wa-tick.aviso{color:var(--aviso)}
+/* "nao-confirmada", nunca "aviso": a classe global .aviso é o cartão de alerta (padding, borda, fundo) e virava um quadrado ao lado da hora. */
+.wa-tick.nao-confirmada{color:var(--aviso)}
 .wa-m-erro{display:block;margin-top:var(--space-1);font-size:var(--text-small-size);color:var(--erro-texto)}
 .wa-acao .icone{width:18px;height:18px;flex:none;margin-top:2px}
 .wa-acao{display:flex}

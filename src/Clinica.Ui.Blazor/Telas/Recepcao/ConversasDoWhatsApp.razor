@@ -516,7 +516,7 @@ else
                             <dt>Tratamento</dt><dd>@RetencaoNaTela.Tratamento(caso.Modalidade)</dd>
                             <dt>@(caso.Tipo == TipoAcompanhamento.NovoBsv ? "Indicado em" : "Última sessão")</dt><dd>@caso.ReferenciaEm.ToString("dd/MM/yyyy", Formato.PtBr) <span class="wa-dias tom-neutro">@RetencaoNaTela.Dias(caso)</span></dd>
                             <dt>Sessões</dt><dd>@caso.TotalSessoes.ToString(Formato.PtBr)@(caso.PacoteComSaldo ? " · pacote com saldo" : "")</dd>
-                            <dt>Mensagens</dt><dd>@if (caso.Consentimento) { <span class="selo tom-sucesso">autorizou</span> } else { <span class="selo tom-aviso">sem autorização · ligar</span> }</dd>
+                            <dt>Mensagens</dt><dd>@if (caso.Consentimento) { <span class="selo tom-sucesso">liberadas</span> } else { <span class="selo tom-aviso">pediu para não receber · ligar</span> }</dd>
                             @if (selo is not null) { <dt>Situação</dt><dd><span class="selo tom-@selo.Tom">@selo.Texto</span></dd> }
                             @* "pelo acompanhamento": o responsável do CASO, que não é o da conversa do CRM (item 15). *@
                             <dt>Responsável pelo acompanhamento</dt><dd>@ConversaDoAcompanhamento.Dono(caso, SessaoUsuario.Atual.UsuarioId)</dd>
@@ -555,7 +555,7 @@ else
                 {
                     <section class="wa-secao"><h3>@(a.Dados.Candidatas.Count == 1 ? "Uma ficha com este telefone" : $"{a.Dados.Candidatas.Count} fichas com este telefone")</h3>
                         <p class="wa-dica">@string.Join(" e ", a.Dados.Candidatas.Select(f => f.Nome)). Confira com quem está no telefone.</p>
-                        @if (!ConversasNaTela.AvisoOferece(a.Acao, BotaoDaAcao.ConferirFicha))
+                        @if (!ConversasNaTela.AvisoOferece(a.Acao, BotaoDaAcao.ConferirFicha) && !ConversasNaTela.AvisoOferece(a.Acao, BotaoDaAcao.LigarFicha))
                         {
                             <button type="button" class="botao primario" disabled="@(!PodeEscrever)" @onclick="AbrirConferirFicha"><Icone Nome="pessoa" />Conferir a ficha</button>
                         }
@@ -1494,7 +1494,7 @@ else
     private static string? IconeDoBotao(BotaoPedido b) => b.Acao switch
     {
         BotaoDaAcao.Remarcar => "calendario",
-        BotaoDaAcao.ConfirmouPorTelefone or BotaoDaAcao.JaLiguei or BotaoDaAcao.AceitarTransferencia => "check",
+        BotaoDaAcao.ConfirmouPorTelefone or BotaoDaAcao.JaLiguei or BotaoDaAcao.AceitarTransferencia or BotaoDaAcao.LigarFicha => "check",
         BotaoDaAcao.BuscarFicha => "busca",
         BotaoDaAcao.PrepararConvite or BotaoDaAcao.PrepararMensagem => "modelo",
         BotaoDaAcao.NotaInterna => "nota",
@@ -1518,6 +1518,9 @@ else
                 else Notificacoes.Info("O horário não está entre os próximos deste paciente. Aceite o cancelamento pela Agenda do dia.");
                 break;
             case BotaoDaAcao.ConferirFicha: AbrirConferirFicha(); break;
+            case BotaoDaAcao.LigarFicha when c.Dados.Candidatas is [var unica]:
+                if (Exigir(Permissao.EditarAgenda, "ligar a ficha à conversa")) await LigarCandidataAsync(unica);
+                break;
             case BotaoDaAcao.BuscarFicha: _fichaAberta = true; break;
             case BotaoDaAcao.CadastrarPaciente: await CadastrarAsync(c); break;
             case BotaoDaAcao.NotaInterna when c.Conversa is not null:
@@ -1644,7 +1647,7 @@ else
         _focarBusca = _buscaConversa is not null;
     }
 
-    private RenderFragment Tick(TickDaMensagem t) => @<span class="wa-tick @(t.Estado == EstadoDaEntrega.Lida ? "lida" : t.Estado == EstadoDaEntrega.Falhou ? "falhou" : t.Estado == EstadoDaEntrega.NaoConfirmada ? "aviso" : null)" title="@t.Texto"><Icone Nome="@(t.Estado switch { EstadoDaEntrega.Enviando => "relogio", EstadoDaEntrega.Enviada => "tick", EstadoDaEntrega.Falhou or EstadoDaEntrega.NaoConfirmada => "alerta", _ => "ticks" })" /></span>;
+    private RenderFragment Tick(TickDaMensagem t) => @<span class="wa-tick @(t.Estado == EstadoDaEntrega.Lida ? "lida" : t.Estado == EstadoDaEntrega.Falhou ? "falhou" : t.Estado == EstadoDaEntrega.NaoConfirmada ? "nao-confirmada" : null)" title="@t.Texto"><Icone Nome="@(t.Estado switch { EstadoDaEntrega.Enviando => "relogio", EstadoDaEntrega.Enviada => "tick", EstadoDaEntrega.Falhou or EstadoDaEntrega.NaoConfirmada => "alerta", _ => "ticks" })" /></span>;
 
     /// <summary>O texto do balão com o que a busca achou marcado (sem caixa nem acento, como a busca da lista).</summary>
     private RenderFragment Marcar(string texto) => b =>

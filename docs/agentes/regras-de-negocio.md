@@ -6,7 +6,7 @@ mora o código. Mexer numa área? Leia antes o tópico dela — vários registra
 teste pega. Lição nova de uma área entra aqui, no tópico dela; regra que vale para TODA mudança
 continua no `CLAUDE.md`.
 
-## Índice (184 tópicos, na ordem do arquivo)
+## Índice (187 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -190,11 +190,13 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
 - 🎨 O FATURAMENTO DE GUIAS VIROU BLAZOR — e "nada se perde" foi medido, não prometido
 - A COMISSÃO DE RECUPERAÇÃO É APURADA DOS FATOS, NUNCA MARCADA
 - O CANAL DE SMS, a confirmação por link e "não vem" como resposta cotidiana (SAIU na fase 3)
-- A FASE 3 RECEPÇÃO×CRM: autorização de mensagens no termo do BSV, recall com trava, um PARAR só
+- A FASE 3 RECEPÇÃO×CRM: autorização de mensagens no termo do BSV, recall com trava, um PARAR só (25/10: sem registro conta como autorizado)
 - A RESPOSTA DO PACIENTE VIRA AVISO NO SINO E NO PAINEL DA DIREÇÃO
 - "JORNADA" ERA TERMO DE RH, E O DESENHO NÃO CABIA A SEMANA REAL
 - TENDÊNCIA E METAS POR RECORTE
 - O WHATSAPP DA CLÍNICA É DAS SECRETÁRIAS E DA DIREÇÃO
+- A FICHA ÚNICA LIGA EM UM CLIQUE — e quem confere continua sendo a recepção
+- O TELEFONE DA FICHA VAI AO CRM SEM O 0 DO INTERURBANO
 
 ---
 
@@ -2099,7 +2101,11 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   `REC:55:2026-07`) é a chave de idempotência, com índice único junto do tipo — rodar a campanha
   duas vezes não pode mandar a mesma mensagem duas vezes. **Confirmar a própria sessão é
   transacional** e não exige consentimento; **NPS e recall exigem** `ComunicacaoEMarketing`
-  vigente, e quem não consentiu aparece CONTADO no resultado da rodada em vez de sumir. O envio é
+  vigente, e quem não consentiu aparece CONTADO no resultado da rodada em vez de sumir.
+  ⚠️ *Desde 25/10/2026 isso vale só para as campanhas do Gerente (`CampanhaService`,
+  `PacientesComConsentimentoVigenteAsync`). O recall de hoje (fila do Acompanhamento, retenção e
+  recall do CRM pela ponte) conta sem registro como autorizado e bloqueia só quem recusou — ver o
+  tópico da FASE 3 RECEPÇÃO×CRM.* O envio é
   um clique por paciente de propósito: o número é o WhatsApp da clínica.
 - **Indicadores (parcela 5)**: ocupação é medida contra os dias em que o profissional TEVE agenda
   × jornada configurável (`ParametrosService.ChaveJornadaDiariaMinutos`, padrão 480 min) — a
@@ -4535,6 +4541,21 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   ⚠️ **A fila de recall só se renova quando alguém abre o Acompanhamento** (é lá que
   `GerarRecallAsync` roda, com os dias do Gerente). A ponte só LÊ a fila; se ninguém abrir a tela,
   o CRM fica sem convidados novos — falha segura, nunca mensagem a mais.
+  ⚠️ **25/10/2026, pedido da direção: SEM REGISTRO CONTA COMO AUTORIZADO** (§6 de
+  `docs/fase3-recepcao-crm.md`). A autorização é considerada colhida no termo do BSV; só fica
+  bloqueado quem RECUSOU — o ÚLTIMO registro `ComunicacaoEMarketing` não vigente ("Não" no termo,
+  PARAR no CRM, revogação na ficha). A pergunta é `IClinicaRepositorio.PacientesComMensagensLiberadasAsync`
+  (o "mais recente vence" de `PacientesComConsentimentoVigenteAsync`, pelo avesso), usada no recall
+  e no relacionamento da ponte (`ClinicRecallBridge.Snapshot`, `ClinicRelationshipBridge`), no
+  `AcompanhamentoPacienteService` (lista e `ValidarContatoAsync`) e no cartão da conversa
+  (`WhatsAppDaRecepcaoService`). **As campanhas do Gerente (`CampanhaService`) continuam exigindo o
+  "Sim"** — não troque a pergunta delas por engano: os dois nomes respondem perguntas diferentes.
+  ⚠️ **Toda recusa precisa deixar LINHA**: sem registro é "liberado", então o PARAR de quem nunca
+  respondeu passou a gravar a recusa (`ClinicRecallBridge.OptOut`) — antes ele não tinha o que
+  revogar e o paciente continuaria convidado. Os textos dizem o que o paciente pediu: "pediu para
+  não receber mensagens", selos "Pode convidar" / "Pediu para não receber", cartão "Liberadas" /
+  "Pediu para não receber · a ação é ligar". A confirmar com a direção: quem nunca passou por um
+  termo do BSV (o paciente só de acupuntura) também conta como autorizado, sem ter visto a pergunta.
 - **O CANAL DE SMS, a confirmação por link e "não vem" como resposta cotidiana** (⛔ SAIU na fase 3
   Recepção×CRM, 23/10/2026 — o que segue é histórico; o mapa está em `docs/canal-sms.md`). Lembrete 24h antes (`ConfirmacaoPorLink.MomentoDoLembrete`:
   sábado e domingo adiantam para a sexta, porque ninguém liga o computador no domingo), link
@@ -4630,3 +4651,25 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   que o perfil já responde. Testes: `AcessoAoWhatsAppTests`, `PonteClinicTeamTests.
   Bit_de_agendar_em_outro_perfil_nao_entra_no_CRM`, `ConversaAoLadoTests.Quem_nao_atende_o_WhatsApp_nao_ve_o_botao`.
   Para valer no CRM web, a ponte precisa ser publicada na VPS 1 (roteiro da manhã §1.1).
+
+- **A FICHA ÚNICA LIGA EM UM CLIQUE — e quem confere continua sendo a recepção** (25/10/2026, pedido
+  da direção; `docs/whatsapp-nativo-implementacao.md` §17.2). Quando só UMA ficha tem o telefone da
+  conversa, o aviso da conversa (`ConversasNaTela`) pergunta **"É {Nome}?"** com o nascimento e o fim do
+  documento, e oferece **"Ligar a ficha"** (`BotaoDaAcao.LigarFicha`, liga direto, sem a janela "Qual
+  ficha é esta pessoa?") e **"É outra pessoa"** (a busca). Com duas ou mais fichas, segue "Conferir a
+  ficha" com a janela. ⚠️ **Não é o telefone decidindo**: a regra 4 da direção ("o telefone não é
+  identidade") continua — a ficha nunca se liga sozinha, a recepção pergunta à pessoa e clica. O que saiu
+  foi só a janela com uma linha, que repetia o que o aviso já podia mostrar. Testes:
+  `ConversasNaTelaTests` (o aviso de uma ficha), `WhatsAppDaRecepcaoServiceTests` (os botões da conversa
+  aberta).
+- **O TELEFONE DA FICHA VAI AO CRM SEM O 0 DO INTERURBANO** (25/10/2026, bug visto na clínica). A ficha
+  com "022998999334" ia para a Meta como estava, e a mensagem não era entregue — o WhatsApp do celular
+  conhece o número como +55 22 99899-9334. A regra mora em `Telefone.SemPrefixoDeDiscagem`
+  (Clinica.Domain): tira o 0 do interurbano e, com ele, o código de operadora ("0 15 22 …"); "00"
+  (internacional) e número sem 0 ficam. Passam por ela as quatro portas do telefone: a ponte
+  (`ClinicAgendaBridge.Phone`, que depois põe o 55 — e é a mesma do PARAR e do recall), a tela
+  (`ConversasNaTela.TelefoneNaTela` e `MesmoTelefone`), a conversa nova (`ConversaNoCrm.Telefone`) e a
+  busca da ficha no banco (`WhatsAppDaRecepcaoService.Variantes`, que inclui a forma "0" + DDD + número,
+  porque o banco compara dígitos). ⚠️ **A ficha não é reescrita** (dado da clínica; a normalização é na
+  saída) e **as conversas que o CRM já abriu com o número errado ficam lá**; as novas vão para 55 + DDD +
+  número. Testes: `TelefoneTests`. Lição de implementação em `docs/agentes/convencoes.md`.

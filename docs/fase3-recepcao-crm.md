@@ -5,6 +5,10 @@
 > **o CRM é o único que fala com o paciente** (WhatsApp e SMS); **uma tela por tarefa**. A fase 1
 > (modo Recepção dentro do CRM e o aviso único de "sem resposta") e a fase 2 (Acompanhamento ×
 > Relacionamento) são de outras entregas. Esta é a 3ª, com um PR em cada repositório.
+>
+> ⚠️ **Atualizado em 25/10/2026 (pedido da direção): sem registro conta como autorizado.** O
+> recall e o relacionamento deixaram de exigir um "Sim" gravado; só fica bloqueado quem RECUSOU.
+> O que está abaixo é a entrega de 23/10; a mudança e o que ainda bloqueia estão no **§6**.
 
 Decisões já tomadas pela direção antes desta entrega:
 
@@ -13,7 +17,8 @@ Decisões já tomadas pela direção antes desta entrega:
 3. a tela **Relacionamento** do CRM fica (uso no celular);
 4. o recall volta a **exigir autorização de mensagem** (a Meta exige aceite para mensagem iniciada
    pela empresa, e o recall usa o modelo de MARKETING `semdor_recall`), colhida como declaração
-   no **termo do BSV** — por onde passa a maior parte dos pacientes.
+   no **termo do BSV** — por onde passa a maior parte dos pacientes. *(25/10: a autorização passou
+   a ser considerada colhida no termo; bloqueia só quem recusou — §6.)*
 
 ## 1. O que mudou
 
@@ -22,9 +27,9 @@ Decisões já tomadas pela direção antes desta entrega:
 | 1 | Declaração **"AUTORIZAÇÃO DE MENSAGENS (opcional) — Autorizo a Clínica SemDor a me enviar mensagens por WhatsApp e SMS sobre minhas sessões, retornos e novidades do tratamento."** + "Posso cancelar a qualquer momento respondendo PARAR…" | `ModelosTermoBsv.AutorizacaoDeMensagens`, acrescentada na EMISSÃO de todo termo exigido para o BSV (TCLE e Termo da sessão) por `DocumentoClinicoService.AutorizacaoDeMensagensAsync` — balcão/consultório e portal do tablet |
 | 1 | "Sim" grava `ConsentimentoLgpd` `ComunicacaoEMarketing` vigente, versão = **número do termo**; "Não" grava a recusa | `TermoConsentimento.Decisoes` (agora lê o termo de procedimento, só esse código) e `AssinaturaDoPacienteService.AplicarConsentimentosAsync` |
 | 1 | "Não" não acende alerta; a declaração aparece em destaque e fica fora do "Marcar todas como Sim" | `RespostaDeclaracao.RequerAtencao`, `DeclaracaoItem.AutorizacaoDeMensagens`, `AssinaturaDoPacienteForm` |
-| 2 | Recall da ponte: **só a fila de recall** (`Acompanhamentos` tipo Recall); "Sem autorização de mensagem" bloqueia; os **dias do Gerente** bloqueiam e voltam em `RecallSnapshot.InactivityDays` | `ClinicRecallBridge.Snapshot`, `ClinicContracts.cs` |
+| 2 | Recall da ponte: **só a fila de recall** (`Acompanhamentos` tipo Recall); "Sem autorização de mensagem" bloqueia — em 23/10, quem não tinha um "Sim" vigente; **desde 25/10, só quem recusou** (último registro não vigente, §6); os **dias do Gerente** bloqueiam e voltam em `RecallSnapshot.InactivityDays` | `ClinicRecallBridge.Snapshot` (desde 25/10 por `PacientesComMensagensLiberadasAsync`), `ClinicContracts.cs` |
 | 2 | CRM: saem as "regras por tipo" com dias (`RecallRule`); confere consentimento e fila também do lado dele; a tela mostra os dias do Clinica | `semdor-crm`: `RecallFlow.cs`, `app.js`, `index.html` |
-| 3 | **Um PARAR só**: o PARAR no CRM agenda `consent-optout`, que revoga a autorização no Clinica | `POST /crm/v1/consent/optout` → `ClinicRecallBridge.OptOut`; `semdor-crm`: `RecallFlow.ApplyRecallResponse`, `ClinicConnector` |
+| 3 | **Um PARAR só**: o PARAR no CRM agenda `consent-optout`, que revoga a autorização no Clinica (desde 25/10 grava a recusa também em quem nunca respondeu, §6) | `POST /crm/v1/consent/optout` → `ClinicRecallBridge.OptOut`; `semdor-crm`: `RecallFlow.ApplyRecallResponse`, `ClinicConnector` |
 | 4 | **Um SMS só**: saem o lembrete de 24h, os relógios, a configuração do provedor, a campanha e a tela Canal de SMS | ver `docs/canal-sms.md` §0 |
 | 5 | Confirmação só pelo WhatsApp no dia: o pedido das 06:00 já cobre "pending" e "notified"; nada depende do SMS | `semdor-crm/ClinicFlow.PedeConfirmacaoAgora` / `LembreteAindaVale` (só comentários) |
 
@@ -94,7 +99,7 @@ clínica não abrir a tela todo dia (§5).
    SMS); nenhuma variável nova. Com a ponte antiga, o PARAR para em "bloqueado" até a ponte nova
    chegar, e a gestão repete na tela de automações.
 5. Meta: o modelo `semdor_recall` não muda. O recall continua desligado até a direção ligar; com ele
-   ligado, só sai para quem autorizou.
+   ligado, só sai para quem autorizou. *(Desde 25/10: não sai só para quem recusou — §6.)*
 
 ## 4. UX · DX · CX
 
@@ -122,3 +127,91 @@ clínica não abrir a tela todo dia (§5).
   precisa ser refeita (`tools/treinamento`). A aula do Canal de SMS saiu do catálogo.
 - **As respostas pelo link de SMS dadas depois da publicação** não chegam mais à agenda
   (`docs/canal-sms.md` §0).
+
+## 6. 25/10/2026 — sem registro conta como autorizado
+
+> Pedido da direção. A autorização de mensagens passa a ser considerada **colhida no termo do
+> BSV**: quem nunca respondeu à pergunta conta como autorizado. Só fica bloqueado quem RECUSOU.
+
+### 6.1 O que mudou
+
+| | Antes (23/10) | Agora (25/10) |
+|---|---|---|
+| Quem recebe convite de recall, relacionamento e o convite da retenção | só quem tinha um "Sim" gravado (`ConsentimentoLgpd` `ComunicacaoEMarketing` vigente) | todo paciente da fila, **menos quem recusou** |
+| Quem fica bloqueado | quem recusou **e** quem nunca respondeu | só quem tem o **último** registro `ComunicacaoEMarketing` NÃO vigente |
+| PARAR de quem nunca respondeu | não havia o que revogar (já estava bloqueado) | grava a recusa (`ClinicRecallBridge.OptOut`) — senão continuaria liberado |
+| Campanhas do Gerente (`CampanhaService`) | exigem "Sim" vigente | **continuam exigindo** — não mudou |
+
+**O que continua bloqueando** (o último registro vence, como sempre — um "Sim" depois de um "Não"
+libera de novo):
+
+- o **"Não"** na declaração de autorização do termo do BSV (§2.2 — a pergunta continua no termo,
+  só para quem nunca respondeu);
+- o **PARAR** no CRM, por WhatsApp ou SMS: toda ficha com aquele telefone (§2.4);
+- a **revogação na ficha** (termo LGPD / `ConsentimentoService.RevogarAsync`) e o PARAR do "Não quer
+  voltar" da retenção, que vale só para a ficha conferida;
+- e as travas que não são de autorização ficam como estavam: só a fila de recall, os dias do
+  Gerente, telefone válido.
+
+### 6.2 Onde a regra mora
+
+- **Uma pergunta nova no repositório**, ao lado da antiga e com o nome que diz a diferença:
+  `IClinicaRepositorio.PacientesComMensagensLiberadasAsync` (`ClinicaRepositorio`) — o mesmo "o
+  mais recente vence" de `PacientesComConsentimentoVigenteAsync`, pelo avesso: sai só quem tem o
+  último registro não vigente.
+- **Quem usa a nova**: `ClinicRecallBridge.Snapshot` (o recall do CRM), `ClinicRelationshipBridge`
+  (o Relacionamento do CRM), `AcompanhamentoPacienteService` (a lista e o `ValidarContatoAsync`, que
+  recusa o contato por mensagem) e o cartão do paciente na conversa (`WhatsAppDaRecepcaoService`).
+- **Quem continua na antiga**: `CampanhaService` (as campanhas do Gerente). Campanha é marketing em
+  massa e não passa pelo termo do BSV; trocar a pergunta dela é outra decisão.
+- O motivo do bloqueio que a ponte devolve ao CRM continua o mesmo texto
+  (`ClinicRecallBridge.SemAutorizacao`, "Sem autorização de mensagem"); o contrato não mudou.
+- Testes: `PonteClinicRecallBridgeTests` (`SemRegistro_o_recall_fica_liberado`,
+  `MensagensLiberadas_so_deixam_de_fora_quem_recusou`, `ParaDeQuemNuncaRespondeuGravaARecusa`,
+  `RevokedConsentWins`), `RetencaoNaTelaTests` (os selos novos) e `ConversasNaTelaTests`
+  (`Quem_recusou_mensagens_o_aviso_da_conversa_nunca_oferece_envio`).
+
+**Os textos na tela** acompanharam a regra (antes diziam o que faltava; agora dizem o que o
+paciente pediu):
+
+| Onde | Antes | Agora |
+|---|---|---|
+| Aviso da conversa, Acompanhamento | "não autorizou mensagens" | "pediu para não receber mensagens" |
+| Selo da retenção | "Autorizou" / "Sem autorização" | "Pode convidar" / "Pediu para não receber" |
+| Cartão do paciente na conversa | — | "Liberadas" / "Pediu para não receber · a ação é ligar" |
+| Título do convite | "… e autorizou mensagens" | sem o "e autorizou mensagens" |
+
+### 6.3 A comparação
+
+| Opção | 🧑‍💻 UX | 🛠️ DX | 🤝 CX |
+|---|---|---|---|
+| Manter o "Sim" obrigatório (23/10) | quase toda a fila aparece "Sem autorização · ligar": a pergunta só começou em 23/10, e a maioria ainda não respondeu | nada a mudar | o recall fica parado até cada paciente passar por um termo novo |
+| **Sem registro conta como autorizado** (escolhida pela direção) | a fila inteira pode ser convidada; quem recusou continua só com "Já liguei" | uma pergunta nova no repositório; o PARAR passa a gravar a recusa de quem nunca respondeu | o recall anda já; a prova da autorização passa a ser o termo do BSV, não um "Sim" gravado |
+| Sem registro conta como autorizado **só para quem assinou um termo do BSV** | igual para o paciente de BSV; o de acupuntura só, sem termo, continua "ligar" | a pergunta precisa ler os termos assinados, além dos consentimentos | fecha a lacuna do §6.5, ao custo de deixar parte da fila sem convite |
+
+### 6.4 UX · DX · CX
+
+- 🧑‍💻 **UX** — a recepcionista deixa de ver "Sem autorização · ligar" em quase toda a fila de
+  recall: o convite já vem pronto para revisar. Quem pediu para parar continua com um botão só,
+  "Já liguei", e a frase diz o que ele pediu ("pediu para não receber mensagens"), não o que falta
+  no cadastro. O cartão da conversa responde numa palavra ("Liberadas").
+- 🛠️ **DX** — duas perguntas com nomes que não se confundem: `PacientesComConsentimentoVigenteAsync`
+  ("tem um Sim?" — campanhas) e `PacientesComMensagensLiberadasAsync` ("não recusou?" — recall,
+  relacionamento, Acompanhamento e cartão). Ao escrever um leitor novo de "pode mandar mensagem?",
+  escolha pela pergunta, nunca troque a das campanhas por engano. E todo caminho de recusa tem de
+  deixar uma LINHA de consentimento não vigente: sem a linha, o paciente volta a ser "liberado"
+  (foi por isso que o PARAR mudou).
+- 🤝 **CX** — o recall do CRM e a retenção da Recepção voltam a andar sem esperar cada paciente
+  responder a pergunta. Nenhuma migration, nenhum contrato novo. Publicar: a ponte na VPS 1
+  (recall e relacionamento do CRM) e os apps Recepção e Gerente (Acompanhamento e conversa). O
+  risco é de conformidade, e está no §6.5.
+
+### 6.5 O que a direção precisa confirmar
+
+- **Quem nunca passou por um termo do BSV** (o paciente só de acupuntura na fila de recall, ou quem
+  tem o termo anterior a 23/10) também conta como autorizado — e para ele a declaração não foi
+  feita. A Meta exige aceite para mensagem iniciada pela empresa com modelo de MARKETING
+  (`semdor_recall`). A terceira linha do §6.3 é a saída, se a direção quiser fechar essa lacuna.
+- **As campanhas do Gerente continuam exigindo o "Sim"**: a mesma pessoa pode ser "Pode convidar"
+  na retenção e ficar fora de uma campanha. Foi decidido assim; se a direção quiser igualar, é uma
+  troca de pergunta no `CampanhaService` (com o teste dele).

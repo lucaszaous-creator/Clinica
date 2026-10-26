@@ -97,7 +97,7 @@ public static class ColetaDeTermoNaTela
     /// </summary>
     public static string? EnderecoDoWhatsapp(string? telefone, string mensagem)
     {
-        var fone = Telefone.Normalizar(telefone);
+        var fone = Telefone.SemPrefixoDeDiscagem(Telefone.Normalizar(telefone));
         if (fone.Length is < 10 or > 13) return null;
         if (fone.Length is 10 or 11) fone = "55" + fone;
         return $"https://wa.me/{fone}?text={Uri.EscapeDataString(mensagem)}";

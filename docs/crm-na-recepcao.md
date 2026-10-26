@@ -22,7 +22,7 @@ tarefa tem **uma tela só**.
 |---|---|---|
 | **1 (esta)** | Aba WhatsApp na Recepção com o CRM no modo Recepção, sem outra senha. No modo Recepção o CRM esconde Agenda, Meu dia, Relacionamento e o sino de confirmações, e fica **um só aviso** de sem resposta (o sino da Recepção). | este PR + PR do CRM |
 | 2 | Uma tela de relacionamento só: o **Acompanhamento** escreve pelo CRM e registra o contato sozinho, ganha "Consulta a renovar" e absorve "Retornos a marcar". O Relacionamento do CRM continua **no celular**. | depois |
-| 3 | Um motor de envio só: recall com os dias do Gerente, só da fila e **só com autorização** (colhida no termo do BSV); uma configuração de SMS e um PARAR; confirmação **só pelo WhatsApp no dia**; a campanha de SMS sai. | sessão própria |
+| 3 | Um motor de envio só: recall com os dias do Gerente, só da fila e **só com autorização** (colhida no termo do BSV; desde 25/10/2026, sem registro conta como autorizado e só quem recusou fica de fora — `docs/fase3-recepcao-crm.md` §6); uma configuração de SMS e um PARAR; confirmação **só pelo WhatsApp no dia**; a campanha de SMS sai. | sessão própria |
 
 ## Como funciona
 

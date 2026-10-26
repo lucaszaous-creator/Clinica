@@ -22,7 +22,7 @@ public sealed class ClinicAgendaBridge(ClinicaDbContext db,AgendaService agenda,
     static DateTime Now()=>TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow,Zone).DateTime;
     public static string Phone(string? phone)
     {
-        var digits=new string((phone??"").Where(char.IsAsciiDigit).ToArray());
+        var digits=Telefone.SemPrefixoDeDiscagem(new string((phone??"").Where(char.IsAsciiDigit).ToArray()));
         if(digits.Length is 10 or 11)digits="55"+digits;
         return digits.Length is >=10 and <=15?digits:"";
     }

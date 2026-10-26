@@ -70,9 +70,9 @@ public sealed class SementeConversasDoWhatsApp : ISemente
             };
             db.Add(p);
             db.SaveChanges();
-            if (autorizou)
-                db.Add(new ConsentimentoLgpd { PacienteId = p.Id, Finalidade = FinalidadeConsentimento.ComunicacaoEMarketing, Concedido = true,
-                    RegistradoEm = inicio.AddDays(-120), RegistradoPor = "previa", VersaoTermo = "Termo do BSV" });
+            // Sem registro conta como autorizado (out/2026); "não autorizou" na semente é a RECUSA gravada no termo.
+            db.Add(new ConsentimentoLgpd { PacienteId = p.Id, Finalidade = FinalidadeConsentimento.ComunicacaoEMarketing, Concedido = autorizou,
+                RegistradoEm = inicio.AddDays(-120), RegistradoPor = "previa", VersaoTermo = "Termo do BSV" });
             return p;
         }
 
@@ -206,7 +206,7 @@ public sealed class SementeConversasDoWhatsApp : ISemente
         db.SaveChanges();
         for (var i = 0; i < 6; i++) db.Add(new ConsumoPacote { PacotePacienteId = pacoteSeb.Id, Data = hoje.AddDays(-32 - i * 7) });
 
-        // Helena: NÃO autorizou mensagens — a única ação é ligar.
+        // Helena: marcou "Não" às mensagens no termo — a única ação é ligar.
         var helenaM = P(Helena, new DateOnly(1977, 8, 27), false, Convenio.Amil, documento: "20230340450", carteirinha: "0101 9988 7", validade: new DateOnly(hoje.Year + 1, 5, 31));
         Sessoes(helenaM, ModalidadeAtendimento.AcupunturaSimples, 3, 30);
         Caso(helenaM, TipoAcompanhamento.Recall, ModalidadeAtendimento.AcupunturaSimples, 30, null, 0);

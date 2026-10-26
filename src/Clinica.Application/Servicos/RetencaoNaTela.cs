@@ -244,7 +244,7 @@ public static class RetencaoNaTela
     /// <summary>
     /// O selo da linha: fechado com o desfecho (o selo do Acompanhamento), respondeu, aguardando,
     /// e, para hoje, o que decide o caminho — sem telefone, sem autorização (ligar), novo no
-    /// BSV ou "Autorizou". Curtos (25/10/2026): na coluna de 300 px o selo é o que não pode ser
+    /// BSV ou "Pode convidar". Curtos (25/10/2026): na coluna de 300 px o selo é o que não pode ser
     /// cortado; o que ele quer dizer por inteiro está no aviso da conversa ao abrir.
     /// </summary>
     public static SeloDoWhatsApp Selo(LinhaAcompanhamento l, DateTimeOffset? ultimaRecebida, DateTimeOffset agora)
@@ -261,9 +261,9 @@ public static class RetencaoNaTela
                 return new($"Aguardando · {l.ProximoContato.ToString("dd/MM", PtBr)}", "info");
         }
         if (!TemTelefone(l)) return new("Sem telefone", "aviso");
-        if (!l.Consentimento) return new("Sem autorização", "aviso");
+        if (!l.Consentimento) return new("Pediu para não receber", "aviso");
         if (l.Tipo == TipoAcompanhamento.NovoBsv) return new("Indicado ao BSV", "info");
-        return new("Autorizou", "sucesso");
+        return new("Pode convidar", "sucesso");
     }
 
     /// <summary>

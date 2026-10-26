@@ -99,6 +99,8 @@ public enum BotaoDaAcao
     ConfirmouPorTelefone,
     NaoVem,
     ConferirFicha,
+    /// <summary>Liga, num clique, a ÚNICA ficha com o telefone — o aviso já mostra nome, nascimento e documento.</summary>
+    LigarFicha,
     BuscarFicha,
     CadastrarPaciente,
     /// <summary>Um dos cinco "Como foi?" (<see cref="BotaoPedido.Desfecho"/>).</summary>
@@ -273,7 +275,7 @@ public static partial class ConversasNaTela
     /// </summary>
     public static string TelefoneNaTela(string? numero)
     {
-        var d = Telefone.Normalizar(numero);
+        var d = Telefone.SemPrefixoDeDiscagem(Telefone.Normalizar(numero));
         if (d.Length is 12 or 13 && d.StartsWith("55", StringComparison.Ordinal)) d = d[2..];
         return Telefone.Formatar(d);
     }
@@ -290,7 +292,7 @@ public static partial class ConversasNaTela
 
     private static string NumeroComDdi(string? telefone)
     {
-        var d = Telefone.Normalizar(telefone);
+        var d = Telefone.SemPrefixoDeDiscagem(Telefone.Normalizar(telefone));
         if (d.Length is 10 or 11) d = "55" + d;
         return d.Length is >= 10 and <= 15 ? d : "";
     }
@@ -444,7 +446,7 @@ public static partial class ConversasNaTela
     /// </remarks>
     public static AcaoPedida? PedeAcao(AppConversation? conversa, IReadOnlyList<AvisoDeConfirmacao> avisosDoPaciente,
         int fichasComOTelefone, LinhaAcompanhamento? caso, DateTimeOffset agora,
-        string? meuAgente = null, IReadOnlyDictionary<string, string>? agentes = null)
+        string? meuAgente = null, IReadOnlyDictionary<string, string>? agentes = null, FichaCandidata? fichaUnica = null)
     {
         if (conversa is { Closed: true }) return null;
         var nomeCompleto = conversa is null ? caso?.Paciente : NomeDaConversa(conversa);
@@ -495,6 +497,11 @@ public static partial class ConversasNaTela
                 <= 0 => new(TipoDaAcaoPedida.NovoContato, "info", "Novo contato, ainda sem ficha.",
                     "Se a pessoa já é paciente, ligue a ficha; senão, cadastre pelo app com o telefone preenchido.",
                     [new(BotaoDaAcao.BuscarFicha, "Buscar ficha", Primario: true), new(BotaoDaAcao.CadastrarPaciente, RotuloDeCadastrar)]),
+                // Uma ficha só (out/2026, pedido da direção): o aviso já traz o que a recepção pergunta e liga num clique.
+                // Quem confere continua sendo ela (o telefone não é identidade) — sem a janela no meio.
+                1 when fichaUnica is { } f => new(TipoDaAcaoPedida.ConferirFicha, "info", $"É {f.Nome}?",
+                    $"A ficha com este telefone: nascimento {f.Nascimento}, documento {f.FimDoDocumento}. Confirme com a pessoa e ligue.",
+                    [new(BotaoDaAcao.LigarFicha, "Ligar a ficha", Primario: true), new(BotaoDaAcao.BuscarFicha, "É outra pessoa")]),
                 1 => new(TipoDaAcaoPedida.ConferirFicha, "info", "Uma ficha tem este telefone.",
                     "Confira com quem está no telefone antes de ligar a ficha: o telefone não é identidade.",
                     [new(BotaoDaAcao.ConferirFicha, "Conferir a ficha", Primario: true)]),
@@ -521,8 +528,8 @@ public static partial class ConversasNaTela
         }
         if (situacao != SituacaoNaRetencao.ParaHoje || semMensagens) return null;
         if (!l.Consentimento)
-            return new(TipoDaAcaoPedida.RetencaoSemAutorizacao, "atencao", $"{nome} não autorizou mensagens: a ação é ligar.",
-                "Sem a autorização colhida no termo, nenhum convite sai daqui (PARAR vale para os dois canais). Ligou? Registre o que a pessoa disse.",
+            return new(TipoDaAcaoPedida.RetencaoSemAutorizacao, "atencao", $"{nome} pediu para não receber mensagens: a ação é ligar.",
+                "Respondeu PARAR ou marcou \"Não\" no termo, então nenhum convite sai daqui (vale para os dois canais). Ligou? Registre o que a pessoa disse.",
                 [new(BotaoDaAcao.JaLiguei, "Já liguei", Primario: true), new(BotaoDaAcao.ColherAutorizacao, "Colher autorização")]);
         if (l.Tipo == TipoAcompanhamento.NovoBsv)
             return new(TipoDaAcaoPedida.RetencaoNovoBsv, "info",
@@ -530,7 +537,7 @@ public static partial class ConversasNaTela
                 "Convide para marcar a primeira sessão. O modelo primeiro_contato já vem preenchido; você revisa e envia.",
                 [new(BotaoDaAcao.PrepararMensagem, "Preparar mensagem", Primario: true), new(BotaoDaAcao.JaLiguei, "Já liguei")]);
         return new(TipoDaAcaoPedida.RetencaoConvidar, "info",
-            $"{nome} está há {ConversaDoAcompanhamento.TempoTexto(l)} sem vir ({RetencaoNaTela.TratamentoNaFrase(l.Modalidade)}) e autorizou mensagens.",
+            $"{nome} está há {ConversaDoAcompanhamento.TempoTexto(l)} sem vir ({RetencaoNaTela.TratamentoNaFrase(l.Modalidade)}).",
             "O convite para voltar é o modelo aprovado retorno_tratamento, já preenchido com nome, tratamento e dias. Você revisa e envia.",
             [new(BotaoDaAcao.PrepararConvite, "Preparar convite", Primario: true), new(BotaoDaAcao.JaLiguei, "Já liguei")]);
     }

@@ -21,7 +21,7 @@ public static class ConversaNoCrm
     /// <summary>Os dígitos do telefone do cadastro, ou <c>null</c> quando ele não serve para mensagem (10 a 13 dígitos).</summary>
     public static string? Telefone(string? cadastro)
     {
-        var d = new string((cadastro ?? "").Where(char.IsAsciiDigit).ToArray());
+        var d = Clinica.Domain.Telefone.SemPrefixoDeDiscagem(new string((cadastro ?? "").Where(char.IsAsciiDigit).ToArray()));
         return d.Length is >= 10 and <= 13 ? d : null;
     }
 }

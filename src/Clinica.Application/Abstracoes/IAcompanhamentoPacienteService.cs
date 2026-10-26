@@ -35,7 +35,7 @@ public sealed record LinhaAcompanhamento(int Id, int PacienteId, string Paciente
     public string AcaoTexto => Pendente ? "Registrar contato" : "Ver acompanhamento";
     public string ProximoPasso => !Pendente ? Situacao == "Agendado" ? "Aguardar a sessão agendada" : "Consultar histórico"
         : string.IsNullOrWhiteSpace(Telefone) ? "Atualizar telefone"
-        : !Consentimento ? "Conferir autorização de contato"
+        : !Consentimento ? "Pediu para não receber mensagens · ligar"
         : Situacao == "Conferir comparecimento" ? "Conferir a presença na agenda"
         : Etapa == EtapaAcompanhamento.AguardandoPlano ? "Acompanhar autorização do plano"
         : Etapa == EtapaAcompanhamento.ProntoParaAgendar ? "Agendar a sessão"
@@ -44,7 +44,7 @@ public sealed record LinhaAcompanhamento(int Id, int PacienteId, string Paciente
     public string Marcadores => string.Join(" · ", new[] { Atrasado ? "Contato atrasado" : null,
         Tipo == TipoAcompanhamento.Recall && TratamentoLongo ? $"Tratamento longo ({TotalSessoes} sessões)" : null,
         PacoteComSaldo ? "Pacote com saldo" : null, string.IsNullOrWhiteSpace(Telefone) ? "Sem telefone" : null,
-        !Consentimento ? "Contato não autorizado" : null, Motivo }.Where(x => x != null));
+        !Consentimento ? "Pediu para não receber mensagens" : null, Motivo }.Where(x => x != null));
 }
 
 public interface IAcompanhamentoPacienteService
