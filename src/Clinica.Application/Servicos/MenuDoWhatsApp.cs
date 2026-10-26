@@ -103,7 +103,7 @@ public static class MenuDoWhatsApp
         var semEscrever = acesso.PodeEscrever ? null : "Seu acesso não alcança escrever no WhatsApp";
         var itens = new List<ItemDeMenu<AcaoNaMensagem>>();
 
-        itens.Add(new(AcaoNaMensagem.Responder, "Responder citando", "esquerda",
+        itens.Add(new(AcaoNaMensagem.Responder, "Responder citando", "mensagem",
             semEscrever ?? (sms ? "O SMS não cita mensagens"
                 : !janelaLivre ? "Janela de 24 h fechada: só modelo, que não cita"
                 : string.IsNullOrEmpty(m.Id) ? "Esta mensagem ainda não tem o número do WhatsApp" : null)));
