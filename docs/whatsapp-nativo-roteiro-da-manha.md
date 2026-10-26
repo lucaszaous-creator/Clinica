@@ -60,6 +60,12 @@ O PR 0 está na branch `claude/whatsapp-system-integration-ankslw` do `semdor-cr
 - **uma mudança de comportamento**: quando um membro da equipe não tem perfil gravado no CRM,
   o administrador dele passa a ser quem é administrador no Clinica, e não o primeiro da lista.
 
+⚠️ **O botão direito da tela (25/10) também precisa do CRM primeiro.** O "Marcar como não lida"
+usa a rota nova `POST /api/conversations/{id}/unread`, que está na branch
+`claude/marcar-como-nao-lida` do `semdor-crm` (commit `51ad693`). Junte-a na `main` antes de montar
+o pacote. Sem ela, só esse item falha (404) na Recepção nova; o resto do menu funciona. O contrato
+da API não mudou (`docs/whatsapp-nativo-implementacao.md` §18).
+
 ### 1.1 Juntar na `main`
 
 O pacote se monta **a partir da `main`** (é a regra de `producao-out2026.md` §5).
@@ -255,6 +261,11 @@ verdade: tudo o que sai, sai pelo número oficial da clínica.
 | ☐ | **Gravar áudio.** O microfone aparece só se o CRM tiver o conversor de gravações; o Windows pede permissão do microfone na primeira vez. Grave 3 s e envie ao seu celular. |
 | ☐ | **@SemDor** (se estiver ligado na VPS 2): ✨ com o campo vazio sugere a resposta; com texto, corrige, e ↶ volta. "✨ Resumo" mostra o resumo. |
 | ☐ | **Conversa ao lado.** Na Agenda do dia, o ícone do WhatsApp na linha do paciente de teste abre a conversa à direita; escreva algo, feche com Esc e abra de novo: o texto continua. |
+| ☐ | **Botão direito na lista.** Clique com o botão direito numa conversa: abre o menu dela (e não o do navegador, com "Voltar" e "Inspecionar"). Os itens que não cabem aparecem apagados e, com o mouse em cima, dizem por quê (ex.: numa conversa da fila, "Transferir…" diz "Só quem está com a conversa: assuma antes"). Esc, clique fora ou a rolagem fecham. "Copiar telefone" copia o número da conversa de teste. |
+| ☐ | **Botão direito na mensagem.** Clique com o botão direito num balão da conversa de teste: o menu traz "Responder citando", "Copiar o texto" e "Copiar com data e hora". Selecione um pedaço do texto do balão antes do clique: aparece "Copiar a seleção". |
+| ☐ | **Responder citando chega citada no celular.** Com a janela de 24 h aberta, botão direito numa mensagem do seu celular → **Responder citando**: a faixa "Respondendo a …" aparece acima do campo. Escreva e envie. No celular, a resposta chega **com a mensagem original citada em cima**, e na tela o balão enviado mostra a citação. |
+| ☐ | **Marcar como não lida.** Botão direito numa conversa lida → **Marcar como não lida**: a linha volta a ter o destaque de não lida (a hora em verde e o número), e se ela estava aberta a coluna do meio fecha. Abra de novo: ela volta a lida. Se aparecer erro dizendo que nada foi alterado, o CRM da VPS 2 está sem a rota `/unread` (parte 1). |
+| ☐ | **Reenviar pergunta antes.** Só aparece em mensagem enviada que falhou ou que o WhatsApp não confirmou (se não houver uma, pule). **Reenviar…** pergunta "Se a primeira chegou, a pessoa recebe duas vezes…" antes de mandar; Cancelar não envia nada. |
 | ☐ | **Trocar usuário.** "Trocar usuário" reabre o app. Entre com outra pessoa, responda à conversa de teste e confira que a mensagem sai **com o nome dela**, não com o da anterior. |
 
 Se a tela mostrar "O CRM não respondeu" ou "não aceitou o acesso", veja o log do app

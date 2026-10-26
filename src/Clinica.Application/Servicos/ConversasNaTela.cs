@@ -139,7 +139,14 @@ public enum TipoNaLinhaDoTempo { Dia, Novas, Evento, Recebida, Enviada, Nota }
 /// </summary>
 public sealed record ItemDaConversa(TipoNaLinhaDoTempo Tipo, string Texto, string Hora = "", string? Autor = null,
     bool Seguida = false, TickDaMensagem? Tick = null, string? Anexo = null, string? Modelo = null,
-    string Tom = "neutro", string? Erro = null, string? Id = null, DateTimeOffset? At = null, MidiaDaMensagem? Midia = null);
+    string Tom = "neutro", string? Erro = null, string? Id = null, DateTimeOffset? At = null, MidiaDaMensagem? Midia = null,
+    CitacaoNaConversa? Citacao = null);
+
+/// <summary>
+/// A mensagem que um balão cita ("Responder citando", out/2026): quem escreveu e o começo do texto, como o WhatsApp
+/// mostra em cima da resposta. Sem a citada na conversa (apagada, de outra conversa), o balão não mostra nada.
+/// </summary>
+public sealed record CitacaoNaConversa(string Id, string Autor, string Trecho);
 
 /// <summary>
 /// O papel de um evento da trilha na limpeza da linha do tempo (25/10/2026,
@@ -656,6 +663,18 @@ public static partial class ConversasNaTela
 
     private static bool EhRecebida(AppMessage m) => string.Equals(m.Direction, "in", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>Até quantas letras o trecho citado mostra (uma linha na coluna da conversa).</summary>
+    public const int LetrasDaCitacao = 90;
+
+    /// <summary>A citação de <paramref name="m"/>: o primeiro nome de quem escreveu e o começo do texto (ou o tipo do arquivo).</summary>
+    public static CitacaoNaConversa Citacao(AppMessage m, string nomeDoPaciente, IReadOnlyDictionary<string, string>? nomesDosAgentes = null)
+    {
+        var autor = EhRecebida(m) ? MensagensDeContato.PrimeiroNome(nomeDoPaciente) : Agente(m.AgentId, nomesDosAgentes, "Mensagem automática");
+        var texto = string.Join(' ', (m.Text ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        if (texto.Length == 0) texto = m.FileName ?? (m.Type?.ToUpperInvariant() switch { "IMAGE" => "Foto", "AUDIO" => "Áudio", "VIDEO" => "Vídeo", _ => "Arquivo" });
+        return new(m.Id, autor, texto.Length <= LetrasDaCitacao ? texto : texto[..(LetrasDaCitacao - 1)].TrimEnd() + "…");
+    }
+
     /// <summary>
     /// A conversa como a recepção lê: mensagens, notas internas e os eventos da trilha
     /// intercalados por <c>At</c> (no empate, a mensagem, depois a nota, depois o evento), com
@@ -671,6 +690,7 @@ public static partial class ConversasNaTela
         IReadOnlyDictionary<string, string>? nomesDosAgentes = null)
     {
         var fontes = new List<(DateTimeOffset At, int Ordem, int Indice, ItemDaConversa Item, EventoDaTrilha? Evento)>();
+        var porId = conversa.Messages.Where(m => !string.IsNullOrEmpty(m.Id)).GroupBy(m => m.Id).ToDictionary(g => g.Key, g => g.First());
         for (var i = 0; i < conversa.Messages.Length; i++)
         {
             var m = conversa.Messages[i];
@@ -685,7 +705,9 @@ public static partial class ConversasNaTela
             fontes.Add((m.At, 0, i, new ItemDaConversa(recebida ? TipoNaLinhaDoTempo.Recebida : TipoNaLinhaDoTempo.Enviada, texto,
                 Hora(m.At, agora), recebida ? null : Agente(m.AgentId, nomesDosAgentes, "Mensagem automática"),
                 Tick: tick, Anexo: midia is not null || string.IsNullOrWhiteSpace(m.FileName) ? null : m.FileName, Modelo: m.Template?.Name,
-                Erro: ErroDaEntrega(tick, m.Error), Id: m.Id, At: m.At, Midia: midia), null));
+                Erro: ErroDaEntrega(tick, m.Error), Id: m.Id, At: m.At, Midia: midia,
+                Citacao: m.ReplyToId is { } citada && porId.TryGetValue(citada, out var original)
+                    ? Citacao(original, NomeDaConversa(conversa), nomesDosAgentes) : null), null));
         }
         for (var i = 0; i < conversa.Notes.Length; i++)
         {

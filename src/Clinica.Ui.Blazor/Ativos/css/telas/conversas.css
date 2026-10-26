@@ -487,3 +487,18 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px;fon
 .wa-m-botoes{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:var(--space-1);margin-top:var(--space-1);max-width:100%}
 .wa-m-botoes span{padding:var(--space-1) var(--space-3);border:1px solid var(--borda);border-radius:var(--radius-pilula);background:var(--superficie);
   font-size:var(--text-small-size);font-weight:600;color:var(--cinza-700);white-space:nowrap}
+/* A citação ("Responder citando", o botão direito — out/2026): em cima do texto, dentro do balão, e no campo antes de enviar. */
+.wa-citacao{display:flex;flex-direction:column;gap:2px;margin:0 0 var(--space-1);padding:var(--space-1) var(--space-2);
+  border-left:3px solid var(--acento);border-radius:var(--radius-pequeno);background:var(--fundo);font-size:var(--text-small-size);
+  color:var(--texto-secundario);overflow:hidden;text-overflow:ellipsis}
+.wa-citacao b{color:var(--acento);font-weight:600}
+.wa-rascunho-citacao{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-1) var(--space-2);margin-bottom:var(--space-1);
+  border-left:3px solid var(--acento);border-radius:var(--radius-pequeno);background:var(--fundo);font-size:var(--text-small-size)}
+/* O trecho num bloco próprio: texto solto dentro de flex não ganha as reticências (foto em 480). */
+.wa-rascunho-citacao > span{display:block;min-width:0;flex:1;color:var(--texto-secundario)}
+.wa-rascunho-citacao b{display:block;color:var(--acento);font-weight:600}
+.wa-rascunho-citacao .trecho{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* De onde o botão direito saiu: a linha e o balão ficam marcados enquanto o menu está aberto. */
+.wa-linha.no-menu{background:var(--fundo)}
+.wa-balao.no-menu{box-shadow:0 0 0 2px var(--acento-tint)}
+.wa-rascunho-citacao .icone,.wa-rascunho-citacao svg{flex:none;width:16px;height:16px;color:var(--acento)}

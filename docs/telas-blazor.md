@@ -102,6 +102,18 @@ nenhum arquivo comum precisa ser editado para acrescentar uma tela.
 | `SeletorMes` | ◀ mês ▶ (`DateOnly` do dia 1) |
 | `SeletorDePaciente` | Busca de paciente com as regras do `SeletorPacienteViewModel` |
 | `Icone` | Ícone por nome (ver o dicionário em `Componentes/Icone.razor`) |
+| `MenuDeContexto` | O menu do botão direito (`TAcao` genérico): nasce no ponto do clique, item indisponível vem apagado com o motivo no `title` |
+
+**`MenuDeContexto`** (out/2026, a aba WhatsApp). A tela é dona do estado — os itens, o ponto do
+clique (`X`/`Y` do `MouseEventArgs`), `AoEscolher` e `AoFechar` — e o componente só desenha, posiciona,
+foca e fecha. Os itens são `ItemDeMenu<TAcao>` montados NA APPLICATION, com teste (o exemplo é
+`MenuDoWhatsApp.DaConversa`/`DaMensagem`): o `Motivo` desabilita o item e vira a dica, `GrupoNovo`
+desenha a linha divisória, `Perigo` pinta de vermelho. A posição dentro da janela, o foco e as setas
+são do módulo `js/menu-de-contexto.js` (medir só dá depois de desenhado); ele também traz
+`selecaoEm(seletor)`, a seleção de texto dentro de um elemento. Na tela, o elemento leva
+`@oncontextmenu` **e** `@oncontextmenu:preventDefault="true"` (senão o WebView2 abre o menu dele por
+cima), e cada ação chama o MESMO handler do botão que já existe — o menu é atalho, não regra nova.
+**Nunca redesenhe um menu à mão** (`div` posicionada, lista de botões): use este.
 
 Classes úteis: `botao` (`primario`, `perigo`, `fantasma`, `contorno-perigo`, `mini`, `icone`),
 `campo` (`valor` para dinheiro à direita), `marcar` (checkbox), `segmentado`, `alternar`,

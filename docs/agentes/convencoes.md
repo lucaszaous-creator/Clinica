@@ -5,7 +5,7 @@ sessão). O texto é o MESMO, sem reescrita: design system, WPF/XAML, Blazor, EF
 `verificar-suite`, assinatura digital, impressão, CRM e as rodadas de UI, cada uma com o defeito que a
 originou. Antes de escrever uma tela, uma consulta ou uma checagem, procure aqui a lição da área.
 
-## Índice (207 tópicos, na ordem do arquivo)
+## Índice (208 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -216,6 +216,7 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
 - `focus()` ROLA contêiner com `overflow:hidden`: foco em campo que ainda está entrando desloca a tela para o lado
 - A prévia com `--no-build` mostra o binário de ANTES: compilar os testes não a atualiza
 - Telefone que vai ao CRM tira o prefixo de DISCAGEM antes do 55 — em toda porta, inclusive na BUSCA
+- Menu de contexto no Blazor: a regra na Application, `aria-disabled` para a dica, `preventDefault` no elemento e a posição no JS
 ---
 
 
@@ -5248,3 +5249,29 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
   decisão de tamanho ou de 55; a busca por dígitos inclui a forma gravada; e o teste usa o número real que
   falhou (`TelefoneTests`: com 0, com 0 + operadora, fixo, já com 55, "00"). O que já foi para o CRM errado
   fica lá: a correção vale para as conversas novas.
+- **Menu de contexto no Blazor: a regra na Application, `aria-disabled` para a dica, `preventDefault` no
+  elemento e a posição no JS** (25/10/2026, o botão direito da aba WhatsApp —
+  `docs/whatsapp-nativo-implementacao.md` §18). Cinco lições, cada uma com o defeito que evita:
+  1. **Qual item aparece, e por que está apagado, é REGRA: mora na Application, com teste**
+     (`MenuDoWhatsApp` → `ItemDeMenu<TAcao>` com o `Motivo`; `MenuDoWhatsAppTests`). Montar a lista no
+     Razor com `@if` é a segunda cópia das condições dos botões, e ela diverge na primeira correção. E cada
+     item chama o MESMO handler do botão que já existe (o mesmo `Exigir`): o menu é atalho, não regra nova.
+  2. **Item indisponível é `aria-disabled="true"` + `title`, nunca `disabled`.** O botão `disabled` não
+     mostra o `title` no Chromium (o WebView2) — o motivo, que é a razão de o item estar ali, sumiria.
+     Com `aria-disabled` o clique CHEGA: o componente tem de ignorá-lo (`if (!item.Habilitado) return;`),
+     o CSS apaga por `[aria-disabled=true]` e as setas do JS o pulam pelo mesmo seletor.
+  3. **`@oncontextmenu:preventDefault="true"` vai no elemento que tem o `@oncontextmenu`** (a linha, o
+     balão) e também no menu e no fundo dele. Sem ele o WebView2 abre o menu dele ("Voltar",
+     "Inspecionar") junto com o nosso. Escrito ao lado do handler, ele não depende de um ancestral que a
+     próxima mudança de leiaute pode tirar do caminho.
+  4. **Posição e limite da janela no JS, DEPOIS de desenhar** (`menu-de-contexto.js`, `posicionar` no
+     `OnAfterRenderAsync`). O C# não sabe a largura nem a altura do menu; abrir no `clientX/clientY` puro
+     corta o menu perto da borda direita ou de baixo. O menu nasce `visibility:hidden`, o JS mede, puxa
+     para dentro (margem de 8 px), mostra e foca o primeiro item habilitado; a seleção de texto do
+     instante do clique também é JS (`selecaoEm`), e confere que está DENTRO do elemento clicado.
+  5. **Fecha em tudo o que tira a pessoa dali: Esc, Tab, clique ou botão direito fora, rolagem — e sempre
+     depois de escolher.** O "fora" é um fundo transparente de tela inteira (`.menu-contexto-fundo`) com
+     `@onclick`, `@oncontextmenu` e `@onwheel`; Esc e Tab no `@onkeydown` do menu com
+     `:stopPropagation` (o Esc do menu não chega aos `@onkeydown` da tela, que fecham os popovers dela).
+     As setas, que dependem da PRÓPRIA tecla, são JS (o tópico "Tecla no Blazor…" acima). Menu que fica
+     aberto sob a rolagem aponta para a linha errada.

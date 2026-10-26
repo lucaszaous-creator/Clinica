@@ -139,6 +139,10 @@ public sealed class ClienteDoCrmHttp : IClienteDoCrm, IDisposable
         => ChamarAsync(usuarioId, Natureza.Escrita, () => Post(Conversa(conversaId, "read"), JsonContent.Create(marcador, options: Json)),
             (_, _) => Task.FromResult(true), ct);
 
+    public Task MarcarNaoLidaAsync(int usuarioId, string conversaId, CancellationToken ct = default)
+        => ChamarAsync(usuarioId, Natureza.Escrita, () => Post(Conversa(conversaId, "unread"), JsonContent.Create(new { }, options: Json)),
+            (_, _) => Task.FromResult(true), ct);
+
     public Task<AppConversation> AssumirAsync(int usuarioId, string conversaId, AppChange mudanca, CancellationToken ct = default)
         => EscreverAsync<AppConversation>(usuarioId, Conversa(conversaId, "claim"), mudanca, ct);
 

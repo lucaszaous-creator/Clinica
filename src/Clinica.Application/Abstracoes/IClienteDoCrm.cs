@@ -61,6 +61,12 @@ public interface IClienteDoCrm
     /// <summary>POST …/{id}/read — marca como vistas as recebidas até <c>IncomingCount</c> (o CRM responde 200 sem corpo).</summary>
     Task MarcarLidaAsync(int usuarioId, string conversaId, AppReadMarker marcador, CancellationToken ct = default);
 
+    /// <summary>
+    /// POST …/{id}/unread — "Marcar como não lida" (o botão direito da lista, out/2026): a ÚLTIMA recebida volta a contar
+    /// como não lida, só para quem pediu; abrir a conversa (/read) a lê de novo. 400 quando não há recebida.
+    /// </summary>
+    Task MarcarNaoLidaAsync(int usuarioId, string conversaId, CancellationToken ct = default);
+
     /// <summary>POST …/{id}/claim — a pessoa assume a conversa.</summary>
     Task<AppConversation> AssumirAsync(int usuarioId, string conversaId, AppChange mudanca, CancellationToken ct = default);
 

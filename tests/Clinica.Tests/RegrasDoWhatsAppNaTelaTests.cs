@@ -139,6 +139,61 @@ public sealed class RegrasDoWhatsAppNaTelaTests : IClassFixture<BancoDasTelas>, 
         tela.Find(".wa-ficha").TextContent.Should().Contain("WhatsApp enviado pelo número oficial (automático)").And.NotContain("SMS enviado");
     }
 
+    // O BOTÃO DIREITO (out/2026): o menu nasce no clique, o item desabilitado diz por quê, e o escolhido chama o mesmo
+    // handler da tela. A regra de cada item é do MenuDoWhatsAppTests; aqui, que ele aparece e faz.
+    private static void BotaoDireito(IRenderedComponent<Raiz> tela, Func<IElement> achar)
+        => tela.InvokeAsync(() => achar().TriggerEventAsync("oncontextmenu", new Microsoft.AspNetCore.Components.Web.MouseEventArgs { ClientX = 200, ClientY = 300 }))
+            .GetAwaiter().GetResult();
+
+    private static IElement ItemDoMenu(IRenderedFragment tela, string rotulo)
+        => tela.FindAll(".menu-contexto [role=menuitem]").First(b => b.TextContent.Trim() == rotulo);
+
+    [Fact]
+    public void Botao_direito_na_lista_mostra_o_menu_da_conversa_e_marca_como_nao_lida()
+    {
+        var tela = Abrir();
+        BotaoDireito(tela, () => Linha(tela, PessoasDoWhatsApp.Roberto.Nome));
+
+        tela.WaitForAssertion(() => tela.Find(".menu-contexto").GetAttribute("aria-label").Should().Be("Ações da conversa"), Prazo);
+        // O Roberto está com quem vê: devolve, e o "Assumir" não aparece.
+        var rotulos = tela.FindAll(".menu-contexto [role=menuitem]").Select(b => b.TextContent.Trim()).ToList();
+        rotulos.Should().Contain(["Abrir", "Devolver à fila", "Transferir…", "Copiar telefone", "Abrir a ficha", "Encerrar…"]).And.NotContain("Assumir");
+
+        tela.Clicar(() => ItemDoMenu(tela, "Marcar como não lida"));
+
+        tela.WaitForAssertion(() => tela.FindAll(".menu-contexto").Should().BeEmpty(), Prazo);
+        tela.WaitForAssertion(() => Linha(tela, PessoasDoWhatsApp.Roberto.Nome).ClassList.Should().Contain("nao-lida"), Prazo);
+    }
+
+    [Fact]
+    public void Botao_direito_na_mensagem_responde_citando_e_a_citacao_vai_ao_CRM()
+    {
+        var tela = Abrir();
+        AbrirConversa(tela, PessoasDoWhatsApp.Roberto.Nome, PessoasDoWhatsApp.Roberto.Nome);
+        BotaoDireito(tela, () => tela.FindAll(".wa-m.recebida .wa-balao").First(b => b.TextContent.Contains("Serve sim")));
+
+        tela.WaitForAssertion(() => tela.Find(".menu-contexto").GetAttribute("aria-label").Should().Be("Ações da mensagem"), Prazo);
+        var responder = ItemDoMenu(tela, "Responder citando");
+        if (responder.GetAttribute("aria-disabled") == "true")
+        {
+            // O relógio da prévia segue a hora da suíte: com a janela de 24 h já fechada, o item diz por quê.
+            responder.GetAttribute("title").Should().Contain("Janela de 24 h fechada");
+            return;
+        }
+        tela.Clicar(() => ItemDoMenu(tela, "Responder citando"));
+        tela.WaitForAssertion(() => tela.Find(".wa-rascunho-citacao").TextContent.Should().Contain("Respondendo a Roberto").And.Contain("Serve sim"), Prazo);
+
+        tela.Digitar(() => tela.Find(".wa-escrever textarea"), "Combinado, até lá!");
+        tela.Clicar(() => Botao(tela, ".wa-escrever-rodape button", "Enviar"));
+
+        tela.WaitForAssertion(() => tela.FindAll(".wa-rascunho-citacao").Should().BeEmpty(), Prazo);
+        var conversa = Crm.AbrirConversaAsync(1, CrmDeMentira.Ids.Roberto).GetAwaiter().GetResult();
+        var enviada = conversa.Messages.Last(m => m.Direction == "out");
+        enviada.Text.Should().Be("Combinado, até lá!");
+        enviada.ReplyToId.Should().Be(conversa.Messages.Last(m => m.Direction == "in" && m.Text == "Serve sim").Id);
+        tela.WaitForAssertion(() => tela.FindAll(".wa-m.enviada .wa-citacao").Should().Contain(e => e.TextContent.Contains("Serve sim")), Prazo);
+    }
+
     private sealed class HostMudo : IHostDaTela
     {
         public Task<string?> ExportarCsvAsync(IReadOnlyList<string> cabecalho, IReadOnlyList<IReadOnlyList<string>> linhas, string nomeArquivo) => Task.FromResult<string?>(null);

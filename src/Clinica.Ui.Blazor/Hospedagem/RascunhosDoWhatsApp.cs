@@ -21,6 +21,8 @@ public sealed class RascunhoDaConversa
     public bool Nota { get; set; }
     public Clinica.Crm.Contracts.AppAttachment? Anexo { get; set; }
     public string IdDoEnvio { get; set; } = Guid.NewGuid().ToString("D");
+    /// <summary>A mensagem que a resposta cita ("Responder citando", o botão direito). Nota interna não cita.</summary>
+    public Clinica.Application.Servicos.CitacaoNaConversa? Citada { get; set; }
     public bool TemConteudo => !string.IsNullOrWhiteSpace(Texto) || !Nota && Anexo is not null;
-    public void Saiu() { Texto = ""; Anexo = null; Nota = false; IdDoEnvio = Guid.NewGuid().ToString("D"); }
+    public void Saiu() { Texto = ""; Anexo = null; Nota = false; Citada = null; IdDoEnvio = Guid.NewGuid().ToString("D"); }
 }
