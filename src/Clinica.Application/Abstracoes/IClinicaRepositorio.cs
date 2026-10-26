@@ -386,22 +386,6 @@ public interface IClinicaRepositorio
         int pacienteId, DateTime aPartirDe, int limite, CancellationToken ct = default);
 
     /// <summary>
-    /// As sessões vigentes em que quem atendeu pediu retorno para <paramref name="retornoDesde"/>
-    /// ou depois (set/2026) — projeção, sem o texto da evolução. Alimenta a fila "Retornos a
-    /// marcar" com <see cref="HorariosAtivosDosPacientesAsync"/>.
-    /// </summary>
-    Task<IReadOnlyList<Modelos.RetornoSugerido>> RetornosSugeridosAsync(
-        DateOnly retornoDesde, CancellationToken ct = default);
-
-    /// <summary>
-    /// Os horários ATIVOS (agendado ou realizado — nem cancelado, nem falta, nem substituído
-    /// por sessão lançada por fora) dos pacientes informados a partir de um dia — só quem e
-    /// quando. Uma consulta para o conjunto.
-    /// </summary>
-    Task<IReadOnlyList<Modelos.HorarioPosterior>> HorariosAtivosDosPacientesAsync(
-        IReadOnlyCollection<int> pacienteIds, DateOnly desde, CancellationToken ct = default);
-
-    /// <summary>
     /// Sessoes marcadas de uma vez (o pacote de dez), na ordem em que acontecem.
     /// RASTREADAS: cancelar a serie escreve nelas.
     /// </summary>

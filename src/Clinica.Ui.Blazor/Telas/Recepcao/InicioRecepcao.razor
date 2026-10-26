@@ -323,8 +323,6 @@
             var lerAmanha = Tentar(() => Paralela.LerAsync<CampanhaService, IReadOnlyList<ContatoCampanha>?>(
                     async s => await s.ContatosAsync(TipoContato.ConfirmacaoSessao, null, hoje.AddDays(1), hoje.AddDays(1))),
                 "rodada de amanhã", (IReadOnlyList<ContatoCampanha>?)null);
-            var lerRetornos = Tentar(() => Paralela.LerAsync<RetornosAMarcarService, IReadOnlyList<RetornoAMarcar>?>(
-                async s => await s.ListarAsync()), "retornos a marcar", (IReadOnlyList<RetornoAMarcar>?)null);
             var lerAcompanhamento = Tentar(() => Paralela.LerAsync<IAcompanhamentoPacienteService, IReadOnlyList<LinhaAcompanhamento>?>(
                 async s => await s.ListarAsync(usuario)), "acompanhamento", (IReadOnlyList<LinhaAcompanhamento>?)null);
             var lerConfirmacoes = Depois(lerDoDia, d => Paralela.LerAsync<IClinicaRepositorio, IReadOnlyDictionary<int, RespostaDeConfirmacao>?>(
@@ -367,7 +365,6 @@
 
             var pendencias = await lerPendencias;
             var amanha = await lerAmanha;
-            var retornos = await lerRetornos;
             var acompanhamento = await lerAcompanhamento;
             var aniversarios = await lerAniversarios;
 
@@ -378,7 +375,7 @@
             var confirmar = amanha is null ? null
                 : InicioDoBalcao.ConfirmarAmanha(amanha.Select(c => RodadaDeConfirmacao.Classificar(c.Status, c.EnviadoEm, c.Comentario)).ToList());
             var recall = acompanhamento is null ? (int?)null : InicioRecepcaoTela.RecallDeHoje(acompanhamento, hoje);
-            _balcao = InicioRecepcaoTela.ItensDoBalcao(_guias?.Count, confirmar, retornos?.Count, recall)
+            _balcao = InicioRecepcaoTela.ItensDoBalcao(_guias?.Count, confirmar, recall)
                 .Where(i => Destino(i.Chave) is not { } chave || Balcao.DestinoExiste(chave))
                 .ToList();
 
@@ -431,8 +428,6 @@
     private static string? Destino(string chave) => chave switch
     {
         "confirmar" => ChaveConfirmacoes,
-        // Os retornos moram no Acompanhamento desde a fase 2 (a terceira fila): o pedido abre nela.
-        "retornos" => ChaveRecall,
         "recall" => ChaveRecall,
         _ => null
     };
@@ -441,7 +436,6 @@
     {
         "guias" => "documento",
         "confirmar" => "check",
-        "retornos" => "historico",
         "recall" => "pessoas",
         _ => "info"
     };
@@ -465,11 +459,8 @@
     private async Task AbrirItemAsync(ItemDoBalcao item)
     {
         if (Destino(item.Chave) is not { } destino) { _guiasAbertas = true; return; }
-        var pedido = item.Chave == "retornos" ? Servicos.GetService<PedidoDoAcompanhamento>() : null;
-        pedido?.PedirRetornos();
         if (!await Host.NavegarAsync(destino))
         {
-            pedido?.ConsumirRetornos();
             Notificacoes.Info($"{item.Titulo}: esta tela não está disponível para o seu acesso neste aplicativo.");
         }
     }

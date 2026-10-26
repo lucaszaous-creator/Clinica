@@ -46,7 +46,6 @@ public static class DependencyInjection
         services.AddScoped<ConclusaoAutomaticaService>();
         services.AddScoped<ConfiguracaoAgendaService>();
         services.AddScoped<ConciliacaoAgendaService>();
-        services.AddScoped<RetornosAMarcarService>();
         services.AddScoped<BuscaDeVagasService>();
         services.AddScoped<EquipeService>();
         services.AddScoped<ListaEsperaService>();

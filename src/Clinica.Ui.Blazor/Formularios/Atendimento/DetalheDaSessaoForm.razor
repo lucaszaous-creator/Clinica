@@ -1,9 +1,9 @@
 @namespace Clinica.Ui.Blazor.Formularios
 @*
   OS CAMPOS SEPARADOS DA SESSÃO (o que no WPF era a DetalheSessaoWindow): queixa, história,
-  exame físico, hipótese, CID, conduta, orientações, plano, motivo do retorno e
-  encaminhamento. Edita o MESMO rascunho da folha — não uma cópia —, e por isso não tem
-  "Salvar": quem grava é o "Salvar sessão" da folha, e o rodapé DIZ isso.
+  exame físico, hipótese, CID, conduta, orientações, plano e encaminhamento (o motivo do
+  retorno saiu com o "Retorno sugerido" em 26/10/2026). Edita o MESMO rascunho da folha — não
+  uma cópia —, e por isso não tem "Salvar": quem grava é o "Salvar sessão" da folha, e o rodapé DIZ isso.
 *@
 @using Clinica.Application.Modelos
 
@@ -47,11 +47,7 @@
                 <textarea class="campo" rows="2" disabled="@SomenteLeitura"
                           @bind="Rascunho.PlanoTerapeutico" @bind:event="oninput" @bind:after="AvisarAsync"></textarea>
             </Campo>
-            <Campo Rotulo="Por que voltar" Dica="O motivo do retorno sugerido. A data fica na folha; o agendamento é da recepção.">
-                <input class="campo" maxlength="500" disabled="@SomenteLeitura"
-                       @bind="Rascunho.RetornoSugeridoNota" @bind:event="oninput" @bind:after="AvisarAsync" />
-            </Campo>
-            <Campo Rotulo="Encaminhamento">
+            <Campo Rotulo="Encaminhamento" Classe="largo">
                 <input class="campo" maxlength="500" disabled="@SomenteLeitura"
                        @bind="Rascunho.Encaminhamento" @bind:event="oninput" @bind:after="AvisarAsync" />
             </Campo>

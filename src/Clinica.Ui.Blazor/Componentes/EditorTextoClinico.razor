@@ -38,7 +38,7 @@
     {
         <div class="editor-texto" @ref="_campo" role="textbox" aria-multiline="true" aria-label="@Rotulo"
              aria-readonly="@(SomenteLeitura || Desabilitado ? "true" : "false")" data-ajuda="@TextoDeAjuda"
-             style="@($"min-height:{Linhas * 1.6}em")"></div>
+             style="@($"min-height:{(Linhas * 1.6).ToString(System.Globalization.CultureInfo.InvariantCulture)}em")"></div>
     }
 </div>
 

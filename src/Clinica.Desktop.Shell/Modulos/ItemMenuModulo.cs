@@ -37,8 +37,8 @@ public enum GrupoSidebar
     Atendimento,
 
     /// <summary>
-    /// Falar com quem vem, com quem precisa voltar e com quem sumiu (out/2026): as
-    /// confirmações da véspera, os retornos pedidos pelo profissional e o acompanhamento.
+    /// Falar com quem vem e com quem sumiu (out/2026): as confirmações da véspera e o
+    /// acompanhamento.
     /// Morava em GESTÃO, ao lado do painel e da equipe — e "gestão" não diz a ninguém que
     /// é ali que se chama o paciente de volta.
     /// </summary>

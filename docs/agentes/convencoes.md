@@ -5,7 +5,7 @@ sessão). O texto é o MESMO, sem reescrita: design system, WPF/XAML, Blazor, EF
 `verificar-suite`, assinatura digital, impressão, CRM e as rodadas de UI, cada uma com o defeito que a
 originou. Antes de escrever uma tela, uma consulta ou uma checagem, procure aqui a lição da área.
 
-## Índice (208 tópicos, na ordem do arquivo)
+## Índice (209 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -217,6 +217,7 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
 - A prévia com `--no-build` mostra o binário de ANTES: compilar os testes não a atualiza
 - Telefone que vai ao CRM tira o prefixo de DISCAGEM antes do 55 — em toda porta, inclusive na BUSCA
 - Menu de contexto no Blazor: a regra na Application, `aria-disabled` para a dica, `preventDefault` no elemento e a posição no JS
+- Blazor Sections: o lugar de destino é um objeto POR INSTÂNCIA, nunca um nome global
 ---
 
 
@@ -5275,3 +5276,14 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
      `:stopPropagation` (o Esc do menu não chega aos `@onkeydown` da tela, que fecham os popovers dela).
      As setas, que dependem da PRÓPRIA tecla, são JS (o tópico "Tecla no Blazor…" acima). Menu que fica
      aberto sob a rolagem aponta para a linha errada.
+
+- **Blazor Sections: o lugar de destino é um objeto POR INSTÂNCIA, nunca um nome global**
+  (out/2026, folha do médico aprovada pela clínica). O EMITIR passou a morar DEBAIXO DO RAIL da tela
+  do paciente, que é de outro componente: a seção o entrega por `SectionContent`/`SectionOutlet`. A
+  primeira versão usou `SectionName` com uma constante — e dois testes reprovaram com *"There is
+  already a subscriber to the content with the given section ID"*: o registro de seções é UM por
+  renderizador, e o palco mantém telas montadas no MESMO navegador. Duas telas do paciente vivas
+  disputariam a mesma área, e o EMITIR de um paciente poderia aparecer na tela de outro. A saída é
+  `SectionId` com um `object` criado pela tela (`ITelaDoPaciente.ExtraDoRail`); quem não tem rail
+  devolve nulo e a seção desenha o bloco no lugar de antes. **Ao entregar markup a outro componente,
+  o endereço é da INSTÂNCIA — nome global é a variável estática da renderização.**

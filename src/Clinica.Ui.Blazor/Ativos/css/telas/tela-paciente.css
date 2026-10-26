@@ -26,7 +26,8 @@
 
 /* ---------- Rail + seção ---------- */
 .tp-corpo{display:grid;grid-template-columns:220px minmax(0,1fr);gap:var(--space-3);align-items:start}
-.tp-rail{display:flex;flex-direction:column;gap:2px;padding:var(--space-3);position:sticky;top:0}
+.tp-coluna-esquerda{min-width:0;display:flex;flex-direction:column;gap:var(--space-3);position:sticky;top:0}
+.tp-rail{display:flex;flex-direction:column;gap:2px;padding:var(--space-3)}
 .tp-grupo{margin:var(--space-3) 0 var(--space-1) var(--space-2);color:var(--texto-secundario);font-size:var(--text-small-size);
   font-weight:600;text-transform:uppercase;letter-spacing:.04em}
 .tp-grupo:first-child{margin-top:0}
@@ -40,7 +41,8 @@
 /* Notebook estreito: o rail vira uma régua por cima da seção, e nada vaza para o lado. */
 @media (max-width:1100px){
   .tp-corpo{grid-template-columns:minmax(0,1fr)}
-  .tp-rail{position:static;flex-direction:row;flex-wrap:wrap}
+  .tp-coluna-esquerda{position:static}
+  .tp-rail{flex-direction:row;flex-wrap:wrap}
   .tp-grupo{display:none}
   .tp-secao{width:auto}
 }

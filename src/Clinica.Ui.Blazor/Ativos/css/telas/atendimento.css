@@ -34,37 +34,46 @@
 .at-personalizados summary{cursor:pointer;font-weight:600;margin-bottom:var(--space-2)}
 .at-personalizados-grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:var(--space-2) var(--space-3)}
 
-.at-tira{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:var(--space-2) var(--space-3);
-  padding:var(--space-3) var(--space-4);border-top:1px solid var(--borda);background:var(--fundo)}
+/* A barra do Registro clínico: a EVA em par ANTES das ferramentas da escrita (pedido da clínica). */
+.at-consulta{display:flex;align-items:center;gap:var(--space-2);color:var(--texto-secundario);font-size:var(--text-small-size);font-weight:600}
+.at-consulta .campo{width:auto}
+.at-eva{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);margin-left:var(--space-3);margin-right:auto}
+.at-eva-campo{display:flex;align-items:center;gap:var(--space-1);padding:0 var(--space-1) 0 var(--space-3);border:1px solid var(--borda);
+  border-radius:var(--radius-chip);background:var(--superficie);font-size:var(--text-small-size);color:var(--texto-secundario);font-weight:600}
+.at-eva-campo .campo{width:auto;min-height:0;border:0;background:transparent;padding:var(--space-1)}
+.at-eva-resultado{padding:var(--space-1) var(--space-3);border-radius:var(--radius-chip);background:var(--fundo);
+  color:var(--texto-secundario);font-size:var(--text-small-size);font-weight:600}
+.at-eva-resultado.melhora{background:var(--sucesso-suave);color:var(--sucesso-forte)}
+.at-eva-resultado.piora{background:var(--erro-suave);color:var(--erro-texto)}
+.at-editor .editor-texto{max-height:none}
 
-.at-rodape{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-2);padding:var(--space-3) var(--space-4);border-top:1px solid var(--borda)}
+/* O rodapé (Imprimir e Salvar) preso ao pé da janela enquanto a folha está à vista — no notebook de
+   1280×720 ele caía abaixo da dobra e só aparecia rolando. */
+.at-rodape{position:sticky;bottom:0;z-index:1;background:var(--superficie);border-radius:0 0 var(--radius-card) var(--radius-card);display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-2);padding:var(--space-3) var(--space-4);border-top:1px solid var(--borda)}
 .at-rodape-texto{flex:1 1 280px;min-width:0;display:flex;flex-direction:column;gap:2px;font-size:var(--text-small-size)}
-/* A escrita à esquerda; a data, a dor, o retorno e o Salvar à direita, à vista sem rolar. */
-.at-registro-corpo{display:grid;grid-template-columns:minmax(0,1fr) 220px;align-items:stretch}
-.at-registro-escrita{min-width:0;display:flex;flex-direction:column}
-.at-registro-lado{min-width:0;display:flex;flex-direction:column;border-left:1px solid var(--borda);background:var(--fundo)}
-.at-registro-lado .at-tira{grid-template-columns:minmax(0,1fr);border-top:0;background:transparent}
-.at-registro-lado .at-rodape{flex-direction:column;align-items:stretch;margin-top:auto}
-.at-registro-lado .at-rodape-texto{flex:none}
-.at-registro-lado .botoes-linha{flex-direction:column-reverse;align-items:stretch}
-.at-registro-lado .botoes-linha .botao{justify-content:center}
-@media (max-width:760px){
-  .at-registro-corpo{grid-template-columns:minmax(0,1fr)}
-  .at-registro-lado{border-left:0;border-top:1px solid var(--borda)}
-  .at-registro-lado .at-tira{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
-}
 .at-mensagem{color:var(--texto-secundario);overflow-wrap:anywhere}
 .at-mensagem.erro{color:var(--erro-texto);font-weight:600}
 
-/* ---------- A coluna do lado: EMITIR ---------- */
+/* ---------- O EMITIR debaixo do rail (a folha na largura toda) e o histórico ao lado ---------- */
+.at-folha-pagina.at-sem-coluna{grid-template-columns:minmax(0,1fr)}
 .at-emitir,.at-historico{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-3)}
+.at-emitir{gap:2px}
 .at-lado-titulo{margin:0;color:var(--texto-secundario);font-size:var(--text-secao-size);letter-spacing:var(--text-secao-tracking);font-weight:600}
+.at-emitir .at-lado-titulo,.at-emitir .at-emitir-acoes{padding:0 var(--space-3)}
 .at-lado-subtitulo{margin:var(--space-2) 0 0;font-size:var(--text-small-size);color:var(--texto-secundario)}
-.at-papel{display:flex;flex-direction:column;gap:2px;width:100%;padding:var(--space-2) var(--space-3);border:1px solid var(--borda);
-  border-radius:var(--radius-control);background:var(--superficie);color:var(--texto-primario);text-align:left;cursor:pointer}
-.at-papel:hover:not(:disabled){background:var(--superficie-hover);border-color:var(--borda-hover)}
+/* Os papéis com a MESMA cara dos itens do rail logo acima: ícone, texto sem negrito, sem moldura;
+   a explicação ("em branco — você escreve…") numa linha pequena embaixo. */
+.at-papel{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:var(--space-2);align-items:start;width:100%;
+  padding:var(--space-2) var(--space-3);border:0;border-radius:var(--radius-control);background:transparent;
+  color:var(--texto-secundario);text-align:left;cursor:pointer}
+.at-papel:hover:not(:disabled){background:var(--superficie-hover)}
 .at-papel:disabled{cursor:not-allowed;opacity:.6}
-.at-papel span{font-size:var(--text-small-size);overflow-wrap:anywhere}
+.at-papel svg.icone{grid-row:span 2;margin-top:2px}
+.at-papel b{font-weight:500;color:var(--texto-primario)}
+.at-papel:disabled b{color:var(--texto-secundario)}
+.at-papel span{grid-column:2;font-size:var(--text-small-size);font-weight:400;line-height:1.35;overflow-wrap:anywhere}
+/* Com o EMITIR embaixo, a coluna passa da altura do notebook: ela rola com a página. */
+.tp-coluna-esquerda:has(.at-emitir){position:static}
 .at-heranca{color:var(--acento)}
 .at-emitir-acoes{flex-wrap:wrap}
 .at-termo{width:100%}

@@ -566,45 +566,6 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Take(limite)
             .ToListAsync(ct);
 
-    public async Task<IReadOnlyList<RetornoSugerido>> RetornosSugeridosAsync(
-        DateOnly retornoDesde, CancellationToken ct = default)
-        => await _db.Evolucoes.AsNoTracking()
-            // A COLUNA (`CanceladaEm`), nunca a derivada `Cancelada` — o EF recusa em runtime
-            // (parcela 74).
-            .Where(e => e.CanceladaEm == null
-                        && e.RetornoSugeridoEm != null
-                        && e.RetornoSugeridoEm >= retornoDesde)
-            .Select(e => new RetornoSugerido(
-                e.Id,
-                e.PacienteId,
-                e.Paciente!.Nome,
-                e.Paciente.Telefone,
-                e.Data,
-                e.RetornoSugeridoEm!.Value,
-                e.RetornoSugeridoNota,
-                e.ProfissionalId,
-                e.Profissional != null ? e.Profissional.NomeCurto : null,
-                e.Profissional != null ? e.Profissional.Nome : null))
-            .ToListAsync(ct);
-
-    public async Task<IReadOnlyList<HorarioPosterior>> HorariosAtivosDosPacientesAsync(
-        IReadOnlyCollection<int> pacienteIds, DateOnly desde, CancellationToken ct = default)
-    {
-        if (pacienteIds.Count == 0) return [];
-
-        var corte = desde.ToDateTime(TimeOnly.MinValue);
-
-        return await _db.Agendamentos.AsNoTracking()
-            .Where(a => pacienteIds.Contains(a.PacienteId)
-                        && a.DataHora >= corte
-                        // A lista POSITIVA (a coluna, nunca `OcupaAgenda`, que o EF não traduz):
-                        // cancelado, falta e substituído não são "horário posterior".
-                        && (a.Status == StatusAgendamento.Agendado
-                            || a.Status == StatusAgendamento.Realizado))
-            .Select(a => new HorarioPosterior(a.PacienteId, a.DataHora))
-            .ToListAsync(ct);
-    }
-
     public async Task<IReadOnlyList<(int PacienteId, OrigemPaciente? Origem, string? IndicadoPor)>> OrigensDosPacientesAsync(
         CancellationToken ct = default)
     {

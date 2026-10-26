@@ -57,10 +57,6 @@ public sealed record AberturaDaRetencao(string Titulo, string Texto, IReadOnlyLi
 /// a lista sai com um grupo só. Nenhum número fica escrito aqui.</item>
 /// <item><b>Respondeu</b> = o paciente escreveu (a última recebida da conversa com a ficha
 /// conferida) DEPOIS do último contato registrado no caso.</item>
-/// <item><b>Retornos pedidos</b> ficam FORA: são outra fila (<see cref="Modelos.RetornosAMarcar"/>),
-/// sem modalidade nem autorização na linha — misturá-los daria uma segunda porta para a
-/// pergunta que a tela "Retornos a marcar" já responde, e sem como saber se a pessoa trata
-/// nem se autorizou mensagem.</item>
 /// <item><b>Sem autorização, nenhum caminho envia</b>: o único botão é "Já liguei"
 /// (<see cref="Abertura"/>, <see cref="ConversasNaTela.PedeAcao"/>, <see cref="ModeloDoConvite"/>).</item>
 /// </list>

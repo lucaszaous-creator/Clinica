@@ -86,11 +86,6 @@
       "alvo": "botao=Confirmar amanhã"
     },
     {
-      "titulo": "Marque os retornos pedidos",
-      "texto": "Retornos que o médico pediu e ainda não têm horário. O clique leva à fila de Retornos a marcar.",
-      "alvo": "botao=Retornos pedidos pelo médico"
-    },
-    {
       "titulo": "Faça o recall do dia",
       "texto": "Contatos com pacientes que sumiram, combinados para hoje. O clique leva ao Acompanhamento.",
       "alvo": "botao=Recall de hoje"

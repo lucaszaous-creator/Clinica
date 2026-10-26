@@ -6,7 +6,7 @@ mora o código. Mexer numa área? Leia antes o tópico dela — vários registra
 teste pega. Lição nova de uma área entra aqui, no tópico dela; regra que vale para TODA mudança
 continua no `CLAUDE.md`.
 
-## Índice (187 tópicos, na ordem do arquivo)
+## Índice (188 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -197,6 +197,7 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
 - O WHATSAPP DA CLÍNICA É DAS SECRETÁRIAS E DA DIREÇÃO
 - A FICHA ÚNICA LIGA EM UM CLIQUE — e quem confere continua sendo a recepção
 - O TELEFONE DA FICHA VAI AO CRM SEM O 0 DO INTERURBANO
+- O "RETORNO SUGERIDO" SAIU DO SISTEMA — e o dado gravado fica
 
 ---
 
@@ -4673,3 +4674,17 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   porque o banco compara dígitos). ⚠️ **A ficha não é reescrita** (dado da clínica; a normalização é na
   saída) e **as conversas que o CRM já abriu com o número errado ficam lá**; as novas vão para 55 + DDD +
   número. Testes: `TelefoneTests`. Lição de implementação em `docs/agentes/convencoes.md`.
+
+- **O "RETORNO SUGERIDO" SAIU DO SISTEMA — e o dado gravado fica** (26/10/2026, a clínica aprovou a
+  folha nova do médico e pediu o campo fora). Ele era a ÚNICA entrada da fila "Retornos a marcar"
+  (Início e Acompanhamento da Recepção), então tirar só o campo deixaria a fila vazia para sempre —
+  a direção decidiu "tirar de vez, com a fila" (regra 2 de tela: função que saiu, sai inteira). Saíram
+  a data na folha, o "Por que voltar" dos campos complementares, a fila (tela, modelo, serviço, leitura
+  do repositório, contador do Início, terceira fila do Acompanhamento, convite pelo WhatsApp, semente,
+  videoaula) e o selo deixou de contar o motivo que a janela não mostra. ⚠️ **O que FICA é o registro
+  clínico**: as colunas `RetornoSugeridoEm`/`RetornoSugeridoNota` continuam (migration só aditiva,
+  guarda de 20 anos), e quem LÊ uma sessão antiga ainda vê o retorno dela (prontuário, PDF,
+  exportação, versão, sessão anterior). O rascunho e o tablet continuam a CARREGAR e DEVOLVER o valor
+  ao gravar — quem não edita, preserva —; sem isso a primeira correção de uma sessão antiga apagaria o
+  retorno que ela tinha. O "Retorno do 2º código" (`OrigemAgendamento.RetornoSugerido`) é outro assunto
+  e não mudou.
