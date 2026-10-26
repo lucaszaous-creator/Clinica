@@ -6,9 +6,11 @@ namespace Clinica.Application.Servicos;
 /// <summary>
 /// O que o vigia leu: quem espera a clínica agora e, entre eles, quem passou a esperar desde a leitura
 /// anterior (a notificação passageira sai UMA vez por espera). <see cref="Ligado"/> falso = o CRM não tem
-/// endereço nesta clínica: nada aparece, nem a seção do sino nem o número no menu.
+/// endereço nesta clínica: nada aparece, nem a seção do sino nem o número no menu. <see cref="NaoLidas"/> é o número do
+/// item "WhatsApp" no menu: o MESMO da aba "Conversas" dentro da tela (<see cref="ContagemDasConversas.NaoLidas"/>), para os
+/// dois nunca discordarem (26/10, pedido da direção: o vermelho não acompanhava o que a tela mostrava).
 /// </summary>
-public sealed record LeituraDaEspera(bool Ligado, IReadOnlyList<ConversaQueEspera> Esperando, IReadOnlyList<ConversaQueEspera> Novas)
+public sealed record LeituraDaEspera(bool Ligado, IReadOnlyList<ConversaQueEspera> Esperando, IReadOnlyList<ConversaQueEspera> Novas, int NaoLidas = 0)
 {
     public static LeituraDaEspera Desligada { get; } = new(false, [], []);
 }
@@ -34,8 +36,10 @@ public sealed class VigiaDoWhatsApp(IClienteDoCrm crm)
     /// <summary>O ritmo do pulso: bem dentro dos 120 s que ele vale (uma batida perdida não derruba a presença).</summary>
     public static readonly TimeSpan Pulso = TimeSpan.FromSeconds(30);
 
-    /// <summary>De quanto em quanto a espera é relida (o <c>?desde=</c>: uma chamada pequena por posto).</summary>
-    public static readonly TimeSpan RitmoDaEspera = TimeSpan.FromSeconds(60);
+    /// <summary>De quanto em quanto a espera e as não lidas são relidas (o <c>?desde=</c>: uma chamada pequena por posto).
+    /// 15 s: o número do menu acompanha a mensagem que chega e a conversa que alguém leu (o <c>desde</c> traz a marca de
+    /// leitura). Era 60 s, e o menu ficava um minuto atrás da tela.</summary>
+    public static readonly TimeSpan RitmoDaEspera = TimeSpan.FromSeconds(15);
 
     /// <summary>
     /// A lista inteira volta a cada tanto: o <c>?desde=</c> não traz a conversa que saiu da visão da pessoa
@@ -106,6 +110,6 @@ public sealed class VigiaDoWhatsApp(IClienteDoCrm crm)
         // Cada espera é anunciada UMA vez na vida da janela — mesmo que saia da lista e volte (assumida e
         // devolvida sem resposta): a chave carrega a hora da recebida, então só uma mensagem NOVA anuncia de novo.
         var novas = esperando.Where(e => _anunciadas.Add(e.Chave)).ToList();
-        return new LeituraDaEspera(true, esperando, primeira ? [] : novas);
+        return new LeituraDaEspera(true, esperando, primeira ? [] : novas, ConversasNaTela.Contagens(_conversas, _meuAgente).NaoLidas);
     }
 }
