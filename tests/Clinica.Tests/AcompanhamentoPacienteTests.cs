@@ -122,6 +122,8 @@ public sealed class AcompanhamentoPacienteTests : IDisposable
     {
         await svc.IndicarBsvAsync(medico.Id, consulta.Id); var linha = await Linha();
         var pedido = new AtualizarAcompanhamento(Guid.NewGuid(), linha.Versao, recepcao.Id, DateOnly.FromDateTime(DateTime.Today.AddDays(2)), EtapaAcompanhamento.SemResposta, CanalContato.WhatsApp, "Mensagem enviada, aguardando resposta.");
+        // Sem registro conta como autorizado (termo do BSV, out/2026): o que barra é a RECUSA gravada.
+        db.Consentimentos.Add(new() { PacienteId = paciente.Id, Finalidade = FinalidadeConsentimento.ComunicacaoEMarketing, Concedido = false, RegistradoEm = DateTime.Now.AddDays(-1) }); await db.SaveChangesAsync();
         await Assert.ThrowsAsync<InvalidOperationException>(() => svc.AtualizarAsync(recepcao.Id, linha.Id, pedido));
         await Consentir();
         await Assert.ThrowsAsync<InvalidOperationException>(() => svc.AtualizarAsync(recepcao.Id, linha.Id, pedido with { ProximoContato = null }));

@@ -110,7 +110,7 @@ public static class FilaEnviosCrm
     /// </summary>
     public static string Telefone(string? telefone)
     {
-        var digitos = new string((telefone ?? string.Empty).Where(char.IsAsciiDigit).ToArray());
+        var digitos = Clinica.Domain.Telefone.SemPrefixoDeDiscagem(new string((telefone ?? string.Empty).Where(char.IsAsciiDigit).ToArray()));
         if (digitos.Length is 10 or 11) digitos = "55" + digitos;
         return digitos.Length is >= 10 and <= 15 ? digitos : string.Empty;
     }

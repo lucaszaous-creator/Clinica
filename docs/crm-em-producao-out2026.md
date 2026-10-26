@@ -120,7 +120,7 @@ Versões publicadas em 18/10: faturamento e Recepção **1.2.55**, Financeiro **
 | **#257** | Ponte do CRM para a VPS separada: túnel WireGuard, escuta só no IP do túnel (`RedeDaPonte`), relógio de SMS no servidor e transação sob a estratégia de repetição (`TransacaoDaPonte`) |
 | **#258** | A abertura do app resiste a falha passageira de rede |
 | **#259** | A ponte dá ao CRM o login e a senha do sistema: as secretárias entram com o usuário do Clinica |
-| **#260** | O recall pela ponte **sem a trava de consentimento**, a pedido da direção (`ClinicRecallBridge`). ⚠️ **Revertido na fase 3 Recepção×CRM (23/10/2026)**: a trava voltou, com a autorização colhida no termo do BSV — `docs/fase3-recepcao-crm.md` |
+| **#260** | O recall pela ponte **sem a trava de consentimento**, a pedido da direção (`ClinicRecallBridge`). ⚠️ **Revertido na fase 3 Recepção×CRM (23/10/2026)**: a trava voltou, com a autorização colhida no termo do BSV — `docs/fase3-recepcao-crm.md`. ⚠️ **Desde 25/10/2026** a trava bloqueia só quem RECUSOU ("Não" no termo, PARAR, revogação); sem registro conta como autorizado (`PacientesComMensagensLiberadasAsync`, §6 do mesmo documento) |
 | **#261** | **Busca do paciente** por telefone, nome ou documento (`ClinicPatientBridge`, `/crm/v1/patients/lookup`). **Resposta ao lembrete** no snapshot da agenda (`ClinicAgendaBridge.AnswerOf`: confirmou / não vem). **Relacionamento só de quem trata**: BSV, acupuntura e os dois (`ClinicRelationshipBridge.Tratamento`) |
 | **#262** | A resposta do paciente vira **aviso** no sino da Recepção ("Respostas dos pacientes") e no painel do Gerente (`PacientesNaoVem`, `LembretesSemResposta`). `AvisosDeConfirmacao` é a regra única, com 17 testes. A tela de Confirmações abre no dia da sessão. A **agenda do dia** ganhou no topo as pílulas **Não vêm · Sem resposta · Confirmaram**, que filtram a lista |
 
@@ -133,6 +133,12 @@ mais `ClinicPatientLookup`, `ClinicPatientVisit` e `ClinicPatientCard`.
 Estão em [`CLAUDE.md`](../CLAUDE.md), na seção "⛔ Regras de tela para quem atende", e valem
 também no CRM: uma porta por pergunta; função que saiu sai inteira; o que pede ação vira aviso;
 o telefone não é identidade; Relacionamento é de quem trata; responsivo e sem resquício.
+
+⚠️ **25/10/2026, telefone com 0 na frente:** a ponte mandava ao CRM o telefone da ficha como estava
+gravado, e a ficha com "022998999334" (0 do interurbano) ia para a Meta assim — a mensagem não era
+entregue. `ClinicAgendaBridge.Phone` agora tira o 0 e o código de operadora
+(`Telefone.SemPrefixoDeDiscagem`) antes de pôr o 55. As conversas que o CRM já abriu com o número
+errado continuam lá; as novas vão para 55 + DDD + número. Vale depois de publicar a ponte (VPS 1).
 
 ## 6.1 Incidente de 18/10: os apps não abriam ("o banco não respondeu a tempo")
 

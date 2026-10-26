@@ -436,6 +436,18 @@ public sealed class ConversasNaTelaTests
         var uma = ConversasNaTela.PedeAcao(WhatsAppDeTeste.Conversa(paciente: null, nomeDaFicha: ""), [], 1, null, Agora)!;
         Assert.Equal(TipoDaAcaoPedida.ConferirFicha, uma.Tipo);
 
+        // Uma ficha só (out/2026): o aviso já mostra quem é e liga num clique; "É outra pessoa" abre a busca.
+        var jamile = new FichaCandidata(7, "Jamile Leandro Barcelos", "JB", "azul", "12/06/1990 · 36 anos", "final 42", "nenhuma", "—");
+        var umClique = ConversasNaTela.PedeAcao(WhatsAppDeTeste.Conversa(paciente: null, nomeDaFicha: ""), [], 1, null, Agora, fichaUnica: jamile)!;
+        Assert.Equal((TipoDaAcaoPedida.ConferirFicha, "É Jamile Leandro Barcelos?"), (umClique.Tipo, umClique.Titulo));
+        Assert.Contains("12/06/1990", umClique.Frase);
+        Assert.Contains("final 42", umClique.Frase);
+        Assert.Equal([BotaoDaAcao.LigarFicha, BotaoDaAcao.BuscarFicha], umClique.Botoes.Select(b => b.Acao));
+        Assert.True(umClique.Botoes[0].Primario);
+        // Com duas fichas a candidata única não existe: continua a conferência.
+        Assert.Equal([BotaoDaAcao.ConferirFicha],
+            ConversasNaTela.PedeAcao(WhatsAppDeTeste.Conversa(paciente: null, nomeDaFicha: ""), [], 2, null, Agora, fichaUnica: jamile)!.Botoes.Select(b => b.Acao));
+
         var nova = ConversasNaTela.PedeAcao(WhatsAppDeTeste.Conversa(paciente: null, nomeDaFicha: ""), [], 0, null, Agora)!;
         Assert.Equal(TipoDaAcaoPedida.NovoContato, nova.Tipo);
         Assert.Equal([BotaoDaAcao.BuscarFicha, BotaoDaAcao.CadastrarPaciente], nova.Botoes.Select(b => b.Acao));
@@ -488,11 +500,11 @@ public sealed class ConversasNaTelaTests
         Assert.Equal([BotaoDaAcao.Desfecho, BotaoDaAcao.JaLiguei], acao.Botoes.Select(b => b.Acao));
 
         var convidar = ConversasNaTela.PedeAcao(conversa, [], 1, aguardando with { ProximoContato = WhatsAppDeTeste.Hoje }, Agora)!;
-        Assert.Equal("Fernanda está há 20 dias sem vir (acupuntura) e autorizou mensagens.", convidar.Titulo);
+        Assert.Equal("Fernanda está há 20 dias sem vir (acupuntura).", convidar.Titulo);
         Assert.Equal(BotaoDaAcao.PrepararConvite, convidar.Botoes[0].Acao);
 
         var bsv = ConversasNaTela.PedeAcao(conversa, [], 1, aguardando with { ProximoContato = WhatsAppDeTeste.Hoje, Modalidade = ModalidadeAtendimento.BsvApenas, Dias = 32 }, Agora)!;
-        Assert.Equal("Fernanda está há 32 dias sem vir (BSV) e autorizou mensagens.", bsv.Titulo);
+        Assert.Equal("Fernanda está há 32 dias sem vir (BSV).", bsv.Titulo);
 
         var novoBsv = ConversasNaTela.PedeAcao(conversa, [], 1, aguardando with
         {
@@ -503,7 +515,7 @@ public sealed class ConversasNaTelaTests
     }
 
     [Fact]
-    public void Sem_autorizacao_o_aviso_da_conversa_nunca_oferece_envio()
+    public void Quem_recusou_mensagens_o_aviso_da_conversa_nunca_oferece_envio()
     {
         var conversa = WhatsAppDeTeste.Conversa([WhatsAppDeTeste.Recebida("m1", WhatsAppDeTeste.Em(1, 10, 0))], nomeDaFicha: "Helena Marques");
         foreach (var proximo in new[] { WhatsAppDeTeste.Hoje, new DateOnly(2026, 10, 30) })
@@ -518,7 +530,7 @@ public sealed class ConversasNaTelaTests
         }
         var paraHoje = ConversasNaTela.PedeAcao(conversa, [], 1,
             WhatsAppDeTeste.Caso(paciente: 101, nome: "Helena Marques", consentimento: false), Agora)!;
-        Assert.Equal("Helena não autorizou mensagens: a ação é ligar.", paraHoje.Titulo);
+        Assert.Equal("Helena pediu para não receber mensagens: a ação é ligar.", paraHoje.Titulo);
         Assert.Equal([BotaoDaAcao.JaLiguei, BotaoDaAcao.ColherAutorizacao], paraHoje.Botoes.Select(b => b.Acao));
     }
 

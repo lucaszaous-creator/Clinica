@@ -455,6 +455,9 @@ zero.**
 > sempre esqueceu; um texto duro custa o paciente inteiro para recuperar uma sessão; e o
 > telefone pode não ser só do paciente. **Cobrança não exige consentimento de marketing** —
 > é transacional, como a confirmação da própria sessão; NPS e recall continuam exigindo.
+> *(25/10/2026: o recall passou a contar sem registro como autorizado e a bloquear só quem
+> recusou — `docs/fase3-recepcao-crm.md` §6; as campanhas do Gerente, NPS incluído, continuam
+> exigindo o "Sim".)*
 
 ### Fluxo de caixa e resultado por categoria — ✅ · parcela 13
 
@@ -889,6 +892,10 @@ escondidas por permissão — quem instala a Recepção não precisa baixar a te
 > recall são comunicação ativa e só saem com `ComunicacaoEMarketing` vigente. Quem não
 > consentiu **não some da lista**: aparece contado no resultado da rodada, para a clínica
 > ir colher o consentimento no balcão.
+> ⚠️ *Desde 25/10/2026 o recall (a fila do Acompanhamento e o recall do CRM pela ponte) não
+> exige mais o "Sim": a autorização é considerada colhida no termo do BSV, sem registro conta
+> como autorizado e só quem recusou fica de fora (`PacientesComMensagensLiberadasAsync`,
+> `docs/fase3-recepcao-crm.md` §6). As campanhas do Gerente continuam como acima.*
 
 > ⚠️ **E a linha valia para a rodada, não para a tela ao lado** (corrigido na parcela 64).
 > A tela "Quem parou de vir" abre o WhatsApp com o mesmo convite de retorno — é recall —,

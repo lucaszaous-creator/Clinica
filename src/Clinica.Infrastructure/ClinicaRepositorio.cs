@@ -3299,6 +3299,26 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .ToList();
     }
 
+    public async Task<IReadOnlyList<int>> PacientesComMensagensLiberadasAsync(
+        IReadOnlyCollection<int> pacienteIds,
+        CancellationToken ct = default)
+    {
+        if (pacienteIds.Count == 0) return [];
+
+        // O mesmo "mais recente vence" de cima, pelo avesso: sai só quem tem um último registro NÃO vigente.
+        var registros = await _db.Consentimentos.AsNoTracking()
+            .Where(c => c.Finalidade == FinalidadeConsentimento.ComunicacaoEMarketing && pacienteIds.Contains(c.PacienteId))
+            .OrderByDescending(c => c.RegistradoEm).ThenByDescending(c => c.Id)
+            .ToListAsync(ct);
+        var recusaram = registros
+            .GroupBy(c => c.PacienteId)
+            .Where(g => !g.First().Vigente)
+            .Select(g => g.Key)
+            .ToHashSet();
+
+        return pacienteIds.Distinct().Where(id => !recusaram.Contains(id)).ToList();
+    }
+
     // ---- Auditoria ----
 
     public async Task RegistrarAuditoriaAsync(EventoAuditoria evento, CancellationToken ct = default)

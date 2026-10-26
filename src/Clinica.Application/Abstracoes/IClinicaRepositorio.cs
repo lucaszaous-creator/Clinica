@@ -1165,6 +1165,16 @@ public interface IClinicaRepositorio
         FinalidadeConsentimento finalidade,
         IReadOnlyCollection<int> pacienteIds,
         CancellationToken ct = default);
+    /// <summary>
+    /// Quais destes pacientes podem receber MENSAGEM da recepção (convite, recall, relacionamento) — out/2026,
+    /// decisão da direção: a autorização é colhida no termo do BSV, então quem NÃO tem registro conta como
+    /// autorizado. Só fica de fora quem RECUSOU: o registro mais recente de
+    /// <see cref="FinalidadeConsentimento.ComunicacaoEMarketing"/> não está vigente ("Não" no termo, PARAR no CRM
+    /// ou revogação na ficha). As CAMPANHAS do Gerente continuam no <see cref="PacientesComConsentimentoVigenteAsync"/>.
+    /// </summary>
+    Task<IReadOnlyList<int>> PacientesComMensagensLiberadasAsync(
+        IReadOnlyCollection<int> pacienteIds,
+        CancellationToken ct = default);
 
     // ---- Pacotes, planos e vouchers ----
 

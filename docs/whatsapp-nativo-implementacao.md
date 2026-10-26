@@ -141,7 +141,8 @@ do §1 é um método público com teste em `ConversasNaTelaTests` / `RetencaoNaT
   0, 1 e 2 fichas.
 - `RetencaoNaTela.Agrupar(linhas, diasDoGerente, hoje)` → grupos na ordem do mockup; teste:
   quem respondeu vem primeiro; 30 antes de 20 antes de 15; Novo BSV e Retorno pedido pelo
-  `Tipo`; `Consentimento == false` ganha o selo "Sem autorização · ligar"; só `Tratamento`
+  `Tipo`; `Consentimento == false` ganha o selo "Sem autorização · ligar" (desde 25/10: "Pediu para não
+  receber", e `Consentimento` é falso só para quem RECUSOU — §17); só `Tratamento`
   (`ModalidadeAtendimento != Consulta`).
 - `ModeloDoWhatsApp.Sugestoes(template, contexto)` → valores iniciais por nome do parâmetro.
   Teste: "sessão de BSV" para BSV, "acupuntura" em minúsculo, dias do caso.
@@ -203,7 +204,7 @@ do §1 é um método público com teste em `ConversasNaTelaTests` / `RetencaoNaT
   voltar" exige observação (`ConversaDoAcompanhamento.ExigeObservacao`) e, com o PARAR marcado,
   chama a revogação da autorização (`AutorizacaoService`, a mesma do PARAR da fase 3) e
   registra o evento.
-- Quem não autorizou (`Consentimento == false`): o único botão é "Já liguei" → "Como foi a
+- Quem não autorizou (`Consentimento == false`; desde 25/10, só quem recusou — §17): o único botão é "Já liguei" → "Como foi a
   ligação?" (os mesmos desfechos, canal Telefone). **Nenhum caminho de envio** pode existir
   para ela: teste que `PedeAcao` e `Abertura` não devolvem botão de modelo.
 - Testes: `RetencaoNaTelaTests` (PR 2) + o teste de tela clicando um desfecho de cada e
@@ -518,7 +519,8 @@ da aba); sem caso, "Ainda não há conversa com Fulano" e **Começar com um mode
 "Nova conversa" da aba já com o telefone, o nome e a ficha. **Mais de uma conversa** (dois números,
 ou WhatsApp e SMS): abre a mais recente e mostra o seletor. **Conversa só do telefone**: o aviso
 "Pelo telefone da ficha" fica acima dela, e a ficha não se liga sozinha (diferente do pedido que leva
-à aba, que liga): quem confere é a recepção, pelo "Conferir a ficha" que a própria conversa já pede.
+à aba, que liga): quem confere é a recepção, pelo "Conferir a ficha" que a própria conversa já pede
+(desde 25/10, com UMA ficha só, pelo "É {Nome}?" com "Ligar a ficha" em um clique — §17).
 
 Fotos (relógio fixo, `node tools/PreviaBlazor/fotos-conversa-ao-lado.js`): `docs/mockups/whatsapp-nativo/tela-real/`
 `50-painel-{agenda,ficha,confirmacoes,acompanhamento}-{1366,1024}.png`, `50-painel-agenda-480.png`,
@@ -797,7 +799,7 @@ MÍDIA e das FALHAS; as regras da coluna "Do sistema da clínica" e dos avisos q
 | 3 · erro do CRM e do provedor cru na tela | Mídia: "O WhatsApp não entregou este vídeo. Peça à pessoa que o envie de novo." / "Sem ligação com o WhatsApp da clínica agora: …" / acima de 16 MB; a frase do CRM vai ao `Diagnostico`. Mídia que falhou perde o Baixar e o Abrir; o "Tentar de novo" só quando tentar pode resolver (sem ligação). Escritas, modelos, anexo, áudio e nova conversa: `FalhaNaEscrita` ("Sem ligação com o WhatsApp da clínica agora. Nada foi alterado; …"). A mensagem que não saiu diz "Não entregue. Confira o número ou envie de novo." em vez do texto do provedor. O @SemDor sem ligação diz a frase dele, não a do transporte | `MidiaDaConversa.Falha`, `ConversasNaTela.FalhaNaEscrita`/`ErroDaEntrega`, `SemDorNaTela.Falha`, `MidiaNoBalao` (`PodeTentarDeNovo`) | `MidiaDaConversaTests`, `MidiaDoWhatsAppNaTelaTests` (o vídeo do João), `SemDorNaLinhaTests` |
 | 4 · teclado | Enter envia (a nota, guarda) e Shift+Enter quebra a linha — o C# decide o envio (`EnviaPeloEnter`), o `js/conversa-do-whatsapp.js` só impede a quebra que o Enter faria. Foco no campo ao abrir a conversa e no campo da busca ao abri-la; Esc fecha a busca, os popovers (Modelos, Respostas rápidas) e o ⓘ da retenção — na gaveta, sem fechar a gaveta junto. A dica do teclado mora no próprio campo ("Mensagem · Enter envia, Shift+Enter quebra a linha"), em toda largura | `ConversasDoWhatsApp.Acabamento.cs`, `js/conversa-do-whatsapp.js` | `AcabamentoDoWhatsAppNaTelaTests` (Enter/Shift+Enter, Esc) |
 | 5 · cabeçalho ambíguo | "Com você" virou **Devolver à fila** (ícone de seta para trás); **Encerrar** com o nome a partir de 1180 px; **Resumo** com o nome a partir de 640 px de cabeçalho (em 1366, sim). Para o nome do paciente caber, o Transferir fica no ícone ⇄ (com a dica) abaixo de 820 px de cabeçalho, os botões são compactos e o nome ganha reticências de verdade | `ConversasDoWhatsApp.razor`, `conversas.css`, `Icone` (`devolver`) | `AcabamentoDoWhatsAppNaTelaTests` |
-| 8 · selos cortados | O selo nunca encolhe; quem cede é o responsável. Textos curtos: "Sem ficha", "2 fichas", "Autorizou", "Sem autorização", "Sem telefone", "Indicado ao BSV", "Respondeu", "Aguardando · 30/10", "Respondeu ao convite"; os títulos dos grupos da retenção cabem numa linha. Sem responsável, a linha não escreve "Sem responsável" (o selo e a aba "Novas" já dizem) | `ConversasNaTela.Selo`, `RetencaoNaTela.Selo`/`Agrupar`, `.wa-linha-rodape` | `ConversasNaTelaTests`, `RetencaoNaTelaTests`, `WhatsAppDaRecepcaoServiceTests`, fotos (o roteiro mede selo cortado) |
+| 8 · selos cortados | O selo nunca encolhe; quem cede é o responsável. Textos curtos: "Sem ficha", "2 fichas", "Autorizou", "Sem autorização" (desde 25/10: "Pode convidar", "Pediu para não receber" — §17), "Sem telefone", "Indicado ao BSV", "Respondeu", "Aguardando · 30/10", "Respondeu ao convite"; os títulos dos grupos da retenção cabem numa linha. Sem responsável, a linha não escreve "Sem responsável" (o selo e a aba "Novas" já dizem) | `ConversasNaTela.Selo`, `RetencaoNaTela.Selo`/`Agrupar`, `.wa-linha-rodape` | `ConversasNaTelaTests`, `RetencaoNaTelaTests`, `WhatsAppDaRecepcaoServiceTests`, fotos (o roteiro mede selo cortado) |
 | 9 · ✨ repetindo o selo | A etiqueta de assunto só aparece com o selo neutro da clínica; a de atenção, sempre | `SemDorNaTela.EtiquetaNaLinha` | `SemDorNaLinhaTests`, `SemDorNaTelaDoWhatsAppTests` |
 | 10 · notificação cobrindo o Enviar | A sugestão já aparece no campo (com o ↶): nenhuma notificação. A que não entrou (ela continuou escrevendo) diz por quê no recado, acima do campo | `SugerirComSemDorAsync` | `SemDorNaTelaDoWhatsAppTests` |
 | 12 · vazios fora de contexto | Sem conversa aberta, a coluna da ficha não ocupa lugar (o centro fica com ela). Um vazio por modo: "Escolha uma conversa" / "Escolha um paciente para preparar o convite", sem "7 segundos" | `ConversasNaTela.SemConversaAberta`, `.pagina.wa.sem-conversa` | `ConversasNaTelaAcabamentoTests`, `AcabamentoDoWhatsAppNaTelaTests` |
@@ -965,3 +967,77 @@ em 1366 e 1024, em `docs/mockups/whatsapp-nativo/tela-real/`: `70-marcar-horario
   sino, o clique que abre a conversa e, na gestão do CRM, a secretária do app como conectada; e que, ao sair do
   app, ela deixa de aparecer conectada.
 
+
+## 17. Mensagens sem trava, ficha em um clique e o telefone com 0 (25/10/2026)
+
+Três decisões da direção do mesmo dia. A primeira muda a regra da fase 3 e está explicada, com a
+comparação e o UX · DX · CX, em `docs/fase3-recepcao-crm.md` §6; aqui fica o que ela muda nesta tela
+e as outras duas.
+
+### 17.1 Sem registro de autorização conta como autorizado
+
+- A tela (retenção, aviso da conversa, cartão do paciente) e o Acompanhamento leem
+  `IClinicaRepositorio.PacientesComMensagensLiberadasAsync`: só quem RECUSOU (último registro
+  `ComunicacaoEMarketing` não vigente — "Não" no termo, PARAR no CRM, revogação na ficha) fica sem
+  convite. As campanhas do Gerente (`CampanhaService`) continuam exigindo o "Sim".
+- Os textos: "não autorizou mensagens" → **"pediu para não receber mensagens"**; o selo da retenção
+  "Autorizou" / "Sem autorização" → **"Pode convidar"** / **"Pediu para não receber"**; o cartão diz
+  **"Liberadas"** ou **"Pediu para não receber · a ação é ligar"**; o título do convite não diz mais
+  "e autorizou mensagens".
+- O PARAR que chega pelo CRM (`ClinicRecallBridge.OptOut`) grava a recusa também para quem nunca
+  respondeu; sem a linha, ele continuaria "liberado".
+
+### 17.2 Ficha única em um clique
+
+Quando só UMA ficha tem o telefone da conversa, o aviso deixa de ser "Uma ficha tem este telefone" +
+"Conferir a ficha" (que abria a janela "Qual ficha é esta pessoa?" com uma linha só) e passa a ser
+**"É {Nome}?"**, com o nascimento e o fim do documento, e dois botões: **"Ligar a ficha"**
+(`BotaoDaAcao.LigarFicha`, liga direto pelo `LigarFichaAsync`) e **"É outra pessoa"** (a busca).
+Com duas ou mais fichas, segue "Conferir a ficha" e a janela.
+
+A regra 4 da direção não mudou: o telefone não é identidade, e quem confere é a recepção — ela
+pergunta à pessoa e clica. O que saiu foi a janela no meio, que só repetia o que o aviso já podia
+mostrar. Regra em `ConversasNaTela` (o aviso que pede ação), com teste.
+
+### 17.3 Telefone com 0 na frente
+
+Bug visto na clínica: a ficha com "022998999334" ia para a Meta como estava, e a mensagem não era
+entregue (o WhatsApp do celular entende o mesmo número como +55 22 99899-9334). Novo
+`Telefone.SemPrefixoDeDiscagem` (Clinica.Domain): tira o 0 do interurbano e, com ele, o código de
+operadora ("0 15 22 …"); "00" (internacional) e número sem 0 ficam como estão. Aplicado em:
+
+| Onde | Para quê |
+|---|---|
+| `ClinicAgendaBridge.Phone` (ponte) | o número que vai ao CRM: 55 + DDD + número, também no PARAR e no recall |
+| `ConversasNaTela.TelefoneNaTela` e `MesmoTelefone` | mostrar "(22) 99899-9334" e casar a conversa com a ficha que guarda o 0 |
+| `ConversaNoCrm.Telefone` | o número da conversa nova aberta pelo app |
+| `WhatsAppDaRecepcaoService.Variantes` | a busca da ficha no banco compara dígitos, então inclui a forma "0" + DDD + número |
+
+Testes: `TelefoneTests` (`SemPrefixoDeDiscagem`, `Ponte_manda_o_numero_com_o_55_sem_o_zero`,
+`A_conversa_acha_a_ficha_que_guarda_o_zero`).
+
+⚠️ **As conversas que o CRM já abriu com o número errado ficam lá** (não há migração de conversa); as
+novas vão para 55 + DDD + número. A ficha não é corrigida: o número gravado continua como a
+recepção digitou.
+
+### 🧑‍💻 UX · 🛠️ DX · 🤝 CX
+
+- 🧑‍💻 **UX** — a retenção deixa de mostrar "Sem autorização · ligar" em quase todo mundo; ligar a
+  ficha única é um clique em vez de três (aviso → janela → escolher → ligar); a mensagem para quem
+  tem "0" na ficha chega, e o telefone aparece no formato de sempre.
+- 🛠️ **DX** — uma pergunta nova no repositório (com o nome que a separa da das campanhas), um botão
+  novo no enum (`LigarFicha`) e uma função de domínio usada nas quatro portas por onde o telefone
+  passa. Telefone novo que vá ao CRM ou compare com a ficha passa por `SemPrefixoDeDiscagem` antes
+  de pôr o 55 — a lição está em `docs/agentes/convencoes.md`.
+- 🤝 **CX** — mensagem que não chegava passa a chegar, sem a recepção reescrever fichas. Nenhuma
+  migration, contrato idêntico. Publicar: a ponte na VPS 1 (o número e o recall do CRM) e os apps
+  Recepção e Gerente.
+
+### O que NÃO foi feito, e por quê
+
+- **Corrigir os telefones gravados com 0** nas fichas: é dado da clínica, e a regra é não reescrevê-lo
+  sem pedido. A normalização acontece na saída.
+- **Juntar as conversas antigas do número errado** com as novas: são registros do CRM, e a Meta nunca
+  entregou nada para aquele número; ficam como histórico.
+- **A dúvida da autorização de quem nunca passou por um termo do BSV**: `docs/fase3-recepcao-crm.md`
+  §6.5.

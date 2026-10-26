@@ -10,6 +10,19 @@ public static class Telefone
         => new string((entrada ?? string.Empty).Where(char.IsDigit).ToArray());
 
     /// <summary>
+    /// Tira o prefixo de DISCAGEM que a ficha às vezes guarda (out/2026, bug visto na clínica: "022998999334"
+    /// ia para a Meta como está e a mensagem não era entregue): o 0 do interurbano ("0 22 99899-9334") e, com ele,
+    /// o código de operadora ("0 15 22 99899-9334"). O que sobra é DDD + número, como o WhatsApp do celular entende.
+    /// "00" é discagem internacional e fica como está; número sem 0 na frente também.
+    /// </summary>
+    public static string SemPrefixoDeDiscagem(string digitos)
+    {
+        if (digitos.Length < 11 || digitos[0] != '0' || digitos[1] == '0') return digitos;
+        var semZero = digitos[1..];
+        return semZero.Length is 12 or 13 ? semZero[2..] : semZero;
+    }
+
+    /// <summary>
     /// Formata como (DD) 99999-9999 / (DD) 9999-9999 quando possível;
     /// números fora dos padrões (8/9/10/11 dígitos) voltam como digitados.
     /// </summary>

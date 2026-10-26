@@ -5,7 +5,7 @@ sessão). O texto é o MESMO, sem reescrita: design system, WPF/XAML, Blazor, EF
 `verificar-suite`, assinatura digital, impressão, CRM e as rodadas de UI, cada uma com o defeito que a
 originou. Antes de escrever uma tela, uma consulta ou uma checagem, procure aqui a lição da área.
 
-## Índice (206 tópicos, na ordem do arquivo)
+## Índice (207 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -215,6 +215,7 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
 - Regra "compacta" escrita no FIM do CSS desfaz as `@media`/`@container` de mesma especificidade que vêm antes
 - `focus()` ROLA contêiner com `overflow:hidden`: foco em campo que ainda está entrando desloca a tela para o lado
 - A prévia com `--no-build` mostra o binário de ANTES: compilar os testes não a atualiza
+- Telefone que vai ao CRM tira o prefixo de DISCAGEM antes do 55 — em toda porta, inclusive na BUSCA
 ---
 
 
@@ -938,6 +939,10 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
   `RetencaoConsentimentoTests` fixa é que os **dois lados perguntam a mesma coisa e recebem
   a mesma resposta**, revogação incluída. **Ao achar o mesmo ato em duas telas, escreva o
   teste que compara as duas** — não o que prova que a que você acabou de arrumar funciona.
+  *(25/10/2026: a tela "Quem parou de vir" já saiu, e o recall de hoje — Acompanhamento, retenção
+  e ponte — lê `PacientesComMensagensLiberadasAsync`: sem registro conta como autorizado, só quem
+  recusou fica de fora. As campanhas do Gerente continuam no "Sim" vigente. A lição continua: o
+  mesmo ato lê UMA pergunta, em todas as portas — `docs/fase3-recepcao-crm.md` §6.)*
 
 - **Trocar de paciente rápido mistura os dados de DOIS pacientes na tela de conformidade**
   (parcela 64): `GuardaProntuarioViewModel` fazia duas idas ao banco em sequência (a guarda
@@ -5227,3 +5232,19 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
   falsas, e o risco inverso: fotografar a tela velha e chamá-la de nova. Regra: antes de fotografar,
   `dotnet build tools/PreviaBlazor` (ou `dotnet run` sem `--no-build`) e, na dúvida, compare a hora da
   `Clinica.Application.dll` das duas pastas.
+- **Telefone que vai ao CRM tira o prefixo de DISCAGEM antes do 55 — em toda porta, inclusive na BUSCA**
+  (25/10/2026, bug visto na clínica). A ficha guardava "022998999334" (o 0 do interurbano) e a mensagem não
+  chegava ao paciente. Nada falhava: `ClinicAgendaBridge.Phone` só punha o 55 em número de 10 ou 11 dígitos e
+  aceitava qualquer coisa de 10 a 15 — os 12 dígitos com o 0 passavam pelo teste de TAMANHO e iam ao CRM
+  como estavam, e o CRM abria a conversa para um número que o WhatsApp não conhece. Teste de tamanho não é
+  teste de forma. A correção é UMA função de domínio, `Telefone.SemPrefixoDeDiscagem` (tira o 0 e, com ele,
+  o código de operadora; "00" internacional fica), aplicada nas QUATRO portas por onde o telefone passa:
+  a ponte (o número que sai, inclusive no PARAR), `ConversasNaTela.TelefoneNaTela`/`MesmoTelefone` (mostrar
+  e casar conversa com ficha), `ConversaNoCrm.Telefone` (a conversa nova) e `WhatsAppDaRecepcaoService.Variantes`
+  (a busca da ficha). ⚠️ **A busca é a porta que se esquece**: ela compara DÍGITOS no banco, então limpar o
+  número da conversa não basta — a lista de variantes tem de conter também a forma como a ficha GUARDA
+  ("0" + DDD + número), senão a conversa normalizada nunca acha a ficha com o 0. Regra: telefone novo que vá
+  ao CRM ou seja comparado com a ficha passa por `SemPrefixoDeDiscagem` sobre os dígitos ANTES de qualquer
+  decisão de tamanho ou de 55; a busca por dígitos inclui a forma gravada; e o teste usa o número real que
+  falhou (`TelefoneTests`: com 0, com 0 + operadora, fixo, já com 55, "00"). O que já foi para o CRM errado
+  fica lá: a correção vale para as conversas novas.

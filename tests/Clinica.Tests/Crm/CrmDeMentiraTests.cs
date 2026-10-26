@@ -217,7 +217,7 @@ public sealed class SementeDoWhatsAppTests(BancoDasTelas banco) : IClassFixture<
         var linhas = await escopo.ServiceProvider.GetRequiredService<IAcompanhamentoPacienteService>().ListarAsync(banco.Gerente.Id);
         var helena = linhas.Single(l => l.Paciente == PessoasDoWhatsApp.Helena.Nome);
         Assert.True(helena.Pendente && !helena.Consentimento && RetencaoNaTela.EmTratamento(helena));
-        Assert.Equal("Sem autorização", RetencaoNaTela.Selo(helena, null, DateTimeOffset.Now).Texto);
+        Assert.Equal("Pediu para não receber", RetencaoNaTela.Selo(helena, null, DateTimeOffset.Now).Texto);
 
         var ultima = ConversasNaTela.UltimaRecebidaPorPaciente(lista);
         var alzira = linhas.Single(l => l.Paciente == PessoasDoWhatsApp.Alzira.Nome);

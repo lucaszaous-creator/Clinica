@@ -4,6 +4,12 @@
 > está em **`docs/whatsapp-nativo-implementacao.md`** (e a metade do CRM em
 > `semdor-crm/docs/api-para-os-apps.md`).
 >
+> **25/10/2026 — três decisões da direção que mudam o que está abaixo** (o detalhe em
+> `docs/whatsapp-nativo-implementacao.md` §17): (1) sem registro de autorização conta como
+> autorizado, e só quem recusou fica no "ligar" (`docs/fase3-recepcao-crm.md` §6); (2) com UMA
+> ficha só com o telefone, o aviso da conversa pergunta "É {Nome}?" e liga em um clique; (3) o
+> telefone da ficha com 0 na frente ("022…") vai ao CRM sem ele, como 55 + DDD + número.
+>
 > **Origem.** A direção olhou a aba WhatsApp da fase 1
 > (`docs/crm-na-recepcao.md`) e resumiu: *"o que foi feito foi clonar o CRM e colar dentro do
 > sistema"*. Este documento responde à pergunta que veio junto, *"como você faria?"*, com a
@@ -82,7 +88,7 @@ O que dá para FAZER no mockup, e o que cada clique prova:
 | **Remarcar** (no aviso ou no horário) | Vagas da agenda; escolhida, o horário de hoje vira "Remarcado", nasce o novo, o evento entra na conversa, o sino limpa e a mensagem para a paciente já vem pronta para revisar | A regra é a da agenda do Clinica; o contato entra sozinho no Acompanhamento |
 | **Confirmar** / **Não vem** / **Cancelar** | Mudam o selo do horário e da linha, o evento e a Confirmação de hoje; cancelar exige motivo | O mesmo vocabulário do balcão ("Não vem — remarcar", nunca "Confirmou") |
 | **Sino** | A mesma lista do app (Não vem, Sem resposta, 2 fichas); o clique abre a conversa certa e limpa o ponto | Regra 3 da direção: o que pede ação vira aviso, e o aviso leva à porta |
-| **2 fichas — conferir** | "Qual ficha é esta pessoa?" com nascimento, fim do documento e próxima consulta; ligada, a agenda e a confirmação do Pedro aparecem ao lado | Regra 5: o telefone não é identidade |
+| **2 fichas — conferir** | "Qual ficha é esta pessoa?" com nascimento, fim do documento e próxima consulta; ligada, a agenda e a confirmação do Pedro aparecem ao lado. *(25/10: com UMA ficha só, o próprio aviso pergunta "É {Nome}?" com nascimento e fim do documento, e "Ligar a ficha" liga sem a janela; "É outra pessoa" abre a busca)* | Regra 5: o telefone não é identidade — quem confere continua sendo a recepção |
 | Novo contato (`#nova`) | Busca de ficha pelo nome, ou cadastrar com o telefone preenchido | O CRM nunca cria ficha; quem cria é o app |
 | **+** Nova conversa | A primeira mensagem tem de ser modelo (a pessoa ainda não escreveu) | A regra da Meta, dita antes de a pessoa errar |
 | **Retenção** (o segundo modo da lista) | A lista vira o Acompanhamento: *Responderam · decidir*, *Sem vir há 30 / 20 / 15 dias*, *Novos no BSV*, *Retornos pedidos*; filtros *Para hoje · Aguardando · Fechados*; a linha mostra tratamento, última sessão, sessões e se autorizou mensagens | As filas são as do Clinica (`AcompanhamentoNaTela`, Recall e Novo BSV); os dias são os do Gerente; só entra quem está em tratamento (`Tratamento`: BSV, acupuntura ou os dois) |
@@ -90,7 +96,7 @@ O que dá para FAZER no mockup, e o que cada clique prova:
 | **Preparar convite** | O modelo `retorno_tratamento` (ou `primeiro_contato` para o novo BSV) vem preenchido com nome, tratamento e dias; enviado, o caso vai para *Aguardando* e o contato entra sozinho | Quem começa é a clínica, então é modelo; o contato grava sem ninguém digitar "falei" |
 | O Sebastião responde | A janela abre, o caso volta para *Responderam · decidir*, o sino avisa e a conversa pede o **Como foi?** | Regra 3: o que pede ação vira aviso |
 | **Como foi?** (Quer marcar · Pediu outra data · Aguardando plano · Não respondeu · Não quer voltar) | *Quer marcar* abre as vagas do profissional que trata e fecha o caso como *Voltou*; os outros gravam a etapa e o próximo contato; *Não quer voltar* pede motivo e oferece o **PARAR** | São os cinco `DesfechoContato` do Acompanhamento; o PARAR vale para WhatsApp e SMS, nas duas pontas |
-| Helena, sem autorização (`#retencao-ligar`) | Nada sai daqui: a ação é **Já liguei**, e "Como foi a ligação?" grava a etapa | Fase 3: o recall só convida quem autorizou; o resto é ligação |
+| Helena, sem autorização (`#retencao-ligar`) | Nada sai daqui: a ação é **Já liguei**, e "Como foi a ligação?" grava a etapa | Fase 3: o recall só convida quem autorizou; o resto é ligação. *(25/10: sem registro conta como autorizado; a Helena é quem RECUSOU — "pediu para não receber mensagens", `docs/fase3-recepcao-crm.md` §6)* |
 
 | 1366 × 900 | 1024 × 768 |
 |---|---|
@@ -102,7 +108,7 @@ O que dá para FAZER no mockup, e o que cada clique prova:
 | O sino que abre a conversa: ![](mockups/whatsapp-nativo/09-sino-1366.png) | Celular (a direção abre o mockup no telefone): ![](mockups/whatsapp-nativo/13-celular-conversa.png) |
 | **Retenção**: a lista vira o Acompanhamento e a direita vira o caso: ![](mockups/whatsapp-nativo/14-retencao-1366.png) | O convite preenchido pelo caso (tratamento e dias): ![](mockups/whatsapp-nativo/15-retencao-convite-1366.png) |
 | O paciente respondeu: a janela abre e a conversa pede o "Como foi?": ![](mockups/whatsapp-nativo/16-retencao-respondeu-1366.png) | "Quer marcar": vagas do profissional que trata, caso fechado como Voltou, mensagem pronta: ![](mockups/whatsapp-nativo/17-retencao-voltou-1366.png) |
-| Alzira (`#retencao-respondeu`): respondeu ontem ao convite da Bruna: ![](mockups/whatsapp-nativo/18-retencao-alzira-1366.png) | Helena não autorizou mensagens: a ação é ligar, e a ligação grava a etapa: ![](mockups/whatsapp-nativo/19-retencao-ligacao-1366.png) |
+| Alzira (`#retencao-respondeu`): respondeu ontem ao convite da Bruna: ![](mockups/whatsapp-nativo/18-retencao-alzira-1366.png) | Helena não autorizou mensagens (desde 25/10: "pediu para não receber"): a ação é ligar, e a ligação grava a etapa: ![](mockups/whatsapp-nativo/19-retencao-ligacao-1366.png) |
 | Retenção em 1024: ![](mockups/whatsapp-nativo/20-retencao-1024.png) | |
 
 ### A retenção dentro do WhatsApp (pedido da direção, 24/10)
@@ -126,8 +132,10 @@ da direção sem criar uma segunda verdade:
 - **Relacionamento é de quem trata**: a lista só traz BSV, acupuntura e os dois; quem só fez
   consulta não aparece, e o rodapé diz isso.
 - **Os dias são do Gerente**: 30 / 20 / 15 são os de Configurações, não da tela.
-- **Nada sai sem autorização**: quem não autorizou aparece com "Sem autorização · ligar" e o
-  único botão é "Já liguei"; o PARAR do "Não quer voltar" revoga nas duas pontas.
+- **Nada sai para quem recusou**: quem pediu para não receber aparece com "Pediu para não receber"
+  e o único botão é "Já liguei"; o PARAR do "Não quer voltar" revoga nas duas pontas. *(Até 25/10
+  dizia "Nada sai sem autorização" e bloqueava também quem nunca respondeu; desde então, sem
+  registro conta como autorizado — `docs/fase3-recepcao-crm.md` §6.)*
 - **Não é marketing**: um por um, com o modelo preenchido para a pessoa REVISAR. Não há
   "enviar para todos", e o rodapé da lista diz por quê.
 - **O que a tela afirma vem do Clinica**: as filas (`AcompanhamentoNaTela`), o selo de cada
@@ -161,7 +169,8 @@ Onde cada coisa vem:
   MESMA decisão do sino (`AvisosDeConfirmacao`), não de um segundo cálculo.
 - **Coluna 3** (do próprio Clinica, pelos serviços que a Recepção já usa): cabeçalho da ficha
   (`FichaDoBalcao.Cabecalho`), telefone confere, carteirinha e vencimento, autorização de
-  mensagens do termo do BSV, tratamento em curso; os horários com Confirmar / Remarcar /
+  mensagens do termo do BSV (desde 25/10: "Liberadas" ou "Pediu para não receber · a ação é
+  ligar"), tratamento em curso; os horários com Confirmar / Remarcar /
   Cancelar (`AgendaService`); a confirmação de hoje (`AvisosDeConfirmacaoService`); o
   Acompanhamento (o contato continua sendo gravado pelo CRM via ponte, como hoje; a tela só
   mostra).

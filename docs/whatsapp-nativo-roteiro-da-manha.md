@@ -148,6 +148,12 @@ o de sempre (`docs/crm-em-producao-out2026.md` §5: `dotnet publish src/Clinica.
 CRM web com um usuário de outro perfil que tenha "editar agenda" — a resposta é "Seu usuário não
 tem acesso ao CRM".
 
+⚠️ **Desde 25/10 a ponte também leva duas regras que só valem no CRM depois de publicada**: o
+recall e o Relacionamento do CRM passam a contar sem registro de autorização como autorizado (só
+quem recusou fica bloqueado — `docs/fase3-recepcao-crm.md` §6), e o telefone da ficha com 0 na
+frente ("022…") vai à Meta como 55 + DDD + número (`ClinicAgendaBridge.Phone`). Com a ponte antiga,
+o CRM continua bloqueando quem nunca respondeu e mandando o número com o 0, que a Meta não entrega.
+
 ## 2. Publicar os apps: Recepção e Gerente (40 min)
 
 **O CRM primeiro, depois os apps.** O app novo com o CRM antigo não quebra, porque a tela
@@ -240,7 +246,9 @@ verdade: tudo o que sai, sai pelo número oficial da clínica.
 | ☐ | **Envia.** Mande uma mensagem do seu celular para o número da clínica e responda pela tela. Com a janela de 24 h fechada, só aparece "Escolher modelo". |
 | ☐ | **O tick muda** de enviada para entregue e depois para lida, sem recarregar (a tela relê a cada poucos segundos). |
 | ☐ | **Remarcar** um horário do paciente de teste pela coluna da direita. A agenda do balcão mostra a mudança. Depois, desfaça. |
-| ☐ | **Retenção.** O seletor Conversas / Retenção mostra os grupos. Quem não autorizou mensagens só tem "Já liguei". **Não envie convite a paciente real** neste teste. |
+| ☐ | **Retenção.** O seletor Conversas / Retenção mostra os grupos. Quem nunca respondeu à autorização aparece "Pode convidar"; só quem **pediu para não receber** ("Não" no termo, PARAR ou revogação na ficha) tem o selo "Pediu para não receber" e só o "Já liguei" (25/10, `docs/fase3-recepcao-crm.md` §6). **Não envie convite a paciente real** neste teste. |
+| ☐ | **Ficha em um clique.** Numa conversa do seu celular cujo número está em UMA ficha só, o aviso pergunta "É {Nome}?" com nascimento e fim do documento; "Ligar a ficha" liga sem abrir janela e "É outra pessoa" abre a busca. Com duas fichas, continua "Conferir a ficha". |
+| ☐ | **Telefone com 0.** Se o paciente de teste tiver o telefone gravado como "0" + DDD + número ("022…"), a conversa acha a ficha e a mensagem do app chega ao celular (vai como 55 + DDD + número). |
 | ☐ | **O sino leva à conversa.** Um aviso de confirmação no sino abre a conversa certa. |
 | ☐ | **Mídia.** Mande do seu celular uma foto, um áudio e um PDF: a foto aparece no balão (clique amplia), o áudio toca, o PDF abre e baixa. |
 | ☐ | **Figurinha e retrato.** Mande uma figurinha do seu celular: ela aparece pequena e solta (sem balão), e a lista diz "Figurinha". Se o paciente de teste tem foto na ficha, o rosto da ficha aparece no avatar da conversa depois de a ficha estar conferida (a foto do perfil do WhatsApp a Meta não fornece). |
@@ -508,7 +516,8 @@ A aba WhatsApp da Recepção é uma tela da casa (Blazor), sobre a API do CRM. A
 3. **O que pede ação vira aviso:** quem espera resposta e a transferência para você chegam ao sino;
    o aviso do @SemDor abre a conversa.
 4. **O telefone não é identidade:** sem ficha conferida, o título é o telefone e o nome vem como
-   "nome no WhatsApp"; o retrato só aparece da ficha conferida.
+   "nome no WhatsApp"; o retrato só aparece da ficha conferida. (25/10: com UMA ficha só, o aviso
+   pergunta "É {Nome}?" e liga em um clique; quem confere continua sendo a recepção.)
 5. **Relacionamento é de quem trata:** a retenção só traz BSV, acupuntura e os dois.
 6. **Responsivo e sem resquício:** fotos em 1366, 1024 e 480; quem não atende o WhatsApp não vê o
    botão.
