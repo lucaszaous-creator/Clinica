@@ -271,17 +271,29 @@ public sealed class SecaoAtendimentoBlazorTests : IClassFixture<BancoDasTelas>, 
     /// <summary>
     /// O Salvar do MÉDICO (out/2026): com horário, o nome promete a conclusão; aberto pela busca,
     /// sem horário, ele só grava e diz só isso. E quando a conclusão falha depois de a evolução
-    /// gravar (aqui, uma médica que não está no banco), a tela é avisada do mesmo jeito.
+    /// gravar (aqui, um médico que NÃO é o responsável pelo horário: a evolução grava, a conclusão
+    /// é recusada pela regra do AgendaService), a tela é avisada do mesmo jeito.
     /// </summary>
     [Fact]
     public void O_salvar_do_medico_so_promete_concluir_com_horario_e_avisa_a_tela_mesmo_se_a_conclusao_falhar()
     {
         var (paciente, agendamento) = Semear();
-        new SessaoUsuario().Entrar(new UsuarioSistema
+        UsuarioSistema medico;
+        using (var db = Db())
         {
-            Nome = "Dra. Fora do banco", Login = "fora", Perfil = PerfilAcesso.Profissional,
-            ProfissionalId = agendamento.ProfissionalId
-        });
+            var marca = Guid.NewGuid().ToString("N")[..10];
+            var outro = new Profissional { Nome = $"Dr. Outro {marca}", NomeCurto = $"Outro {marca}" };
+            db.Add(outro);
+            db.SaveChanges();
+            medico = new UsuarioSistema
+            {
+                Nome = outro.Nome, Login = $"outro{marca}", Perfil = PerfilAcesso.Profissional,
+                ProfissionalId = outro.Id, Ativo = true, CriadoEm = DateTime.Today
+            };
+            db.Add(medico);
+            db.SaveChanges();
+        }
+        new SessaoUsuario().Entrar(medico);
         using var ctx = Contexto();
 
         var semHorario = Renderizar(ctx, new ContextoDoPaciente(paciente.Id, paciente.Nome, null, null, null, 1), new TelaFalsa());
