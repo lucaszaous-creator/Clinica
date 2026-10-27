@@ -89,6 +89,8 @@ public sealed class FolhaDoAtendimento(IServiceScopeFactory escopos, ContextoDoP
     private int? _horasDoPrazo;
     private bool _guardando;
     private bool _salvando;
+    // O horário da evolução aberta: a aberta pela busca pode já estar ligada a um.
+    private int? _horarioDaEvolucao;
 
     private ChaveDoRascunho ChaveDoRascunho => new(Contexto.PacienteId, SessaoUsuario.Atual.ProfissionalId,
         Contexto.AgendamentoId, Contexto.DiaDaSessao);
@@ -136,6 +138,17 @@ public sealed class FolhaDoAtendimento(IServiceScopeFactory escopos, ContextoDoP
     public bool SessaoEmBranco => Rascunho.SessaoEmBranco;
     public bool TemAlgoParaGravar => Rascunho.TemAlgoParaGravar(Mapa?.TemConteudo == true);
     public bool TemUltimaParaCopiar => _ultimaParaCopiar is not null;
+
+    /// <summary>
+    /// O Salvar do médico também conclui o horário e gera as guias — só quando a sessão TEM
+    /// horário (o da tela ou o da evolução aberta), a mesma conta do <see cref="TentarSalvarAsync"/>.
+    /// Aberta pela busca, sem horário, ele só grava, e o botão não promete a conclusão.
+    /// </summary>
+    public bool ConcluiAoSalvar => SessaoUsuario.Atual.Perfil == PerfilAcesso.Profissional
+        && (Contexto.AgendamentoId ?? _horarioDaEvolucao) is not null;
+
+    /// <summary>A última tentativa gravou a evolução, mesmo que a conclusão tenha falhado depois.</summary>
+    public bool GravouNaUltimaTentativa { get; private set; }
 
     /// <summary>Metade VISÍVEL do "escrever no prontuário": a enfermagem registra pela passagem dela.</summary>
     public static bool PodeEditarProntuario
@@ -285,6 +298,7 @@ public sealed class FolhaDoAtendimento(IServiceScopeFactory escopos, ContextoDoP
             _horasDoPrazo = horasDoPrazo;
             Rascunho.Campos.Clear();
             Rascunho.Campos.AddRange(definicoes.Select(CampoDaSessaoNaTela.De));
+            _horarioDaEvolucao = doHorario?.AgendamentoId;
             if (doHorario is not null) Rascunho.Preencher(doHorario);
             else
             {
@@ -478,13 +492,15 @@ public sealed class FolhaDoAtendimento(IServiceScopeFactory escopos, ContextoDoP
     /// Grava a sessão e DIZ se conseguiu. O <c>bool</c> existe por causa do Finalizar: se a
     /// gravação falhar, o carimbo de fim não pode acontecer. O perfil Profissional conclui o
     /// horário junto (as guias aplicáveis), como no WPF — falhar a conclusão NÃO desfaz a
-    /// evolução, e a frase diz isso.
+    /// evolução: a frase diz isso, a folha relê o que foi gravado e
+    /// <see cref="GravouNaUltimaTentativa"/> avisa a tela, mas a resposta continua falsa.
     /// </summary>
     public async Task<bool> TentarSalvarAsync()
     {
         // Enquanto grava, o rascunho automático espera: guardar no meio criaria um rascunho
         // novo com o texto que acabou de ir para o prontuário.
         _salvando = true;
+        GravouNaUltimaTentativa = false;
         try
         {
             if (!PodeEditarProntuario)
@@ -503,6 +519,8 @@ public sealed class FolhaDoAtendimento(IServiceScopeFactory escopos, ContextoDoP
             }
 
             Rascunho.EvolucaoId = salva.Id;
+            _horarioDaEvolucao = salva.AgendamentoId;
+            GravouNaUltimaTentativa = true;
             UltimaGravacao = $"Última gravação às {DateTime.Now:HH':'mm}";
             // Foi para o prontuário: o rascunho encerra. Se falhar, o rascunho fica mais VELHO que
             // a gravação, e a rotina do prazo o encerra sem regravar (RascunhoEvolucao.Superado).
@@ -520,6 +538,7 @@ public sealed class FolhaDoAtendimento(IServiceScopeFactory escopos, ContextoDoP
             Mensagem = Rascunho.FraseDepoisDeGravar();
             MensagemEhErro = false;
 
+            var concluiu = true;
             if (salva.AgendamentoId is { } horario && SessaoUsuario.Atual.Perfil == PerfilAcesso.Profissional)
             {
                 try
@@ -539,23 +558,25 @@ public sealed class FolhaDoAtendimento(IServiceScopeFactory escopos, ContextoDoP
                     Clinica.Application.Diagnostico.Registrar("Evolução salva; conclusão e guias pendentes", ex);
                     Mensagem = "A evolução foi salva, mas a conclusão e as guias ficaram pendentes: " + ex.Message;
                     MensagemEhErro = true;
-                    Avisar();
-                    return false;
+                    // Sem voltar daqui: a evolução está no prontuário, e a releitura abaixo põe
+                    // as anteriores e a curva da dor em dia com ela.
+                    concluiu = false;
                 }
             }
 
             // Depois de gravar, relê tudo — inclusive as anteriores e a curva da dor —, sem
-            // perder a frase do desfecho (a carga começa zerando a mensagem).
+            // perder a frase do desfecho (a carga começa zerando a mensagem). A conclusão que
+            // falhou vence a frase neutra da carga: é ela que pede ação.
             var frase = Mensagem;
             var erro = MensagemEhErro;
             await CarregarAsync();
-            if (Mensagem is null)
+            if (Mensagem is null || (erro && !MensagemEhErro))
             {
                 Mensagem = frase;
                 MensagemEhErro = erro;
             }
             Avisar();
-            return true;
+            return concluiu;
         }
         catch (Exception ex)
         {
