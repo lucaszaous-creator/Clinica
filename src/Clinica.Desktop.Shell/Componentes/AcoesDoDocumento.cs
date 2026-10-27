@@ -76,10 +76,7 @@ public sealed record DocumentoNaTela
     public string NomeArquivoAssinado => $"{Rotulo}-{Numero.Replace('/', '-')}-assinado.pdf";
 
     /// <summary>Assinado não se reassina (dois arquivos válidos do mesmo ato); cancelado não se assina.</summary>
-    public bool PodeAssinar => !EmissaoSemCertificado && !Cancelado && !Assinado;
-
-    /// <summary>A lista mora na Application desde out/2026 (as portas Blazor leem a MESMA).</summary>
-    public bool EmissaoSemCertificado => Clinica.Application.Modelos.AssinaturaDeDocumentoNaTela.EmissaoSemCertificado(Tipo);
+    public bool PodeAssinar => Clinica.Application.Modelos.AssinaturaDeDocumentoNaTela.PodeAssinar(Tipo, Cancelado, Assinado);
 
     /// <summary>
     /// Pode sair como ARQUIVO (WhatsApp ou e-mail): o assinado, e — desde out/2026 — a

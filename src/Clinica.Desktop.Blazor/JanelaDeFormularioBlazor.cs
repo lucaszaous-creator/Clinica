@@ -152,9 +152,11 @@ public sealed class JanelaDeFormularioBlazor : Window
 /// </summary>
 public sealed class FormulariosBlazorNoWpf(IServiceProvider servicos) : IFormulariosBlazorNoWpf
 {
+    // Só os atos do DOCUMENTO pedem por aqui (AcoesDoDocumento e a anamnese dos Prontuários):
+    // por isso o seletor com o SafeID ao lado do A1. A infusão já é Blazor e não passa por esta ponte.
     public Task<CertificadoAssinatura?> EscolherCertificadoAsync(string assunto) => NaInterface(() =>
-        JanelaDeFormularioBlazor.Executar(servicos, "Assinar com certificado A1",
-            sp => sp.GetRequiredService<IAssinaturaNaTela>().EscolherCertificadoAsync(assunto)));
+        JanelaDeFormularioBlazor.Executar(servicos, "Assinar com certificado digital",
+            sp => sp.GetRequiredService<IAssinaturaNaTela>().EscolherCertificadoParaDocumentoAsync(assunto)));
 
     public Task<bool> ColherTermoAsync(int pacienteId, string paciente, int? modeloId, int? documentoId,
         int? profissionalId, int? agendamentoId) => NaInterface(() =>
