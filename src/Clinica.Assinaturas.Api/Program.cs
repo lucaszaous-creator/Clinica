@@ -85,6 +85,12 @@ builder.Services.AddScoped<CofreA1Tablet>();
 builder.Services.AddScoped<A1TabletService>();
 builder.Services.AddSingleton<AutorizacoesA1Tablet>();
 builder.Services.AddSingleton<Clinica.Application.Assinatura.IConfiancaCertificadoA1, Clinica.Application.Assinatura.ConfiancaCertificadoA1>();
+// SafeID ao lado do A1 (out/2026), só para documentos clínicos; desligado sem Portal:SafeId:Habilitado.
+// Sem redirecionamento automático; a saída passa pelo HTTPS_PROXY restrito da unit (clinica-safeid).
+builder.Services.AddSingleton<AutorizacoesSafeIdTablet>();
+builder.Services.AddScoped<SafeIdTabletService>();
+builder.Services.AddHttpClient(SafeIdTabletService.NomeHttp)
+    .ConfigurePrimaryHttpMessageHandler(()=>new HttpClientHandler {AllowAutoRedirect=false});
 builder.Services.AddScoped<EnderecoPrescricaoTabletService>();
 // O documento pedido pelo WhatsApp (@SemDor fase 4, RotasLinkWhatsApp): desligado sem Portal:LinkWhatsApp:Habilitado.
 var linkWhatsApp=builder.Configuration.GetValue<bool>("Portal:LinkWhatsApp:Habilitado");
@@ -127,6 +133,10 @@ builder.Services.AddRateLimiter(o=>
     o.AddPolicy("a1", ctx => RateLimitPartition.GetFixedWindowLimiter(
         DispositivoRegistrado(ctx) ?? "sem-dispositivo", _ => new FixedWindowRateLimiterOptions
         { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    // Cada conclusão no SafeID é cobrada pelo PSC: o mesmo teto do A1, em partição própria.
+    o.AddPolicy("safeid", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        "safeid:"+(DispositivoRegistrado(ctx) ?? "sem-dispositivo"), _ => new FixedWindowRateLimiterOptions
+        { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
     // O link do WhatsApp chega sem tablet cadastrado: o limite é por origem, como o da entrada.
     o.AddPolicy("link", ctx => RateLimitPartition.GetFixedWindowLimiter(
         "link:"+(OrigemRateLimitTablet.Obter(ctx,socketPrivado) ?? "origem-ausente"), _ => new FixedWindowRateLimiterOptions
@@ -142,6 +152,8 @@ builder.Services.AddRateLimiter(o=>
 // Nunca registrar bodies, cookies, buscas ou exceções com dados de saúde.
 builder.Logging.AddFilter("Microsoft.AspNetCore",LogLevel.Warning);
 builder.Logging.AddFilter("Microsoft.EntityFrameworkCore",LogLevel.Critical);
+// O HttpClient do SafeID registraria URL e cabeçalhos das chamadas ao PSC.
+builder.Logging.AddFilter("System.Net.Http.HttpClient",LogLevel.Warning);
 var app=builder.Build();
 var cookieSessao=demo ? "clinica.tablet" : "__Host-clinica.tablet";
 var protetor=app.Services.GetRequiredService<IDataProtectionProvider>().CreateProtector("DispositivoTablet.v1");

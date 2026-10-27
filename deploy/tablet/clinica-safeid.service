@@ -1,0 +1,35 @@
+# Saída TLS do portal (clinica-tablet) restrita ao SafeID, de volta em out/2026 para
+# receitas e documentos clínicos. A unit do portal bloqueia a rede (IPAddressDeny=any,
+# IPAddressAllow=localhost): o único caminho para fora é este CONNECT em 127.0.0.1:18744,
+# que só abre túnel para os dois hosts da Safeweb e não termina TLS.
+#
+# Instalação (root): /opt/clinica-safeid-proxy/safeid-proxy.py ← homologacao/safeid-proxy.py,
+# este arquivo em /etc/systemd/system/, o drop-in clinica-tablet-safeid.conf em
+# /etc/systemd/system/clinica-tablet.service.d/safeid.conf e as chaves Portal__SafeId__*
+# em /etc/clinica-tablet/safeid.env (root:root, 0600). Ver portal.env.example.
+[Unit]
+Description=Saida TLS restrita ao SafeID do posto clinico
+After=network.target
+
+[Service]
+DynamicUser=true
+ExecStart=/usr/bin/python3 /opt/clinica-safeid-proxy/safeid-proxy.py 18744
+Restart=on-failure
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CPUQuota=15%
+MemoryMax=64M
+TasksMax=24
+
+[Install]
+WantedBy=multi-user.target

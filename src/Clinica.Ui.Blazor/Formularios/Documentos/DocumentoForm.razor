@@ -21,6 +21,7 @@
 @namespace Clinica.Ui.Blazor.Formularios
 @using Clinica.Application.Modelos
 @inherits TelaBase
+@inject IAssinaturaNaTela Assinatura
 
 <Modal Titulo="@TituloDoModal" Subtitulo="@SubtituloDoModal" Largura="largo" AoFechar="FecharAsync">
     <ChildContent>
@@ -305,7 +306,11 @@
         {
             <button type="button" class="botao" disabled="@(!PodePrever)" title="Abre o PDF desta folha sem emitir: sem número e sem valor de documento"
                     @onclick="PreverAsync">@(_gerandoPrevia ? "Gerando a prévia…" : "Pré-visualizar")</button>
-            <button type="button" class="botao primario" disabled="@(!PodeEmitir)" @onclick="EmitirAsync">@(_emitindo ? "Emitindo…" : "Emitir e imprimir")</button>
+            @* Assinar na hora (A1 ou SafeID, out/2026): emite, abre o seletor e entrega o PDF ASSINADO.
+               Desistir no seletor entrega a via de sempre; a assinatura fica para a central. *@
+            <button type="button" class="botao" disabled="@(!PodeEmitir)" title="Emite e assina com o seu certificado (A1 ou SafeID)"
+                    @onclick="() => EmitirAsync(assinar: true)">Emitir e assinar</button>
+            <button type="button" class="botao primario" disabled="@(!PodeEmitir)" @onclick="() => EmitirAsync(assinar: false)">@(_emitindo ? "Emitindo…" : "Emitir e imprimir")</button>
         }
     </Rodape>
 </Modal>
@@ -550,7 +555,7 @@
     // ==================== emitir ====================
 
     /// <summary>Emite o documento, gera o PDF e abre para impressão — a ordem da janela WPF.</summary>
-    private async Task EmitirAsync()
+    private async Task EmitirAsync(bool assinar)
     {
         if (_r is not { } r || _emitindo || _carregando) return;
         if (_jaEmitido is not null) { Erro(EmissaoDeDocumentoNaTela.JaEmitido(_jaEmitido)); return; }
@@ -600,6 +605,37 @@
                 _jaEmitido = emitido.Numero;
                 pdf = await sp.GetRequiredService<DocumentosClinicosPdfService>()
                     .GerarAsync(emitido.Id, await sp.GetRequiredService<ParametrosService>().ObterPrestadorAsync());
+            }
+
+            // Assinar na hora: o PDF que sai é o ASSINADO (a porta salva e abre). Desistir no seletor
+            // cai na via de sempre, logo abaixo; falhar diz que o documento JÁ existe — senão alguém
+            // emite de novo — e que a assinatura se faz depois pela central de Documentos.
+            if (assinar)
+            {
+                (string Frase, bool EhErro)? assinado;
+                try
+                {
+                    assinado = await Assinatura.AssinarDocumentoPorIdAsync(emitido.Id,
+                        AssinaturaDeDocumentoNaTela.Assunto(TipoDocumentoInfo.Rotular(r.Tipo), emitido.Numero));
+                }
+                catch (Exception ex)
+                {
+                    Clinica.Application.Diagnostico.Registrar($"Documento {emitido.Numero} — assinatura não pôde ser concluída", ex);
+                    assinado = (ex.Message, true);
+                }
+                if (assinado is { EhErro: true } falha)
+                {
+                    Erro($"O documento {emitido.Numero} foi emitido, mas a assinatura não foi concluída: {falha.Frase} "
+                         + "Assine depois pela central de Documentos (⋯ → Assinar).");
+                    return;
+                }
+                if (assinado is not null)
+                {
+                    var assinadoConcluido = new Emitido(emitido.Id, emitido.Numero, emitido.Tipo, r.Paciente?.Nome ?? string.Empty);
+                    if (!PerguntarSeEnviaAgora(emitido, assinadoConcluido))
+                        await AoConcluir.InvokeAsync(assinadoConcluido);
+                    return;
+                }
             }
 
             // O documento JÁ está emitido: uma falha daqui para a frente é de impressão, não de
