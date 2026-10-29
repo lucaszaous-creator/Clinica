@@ -400,9 +400,9 @@
                     }
                     @if (!_lancado)
                     {
-                        <button type="button" class="botao primario ra-acao" disabled="@(_ocupado || !PodeGravar || FaltaHora)" @onclick="LancarAsync"
+                        <button type="button" class="botao primario ra-acao" disabled="@(_ocupado || !PodeGravar || FaltaHora || PreventivoSemVaga)" @onclick="LancarAsync"
                                 title="@(PodeGravar ? null : Marcar ? "Marcar exige acesso de edição à agenda (e ao lançamento, com a guia na marcação)." : "Lançar exige o acesso de lançamento de atendimento.")">
-                            @(_ocupado ? "Gravando…" : RotuloDoBotao)
+                            @(_ocupado ? "Gravando…" : PreventivoSemVaga ? "Escolha outro dia para a coleta" : RotuloDoBotao)
                         </button>
                     }
                     else
@@ -523,6 +523,13 @@
 
     /// <summary>No marcar sem hora escolhida o botão espera — e diz o que falta.</summary>
     private bool FaltaHora => Marcar && !AtendimentoDoBalcaoNaTela.HoraValida(_hora);
+
+    /// <summary>
+    /// A coleta está ligada e o dia não comporta mais nenhuma. O botão para antes do clique,
+    /// porque o serviço recusaria de qualquer forma. Um horário que já tinha a coleta não
+    /// disputa a própria vaga: a conta o ignora.
+    /// </summary>
+    private bool PreventivoSemVaga => _preventivo && EhConsulta && _vagasPreventivo is { Lotado: true };
     private bool MostrarPrevia => _previa.Count > 0 && !_lancado && AtendimentoDoBalcaoNaTela.MostraPrevia(Marcar, _guiaNaMarcacao);
     private static bool PodeCadastrar => Pode(Permissao.EditarPaciente);
 

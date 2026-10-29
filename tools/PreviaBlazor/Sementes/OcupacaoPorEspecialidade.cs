@@ -54,6 +54,47 @@ public sealed class SementeOcupacaoPorEspecialidade : ISemente
                     CriadoPor = "recepcao", CriadoEm = DateTime.Now
                 });
             }
+
+        // HOJE: uma consulta com coleta já atendida, com as DUAS guias abertas — o fim do fluxo,
+        // como aparece nas pendências do faturamento.
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        var luana = db.Add(new Paciente
+        {
+            Nome = "Luana Teixeira (prévia)", Convenio = Convenio.UnimedPadrao, Sexo = Sexo.Feminino,
+            Telefone = "(22) 99800-0099", Carteirinha = "0 865 000111222333 4"
+        }).Entity;
+        var atendimento = db.Add(new Atendimento
+        {
+            Paciente = luana, Data = hoje, Modalidade = ModalidadeAtendimento.Consulta,
+            ModalidadeCodigo = ModalidadeAtendimento.Consulta.ToString(),
+            EspecialidadeConsulta = Especialidade.Ginecologia,
+            EspecialidadeConsultaCodigo = Especialidade.Ginecologia.ToString(),
+            ColetaPreventivo = true, Categoria = Categoria.Amarela,
+            LancadoPor = "recepcao", LancadoEm = DateTime.Now, RealizadoEm = DateTime.Now
+        }).Entity;
+        foreach (var (tipo, descricao) in new[]
+                 {
+                     (TipoCodigo.Consulta, "Consulta de Ginecologia."),
+                     (TipoCodigo.Preventivo, "Coleta de preventivo (guia própria, junto da consulta).")
+                 })
+            atendimento.Codigos.Add(new CodigoFaturamento
+            {
+                Tipo = tipo, Especialidade = Especialidade.Ginecologia,
+                EspecialidadeCodigo = Especialidade.Ginecologia.ToString(),
+                Ordem = OrdemCodigo.Primeiro, DataPrevistaFaturamento = hoje,
+                FormaObtencao = FormaObtencao.NaoAplica, Status = StatusCodigo.Aberto, Descricao = descricao
+            });
+        db.Add(new Agendamento
+        {
+            Paciente = luana, ProfissionalId = helena.Id, Atendimento = atendimento,
+            DataHora = DateTime.Today.AddHours(9),
+            ModalidadePrevista = ModalidadeAtendimento.Consulta,
+            ModalidadeCodigo = ModalidadeAtendimento.Consulta.ToString(),
+            EspecialidadeConsulta = Especialidade.Ginecologia,
+            EspecialidadeConsultaCodigo = Especialidade.Ginecologia.ToString(),
+            ColetaPreventivo = true, Status = StatusAgendamento.Realizado,
+            CriadoPor = "recepcao", CriadoEm = DateTime.Now
+        });
         db.SaveChanges();
     }
 }

@@ -199,6 +199,20 @@ public class ColetaDePreventivoTests : IDisposable
     // ==================== o que a tela diz ====================
 
     [Fact]
+    public void O_medico_ve_na_lista_do_dia_que_a_paciente_vem_para_colher()
+    {
+        var ag = new Agendamento
+        {
+            ModalidadePrevista = ModalidadeAtendimento.Consulta, ModalidadeCodigo = "Consulta",
+            EspecialidadeConsultaCodigo = "Ginecologia", ColetaPreventivo = true
+        };
+        CatalogoModalidades.NomeDoHorario(ag).Should().EndWith(" + preventivo").And.Contain("Ginecologia");
+
+        ag.ColetaPreventivo = false;
+        CatalogoModalidades.NomeDoHorario(ag).Should().NotContain("preventivo");
+    }
+
+    [Fact]
     public void A_tela_oferece_os_proximos_dias_em_que_o_profissional_atende_e_cabe_coleta()
     {
         var prof = new Profissional { Id = 1, Nome = "Dra.", DiasDeAtendimento = Profissional.BitDe(DayOfWeek.Wednesday) | Profissional.BitDe(DayOfWeek.Thursday) };
