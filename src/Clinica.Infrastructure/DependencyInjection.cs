@@ -48,6 +48,7 @@ public static class DependencyInjection
         services.AddScoped<ConfiguracaoAgendaService>();
         services.AddScoped<ConciliacaoAgendaService>();
         services.AddScoped<BuscaDeVagasService>();
+        services.AddScoped<OcupacaoPorEspecialidadeService>();
         services.AddScoped<EquipeService>();
         services.AddScoped<ListaEsperaService>();
         services.AddScoped<BloqueioAgendaService>();

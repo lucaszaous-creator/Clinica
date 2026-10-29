@@ -17,7 +17,8 @@ public static class OrganizacaoNavegacao
             case "agenda":
                 // O DIA primeiro (out/2026, pedido da clínica): é a aba que o clique em
                 // "Agenda" abre, e a recepção vive nela a manhã inteira.
-                abas = [new("Dia", "fila"), new("Visão geral", ChavesSuite.OcupacaoAgenda)];
+                abas = [new("Dia", "fila"), new("Visão geral", ChavesSuite.OcupacaoAgenda),
+                    new("Por especialidade", "ocupacao-especialidade")];
                 break;
             case "consultorio-agenda":
                 // O DIA primeiro, igual à Agenda da Recepção (out/2026, pedido da clínica): o

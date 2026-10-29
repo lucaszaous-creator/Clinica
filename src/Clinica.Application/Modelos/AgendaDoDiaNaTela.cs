@@ -290,8 +290,7 @@ public static class AgendaDoDiaNaTela
                 ? $"{a.DataHora:HH\\:mm}–{a.FimPrevisto:HH\\:mm}"
                 : $"{a.DataHora:dd'/'MM HH\\:mm}",
             // Nome do CATÁLOGO, nunca o enum — e com a especialidade quando é consulta.
-            Modalidade = CatalogoModalidades.NomeComEspecialidade(
-                a.ModalidadeCodigo, a.ModalidadePrevista, a.EspecialidadeConsultaCodigo),
+            Modalidade = CatalogoModalidades.NomeDoHorario(a),
             Familia = a.ModalidadePrevista,
             ProfissionalId = a.ProfissionalId,
             // "sem profissional" é aviso: horário sem dono some do Meu dia e do repasse.

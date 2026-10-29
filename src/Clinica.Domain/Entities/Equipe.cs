@@ -81,6 +81,18 @@ public class Profissional
     /// </summary>
     public int? DuracaoPadraoMinutos { get; set; }
 
+    /// <summary>Teto de coletas de preventivo por dia quando o profissional não define o seu.</summary>
+    public const int LimitePreventivoPadrao = 5;
+
+    /// <summary>
+    /// Quantas coletas de preventivo cabem num dia de atendimento deste profissional
+    /// (out/2026). Null usa <see cref="LimitePreventivoPadrao"/>; 0 = não faz preventivo.
+    /// </summary>
+    public int? LimitePreventivoPorDia { get; set; }
+
+    /// <summary>O teto que vale de fato — o que a agenda confere ao marcar.</summary>
+    public int LimitePreventivoEfetivo => LimitePreventivoPorDia ?? LimitePreventivoPadrao;
+
     /// <summary>Trava compartilhada: impede sobreposição, bloqueios e marcação fora da jornada.</summary>
     public bool AgendaProtegida { get; set; }
 

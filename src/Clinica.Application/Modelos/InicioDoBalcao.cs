@@ -118,8 +118,7 @@ public static class InicioDoBalcao
             var telefone = string.IsNullOrWhiteSpace(paciente?.Telefone) ? null : Telefone.Formatar(paciente!.Telefone);
             var contato = string.Join(" · ", new[] { paciente?.ConvenioNome, telefone }
                 .Where(s => !string.IsNullOrWhiteSpace(s)));
-            var atendimento = CatalogoModalidades.NomeComEspecialidade(
-                a.ModalidadeCodigo, a.ModalidadePrevista, a.EspecialidadeConsultaCodigo);
+            var atendimento = CatalogoModalidades.NomeDoHorario(a);
             if (a.Profissional?.Rotulo is { Length: > 0 } quem) atendimento += $" · {quem}";
 
             lista.Add(new ProximoAChegar(a.Id, a.PacienteId, a.DataHora,

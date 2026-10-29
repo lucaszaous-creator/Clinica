@@ -24,6 +24,24 @@
         ],
         "createdAt": "2026-10-20T13:57:45.958Z",
         "reason": "Claude: popover denso de notificações (título 16px sobre itens 14px, como o sino atual); hierarquia vem de peso, cor e agrupamento, não de tamanho"
+      },
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "docs/mockups/agenda-preventivo/marcar-real.html"
+        ],
+        "createdAt": "2026-10-29T13:41:24.930Z",
+        "reason": "Claude: tipografia vem do clinica.css real do sistema carregado por http (a prévia), que o verificador não lê; nas imagens o h1 tem 28px contra 14px do corpo"
+      },
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "docs/mockups/agenda-preventivo/mapa-real.html"
+        ],
+        "createdAt": "2026-10-29T13:41:25.455Z",
+        "reason": "Claude: tipografia vem do clinica.css real do sistema carregado por http (a prévia), que o verificador não lê; nas imagens o h1 tem 28px contra 14px do corpo"
       }
     ]
   }

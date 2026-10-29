@@ -44,6 +44,9 @@ public sealed record SessaoDoDia(
     /// </summary>
     public ModalidadeAtendimento ModalidadeFamilia { get; init; }
 
+    /// <summary>A consulta leva a COLETA DE PREVENTIVO (out/2026) — o selo que o médico vê na lista do dia.</summary>
+    public bool ColetaPreventivo { get; init; }
+
     /// <summary>
     /// Há quantos minutos o paciente espera (da chegada até ser chamado). Null antes do
     /// check-in — no consultório isso significa "ainda não está no prédio".
