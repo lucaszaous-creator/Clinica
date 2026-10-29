@@ -80,8 +80,11 @@ public class FaturamentoCongeladoTests
     [Fact]
     public void Ciclo_da_guia_nao_mudou()
     {
+        // "Preventivo" entrou DE PROPÓSITO em out/2026: a consulta com coleta de preventivo
+        // gera uma 2ª guia, e ela aparece no filtro de pendências e na tabela de preços do
+        // faturamento — é o objetivo, não um efeito colateral.
         Enum.GetNames<TipoCodigo>().Should().BeEquivalentTo(
-            "Consulta", "Acupuntura", "Eletroacupuntura", "Bsv", "ConsultaEspecialidade");
+            "Consulta", "Acupuntura", "Eletroacupuntura", "Bsv", "ConsultaEspecialidade", "Preventivo");
 
         Enum.GetNames<StatusCodigo>().Should().BeEquivalentTo(
             "Aberto", "Baixado", "NaoAplicavel", "NaoConformidade");

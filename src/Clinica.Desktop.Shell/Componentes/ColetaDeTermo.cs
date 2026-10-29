@@ -14,7 +14,7 @@ namespace Clinica.Desktop.Shell.Componentes;
 /// </summary>
 public interface IFormulariosBlazorNoWpf
 {
-    /// <summary>O seletor do A1. O certificado confirmado é de quem chamou (use <c>using</c>). Nulo = desistiu.</summary>
+    /// <summary>O seletor do certificado dos DOCUMENTOS (A1 ou SafeID). O confirmado é de quem chamou (use <c>using</c>). Nulo = desistiu.</summary>
     Task<CertificadoAssinatura?> EscolherCertificadoAsync(string assunto);
 
     /// <summary>A coleta do termo do procedimento (modelo nulo = pergunta qual). Verdadeiro = assinou ou recusou.</summary>

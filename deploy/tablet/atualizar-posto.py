@@ -264,7 +264,8 @@ with open(dump,'xb') as f:
     dump.chmod(0o600)
     result=subprocess.run(['runuser','-u','postgres','--','pg_dump','-p','45432','-Fc','-d',database],stdout=f,stderr=subprocess.PIPE)
 assert result.returncode==0 and dump.stat().st_size>0
-protegidos=['postgresql@16-main','pgweb','cloudflared-site','ssh','fail2ban',
+# A saída do SafeID (clinica-safeid) não reinicia com o portal; ausente, o PID é 0 antes e depois.
+protegidos=['postgresql@16-main','pgweb','cloudflared-site','clinica-safeid','ssh','fail2ban',
             'clinica-tablet' if ambiente=='hml' else 'clinica-posto-hml']
 antes={s:status(s) for s in protegidos}
 conceder=[];revogar=[]

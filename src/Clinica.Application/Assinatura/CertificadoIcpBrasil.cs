@@ -21,7 +21,23 @@ public sealed record CertificadoAssinatura(
     string? Cpf) : IDisposable
 {
     public void Dispose() => Certificado.Dispose();
-    public string Procedencia => "arquivo A1";
+
+    /// <summary>
+    /// Quem faz a conta da assinatura quando a chave NÃO está nesta máquina — o SafeID
+    /// (parcela 44; de volta em out/2026 para receitas e documentos, a pedido da clínica).
+    /// Nulo é o A1: o arquivo importado, com a chave em mãos.
+    ///
+    /// Mora aqui, e não como parâmetro de quem manda assinar, porque é propriedade DESTE
+    /// certificado: bastaria um chamador esquecer de repassá-lo para a assinatura cair no
+    /// caminho local e morrer com "certificado sem chave privada".
+    /// </summary>
+    public PdfSharp.Pdf.Signatures.IDigitalSigner? AssinadorRemoto { get; init; }
+
+    /// <summary>Está em nuvem: a chave privada não existe nesta máquina.</summary>
+    public bool EmNuvem => AssinadorRemoto is not null;
+
+    /// <summary>De onde ele veio — o seletor escreve isto na linha.</summary>
+    public string Procedencia => EmNuvem ? "SafeID — nuvem" : "arquivo A1";
 
     public bool Vigente => DateTime.Now >= ValidoDe && DateTime.Now <= ValidoAte;
 

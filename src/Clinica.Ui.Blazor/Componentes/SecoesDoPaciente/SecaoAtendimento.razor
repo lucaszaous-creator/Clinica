@@ -210,12 +210,13 @@
                                 {
                                     @* UM botão para o médico: o Salvar dele já grava, conclui o atendimento e gera as
                                        guias (FolhaDoAtendimento.TentarSalvarAsync) — o nome diz isso, e o "Salvar e
-                                       finalizar" do cabeçalho, que fazia o mesmo, não aparece nesta seção. *@
+                                       finalizar" do cabeçalho, que fazia o mesmo, não aparece nesta seção. Sem
+                                       horário (aberta pela busca) não há o que concluir, e o nome não promete. *@
                                     <button type="button" class="botao primario" disabled="@(!PodeEditar || _ocupado || !f.Carregada)" @onclick="SalvarAsync"
-                                            title="@(SessaoUsuario.Atual.Perfil == PerfilAcesso.Profissional
+                                            title="@(f.ConcluiAoSalvar
                                                        ? "Grava a evolução, conclui o atendimento e gera as guias (Ctrl+S)."
                                                        : "Grava a evolução no prontuário (Ctrl+S).")">
-                                        <Icone Nome="check" />@(SessaoUsuario.Atual.Perfil == PerfilAcesso.Profissional ? "Salvar e concluir sessão" : "Salvar sessão")</button>
+                                        <Icone Nome="check" />@(f.ConcluiAoSalvar ? "Salvar e concluir sessão" : "Salvar sessão")</button>
                                 }
                                 else
                                 {
@@ -454,12 +455,15 @@
 
     private async Task SalvarAsync()
     {
-        if (_folha is null || _ocupado) return;
+        // A mesma trava do botão: o Ctrl+S antes de a folha abrir gravaria uma folha em branco.
+        if (_folha is null || _ocupado || !_folha.Carregada) return;
         if (!Exigir(Permissao.EditarProntuario, "escrever no prontuário")) return;
         _ocupado = true;
         try
         {
-            if (await _folha.TentarSalvarAsync()) Tela.AvisarMudanca();
+            // Falhar só a conclusão deixa a evolução gravada: o cabeçalho relê do mesmo jeito.
+            await _folha.TentarSalvarAsync();
+            if (_folha.GravouNaUltimaTentativa) Tela.AvisarMudanca();
         }
         finally { _ocupado = false; }
     }

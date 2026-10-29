@@ -22,6 +22,7 @@
 *@
 @namespace Clinica.Ui.Blazor.Telas
 @inherits TelaBase
+@using Clinica.Application.Assinatura.SafeID
 @using Clinica.Application.Abstracoes
 
 <div class="pagina configuracoes @(_carregando && _carregou ? "carregando" : null)">
@@ -344,6 +345,43 @@
             </footer>
         </section>
 
+        <section class="cfg-bloco">
+            @Cabeca("Assinatura pelo SafeID", "O certificado em nuvem da Safeweb, ao lado do A1, para assinar receitas e documentos (a infusão segue só com o A1). O médico escolhe na hora de assinar.", _pendSafeId)
+            <div class="cfg-bloco-campos">
+                <p class="cfg-situacao @(_safeIdConfigurado ? null : "pendente")">@SituacaoSafeId</p>
+                <div class="cfg-grupo">
+                    <h3>Credenciais da aplicação</h3>
+                    @if (_safeIdVemDoAmbiente)
+                    {
+                        <Aviso Tom="atencao" Texto="As credenciais vêm de VARIÁVEIS DE AMBIENTE desta máquina (SafeID__ClientId e afins), que têm prioridade sobre o que é salvo aqui." />
+                    }
+                    <div class="campos">
+                        <Campo Rotulo="client_id" Classe="largo" Dica="O identificador da aplicação no portal da Safeweb. Em branco, o SafeID fica desligado.">
+                            <input class="campo" maxlength="200" autocomplete="off" @bind="_safeIdClientId" @bind:after="MudouSafeId" />
+                        </Campo>
+                        <Campo Rotulo="client_secret"
+                               Dica="@(_safeIdTemSegredo ? "Há um segredo gravado. Deixe em branco para mantê-lo; digite só para trocar." : "Cole o segredo que a Safeweb deu.")">
+                            <input class="campo" type="password" maxlength="300" autocomplete="new-password"
+                                   placeholder="@(_safeIdTemSegredo ? "•••••••• (gravado)" : null)"
+                                   @bind="_safeIdSegredo" @bind:after="MudouSafeId" />
+                        </Campo>
+                        <Campo Rotulo="Ambiente" Dica="Produção é o certificado de verdade. Homologação só para teste da Safeweb.">
+                            <select class="campo" @bind="_safeIdAmbiente" @bind:after="MudouSafeId">
+                                <option value="producao">Produção</option>
+                                <option value="homologacao">Homologação</option>
+                            </select>
+                        </Campo>
+                    </div>
+                </div>
+            </div>
+            <footer class="cfg-bloco-rodape">
+                @Mensagem(Aba.Integracoes, Bloco.SafeId)
+                <div class="cfg-acoes">
+                    <button type="button" class="botao primario" @onclick="SalvarSafeIdAsync" disabled="@(!PodeEditar || _salvando)"><Icone Nome="check" />Salvar SafeID</button>
+                </div>
+            </footer>
+        </section>
+
 
         <section class="cfg-bloco">
             @Cabeca("Publicação de documentos assinados", "Receita, atestado, pedido de exame e declaração assinados digitalmente ganham um QR Code que o farmacêutico abre com a câmera. Prontuário NUNCA é publicado.", _pendPublicacao)
@@ -513,7 +551,7 @@
         Aba.Atendimento => _pendConclusao,
         Aba.Operacao => _pendOperacao,
         Aba.Faturamento => _pendFaturamento,
-        Aba.Integracoes => _pendPublicacao || _pendCrm,
+        Aba.Integracoes => _pendPublicacao || _pendCrm || _pendSafeId,
         _ => _pendBackup
     };
 
@@ -531,7 +569,7 @@
     private enum Aba { Clinica, Atendimento, Operacao, Faturamento, Integracoes, Backup }
 
     /// <summary>A aba Integrações tem blocos com o próprio Salvar e a própria mensagem (CRM e publicação).</summary>
-    private enum Bloco { Unico, Publicacao, Crm }
+    private enum Bloco { Unico, Publicacao, Crm, SafeId }
 
     private static readonly (Aba Aba, string Rotulo)[] Abas =
     [
@@ -568,6 +606,16 @@
     private string _armSegredo = string.Empty;
     // O CRM dentro da Recepção (docs/crm-na-recepcao.md)
     private string? _enderecoCrm;
+    // O SafeID (out/2026, de volta para receitas e documentos) — o segredo digitado começa VAZIO.
+    private string? _safeIdClientId;
+    private string _safeIdSegredo = string.Empty, _safeIdAmbiente = "producao";
+    private bool _safeIdTemSegredo, _safeIdConfigurado, _safeIdVemDoAmbiente;
+
+    private string SituacaoSafeId => _safeIdVemDoAmbiente
+        ? "Em uso: credenciais definidas por variáveis de ambiente desta máquina."
+        : _safeIdConfigurado
+            ? "Ligado: a opção “Usar SafeID” aparece ao assinar receitas e documentos."
+            : "Desligado: sem client_id e client_secret, só o A1 aparece ao assinar.";
     private bool _temSegredoGravado, _armVemDoAmbiente, _testando;
     private string _situacaoPublicacao = string.Empty;
     // Backup
@@ -576,9 +624,9 @@
     private bool _backupDesligado = true, _resumoBackupEhErro, _resumoBackupNaPolitica, _copiando;
 
     // Pendências por bloco: salvar um bloco não pode apagar o que foi digitado nos outros.
-    private bool _pendClinica, _pendConclusao, _pendOperacao, _pendFaturamento, _pendPublicacao, _pendBackup, _pendCrm;
+    private bool _pendClinica, _pendConclusao, _pendOperacao, _pendFaturamento, _pendPublicacao, _pendBackup, _pendCrm, _pendSafeId;
     private bool Pendente => _pendClinica || _pendConclusao || _pendOperacao || _pendFaturamento
-                             || _pendPublicacao || _pendBackup || _pendCrm;
+                             || _pendPublicacao || _pendBackup || _pendCrm || _pendSafeId;
 
     private bool _carregou, _carregando, _naoVerificado, _salvando, _termos, _campos;
     private string? _erroLeitura, _mensagem;
@@ -601,6 +649,7 @@
     private void MudouFaturamento() => _pendFaturamento = true;
     private void MudouPublicacao() => _pendPublicacao = true;
     private void MudouCrm() => _pendCrm = true;
+    private void MudouSafeId() => _pendSafeId = true;
 
     protected override Task OnInitializedAsync() => CarregarAsync();
 
@@ -727,6 +776,7 @@
             var conclusao = await LerConclusaoAsync(sp);
             var publicacao = await LerPublicacaoAsync(p);
             var enderecoCrm = await p.ObterEnderecoDoCrmAsync();
+            var safeId = await p.ObterCredenciaisSafeIDAsync();
             var copia = await sp.GetRequiredService<ICopiaDeSeguranca>().SituacaoAsync();
             var (pendencias, resumo) = await LerPendenciasAsync(sp);
             if (geracao != _geracao || Descartada) return;
@@ -738,6 +788,7 @@
             (_pendencias, _resumoPendencias) = (pendencias, resumo);
             PublicarPublicacao(publicacao);
             PublicarCrm(enderecoCrm);
+            PublicarSafeId(safeId);
             PublicarBackup(copia);
 
             _carregou = true;
@@ -812,6 +863,41 @@
         _conclusaoAutomatica = l.Automatica;
         _prazoConclusao = l.Horas.ToString(CultureInfo.InvariantCulture);
         _pendConclusao = false;
+    }
+
+    private void PublicarSafeId((string? ClientId, string? ClientSecret, string? Ambiente) l)
+    {
+        _safeIdVemDoAmbiente = ConfiguracaoSafeID.DoAmbiente() is not null;
+        _safeIdClientId = l.ClientId;
+        _safeIdTemSegredo = !string.IsNullOrWhiteSpace(l.ClientSecret);
+        _safeIdConfigurado = _safeIdVemDoAmbiente || (!string.IsNullOrWhiteSpace(l.ClientId) && _safeIdTemSegredo);
+        _safeIdAmbiente = ConfiguracaoSafeID.EhHomologacao(l.Ambiente) ? "homologacao" : "producao";
+        _safeIdSegredo = string.Empty;
+        _pendSafeId = false;
+    }
+
+    private async Task SalvarSafeIdAsync()
+    {
+        if (!Exigir(Permissao.GerenciarUsuarios, "mudar as configurações da clínica")) return;
+        await GravarAsync(Aba.Integracoes, Bloco.SafeId, "SafeID", async sp =>
+        {
+            var p = sp.GetRequiredService<ParametrosService>();
+            // O segredo gravado é relido AQUI e mantido quando o campo fica em branco; ele nunca volta à tela.
+            var gravado = await p.ObterCredenciaisSafeIDAsync();
+            var segredo = string.IsNullOrWhiteSpace(_safeIdSegredo) ? gravado.ClientSecret : _safeIdSegredo;
+            var clientId = string.IsNullOrWhiteSpace(_safeIdClientId) ? null : _safeIdClientId;
+            if (clientId is not null && string.IsNullOrWhiteSpace(segredo))
+            {
+                Dizer(Aba.Integracoes, "Informe o client_secret junto com o client_id.", erro: true, Bloco.SafeId);
+                return null;
+            }
+            // Apagar o client_id desliga o SafeID por inteiro: o segredo sai junto.
+            await p.SalvarCredenciaisSafeIDAsync(clientId, clientId is null ? null : segredo, _safeIdAmbiente);
+            PublicarSafeId(await p.ObterCredenciaisSafeIDAsync());
+            return clientId is null
+                ? "SafeID desligado: ao assinar, só o A1 aparece."
+                : "SafeID salvo: a opção “Usar SafeID” aparece ao assinar receitas e documentos.";
+        });
     }
 
     private void PublicarCrm(string? endereco)

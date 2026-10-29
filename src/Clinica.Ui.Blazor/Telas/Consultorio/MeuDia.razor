@@ -96,6 +96,7 @@
                                         <div class="con-paciente-texto">
                                             <span class="principal">@l.Paciente</span>
                                             @if (l.Encaixe) { <Selo Tom="info" Dica="Marcado por cima de um horário ocupado">Encaixe</Selo> }
+                                            @if (l.ColetaPreventivo) { <Selo Tom="aviso" Dica="A consulta inclui a coleta de preventivo — gera a 2ª guia">Preventivo</Selo> }
                                             <span class="secundario">@l.Contexto</span>
                                             @if (l.Observacoes.Length > 0)
                                             {

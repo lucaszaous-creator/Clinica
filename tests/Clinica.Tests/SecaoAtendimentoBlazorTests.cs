@@ -269,6 +269,52 @@ public sealed class SecaoAtendimentoBlazorTests : IClassFixture<BancoDasTelas>, 
     }
 
     /// <summary>
+    /// O Salvar do MÉDICO (out/2026): com horário, o nome promete a conclusão; aberto pela busca,
+    /// sem horário, ele só grava e diz só isso. E quando a conclusão falha depois de a evolução
+    /// gravar (aqui, um médico que NÃO é o responsável pelo horário: a evolução grava, a conclusão
+    /// é recusada pela regra do AgendaService), a tela é avisada do mesmo jeito.
+    /// </summary>
+    [Fact]
+    public void O_salvar_do_medico_so_promete_concluir_com_horario_e_avisa_a_tela_mesmo_se_a_conclusao_falhar()
+    {
+        var (paciente, agendamento) = Semear();
+        UsuarioSistema medico;
+        using (var db = Db())
+        {
+            var marca = Guid.NewGuid().ToString("N")[..10];
+            var outro = new Profissional { Nome = $"Dr. Outro {marca}", NomeCurto = $"Outro {marca}" };
+            db.Add(outro);
+            db.SaveChanges();
+            medico = new UsuarioSistema
+            {
+                Nome = outro.Nome, Login = $"outro{marca}", Perfil = PerfilAcesso.Profissional,
+                ProfissionalId = outro.Id, Ativo = true, CriadoEm = DateTime.Today
+            };
+            db.Add(medico);
+            db.SaveChanges();
+        }
+        new SessaoUsuario().Entrar(medico);
+        using var ctx = Contexto();
+
+        var semHorario = Renderizar(ctx, new ContextoDoPaciente(paciente.Id, paciente.Nome, null, null, null, 1), new TelaFalsa());
+        Esperar(() => Botao(semHorario, "Salvar sessão") is { } b && !b.HasAttribute("disabled"));
+        Assert.Null(Botao(semHorario, "Salvar e concluir sessão"));
+        semHorario.Dispose();
+
+        var tela = new TelaFalsa();
+        var secao = Renderizar(ctx, new ContextoDoPaciente(paciente.Id, paciente.Nome, agendamento.Id, null,
+            DateOnly.FromDateTime(agendamento.DataHora), 1), tela);
+        Esperar(() => Botao(secao, "Salvar e concluir sessão") is { } b && !b.HasAttribute("disabled"));
+        Digitar(secao, new TrechoTexto("Sessão gravada, conclusão recusada."));
+        Botao(secao, "Salvar e concluir sessão")!.Click();
+        var folha = tela.Guardado(FolhaDoAtendimento.Chave, () => (FolhaDoAtendimento)null!);
+        Esperar(() => folha.EvolucaoId != 0 && !folha.Carregando && tela.Avisos > 0);
+        Assert.True(folha.MensagemEhErro);
+        Assert.Contains("conclusão e as guias ficaram pendentes", folha.Mensagem);
+        Assert.Equal("Sessão gravada, conclusão recusada.", secao.FindComponent<EditorTextoClinico>().Instance.Texto);
+    }
+
+    /// <summary>
     /// "Como no Excel" (out/2026): o que se escreveu e não se salvou fica guardado no banco e
     /// volta ao reabrir o paciente — mesmo com outra folha (outro computador, app reaberto). O
     /// Salvar grava no prontuário e encerra o rascunho.

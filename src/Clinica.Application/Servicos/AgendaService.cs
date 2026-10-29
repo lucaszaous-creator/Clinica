@@ -15,7 +15,7 @@ namespace Clinica.Application.Servicos;
 public sealed record HorarioEmAberto(
     int AgendamentoId, DateTime DataHora, string Modalidade, string? ModalidadeCodigo,
     string? EspecialidadeConsultaCodigo, string? Profissional, bool JaChegou, bool ComGuia,
-    bool Importado)
+    bool Importado, bool ColetaPreventivo = false)
 {
     /// <summary>"09h00" — a forma que o balcão fala.</summary>
     public string Hora => DataHora.ToString("HH'h'mm");
@@ -93,7 +93,8 @@ public sealed class AgendaService
         Especialidade? especialidadeConsulta = null, string? modalidadeCodigo = null,
         string? especialidadeConsultaCodigo = null,
         int? profissionalId = null, int? salaId = null, int? duracaoMinutos = null,
-        bool encaixe = false, string? operador = null, TipoCodigo? primeiroCodigo = null)
+        bool encaixe = false, string? operador = null, TipoCodigo? primeiroCodigo = null,
+        bool coletaPreventivo = false)
     {
         // Variante do catálogo: a base (comportamento) vem do código. Sem código, usa o enum.
         if (modalidadeCodigo is not null)
@@ -138,6 +139,10 @@ public sealed class AgendaService
         await GarantirHorarioPermitidoAsync(dataHora, duracaoMinutos, profissionalId, salaId, pacienteId, null, ct);
 
         var ehConsulta = modalidade == ModalidadeAtendimento.Consulta;
+        coletaPreventivo = coletaPreventivo && ehConsulta;
+        if (coletaPreventivo)
+            await GarantirVagaDePreventivoAsync(profissionalId, dataHora, null, ct);
+
         var ag = new Agendamento
         {
             PacienteId = pacienteId,
@@ -161,6 +166,7 @@ public sealed class AgendaService
             // horário para chegar ao motor na confirmação da presença — é o que permitiu o
             // avulso virar encaixe sem perder a escolha que a tela dele sempre ofereceu.
             PrimeiroCodigo = primeiroCodigo,
+            ColetaPreventivo = coletaPreventivo,
             // Quem marcou, e quando. O operador chega da TELA (`SessaoUsuario.Atual`) —
             // este serviço não lê a sessão, pela mesma razão dos demais: é o chamador que
             // sabe quem está logado.
@@ -179,7 +185,7 @@ public sealed class AgendaService
             var montado = await _atendimentos.MontarAsync(
                 pacienteId, DateOnly.FromDateTime(dataHora), modalidade, observacoes, ct,
                 primeiroCodigo, especialidadeConsulta, modalidadeCodigo,
-                especialidadeConsultaCodigo, operador);
+                especialidadeConsultaCodigo, operador, coletaPreventivo);
             ag.Atendimento = montado.Atendimento;
         }
 
@@ -216,7 +222,7 @@ public sealed class AgendaService
         string? operador = null, CancellationToken ct = default,
         int? profissionalId = null, int? salaId = null, int? duracaoMinutos = null,
         bool manterRecursos = true, bool encaixe = false,
-        ICollection<string>? avisosGuia = null)
+        ICollection<string>? avisosGuia = null, bool? coletaPreventivo = null)
     {
         var ag = await _repo.ObterAgendamentoAsync(agendamentoId, ct)
             ?? throw new InvalidOperationException("Agendamento não encontrado.");
@@ -233,6 +239,9 @@ public sealed class AgendaService
         var statusAnterior = ag.Status;
         var modalidadeCodigoAnterior = ag.ModalidadeCodigo;
         var especialidadeCodigoAnterior = ag.EspecialidadeConsultaCodigo;
+        // NULO = "o chamador não sabe" (o faturamento, o Empurrar): fica o que o horário tinha.
+        var preventivoAnterior = ag.ColetaPreventivo;
+        var novoPreventivo = (coletaPreventivo ?? ag.ColetaPreventivo) && ehConsulta;
 
         // O faturamento remarca sem saber de profissional/sala: por padrão os recursos
         // do horário são preservados. A recepção passa manterRecursos:false quando o
@@ -254,6 +263,13 @@ public sealed class AgendaService
         if (dataHora != ag.DataHora || novoProfissional != ag.ProfissionalId || novaSala != ag.SalaId
             || novaDuracao != ag.DuracaoMinutos || !ag.OcupaAgenda)
             await GarantirHorarioPermitidoAsync(dataHora, novaDuracao, novoProfissional, novaSala, ag.PacienteId, ag.Id, ct);
+
+        // A vaga de preventivo é conferida quando o horário passa a DISPUTÁ-LA: coleta
+        // ligada agora, outro dia, outro profissional ou um horário cancelado que volta.
+        // Corrigir a observação de um horário que já tinha a vaga não a confere de novo.
+        if (novoPreventivo && (!preventivoAnterior || dataHora.Date != ag.DataHora.Date
+                               || novoProfissional != ag.ProfissionalId || !ag.OcupaAgenda))
+            await GarantirVagaDePreventivoAsync(novoProfissional, dataHora, ag.Id, ct);
 
         ag.ProfissionalId = novoProfissional;
         ag.SalaId = novaSala;
@@ -293,6 +309,7 @@ public sealed class AgendaService
             ag.EspecialidadeConsulta = null;
             ag.EspecialidadeConsultaCodigo = null;
         }
+        ag.ColetaPreventivo = novoPreventivo;
         ag.Observacoes = observacoes;
         // Remarcar um horário cancelado/faltado/substituído o traz de volta para a agenda.
         // O vínculo com a sessão que o substituiu vai embora junto: horário reaberto é
@@ -338,9 +355,11 @@ public sealed class AgendaService
         // informação que a operadora cobra), e trocar "Consulta/Psiquiatria" por
         // "Consulta/Geriatria" mantém o código "Consulta" — só a modalidade não a vê.
         // Sem isto o horário mostrava a especialidade nova e a guia ia com a antiga.
-        var regerarGuias = modalidadeCodigo is not null
-                           && (modalidadeCodigo != modalidadeCodigoAnterior
-                               || (ehConsulta && especialidadeConsultaCodigo != especialidadeCodigoAnterior));
+        // A coleta de preventivo também: ligá-la ou desligá-la acrescenta ou tira a 2ª guia.
+        var regerarGuias = (modalidadeCodigo is not null
+                            && (modalidadeCodigo != modalidadeCodigoAnterior
+                                || (ehConsulta && especialidadeConsultaCodigo != especialidadeCodigoAnterior)))
+                           || novoPreventivo != preventivoAnterior;
         Anexar(avisosGuia, await _atendimentos.AjustarAoRemarcarAsync(
             ag, DateOnly.FromDateTime(horarioAnterior), regerarGuias, operador, ct));
 
@@ -478,6 +497,48 @@ public sealed class AgendaService
             .Where(c => c.ImpedeMarcar).Select(c => c.Descricao).Distinct().ToArray();
         if (impedimentos.Length > 0)
             throw new InvalidOperationException("Agenda protegida. Escolha outro horário. " + string.Join(" ", impedimentos));
+    }
+
+    // ==================== Agenda paralela de PREVENTIVO (out/2026) ====================
+    //
+    // O pedido da ginecologia: "não tem como eu atender 15 pacientes e fazer 15
+    // preventivos no mesmo dia". Cada profissional tem um teto de coletas por dia
+    // (`Profissional.LimitePreventivoEfetivo`, 5 se ninguém mudou), e o horário que leva
+    // a coleta conta nele enquanto ocupa a agenda (cancelado e falta devolvem a vaga).
+    //
+    // A recusa mora AQUI, como a do profissional obrigatório: são várias portas de
+    // marcação (balcão, formulário da agenda, lançar no horário, avulso), e conferir numa
+    // só deixaria as outras passando do teto.
+    //
+    // ⚠️ A conferência é na GRAVAÇÃO, não há trava de banco: duas marcações do mesmo dia
+    // gravadas no mesmo instante, em dois balcões, podem passar as duas. É o que cabe
+    // prometer — a tela mostra o contador atualizado a cada troca de dia.
+
+    /// <summary>Quantas coletas o profissional tem em cada dia do período, e o teto dele.</summary>
+    public async Task<IReadOnlyList<VagasDePreventivoNoDia>> VagasDePreventivoAsync(
+        int profissionalId, DateOnly de, DateOnly ate, CancellationToken ct = default, int? ignorarAgendamentoId = null)
+    {
+        var profissional = await _repo.ObterProfissionalAsync(profissionalId, ct)
+            ?? throw new InvalidOperationException("Profissional não encontrado.");
+        var marcados = await _repo.AgendamentosDoProfissionalNoPeriodoAsync(
+            profissionalId, de.ToDateTime(TimeOnly.MinValue), ate.AddDays(1).ToDateTime(TimeOnly.MinValue), ct);
+        return VagasDePreventivoNoDia.Contar(profissional, marcados, de, ate, ignorarAgendamentoId);
+    }
+
+    private async Task GarantirVagaDePreventivoAsync(int? profissionalId, DateTime dataHora, int? ignorar, CancellationToken ct)
+    {
+        if (profissionalId is not { } id)
+            throw new InvalidOperationException(
+                "Escolha quem vai atender para marcar a coleta de preventivo: o limite de coletas é por profissional.");
+        var dia = DateOnly.FromDateTime(dataHora);
+        var vagas = (await VagasDePreventivoAsync(id, dia, dia, ct, ignorar))[0];
+        if (vagas.Limite == 0)
+            throw new InvalidOperationException(
+                "Este profissional não faz coleta de preventivo (limite 0 em Profissionais e salas).");
+        if (vagas.Lotado)
+            throw new InvalidOperationException(
+                $"O dia {dia:dd/MM} já tem {vagas.Marcados} de {vagas.Limite} preventivos deste profissional. "
+                + "Escolha outro dia para a coleta — ou marque só a consulta, sem o preventivo.");
     }
 
     /// <summary>
@@ -1116,7 +1177,8 @@ public sealed class AgendaService
                 modalidadeCodigo: ag.ModalidadeCodigo,
                 especialidadeConsultaCodigo: ag.EspecialidadeConsultaCodigo,
                 primeiroCodigo: ag.PrimeiroCodigo,
-                operador: operador);
+                operador: operador,
+                coletaPreventivo: ag.ColetaPreventivo);
             atendimento = montado.Atendimento;
             avisos = montado.Avisos;
 
@@ -1217,7 +1279,7 @@ public sealed class AgendaService
         CancellationToken ct = default, string? modalidadeCodigo = null,
         string? especialidadeConsultaCodigo = null, TipoCodigo? primeiroCodigo = null,
         int? profissionalId = null, string? operador = null, int? salaId = null,
-        bool concluirSessao = true)
+        bool concluirSessao = true, bool coletaPreventivo = false)
     {
         if (modalidadeCodigo is not null)
             modalidade = CatalogoModalidades.Base(modalidadeCodigo);
@@ -1228,6 +1290,9 @@ public sealed class AgendaService
 
         var agora = DateTime.Now;
         var ehConsulta = modalidade == ModalidadeAtendimento.Consulta;
+        coletaPreventivo = coletaPreventivo && ehConsulta;
+        if (coletaPreventivo)
+            await GarantirVagaDePreventivoAsync(profissionalId, dataHora, null, ct);
         var ag = new Agendamento
         {
             PacienteId = pacienteId,
@@ -1246,6 +1311,7 @@ public sealed class AgendaService
             SalaId = salaId,
             Encaixe = true,
             PrimeiroCodigo = primeiroCodigo,
+            ColetaPreventivo = coletaPreventivo,
             CriadoPor = string.IsNullOrWhiteSpace(operador) ? null : operador.Trim(),
             CriadoEm = agora,
             // O paciente está no balcão: o check-in é o fato, não uma etapa a cumprir.
@@ -1289,7 +1355,8 @@ public sealed class AgendaService
             profissionais.FirstOrDefault(p => p.Id == a.ProfissionalId)?.Rotulo,
             JaChegou: a.ChegadaEm is not null,
             ComGuia: a.AtendimentoId is not null,
-            Importado: a.ChaveImportacao is not null)).ToList();
+            Importado: a.ChaveImportacao is not null,
+            ColetaPreventivo: a.ColetaPreventivo)).ToList();
     }
 
     /// <summary>
@@ -1318,7 +1385,7 @@ public sealed class AgendaService
         int agendamentoId, string? observacoes, CancellationToken ct = default,
         string? modalidadeCodigo = null, string? especialidadeConsultaCodigo = null,
         TipoCodigo? primeiroCodigo = null, int? profissionalId = null, string? operador = null,
-        int? salaId = null, bool concluirSessao = true)
+        int? salaId = null, bool concluirSessao = true, bool? coletaPreventivo = null)
     {
         var ag = await _repo.ObterAgendamentoAsync(agendamentoId, ct)
             ?? throw new InvalidOperationException($"Agendamento {agendamentoId} não encontrado.");
@@ -1365,12 +1432,24 @@ public sealed class AgendaService
             mudouModalidade = modalidadeCodigo != modalidadeAnterior
                               || (ehConsulta && especialidadeConsultaCodigo != especialidadeAnterior);
         }
+        var profissionalAnterior = ag.ProfissionalId;
         if (profissionalId is not null) ag.ProfissionalId = profissionalId;
         if (psicologia)
         {
             ag.EspecialidadeConsulta = null;
             ag.EspecialidadeConsultaCodigo = "Psicologia";
         }
+
+        // A coleta de preventivo (out/2026): nulo mantém a do horário. Ligar agora (ou trocar
+        // de profissional) disputa a vaga do dia; ligar/desligar muda as guias.
+        var preventivoAnterior = ag.ColetaPreventivo;
+        var novoPreventivo = (coletaPreventivo ?? ag.ColetaPreventivo)
+                             && ag.ModalidadePrevista == ModalidadeAtendimento.Consulta;
+        if (novoPreventivo && (!preventivoAnterior || ag.ProfissionalId != profissionalAnterior))
+            await GarantirVagaDePreventivoAsync(ag.ProfissionalId, ag.DataHora, ag.Id, ct);
+        ag.ColetaPreventivo = novoPreventivo;
+        var mudouPreventivo = novoPreventivo != preventivoAnterior;
+
         if (salaId is not null) ag.SalaId = salaId;
         if (!string.IsNullOrWhiteSpace(observacoes))
         {
@@ -1407,7 +1486,7 @@ public sealed class AgendaService
         // mesmo caminho do Remarcar. Sem atendimento, não faz nada — e o núcleo abaixo o
         // cria pela modalidade que acabou de valer.
         var avisosGuia = await _atendimentos.AjustarAoRemarcarAsync(
-            ag, DateOnly.FromDateTime(ag.DataHora), mudouModalidade, operador, ct);
+            ag, DateOnly.FromDateTime(ag.DataHora), mudouModalidade || mudouPreventivo, operador, ct);
 
         var lancamento = await ConfirmarNucleoAsync(ag, operador, ct, confirmarPresenca: concluirSessao);
         if (avisosGuia.Count > 0)

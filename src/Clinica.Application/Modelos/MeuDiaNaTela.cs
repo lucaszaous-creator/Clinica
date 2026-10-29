@@ -26,6 +26,9 @@ public sealed record LinhaMeuDia
     public required string Local { get; init; }
     public required bool EvolucaoEscrita { get; init; }
     public required bool Encaixe { get; init; }
+
+    /// <summary>A paciente vem para colher preventivo (out/2026): selo na linha, ao lado do nome.</summary>
+    public bool ColetaPreventivo { get; init; }
     public int? AtendimentoId { get; init; }
     public required EtapaFila Etapa { get; init; }
 
@@ -119,6 +122,7 @@ public static class MeuDiaNaTela
         Etapa = s.Etapa,
         EvolucaoEscrita = s.EvolucaoEscrita,
         Encaixe = s.Encaixe,
+        ColetaPreventivo = s.ColetaPreventivo,
         AtendimentoId = s.AtendimentoId,
         Observacoes = s.Observacoes ?? string.Empty,
         EhHoje = DateOnly.FromDateTime(s.DataHora) == hoje,

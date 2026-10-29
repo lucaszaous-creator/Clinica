@@ -68,6 +68,15 @@ public static class CatalogoModalidades
     /// leitores (a lista do dia e a grade do balcão, o dia e a semana do médico), e quatro
     /// frases divergem na primeira correção.
     /// </summary>
+    /// <summary>
+    /// O que o HORÁRIO é, como a agenda e o consultório o leem: o nome com a especialidade e,
+    /// quando a consulta leva a coleta (out/2026), "+ preventivo" — é por aqui que o médico
+    /// sabe, na lista do dia, que aquela paciente vem para colher.
+    /// </summary>
+    public static string NomeDoHorario(Clinica.Domain.Entities.Agendamento a)
+        => NomeComEspecialidade(a.ModalidadeCodigo, a.ModalidadePrevista, a.EspecialidadeConsultaCodigo)
+           + (a.ColetaPreventivo ? " + preventivo" : string.Empty);
+
     public static string NomeComEspecialidade(
         string? codigo, ModalidadeAtendimento familia, string? especialidadeCodigo)
     {

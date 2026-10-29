@@ -68,6 +68,8 @@ public sealed class ModuloRecepcao : IModuloApp
 
     // ===== Itens COMPOSTOS (parcela 55) =====
     public const string ChaveGrupoAgenda = "agenda";
+    /// <summary>A aba "Por especialidade" da Agenda (out/2026): o mapa de ocupação com a coleta de preventivo.</summary>
+    public const string ChaveOcupacaoEspecialidade = "ocupacao-especialidade";
     // ⚠️ "Pacientes" e "Prescrições" vêm da ChavesSuite desde a parcela 95: o Consultório
     // publica compostos com o mesmo rótulo, e a dedupe do shell só funde por CHAVE —
     // literal à mão nos dois módulos era a duplicata da checagem 45 esperando para
@@ -191,6 +193,7 @@ public sealed class ModuloRecepcao : IModuloApp
             [
                 new AbaMenu("Dia", ChaveFila),
                 new AbaMenu("Visão geral", ChavesSuite.OcupacaoAgenda),
+                new AbaMenu("Por especialidade", ChaveOcupacaoEspecialidade),
                 new AbaMenu("Grade", ChaveAgenda),
                 new AbaMenu("Semana do profissional", ChavesSuite.ConsultorioSemana)
             ]
@@ -201,6 +204,13 @@ public sealed class ModuloRecepcao : IModuloApp
             // "Recepção / Check-in"). Declarado pela checagem 28 — toda `AbaMenu` aponta
             // para item — e escondido pelo composto acima.
             Chave = ChaveFila, Rotulo = "Agenda do dia", Glifo = "\uE8FD", Icone = "dia",
+            Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda
+        },
+        new ItemMenuModulo
+        {
+            // A aba "Por especialidade" da Agenda (out/2026) — o mapa de horários livres por
+            // especialidade e das coletas de preventivo. Escondido pelo composto acima.
+            Chave = ChaveOcupacaoEspecialidade, Rotulo = "Ocupação por especialidade", Glifo = "", Icone = "cal",
             Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda
         },
         // A SALA DE INFUSÃO, onde a ENFERMAGEM alcança (parcela 48).
@@ -502,6 +512,7 @@ public sealed class ModuloRecepcao : IModuloApp
     public object? CriarTela(string chave, IServiceProvider servicos) => chave switch
     {
         ChavesSuite.OcupacaoAgenda => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.VisaoGeralDaAgenda), servicos),
+        ChaveOcupacaoEspecialidade => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.OcupacaoPorEspecialidade), servicos),
         ChavesSuite.PedidosEnfermagem => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PedidosDaEnfermagem), servicos),
         ChaveConfirmacoes => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ConfirmacoesDeAgenda), servicos),
         ChavePagamentos => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PagamentosDoBalcao), servicos),

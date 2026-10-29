@@ -131,9 +131,9 @@ public sealed class AssinaturaDigitalService
         ArgumentNullException.ThrowIfNull(certificado);
         ArgumentNullException.ThrowIfNull(pedido);
 
-        // Ponto de extensão do motor para conferir formatos CMS nos testes.
-        // O fluxo clínico usa a chave privada do A1 importado.
-        var personalizado = assinadorPersonalizado;
+        // Quem faz a conta: o assinador explícito (os testes), o do certificado em nuvem
+        // (SafeID) ou, nulos os dois, a chave privada do A1 importado.
+        var personalizado = assinadorPersonalizado ?? certificado.AssinadorRemoto;
 
         Criticar(certificado, exigirChaveLocal: personalizado is null);
         GarantirFonte();
@@ -210,7 +210,7 @@ public sealed class AssinaturaDigitalService
         ArgumentNullException.ThrowIfNull(certificado);
         ArgumentNullException.ThrowIfNull(pedido);
 
-        var personalizado = assinadorPersonalizado;
+        var personalizado = assinadorPersonalizado ?? certificado.AssinadorRemoto;
 
         Criticar(certificado, exigirChaveLocal: personalizado is null);
         GarantirFonte();

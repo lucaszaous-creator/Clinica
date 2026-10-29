@@ -5,7 +5,7 @@ sessão). O texto é o MESMO, sem reescrita: design system, WPF/XAML, Blazor, EF
 `verificar-suite`, assinatura digital, impressão, CRM e as rodadas de UI, cada uma com o defeito que a
 originou. Antes de escrever uma tela, uma consulta ou uma checagem, procure aqui a lição da área.
 
-## Índice (210 tópicos, na ordem do arquivo)
+## Índice (211 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -218,6 +218,7 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
 - Telefone que vai ao CRM tira o prefixo de DISCAGEM antes do 55 — em toda porta, inclusive na BUSCA
 - Menu de contexto no Blazor: a regra na Application, `aria-disabled` para a dica, `preventDefault` no elemento e a posição no JS
 - Blazor Sections: o lugar de destino é um objeto POR INSTÂNCIA, nunca um nome global
+- `<Aviso>` só desenha o TEXTO — conteúdo filho sem `Texto` some (out/2026)
 - Atualização que falha não pode se repetir sozinha: o Velopack REABRE o app antigo
 ---
 
@@ -5308,6 +5309,11 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
   isso sem rolar nada (à vista, não recortado, texto ≥ 180 px) em cada tamanho, normal e dia cheio:
   rode-o antes de mandar foto.
 
+- **`<Aviso>` só desenha o TEXTO — conteúdo filho sem `Texto` some (out/2026)**: o componente `Aviso` decide se aparece pelo parâmetro `Texto`; o `ChildContent` é um ACRÉSCIMO ao
+lado da frase, nunca a frase. Na agenda de preventivo escrevi `<Aviso Tom="erro"><strong>…</strong>…</Aviso>`
+— nada falhou, nenhum teste reprovou, e o aviso de "dia lotado" simplesmente não existia na tela (achado
+lendo o texto da página na prévia). Frase vai em `Texto="…"`; botões ou links que acompanham a
+frase podem ir no conteúdo filho.
 - **Atualização que falha não pode se repetir sozinha: o Velopack REABRE o app antigo** (26/10/2026). Na máquina da clínica um app da suíte
   mostrava a tela de atualização do Velopack a cada abertura e nunca concluía; o dono reinstalou
   por acesso remoto. O mecanismo está no `velopack_<app>.log` (`%LOCALAPPDATA%\velopack\`): o

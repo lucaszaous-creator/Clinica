@@ -1,0 +1,47 @@
+/* Ocupação por especialidade (out/2026): o mapa de quartos de hotel da agenda. */
+.rec-ocesp-corpo{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:var(--space-4);align-items:start}
+@media (max-width:1180px){.rec-ocesp-corpo{grid-template-columns:1fr}}
+.rec-ocesp-mapa{padding:0;overflow:hidden}
+.rec-ocesp-rolagem{overflow-x:auto}
+.rec-ocesp-grade{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed;min-width:720px}
+.rec-ocesp-grade th,.rec-ocesp-grade td{padding:var(--space-1) 2px;border-bottom:1px solid var(--borda);text-align:center;vertical-align:middle}
+.rec-ocesp-grade thead th{font-weight:500;color:var(--texto-secundario);font-size:var(--text-small-size);line-height:1.2;padding:var(--space-2) 2px}
+.rec-ocesp-grade thead th b{display:block;color:var(--texto-primario);font-size:15px}
+.rec-ocesp-grade thead th.hoje b{color:var(--acento)}
+.rec-ocesp-grade .rec-ocesp-esp{width:190px;text-align:left;padding:var(--space-2) var(--space-4)}
+.rec-ocesp-esp strong{display:block;font-weight:600;color:var(--texto-primario)}
+.rec-ocesp-esp small{display:block;color:var(--texto-secundario);font-weight:400;font-size:var(--text-small-size);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rec-ocesp-grade tr.preventivo .rec-ocesp-esp{background:var(--acento-suave);padding-left:var(--space-6)}
+.rec-ocesp-grade tr.preventivo .rec-ocesp-esp strong{color:var(--acento)}
+.rec-ocesp-c{display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;min-height:44px;
+  border:0;border-radius:var(--radius-control);font:inherit;line-height:1.1;padding:var(--space-1) 0}
+.rec-ocesp-c b{font-size:15px;font-weight:600}
+.rec-ocesp-c small{font-size:11px;font-weight:500;margin-top:2px}
+button.rec-ocesp-c{cursor:pointer}
+button.rec-ocesp-c:focus-visible{outline:2px solid var(--foco);outline-offset:1px}
+.rec-ocesp-c.escolhida{box-shadow:0 0 0 2px var(--acento)}
+.rec-ocesp-c.livre{background:var(--sucesso-suave);color:var(--sucesso-forte)}
+.rec-ocesp-c.quase{background:var(--aviso-suave);color:var(--aviso-texto)}
+.rec-ocesp-c.cheio{background:var(--erro-suave);color:var(--erro-texto)}
+.rec-ocesp-c.fora{background:repeating-linear-gradient(135deg,var(--cinza-100) 0 5px,var(--superficie) 5px 10px);
+  color:var(--texto-secundario);font-size:11px}
+.rec-ocesp-legenda{display:flex;flex-wrap:wrap;gap:var(--space-4);padding:var(--space-3) var(--space-4);
+  color:var(--texto-secundario);font-size:var(--text-small-size)}
+.rec-ocesp-legenda span{display:flex;align-items:center;gap:6px}
+.rec-ocesp-legenda i{width:12px;height:12px;border-radius:3px}
+.rec-ocesp-legenda i.livre{background:var(--sucesso-suave)}
+.rec-ocesp-legenda i.quase{background:var(--aviso-suave)}
+.rec-ocesp-legenda i.cheio{background:var(--erro-suave)}
+.rec-ocesp-legenda i.fora{background:repeating-linear-gradient(135deg,var(--cinza-200) 0 3px,var(--superficie) 3px 6px)}
+.rec-ocesp-legenda .rec-ocesp-dica{margin-left:auto}
+.rec-ocesp-lado{padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-3)}
+.rec-ocesp-lado h3{margin:0;font-size:16px}
+.rec-ocesp-lado h4{margin:var(--space-1) 0 0;font-size:var(--text-small-size);text-transform:uppercase;letter-spacing:.04em;color:var(--texto-secundario)}
+.rec-ocesp-quem{margin:0;color:var(--texto-secundario)}
+.rec-ocesp-nada{margin:0;color:var(--texto-secundario)}
+.rec-ocesp-lista{list-style:none;margin:0;padding:0;border:1px solid var(--borda);border-radius:var(--radius-control)}
+.rec-ocesp-lista li{display:flex;gap:var(--space-3);padding:var(--space-2) var(--space-3);border-bottom:1px solid var(--borda)}
+.rec-ocesp-lista li:last-child{border-bottom:0}
+.rec-ocesp-lista li span{color:var(--texto-secundario);font-variant-numeric:tabular-nums}
+.rec-ocesp-carregando{color:var(--texto-secundario)}

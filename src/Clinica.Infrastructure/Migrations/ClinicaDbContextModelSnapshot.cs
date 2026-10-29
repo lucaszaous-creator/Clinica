@@ -129,6 +129,9 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<DateTime?>("ChegadaEm")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<bool>("ColetaPreventivo")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime?>("CriadoEm")
                         .HasColumnType("timestamp without time zone");
 
@@ -601,6 +604,9 @@ namespace Clinica.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
+
+                    b.Property<bool>("ColetaPreventivo")
+                        .HasColumnType("boolean");
 
                     b.Property<DateOnly>("Data")
                         .HasColumnType("date");
@@ -5683,6 +5689,9 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<string>("HorariosAtendimento")
                         .HasMaxLength(400)
                         .HasColumnType("character varying(400)");
+
+                    b.Property<int?>("LimitePreventivoPorDia")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Nome")
                         .IsRequired()

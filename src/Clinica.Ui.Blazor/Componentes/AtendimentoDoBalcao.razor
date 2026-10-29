@@ -98,6 +98,40 @@
                                     }
                                 </select>
                             </Campo>
+                            @* COLETA DE PREVENTIVO (out/2026): conta na agenda paralela do profissional
+                               (teto por dia) e gera a 2ª guia. A recusa é do AgendaService; aqui só se
+                               mostra a conta antes, para a secretária oferecer outro dia à paciente. *@
+                            <div class="ra-preventivo largo">
+                                <label class="ra-preventivo-linha">
+                                    <input type="checkbox" checked="@_preventivo" @onchange="TrocarPreventivo" />
+                                    <span class="ra-preventivo-texto"><strong>Coleta de preventivo</strong>
+                                        <small>Gera a 2ª guia (preventivo) e conta no limite de coletas do dia de quem atende.</small></span>
+                                    @if (_preventivo && _vagasPreventivo is { } vp)
+                                    {
+                                        <Selo Tom="@(vp.Lotado ? "perigo" : vp.Restantes == 1 ? "aviso" : "sucesso")">@PreventivoNaTela.Selo(vp)</Selo>
+                                    }
+                                </label>
+                                @if (_preventivo && _profissional is null)
+                                {
+                                    <Aviso Tom="info" Texto="Escolha quem atende para ver as vagas de preventivo do dia." />
+                                }
+                                else if (_preventivo && _vagasPreventivo is { Lotado: true } lotado)
+                                {
+                                    <Aviso Tom="erro" Texto="@($"{PreventivoNaTela.Lotado(lotado)} Ofereça outro dia para a coleta — ou desligue o preventivo para marcar só a consulta.")" />
+                                    @if (_proximosPreventivo.Count > 0)
+                                    {
+                                        <div class="ra-preventivo-dias">
+                                            @foreach (var d in _proximosPreventivo)
+                                            {
+                                                var dia = d.Dia;
+                                                <button type="button" class="botao mini" @onclick="() => EscolherDiaDePreventivo(dia)">
+                                                    @PreventivoNaTela.Dia(d)
+                                                </button>
+                                            }
+                                        </div>
+                                    }
+                                }
+                            </div>
                         }
                         @if (_opcoesPrimeiro.Count > 0)
                         {
@@ -366,9 +400,9 @@
                     }
                     @if (!_lancado)
                     {
-                        <button type="button" class="botao primario ra-acao" disabled="@(_ocupado || !PodeGravar || FaltaHora)" @onclick="LancarAsync"
+                        <button type="button" class="botao primario ra-acao" disabled="@(_ocupado || !PodeGravar || FaltaHora || PreventivoSemVaga)" @onclick="LancarAsync"
                                 title="@(PodeGravar ? null : Marcar ? "Marcar exige acesso de edição à agenda (e ao lançamento, com a guia na marcação)." : "Lançar exige o acesso de lançamento de atendimento.")">
-                            @(_ocupado ? "Gravando…" : RotuloDoBotao)
+                            @(_ocupado ? "Gravando…" : PreventivoSemVaga ? "Escolha outro dia para a coleta" : RotuloDoBotao)
                         </button>
                     }
                     else
@@ -430,6 +464,10 @@
     private bool _equipeLida;
     private EntradaModalidade? _modalidade;
     private EntradaEspecialidade? _especialidade;
+    private bool _preventivo;
+    private VagasDePreventivoNoDia? _vagasPreventivo;
+    private IReadOnlyList<VagasDePreventivoNoDia> _proximosPreventivo = [];
+    private int _gPreventivo;
     private IReadOnlyList<TipoCodigo> _opcoesPrimeiro = [];
     private TipoCodigo? _primeiroCodigo;
     private Profissional? _profissional;
@@ -485,6 +523,13 @@
 
     /// <summary>No marcar sem hora escolhida o botão espera — e diz o que falta.</summary>
     private bool FaltaHora => Marcar && !AtendimentoDoBalcaoNaTela.HoraValida(_hora);
+
+    /// <summary>
+    /// A coleta está ligada e o dia não comporta mais nenhuma. O botão para antes do clique,
+    /// porque o serviço recusaria de qualquer forma. Um horário que já tinha a coleta não
+    /// disputa a própria vaga: a conta o ignora.
+    /// </summary>
+    private bool PreventivoSemVaga => _preventivo && EhConsulta && _vagasPreventivo is { Lotado: true };
     private bool MostrarPrevia => _previa.Count > 0 && !_lancado && AtendimentoDoBalcaoNaTela.MostraPrevia(Marcar, _guiaNaMarcacao);
     private static bool PodeCadastrar => Pode(Permissao.EditarPaciente);
 
@@ -781,7 +826,13 @@
         _modalidade = m;
         _opcoesPrimeiro = AtendimentoDoBalcaoNaTela.OpcoesPrimeiroCodigo(Base);
         _primeiroCodigo = AtendimentoDoBalcaoNaTela.PrimeiroCodigoApos(Base, _primeiroCodigo);
-        if (!EhConsulta) _especialidade = null;
+        if (!EhConsulta)
+        {
+            _especialidade = null;
+            _preventivo = false;
+            _vagasPreventivo = null;
+            _proximosPreventivo = [];
+        }
         FiltrarEspecialidades();
         if (prever) Disparar(PreverAsync);
     }
@@ -791,6 +842,50 @@
         var cod = e.Value?.ToString();
         _especialidade = _especialidades.FirstOrDefault(x => x.Codigo == cod);
         Disparar(PreverAsync);
+    }
+
+    private void TrocarPreventivo(ChangeEventArgs e)
+    {
+        _preventivo = e.Value is true;
+        Disparar(PreverAsync);
+        Disparar(ConferirPreventivoAsync);
+    }
+
+    /// <summary>A secretária aceitou outro dia para a coleta: a data muda como se ela a digitasse.</summary>
+    private void EscolherDiaDePreventivo(DateOnly dia)
+        => TrocarData(new ChangeEventArgs { Value = dia.ToString("yyyy-MM-dd") });
+
+    /// <summary>
+    /// A conta de preventivo do dia escolhido e os próximos dias com vaga (30 dias à frente).
+    /// Leitura só de exibição: falha vira log e a tela segue — quem recusa é o serviço.
+    /// </summary>
+    private async Task ConferirPreventivoAsync()
+    {
+        var g = ++_gPreventivo;
+        if (!_preventivo || !EhConsulta || _profissional is not { } prof)
+        {
+            _vagasPreventivo = null;
+            _proximosPreventivo = [];
+            return;
+        }
+        var data = _data;
+        var ignorar = UsarHorarioDoDia ? _horarioDoDia?.AgendamentoId : null;
+        try
+        {
+            using var escopo = Escopo();
+            var dias = await escopo.ServiceProvider.GetRequiredService<AgendaService>()
+                .VagasDePreventivoAsync(prof.Id, data, data.AddDays(30), ignorarAgendamentoId: ignorar);
+            if (g != _gPreventivo || Descartada) return;
+            _vagasPreventivo = dias[0];
+            _proximosPreventivo = PreventivoNaTela.ProximosComVaga(prof, dias, data);
+        }
+        catch (Exception ex)
+        {
+            if (g != _gPreventivo) return;
+            Clinica.Application.Diagnostico.Registrar("Recepção — vagas de preventivo não puderam ser lidas", ex);
+            _vagasPreventivo = null;
+            _proximosPreventivo = [];
+        }
     }
 
     private void TrocarPrimeiroCodigo(ChangeEventArgs e)
@@ -810,6 +905,7 @@
         Disparar(PreverAsync);
         Disparar(MontarHorasAsync);
         Disparar(ConferirConflitosAsync);
+        Disparar(ConferirPreventivoAsync);
         if (_paciente is { } p)
         {
             var id = p.Id;
@@ -828,6 +924,7 @@
         Disparar(PreverAsync);
         Disparar(ConferirConflitosAsync);
         Disparar(MontarHorasAsync);
+        Disparar(ConferirPreventivoAsync);
     }
 
     private void TrocarSala(ChangeEventArgs e)
@@ -953,7 +1050,8 @@
             var sp = escopo.ServiceProvider;
             var (previa, porModalidade) = await sp.GetRequiredService<AtendimentoService>().PreverComModalidadesAsync(
                 paciente.Id, data, baseMod, codigos, primeiroCodigo: primeiro,
-                modalidadeCodigo: modalidade.Codigo, especialidadeConsultaCodigo: especialidade);
+                modalidadeCodigo: modalidade.Codigo, especialidadeConsultaCodigo: especialidade,
+                coletaPreventivo: EhConsulta && _preventivo);
 
             // ⚠️ Sequencial, nunca WhenAll — é o mesmo DbContext do escopo.
             var cobranca = CobrancaDaSessao.Nenhuma;
@@ -1066,7 +1164,13 @@
             {
                 DefinirModalidade(marcada);
                 if (EhConsulta)
+                {
                     _especialidade = _especialidades.FirstOrDefault(e => e.Codigo == _horarioDoDia.EspecialidadeConsultaCodigo) ?? _especialidade;
+                    // O horário marcado com coleta vem com a chave ligada: lançar sobre ele
+                    // sem a 2ª guia seria esquecer o preventivo que a agenda prometeu.
+                    _preventivo = _horarioDoDia.ColetaPreventivo;
+                    Disparar(ConferirPreventivoAsync);
+                }
             }
         }
         catch (Exception ex)
@@ -1302,12 +1406,12 @@
                     horarioUsado.AgendamentoId, _observacoes,
                     modalidadeCodigo: modalidade.Codigo, especialidadeConsultaCodigo: especialidade,
                     primeiroCodigo: primeiro, profissionalId: _profissional?.Id, operador: Operador,
-                    salaId: _sala?.Id, concluirSessao: _jaRealizado)
+                    salaId: _sala?.Id, concluirSessao: _jaRealizado, coletaPreventivo: EhConsulta && _preventivo)
                 : await agenda.LancarAvulsoAsync(
                     paciente.Id, _data.ToDateTime(hora), modalidade.Base, _observacoes,
                     modalidadeCodigo: modalidade.Codigo, especialidadeConsultaCodigo: especialidade,
                     primeiroCodigo: primeiro, profissionalId: _profissional?.Id, operador: Operador,
-                    salaId: _sala?.Id, concluirSessao: _jaRealizado);
+                    salaId: _sala?.Id, concluirSessao: _jaRealizado, coletaPreventivo: EhConsulta && _preventivo);
 
             agendamentoId = agendamento.Id;
             var hoje = DateOnly.FromDateTime(DateTime.Today);
@@ -1429,7 +1533,8 @@
                 especialidadeConsultaCodigo: EhConsulta ? _especialidade?.Codigo : null,
                 profissionalId: _profissional?.Id, salaId: _sala?.Id,
                 duracaoMinutos: AtendimentoDoBalcaoNaTela.DuracaoInformada(_duracao), encaixe: _comoEncaixe,
-                operador: Operador, primeiroCodigo: EhDupla ? _primeiroCodigo : null);
+                operador: Operador, primeiroCodigo: EhDupla ? _primeiroCodigo : null,
+                coletaPreventivo: EhConsulta && _preventivo);
 
             if (ag.Atendimento is { } atendimento)
             {
@@ -1542,6 +1647,9 @@
         _lancado = false;
         DefinirModalidade(null, prever: false);
         _especialidade = null;
+        _preventivo = false;
+        _vagasPreventivo = null;
+        _proximosPreventivo = [];
         _sala = null;
         _duracao = string.Empty;
         _conflitos = [];

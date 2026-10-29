@@ -126,3 +126,13 @@
 /* O formulário travado depois de gravar: o fieldset não pode mexer no leiaute. */
 .rec-atendimento .ra-travado{border:0;margin:0;padding:0;min-width:0;display:contents}
 .rec-atendimento .ra-travado:disabled .cartao{opacity:.72}
+
+/* Coleta de preventivo (out/2026): a chave, o selo com a conta do dia e os outros dias. */
+.ra-preventivo{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-3) var(--space-4);
+  border:1px solid var(--borda);border-radius:var(--radius-card);background:var(--acento-suave)}
+.ra-preventivo-linha{display:flex;align-items:center;gap:var(--space-3);cursor:pointer}
+.ra-preventivo-linha input{width:18px;height:18px;flex:none;accent-color:var(--acento)}
+.ra-preventivo-texto{display:flex;flex-direction:column}
+.ra-preventivo-texto small{color:var(--texto-secundario)}
+.ra-preventivo-linha .selo{margin-left:auto}
+.ra-preventivo-dias{display:flex;flex-wrap:wrap;gap:var(--space-2)}

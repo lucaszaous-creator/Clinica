@@ -115,6 +115,16 @@
                                 }
                             </select>
                         </Campo>
+                        @* A coleta de preventivo (out/2026): o teto do dia é conferido pelo
+                           AgendaService ao gravar — a recusa volta com a conta e o que fazer.
+                           O pedido da lista de espera não a leva (o serviço da lista não a conhece). *@
+                        @if (PedidoListaEsperaId is null)
+                        {
+                            <label class="agf-preventivo">
+                                <input type="checkbox" @bind="_preventivo" />
+                                <span>Coleta de preventivo <small>(2ª guia; conta no limite de coletas do dia)</small></span>
+                            </label>
+                        }
                     }
                 </div>
 
@@ -229,6 +239,7 @@
     private Sala? _sala;
     private EntradaModalidade? _modalidade;
     private EntradaEspecialidade? _especialidade;
+    private bool _preventivo;
 
     // O que o horário em edição TEM e o catálogo/filtro de hoje não oferece: aparece assim mesmo
     // (habilitação retirada depois da marcação não troca a modalidade em silêncio).
@@ -370,6 +381,7 @@
             : null;
         _modalidade = _modalidadeDoHorario;
         _especialidade = _especialidadeDoHorario;
+        _preventivo = ag.ColetaPreventivo;
         CarregarCatalogos(_modalidadeDoHorario.Codigo);
 
         _duracao = ag.DuracaoMinutos?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
@@ -635,7 +647,7 @@
                     profissionalId: _profissional?.Id, salaId: _sala?.Id,
                     duracaoMinutos: duracao,
                     manterRecursos: false, encaixe: _encaixe,
-                    avisosGuia: avisos);
+                    avisosGuia: avisos, coletaPreventivo: EhConsulta && _preventivo);
             }
             else if (PedidoListaEsperaId is { } pedidoId)
             {
@@ -657,7 +669,7 @@
                     especialidadeConsultaCodigo: especialidade,
                     profissionalId: _profissional?.Id, salaId: _sala?.Id,
                     duracaoMinutos: duracao, encaixe: _encaixe,
-                    operador: Operador);
+                    operador: Operador, coletaPreventivo: EhConsulta && _preventivo);
             }
 
             await AoConcluir.InvokeAsync(avisos);
