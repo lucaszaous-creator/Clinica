@@ -1,3 +1,4 @@
+using System.IO;
 using Clinica.Desktop.Shell.Configuracao;
 using Velopack;
 
@@ -15,6 +16,11 @@ namespace Clinica.Desktop.Shell;
 /// Downloads demorados continuam em segundo plano e são aplicados ao fechar.
 /// A verificação periódica recebe releases publicadas com o sistema já aberto.
 ///
+/// Cada versão tem no máximo <see cref="Clinica.Atualizacao.TentativasDeAtualizacao.Limite"/>
+/// tentativas de instalação por janela de horas: quando o Velopack não consegue trocar a
+/// pasta, ele reabre o app antigo, e sem esse limite a tela de atualização se repetia sem
+/// fim (clínica, 26/10/2026 — ver <c>docs/agentes/convencoes.md</c>).
+///
 /// Nunca lança: falha de rede não pode impedir o app de abrir.
 /// </summary>
 public static class AtualizadorSuite
@@ -22,6 +28,11 @@ public static class AtualizadorSuite
     private static readonly SemaphoreSlim Exclusao = new(1, 1);
     private static int _agendada;
     private static Task? _ciclo;
+
+    // Ao lado dos logs (fora da pasta versionada), um arquivo por app: no fallback de
+    // %APPDATA% a pasta de logs é dividida pelos quatro.
+    private static readonly Clinica.Atualizacao.TentativasDeAtualizacao Tentativas = new(Path.Combine(
+        LogSuite.Pasta, $"atualizacao-{System.Reflection.Assembly.GetEntryAssembly()?.GetName().Name ?? "app"}.json"));
 
     /// <summary>Versão instalada (ex.: "1.0.9"), ou nulo no exe portátil/dev.</summary>
     public static string? VersaoInstalada
@@ -63,6 +74,17 @@ public static class AtualizadorSuite
             if (novidade is null)
                 return false;
 
+            // A instalação que falha reabre ESTE app na versão antiga, e ele chegaria aqui de
+            // novo com a mesma novidade: sem o limite, a tela de atualização não sai mais.
+            var alvo = novidade.TargetFullRelease.Version.ToString();
+            if (Tentativas.MotivoParaNaoAplicar(alvo, DateTime.UtcNow) is { } motivo)
+            {
+                LogSuite.Registrar("Atualização — instalação suspensa para não repetir a tela",
+                    new InvalidOperationException(motivo));
+                return false;
+            }
+            Tentativas.Registrar(alvo, DateTime.UtcNow);
+
             mgr.ApplyUpdatesAndRestart(novidade); // encerra este processo e reabre atualizado
             return true;
         }
@@ -91,7 +113,11 @@ public static class AtualizadorSuite
 
     private static void Agendar(UpdateManager mgr, UpdateInfo pronta)
     {
+        // Suspensa: a abertura já registrou o motivo; a cada 30 min seria o mesmo log.
+        var alvo = pronta.TargetFullRelease.Version.ToString();
+        if (Tentativas.MotivoParaNaoAplicar(alvo, DateTime.UtcNow) is not null) return;
         if (Interlocked.CompareExchange(ref _agendada, 1, 0) != 0) return;
+        Tentativas.Registrar(alvo, DateTime.UtcNow);
         try { mgr.WaitExitThenApplyUpdates(pronta); }
         catch { Volatile.Write(ref _agendada, 0); throw; }
     }
