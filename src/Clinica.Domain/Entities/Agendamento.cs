@@ -107,6 +107,14 @@ public class Agendamento
     /// <summary>Código da especialidade no catálogo. Null = embutida.</summary>
     public string? EspecialidadeConsultaCodigo { get; set; }
 
+    /// <summary>
+    /// A consulta marcada inclui a COLETA DE PREVENTIVO (out/2026, pedido da ginecologia).
+    /// Conta na "agenda paralela" do profissional, que tem um teto por dia
+    /// (<see cref="Profissional.LimitePreventivoEfetivo"/>), e gera a 2ª guia do atendimento.
+    /// Só faz sentido em Consulta; nas outras modalidades fica falso.
+    /// </summary>
+    public bool ColetaPreventivo { get; set; }
+
     public StatusAgendamento Status { get; set; } = StatusAgendamento.Agendado;
 
     public OrigemAgendamento Origem { get; set; } = OrigemAgendamento.Manual;

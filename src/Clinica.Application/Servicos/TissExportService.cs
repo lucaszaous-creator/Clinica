@@ -48,6 +48,7 @@ public sealed class TissExportService
         var guias = codigos
             .Where(c => c.Baixado)
             .GroupBy(c => c.AtendimentoId)
+            .SelectMany(g => SepararGuias(g))
             .Select((g, i) => CriarGuia(g, prestador, i + 1))
             .ToList();
 
@@ -110,19 +111,41 @@ public sealed class TissExportService
             new XElement(Ans + "Padrao", VersaoPadrao));
     }
 
+    /// <summary>Consulta (de qualquer tipo) — o que sai em guia de consulta, e não SP/SADT.</summary>
+    public static bool EhConsulta(TipoCodigo tipo) => tipo is TipoCodigo.Consulta or TipoCodigo.ConsultaEspecialidade;
+
     /// <summary>
-    /// Consulta pura vira guia de consulta; qualquer procedimento (acupuntura, eletro, BSV)
-    /// vira guia SP/SADT, como as operadoras esperam no 4.01.
+    /// As GUIAS de um atendimento (out/2026): as consultas numa, os procedimentos noutra.
+    /// Até a coleta de preventivo, um atendimento nunca misturava os dois — a modalidade
+    /// Consulta só gerava consulta —, e agrupar por atendimento bastava. A consulta com
+    /// preventivo são DUAS guias (consulta + SP/SADT do preventivo); agrupadas, a consulta
+    /// sairia dentro de uma SP/SADT. Atendimento sem mistura continua com uma guia só, igual.
+    /// O PDF da guia usa a mesma separação, para o papel e o XML dizerem o mesmo.
     /// </summary>
-    private static XElement CriarGuia(IGrouping<int, CodigoFaturamento> grupo, DadosPrestador prestador, int numeroGuia)
+    public static List<IReadOnlyList<CodigoFaturamento>> SepararGuias(IEnumerable<CodigoFaturamento> codigos)
     {
-        var somenteConsulta = grupo.All(c => c.Tipo is TipoCodigo.Consulta or TipoCodigo.ConsultaEspecialidade);
+        var lista = codigos.ToList();
+        var consultas = lista.Where(c => EhConsulta(c.Tipo)).ToList();
+        var procedimentos = lista.Where(c => !EhConsulta(c.Tipo)).ToList();
+        var guias = new List<IReadOnlyList<CodigoFaturamento>>();
+        if (consultas.Count > 0) guias.Add(consultas);
+        if (procedimentos.Count > 0) guias.Add(procedimentos);
+        return guias;
+    }
+
+    /// <summary>
+    /// Consulta pura vira guia de consulta; qualquer procedimento (acupuntura, eletro, BSV,
+    /// preventivo) vira guia SP/SADT, como as operadoras esperam no 4.01.
+    /// </summary>
+    private static XElement CriarGuia(IReadOnlyList<CodigoFaturamento> grupo, DadosPrestador prestador, int numeroGuia)
+    {
+        var somenteConsulta = grupo.All(c => EhConsulta(c.Tipo));
         return somenteConsulta
             ? CriarGuiaConsulta(grupo, prestador, numeroGuia)
             : CriarGuiaSpSadt(grupo, prestador, numeroGuia);
     }
 
-    private static XElement CriarGuiaConsulta(IGrouping<int, CodigoFaturamento> grupo, DadosPrestador prestador, int numeroGuia)
+    private static XElement CriarGuiaConsulta(IReadOnlyList<CodigoFaturamento> grupo, DadosPrestador prestador, int numeroGuia)
     {
         var primeiro = grupo.First();
 
@@ -140,7 +163,7 @@ public sealed class TissExportService
                     new XElement(Ans + "codigoProcedimento", prestador.CodigoTuss(primeiro.Tipo)))));
     }
 
-    private static XElement CriarGuiaSpSadt(IGrouping<int, CodigoFaturamento> grupo, DadosPrestador prestador, int numeroGuia)
+    private static XElement CriarGuiaSpSadt(IReadOnlyList<CodigoFaturamento> grupo, DadosPrestador prestador, int numeroGuia)
     {
         var primeiro = grupo.First();
         var data = primeiro.Atendimento?.Data.ToString("yyyy-MM-dd") ?? string.Empty;

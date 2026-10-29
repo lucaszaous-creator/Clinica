@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<base href="http://127.0.0.1:5199/">
+<title>Ocupação por especialidade — mockup</title>
+<link rel="stylesheet" href="css/clinica.css">
+<style>
+/* Só o que é NOVO nesta tela; o resto é o CSS real do sistema. */
+.oc-corpo{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:var(--space-4);align-items:start}
+.oc-mapa{padding:0;overflow:hidden}
+.oc-cab{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--borda)}
+.oc-cab h2{margin:0;font-size:15px}
+.oc-cab .segmentado{margin-left:auto}
+.oc-grade{display:grid;grid-template-columns:200px repeat(10,minmax(0,1fr))}
+.oc-h{padding:var(--space-2) 2px;text-align:center;color:var(--texto-secundario);font-size:12px;border-bottom:1px solid var(--borda);line-height:1.2}
+.oc-h b{display:block;color:var(--texto-primario);font-size:15px}
+.oc-h.semana{border-left:1px solid var(--borda-hover)}
+.oc-esp{padding:var(--space-2) var(--space-4);border-bottom:1px solid var(--borda);display:flex;flex-direction:column;justify-content:center;min-height:52px}
+.oc-esp b{font-weight:600;display:flex;align-items:center;gap:var(--space-2)}
+.oc-esp small{color:var(--texto-secundario);font-size:12px}
+.oc-esp i{width:8px;height:8px;border-radius:50%;flex:none}
+.oc-esp.sub{background:var(--acento-suave);padding-left:var(--space-6)}
+.oc-esp.sub b{color:var(--acento)}
+.oc-c{margin:4px 2px;border-radius:var(--radius-control);display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:44px;font-weight:600;line-height:1.1;font-size:15px}
+.oc-c small{font-size:10.5px;font-weight:500;margin-top:2px}
+.oc-c.semana{margin-left:5px}
+.oc-c.livre{background:var(--sucesso-suave);color:var(--sucesso-forte)}
+.oc-c.meio{background:var(--aviso-suave);color:var(--aviso-texto)}
+.oc-c.cheio{background:var(--erro-suave);color:var(--erro-texto)}
+.oc-c.fora{background:repeating-linear-gradient(135deg,var(--cinza-100) 0 5px,var(--superficie) 5px 10px);color:var(--texto-secundario);font-size:11px;font-weight:500}
+.oc-c.sel{box-shadow:0 0 0 2px var(--acento)}
+.oc-linha-sub{display:contents}
+.oc-linha-sub .oc-c{min-height:50px}
+.oc-pips{display:flex;gap:2px;margin-top:3px}
+.oc-pips i{width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.25}
+.oc-pips i.o{opacity:1}
+.oc-leg{display:flex;flex-wrap:wrap;gap:var(--space-4);padding:var(--space-3) var(--space-4);color:var(--texto-secundario);font-size:12.5px}
+.oc-leg span{display:flex;align-items:center;gap:6px}
+.oc-leg i{width:12px;height:12px;border-radius:3px}
+.oc-dia{padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-3)}
+.oc-dia h3{margin:0;font-size:16px;display:flex;align-items:center;gap:var(--space-2)}
+.oc-dia h3 .selo{margin-left:auto}
+.oc-lista{display:flex;flex-direction:column;border:1px solid var(--borda);border-radius:var(--radius-control)}
+.oc-lista div{display:flex;gap:var(--space-3);padding:var(--space-2) var(--space-3);border-bottom:1px solid var(--borda);font-size:13px}
+.oc-lista div:last-child{border-bottom:0}
+.oc-lista span:first-child{color:var(--texto-secundario);font-variant-numeric:tabular-nums}
+.oc-lista span:nth-child(2){flex:1;font-weight:500}
+.oc-lista span:last-child{color:var(--texto-secundario);font-size:12px}
+.oc-prox{display:flex;flex-direction:column;gap:var(--space-2)}
+.oc-prox .botao{justify-content:flex-start}
+.oc-prox .botao .selo{margin-left:auto}
+.oc-titulo-lado{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--texto-secundario);margin:var(--space-1) 0 0}
+</style>
+</head>
+<body>
+<div class="pagina">
+  <header class="cabecalho"><div class="cabecalho-texto"><p class="sobretitulo">Recepção · Agenda</p><h1>Ocupação por especialidade</h1><p class="subtitulo">Quantos horários sobram por dia em cada especialidade — e quantas coletas de preventivo ainda cabem.</p></div>
+    <div class="acoes"><button type="button" class="botao">Limites por dia…</button><button type="button" class="botao primario">+ Marcar atendimento</button></div></header>
+
+  <div class="filtros cartao">
+    <label class="campo-bloco"><span class="campo-rotulo">Especialidade</span><select class="campo"><option>Todas as especialidades</option></select></label>
+    <label class="campo-bloco"><span class="campo-rotulo">Convênio</span><select class="campo"><option>Todos</option></select></label>
+    <label class="campo-bloco"><span class="campo-rotulo">Semana</span><select class="campo"><option>16/11 a 27/11</option></select></label>
+  </div>
+
+  <div class="kpis">
+    <div class="cartao kpi"><div class="kpi-rotulo"><span class="kpi-rotulo-texto">Horários livres nas 2 semanas</span></div><div class="kpi-valor">214</div><div class="kpi-nota">de 520 horários · 59% ocupado</div></div>
+    <div class="cartao kpi"><div class="kpi-rotulo"><span class="kpi-rotulo-texto">Mais procurada</span></div><div class="kpi-valor">Acupuntura</div><div class="kpi-nota">86% ocupada · 3 dias lotados</div></div>
+    <div class="cartao kpi"><div class="kpi-rotulo"><span class="kpi-rotulo-texto">Preventivos marcados</span></div><div class="kpi-valor">27</div><div class="kpi-nota">de 40 vagas · Dra. Helena, Ginecologia</div></div>
+    <div class="cartao kpi"><div class="kpi-rotulo"><span class="kpi-rotulo-texto">Próxima coleta de preventivo</span></div><div class="kpi-valor tom-sucesso" style="color:var(--sucesso-forte)">seg 16/11</div><div class="kpi-nota">2 vagas · limite de 5 por dia</div></div>
+  </div>
+
+  <div class="oc-corpo">
+    <section class="cartao oc-mapa">
+      <div class="oc-cab"><h2>Mapa da semana</h2><span class="selo tom-info">o número é o que SOBRA</span>
+        <div class="segmentado"><button type="button">‹</button><button type="button" class="ativo">Hoje</button><button type="button">›</button></div></div>
+      <div class="oc-grade" id="grade"></div>
+      <div class="oc-leg">
+        <span><i style="background:var(--sucesso-suave)"></i>Folga na agenda</span>
+        <span><i style="background:var(--aviso-suave)"></i>Quase cheio</span>
+        <span><i style="background:var(--erro-suave)"></i>Lotado</span>
+        <span><i style="background:repeating-linear-gradient(135deg,var(--cinza-200) 0 3px,#fff 3px 6px)"></i>Sem atendimento</span>
+        <span style="margin-left:auto">Clique num dia para ver quem está marcado.</span>
+      </div>
+    </section>
+
+    <aside class="cartao oc-dia">
+      <h3>Qua, 25/11 · Preventivo <span class="selo tom-perigo">5 de 5</span></h3>
+      <div class="aviso erro" role="alert"><svg class="icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg><span><strong>Não cabe mais preventivo neste dia.</strong> A consulta de Ginecologia ainda pode ser marcada, sem a coleta.</span></div>
+      <p class="oc-titulo-lado">Coletas marcadas · Dra. Helena</p>
+      <div class="oc-lista">
+        <div><span>08:00</span><span>Mariana Lopes</span><span>Unimed</span></div>
+        <div><span>08:30</span><span>Ana Paula Ribeiro</span><span>Unimed</span></div>
+        <div><span>09:30</span><span>Juliana Freitas</span><span>Particular</span></div>
+        <div><span>10:30</span><span>Cláudia Moraes</span><span>Unimed</span></div>
+        <div><span>14:00</span><span>Renata Souza</span><span>Unimed</span></div>
+      </div>
+      <p class="oc-titulo-lado">Diga à paciente — próximas coletas</p>
+      <div class="oc-prox">
+        <button type="button" class="botao"><b>qui 26/11</b>&nbsp;· 3 vagas <span class="selo tom-sucesso">Marcar</span></button>
+        <button type="button" class="botao"><b>seg 30/11</b>&nbsp;· 4 vagas <span class="selo tom-sucesso">Marcar</span></button>
+        <button type="button" class="botao"><b>ter 01/12</b>&nbsp;· 5 vagas <span class="selo tom-sucesso">Marcar</span></button>
+      </div>
+    </aside>
+  </div>
+</div>
+<script>
+const dias=[["seg","16"],["ter","17"],["qua","18"],["qui","19"],["sex","20"],["seg","23"],["ter","24"],["qua","25"],["qui","26"],["sex","27"]];
+// [livres, total] por dia; null = a especialidade não atende naquele dia.
+const esp=[
+ {nome:"Acupuntura",cor:"#123A9E",sub:"Dr. Marcos · Bianca",v:[[2,24],[0,24],[3,24],[1,24],[0,24],[4,24],[0,24],[2,24],[5,24],[1,24]]},
+ {nome:"Clínica da Dor",cor:"#7C3AED",sub:"BSV e infusão",v:[[3,10],[5,10],[0,10],[2,10],[6,10],[1,10],[4,10],[0,10],[3,10],[7,10]]},
+ {nome:"Endocrinologia",cor:"#0891B2",sub:"às terças e quintas",v:[null,[4,12],null,[2,12],null,null,[0,12],null,[6,12],null]},
+ {nome:"Geriatria",cor:"#15803D",sub:"segundas e quartas",v:[[5,10],null,[3,10],null,null,[1,10],null,[4,10],null,null]},
+ {nome:"Ginecologia",cor:"#DB2777",sub:"Dra. Helena · consultas",v:[[6,16],null,[1,16],[5,16],[0,16],[7,16],null,[2,16],[6,16],[3,16]]},
+ {nome:"Coleta de preventivo",prev:true,sub:"limite 5 por dia",v:[[2,5],null,[0,5],[3,5],[0,5],[1,5],null,[0,5],[3,5],[0,5]]},
+ {nome:"Psiquiatria",cor:"#B45309",sub:"às sextas",v:[null,null,null,null,[2,8],null,null,null,null,[0,8]]},
+];
+function cel(x,i,prev){
+  const sem=i===5?' semana':'';
+  if(x===null) return `<div class="oc-c fora${sem}">não atende</div>`;
+  const [l,t]=x, f=l/t;
+  const cls=l===0?'cheio':(prev?(l===1?'meio':'livre'):(f<=.2?'meio':'livre'));
+  const sel=prev&&i===7?' sel':'';
+  if(prev){
+    const pips=Array.from({length:t},(_,k)=>`<i class="${k<t-l?'o':''}"></i>`).join('');
+    return `<div class="oc-c ${cls}${sel}${sem}">${l}<small>${l===0?'lotado':l===1?'1 vaga':l+' vagas'}</small><span class="oc-pips">${pips}</span></div>`;
+  }
+  return `<div class="oc-c ${cls}${sem}">${l}<small>${l===0?'lotado':'de '+t}</small></div>`;
+}
+let h='<div class="oc-h" style="text-align:left;padding-left:16px">Especialidade</div>'+dias.map((d,i)=>`<div class="oc-h${i===5?' semana':''}">${d[0]}<b>${d[1]}</b></div>`).join('');
+esp.forEach(e=>{
+  h+= e.prev
+    ? `<div class="oc-esp sub"><b>↳ ${e.nome}</b><small>${e.sub}</small></div>`
+    : `<div class="oc-esp"><b><i style="background:${e.cor}"></i>${e.nome}</b><small>${e.sub}</small></div>`;
+  h+=e.v.map((x,i)=>cel(x,i,e.prev)).join('');
+});
+document.getElementById('grade').innerHTML=h;
+</script>
+<script src="file:///C:/Users/ROYA/Documents/SemDor/Clinica/docs/mockups/agenda-preventivo/real-moldura.js"></script>
+</body>
+</html>

@@ -1,0 +1,256 @@
+@*
+  OCUPAÇÃO POR ESPECIALIDADE (out/2026) — o "mapa de quartos de hotel" da agenda: as
+  especialidades da clínica nas linhas, os dias nas colunas, e em cada célula quanto SOBRA.
+  Logo abaixo da especialidade vem a COLETA DE PREVENTIVO de quem a faz (a agenda paralela
+  com teto por dia, pedido da ginecologia). Clicar num dia de preventivo mostra quem está
+  marcado e os próximos dias com vaga — a frase que a secretária repete à paciente.
+
+  A tela só desenha: a conta de horário livre é a do "Próximas vagas" e a de preventivo é a
+  mesma que recusa a marcação (OcupacaoPorEspecialidade / VagasDePreventivoNoDia).
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@using Clinica.Application.Modelos
+@using Clinica.Application.Servicos
+@inherits TelaBase
+
+<div class="pagina rec-ocesp @(Carregando && _linhas is not null ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Recepção · Agenda" Titulo="Ocupação por especialidade"
+                     Subtitulo="Quantos horários sobram por dia em cada especialidade — e quantas coletas de preventivo ainda cabem.">
+        <span class="segmentado">
+            <button type="button" @onclick="() => MudarSemanaAsync(-1)" title="Duas semanas antes">‹</button>
+            <button type="button" @onclick="() => MudarSemanaAsync(0)">Hoje</button>
+            <button type="button" @onclick="() => MudarSemanaAsync(1)" title="Duas semanas depois">›</button>
+        </span>
+    </CabecalhoPagina>
+
+    @if (_erro is not null)
+    {
+        <FalhaDeLeitura Titulo="Não foi possível montar o mapa" Detalhe="@_erro" AoTentarDeNovo="AtualizarAsync" />
+    }
+    else if (_linhas is null)
+    {
+        <p class="rec-ocesp-carregando">Carregando…</p>
+    }
+    else if (_linhas.Count == 0)
+    {
+        <EstadoVazio Titulo="Nenhum profissional ativo" Icone="pessoas" Descricao="Cadastre quem atende em Profissionais e salas." />
+    }
+    else
+    {
+        <div class="kpis tres">
+            <Kpi Rotulo="Período" Valor="@($"{_de:dd/MM} a {_de.AddDays(OcupacaoPorEspecialidadeService.DiasDoMapa - 1):dd/MM}")" Nota="duas semanas" />
+            <Kpi Rotulo="Próxima coleta de preventivo com vaga" Valor="@(_proximaColeta is { } pc ? PreventivoNaTela.Dia(pc) : "—")"
+                 Nota="@(_proximaColeta is null ? "nenhuma vaga no período" : "a partir de hoje")" Tom="@(_proximaColeta is null ? "" : "sucesso")" />
+            <Kpi Rotulo="Dias lotados de preventivo" Valor="@_diasLotados.ToString()" Nota="no período, somando quem faz coleta" Tom="@(_diasLotados > 0 ? "perigo" : "")" />
+        </div>
+
+        <div class="rec-ocesp-corpo">
+            <section class="cartao rec-ocesp-mapa">
+                <div class="rec-ocesp-rolagem">
+                    <table class="rec-ocesp-grade">
+                        <thead>
+                            <tr>
+                                <th class="rec-ocesp-esp">Especialidade</th>
+                                @foreach (var d in _dias)
+                                {
+                                    <th class="@(d == Hoje ? "hoje" : null)"><span>@DiaCurto(d)</span><b>@d.Day</b></th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var linha in _linhas)
+                            {
+                                <tr class="@(linha.Preventivo ? "preventivo" : null)">
+                                    <th class="rec-ocesp-esp">
+                                        <strong>@(linha.Preventivo ? "↳ " : null)@linha.Titulo</strong>
+                                        @if (!string.IsNullOrWhiteSpace(linha.Detalhe)) { <small>@linha.Detalhe</small> }
+                                    </th>
+                                    @foreach (var d in _dias)
+                                    {
+                                        var c = linha.Dias.First(x => x.Dia == d);
+                                        <td>@Celula(linha, c)</td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div class="rec-ocesp-legenda">
+                    <span><i class="livre"></i>Folga na agenda</span>
+                    <span><i class="quase"></i>Quase cheio</span>
+                    <span><i class="cheio"></i>Lotado</span>
+                    <span><i class="fora"></i>Não atende</span>
+                    <span class="rec-ocesp-dica">O número é o que SOBRA. Clique num dia de preventivo para ver quem está marcado.</span>
+                </div>
+            </section>
+
+            <aside class="cartao rec-ocesp-lado">
+                @if (_escolha is not { } esc)
+                {
+                    <EstadoVazio Titulo="Escolha um dia de preventivo" Icone="calendario"
+                                 Descricao="O clique mostra as coletas marcadas e os próximos dias com vaga." />
+                }
+                else
+                {
+                    <h3>@PreventivoNaTela.Dia(esc.Vagas)</h3>
+                    <p class="rec-ocesp-quem">@esc.Profissional</p>
+                    @if (esc.Vagas.Lotado)
+                    {
+                        <Aviso Tom="erro" Texto="@($"{PreventivoNaTela.Lotado(esc.Vagas)} A consulta ainda pode ser marcada, sem a coleta.")" />
+                    }
+                    <h4>Coletas marcadas · @esc.Vagas.Marcados de @esc.Vagas.Limite</h4>
+                    @if (esc.Coletas.Count == 0)
+                    {
+                        <p class="rec-ocesp-nada">Nenhuma coleta marcada neste dia.</p>
+                    }
+                    else
+                    {
+                        <ul class="rec-ocesp-lista">
+                            @foreach (var col in esc.Coletas)
+                            {
+                                <li><span>@col.Hora</span><strong>@col.Paciente</strong></li>
+                            }
+                        </ul>
+                    }
+                    @if (esc.Proximos.Count > 0)
+                    {
+                        <h4>Diga à paciente — próximas coletas</h4>
+                        <ul class="rec-ocesp-lista">
+                            @foreach (var p in esc.Proximos)
+                            {
+                                <li><strong>@PreventivoNaTela.Dia(p)</strong></li>
+                            }
+                        </ul>
+                    }
+                }
+            </aside>
+        </div>
+    }
+</div>
+
+@code {
+    private sealed record Escolha(string Profissional, VagasDePreventivoNoDia Vagas,
+        IReadOnlyList<ColetaMarcada> Coletas, IReadOnlyList<VagasDePreventivoNoDia> Proximos);
+
+    private static readonly string[] DiasCurtos = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+
+    private readonly int _usuario = SessaoUsuario.Atual.UsuarioId;
+    private DateOnly _de = InicioDaSemana(DateOnly.FromDateTime(DateTime.Today));
+    private IReadOnlyList<LinhaDeOcupacao>? _linhas;
+    private List<DateOnly> _dias = [];
+    private VagasDePreventivoNoDia? _proximaColeta;
+    private int _diasLotados;
+    private Escolha? _escolha;
+    private string? _erro;
+    private int _geracao, _gEscolha;
+    private bool Carregando { get; set; }
+
+    private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
+    private static string DiaCurto(DateOnly d) => DiasCurtos[(int)d.DayOfWeek];
+    private static DateOnly InicioDaSemana(DateOnly d) => d.AddDays(-(((int)d.DayOfWeek + 6) % 7));
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    protected override Task AoVoltarAsync() => Carregando ? Task.CompletedTask : CarregarAsync();
+
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho) => atalho == AtalhoDeTela.Atualizar ? AtualizarAsync() : Task.CompletedTask;
+
+    private Task AtualizarAsync() => Carregando || !Exigir(Permissao.VerAgenda, "consultar a ocupação") ? Task.CompletedTask : CarregarAsync();
+
+    private Task MudarSemanaAsync(int passo)
+    {
+        if (!Exigir(Permissao.VerAgenda, "consultar a ocupação")) return Task.CompletedTask;
+        _de = passo == 0 ? InicioDaSemana(Hoje) : _de.AddDays(passo * OcupacaoPorEspecialidadeService.DiasDoMapa);
+        _escolha = null;
+        return CarregarAsync();
+    }
+
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        Carregando = true;
+        _erro = null;
+        var de = _de;
+        try
+        {
+            if (!SessaoUsuario.Atual.Autenticado || SessaoUsuario.Atual.UsuarioId != _usuario)
+                throw new UnauthorizedAccessException("Abra a agenda novamente após entrar.");
+            using var escopo = Escopo();
+            var linhas = await escopo.ServiceProvider.GetRequiredService<OcupacaoPorEspecialidadeService>().ConsultarAsync(de);
+            if (geracao != _geracao || Descartada) return;
+
+            // Só os dias em que alguém atende viram coluna (o domingo vazio não ocupa a largura).
+            var dias = linhas.SelectMany(l => l.Dias).Where(c => c.Atende).Select(c => c.Dia).Distinct().OrderBy(d => d).ToList();
+            var prev = linhas.Where(l => l.Preventivo).ToList();
+            _proximaColeta = prev
+                .SelectMany(l => l.Dias.Where(c => c.Atende && c.Livres > 0 && c.Dia >= Hoje)
+                    .Select(c => new VagasDePreventivoNoDia(c.Dia, c.Total - c.Livres!.Value, c.Total)))
+                .OrderBy(v => v.Dia).FirstOrDefault();
+            _diasLotados = prev.SelectMany(l => l.Dias.Where(c => c.Lotado).Select(c => c.Dia)).Distinct().Count();
+            _dias = dias;
+            _linhas = linhas;
+        }
+        catch (Exception ex)
+        {
+            if (geracao == _geracao && !Descartada)
+            {
+                _linhas = null;
+                _erro = ex is UnauthorizedAccessException ? ex.Message : "Não foi possível consultar a ocupação. Tente atualizar.";
+            }
+            Clinica.Application.Diagnostico.Registrar("Blazor — Ocupação por especialidade", ex);
+        }
+        finally
+        {
+            if (geracao == _geracao) Carregando = false;
+        }
+    }
+
+    private RenderFragment Celula(LinhaDeOcupacao linha, CelulaDeOcupacao c) => __builder =>
+    {
+        if (!c.Atende)
+        {
+            <span class="rec-ocesp-c fora">não atende</span>
+            return;
+        }
+        var classe = c.Lotado ? "cheio" : c.QuaseCheio || (linha.Preventivo && c.Livres == 1) ? "quase" : "livre";
+        var rotulo = linha.Preventivo
+            ? (c.Livres switch { 0 => "lotado", 1 => "1 vaga", var n => $"{n} vagas" })
+            : (c.Lotado ? "lotado" : $"de {c.Total}");
+        if (linha.Preventivo && linha.ProfissionalId is { } pid)
+        {
+            var escolhida = _escolha is { } e && e.Vagas.Dia == c.Dia && e.Profissional == linha.Detalhe;
+            <button type="button" class="rec-ocesp-c @classe @(escolhida ? "escolhida" : null)" @onclick="() => EscolherAsync(linha, pid, c.Dia)"
+                    title="Ver as coletas marcadas neste dia">
+                <b>@c.Livres</b><small>@rotulo</small>
+            </button>
+        }
+        else
+        {
+            <span class="rec-ocesp-c @classe"><b>@c.Livres</b><small>@rotulo</small></span>
+        }
+    };
+
+    private async Task EscolherAsync(LinhaDeOcupacao linha, int profissionalId, DateOnly dia)
+    {
+        if (!Exigir(Permissao.VerAgenda, "consultar a ocupação")) return;
+        var g = ++_gEscolha;
+        try
+        {
+            using var escopo = Escopo();
+            var sp = escopo.ServiceProvider;
+            // ⚠️ Em fila: o mesmo DbContext do escopo.
+            var coletas = await sp.GetRequiredService<OcupacaoPorEspecialidadeService>().ColetasDoDiaAsync(profissionalId, dia);
+            var dias = await sp.GetRequiredService<AgendaService>().VagasDePreventivoAsync(profissionalId, dia, dia.AddDays(30));
+            var profissional = await sp.GetRequiredService<EquipeService>().ObterProfissionalAsync(profissionalId);
+            if (g != _gEscolha || Descartada) return;
+            var proximos = profissional is null ? [] : PreventivoNaTela.ProximosComVaga(profissional, dias, dia);
+            _escolha = new Escolha(linha.Detalhe ?? "", dias[0], coletas, proximos);
+        }
+        catch (Exception ex)
+        {
+            if (g != _gEscolha) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — Ocupação por especialidade: dia de preventivo", ex);
+            Notificacoes.Erro("Não foi possível ler as coletas deste dia. Tente de novo.");
+        }
+    }
+}
