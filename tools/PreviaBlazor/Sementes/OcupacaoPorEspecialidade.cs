@@ -38,7 +38,7 @@ public sealed class SementeOcupacaoPorEspecialidade : ISemente
             {
                 var paciente = db.Add(new Paciente
                 {
-                    Nome = nomes[n++ % nomes.Length] + " (prévia)", Convenio = Convenio.UnimedPadrao, Sexo = Sexo.Feminino,
+                    Nome = nomes[n++ % nomes.Length], Convenio = Convenio.UnimedPadrao, Sexo = Sexo.Feminino,
                     Telefone = $"(22) 99800-{n:0000}"
                 }).Entity;
                 db.Add(new Agendamento
@@ -60,7 +60,7 @@ public sealed class SementeOcupacaoPorEspecialidade : ISemente
         var hoje = DateOnly.FromDateTime(DateTime.Today);
         var luana = db.Add(new Paciente
         {
-            Nome = "Luana Teixeira (prévia)", Convenio = Convenio.UnimedPadrao, Sexo = Sexo.Feminino,
+            Nome = "Luana Teixeira", Convenio = Convenio.UnimedPadrao, Sexo = Sexo.Feminino,
             Telefone = "(22) 99800-0099", Carteirinha = "0 865 000111222333 4"
         }).Entity;
         var atendimento = db.Add(new Atendimento
