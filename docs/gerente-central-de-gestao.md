@@ -1,5 +1,50 @@
 # Gerente: a central de gestão da clínica (nov/2026, proposta com mockup)
 
+> **v3 · console de gestão e integrações** (mockup [`mockups/gerente-console-de-gestao.html`](mockups/gerente-console-de-gestao.html),
+> fotos `mockups/png/gerente-console-*.png`). Pedido da direção: *"dá para profissionalizar e muito,
+> inclusive pensando em integrações com itens dentro e fora do sistema"*.
+
+## v3 · a camada profissional
+
+| Peça | O que entra | Novo no código |
+|---|---|---|
+| **Console** | navegação lateral recolhível (64 px em 1024, faixa no celular), barra de contexto com período, comparação e filtros que valem para todas as telas, frescor dos dados ("8 de 9 fontes em dia"), link da visão, busca Ctrl+K | `ContextoDeGestao` (período, comparação, filtros) passado a todas as telas do Gerente |
+| **Drill-down** | qualquer número abre uma gaveta com a decomposição, a leitura, a definição e as ações (encaminhar, abrir a origem, criar automação) | componente `Gaveta` e um `…NaTela` por indicador |
+| **Dicionário de indicadores** | definição única, fórmula, entra / não entra, fonte, dono, meta e histórico versionado | `Indicador` + `VersaoIndicador` |
+| **Automações** | quando → só se → então, simulação de 90 dias e 7 dias em teste. Nenhuma regra fala com o paciente | `RegraAutomatica` sobre o `Encaminhamento` da v2 |
+| **Integrações** | estado, último contato, dado que passa e para onde, de cada conexão. Existem hoje: apps, CRM/WhatsApp, tablet, SafeID (só estado: motor congelado), A1, SMS, Neon, XML TISS. Novas: extrato por Open Finance (só leitura), EDI do adquirente, NFS-e, contabilidade, TISS por webservice e elegibilidade, BI só leitura, API/webhooks, registro profissional, e-mail | uma **fila de integração** só (evento, tentativa, reenvio, registro) e um adaptador por integração atrás de interface na Application |
+| **Mapa de dados (LGPD)** | integração × dado × destino × base legal × quem autorizou. Integração com dado de saúde não liga sem a linha | `FluxoDeDado` |
+| **Relatórios e entregas** | relatório aos sócios, pacote contábil, placar semanal, "o seu mês" de cada profissional. Acesso externo com escopo, validade e revogação | `EntregaProgramada`, `AcessoExterno` |
+
+Princípios de toda integração:
+1. Só lê, quando der.
+2. O sistema propõe e a pessoa confirma: nenhuma integração escreve no dinheiro nem no prontuário sozinha.
+3. A falha não para o atendimento: o evento fica na fila e é reenviado.
+4. Cada integração declara o dado e o destino.
+5. A credencial é cifrada.
+6. Desligar não perde nada: volta-se ao processo manual de hoje.
+
+Ordem das integrações, pelo trabalho manual que tiram:
+1. Extrato do banco e EDI do adquirente.
+2. NFS-e, contabilidade e BI.
+3. TISS por webservice (uma por operadora).
+4. Prescrição: avaliar (dado de saúde fora, sob contrato).
+
+A navegação lateral revê a decisão de out/2026 ("menu no topo porque a clínica usa notebook")
+**só no Gerente** e por medida: com os grupos da v2 a barra do topo já ocupava duas linhas em 1366.
+O trilho recolhido em 64 px devolve a largura ao notebook. Os outros quatro apps continuam com o menu
+no topo.
+
+### 🧑‍💻 UX · 🛠️ DX · 🤝 CX da v3
+
+- 🧑‍💻 **UX**: o mesmo recorte vale em todas as telas, e todo número responde "por quê?" e "quem resolve?"
+  num clique. O Financeiro deixa de importar OFX e de digitar taxa, e o Faturamento deixa de subir
+  XML onde há webservice.
+- 🛠️ **DX**: uma fila e um contrato de adaptador para todas as integrações. Uma definição de indicador
+  lida por placar, gaveta, reunião, relatório e automação. A automação reusa o encaminhamento da v2.
+- 🤝 **CX**: parece, e funciona como, sistema de gestão de mercado. Banco e NFS-e têm custo por uso, e
+  cada integração liga separada. O mapa de dados é a resposta pronta para auditor e titular.
+
 > **v2: o ciclo de gestão** (mockup [`mockups/gerente-ciclo-de-gestao.html`](mockups/gerente-ciclo-de-gestao.html),
 > fotos `mockups/png/gerente-ciclo-*.png`). A direção viu a v1 e respondeu: *"ainda não vi grande
 > diferença para um sistema de gestão"*. Ela tinha razão. A v1 reorganizava o menu e acrescentava
