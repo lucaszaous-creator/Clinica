@@ -1,5 +1,54 @@
 # Gerente: a central de gestão da clínica (nov/2026, proposta com mockup)
 
+> **v2: o ciclo de gestão** (mockup [`mockups/gerente-ciclo-de-gestao.html`](mockups/gerente-ciclo-de-gestao.html),
+> fotos `mockups/png/gerente-ciclo-*.png`). A direção viu a v1 e respondeu: *"ainda não vi grande
+> diferença para um sistema de gestão"*. Ela tinha razão. A v1 reorganizava o menu e acrescentava
+> leituras, e um sistema de gestão **fecha o ciclo**: planeja, mede contra a meta, encaminha o desvio
+> para uma pessoa com prazo, cobra e confirma. A v2 acrescenta isso por cima da v1 (Clínica, Equipe,
+> Ficha, Escala e Saúde do sistema continuam).
+
+## v2 · o ciclo: Planejar → Acompanhar → Agir → Cobrar e fechar
+
+A barra passa a ser **Mesa · Planejar · Acompanhar · Agir · Equipe · Administração │ Operação**.
+O Gerente tem mais grupos que os outros apps, então a navegação desce para a segunda linha já abaixo
+de 1440 px (nos outros apps, abaixo de 1300).
+
+| Peça | O que faz | Já existe | Novo no banco (aditivo) |
+|---|---|---|---|
+| **Placar da clínica** (Mesa) | 16 indicadores em 4 perspectivas (Financeiro, Pacientes, Clínica, Equipe), cada um contra a meta, com 6 meses de tendência | os números (Indicadores, Margem, NPS, EVA, ocupação, `MetaService`) | meta para cada um dos 16 |
+| **Encaminhamentos** | alerta, ocorrência, reunião ou ideia vira tarefa com responsável, prazo e critério de fim. Chega ao sino e ao chat do app de quem recebe. Os ligados a um alerta **fecham sozinhos** quando o alerta some; o atrasado volta à Mesa | sino, chat, os alertas da Mesa | `Encaminhamento` (origem, responsável, prazo, critério, evidência) |
+| **Reunião de gestão** | pauta montada sozinha (ficou para trás, fora da meta, ocorrências, vencimentos, pedidos da equipe). Decisão vira encaminhamento na hora. Ata em PDF e no chat. Mede o cumprimento | PDF, chat | `Reuniao`, `Decisao` |
+| **Fechamento do mês** | dez passos conferidos nos módulos (caixa, extrato, cartão, lotes, glosas, evoluções, estoque, impostos, repasses, metas) e o relatório aos sócios | os dez estados são lidos por serviços existentes | aprovação do repasse, relatório |
+| **Ocorrências** | segurança do paciente (RDC 36/2013): registro em qualquer app, classificação, análise, ação e taxa por mil sessões | nada | `Ocorrencia`: entidade CLÍNICA, sem exclusão, com versão, na exportação e na guarda |
+| **Contratos e obrigações** | convênios (vigência, reajuste, prazo, glosa, margem) e licenças (alvará, PGRSS, CNES, RT, AVCB, seguro), avisando com a antecedência que a renovação pede | margem, glosa e prazo | `Contrato`, `Obrigacao` |
+| **Orçamento e cenários** | ano planejado × realizado e o "e se" (contratar, ocupação, reajustes) | `OrcamentoService`, Margem por sessão, regras de repasse | cenário salvo |
+
+O encaminhamento é **gestão interna**. Ele não traz de volta as "tarefas" que saíram do CRM: não
+há tarefa para paciente nem funil.
+
+Ordem de entrega da v2:
+1. Encaminhamentos e a Mesa nova (o coração do ciclo).
+2. Reunião e fechamento do mês.
+3. Equipe (v1), contratos e obrigações.
+4. Clínica (v1), ocorrências, planejamento e Saúde do sistema (v1).
+
+### 🧑‍💻 UX · 🛠️ DX · 🤝 CX da v2
+
+- 🧑‍💻 **UX**: a direção sabe onde está fora da meta, quem está cuidando e o que venceu, sem depender
+  de memória. A equipe não precisa abrir o Gerente: o encaminhamento chega ao sino e ao chat do app em
+  que ela trabalha. A reunião começa com a pauta pronta e termina com a ata enviada.
+- 🛠️ **DX**: uma peça central nova (`Encaminhamento`), com a regra de "fecha sozinho" num lugar só,
+  reaproveitando os alertas que a Mesa já calcula. Quatro famílias de entidade, todas aditivas. Placar,
+  fechamento e cenários leem serviços existentes, e cada tela leva `…NaTela` com teste.
+- 🤝 **CX**: o produto muda de patamar, de "sistema da recepção e do faturamento" para "sistema que
+  gere a clínica". Responde ao que auditor e Vigilância perguntam. Releases: o Gerente sempre, e os
+  quatro apps da suíte quando o sino e o botão de ocorrência chegarem a eles. O faturamento não é
+  republicado.
+
+---
+
+## v1 (a base que a v2 mantém)
+
 Pedido da direção: *"o módulo do gerente tem que virar um sistema central de gestão —
 administrativa, clínica, financeira e outros"*. A decisão do desenho foi delegada.
 
