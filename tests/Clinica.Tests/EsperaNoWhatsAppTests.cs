@@ -100,13 +100,19 @@ public sealed class EsperaNoWhatsAppTests
 
         // O Carlos (da Ana) escreve; dez minutos depois, a espera dele é nova — anunciada UMA vez.
         crm.ChegouDoPaciente(CrmDeMentira.Ids.Carlos, "Vou sim, obrigado", DateTimeOffset.UtcNow);
+        // A semente da prévia é relativa ao relógio (RelogioDaPrevia: o "10:12" do mockup cai até 30 min antes do
+        // início da suíte). Conforme a hora em que a suíte roda, uma conversa da semente que ainda não chegara ao
+        // limite na primeira leitura cruza os MinutosDeEspera nestes 10 min simulados — e ela também é espera nova,
+        // com razão. O que o teste prova é a REGRA, não a contagem: o Carlos é anunciado, nada que já esperava na
+        // primeira leitura é anunciado, e nada é anunciado duas vezes. (Exigir "só um" reprovava às hh:43 e hh:13 UTC.)
         var depois = await vigia.LerAsync(7, agora.AddMinutes(10));
-        var nova = Assert.Single(depois.Novas);
-        Assert.Equal(CrmDeMentira.Ids.Carlos, nova.Id);
+        Assert.Contains(depois.Novas, e => e.Id == CrmDeMentira.Ids.Carlos);
+        Assert.All(depois.Novas, n => Assert.DoesNotContain(primeira.Esperando, e => e.Id == n.Id));
         Assert.Contains(depois.Esperando, e => e.Id == CrmDeMentira.Ids.Carlos);
 
         var deNovo = await vigia.LerAsync(7, agora.AddMinutes(11));
-        Assert.Empty(deNovo.Novas);
+        Assert.DoesNotContain(deNovo.Novas, e => e.Id == CrmDeMentira.Ids.Carlos);
+        Assert.All(deNovo.Novas, n => Assert.DoesNotContain(depois.Esperando, e => e.Id == n.Id));
         Assert.Contains(deNovo.Esperando, e => e.Id == CrmDeMentira.Ids.Carlos);
     }
 
