@@ -1,47 +1,86 @@
-/* Ocupação por especialidade (out/2026): o mapa de quartos de hotel da agenda. */
-.rec-ocesp-corpo{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:var(--space-4);align-items:start}
+/* Ocupação por tipo de atendimento (out/2026): o mapa de quartos de hotel da agenda. */
+.rec-ocesp-periodo{display:inline-flex;align-items:center;gap:var(--space-1);background:var(--superficie);
+  border:1px solid var(--borda);border-radius:var(--radius-control);padding:2px}
+.rec-ocesp-periodo .botao.icone{border:0;background:transparent}
+.rec-ocesp-periodo-rotulo{min-width:132px;text-align:center;font-weight:600;font-variant-numeric:tabular-nums}
+
+.rec-ocesp-corpo{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:var(--space-4);align-items:start}
 @media (max-width:1180px){.rec-ocesp-corpo{grid-template-columns:1fr}}
 .rec-ocesp-mapa{padding:0;overflow:hidden}
 .rec-ocesp-rolagem{overflow-x:auto}
-.rec-ocesp-grade{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed;min-width:720px}
-.rec-ocesp-grade th,.rec-ocesp-grade td{padding:var(--space-1) 2px;border-bottom:1px solid var(--borda);text-align:center;vertical-align:middle}
-.rec-ocesp-grade thead th{font-weight:500;color:var(--texto-secundario);font-size:var(--text-small-size);line-height:1.2;padding:var(--space-2) 2px}
-.rec-ocesp-grade thead th b{display:block;color:var(--texto-primario);font-size:15px}
-.rec-ocesp-grade thead th.hoje b{color:var(--acento)}
-.rec-ocesp-grade .rec-ocesp-esp{width:190px;text-align:left;padding:var(--space-2) var(--space-4)}
-.rec-ocesp-esp strong{display:block;font-weight:600;color:var(--texto-primario)}
-.rec-ocesp-esp small{display:block;color:var(--texto-secundario);font-weight:400;font-size:var(--text-small-size);
+
+.rec-ocesp-grade{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed;min-width:760px}
+.rec-ocesp-grade th,.rec-ocesp-grade td{padding:3px 2px;text-align:center;vertical-align:middle}
+.rec-ocesp-grade thead th{position:sticky;top:0;background:var(--superficie);font-weight:500;color:var(--texto-secundario);
+  font-size:var(--text-small-size);line-height:1.15;padding:var(--space-2) 2px;border-bottom:1px solid var(--borda)}
+.rec-ocesp-grade thead th span{text-transform:lowercase}
+.rec-ocesp-grade thead th b{display:block;color:var(--texto-primario);font-size:15px;font-weight:600}
+.rec-ocesp-grade thead th.hoje b{color:var(--texto-invertido);background:var(--acento);border-radius:var(--radius-pilula);
+  width:26px;height:26px;line-height:26px;margin:2px auto 0}
+.rec-ocesp-grade .semana{border-left:1px solid var(--borda)}
+
+.rec-ocesp-grade .rec-ocesp-esp{width:210px;text-align:left;padding:var(--space-2) var(--space-3) var(--space-2) var(--space-4)}
+.rec-ocesp-esp strong{display:flex;align-items:center;gap:var(--space-2);font-weight:600;color:var(--texto-primario);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rec-ocesp-esp small{display:block;color:var(--texto-secundario);font-weight:400;font-size:12px;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rec-ocesp-grade tr.preventivo .rec-ocesp-esp{background:var(--acento-suave);padding-left:var(--space-6)}
-.rec-ocesp-grade tr.preventivo .rec-ocesp-esp strong{color:var(--acento)}
-.rec-ocesp-c{display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;min-height:44px;
-  border:0;border-radius:var(--radius-control);font:inherit;line-height:1.1;padding:var(--space-1) 0}
-.rec-ocesp-c b{font-size:15px;font-weight:600}
-.rec-ocesp-c small{font-size:11px;font-weight:500;margin-top:2px}
-button.rec-ocesp-c{cursor:pointer}
-button.rec-ocesp-c:focus-visible{outline:2px solid var(--foco);outline-offset:1px}
+.rec-ocesp-ponto{width:8px;height:8px;border-radius:50%;flex:none;background:var(--cor-familia,var(--acento))}
+
+.rec-ocesp-grupo th{text-align:left;padding:var(--space-3) var(--space-4) var(--space-1);font-size:11px;font-weight:700;
+  letter-spacing:.06em;text-transform:uppercase;color:var(--texto-secundario);border-top:1px solid var(--borda)}
+.rec-ocesp-grade tbody:first-of-type .rec-ocesp-grupo th{border-top:0}
+
+.rec-ocesp-grade tr.preventivo .rec-ocesp-esp{padding-left:calc(var(--space-4) + 16px);position:relative}
+.rec-ocesp-grade tr.preventivo .rec-ocesp-esp::before{content:"";position:absolute;left:calc(var(--space-4) + 3px);top:6px;bottom:50%;
+  width:9px;border-left:1px solid var(--borda-hover);border-bottom:1px solid var(--borda-hover);border-bottom-left-radius:4px}
+.rec-ocesp-grade tr.preventivo .rec-ocesp-esp strong{color:var(--acento);font-weight:600}
+
+/* A célula: o número que sobra e a barrinha do quanto já está tomado. */
+.rec-ocesp-c{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;width:100%;height:46px;
+  border:1px solid transparent;border-radius:var(--radius-control);font:inherit;line-height:1;padding:0 6px;cursor:pointer;
+  transition:box-shadow var(--duracao-rapida),transform var(--duracao-rapida)}
+.rec-ocesp-c b{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums}
+.rec-ocesp-c:hover{box-shadow:0 0 0 1px currentColor}
+.rec-ocesp-c:focus-visible{outline:2px solid var(--foco);outline-offset:1px}
 .rec-ocesp-c.escolhida{box-shadow:0 0 0 2px var(--acento)}
 .rec-ocesp-c.livre{background:var(--sucesso-suave);color:var(--sucesso-forte)}
 .rec-ocesp-c.quase{background:var(--aviso-suave);color:var(--aviso-texto)}
 .rec-ocesp-c.cheio{background:var(--erro-suave);color:var(--erro-texto)}
-.rec-ocesp-c.fora{background:repeating-linear-gradient(135deg,var(--cinza-100) 0 5px,var(--superficie) 5px 10px);
-  color:var(--texto-secundario);font-size:11px}
-.rec-ocesp-legenda{display:flex;flex-wrap:wrap;gap:var(--space-4);padding:var(--space-3) var(--space-4);
-  color:var(--texto-secundario);font-size:var(--text-small-size)}
+.rec-ocesp-c.fora{cursor:default;background:repeating-linear-gradient(135deg,var(--cinza-100) 0 4px,transparent 4px 8px)}
+.rec-ocesp-c.fora:hover{box-shadow:none}
+.rec-ocesp-barra{display:block;position:relative;width:70%;max-width:44px;height:3px;border-radius:2px;
+  background:color-mix(in srgb,currentColor 22%,transparent)}
+.rec-ocesp-barra i{position:absolute;inset:0 auto 0 0;border-radius:2px;background:currentColor}
+.rec-ocesp-pips{display:flex;gap:2px}
+.rec-ocesp-pips i{width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.25}
+.rec-ocesp-pips i.o{opacity:1}
+
+.rec-ocesp-legenda{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-4);padding:var(--space-3) var(--space-4);
+  border-top:1px solid var(--borda);color:var(--texto-secundario);font-size:var(--text-small-size)}
 .rec-ocesp-legenda span{display:flex;align-items:center;gap:6px}
 .rec-ocesp-legenda i{width:12px;height:12px;border-radius:3px}
 .rec-ocesp-legenda i.livre{background:var(--sucesso-suave)}
 .rec-ocesp-legenda i.quase{background:var(--aviso-suave)}
 .rec-ocesp-legenda i.cheio{background:var(--erro-suave)}
-.rec-ocesp-legenda i.fora{background:repeating-linear-gradient(135deg,var(--cinza-200) 0 3px,var(--superficie) 3px 6px)}
+.rec-ocesp-legenda i.fora{background:repeating-linear-gradient(135deg,var(--cinza-200) 0 3px,transparent 3px 6px)}
 .rec-ocesp-legenda .rec-ocesp-dica{margin-left:auto}
-.rec-ocesp-lado{padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-3)}
-.rec-ocesp-lado h3{margin:0;font-size:16px}
-.rec-ocesp-lado h4{margin:var(--space-1) 0 0;font-size:var(--text-small-size);text-transform:uppercase;letter-spacing:.04em;color:var(--texto-secundario)}
-.rec-ocesp-quem{margin:0;color:var(--texto-secundario)}
-.rec-ocesp-nada{margin:0;color:var(--texto-secundario)}
+
+.rec-ocesp-lado{padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-3);position:sticky;top:var(--space-4)}
+.rec-ocesp-lado-sobre{margin:0;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--acento)}
+.rec-ocesp-lado h3{margin:0;font-size:17px}
+.rec-ocesp-lado h4{margin:var(--space-1) 0 0;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--texto-secundario)}
+.rec-ocesp-lado-quem{margin:0;color:var(--texto-secundario)}
 .rec-ocesp-lista{list-style:none;margin:0;padding:0;border:1px solid var(--borda);border-radius:var(--radius-control)}
 .rec-ocesp-lista li{display:flex;gap:var(--space-3);padding:var(--space-2) var(--space-3);border-bottom:1px solid var(--borda)}
 .rec-ocesp-lista li:last-child{border-bottom:0}
 .rec-ocesp-lista li span{color:var(--texto-secundario);font-variant-numeric:tabular-nums}
 .rec-ocesp-carregando{color:var(--texto-secundario)}
+
+/* As cores da família — as MESMAS da agenda do dia (rec-dia.css), no escopo desta tela. */
+.rec-ocesp .familia-acupuntura{--cor-familia:var(--acento)}
+.rec-ocesp .familia-eletro{--cor-familia:var(--violeta-600)}
+.rec-ocesp .familia-bsv{--cor-familia:var(--teal-600)}
+.rec-ocesp .familia-bsv-acupuntura{--cor-familia:var(--ciano-500)}
+.rec-ocesp .familia-consulta{--cor-familia:var(--rosa-600)}
+/* O cartão "Mais procurado" tem um NOME como valor: quebra a linha em vez de cortar. */
+.rec-ocesp .kpi-valor.rec-ocesp-kpi-nome{font-size:20px;line-height:1.25;white-space:normal;overflow:visible}

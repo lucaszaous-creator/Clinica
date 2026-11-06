@@ -233,20 +233,57 @@ public class ColetaDePreventivoTests : IDisposable
     }
 
     [Fact]
-    public async Task O_mapa_mostra_a_linha_de_preventivo_abaixo_da_ginecologia()
+    public async Task O_mapa_mostra_a_linha_de_preventivo_abaixo_da_consulta_de_ginecologia()
     {
         for (var i = 0; i < 3; i++) await MarcarComPreventivoAsync(Dia25.AddMinutes(30 * i));
 
-        var linhas = await new OcupacaoPorEspecialidadeService(_repo).ConsultarAsync(new DateOnly(2026, 11, 23));
+        var mapa = await new OcupacaoPorEspecialidadeService(_repo).ConsultarAsync(new DateOnly(2026, 11, 23));
 
-        linhas.Select(l => l.Titulo).Should().Equal("Ginecologia", "Coleta de preventivo");
-        var prev = linhas[1];
+        mapa.Linhas.Select(l => l.Titulo).Should().Equal("Consulta · Ginecologia", "Coleta de preventivo");
+        var prev = mapa.Linhas[1];
         prev.Preventivo.Should().BeTrue();
         prev.Dias.Single(c => c.Dia == new DateOnly(2026, 11, 25)).Livres.Should().Be(2);
         // Domingo sem jornada declarada: ninguém atende.
         prev.Dias.Single(c => c.Dia == new DateOnly(2026, 11, 29)).Atende.Should().BeFalse();
-        // A especialidade conta os horários livres (as 3 consultas ocupam 3 deles).
-        var gineco = linhas[0].Dias.Single(c => c.Dia == new DateOnly(2026, 11, 25));
+        // A consulta conta os horários livres (as 3 consultas ocupam 3 deles) e as marcadas.
+        var gineco = mapa.Linhas[0].Dias.Single(c => c.Dia == new DateOnly(2026, 11, 25));
         gineco.Livres.Should().Be(gineco.Total - 3);
+        gineco.Marcados.Should().Be(3);
+        mapa.Livres.Should().Be(mapa.Total - 3);
+    }
+
+    [Fact]
+    public void Os_tratamentos_contam_so_quem_faz_o_tipo()
+    {
+        var de = new DateOnly(2026, 11, 23);
+        var acupunturista = new Profissional
+        {
+            Id = 1, Nome = "Dr. Marcos", Ativo = true,
+            HabilitacoesAtendimentoJson = System.Text.Json.JsonSerializer.Serialize(new[]
+            {
+                new AtendimentoHabilitado("AcupunturaSimples", null), new AtendimentoHabilitado("BsvApenas", null)
+            })
+        };
+        var psiquiatra = new Profissional { Id = 2, Nome = "Dr. Caio", Ativo = true, EspecialidadeCodigo = "Psiquiatria" };
+        var enfermeira = new Profissional { Id = 3, Nome = "Enf. Abigail", Ativo = true };
+        var bsv = new Agendamento
+        {
+            Id = 10, ProfissionalId = 1, DataHora = de.ToDateTime(new TimeOnly(9, 0)),
+            ModalidadePrevista = ModalidadeAtendimento.BsvApenas, ModalidadeCodigo = "BsvApenas",
+            Status = StatusAgendamento.Agendado
+        };
+
+        var mapa = OcupacaoPorEspecialidade.Montar([acupunturista, psiquiatra, enfermeira], [bsv], [], de, de.AddDays(13));
+
+        var titulos = mapa.Linhas.Select(l => (l.Grupo, l.Titulo)).ToList();
+        titulos.Should().Contain((GrupoDeOcupacao.Tratamentos, CatalogoModalidades.Nome("AcupunturaSimples", ModalidadeAtendimento.AcupunturaSimples)));
+        titulos.Should().Contain((GrupoDeOcupacao.Consultas, "Consulta · " + CatalogoEspecialidades.Nome("Psiquiatria")));
+        // Ninguém faz eletro nem BSV + acupuntura: as linhas não aparecem.
+        titulos.Should().NotContain(t => t.Titulo == CatalogoModalidades.Nome("AcupunturaComEletro", ModalidadeAtendimento.AcupunturaComEletro));
+        // A enfermeira sem habilitação e sem nada marcado não entra em linha nenhuma.
+        mapa.Linhas.Should().OnlyContain(l => l.Detalhe == null || !l.Detalhe.Contains("Abigail"));
+        var linhaBsv = mapa.Linhas.Single(l => l.Familia == ModalidadeAtendimento.BsvApenas);
+        linhaBsv.Dias.Single(c => c.Dia == de).Marcados.Should().Be(1);
+        mapa.Linhas.Where(l => l.Grupo == GrupoDeOcupacao.Tratamentos).Should().OnlyContain(l => l.Detalhe == "Dr. Marcos");
     }
 }

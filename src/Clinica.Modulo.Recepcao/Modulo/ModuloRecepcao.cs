@@ -68,7 +68,7 @@ public sealed class ModuloRecepcao : IModuloApp
 
     // ===== Itens COMPOSTOS (parcela 55) =====
     public const string ChaveGrupoAgenda = "agenda";
-    /// <summary>A aba "Por especialidade" da Agenda (out/2026): o mapa de ocupação com a coleta de preventivo.</summary>
+    /// <summary>A aba "Por tipo de atendimento" da Agenda (out/2026): o mapa de ocupação com a coleta de preventivo.</summary>
     public const string ChaveOcupacaoEspecialidade = "ocupacao-especialidade";
     // ⚠️ "Pacientes" e "Prescrições" vêm da ChavesSuite desde a parcela 95: o Consultório
     // publica compostos com o mesmo rótulo, e a dedupe do shell só funde por CHAVE —
@@ -193,7 +193,7 @@ public sealed class ModuloRecepcao : IModuloApp
             [
                 new AbaMenu("Dia", ChaveFila),
                 new AbaMenu("Visão geral", ChavesSuite.OcupacaoAgenda),
-                new AbaMenu("Por especialidade", ChaveOcupacaoEspecialidade),
+                new AbaMenu("Por tipo de atendimento", ChaveOcupacaoEspecialidade),
                 new AbaMenu("Grade", ChaveAgenda),
                 new AbaMenu("Semana do profissional", ChavesSuite.ConsultorioSemana)
             ]
@@ -208,9 +208,9 @@ public sealed class ModuloRecepcao : IModuloApp
         },
         new ItemMenuModulo
         {
-            // A aba "Por especialidade" da Agenda (out/2026) — o mapa de horários livres por
-            // especialidade e das coletas de preventivo. Escondido pelo composto acima.
-            Chave = ChaveOcupacaoEspecialidade, Rotulo = "Ocupação por especialidade", Glifo = "", Icone = "cal",
+            // A aba "Por tipo de atendimento" da Agenda (out/2026) — o mapa de horários livres por
+            // tipo de atendimento e das coletas de preventivo. Escondido pelo composto acima.
+            Chave = ChaveOcupacaoEspecialidade, Rotulo = "Ocupação por tipo de atendimento", Glifo = "", Icone = "cal",
             Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda
         },
         // A SALA DE INFUSÃO, onde a ENFERMAGEM alcança (parcela 48).

@@ -21,3 +21,10 @@
 .recebiveis .sobre summary{cursor:pointer;color:var(--texto-secundario);font-size:var(--text-small-size);font-weight:600}
 .recebiveis .sobre summary:hover{color:var(--texto-primario)}
 .recebiveis .sobre p{margin:var(--space-2) 0 0;color:var(--texto-secundario);font-size:var(--text-small-size);line-height:1.5}
+/* Celular (nov/2026): no cartão, a faixa vermelha do atrasado marca a LINHA inteira, e não a
+   primeira célula (que ali é o título, colado à borda). */
+@media (max-width:640px){
+  .recebiveis table.lista > tbody > tr.atrasado{box-shadow:inset 3px 0 0 var(--erro)}
+  .recebiveis tr.atrasado td:first-child{box-shadow:none}
+  .recebiveis .caiu-em{grid-template-columns:auto minmax(0,1fr);justify-content:stretch}
+}

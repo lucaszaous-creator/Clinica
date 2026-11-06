@@ -1,0 +1,63 @@
+@using Clinica.Infrastructure.Tablet
+@implements IDisposable
+@inject SessaoDaConexao Conexao
+@inject NavegacaoDaGestao Navegacao
+@inject CatalogoDaGestao Catalogo
+@inject IServiceScopeFactory Escopos
+@inject NavigationManager Navegador
+@inject TimeProvider Relogio
+@*
+  A raiz da gestão no navegador (nov/2026). Confere a sessão do portal pelo id, faz a fotografia
+  do usuário DESTA conexão e monta a MESMA moldura dos apps (MolduraDoApp) com o catálogo da
+  gestão. Se a sessão deixa de valer (saiu, venceu, senha trocada, perfil retirado), volta ao login.
+*@
+@if (_moldura is null)
+{
+    <div class="entrada entrada-tela"><p class="texto-secundario">@_situacao</p></div>
+}
+else
+{
+    <MolduraDoApp Moldura="_moldura" />
+}
+
+@code {
+    [Parameter] public string SessaoId { get; set; } = "";
+
+    private MolduraDaGestao? _moldura;
+    private string _situacao = "Conferindo seu acesso…";
+
+    protected override async Task OnInitializedAsync()
+    {
+        Conexao.Encerrou += AoEncerrar;
+        SessaoDoPortalNaGestao.Valida? valida = null;
+        if (SessaoId.Length == 64)
+        {
+            using var escopo = Escopos.CreateScope();
+            valida = await escopo.ServiceProvider.GetRequiredService<SessaoDoPortalNaGestao>().ReconferirAsync(SessaoId, default);
+        }
+        if (valida is null)
+        {
+            _situacao = "Seu acesso expirou. Voltando ao login…";
+            Navegador.NavigateTo("/profissional/", forceLoad: true);
+            return;
+        }
+        Conexao.Iniciar(valida, Relogio.GetUtcNow());
+        _moldura = new MolduraDaGestao(Catalogo, Conexao.Sessao, () => _ = SairAsync());
+        Navegacao.Moldura = _moldura;
+    }
+
+    private async Task SairAsync()
+    {
+        if (Conexao.SessaoId is { } id)
+        {
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<SessaoDoPortalNaGestao>().RevogarAsync(id, default);
+        }
+        Conexao.Encerrar();
+    }
+
+    private void AoEncerrar()
+        => _ = InvokeAsync(() => Navegador.NavigateTo("/profissional/", forceLoad: true));
+
+    public void Dispose() => Conexao.Encerrou -= AoEncerrar;
+}

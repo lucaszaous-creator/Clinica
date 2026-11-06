@@ -45,8 +45,22 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
     public static bool PodeColher(UsuarioSistema u) => u.Ativo && !u.DeveTrocarSenha
         && u.Pode(Permissao.ColherAssinaturaPaciente) && u.Pode(Permissao.VerAgenda);
 
-    public bool PodeEntrar(UsuarioSistema u) => PodeColher(u)
+    /// <summary>A régua do POSTO (as telas do portal de hoje): colher assinatura ou atender.</summary>
+    public bool PodePosto(UsuarioSistema u) => PodeColher(u)
         || (opcoes.AtendimentoHabilitado && PoliticaAtendimentoTablet.PodeUsarPosto(u));
+
+    /// <summary>
+    /// Entra no portal quem tem algum destino: o posto ou a gestão (nov/2026). As rotas do posto
+    /// continuam exigindo a régua delas (<see cref="AutorizarAsync"/> com <c>equipe</c>).
+    /// </summary>
+    public bool PodeEntrar(UsuarioSistema u) => PodePosto(u) || AcessoAoPortal.PodeGestao(u);
+
+    /// <summary>Para onde o login leva, em ordem: a gestão primeiro para o gerente, depois o posto.</summary>
+    public IReadOnlyList<string> Destinos(UsuarioSistema u)
+    {
+        var d = AcessoAoPortal.Destinos(u, PodePosto(u));
+        return d.OrderBy(x => x == AcessoAoPortal.Gestao ? 0 : 1).ToList();
+    }
 
     public async Task<SessaoTablet> AutorizarAsync(string? token, string dispositivo, bool equipe, CancellationToken ct)
     {

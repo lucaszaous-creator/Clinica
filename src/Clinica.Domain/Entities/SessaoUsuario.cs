@@ -33,7 +33,90 @@ public sealed class SessaoUsuario
     /// Antes do login (e nos testes) aponta para uma sessão vazia, que libera tudo:
     /// ver <see cref="Pode"/>.
     /// </summary>
-    public static SessaoUsuario Atual { get; private set; } = new();
+    public static SessaoUsuario Atual => _doFluxo.Value?.Invoke() ?? _doProcesso;
+
+    // ── Modo SERVIDOR (nov/2026, a gestão no navegador) ──────────────────────────────
+    // No desktop há UM usuário por processo, e `Atual` é a sessão do processo. Num servidor
+    // web, o mesmo processo atende várias pessoas ao mesmo tempo: a sessão passa a ser a do
+    // FLUXO (AsyncLocal), que o hospedeiro define a cada atividade da conexão
+    // (`UsarNesteFluxo`). E a regra "sem sessão, libera" se INVERTE: `AtivarModoServidor`
+    // troca a sessão do processo por `Ninguem`, que nega tudo, e é ela que responde fora de
+    // um fluxo com sessão. Uma tela aberta sem login no servidor não
+    // é teste nem prévia — é uma porta aberta na internet.
+    private static SessaoUsuario _doProcesso = new();
+    private static readonly AsyncLocal<Func<SessaoUsuario>?> _doFluxo = new();
+    private static volatile bool _modoServidor;
+
+    /// <summary>A sessão de quem não entrou, no servidor: nega toda permissão.</summary>
+    private static readonly SessaoUsuario Ninguem = new() { _fechada = true };
+
+    private bool _fechada;
+
+    /// <summary>
+    /// Liga o modo servidor no processo: a partir daqui `Atual` é a sessão do fluxo e,
+    /// sem fluxo, NEGA. Sem volta — um processo é desktop ou servidor, nunca os dois.
+    /// </summary>
+    public static void AtivarModoServidor()
+    {
+        _modoServidor = true;
+        _doProcesso = Ninguem;
+    }
+
+    /// <summary>A sessão que nega tudo — a que vale, no servidor, fora de uma conexão com login.</summary>
+    public static SessaoUsuario SemLoginNoServidor => Ninguem;
+
+    /// <summary>Esta é a sessão fechada do servidor (ninguém entrou)?</summary>
+    public bool Fechada => _fechada;
+
+    /// <summary>O processo está em modo servidor?</summary>
+    public static bool ModoServidor => _modoServidor;
+
+    /// <summary>
+    /// A fotografia de um usuário SEM torná-la a sessão do processo — para o servidor, que
+    /// guarda uma por conexão. No desktop o caminho continua sendo <see cref="Entrar"/>.
+    /// </summary>
+    public static SessaoUsuario Fotografar(UsuarioSistema usuario)
+    {
+        var s = new SessaoUsuario();
+        s.Copiar(usuario);
+        return s;
+    }
+
+    /// <summary>
+    /// Faz <paramref name="sessao"/> responder por `Atual` neste fluxo assíncrono (e no que
+    /// ele disparar) até o descarte, que devolve a anterior. O fluxo vence a sessão do
+    /// processo; é o que o servidor usa a cada atividade da conexão.
+    /// </summary>
+    public static IDisposable UsarNesteFluxo(SessaoUsuario sessao)
+    {
+        ArgumentNullException.ThrowIfNull(sessao);
+        return UsarNesteFluxo(() => sessao);
+    }
+
+    /// <summary>
+    /// A variante que LÊ a sessão na hora: o servidor define a sessão da conexão no meio da
+    /// primeira atividade dela (o login é conferido ali), e um valor fixo deixaria o resto da
+    /// mesma atividade — a primeira tela — com a sessão que nega tudo. Encerrar a sessão também
+    /// vale na hora, sem esperar a próxima atividade.
+    /// </summary>
+    public static IDisposable UsarNesteFluxo(Func<SessaoUsuario> fonte)
+    {
+        ArgumentNullException.ThrowIfNull(fonte);
+        var anterior = _doFluxo.Value;
+        _doFluxo.Value = fonte;
+        return new Restaurar(anterior);
+    }
+
+    private sealed class Restaurar(Func<SessaoUsuario>? anterior) : IDisposable
+    {
+        private bool _feito;
+        public void Dispose()
+        {
+            if (_feito) return;
+            _feito = true;
+            _doFluxo.Value = anterior;
+        }
+    }
 
     public int UsuarioId { get; private set; }
 
@@ -71,7 +154,7 @@ public sealed class SessaoUsuario
     /// usuário do Windows — é o que o faturamento sempre fez, e continua sendo melhor
     /// do que gravar "?".
     /// </summary>
-    public string Operador => Autenticado ? Login : Environment.UserName;
+    public string Operador => Autenticado ? Login : _fechada ? "sem-sessao" : Environment.UserName;
 
     /// <summary>Rótulo do cabeçalho: "Ana Souza · Recepção".</summary>
     public string Rotulo => Autenticado
@@ -88,7 +171,7 @@ public sealed class SessaoUsuario
     /// então este caso não acontece em produção.
     /// </summary>
     public bool Pode(Permissao permissao)
-        => !Autenticado
+        => (!Autenticado && !_fechada)
            || permissao == Permissao.Nenhuma
            || (Permissoes & permissao) == permissao;
 
@@ -102,7 +185,7 @@ public sealed class SessaoUsuario
     /// login e a tela abriria VAZIA, que é o oposto do que <see cref="Pode"/> decide.
     /// Duas respostas para "o que esta pessoa alcança?" é o começo de uma divergir.
     /// </summary>
-    public Permissao Efetivas => Autenticado ? Permissoes : PerfisAcesso.Todas;
+    public Permissao Efetivas => Autenticado ? Permissoes : _fechada ? Permissao.Nenhuma : PerfisAcesso.Todas;
 
     /// <summary>
     /// Bloqueia a ação quando falta permissão. As telas já tratam exceção e mostram a
@@ -130,7 +213,7 @@ public sealed class SessaoUsuario
     /// atende — exigir só o bit novo tiraria a fila de quem a movia ontem.
     /// </summary>
     public bool PodeAlgum(Permissao permissoes)
-        => !Autenticado
+        => (!Autenticado && !_fechada)
            || permissoes == Permissao.Nenhuma
            || (Permissoes & permissoes) != 0;
 
@@ -146,6 +229,18 @@ public sealed class SessaoUsuario
     /// <summary>Grava a fotografia do usuário que acabou de entrar.</summary>
     public void Entrar(UsuarioSistema usuario)
     {
+        // No servidor não existe "o usuário do processo": entrar aqui faria a próxima pessoa
+        // herdar a sessão de quem entrou antes. O servidor usa Fotografar + UsarNesteFluxo.
+        if (_modoServidor)
+            throw new InvalidOperationException("No modo servidor, use Fotografar e UsarNesteFluxo.");
+        Copiar(usuario);
+
+        // A partir daqui é ESTA instância que responde por "quem está usando o app".
+        _doProcesso = this;
+    }
+
+    private void Copiar(UsuarioSistema usuario)
+    {
         UsuarioId = usuario.Id;
         Nome = usuario.Nome;
         Login = usuario.Login;
@@ -153,8 +248,5 @@ public sealed class SessaoUsuario
         Permissoes = usuario.Efetivas;
         ProfissionalId = usuario.ProfissionalId;
         RegistroConselho = usuario.Profissional?.RegistroConselho;
-
-        // A partir daqui é ESTA instância que responde por "quem está usando o app".
-        Atual = this;
     }
 }

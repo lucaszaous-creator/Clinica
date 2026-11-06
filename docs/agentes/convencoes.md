@@ -5,7 +5,7 @@ sessão). O texto é o MESMO, sem reescrita: design system, WPF/XAML, Blazor, EF
 `verificar-suite`, assinatura digital, impressão, CRM e as rodadas de UI, cada uma com o defeito que a
 originou. Antes de escrever uma tela, uma consulta ou uma checagem, procure aqui a lição da área.
 
-## Índice (211 tópicos, na ordem do arquivo)
+## Índice (213 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -219,6 +219,8 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
 - Menu de contexto no Blazor: a regra na Application, `aria-disabled` para a dica, `preventDefault` no elemento e a posição no JS
 - Blazor Sections: o lugar de destino é um objeto POR INSTÂNCIA, nunca um nome global
 - `<Aviso>` só desenha o TEXTO — conteúdo filho sem `Texto` some (out/2026)
+- Classe GENÉRICA no CSS global é colisão esperando acontecer: `.entrada` da tela de login esticava a legenda do Fluxo de caixa
+- Tela Blazor no CELULAR: abaixo de 640 px, número em uma coluna, tabela vira cartão, filtro na largura toda
 - Atualização que falha não pode se repetir sozinha: o Velopack REABRE o app antigo
 ---
 
@@ -5314,6 +5316,29 @@ lado da frase, nunca a frase. Na agenda de preventivo escrevi `<Aviso Tom="erro"
 — nada falhou, nenhum teste reprovou, e o aviso de "dia lotado" simplesmente não existia na tela (achado
 lendo o texto da página na prévia). Frase vai em `Texto="…"`; botões ou links que acompanham a
 frase podem ir no conteúdo filho.
+
+- **Classe GENÉRICA no CSS global é colisão esperando acontecer: `.entrada` da tela de login esticava a legenda do Fluxo de caixa (nov/2026)**:
+o `moldura.css` estilizava a tela de login com `.entrada{min-height:100vh}`, e `entrada` também é o TOM das
+séries de dinheiro (`.amostra.entrada`, `.minicurva.entrada`). O quadradinho da legenda "Entradas" do Fluxo de
+caixa e a minicurva do Caixa do mês ganhavam a altura da janela: no gráfico parecia uma "barra gigante", e o
+gráfico de verdade sumia atrás dela, em produção, no desktop e no celular. Nenhum teste reprova (a tela abre e
+nenhum botão quebra); só a FOTO mostrou. A tela de login ganhou `.entrada-tela`. Regra: estilo de componente
+mora numa classe com o PREFIXO dele (`entrada-tela`, `mesa-*`, `qmd-*`); palavra solta do domínio (`entrada`,
+`saida`, `aviso`, `total`) é modificador, nunca seletor sozinho com altura, largura ou posição.
+
+- **Tela Blazor no CELULAR (nov/2026, a gestão no navegador)**: as telas nasceram para a janela de 1024 px ou mais.
+A camada do celular mora no FIM do `clinica.css` (seção "Celular"), abaixo de 640 px: cartões de número em UMA
+coluna, filtros e campos na largura toda (`.pagina .filtros .campo-bloco` empata e vence os `max-width` das
+telas), aviso com botão empilhado, gráfico com altura de gráfico, e cada linha de `table.lista` vira um CARTÃO
+com o nome da coluna antes do valor. O rótulo vem do `<th>`, copiado para `data-rotulo` pelo
+`js/tabelas-no-celular.js` — o cabeçalho é a fonte única, e tabela nova entra sozinha. Tela com grade própria
+(Mesa, Contas, Resultado, Glosas, Quem me deve, Recebíveis, Pendências) ajusta no PRÓPRIO CSS, num bloco
+`@media (max-width:640px)` comentado. Duas armadilhas que a foto pegou: (1) `.pagina-contas .kpis >
+:nth-child(-n+2){grid-column:span 3}` vencia o `> *{grid-column:auto}` do celular por especificidade, e os
+cartões se sobrepunham — o seletor do celular tem de REPETIR o da janela; (2) `.duas-colunas` com
+`minmax(380px,1fr)` rolava a página de lado em 390 px — use `minmax(min(100%,380px),1fr)`. Conferência: fotografar
+cada tela a 390 px com `fullPage` e medir `document.documentElement.scrollWidth` (tem de ser a largura da tela).
+
 - **Atualização que falha não pode se repetir sozinha: o Velopack REABRE o app antigo** (26/10/2026). Na máquina da clínica um app da suíte
   mostrava a tela de atualização do Velopack a cada abertura e nunca concluía; o dono reinstalou
   por acesso remoto. O mecanismo está no `velopack_<app>.log` (`%LOCALAPPDATA%\velopack\`): o

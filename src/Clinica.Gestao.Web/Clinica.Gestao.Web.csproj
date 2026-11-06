@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!--
+    A GESTÃO NO NAVEGADOR (nov/2026) — docs/gestao-web.md.
+
+    O Gerente Geral no portal: as MESMAS telas Blazor dos apps (Clinica.Ui.Blazor), na MESMA
+    moldura Razor, servidas por Blazor Server atrás do túnel do portal, em /gestao. `net8.0`
+    puro: roda na VPS Linux. Quem entra é decidido pela sessão do portal (senha + segundo
+    fator) e pela régua AcessoAoPortal.PodeGestao, a mesma que a API usa para o destino.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Clinica.Gestao.Web</RootNamespace>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Clinica.Application\Clinica.Application.csproj" />
+    <ProjectReference Include="..\Clinica.Domain\Clinica.Domain.csproj" />
+    <ProjectReference Include="..\Clinica.Infrastructure\Clinica.Infrastructure.csproj" />
+    <ProjectReference Include="..\Clinica.Ui.Blazor\Clinica.Ui.Blazor.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- O catálogo GERADO dos módulos (tools/gerar-catalogo-gestao-web.py), embutido na DLL. -->
+    <EmbeddedResource Include="catalogo-gestao.json" LogicalName="catalogo-gestao.json" />
+  </ItemGroup>
+
+</Project>

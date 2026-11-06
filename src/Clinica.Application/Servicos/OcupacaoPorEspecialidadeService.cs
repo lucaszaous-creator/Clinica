@@ -4,7 +4,7 @@ using Clinica.Application.Modelos;
 namespace Clinica.Application.Servicos;
 
 /// <summary>
-/// Lê o que o mapa de ocupação por especialidade precisa (out/2026) e o entrega montado por
+/// Lê o que o mapa de ocupação por tipo de atendimento precisa (out/2026) e o entrega montado por
 /// <see cref="OcupacaoPorEspecialidade.Montar"/>. Três leituras, em FILA — o mesmo
 /// <c>DbContext</c> não aceita duas de uma vez.
 /// </summary>
@@ -17,7 +17,7 @@ public sealed class OcupacaoPorEspecialidadeService
 
     public OcupacaoPorEspecialidadeService(IClinicaRepositorio repo) => _repo = repo;
 
-    public async Task<IReadOnlyList<LinhaDeOcupacao>> ConsultarAsync(DateOnly de, CancellationToken ct = default)
+    public async Task<MapaDeOcupacao> ConsultarAsync(DateOnly de, CancellationToken ct = default)
     {
         var ate = de.AddDays(DiasDoMapa - 1);
         var inicio = de.ToDateTime(TimeOnly.MinValue);
@@ -25,7 +25,8 @@ public sealed class OcupacaoPorEspecialidadeService
         var profissionais = await _repo.ProfissionaisAsync(ct);
         var ocupados = await _repo.AgendamentosQueSobrepoemAsync(inicio, fim, ct);
         var bloqueios = await _repo.BloqueiosNoPeriodoAsync(inicio, fim, ct);
-        return OcupacaoPorEspecialidade.Montar(profissionais, ocupados, bloqueios, de, ate);
+        return OcupacaoPorEspecialidade.Montar(profissionais, ocupados, bloqueios, de, ate,
+            Clinica.Domain.Regras.CatalogoModalidades.Ativas, Clinica.Domain.Regras.CatalogoEspecialidades.Ativas);
     }
 
     /// <summary>As coletas de preventivo marcadas para o profissional no dia — o painel do clique.</summary>

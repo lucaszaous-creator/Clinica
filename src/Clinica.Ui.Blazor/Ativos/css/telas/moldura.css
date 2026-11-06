@@ -133,11 +133,40 @@
   .moldura-app,.moldura-separador,.moldura-usuario-nome{display:none}
 }
 
+/* Celular (nov/2026, a gestão no navegador). Os apps do computador nunca chegam a 640 px; quem
+   chega é o portal no celular. O cabeçalho fica numa linha (marca, busca, conta), as ÁREAS descem
+   para uma barra fixa embaixo — ao alcance do polegar — e as abas deslizam de lado numa linha só. */
+@media (max-width:640px){
+  .moldura{height:100dvh}
+  .moldura-topo{flex-wrap:nowrap;min-height:56px;gap:var(--space-2);padding:0 var(--space-3)}
+  .moldura-marca{min-height:56px}
+  .moldura-marca img{height:26px}
+  .moldura-busca{flex:1 1 auto;min-width:0;max-width:none;margin-left:var(--space-1)}
+  .moldura-acoes{gap:var(--space-1)}
+  .moldura-nav{position:fixed;left:0;right:0;bottom:0;z-index:35;order:initial;flex-basis:auto;
+    padding:var(--space-1) var(--space-1) calc(var(--space-1) + env(safe-area-inset-bottom,0px));
+    background:var(--superficie);border-top:1px solid var(--borda);box-shadow:var(--sombra-popup)}
+  .moldura-nav > ul{flex-wrap:nowrap;width:100%;justify-content:space-around;gap:var(--space-1)}
+  .moldura-grupo{flex:1 1 0;min-width:0}
+  .moldura-grupo > button{width:100%;justify-content:center;height:48px;padding:0 var(--space-1);font-size:var(--text-small-size)}
+  .moldura-grupo > button svg.icone{display:none}
+  /* O submenu da área abre para CIMA, na largura da tela, sobre a barra. */
+  .moldura-submenu{position:fixed;left:var(--space-2);right:var(--space-2);top:auto;
+    bottom:calc(64px + env(safe-area-inset-bottom,0px));max-width:none;max-height:60dvh;overflow-y:auto}
+  .moldura-submenu button{min-height:44px}
+  .moldura-corpo{padding-bottom:calc(64px + env(safe-area-inset-bottom,0px))}
+  .moldura-abas{flex-wrap:nowrap;overflow-x:auto;padding:0 var(--space-2);scrollbar-width:none}
+  .moldura-abas button{flex:none;white-space:nowrap}
+}
+
 /* ================================================================
    A ENTRADA e a configuração do banco: um cartão centrado na janela,
    a marca à esquerda e o formulário de largura fixa à direita.
    ================================================================ */
-.entrada{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:var(--space-6);background:var(--fundo)}
+/* A tela de entrada usa `.entrada-tela`, e não `.entrada` sozinha (nov/2026): `entrada` também é o
+   tom das séries de dinheiro (`.amostra.entrada`, `.minicurva.entrada`), e a regra genérica
+   esticava o quadradinho da legenda do Fluxo de caixa e a minicurva do Caixa até 100vh. */
+.entrada-tela{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:var(--space-6);background:var(--fundo)}
 .entrada-cartao{display:flex;width:min(820px,100%);min-height:480px;background:var(--superficie);border:1px solid var(--borda);
   border-radius:var(--radius-card);box-shadow:var(--sombra-popup);overflow:hidden}
 .entrada-cartao.configuracao{width:min(720px,100%);min-height:0}

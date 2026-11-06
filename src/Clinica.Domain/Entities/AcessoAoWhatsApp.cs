@@ -30,8 +30,11 @@ public static class AcessoAoWhatsApp
     /// <summary>O perfil atende e o bit vale.</summary>
     public static bool Pode(PerfilAcesso perfil, Permissao efetivas) => PerfilAtende(perfil) && (efetivas & Requer) == Requer;
 
-    /// <summary>Para a sessão do app. Sem login (teste, tela fora do shell) libera, como <see cref="SessaoUsuario.Pode"/>.</summary>
-    public static bool Pode(SessaoUsuario sessao) => !sessao.Autenticado || Pode(sessao.Perfil, sessao.Efetivas);
+    /// <summary>
+    /// Para a sessão do app. Sem login (teste, tela fora do shell) libera, como <see cref="SessaoUsuario.Pode"/> —
+    /// MENOS a sessão fechada do servidor (a gestão web sem login), que nega, como lá (achado da auditoria, nov/2026).
+    /// </summary>
+    public static bool Pode(SessaoUsuario sessao) => (!sessao.Autenticado && !sessao.Fechada) || Pode(sessao.Perfil, sessao.Efetivas);
 
     /// <summary>Para a ponte do CRM: usuário ativo, do perfil certo, com o bit.</summary>
     public static bool Pode(UsuarioSistema usuario) => usuario.Ativo && Pode(usuario.Perfil, usuario.Efetivas);
