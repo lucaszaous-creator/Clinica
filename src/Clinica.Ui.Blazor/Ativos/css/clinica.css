@@ -239,7 +239,7 @@ h1{font-size:28px;font-weight:700;letter-spacing:-.01em;margin:0;line-height:1.1
 .dica hr{border:0;border-top:1px solid var(--borda);margin:6px 0}
 
 /* ---------- Categorias ---------- */
-.duas-colunas{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:var(--space-4)}
+.duas-colunas{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:var(--space-4)}
 .categorias{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--space-4)}
 .categoria-topo{display:flex;justify-content:space-between;gap:var(--space-3);margin-bottom:6px}
 .categoria-nome{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -531,3 +531,79 @@ td .selo{margin-left:0}
 .grafico-linha.tom-perigo .grafico-linha-traco,.grafico-linha.tom-perigo .grafico-linha-ponto{stroke:var(--erro)}
 .grafico-linha.tom-sucesso .grafico-linha-traco,.grafico-linha.tom-sucesso .grafico-linha-ponto{stroke:var(--sucesso)}
 .grafico-linha-vazio{padding:var(--space-8) 0;text-align:center;color:var(--texto-secundario);font-size:var(--text-small-size)}
+
+/* ================================================================
+   Celular (nov/2026) — a gestão no navegador do celular.
+   As telas nasceram para a janela do desktop (1024 px ou mais). Abaixo de 640 px:
+   · números em UMA coluna (nunca três espremidos, nunca cartão por cima de cartão);
+   · cada linha de `table.lista` vira um CARTÃO, com o nome da coluna antes de cada valor
+     (o rótulo vem do <th>, copiado pelo js/tabelas-no-celular.js — fonte única);
+   · filtros e campos na largura toda, botões do cabeçalho quebrando linha sem cortar;
+   · gráfico com altura de gráfico, e não de página.
+   Esta seção fica no FIM do arquivo de propósito: as telas são importadas no topo, então
+   aqui vence o empate de especificidade. Tela com grade própria ajusta no próprio CSS.
+   ================================================================ */
+@media (max-width:640px){
+  .pagina{padding:var(--space-4) var(--space-3) var(--space-8)}
+  .kpis,.kpis.tres{grid-template-columns:1fr;gap:var(--space-3)}
+  .kpi{padding:var(--space-4)}
+  .cartao-corpo{padding:var(--space-4)}
+  .lista-cartao .cartao-titulo{padding:var(--space-4) var(--space-4) 0}
+
+  /* Filtros: um campo por linha, na largura toda. */
+  .filtros{padding:var(--space-4);gap:var(--space-3)}
+  /* `.pagina` na frente empata com os `.tela .filtros .estreito` das telas (larguras máximas da
+     janela) e vence por vir depois: no celular, nenhum filtro fica com 170 px. */
+  .pagina .filtros .campo-bloco{min-width:0;max-width:none;flex:1 1 100%}
+  .pagina .filtros .chips{flex:1 1 100%}
+  .filtros .campo,.filtros select,.filtros input:not([type=checkbox]):not([type=radio]){width:100%;max-width:none}
+  .filtros .busca{flex:1 1 100%}
+  .filtros > .botao{flex:1 1 auto;justify-content:center}
+
+  /* Segmentado e seletor de mês ocupam a linha e não cortam opção. */
+  .segmentado{display:flex;width:100%;overflow-x:auto;scrollbar-width:none}
+  .segmentado button{flex:1 0 auto}
+  .seletor-mes{display:flex;width:100%;justify-content:space-between}
+  .seletor-mes-rotulo{min-width:0;flex:1}
+
+  /* Tabela → cartões. */
+  .tabela-rolagem:has(> table.lista){overflow:visible}
+  table.lista,table.lista > tbody,table.lista > tbody > tr,table.lista > tbody > tr > td{display:block;width:100%}
+  table.lista > thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  table.lista > tbody > tr{padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--borda)}
+  table.lista > tbody > tr:last-child{border-bottom:0}
+  table.lista > tbody > tr:hover > td{background:transparent}
+  /* O rótulo flutua numa coluna à esquerda e o conteúdo da célula — texto, selo, linha
+     secundária — continua fluindo junto, na coluna da direita. `flow-root` faz a célula crescer
+     com um rótulo de duas linhas ("Na competência, ainda não se moveu"), sem encavalar na
+     seguinte. Os `.direita`/`.centro` da janela larga são anulados: no cartão, tudo lê da esquerda. */
+  table.lista > tbody > tr > td,
+  table.lista > tbody > tr > td:is(:first-child,:last-child,.direita,.centro,.nao-quebra){display:flow-root;
+    padding:var(--space-1) 0 var(--space-1) 8.5rem;border:0;text-align:left;white-space:normal}
+  table.lista > tbody > tr > td::before{content:attr(data-rotulo);float:left;width:7.75rem;margin-left:-8.5rem;
+    color:var(--texto-secundario);font-size:var(--text-small-size);font-weight:500;line-height:1.5}
+  /* A primeira célula é o título do cartão; célula sem rótulo (ações, ícones) ocupa a largura. */
+  table.lista > tbody > tr > td:first-child,
+  table.lista > tbody > tr > td[data-rotulo=""]{padding-left:0}
+  table.lista > tbody > tr > td:first-child{padding-bottom:var(--space-2);font-weight:600}
+  table.lista > tbody > tr > td:first-child::before,
+  table.lista > tbody > tr > td[data-rotulo=""]::before{content:none}
+  table.lista > tbody > tr > td:has(.botao):last-child{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);
+    padding:var(--space-2) 0 0}
+  table.lista > tbody > tr > td:has(.botao):last-child::before{float:none;width:auto;margin:0;flex:1 0 100%}
+  /* Faixa de alerta que a janela pinta na primeira célula (ex.: recebível atrasado) vai para a linha. */
+  table.lista > tbody > tr > td:first-child{box-shadow:none}
+  table.lista > tbody > tr > td .botoes-linha{justify-content:flex-start}
+  table.lista > tbody > tr > td .numero{white-space:normal}
+  /* Linha de total/rodapé da tabela, quando houver, também em cartão. */
+  table.lista > tfoot,table.lista > tfoot > tr,table.lista > tfoot > tr > td{display:block;width:100%;text-align:left}
+  table.lista > tfoot > tr{padding:var(--space-3) var(--space-4);background:var(--cinza-50)}
+
+  /* Aviso com botão: o texto fica com a largura toda e o botão desce para baixo dele. */
+  .aviso{flex-wrap:wrap}
+  .aviso > span{flex:1 1 0;min-width:0}
+  .aviso > .botao{flex:1 1 100%;justify-content:center}
+
+  /* Gráficos: altura de gráfico. */
+  .grafico svg,.grafico-linha svg{max-height:220px}
+}

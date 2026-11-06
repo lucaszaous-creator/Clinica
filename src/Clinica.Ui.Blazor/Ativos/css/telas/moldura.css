@@ -137,7 +137,10 @@
    A ENTRADA e a configuração do banco: um cartão centrado na janela,
    a marca à esquerda e o formulário de largura fixa à direita.
    ================================================================ */
-.entrada{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:var(--space-6);background:var(--fundo)}
+/* A tela de entrada usa `.entrada-tela`, e não `.entrada` sozinha (nov/2026): `entrada` também é o
+   tom das séries de dinheiro (`.amostra.entrada`, `.minicurva.entrada`), e a regra genérica
+   esticava o quadradinho da legenda do Fluxo de caixa e a minicurva do Caixa até 100vh. */
+.entrada-tela{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:var(--space-6);background:var(--fundo)}
 .entrada-cartao{display:flex;width:min(820px,100%);min-height:480px;background:var(--superficie);border:1px solid var(--borda);
   border-radius:var(--radius-card);box-shadow:var(--sombra-popup);overflow:hidden}
 .entrada-cartao.configuracao{width:min(720px,100%);min-height:0}
