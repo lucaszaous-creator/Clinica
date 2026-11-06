@@ -35,6 +35,8 @@ public class ClinicaDbContext : DbContext
             e.Entity.Versao = Guid.NewGuid();
         foreach (var e in ChangeTracker.Entries<ColetaTablet>().Where(e => e.State == EntityState.Modified))
             e.Entity.Versao = Guid.NewGuid();
+        foreach (var e in ChangeTracker.Entries<SegundoFatorPortal>().Where(e => e.State == EntityState.Modified))
+            e.Entity.Versao = Guid.NewGuid();
     }
 
     public DbSet<EtapaFechamentoSessao> EtapasFechamentoSessao => Set<EtapaFechamentoSessao>();
@@ -132,6 +134,9 @@ public class ClinicaDbContext : DbContext
     public DbSet<OperacaoAssinaturaTablet> OperacoesAssinaturaTablet => Set<OperacaoAssinaturaTablet>();
     public DbSet<SessaoTablet> SessoesTablet => Set<SessaoTablet>();
     public DbSet<ColetaTablet> ColetasTablet => Set<ColetaTablet>();
+    public DbSet<SegundoFatorPortal> SegundosFatoresPortal => Set<SegundoFatorPortal>();
+    public DbSet<DispositivoConfiavelPortal> DispositivosConfiaveisPortal => Set<DispositivoConfiavelPortal>();
+    public DbSet<CodigoRecuperacaoPortal> CodigosRecuperacaoPortal => Set<CodigoRecuperacaoPortal>();
     public DbSet<ViaAssinadaPaciente> ViasAssinadasPaciente => Set<ViaAssinadaPaciente>();
     public DbSet<BloqueioAgenda> BloqueiosAgenda => Set<BloqueioAgenda>();
     public DbSet<MetaMensal> Metas => Set<MetaMensal>();

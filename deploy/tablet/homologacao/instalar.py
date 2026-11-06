@@ -103,6 +103,13 @@ for privilege, tables in [('SELECT',leitura),('INSERT',inserir),('UPDATE',atuali
 commands.append(f'GRANT UPDATE ("UltimoAcessoEm","TentativasFalhas","BloqueadoAte") ON "Usuarios" TO "{ROLE}";')
 commands.append(f'GRANT SELECT ("Id") ON "Auditoria" TO "{ROLE}";') # INSERT RETURNING do EF, sem leitura do conteúdo de auditoria.
 commands.append(f'GRANT UPDATE ("Categoria") ON "Pacientes" TO "{ROLE}";') # Categoria recalculada pelo núcleo ao concluir e gerar guias.
+# Segundo fator do portal (nov/2026): o autenticador, os aparelhos confiáveis e os códigos de recuperação.
+for tabela, privilegios in (('SegundoFatorPortal','SELECT, INSERT, UPDATE'),('DispositivosConfiaveisPortal','SELECT, INSERT, UPDATE'),
+                            ('CodigosRecuperacaoPortal','SELECT, INSERT, UPDATE, DELETE')):
+    if sql(DB, f'SELECT to_regclass(\'"{tabela}"\') IS NOT NULL') == 't':
+        commands.append(f'GRANT {privilegios} ON "{tabela}" TO "{ROLE}";')
+if sql(DB, 'SELECT to_regclass(\'"CodigosRecuperacaoPortal"\') IS NOT NULL') == 't':
+    commands.append(f'GRANT USAGE, SELECT ON SEQUENCE "CodigosRecuperacaoPortal_Id_seq" TO "{ROLE}";')
 if sql(DB, 'SELECT to_regclass(\'"CertificadosA1"\') IS NOT NULL') == 't':
     commands.append(f'GRANT SELECT, INSERT, UPDATE, DELETE ON "CertificadosA1" TO "{ROLE}";')
 sql(DB,'\n'.join(commands))
@@ -116,7 +123,6 @@ if not (CONF/'base-verificada.json').exists():
     result = run(['runuser','-u',ROLE,'--',str(release/'preparar/PrepararHomologacao'),'verificar',DB],env={**os.environ,'TZ':'America/Sao_Paulo'})
     write_private(CONF/'base-verificada.json',json.dumps({'backend':manifest['backend'],'resultado':result}))
 if not (CONF/'portal.env').exists():
-    code = secrets.token_urlsafe(36)
     write_private(CONF/'portal.env',f'''ASPNETCORE_ENVIRONMENT=Production
 TZ=America/Sao_Paulo
 Portal__Demo=false
@@ -127,7 +133,6 @@ Portal__A1__Habilitado=false
 Portal__Socket=/run/clinica-posto-hml/portal.sock
 Portal__Interface=/opt/clinica-posto-hml/current/portal
 Portal__DiretorioChaves=/var/lib/clinica-posto-hml/chaves
-Portal__CodigoTablet={code}
 Portal__Modelos__0=1
 Portal__Modelos__1=2
 ConnectionStrings__Clinica="Host=/var/run/postgresql;Port=45432;Database={DB};Username={ROLE};Timeout=10;Maximum Pool Size=5;Include Error Detail=false"

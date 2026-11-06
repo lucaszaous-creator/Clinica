@@ -27,7 +27,19 @@ def post(path,**body):
     return first
 
 csrf=api('/sessao')['csrf']
-api('/entrar',{'login':cred['usuario'],'senha':cred['senha'],'codigoTablet':cred['codigo_tablet']})
+def totp(chave):
+    # RFC 6238 (SHA1, 6 dígitos, 30 s) — a mesma conta do autenticador do celular.
+    import base64,hmac,hashlib,struct,time
+    k=base64.b32decode(chave.replace(' ','').upper()+'='*(-len(chave.replace(' ',''))%8))
+    h=hmac.new(k,struct.pack('>Q',int(time.time())//30),hashlib.sha1).digest()
+    o=h[-1]&15
+    return '%06d'%((struct.unpack('>I',h[o:o+4])[0]&0x7FFFFFFF)%1000000)
+entrada=api('/entrar',{'login':cred['usuario'],'senha':cred['senha']})
+if entrada and entrada.get('etapa')=='codigo':
+    # Credencial de homologação traz a chave do autenticador do usuário de teste (totp_chave).
+    csrf=api('/sessao')['csrf']
+    api('/entrar/codigo',{'codigo':totp(cred['totp_chave']),'confiar':False})
+assert not entrada or entrada.get('etapa')!='cadastro','Cadastre o autenticador do usuário de homologação antes'
 csrf=api('/sessao')['csrf']
 marcador='HOMOLOGAÇÃO — paciente fictício'
 pacientes=api('/posto/pacientes/buscar',{'busca':marcador})

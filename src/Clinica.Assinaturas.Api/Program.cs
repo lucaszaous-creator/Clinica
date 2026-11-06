@@ -27,11 +27,15 @@ if(socketPrivado)
     builder.WebHost.ConfigureKestrel(o=>o.ListenUnixSocket(socketPortal!));
 }
 if(demo && !builder.Environment.IsDevelopment()) throw new InvalidOperationException("Demonstração só é permitida em Development.");
-var codigoTablet=builder.Configuration["Portal:CodigoTablet"] ?? "";
-var cookieDispositivo=demo ? "clinica.tablet.device" : "__Host-clinica.tablet.device";
+// O código de cadastro do tablet SAIU (nov/2026): era um segredo único para a equipe inteira.
+// O aparelho passa a ser registrado depois de senha + segundo fator pessoal (SegundoFatorPortalService).
+// Na demonstração (Development, dados fictícios) o segundo fator fica desligado por padrão: as
+// suítes HTTP entram só com a senha. O teste do segundo fator o liga com Portal:SegundoFatorNaDemo.
+var segundoFatorAtivo=!demo || builder.Configuration.GetValue<bool>("Portal:SegundoFatorNaDemo");
+string cookieDispositivo=demo ? "clinica.tablet.device" : "__Host-clinica.tablet.device";
 var modelos=builder.Configuration.GetSection("Portal:Modelos").Get<int[]>() ?? [];
-if(!demo && (codigoTablet.Length<32 || modelos.Length!=2 || modelos.Distinct().Count()!=2 || modelos.Any(id=>id<=0)))
-    throw new InvalidOperationException("Configure o código de cadastro dos tablets e os dois modelos clínicos aprovados.");
+if(!demo && (modelos.Length!=2 || modelos.Distinct().Count()!=2 || modelos.Any(id=>id<=0)))
+    throw new InvalidOperationException("Configure os dois modelos clínicos aprovados.");
 if(!demo && !builder.Configuration.GetValue<bool>("Portal:Habilitado"))
     throw new InvalidOperationException("Portal desabilitado. Habilite somente após a homologação e configuração.");
 
@@ -65,6 +69,8 @@ builder.Services.AddScoped<AssinaturaDoPacienteService>();
 builder.Services.AddScoped<DocumentosClinicosPdfService>();
 builder.Services.AddScoped<ParametrosService>();
 builder.Services.AddScoped<PortalTabletService>();
+builder.Services.AddScoped<SegundoFatorPortalService>();
+builder.Services.AddSingleton<IProtecaoDoSegredo,ProtecaoDoSegredoDoPortal>();
 var atendimentoHabilitado=demo || builder.Configuration.GetValue<bool>("Portal:AtendimentoHabilitado");
 var opcoes=new OpcoesTablet(demo ? [1,2] : modelos,atendimentoHabilitado);
 builder.Services.AddScoped<AtendimentoTabletService>();
@@ -119,9 +125,9 @@ string? DispositivoRegistrado(HttpContext ctx)
     try
     {
         var protetorDispositivo=ctx.RequestServices.GetRequiredService<IDataProtectionProvider>()
-            .CreateProtector("DispositivoTablet.v1");
+            .CreateProtector(EntradaDoPortal.PropositoDispositivo);
         var valor=protetorDispositivo.Unprotect(ctx.Request.Cookies[cookieDispositivo] ?? "").Split('|');
-        if(valor.Length==3 && valor[0]==ContratoTablet.Hash(codigoTablet)
+        if(valor.Length==3 && valor[0]==EntradaDoPortal.MarcaDispositivo
             && long.TryParse(valor[2],out var expira) && expira>DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
             return valor[1];
     }
@@ -156,7 +162,9 @@ builder.Logging.AddFilter("Microsoft.EntityFrameworkCore",LogLevel.Critical);
 builder.Logging.AddFilter("System.Net.Http.HttpClient",LogLevel.Warning);
 var app=builder.Build();
 var cookieSessao=demo ? "clinica.tablet" : "__Host-clinica.tablet";
-var protetor=app.Services.GetRequiredService<IDataProtectionProvider>().CreateProtector("DispositivoTablet.v1");
+var protetor=app.Services.GetRequiredService<IDataProtectionProvider>().CreateProtector(EntradaDoPortal.PropositoDispositivo);
+var protetorEntrada=app.Services.GetRequiredService<IDataProtectionProvider>().CreateProtector(EntradaDoPortal.PropositoEntrada).ToTimeLimitedDataProtector();
+var cookieEntrada=demo ? "clinica.entrada" : "__Host-clinica.entrada";
 var extensoesPublicas=new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {".html",".css",".js",".mjs",".json",".mp4",".png",".woff2",".bcmap",".pfb",".ttf",".txt"};
 CookieOptions Cookie(int horas)=>new() {HttpOnly=true,Secure=!demo,SameSite=SameSiteMode.Strict,Path="/",MaxAge=TimeSpan.FromHours(horas)};
@@ -235,7 +243,7 @@ app.Use(async(ctx,next)=>
             app.Logger.LogError("Falha de persistência do portal. Código {Codigo}; referência {Referencia}.",
                 FalhaPersistenciaTablet.Codigo(persistencia) ?? "indisponivel",ctx.TraceIdentifier);
         await ctx.Response.WriteAsJsonAsync(new {erro=e switch {
-            UnauthorizedAccessException=>"Entre com uma conta autorizada neste tablet.",
+            UnauthorizedAccessException=>"Usuário ou senha não conferem, ou o acesso expirou. Entre de novo.",
             RecursoClinicoIndisponivel=>"Registro indisponível para este acesso.",
             ConflitoClinicoTablet=>e.Message,
             AcessoTabletBloqueado=>"O tablet está em modo paciente. A equipe precisa entrar novamente.",
@@ -262,34 +270,86 @@ app.MapGet("/api/sessao",async(HttpContext ctx,IAntiforgery csrf,PortalTabletSer
         return Results.Ok(new {csrf=token,modo=s.Modo,demo,homologacao,operadora=s.Modo=="equipe" ? s.Usuario!.Nome : null,
             expiraEm=s.ExpiraEm,contexto=ContratoTablet.Hash("contexto-portal:"+s.Id),
             atendimento=atendimentoHabilitado && s.Modo=="equipe" && PoliticaAtendimentoTablet.PodeUsarPosto(s.Usuario!),
-            coleta=s.Modo=="equipe" && PortalTabletService.PodeColher(s.Usuario!)});
+            coleta=s.Modo=="equipe" && PortalTabletService.PodeColher(s.Usuario!),
+            destinos=s.Modo=="equipe" ? svc.Destinos(s.Usuario!) : []});
     }
     catch(UnauthorizedAccessException) {return Results.Ok(new {csrf=token,modo="entrada",demo,homologacao});}
 });
-app.MapPost("/api/entrar",async(HttpContext ctx,Entrada pedido,AcessoService acesso,PortalTabletService svc)=>
+// ── A ENTRADA (nov/2026): senha → segundo fator pessoal → sessão. ─────────────────────────────
+// Entre a senha e o código, o estado vive num cookie CIFRADO e de vida curta (5 min): quem é,
+// a versão da credencial, o aparelho e — no primeiro acesso — o segredo novo ainda não
+// confirmado. Nada disso vai ao banco antes de o código provar que o celular está certo.
+string Origem(HttpContext ctx)=>OrigemRateLimitTablet.Obter(ctx,socketPrivado) ?? "origem-ausente";
+async Task<IResult> AbrirSessao(HttpContext ctx,UsuarioSistema u,string dispositivo,PortalTabletService svc)
 {
-    if(pedido.Login?.Length is not (>=3 and <=80) || pedido.Senha?.Length is not (>0 and <=200)) throw new UnauthorizedAccessException();
-    string dispositivo;
-    var cadastrarDispositivo=false;
-    try {dispositivo=Dispositivo(ctx);}
-    catch(UnauthorizedAccessException)
-    {
-        if(!CryptographicOperations.FixedTimeEquals(SHA256.HashData(Encoding.UTF8.GetBytes(pedido.CodigoTablet ?? "")),
-            SHA256.HashData(Encoding.UTF8.GetBytes(codigoTablet)))) throw new UnauthorizedAccessException();
-        dispositivo="";
-        cadastrarDispositivo=true;
-    }
-    var resultado=await acesso.AutenticarAsync(pedido.Login,pedido.Senha,ct:ctx.RequestAborted);
-    if(!resultado.Sucesso || resultado.Usuario is not { } u || !svc.PodeEntrar(u)) throw new UnauthorizedAccessException();
-    if(cadastrarDispositivo)
-    {
-        dispositivo=PortalTabletService.Token();
-        ctx.Response.Cookies.Append(cookieDispositivo,protetor.Protect(ContratoTablet.Hash(codigoTablet)+"|"+dispositivo+"|"
-            +DateTimeOffset.UtcNow.AddDays(30).ToUnixTimeMilliseconds()),Cookie(720));
-    }
     var entrada=await svc.EntrarAsync(u,dispositivo,ctx.Request.Cookies[cookieSessao],ctx.RequestAborted);
     ctx.Response.Cookies.Append(cookieSessao,entrada.Token,Cookie(2));
-    return Results.Ok(new {modo="equipe"});
+    ctx.Response.Cookies.Delete(cookieEntrada,Cookie(0));
+    return Results.Ok(new {modo="equipe",destinos=svc.Destinos(u)});
+}
+async Task<(UsuarioSistema U,EntradaDoPortal.Pendente P)?> Pendente(HttpContext ctx,ClinicaDbContext db,PortalTabletService svc)
+{
+    if(EntradaDoPortal.Abrir(protetorEntrada,ctx.Request.Cookies[cookieEntrada]) is not {} p) return null;
+    var u=await db.Usuarios.Include(x=>x.Profissional).SingleOrDefaultAsync(x=>x.Id==p.UsuarioId,ctx.RequestAborted);
+    // A senha trocada, o usuário desativado ou o aparelho diferente invalidam a entrada pendente.
+    if(u is null || !svc.PodeEntrar(u) || u.Travado(DateTime.Now) || ContratoTablet.Hash(u.SenhaHash)!=p.Credencial
+        || DispositivoRegistrado(ctx)!=p.Dispositivo) return null;
+    return (u,p);
+}
+IResult EntradaVencida()=>Results.Json(new {erro="A entrada demorou demais. Digite usuário e senha de novo."},statusCode:410);
+app.MapPost("/api/entrar",async(HttpContext ctx,Entrada pedido,AcessoService acesso,PortalTabletService svc,SegundoFatorPortalService fator)=>
+{
+    if(pedido.Login?.Length is not (>=3 and <=80) || pedido.Senha?.Length is not (>0 and <=200)) throw new UnauthorizedAccessException();
+    var resultado=await acesso.AutenticarAsync(pedido.Login,pedido.Senha,ct:ctx.RequestAborted);
+    if(!resultado.Sucesso || resultado.Usuario is not { } u || !svc.PodeEntrar(u)) throw new UnauthorizedAccessException();
+    // O aparelho ganha identidade aqui; ela sozinha não abre nada — é a âncora da sessão e da confiança.
+    var dispositivo=DispositivoRegistrado(ctx);
+    if(dispositivo is null)
+    {
+        dispositivo=PortalTabletService.Token();
+        ctx.Response.Cookies.Append(cookieDispositivo,protetor.Protect(EntradaDoPortal.MarcaDispositivo+"|"+dispositivo+"|"
+            +DateTimeOffset.UtcNow.AddDays(400).ToUnixTimeMilliseconds()),Cookie(400*24));
+    }
+    if(!segundoFatorAtivo) return await AbrirSessao(ctx,u,dispositivo,svc);
+    if(await fator.TemAutenticadorAsync(u.Id,ctx.RequestAborted))
+    {
+        if(await fator.ConfiavelAsync(u,dispositivo,ctx.RequestAborted)) return await AbrirSessao(ctx,u,dispositivo,svc);
+        ctx.Response.Cookies.Append(cookieEntrada,EntradaDoPortal.Proteger(protetorEntrada,new(u.Id,ContratoTablet.Hash(u.SenhaHash),dispositivo,null)),Cookie(1));
+        return Results.Ok(new {etapa="codigo"});
+    }
+    var segredo=Totp.NovoSegredo();
+    ctx.Response.Cookies.Append(cookieEntrada,EntradaDoPortal.Proteger(protetorEntrada,new(u.Id,ContratoTablet.Hash(u.SenhaHash),dispositivo,Convert.ToBase64String(segredo))),Cookie(1));
+    var conta=u.Login;
+    return Results.Ok(new {etapa="cadastro",conta=$"Clínica SemDor ({conta})",chave=Totp.ChaveLegivel(segredo),
+        qrSvg=EntradaDoPortal.QrSvg(Totp.Endereco("Clínica SemDor",conta,segredo))});
+});
+app.MapPost("/api/entrar/codigo",async(HttpContext ctx,CodigoEntrada pedido,ClinicaDbContext db,PortalTabletService svc,SegundoFatorPortalService fator)=>
+{
+    if(await Pendente(ctx,db,svc) is not var (u,p) || p.SegredoNovo is not null) return EntradaVencida();
+    if(!await fator.Para(u).VerificarAsync(u.Id,pedido.Codigo,ctx.RequestAborted))
+        return Results.Json(new {erro="Código não confere. Confira a hora do celular e digite o código que está na tela agora."},statusCode:401);
+    if(pedido.Confiar) await fator.ConfiarAsync(u,p.Dispositivo,Origem(ctx),ctx.RequestAborted);
+    return await AbrirSessao(ctx,u,p.Dispositivo,svc);
+});
+app.MapPost("/api/entrar/cadastro",async(HttpContext ctx,CodigoEntrada pedido,ClinicaDbContext db,PortalTabletService svc,SegundoFatorPortalService fator)=>
+{
+    if(await Pendente(ctx,db,svc) is not var (u,p) || p.SegredoNovo is null) return EntradaVencida();
+    var codigos=await fator.Para(u).CadastrarAsync(u.Id,Convert.FromBase64String(p.SegredoNovo),pedido.Codigo,ctx.RequestAborted);
+    if(codigos is null)
+        return Results.Json(new {erro="Código não confere. Confira se leu o QR desta tela e digite o código que aparece no aplicativo."},statusCode:401);
+    if(pedido.Confiar) await fator.ConfiarAsync(u,p.Dispositivo,Origem(ctx),ctx.RequestAborted);
+    var entrada=await svc.EntrarAsync(u,p.Dispositivo,ctx.Request.Cookies[cookieSessao],ctx.RequestAborted);
+    ctx.Response.Cookies.Append(cookieSessao,entrada.Token,Cookie(2));
+    ctx.Response.Cookies.Delete(cookieEntrada,Cookie(0));
+    return Results.Ok(new {modo="equipe",destinos=svc.Destinos(u),recuperacao=codigos});
+});
+app.MapPost("/api/entrar/recuperacao",async(HttpContext ctx,CodigoEntrada pedido,ClinicaDbContext db,PortalTabletService svc,SegundoFatorPortalService fator)=>
+{
+    if(await Pendente(ctx,db,svc) is not var (u,p) || p.SegredoNovo is not null) return EntradaVencida();
+    if(!await fator.Para(u).UsarRecuperacaoAsync(u.Id,pedido.Codigo,ctx.RequestAborted))
+        return Results.Json(new {erro="Código de recuperação não confere ou já foi usado."},statusCode:401);
+    if(pedido.Confiar) await fator.ConfiarAsync(u,p.Dispositivo,Origem(ctx),ctx.RequestAborted);
+    return await AbrirSessao(ctx,u,p.Dispositivo,svc);
 });
 app.MapPost("/api/sair",async(HttpContext ctx,PortalTabletService svc,ClinicaDbContext db)=>
 {
@@ -347,6 +407,7 @@ app.UseStaticFiles(new StaticFileOptions {FileProvider=new PhysicalFileProvider(
 if(demo) await DemoTablet.PrepararAsync(app.Services);
 app.Run();
 
-public record Entrada(string Login,string Senha,string? CodigoTablet);
+public record Entrada(string Login,string Senha);
+public record CodigoEntrada(string? Codigo,bool Confiar);
 public record Encerrar(bool Recusa,string? Motivo);
 public partial class Program;

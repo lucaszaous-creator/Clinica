@@ -1293,6 +1293,35 @@ namespace Clinica.Infrastructure.Migrations
                     b.ToTable("Codigos");
                 });
 
+            modelBuilder.Entity("Clinica.Domain.Entities.CodigoRecuperacaoPortal", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Resumo")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<long?>("UsadoEm")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Resumo")
+                        .IsUnique();
+
+                    b.HasIndex("UsuarioId");
+
+                    b.ToTable("CodigosRecuperacaoPortal", (string)null);
+                });
+
             modelBuilder.Entity("Clinica.Domain.Entities.ColetaRemotaTermo", b =>
                 {
                     b.Property<int>("Id")
@@ -2068,6 +2097,37 @@ namespace Clinica.Infrastructure.Migrations
                     b.HasIndex("EvolucaoEnfermagemId");
 
                     b.ToTable("DiagnosticosEnfermagem");
+                });
+
+            modelBuilder.Entity("Clinica.Domain.Entities.DispositivoConfiavelPortal", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Credencial")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<long>("CriadoEm")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("ExpiraEm")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Origem")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UsuarioId", "ExpiraEm");
+
+                    b.ToTable("DispositivosConfiaveisPortal", (string)null);
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.DocumentoClinico", b =>
@@ -6203,6 +6263,34 @@ namespace Clinica.Infrastructure.Migrations
                     b.ToTable("Salas");
                 });
 
+            modelBuilder.Entity("Clinica.Domain.Entities.SegundoFatorPortal", b =>
+                {
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("AtivadoEm")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("FalhasSeguidas")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SegredoProtegido")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<long>("UltimoPasso")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("Versao")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.HasKey("UsuarioId");
+
+                    b.ToTable("SegundoFatorPortal", (string)null);
+                });
+
             modelBuilder.Entity("Clinica.Domain.Entities.SemDorNoCrm", b =>
                 {
                     b.Property<int>("Id")
@@ -7148,6 +7236,15 @@ namespace Clinica.Infrastructure.Migrations
                     b.Navigation("Lote");
                 });
 
+            modelBuilder.Entity("Clinica.Domain.Entities.CodigoRecuperacaoPortal", b =>
+                {
+                    b.HasOne("Clinica.Domain.Entities.UsuarioSistema", null)
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Clinica.Domain.Entities.ColetaRemotaTermo", b =>
                 {
                     b.HasOne("Clinica.Domain.Entities.DocumentoClinico", "Documento")
@@ -7354,6 +7451,15 @@ namespace Clinica.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Evolucao");
+                });
+
+            modelBuilder.Entity("Clinica.Domain.Entities.DispositivoConfiavelPortal", b =>
+                {
+                    b.HasOne("Clinica.Domain.Entities.UsuarioSistema", null)
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.DocumentoClinico", b =>
@@ -8141,6 +8247,17 @@ namespace Clinica.Infrastructure.Migrations
                     b.Navigation("Paciente");
 
                     b.Navigation("PedidoDocumento");
+                });
+
+            modelBuilder.Entity("Clinica.Domain.Entities.SegundoFatorPortal", b =>
+                {
+                    b.HasOne("Clinica.Domain.Entities.UsuarioSistema", "Usuario")
+                        .WithOne()
+                        .HasForeignKey("Clinica.Domain.Entities.SegundoFatorPortal", "UsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Usuario");
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.SessaoTablet", b =>
