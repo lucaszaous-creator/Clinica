@@ -23,6 +23,10 @@ case "$alvo" in
     destino=/home/clinica-admin/tablet-stage
     install -d -m 0700 -o root -g root "$destino"
     install -m 0600 -o root -g root "$origem" "$destino/$nome"
+    # Republicar o MESMO pacote (Run workflow no mesmo commit): o relatório da vez anterior tem o mesmo
+    # nome e o atualizador recusa sobrescrever (O_EXCL). Ele é guardado com a data, não apagado.
+    relatorio="$destino/${nome%.tar.gz}-producao.json"
+    [ -e "$relatorio" ] && mv -- "$relatorio" "${relatorio%.json}-$(date +%Y%m%d%H%M%S).json"
     anterior="$(basename "$(readlink -f /opt/clinica-tablet/current)")"
     trabalho="$(mktemp -d)"; trap 'rm -rf "$trabalho"' EXIT
     tar -xzf "$destino/$nome" -C "$trabalho" --wildcards '*/atualizar-posto.py' '*/regras_publicacao.py'
