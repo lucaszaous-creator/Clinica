@@ -26,9 +26,12 @@ deploy a pula.
 
 ## Configurar uma vez (só a VPS)
 
-1. **Túnel:** em Zero Trust → Networks → Tunnels → o túnel da VPS → *Public hostname*, adicione
-   `ssh.clinicasemdormacae.com.br` → `SSH` → `localhost:22`. Se o túnel é por `config.yml`, a regra
-   equivalente vai antes da regra final.
+1. **Túnel do SSH (à parte do túnel do site):** o `cloudflared-site` é proibido de abrir conexão TCP
+   local (o `probe.py` confere a cada partida; é o que protege o banco), então o SSH tem conector
+   próprio. Em Networking → Tunnels → **Create Tunnel** → Cloudflared, nome `clinica-ssh`; copie o
+   token (o `eyJ…` do comando de instalação) e adicione a rota `ssh.clinicasemdormacae.com.br` →
+   `ssh://localhost:22`. Na VPS, como root:
+   `bash <(curl -fsSL https://raw.githubusercontent.com/lucaszaous-creator/Clinica/main/deploy/vps/tunel-ssh.sh)`.
 2. **Access:** em Zero Trust → Access → *Service Auth*, crie um service token `github-deploy`. Em
    *Applications*, crie uma aplicação *Self-hosted* para `ssh.clinicasemdormacae.com.br`, com uma
    política **Service Auth** que inclua esse token.
