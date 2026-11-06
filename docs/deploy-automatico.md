@@ -10,8 +10,8 @@ gestão, **a cada 15 min** (para pegar o merge do `clinica-site`) e à mão (Run
 republica mesmo sem mudança).
 
 1. **Há o que publicar?** Compara a `main` do `clinica-site` e o último commit do Clinica que toca
-   o portal com o par já implantado. Par igual → para em segundos. Sem o secret `VPS_DEPLOY`, não
-   publica nada.
+   o portal com o par já implantado. Par igual → para em segundos. Sem os secrets `VPS_DEPLOY` e
+   `SITE_READ_TOKEN`, não publica nada.
 2. **Conferir:** testes da API do portal, do tablet e da gestão web, o atualizador e o catálogo.
 3. **Publicar:** empacota (o portal sem migration), entra pelo túnel da Cloudflare (Access, sem
    porta 22 aberta) e roda `sudo clinica-deploy portal|gestao`. Na VPS: confere o SHA-256, faz
@@ -36,7 +36,11 @@ atualizada depois de instalada uma vez à mão (`docs/gestao-web.md`); até lá,
    ```
    O script pede o Client ID e o Client Secret do token e imprime **uma linha**.
 4. **GitHub:** Clinica → Settings → Secrets and variables → Actions → *New repository secret*
-   `VPS_DEPLOY` = a linha. Na próxima janela de 15 min, o deploy roda.
+   `VPS_DEPLOY` = a linha.
+5. **Leitura do `clinica-site` (repositório privado):** em github.com → Settings → Developer
+   settings → *Fine-grained tokens* → *Generate new token*, com o repositório `clinica-site` e a
+   permissão **Contents: Read-only**, sem vencimento ou com vencimento longo. Salve no Clinica como
+   o secret `SITE_READ_TOKEN`. Na próxima janela de 15 min, o deploy roda.
 
 Pré-requisito do portal: `/opt/clinica-tablet/current` apontando para o release no ar. Em set/2026
 ele não foi encontrado (`docs/retomada-publicacao-portal.md`). Sem isso, o deploy falha sem mexer
@@ -57,9 +61,9 @@ em nada.
   derrube a saúde volta sozinha. O risco que sobra é o defeito que **não** derruba a saúde, já que
   ninguém aprova antes.
 - 🛠️ **DX:** acabou o roteiro de console a cada publicação. As peças são o workflow, o
-  `clinica-deploy` e o `atualizar-gestao.py`. Não há token entre repositórios: o `clinica-site` não
-  precisa avisar. A dispensa de homologação fica registrada no relatório como **dispensa**, nunca
+  `clinica-deploy` e o `atualizar-gestao.py`. O `clinica-site` não precisa avisar: o Clinica o lê com
+  um token só de leitura. A dispensa de homologação fica registrada no relatório como **dispensa**, nunca
   como aprovação.
 - 🤝 **CX:** sem máquina nova. O job das 15 min para em segundos num runner Linux, então o custo é
-  baixo. O merge passa a ser a decisão de publicar. Um secret só, e a chave da VPS só executa um
+  baixo. O merge passa a ser a decisão de publicar. Dois secrets, e a chave da VPS só executa um
   comando, chegando pelo túnel.

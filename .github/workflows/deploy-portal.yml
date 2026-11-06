@@ -11,7 +11,7 @@ name: Deploy do portal e da gestão (VPS)
 #   · um deploy por vez (concurrency), nunca cancelando um que já começou;
 #   · migration é dos apps da suíte (release do Velopack): o pacote do portal não migra o banco.
 #
-# O clinica-site não precisa avisar (nenhum token entre repositórios): a cada 15 min o job "pronto"
+# O clinica-site não precisa avisar: a cada 15 min o job "pronto"
 # compara o commit da main do clinica-site e o último commit do Clinica que toca o portal com o par
 # já implantado (marcador no cache do Actions). Par novo → publica; par igual → para em segundos.
 # Sem o secret VPS_DEPLOY (VPS ainda não preparada), nada é publicado e o resumo diz por quê.
@@ -57,14 +57,20 @@ jobs:
         with: {fetch-depth: 0}
       - name: Versões da main
         id: versoes
+        env:
+          SITE_TOKEN: ${{ secrets.SITE_READ_TOKEN }}
         run: |
           set -euo pipefail
           # O último commit que muda o que vai para a VPS (os mesmos caminhos do gatilho de push).
           clinica=$(git log -1 --format=%H -- src/Clinica.Assinaturas.Api src/Clinica.Gestao.Web src/Clinica.Ui.Blazor \
             src/Clinica.Infrastructure src/Clinica.Application src/Clinica.Domain deploy/tablet deploy/gestao \
             tools/empacotar-continuidade-tablet.ps1 tools/empacotar-gestao-web.sh)
-          site=$(git ls-remote https://github.com/lucaszaous-creator/clinica-site.git refs/heads/main | cut -f1)
-          [[ "$site" =~ ^[a-f0-9]{40}$ ]] || { echo "main do clinica-site não encontrada" >&2; exit 1; }
+          # O clinica-site é PRIVADO: lido com um token só de leitura (secret SITE_READ_TOKEN).
+          site=sem-token
+          if [ -n "$SITE_TOKEN" ]; then
+            site=$(git ls-remote "https://x-access-token:${SITE_TOKEN}@github.com/lucaszaous-creator/clinica-site.git" refs/heads/main | cut -f1)
+            [[ "$site" =~ ^[a-f0-9]{40}$ ]] || { echo "main do clinica-site não encontrada (token sem acesso?)" >&2; exit 1; }
+          fi
           echo "clinica=$clinica" >> "$GITHUB_OUTPUT"; echo "site=$site" >> "$GITHUB_OUTPUT"
           # Janela de 6 h: um par que falhou (ex.: migration ainda não aplicada pelo app) é tentado de
           # novo na janela seguinte, sem um vermelho a cada 15 min.
@@ -87,12 +93,13 @@ jobs:
         id: decisao
         env:
           VPS_DEPLOY: ${{ secrets.VPS_DEPLOY }}
+          SITE: ${{ steps.versoes.outputs.site }}
           IMPLANTADO: ${{ steps.marcador.outputs.cache-hit }}
           FALHOU: ${{ steps.falha.outputs.cache-hit }}
         run: |
-          if [ -z "$VPS_DEPLOY" ]; then
+          if [ -z "$VPS_DEPLOY" ] || [ "$SITE" = "sem-token" ]; then
             echo "publicar=false" >> "$GITHUB_OUTPUT"
-            echo "### Deploy não configurado: falta o secret VPS_DEPLOY (docs/deploy-automatico.md)." >> "$GITHUB_STEP_SUMMARY"
+            echo "### Deploy não configurado: faltam os secrets VPS_DEPLOY e/ou SITE_READ_TOKEN (docs/deploy-automatico.md)." >> "$GITHUB_STEP_SUMMARY"
           elif [ "$IMPLANTADO" = "true" ] && [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ]; then
             echo "publicar=false" >> "$GITHUB_OUTPUT"
             echo "Nada novo: este par de versões já está na VPS." >> "$GITHUB_STEP_SUMMARY"
@@ -135,6 +142,7 @@ jobs:
           repository: lucaszaous-creator/clinica-site
           ref: ${{ needs.pronto.outputs.site }}
           path: clinica-site
+          token: ${{ secrets.SITE_READ_TOKEN }}
       - uses: actions/setup-dotnet@v5
         with: {dotnet-version: '8.0.x'}
       - uses: actions/setup-python@v5
