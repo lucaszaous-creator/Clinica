@@ -4,12 +4,17 @@ name: Deploy do portal e da gestão (VPS)
 # gestão web na VPS, sem aprovação manual. Docs: docs/deploy-automatico.md.
 #
 # O que protege a clínica, já que ninguém aprova:
-#   · só roda da main (o Environment "producao" aceita só a main — configurar no GitHub);
+#   · só publica da main;
 #   · antes de publicar, roda as redes que o CI do PR NÃO roda (API do portal, tablet, gestão web);
 #   · na VPS, o usuário de deploy só executa /usr/local/sbin/clinica-deploy, que confere o SHA-256,
 #     faz backup, troca o release, testa a saúde e VOLTA para o anterior se falhar;
 #   · um deploy por vez (concurrency), nunca cancelando um que já começou;
 #   · migration é dos apps da suíte (release do Velopack): o pacote do portal não migra o banco.
+#
+# O clinica-site não precisa avisar (nenhum token entre repositórios): a cada 15 min o job "pronto"
+# compara o commit da main do clinica-site e o último commit do Clinica que toca o portal com o par
+# já implantado (marcador no cache do Actions). Par novo → publica; par igual → para em segundos.
+# Sem o secret VPS_DEPLOY (VPS ainda não preparada), nada é publicado e o resumo diz por quê.
 
 on:
   push:
@@ -26,9 +31,8 @@ on:
       - 'tools/empacotar-continuidade-tablet.ps1'
       - 'tools/empacotar-gestao-web.sh'
       - '.github/workflows/deploy-portal.yml'
-  # O clinica-site avisa quando a main dele muda (portal/**): .github/workflows/disparar-deploy-portal.yml de lá.
-  repository_dispatch:
-    types: [portal-site-main]
+  schedule:
+    - cron: '7,22,37,52 * * * *'
   workflow_dispatch:
 
 concurrency:
@@ -39,8 +43,70 @@ permissions:
   contents: read
 
 jobs:
+  pronto:
+    name: Há o que publicar?
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      publicar: ${{ steps.decisao.outputs.publicar }}
+      clinica: ${{ steps.versoes.outputs.clinica }}
+      site: ${{ steps.versoes.outputs.site }}
+      janela: ${{ steps.versoes.outputs.janela }}
+    steps:
+      - uses: actions/checkout@v5
+        with: {fetch-depth: 0}
+      - name: Versões da main
+        id: versoes
+        run: |
+          set -euo pipefail
+          # O último commit que muda o que vai para a VPS (os mesmos caminhos do gatilho de push).
+          clinica=$(git log -1 --format=%H -- src/Clinica.Assinaturas.Api src/Clinica.Gestao.Web src/Clinica.Ui.Blazor \
+            src/Clinica.Infrastructure src/Clinica.Application src/Clinica.Domain deploy/tablet deploy/gestao \
+            tools/empacotar-continuidade-tablet.ps1 tools/empacotar-gestao-web.sh)
+          site=$(git ls-remote https://github.com/lucaszaous-creator/clinica-site.git refs/heads/main | cut -f1)
+          [[ "$site" =~ ^[a-f0-9]{40}$ ]] || { echo "main do clinica-site não encontrada" >&2; exit 1; }
+          echo "clinica=$clinica" >> "$GITHUB_OUTPUT"; echo "site=$site" >> "$GITHUB_OUTPUT"
+          # Janela de 6 h: um par que falhou (ex.: migration ainda não aplicada pelo app) é tentado de
+          # novo na janela seguinte, sem um vermelho a cada 15 min.
+          echo "janela=$(date -u +%Y%m%d)-$(( $(date -u +%-H) / 6 ))" >> "$GITHUB_OUTPUT"
+          mkdir -p .implantado && echo "$clinica $site" > .implantado/par
+      - name: Já implantado?
+        id: marcador
+        uses: actions/cache/restore@v4
+        with:
+          path: .implantado
+          key: portal-implantado-${{ steps.versoes.outputs.clinica }}-${{ steps.versoes.outputs.site }}
+      - name: Falhou nesta janela?
+        id: falha
+        uses: actions/cache/restore@v4
+        with:
+          path: .implantado
+          key: portal-falhou-${{ steps.versoes.outputs.clinica }}-${{ steps.versoes.outputs.site }}-${{ steps.versoes.outputs.janela }}
+          lookup-only: true
+      - name: Decidir
+        id: decisao
+        env:
+          VPS_DEPLOY: ${{ secrets.VPS_DEPLOY }}
+          IMPLANTADO: ${{ steps.marcador.outputs.cache-hit }}
+          FALHOU: ${{ steps.falha.outputs.cache-hit }}
+        run: |
+          if [ -z "$VPS_DEPLOY" ]; then
+            echo "publicar=false" >> "$GITHUB_OUTPUT"
+            echo "### Deploy não configurado: falta o secret VPS_DEPLOY (docs/deploy-automatico.md)." >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$IMPLANTADO" = "true" ] && [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ]; then
+            echo "publicar=false" >> "$GITHUB_OUTPUT"
+            echo "Nada novo: este par de versões já está na VPS." >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$FALHOU" = "true" ] && [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
+            echo "publicar=false" >> "$GITHUB_OUTPUT"
+            echo "Este par falhou há pouco; nova tentativa na próxima janela de 6 h (ou Run workflow)." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "publicar=true" >> "$GITHUB_OUTPUT"
+          fi
+
   conferir:
     name: Conferir antes de publicar
+    needs: pronto
+    if: needs.pronto.outputs.publicar == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -57,9 +123,8 @@ jobs:
 
   publicar:
     name: Publicar na VPS
-    needs: conferir
+    needs: [pronto, conferir]
     runs-on: ubuntu-latest
-    environment: producao
     steps:
       - name: Código da API e da gestão (main)
         uses: actions/checkout@v5
@@ -68,9 +133,8 @@ jobs:
         uses: actions/checkout@v5
         with:
           repository: lucaszaous-creator/clinica-site
-          ref: main
+          ref: ${{ needs.pronto.outputs.site }}
           path: clinica-site
-          token: ${{ secrets.SITE_READ_TOKEN }}
       - uses: actions/setup-dotnet@v5
         with: {dotnet-version: '8.0.x'}
       - uses: actions/setup-python@v5
@@ -94,13 +158,16 @@ jobs:
         run: ./Clinica/tools/empacotar-gestao-web.sh | tee /dev/stderr | grep -E '^(pacote|sha256)=' >> "$GITHUB_OUTPUT"
       - name: Acesso à VPS pelo túnel da Cloudflare (sem porta 22 aberta)
         env:
-          CHAVE: ${{ secrets.VPS_SSH_KEY }}
-          HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
-          HOST: ${{ secrets.VPS_SSH_HOST }}
-          CF_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
-          CF_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+          # Um secret só, gerado na VPS por deploy/vps/preparar-vps.sh: base64 de linhas CHAVE=valor.
+          VPS_DEPLOY: ${{ secrets.VPS_DEPLOY }}
         run: |
           set -euo pipefail
+          declare -A v
+          while IFS='=' read -r k val; do [ -n "$k" ] && v[$k]="$val"; done < <(printf '%s' "$VPS_DEPLOY" | base64 -d)
+          HOST="${v[HOST]}"; CF_ID="${v[CF_ID]}"; CF_SECRET="${v[CF_SECRET]}"
+          for x in HOST CF_ID CF_SECRET; do echo "::add-mask::${!x}"; done
+          CHAVE="$(printf '%s' "${v[CHAVE_B64]}" | base64 -d)"
+          HOSTS="$(printf '%s' "${v[HOSTS_B64]}" | base64 -d)"
           curl -fsSL -o /tmp/cloudflared.deb https://github.com/cloudflare/cloudflared/releases/download/2024.12.2/cloudflared-linux-amd64.deb
           sudo dpkg -i /tmp/cloudflared.deb
           install -d -m 700 ~/.ssh
@@ -127,6 +194,20 @@ jobs:
           set -euo pipefail
           scp -q "${{ steps.gestao.outputs.pacote }}" vps:stage/
           ssh vps sudo /usr/local/sbin/clinica-deploy gestao "$(basename "${{ steps.gestao.outputs.pacote }}")" "${{ steps.gestao.outputs.sha256 }}"
+      - name: Marcar este par como implantado
+        run: mkdir -p .implantado && echo "${{ needs.pronto.outputs.clinica }} ${{ needs.pronto.outputs.site }}" > .implantado/par
+      - uses: actions/cache/save@v4
+        with:
+          path: .implantado
+          key: portal-implantado-${{ needs.pronto.outputs.clinica }}-${{ needs.pronto.outputs.site }}
+      - name: Marcar a falha desta janela
+        if: failure()
+        run: mkdir -p .implantado && echo falhou > .implantado/par
+      - if: failure()
+        uses: actions/cache/save@v4
+        with:
+          path: .implantado
+          key: portal-falhou-${{ needs.pronto.outputs.clinica }}-${{ needs.pronto.outputs.site }}-${{ needs.pronto.outputs.janela }}
       - name: Resumo
         if: always()
         run: |
