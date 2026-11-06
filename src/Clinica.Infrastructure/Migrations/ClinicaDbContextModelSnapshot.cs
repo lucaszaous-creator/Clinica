@@ -3684,35 +3684,6 @@ namespace Clinica.Infrastructure.Migrations
                     b.ToTable("LeiturasEquipe", (string)null);
                 });
 
-            modelBuilder.Entity("Clinica.Domain.Entities.LiberacaoPortal", b =>
-                {
-                    b.Property<int>("UsuarioId")
-                        .HasColumnType("integer");
-
-                    b.Property<long>("CriadaEm")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("CriadaPor")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<long>("ExpiraEm")
-                        .HasColumnType("bigint");
-
-                    b.Property<int>("Falhas")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Resumo")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.HasKey("UsuarioId");
-
-                    b.ToTable("LiberacoesPortal", (string)null);
-                });
-
             modelBuilder.Entity("Clinica.Domain.Entities.ListaEspera", b =>
                 {
                     b.Property<int>("Id")
@@ -7818,15 +7789,6 @@ namespace Clinica.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Categoria");
-                });
-
-            modelBuilder.Entity("Clinica.Domain.Entities.LiberacaoPortal", b =>
-                {
-                    b.HasOne("Clinica.Domain.Entities.UsuarioSistema", null)
-                        .WithOne()
-                        .HasForeignKey("Clinica.Domain.Entities.LiberacaoPortal", "UsuarioId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.ListaEspera", b =>

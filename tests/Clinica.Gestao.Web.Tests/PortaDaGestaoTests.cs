@@ -168,4 +168,23 @@ public sealed class PortaDaGestaoTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.NotFound, (await Cliente().SendAsync(Pedido("/profissional/", s))).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await Cliente().SendAsync(Pedido("/", s))).StatusCode);
     }
+
+    [Fact]
+    public async Task Com_a_chave_ligada_a_gestao_so_abre_para_quem_ativou_o_segundo_fator()
+    {
+        var s = await Sessao(PerfilAcesso.Gerente);
+        using var escopo = _fabrica.Services.CreateScope();
+        var db = escopo.ServiceProvider.GetRequiredService<ClinicaDbContext>();
+        var id = ContratoTablet.Hash(s.Token);
+        var exige = new SessaoDoPortalNaGestao(db, TimeProvider.System, new OpcoesDaGestaoWeb(ExigirSegundoFator: true));
+        var padrao = new SessaoDoPortalNaGestao(db, TimeProvider.System, new OpcoesDaGestaoWeb(ExigirSegundoFator: false));
+
+        Assert.NotNull(await padrao.ReconferirAsync(id, default));   // desligada: entra só com a senha
+        Assert.Null(await exige.ReconferirAsync(id, default));       // ligada: sem autenticador, não entra
+        var usuarioId = db.SessoesTablet.Single(x => x.Id == id).UsuarioId;
+        db.SegundosFatoresPortal.Add(new SegundoFatorPortal { UsuarioId = usuarioId, SegredoProtegido = "x", AtivadoEm = 1 });
+        await db.SaveChangesAsync();
+        Assert.NotNull(await exige.ReconferirAsync(id, default));    // ativou: entra
+    }
 }
+

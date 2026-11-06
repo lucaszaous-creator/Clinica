@@ -59,20 +59,3 @@ public sealed class CodigoRecuperacaoPortal
     public string Resumo { get; set; } = "";
     public long? UsadoEm { get; set; }
 }
-
-/// <summary>
-/// A LIBERAÇÃO do primeiro acesso (nov/2026, achado da auditoria de segurança): sem ela, quem
-/// soubesse a senha de alguém que ainda não cadastrou o autenticador cadastraria o PRÓPRIO celular
-/// e trancaria o dono fora. A direção gera o código na tela de Acessos e o entrega à pessoa; ele vale
-/// uma vez, por pouco tempo, e cinco erros o invalidam. Guardado só o resumo.
-/// </summary>
-public sealed class LiberacaoPortal
-{
-    public int UsuarioId { get; set; }
-    public string Resumo { get; set; } = "";
-    public long CriadaEm { get; set; }
-    public long ExpiraEm { get; set; }
-    public string CriadaPor { get; set; } = "";
-    public int Falhas { get; set; }
-}
-

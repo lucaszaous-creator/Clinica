@@ -38,7 +38,7 @@
 
 | Camada | O que está no código |
 |---|---|
-| Entrada | **primeiro acesso só com o código de liberação que a direção gera na tela de Acessos** (uso único, 72 h, 5 erros o invalidam — sem ele, quem soubesse a senha cadastraria o próprio celular); TOTP pessoal (RFC 6238, um uso por código), 10 falhas (código ou recuperação) travam; limite por aparelho/origem; entrada pendente em cookie cifrado de 5 min; confiança no aparelho por pessoa, presa à versão da senha |
+| Entrada | **segundo fator opcional, com convite a cada login** até a pessoa ativar (decisão da direção, ver abaixo); TOTP pessoal (RFC 6238, um uso por código), 10 falhas (código ou recuperação) travam; limite por aparelho/origem; entrada pendente em cookie cifrado de 5 min; confiança no aparelho por pessoa, presa à versão da senha |
 | Navegador | CSP sem origem externa e sem script em linha; `frame-ancestors 'none'`; HSTS; `nosniff`; `no-store`; COOP/CORP same-origin; **nenhum CORS** (nem cabeçalho `Access-Control-*`) |
 | WebSocket | o `/_blazor` só é aceito com `Origin` = `Gestao:Origem` (contra sequestro de WebSocket entre sites); mensagem de entrada limitada a 64 KB; arquivos sobem e descem por stream |
 | Servidor | só `/gestao` (o resto é 404); socket Unix que só o cloudflared alcança; systemd com usuário próprio, sem saída de rede, memória no teto; limite de 300 req/min por origem |
@@ -81,15 +81,21 @@ Ordem — cada passo só depois do anterior conferido:
    gerente (→ gestão, as quatro áreas), sair (a gestão volta ao login em até 1 min), e a
    recepção que digita `/gestao` volta ao login.
 
-**Avisar a equipe antes:** no primeiro acesso depois da publicação, cada pessoa digita o **código de
-liberação** que a direção gera na tela de Acessos (botão "Liberar o portal" na linha da pessoa) e
-entrega pessoalmente, e então cadastra o autenticador (Google ou Microsoft Authenticator) — um
-minuto por pessoa. Quem perder o celular sem os códigos de recuperação recebe da direção um código
-novo pelo mesmo botão (ele zera o autenticador antigo).
+**O segundo fator é OPCIONAL, com convite (decisão da direção, nov/2026).** Para não travar quem
+não tem familiaridade técnica (e não virar chamado de suporte), quem ainda não ativou entra só com a
+senha, e o portal mostra, **a cada login**, o convite "Ativar agora / Agora não" até a pessoa ativar.
+A ativação é feita por dentro, já logado (`/api/conta/segundo-fator/iniciar` e `/ativar`). Quem
+ativou passa a precisar do código do celular (ou do aparelho confiável). Quem perder o celular: a
+direção usa "Zerar o autenticador" na tela de Acessos, e a pessoa volta a entrar só com a senha.
+
+⚠️ **O risco aceito:** enquanto a pessoa não ativa, a conta dela vale o que vale a senha. Para a
+GESTÃO (o sistema inteiro pela internet) existe a chave `Gestao__ExigirSegundoFator=true`, desligada
+por padrão: ligada, a gestão só abre para quem já ativou. Recomendação: ligar assim que o gerente ativar.
 
 **Achados da auditoria de segurança (metodologia security-audit da Cloudflare, escopo: autenticação
-do portal), nov/2026:** (1) *médio, corrigido* — o primeiro cadastro do autenticador exigia só a senha;
-agora exige a liberação da direção. (2) *corrigido* — `AcessoAoWhatsApp.Pode` liberava a sessão fechada
+do portal), nov/2026:** (1) *médio* — o primeiro cadastro do autenticador exigia só a senha. Corrigido com um código de
+liberação da direção e, depois, **revertido por decisão da direção** em favor do segundo fator
+opcional com convite (o risco aceito está descrito acima). (2) *corrigido* — `AcessoAoWhatsApp.Pode` liberava a sessão fechada
 do servidor. Rejeitados com a razão no relatório: força bruta do TOTP em paralelo (token de
 concorrência), troca do cookie pendente, enumeração de usuários, aparelho confiável após troca de
 senha, XSS pelo SVG do QR.
