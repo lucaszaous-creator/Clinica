@@ -329,3 +329,10 @@ body:has(.modal-rodape){--chat-piso:calc(var(--space-16) + var(--space-6))}
 /* Na linha do cartão, as ações ficam à vista (mais claras), e acendem na linha apontada. */
 .chat-card-acoes .chat-mini{opacity:.55}
 .chat-card-linha:hover .chat-mini,.chat-card-acoes .chat-mini:focus-visible{opacity:1;color:var(--acento)}
+/* Celular (nov/2026, a gestão no navegador): o botão do chat sobe acima da barra das áreas, que
+   ocupa o pé da tela — no lugar de sempre, ele cobria a área "Clínico". O painel ocupa a largura. */
+@media (max-width:640px){
+  :root{--chat-piso:calc(64px + var(--space-4) + env(safe-area-inset-bottom,0px))}
+  .chat-flutuante{right:var(--space-3)}
+  .chat-painel.janela{left:var(--space-2);right:var(--space-2);width:auto;bottom:calc(64px + var(--space-2) + env(safe-area-inset-bottom,0px))}
+}

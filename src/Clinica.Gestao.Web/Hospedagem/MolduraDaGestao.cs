@@ -31,7 +31,8 @@ public sealed class MolduraDaGestao : IMolduraDoApp
         Abrir(PrimeiraChave());
     }
 
-    public string NomeDoApp => "Gestão";
+    // "Portal", e não "Gestão": a primeira área do menu já se chama Gestão.
+    public string NomeDoApp => "Portal";
     public string UsuarioRotulo => _sessao.Rotulo;
     public string DataHoje { get; } = DateTime.Today.ToString("ddd, dd/MM/yyyy", new CultureInfo("pt-BR"));
     public Palco Palco { get; } = new();
@@ -188,6 +189,11 @@ public sealed class MolduraDaGestao : IMolduraDoApp
     public void TrocarUsuario() => _sair();
 
     public void Ligar(Dialogos dialogos, Notificacoes notificacoes) => _notificacoes = notificacoes;
+
+    public bool TemTreinamento => false;
+    public bool TemSino => false;
+    public TextosDeSaida Saida { get; } = new("Sair", "Sair da gestão",
+        "Sua sessão no portal será encerrada. Salve o que estiver editando antes de continuar.", "Sair");
 
     public event Action? Mudou;
 }

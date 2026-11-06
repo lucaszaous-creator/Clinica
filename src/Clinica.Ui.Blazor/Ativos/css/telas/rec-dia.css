@@ -112,3 +112,11 @@
 .rd-legenda-titulo{font-weight:600;color:var(--cinza-700)}
 .rd-legenda-dica{margin-left:auto}
 .rd-amostra{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--cor-familia)}
+/* Celular (nov/2026): o navegador do dia numa linha inteira e as pílulas das situações abaixo,
+   na largura toda — lado a lado, as pílulas viravam uma coluna de palavras quebradas. */
+@media (max-width:640px){
+  .rd-dia{gap:var(--space-3);padding:var(--space-3)}
+  .rd-navegador{flex:1 1 100%;justify-content:space-between}
+  .rd-situacoes{flex:1 1 100%}
+  .rd-pilula{white-space:nowrap}
+}

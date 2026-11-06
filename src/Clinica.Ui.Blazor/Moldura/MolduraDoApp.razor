@@ -64,8 +64,11 @@
                     </li>
                 }
             </ul>
-            <button type="button" class="moldura-treinamento" title="Videoaulas das telas deste módulo"
-                    @onclick="Moldura.AbrirTreinamento">Treinamento</button>
+            @if (Moldura.TemTreinamento)
+            {
+                <button type="button" class="moldura-treinamento" title="Videoaulas das telas deste módulo"
+                        @onclick="Moldura.AbrirTreinamento">Treinamento</button>
+            }
         </nav>
 
         <div class="moldura-busca" @onfocusout="AoSairDaBusca">
@@ -112,6 +115,8 @@
                 </button>
             }
 
+            @if (Moldura.TemSino)
+            {
             <div class="moldura-sino">
                 <button type="button" class="botao icone fantasma" title="@Moldura.ResumoDoSino"
                         aria-label="Notificações, pedidos da enfermagem e respostas dos pacientes"
@@ -308,6 +313,7 @@
                     </div>
                 }
             </div>
+            }
 
             <div class="moldura-conta">
                 <button type="button" class="moldura-usuario" title="@Moldura.UsuarioRotulo"
@@ -324,7 +330,7 @@
                     </div>
                 }
             </div>
-            <button type="button" class="botao mini" @onclick="TrocarUsuarioAsync">Trocar usuário</button>
+            <button type="button" class="botao mini moldura-sair" @onclick="TrocarUsuarioAsync">@Moldura.Saida.Botao</button>
         </div>
     </header>
 
@@ -500,9 +506,8 @@
     /// </summary>
     private async Task TrocarUsuarioAsync()
     {
-        if (!await Dialogos.ConfirmarAsync("Trocar usuário",
-                "O sistema vai fechar e abrir de novo na tela de entrada. Salve o que estiver editando antes de continuar.",
-                confirmar: "Fechar e trocar"))
+        var saida = Moldura.Saida;
+        if (!await Dialogos.ConfirmarAsync(saida.Titulo, saida.Texto, confirmar: saida.Confirmar))
             return;
         Moldura.TrocarUsuario();
     }

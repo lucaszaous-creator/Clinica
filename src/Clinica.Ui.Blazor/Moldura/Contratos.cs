@@ -163,6 +163,18 @@ public interface IMolduraDoApp
     /// <summary>Reabre o app na tela de entrada (a confirmação é da moldura, antes).</summary>
     void TrocarUsuario();
 
+    /// <summary>O botão "Treinamento" (as videoaulas do app). A gestão web não tem: as aulas são do app.</summary>
+    bool TemTreinamento => true;
+
+    /// <summary>O sino. A gestão web (nov/2026) ainda não vigia pedidos e respostas — o vigia é do shell do app.</summary>
+    bool TemSino => true;
+
+    /// <summary>
+    /// O botão de sair e a pergunta antes dele. No app é "Trocar usuário" (o sistema fecha e reabre);
+    /// na gestão web é "Sair" (encerra a sessão do portal e volta ao login).
+    /// </summary>
+    TextosDeSaida Saida => TextosDeSaida.DoApp;
+
     /// <summary>
     /// A moldura entrega ao hospedeiro os diálogos e as notificações DESTE navegador: os avisos
     /// das telas WPF que ainda abrem por cima (o snackbar) e as perguntas do <c>IDialogoService</c>
@@ -254,4 +266,11 @@ public sealed class EstadoDaJanela
         _desenhou = true;
         Desenhou?.Invoke();
     }
+}
+
+/// <summary>Os textos do botão de sair e da confirmação (ver <see cref="IMolduraDoApp.Saida"/>).</summary>
+public sealed record TextosDeSaida(string Botao, string Titulo, string Texto, string Confirmar)
+{
+    public static TextosDeSaida DoApp { get; } = new("Trocar usuário", "Trocar usuário",
+        "O sistema vai fechar e abrir de novo na tela de entrada. Salve o que estiver editando antes de continuar.", "Fechar e trocar");
 }
