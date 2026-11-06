@@ -30,8 +30,8 @@ case "$alvo" in
     python3 atualizar-posto.py producao "$destino/$nome" "$sha" "$anterior" --pular-hml "$motivo"
     ;;
   gestao)
-    if [ ! -e /opt/clinica-gestao/current ]; then
-      echo "gestão web ainda não instalada nesta VPS (docs/gestao-web.md) — nada a atualizar"; rm -f -- "$origem"; exit 0
+    if [ ! -e /opt/clinica-gestao/current ] && [ ! -f /etc/clinica-gestao/gestao.env ]; then
+      echo "gestão web ainda não preparada nesta VPS (deploy/vps/instalar-gestao.sh) — nada a fazer"; rm -f -- "$origem"; exit 0
     fi
     [[ "$nome" =~ ^gestao-web-[a-f0-9]{12}\.tar\.gz$ ]] || { echo "nome de pacote da gestão inválido" >&2; exit 2; }
     trabalho="$(mktemp -d)"; trap 'rm -rf "$trabalho"' EXIT
