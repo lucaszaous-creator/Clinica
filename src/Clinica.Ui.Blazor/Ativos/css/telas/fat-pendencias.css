@@ -83,3 +83,9 @@
 .fat-pendencias .tabela-rolagem.guias thead th{position:sticky;top:0;z-index:1}
 .fat-pendencias td.col-conv{min-width:150px}
 textarea.campo.fat-texto{font:inherit}
+/* Celular (nov/2026): o aviso da rodada com o texto na largura toda e o botão embaixo — ao
+   lado, o texto virava uma coluna de três palavras. */
+@media (max-width:640px){
+  .fat-pendencias .faixa-rodada .aviso{align-items:flex-start}
+  .fat-pendencias .faixa-rodada .aviso .botao{flex:1 1 100%;justify-content:center}
+}
