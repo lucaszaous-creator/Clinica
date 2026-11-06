@@ -341,7 +341,17 @@ app.MapPost("/api/conta/segundo-fator/iniciar",async(HttpContext ctx,PortalTable
     var u=s.Usuario!;
     if(await fator.TemAutenticadorAsync(u.Id,ctx.RequestAborted))
         return Results.Json(new {erro="A verificação em duas etapas já está ativa nesta conta."},statusCode:409);
-    var segredo=Totp.NovoSegredo();
+    // A MESMA chave enquanto a ativação desta sessão estiver valendo: um segundo /iniciar (clique duplo,
+    // tela remontada, aba reaberta) devolvia uma chave nova no cookie enquanto a tela mostrava a anterior —
+    // e nenhum código do aplicativo batia ("não confere" com o código certo, nov/2026).
+    byte[]? segredo=null;
+    try
+    {
+        var partes=protetorAtivacao.Unprotect(ctx.Request.Cookies[cookieAtivacao] ?? "").Split('|');
+        if(partes.Length==3 && partes[0]==s.Id && partes[1]==u.Id.ToString()) segredo=Convert.FromBase64String(partes[2]);
+    }
+    catch(Exception e) when (e is CryptographicException or FormatException) { }
+    segredo ??= Totp.NovoSegredo();
     ctx.Response.Cookies.Append(cookieAtivacao,protetorAtivacao.Protect(s.Id+"|"+u.Id+"|"+Convert.ToBase64String(segredo),TimeSpan.FromMinutes(10)),Cookie(1));
     return Results.Ok(new {conta=$"Clínica SemDor ({u.Login})",chave=Totp.ChaveLegivel(segredo),
         qrSvg=EntradaDoPortal.QrSvg(Totp.Endereco("Clínica SemDor",u.Login,segredo))});

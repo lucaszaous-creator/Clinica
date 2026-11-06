@@ -86,6 +86,9 @@ public sealed class SegundoFatorHttpTests
             Assert.Equal(HttpStatusCode.OK, st);
             Assert.StartsWith("<svg", (string?)j!["qrSvg"]);
             var segredo = DeBase32((string)j["chave"]!);
+            // Um segundo /iniciar (clique duplo, tela remontada) devolve a MESMA chave: a tela e o cookie batem.
+            var (_, j2) = await Post(c, "/api/conta/segundo-fator/iniciar", new { });
+            Assert.Equal((string?)j["chave"], (string?)j2!["chave"]);
             Assert.Equal(HttpStatusCode.Unauthorized, (await Post(c, "/api/conta/segundo-fator/ativar", new { codigo = "000000", confiar = false })).Status);
             (st, j) = await Post(c, "/api/conta/segundo-fator/ativar", new { codigo = CodigoAgora(segredo), confiar = false });
             Assert.Equal(HttpStatusCode.OK, st);
