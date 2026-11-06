@@ -1,4 +1,4 @@
-# Deploy automático do portal e da gestão na VPS (nov/2026)
+# Deploy automático do portal, da gestão e do site público na VPS (nov/2026)
 
 > Decisão da direção: **o merge na `main` publica** o portal (a API em `Clinica` + as telas em
 > `clinica-site`) e a gestão web na VPS, sem aprovação manual.
@@ -16,6 +16,13 @@ republica mesmo sem mudança).
 3. **Publicar:** empacota (o portal sem migration), entra pelo túnel da Cloudflare (Access, sem
    porta 22 aberta) e roda `sudo clinica-deploy portal|gestao`. Na VPS: confere o SHA-256, faz
    backup, troca o release, testa a saúde e **volta sozinho ao anterior se falhar**.
+
+4. **Site público** (`clinicasemdormacae.com.br`): o branch `publicado` do `clinica-site`, que o CI
+   de lá só gera quando o portão de conteúdo passa. Vai antes do portal, com marcador próprio, então
+   mudar só o site não reinicia o portal. Na VPS, `clinica-deploy site` roda o `infra/atualizar.py`
+   do `clinica-site`: confere cada arquivo pelo manifesto, prepara `releases/<commit>`, troca o
+   `current` e volta ao anterior se o Nginx não responder. O `site-atualizar.timer` do roteiro antigo
+   não é mais necessário.
 
 Um par que falhou é tentado de novo na janela seguinte de 6 h (ou já, com Run workflow). A
 **migration** não é deste workflow: sai pelo release do app (o Gerente aplica ao abrir). Se o
@@ -62,7 +69,7 @@ em nada.
 
 ## UX · DX · CX
 
-- 🧑‍💻 **UX:** a melhoria chega ao portal até cerca de 15 min depois do merge. Uma atualização que
+- 🧑‍💻 **UX:** a melhoria chega ao portal e ao site público até cerca de 15 min depois do merge. Uma atualização que
   derrube a saúde volta sozinha. O risco que sobra é o defeito que **não** derruba a saúde, já que
   ninguém aprova antes.
 - 🛠️ **DX:** acabou o roteiro de console a cada publicação. As peças são o workflow, o

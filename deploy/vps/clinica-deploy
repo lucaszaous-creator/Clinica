@@ -5,9 +5,10 @@
 # backup, troca o release, testa a saúde e volta para o anterior se falhar.
 #   clinica-deploy portal <arquivo.tar.gz> <sha256>
 #   clinica-deploy gestao <arquivo.tar.gz> <sha256>
+#   clinica-deploy site   <arquivo.tar.gz> <sha256>   (o site público, do branch `publicado` do clinica-site)
 set -euo pipefail
 [ "$(id -u)" -eq 0 ] || { echo "rode com sudo" >&2; exit 1; }
-[ $# -eq 3 ] || { echo "uso: clinica-deploy portal|gestao arquivo.tar.gz sha256" >&2; exit 2; }
+[ $# -eq 3 ] || { echo "uso: clinica-deploy portal|gestao|site arquivo.tar.gz sha256" >&2; exit 2; }
 alvo="$1"; arquivo="$2"; sha="$3"
 [[ "$sha" =~ ^[a-f0-9]{64}$ ]] || { echo "sha256 inválido" >&2; exit 2; }
 stage=/home/clinica-deploy/stage
@@ -42,6 +43,20 @@ case "$alvo" in
     install -m 0600 -o root -g root "$origem" "$trabalho/$nome"
     tar -xzf "$trabalho/$nome" -C "$trabalho" --wildcards '*/atualizar-gestao.py'
     python3 "$trabalho"/gestao-web-*/atualizar-gestao.py "$trabalho/$nome" "$sha"
+    ;;
+  site)
+    # O pacote traz o `git archive` do branch publicado (só HTML/CSS/imagens + manifesto) e o
+    # atualizador do clinica-site, que confere cada arquivo pelo manifesto, prepara releases/<commit>,
+    # troca o `current` de uma vez e VOLTA ao anterior se o Nginx não responder com CSP.
+    [[ "$nome" =~ ^site-([a-f0-9]{40})\.tar\.gz$ ]] || { echo "nome de pacote do site inválido" >&2; exit 2; }
+    commit="${BASH_REMATCH[1]}"
+    www=/srv/clinica-site/www
+    [ -d "$www/releases" ] || { echo "site público não instalado nesta VPS — nada a fazer"; rm -f -- "$origem"; exit 0; }
+    trabalho="$(mktemp -d)"; trap 'rm -rf "$trabalho"' EXIT
+    tar -xzf "$origem" -C "$trabalho" --no-same-owner --no-same-permissions "site-$commit/atualizar.py" "site-$commit/publicado.tar"
+    python3 "$trabalho/site-$commit/atualizar.py" --www "$www" --pacote "$trabalho/site-$commit/publicado.tar" --sha "$commit"
+    # Os releases anteriores são do usuário `site` (publicação manual); mantém o mesmo dono.
+    chown -R site:site "$www/releases/$commit"; chown -h site:site "$www/current"
     ;;
   *) echo "alvo inválido: $alvo" >&2; exit 2 ;;
 esac
