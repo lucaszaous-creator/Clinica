@@ -4592,6 +4592,23 @@ for _cenario, _conteudo, _gatilho, _vizinho, _deve_pegar in (
         )
 
 
+# --------------------------------------------------------------- checagem 50
+# O CATÁLOGO DA GESTÃO WEB acompanha o menu do Gerente Geral (nov/2026). A gestão no navegador
+# lê `src/Clinica.Gestao.Web/catalogo-gestao.json`, GERADO dos módulos por
+# tools/gerar-catalogo-gestao-web.py. Tela nova no app (ou chave renomeada) que não chegou ao
+# catálogo some do portal sem erro nenhum — é a "lista escrita à mão que a próxima parcela não
+# alcança". Aqui o gerador roda em modo --conferir e compara com o arquivo commitado.
+_gerador = RAIZ / "tools" / "gerar-catalogo-gestao-web.py"
+if _gerador.exists():
+    import subprocess as _sp
+
+    _r = _sp.run([sys.executable, str(_gerador), "--conferir"], capture_output=True, text=True)
+    if _r.returncode != 0:
+        erros.append(
+            "checagem 50: " + (_r.stderr.strip() or _r.stdout.strip() or "o gerador do catálogo da gestão web falhou")
+        )
+
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")

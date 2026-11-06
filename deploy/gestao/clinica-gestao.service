@@ -1,0 +1,43 @@
+# A gestão no navegador (nov/2026) — docs/gestao-web.md.
+# O mesmo endurecimento da API do portal (clinica-tablet.service): usuário próprio, só o socket
+# Unix que o cloudflared alcança, nenhuma saída de rede além do banco local, memória e tarefas no teto.
+[Unit]
+Description=Gestão da clínica no navegador (Blazor Server, /gestao)
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=clinica-gestao
+Group=clinica-gestao-proxy
+# Lê (não escreve) o anel de chaves da API do portal: abre o cookie do aparelho.
+SupplementaryGroups=clinica-portal-chaves
+WorkingDirectory=/opt/clinica-gestao/current/app
+ExecStart=/opt/clinica-gestao/current/app/Clinica.Gestao.Web
+EnvironmentFile=/etc/clinica-gestao/gestao.env
+Restart=on-failure
+RestartSec=15
+RuntimeDirectory=clinica-gestao
+RuntimeDirectoryMode=0750
+UMask=0007
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/var/lib/clinica-tablet/chaves
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+IPAddressDeny=any
+IPAddressAllow=localhost
+CPUQuota=75%
+MemoryHigh=640M
+MemoryMax=900M
+TasksMax=256
+
+[Install]
+WantedBy=multi-user.target

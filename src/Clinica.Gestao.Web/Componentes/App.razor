@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex,nofollow,noarchive" />
+    <base href="/gestao/" />
+    <title>Gestão · Clínica SemDor</title>
+    <link rel="stylesheet" href="css/clinica.css" />
+</head>
+<body>
+    <Router AppAssembly="typeof(App).Assembly">
+        <Found Context="rota"><RouteView RouteData="rota" /></Found>
+        <NotFound><p style="padding:24px">Página não encontrada.</p></NotFound>
+    </Router>
+    <script src="js/janela.js"></script>
+    <script src="js/tabelas-no-celular.js"></script>
+    <script src="gestao-web.js"></script>
+    <script src="_framework/blazor.web.js"></script>
+</body>
+</html>

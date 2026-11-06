@@ -101,6 +101,9 @@
                                         <button type="button" class="botao mini icone" disabled="@(!PodeGerenciar)" @onclick="() => RedefinirSenha(linha)"
                                                 title="@(PodeGerenciar ? "Redefinir senha (provisória: troca no próximo acesso)" : SemPermissao)"
                                                 aria-label="Redefinir senha"><Icone Nome="cadeado" /></button>
+                                        <button type="button" class="botao mini icone" disabled="@(!PodeGerenciar)" @onclick="() => LiberarPortalAsync(linha)"
+                                                title="@(PodeGerenciar ? "Liberar o portal: código de uso único para cadastrar o autenticador (zera o anterior)" : SemPermissao)"
+                                                aria-label="Liberar o portal"><Icone Nome="enviar" /></button>
                                         <button type="button" class="botao mini icone contorno-perigo" disabled="@(!PodeGerenciar || !l.PodeExcluir)"
                                                 @onclick="() => ExcluirAsync(linha)"
                                                 title="@(!PodeGerenciar ? SemPermissao : l.PodeExcluir ? "Excluir (só quem nunca entrou)" : AcessosNaTela.MotivoSemExcluir)"
@@ -208,6 +211,33 @@
             await escopo.ServiceProvider.GetRequiredService<AcessoService>().ExcluirAsync(linha.Id, Operador);
         }, "Blazor — usuário não pôde ser excluído", "Usuário excluído.");
         if (ok) await CarregarAsync();
+    }
+
+    /// <summary>
+    /// O primeiro acesso ao portal (nov/2026): a senha não basta para cadastrar o autenticador — a
+    /// direção gera aqui o código de uso único e o entrega à pessoa. Para quem perdeu o celular,
+    /// liberar também zera o autenticador antigo. A regra mora em ISegundoFatorDoPortal.
+    /// </summary>
+    private async Task LiberarPortalAsync(LinhaDeAcesso linha)
+    {
+        if (!Exigir(Permissao.GerenciarUsuarios, "liberar o portal")) return;
+        if (!await Dialogos.ConfirmarAsync("Liberar o portal",
+                $"Gera um código de uso único para {linha.Nome} cadastrar o autenticador no portal. Se já houver um autenticador, " +
+                "ele é zerado (celular perdido) e o próximo acesso cadastra de novo. O código vale 72 horas.",
+                confirmar: "Gerar código"))
+            return;
+        if (!Exigir(Permissao.GerenciarUsuarios, "liberar o portal")) return;
+        string? codigo = null;
+        var ok = await ExecutarAsync(async () =>
+        {
+            using var escopo = Escopo();
+            codigo = await escopo.ServiceProvider.GetRequiredService<Clinica.Application.Tablet.ISegundoFatorDoPortal>()
+                .LiberarPrimeiroAcessoAsync(linha.Id, Operador);
+        }, "Blazor — portal não pôde ser liberado");
+        if (ok && codigo is not null)
+            await Dialogos.AvisoAsync("Código de liberação do portal",
+                $"Entregue a {linha.Nome}, pessoalmente: {codigo}. Vale uma vez, por 72 horas. " +
+                "No portal, depois da senha, ela digita este código e cadastra o autenticador do celular.");
     }
 
     private async Task GravouAsync()
