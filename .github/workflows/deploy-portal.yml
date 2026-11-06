@@ -1,4 +1,4 @@
-name: Deploy do portal e da gestão (VPS)
+name: Deploy do portal, da gestão e do site (VPS)
 
 # Decisão da direção (nov/2026): o merge na main PUBLICA o portal (API + telas do clinica-site) e a
 # gestão web na VPS, sem aprovação manual. Docs: docs/deploy-automatico.md.
@@ -15,6 +15,10 @@ name: Deploy do portal e da gestão (VPS)
 # compara o commit da main do clinica-site e o último commit do Clinica que toca o portal com o par
 # já implantado (marcador no cache do Actions). Par novo → publica; par igual → para em segundos.
 # Sem o secret VPS_DEPLOY (VPS ainda não preparada), nada é publicado e o resumo diz por quê.
+#
+# O SITE PÚBLICO (clinicasemdormacae.com.br) vem do branch `publicado` do clinica-site, que o CI de
+# lá só gera quando o portão de conteúdo passa. Tem marcador próprio: mudar o site não reinicia o
+# portal, e o site sai ANTES do portal, para uma falha do portal não segurar o site.
 
 on:
   push:
@@ -49,6 +53,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       publicar: ${{ steps.decisao.outputs.publicar }}
+      publicar_site: ${{ steps.decisao.outputs.publicar_site }}
+      publicado: ${{ steps.versoes.outputs.publicado }}
       clinica: ${{ steps.versoes.outputs.clinica }}
       site: ${{ steps.versoes.outputs.site }}
       janela: ${{ steps.versoes.outputs.janela }}
@@ -68,12 +74,15 @@ jobs:
             src/Clinica.Infrastructure src/Clinica.Application src/Clinica.Domain deploy/tablet deploy/gestao \
             tools/empacotar-continuidade-tablet.ps1 tools/empacotar-gestao-web.sh)
           # O clinica-site é PRIVADO: lido com um token só de leitura (secret SITE_READ_TOKEN).
-          site=sem-token
+          site=sem-token; publicado=nenhum
           if [ -n "$SITE_TOKEN" ]; then
-            site=$(git ls-remote "https://x-access-token:${SITE_TOKEN}@github.com/lucaszaous-creator/clinica-site.git" refs/heads/main | cut -f1)
+            refs=$(git ls-remote "https://x-access-token:${SITE_TOKEN}@github.com/lucaszaous-creator/clinica-site.git" refs/heads/main refs/heads/publicado)
+            site=$(awk '$2=="refs/heads/main"{print $1}' <<< "$refs")
             [[ "$site" =~ ^[a-f0-9]{40}$ ]] || { echo "main do clinica-site não encontrada (token sem acesso?)" >&2; exit 1; }
+            # O site público: o último pacote que passou no portão do clinica-site.
+            p=$(awk '$2=="refs/heads/publicado"{print $1}' <<< "$refs"); [[ "$p" =~ ^[a-f0-9]{40}$ ]] && publicado=$p
           fi
-          echo "clinica=$clinica" >> "$GITHUB_OUTPUT"; echo "site=$site" >> "$GITHUB_OUTPUT"
+          echo "clinica=$clinica" >> "$GITHUB_OUTPUT"; echo "site=$site" >> "$GITHUB_OUTPUT"; echo "publicado=$publicado" >> "$GITHUB_OUTPUT"
           # Janela de 6 h: um par que falhou (ex.: migration ainda não aplicada pelo app) é tentado de
           # novo na janela seguinte, sem um vermelho a cada 15 min.
           echo "janela=$(date -u +%Y%m%d)-$(( $(date -u +%-H) / 6 ))" >> "$GITHUB_OUTPUT"
@@ -91,14 +100,41 @@ jobs:
           path: .implantado
           key: portal-falhou-${{ steps.versoes.outputs.clinica }}-${{ steps.versoes.outputs.site }}-${{ steps.versoes.outputs.janela }}
           lookup-only: true
+      - name: Site público já implantado?
+        id: marcador_site
+        uses: actions/cache/restore@v4
+        with:
+          path: .implantado
+          key: site-implantado-${{ steps.versoes.outputs.publicado }}
+          lookup-only: true
+      - name: Site público falhou nesta janela?
+        id: falha_site
+        uses: actions/cache/restore@v4
+        with:
+          path: .implantado
+          key: site-falhou-${{ steps.versoes.outputs.publicado }}-${{ steps.versoes.outputs.janela }}
+          lookup-only: true
       - name: Decidir
         id: decisao
         env:
           VPS_DEPLOY: ${{ secrets.VPS_DEPLOY }}
           SITE: ${{ steps.versoes.outputs.site }}
+          PUBLICADO: ${{ steps.versoes.outputs.publicado }}
           IMPLANTADO: ${{ steps.marcador.outputs.cache-hit }}
           FALHOU: ${{ steps.falha.outputs.cache-hit }}
+          SITE_IMPLANTADO: ${{ steps.marcador_site.outputs.cache-hit }}
+          SITE_FALHOU: ${{ steps.falha_site.outputs.cache-hit }}
         run: |
+          if [ -z "$VPS_DEPLOY" ] || [ "$PUBLICADO" = "nenhum" ]; then
+            echo "publicar_site=false" >> "$GITHUB_OUTPUT"
+          elif [ "$SITE_IMPLANTADO" = "true" ] && [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ]; then
+            echo "publicar_site=false" >> "$GITHUB_OUTPUT"
+          elif [ "$SITE_FALHOU" = "true" ] && [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
+            echo "publicar_site=false" >> "$GITHUB_OUTPUT"
+            echo "O site público ($PUBLICADO) falhou há pouco; nova tentativa na próxima janela de 6 h." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "publicar_site=true" >> "$GITHUB_OUTPUT"
+          fi
           if [ -z "$VPS_DEPLOY" ] || [ "$SITE" = "sem-token" ]; then
             echo "publicar=false" >> "$GITHUB_OUTPUT"
             echo "### Deploy não configurado: faltam os secrets VPS_DEPLOY e/ou SITE_READ_TOKEN (docs/deploy-automatico.md)." >> "$GITHUB_STEP_SUMMARY"
@@ -133,29 +169,63 @@ jobs:
   publicar:
     name: Publicar na VPS
     needs: [pronto, conferir]
+    # O "conferir" só roda quando o portal muda; uma mudança só do site público publica sem ele.
+    if: >-
+      ${{ !cancelled() && needs.pronto.result == 'success'
+      && (needs.conferir.result == 'success' || needs.conferir.result == 'skipped')
+      && (needs.pronto.outputs.publicar == 'true' || needs.pronto.outputs.publicar_site == 'true') }}
     runs-on: ubuntu-latest
+    env:
+      PORTAL: ${{ needs.pronto.outputs.publicar }}
+      SITE_PUBLICO: ${{ needs.pronto.outputs.publicar_site }}
     steps:
       - name: Código da API e da gestão (main)
         uses: actions/checkout@v5
         with: {path: Clinica}
-      - name: Telas do portal (main do clinica-site)
+      - name: Telas do portal e atualizador do site (main do clinica-site)
         uses: actions/checkout@v5
         with:
           repository: lucaszaous-creator/clinica-site
           ref: ${{ needs.pronto.outputs.site }}
           path: clinica-site
           token: ${{ secrets.SITE_READ_TOKEN }}
+      - name: Site público (branch publicado do clinica-site)
+        if: env.SITE_PUBLICO == 'true'
+        uses: actions/checkout@v5
+        with:
+          repository: lucaszaous-creator/clinica-site
+          ref: ${{ needs.pronto.outputs.publicado }}
+          path: publicado
+          token: ${{ secrets.SITE_READ_TOKEN }}
       - uses: actions/setup-dotnet@v5
+        if: env.PORTAL == 'true'
         with: {dotnet-version: '8.0.x'}
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
       - uses: actions/setup-node@v4
+        if: env.PORTAL == 'true'
         with: {node-version: '24'}
       - name: Dependências das telas (visualizador de PDF do portal)
+        if: env.PORTAL == 'true'
         working-directory: clinica-site
         run: npm ci
+      - name: Empacotar o site público
+        id: site
+        if: env.SITE_PUBLICO == 'true'
+        env:
+          COMMIT: ${{ needs.pronto.outputs.publicado }}
+        run: |
+          set -euo pipefail
+          d="$RUNNER_TEMP/site-$COMMIT"; mkdir -p "$d"
+          git -C publicado archive -o "$d/publicado.tar" "$COMMIT"
+          cp clinica-site/infra/atualizar.py "$d/atualizar.py"
+          pacote="$RUNNER_TEMP/site-$COMMIT.tar.gz"
+          tar -czf "$pacote" -C "$RUNNER_TEMP" "site-$COMMIT/atualizar.py" "site-$COMMIT/publicado.tar"
+          echo "pacote=$pacote" >> "$GITHUB_OUTPUT"
+          echo "sha256=$(sha256sum "$pacote" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
       - name: Empacotar o portal (sem migration)
         id: portal
+        if: env.PORTAL == 'true'
         shell: pwsh
         run: |
           $saida = & ./Clinica/tools/empacotar-continuidade-tablet.ps1 -Site ./clinica-site -SemMigracao
@@ -165,6 +235,7 @@ jobs:
           "sha256=$((Get-FileHash -LiteralPath $pacote -Algorithm SHA256).Hash.ToLowerInvariant())" >> $env:GITHUB_OUTPUT
       - name: Empacotar a gestão web
         id: gestao
+        if: env.PORTAL == 'true'
         run: ./Clinica/tools/empacotar-gestao-web.sh | tee /dev/stderr | grep -E '^(pacote|sha256)=' >> "$GITHUB_OUTPUT"
       - name: Acesso à VPS pelo túnel da Cloudflare (sem porta 22 aberta)
         env:
@@ -215,35 +286,66 @@ jobs:
             exit 1
           fi
           echo "acesso à VPS ok"
+      - name: Publicar o site público
+        id: pub_site
+        if: env.SITE_PUBLICO == 'true'
+        run: |
+          set -euo pipefail
+          scp -q "${{ steps.site.outputs.pacote }}" vps:stage/
+          ssh vps sudo /usr/local/sbin/clinica-deploy site "$(basename "${{ steps.site.outputs.pacote }}")" "${{ steps.site.outputs.sha256 }}"
+      - name: Marcar o site público como implantado
+        if: ${{ !cancelled() && steps.pub_site.outcome == 'success' }}
+        run: mkdir -p .site && echo "${{ needs.pronto.outputs.publicado }}" > .site/publicado
+      - if: ${{ !cancelled() && steps.pub_site.outcome == 'success' }}
+        uses: actions/cache/save@v4
+        with:
+          path: .site
+          key: site-implantado-${{ needs.pronto.outputs.publicado }}
       - name: Publicar o portal (API + telas)
+        id: pub_portal
+        if: env.PORTAL == 'true' && !cancelled() && steps.portal.outcome == 'success' && steps.gestao.outcome == 'success'
         run: |
           set -euo pipefail
           scp -q "${{ steps.portal.outputs.pacote }}" vps:stage/
           ssh vps sudo /usr/local/sbin/clinica-deploy portal "$(basename "${{ steps.portal.outputs.pacote }}")" "${{ steps.portal.outputs.sha256 }}"
       - name: Publicar a gestão web
+        id: pub_gestao
+        if: env.PORTAL == 'true' && !cancelled() && steps.pub_portal.outcome == 'success'
         run: |
           set -euo pipefail
           scp -q "${{ steps.gestao.outputs.pacote }}" vps:stage/
           ssh vps sudo /usr/local/sbin/clinica-deploy gestao "$(basename "${{ steps.gestao.outputs.pacote }}")" "${{ steps.gestao.outputs.sha256 }}"
       - name: Marcar este par como implantado
+        id: marca_portal
+        if: ${{ !cancelled() && steps.pub_gestao.outcome == 'success' }}
         run: mkdir -p .implantado && echo "${{ needs.pronto.outputs.clinica }} ${{ needs.pronto.outputs.site }}" > .implantado/par
-      - uses: actions/cache/save@v4
+      - if: ${{ !cancelled() && steps.marca_portal.outcome == 'success' }}
+        uses: actions/cache/save@v4
         with:
           path: .implantado
           key: portal-implantado-${{ needs.pronto.outputs.clinica }}-${{ needs.pronto.outputs.site }}
       - name: Marcar a falha desta janela
-        if: failure()
+        if: failure() && env.PORTAL == 'true' && steps.marca_portal.outcome != 'success'
         run: mkdir -p .implantado && echo falhou > .implantado/par
-      - if: failure()
+      - if: failure() && env.PORTAL == 'true' && steps.marca_portal.outcome != 'success'
         uses: actions/cache/save@v4
         with:
           path: .implantado
           key: portal-falhou-${{ needs.pronto.outputs.clinica }}-${{ needs.pronto.outputs.site }}-${{ needs.pronto.outputs.janela }}
+      - name: Marcar a falha do site público nesta janela
+        if: failure() && env.SITE_PUBLICO == 'true' && steps.pub_site.outcome != 'success'
+        run: mkdir -p .site && echo falhou > .site/publicado
+      - if: failure() && env.SITE_PUBLICO == 'true' && steps.pub_site.outcome != 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: .site
+          key: site-falhou-${{ needs.pronto.outputs.publicado }}-${{ needs.pronto.outputs.janela }}
       - name: Resumo
         if: always()
         run: |
           {
-            echo "### Deploy do portal e da gestão"
+            echo "### Deploy do portal, da gestão e do site"
+            [ "$SITE_PUBLICO" = "true" ] && echo "- Site público: \`publicado\` em \`${{ needs.pronto.outputs.publicado }}\` · sha256 \`${{ steps.site.outputs.sha256 }}\`"
             echo "- Portal: \`$(basename "${{ steps.portal.outputs.pacote }}")\` · sha256 \`${{ steps.portal.outputs.sha256 }}\`"
             echo "- Gestão: \`$(basename "${{ steps.gestao.outputs.pacote }}")\` · sha256 \`${{ steps.gestao.outputs.sha256 }}\`"
             echo "Se a saúde falhou, o atualizador voltou para o release anterior — o passo aparece em vermelho."
