@@ -252,7 +252,7 @@ static class Program
             db.Add(horario); await db.SaveChangesAsync();
             await scope.ServiceProvider.GetRequiredService<EstoqueService>().RegistrarMateriaisAsync(horario.Id, usuario.Id, new([new(item.Id, 5)]));
         }
-        // Pagamentos e Retornos a marcar são telas Blazor desde out/2026, e o receber do balcão é o
+        // Pagamentos é tela Blazor desde out/2026, e o receber do balcão é o
         // ReceberPagamentoForm (a RecebimentoWindow WPF saiu): o leiaute sai da prévia
         // (tools/PreviaBlazor) e o TelasBlazorAbremTests abre cada uma e clica cada botão. A REGRA
         // do recebimento por cartão é conferida logo abaixo, pelo PagamentosRecepcaoService.

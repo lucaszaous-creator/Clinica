@@ -1,6 +1,5 @@
-# -SemMigracao (out/2026): o pacote NÃO traz migration — quem migra o banco é o Gerente, que já está
-# à frente da última migration do posto. Sem a opção, o manifesto declara a migration do posto e o
-# atualizador exige a base na anterior a ela (o caso de quando o posto trazia a própria migration).
+# -SemMigracao (nov/2026, deploy automático): o pacote não carrega migration — quem migra o banco
+# são os apps da suíte (release do Velopack); o atualizador só confere e concede o que falta.
 param([Parameter(Mandatory=$true)][string]$Site, [switch]$SemMigracao)
 $ErrorActionPreference = 'Stop'
 $raizPortal = Split-Path -Parent $PSScriptRoot
@@ -37,3 +36,5 @@ $pacotePortal = Join-Path (Split-Path -Parent $saidaPortal) ($nomePortal + '.tar
 & tar -czf $pacotePortal -C (Split-Path -Parent $saidaPortal) $nomePortal
 if ($LASTEXITCODE -ne 0) { throw 'Falha ao arquivar pacote.' }
 Get-FileHash -LiteralPath $pacotePortal -Algorithm SHA256
+# O caminho do pacote, para quem automatiza (o workflow de deploy lê esta linha).
+Write-Output "pacote=$pacotePortal"

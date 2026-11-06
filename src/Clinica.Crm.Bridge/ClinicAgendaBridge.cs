@@ -22,7 +22,7 @@ public sealed class ClinicAgendaBridge(ClinicaDbContext db,AgendaService agenda,
     static DateTime Now()=>TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow,Zone).DateTime;
     public static string Phone(string? phone)
     {
-        var digits=new string((phone??"").Where(char.IsAsciiDigit).ToArray());
+        var digits=Telefone.SemPrefixoDeDiscagem(new string((phone??"").Where(char.IsAsciiDigit).ToArray()));
         if(digits.Length is 10 or 11)digits="55"+digits;
         return digits.Length is >=10 and <=15?digits:"";
     }
@@ -71,8 +71,9 @@ public sealed class ClinicAgendaBridge(ClinicaDbContext db,AgendaService agenda,
         if(input.Decision=="notified")
         {
             if(contact.Status==StatusContato.Pendente)contact.Status=StatusContato.Enviado;
-            contact.EnviadoEm??=Now();contact.EnviadoPor="CRM · WhatsApp";contact.Canal=CanalContato.WhatsApp;
-            db.Auditoria.Add(new(){Acao="CrmLembrete",Operador="CRM · WhatsApp",PacienteId=ap.PacienteId,Detalhe=marker,DataHora=Now()});
+            // O remetente é a marca do lembrete AUTOMÁTICO: é por ela que o silêncio vira "sem resposta" no sino (AvisosDeConfirmacao).
+            contact.EnviadoEm??=Now();contact.EnviadoPor=RodadaDeConfirmacao.LembreteAutomatico;contact.Canal=CanalContato.WhatsApp;
+            db.Auditoria.Add(new(){Acao="CrmLembrete",Operador=RodadaDeConfirmacao.LembreteAutomatico,PacienteId=ap.PacienteId,Detalhe=marker,DataHora=Now()});
             await db.SaveChangesAsync(ct);await tx.CommitAsync(ct);return Result(input.Decision,false);
         }
         contact.Status=StatusContato.Respondido;contact.RespondidoEm=Now();contact.EnviadoEm??=Now();contact.Canal=CanalContato.WhatsApp;

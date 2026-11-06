@@ -1,5 +1,13 @@
 # O CRM dentro da Recepção: a aba "WhatsApp" (out/2026)
 
+> ⛔ **A moldura saiu na fase 3 do WhatsApp nativo (24/10/2026, decisão da direção).** A aba
+> WhatsApp abre a tela nativa (`ConversasDoWhatsApp`, `docs/whatsapp-nativo-implementacao.md`).
+> Saíram a `WhatsAppNoCrm`, o roteador da aba, a escolha em Configurações, o endereço com
+> `?modo=recepcao` e, no CRM, o modo Recepção. **Ficaram** o bilhete de entrada
+> (`EntradaNoCrm`, `BilhetesEntradaCrm`, a ponte), o "Escrever no WhatsApp" das outras telas
+> (`PedidoDeConversaNoCrm`, agora consumido pela tela nativa) e o contato que volta ao
+> Acompanhamento. O texto abaixo é o registro de como a moldura funcionava.
+
 > **Fase 1** da unificação Recepção × CRM. A direção pediu para **reduzir ao máximo as
 > redundâncias** entre os dois sistemas. A metade do CRM (o modo Recepção) está em
 > `semdor-crm/docs/modo-recepcao.md`.
@@ -14,7 +22,7 @@ tarefa tem **uma tela só**.
 |---|---|---|
 | **1 (esta)** | Aba WhatsApp na Recepção com o CRM no modo Recepção, sem outra senha. No modo Recepção o CRM esconde Agenda, Meu dia, Relacionamento e o sino de confirmações, e fica **um só aviso** de sem resposta (o sino da Recepção). | este PR + PR do CRM |
 | 2 | Uma tela de relacionamento só: o **Acompanhamento** escreve pelo CRM e registra o contato sozinho, ganha "Consulta a renovar" e absorve "Retornos a marcar". O Relacionamento do CRM continua **no celular**. | depois |
-| 3 | Um motor de envio só: recall com os dias do Gerente, só da fila e **só com autorização** (colhida no termo do BSV); uma configuração de SMS e um PARAR; confirmação **só pelo WhatsApp no dia**; a campanha de SMS sai. | sessão própria |
+| 3 | Um motor de envio só: recall com os dias do Gerente, só da fila e **só com autorização** (colhida no termo do BSV; desde 25/10/2026, sem registro conta como autorizado e só quem recusou fica de fora — `docs/fase3-recepcao-crm.md` §6); uma configuração de SMS e um PARAR; confirmação **só pelo WhatsApp no dia**; a campanha de SMS sai. | sessão própria |
 
 ## Como funciona
 

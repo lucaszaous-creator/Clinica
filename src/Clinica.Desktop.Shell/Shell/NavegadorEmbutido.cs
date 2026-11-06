@@ -74,13 +74,16 @@ public static class NavegadorEmbutido
             config.AreDevToolsEnabled = false;
             config.AreBrowserAcceleratorKeysEnabled = false;
 #endif
-            // A foto do paciente (CapturaFotoForm) usa a webcam do balcão pelo navegador. Sem
-            // isto o WebView2 pergunta com um balão do próprio navegador a cada abertura — e a
-            // recepcionista não tem como saber que é o sistema pedindo. Libera SÓ a câmera e SÓ
-            // para a origem do próprio app; o resto segue a regra padrão do WebView2.
+            // A foto do paciente (CapturaFotoForm) usa a webcam do balcão pelo navegador, e o áudio
+            // do WhatsApp (GravadorDeAudio, 24/10/2026) o microfone. Sem isto o WebView2 pergunta com
+            // um balão do próprio navegador a cada abertura — e a recepcionista não tem como saber
+            // que é o sistema pedindo. Libera SÓ a câmera e o microfone e SÓ para a origem do
+            // próprio app; o resto segue a regra padrão do WebView2. (O Windows ainda pode bloquear
+            // o dispositivo na privacidade: a tela diz onde liberar.)
             e.WebView.CoreWebView2.PermissionRequested += (_, pedido) =>
             {
-                if (pedido.PermissionKind == CoreWebView2PermissionKind.Camera && EhDaPropriaApp(pedido.Uri))
+                if (pedido.PermissionKind is CoreWebView2PermissionKind.Camera or CoreWebView2PermissionKind.Microphone
+                    && EhDaPropriaApp(pedido.Uri))
                     pedido.State = CoreWebView2PermissionState.Allow;
             };
             try { aoIniciar?.Invoke(e.WebView.CoreWebView2); }

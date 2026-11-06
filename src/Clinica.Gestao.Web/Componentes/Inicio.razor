@@ -1,0 +1,16 @@
+@page "/"
+@*
+  A gestão no navegador: UMA página, com a moldura dos apps e o palco das telas. A sessão do portal
+  já foi conferida pela porta (Program.cs) nesta requisição; a raiz interativa recebe só o id da
+  sessão (o resumo, nunca o token) e a reconfere ao conectar. Sem pré-renderização: nada de dado
+  de saúde sai no HTML da página.
+*@
+<RaizDaGestao SessaoId="@_sessaoId" @rendermode="new Microsoft.AspNetCore.Components.Web.InteractiveServerRenderMode(prerender: false)" />
+
+@code {
+    [CascadingParameter] public HttpContext? Contexto { get; set; }
+    private string _sessaoId = "";
+
+    protected override void OnInitialized()
+        => _sessaoId = GestaoNaRequisicao.De(Contexto)?.SessaoId ?? "";
+}

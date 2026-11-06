@@ -26,6 +26,10 @@ foreach (var d in builder.Services.Where(d =>
 var conexao = new SqliteConnection("Data Source=:memory:");
 conexao.Open();
 builder.Services.AddDbContext<ClinicaDbContext>(o => o.UseSqlite(conexao));
+// A prévia não tem CRM: o WhatsApp da Recepção conversa com o CRM de mentira (CrmDeMentira.cs),
+// e o ClienteDoCrmHttp do AddClinica nunca é chamado. CLINICA_PREVIA_CRM=fora-do-ar|nao-configurado
+// fotografa os estados de falha.
+PreviaBlazor.CrmDeMentira.Registrar(builder.Services);
 builder.Services.AddTelasBlazor();
 // Por navegador (Scoped): na página da aula o hospedeiro troca a tela pela moldura daquele
 // navegador — é o que faz "Abrir a ficha" ou "Ir para o Caixa" funcionarem no vídeo.
@@ -87,6 +91,9 @@ sealed class HostDaPrevia(PreviaBlazor.AulaAtual aula) : IHostDaTela
 
     // Fora da aula não há para onde ir; dentro dela, a moldura troca a tela como no app.
     public Task<bool> NavegarAsync(string chave) => Task.FromResult(aula.Navegar(chave));
+
+    // Na aula, o que a moldura do app conhece; fora dela (/tela/…), a prévia mostra tudo o que a tela tem.
+    public bool TemTela(string chave) => aula.Moldura?.Conhece(chave) ?? true;
 
     public Task<bool> AbrirEnderecoAsync(string url) => Task.FromResult(false);
 

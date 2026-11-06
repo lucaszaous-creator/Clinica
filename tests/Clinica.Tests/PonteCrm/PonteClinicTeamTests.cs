@@ -31,11 +31,12 @@ public sealed class PonteClinicTeamTests : IDisposable
         bridge = new(repo, new AcessoService(repo), entrada);
     }
 
-    UsuarioSistema Usuario(string login, PerfilAcesso perfil, bool ativo = true, Permissao negadas = Permissao.Nenhuma)
+    UsuarioSistema Usuario(string login, PerfilAcesso perfil, bool ativo = true, Permissao negadas = Permissao.Nenhuma,
+        Permissao extras = Permissao.Nenhuma)
     {
         var (hash, sal) = HashSenha.Gerar(Senha);
         var u = new UsuarioSistema { Login = login, Nome = "Nome de " + login, Perfil = perfil, Ativo = ativo,
-            SenhaHash = hash, SenhaSalt = sal, PermissoesNegadas = negadas };
+            SenhaHash = hash, SenhaSalt = sal, PermissoesNegadas = negadas, PermissoesExtras = extras };
         db.Usuarios.Add(u); db.SaveChanges(); return u;
     }
 
@@ -55,6 +56,20 @@ public sealed class PonteClinicTeamTests : IDisposable
         Assert.True(team.Single(t => t.Login == "direcao").Admin);
         Assert.False(team.Single(t => t.Login == "ana").Admin);
         Assert.Equal("Nome de ana", team.Single(t => t.Login == "ana").Name);
+    }
+
+    // "Só as secretárias e o gerente" (25/10/2026): o bit de agendar concedido a outra função em
+    // Acessos não leva junto o WhatsApp da clínica — nem a lista da equipe, nem a senha, nem o bilhete.
+    [Fact] public async Task Bit_de_agendar_em_outro_perfil_nao_entra_no_CRM()
+    {
+        var fatura = Usuario("fatura", PerfilAcesso.Faturista, extras: Permissao.EditarAgenda);
+        var medica = Usuario("medica", PerfilAcesso.Profissional, extras: Permissao.EditarAgenda);
+        Usuario("ana", PerfilAcesso.Recepcao);
+
+        Assert.Equal(["ana"], (await bridge.Team(default)).Select(t => t.Login).ToArray());
+        Assert.True(fatura.Pode(Permissao.EditarAgenda)); // o bit vale na agenda dela; o WhatsApp é que não
+        Assert.Equal(403, Status(await bridge.Enter(new("fatura", Senha), default)));
+        Assert.NotEqual(200, Status(await bridge.EnterByTicket(new(await entrada.EmitirAsync(medica.Id)), default)));
     }
 
     // A aba "WhatsApp" da Recepção (docs/crm-na-recepcao.md): o bilhete do app entra sem senha,
@@ -112,7 +127,7 @@ public sealed class PonteClinicTeamTests : IDisposable
         var r = await bridge.Enter(new("ANA", Senha), default); // o login é normalizado como nos apps
         var ok = Assert.IsType<Ok<ClinicTeamMember>>(r);
         Assert.Equal("ana", ok.Value!.Login);
-        Assert.NotNull((await db.Usuarios.AsNoTracking().SingleAsync()).UltimoAcessoEm);
+        Assert.NotNull((await db.Usuarios.AsNoTracking().SingleAsync(u => u.Login == "ana")).UltimoAcessoEm);
     }
 
     [Fact] public async Task Senha_errada_e_401_e_conta_a_tentativa()
@@ -120,7 +135,7 @@ public sealed class PonteClinicTeamTests : IDisposable
         Usuario("ana", PerfilAcesso.Recepcao);
         var r = await bridge.Enter(new("ana", "errada"), default);
         Assert.Equal(401, Status(r));
-        Assert.Equal(1, (await db.Usuarios.AsNoTracking().SingleAsync()).TentativasFalhas);
+        Assert.Equal(1, (await db.Usuarios.AsNoTracking().SingleAsync(u => u.Login == "ana")).TentativasFalhas);
     }
 
     [Fact] public async Task Login_inexistente_responde_igual_a_senha_errada()
@@ -135,7 +150,7 @@ public sealed class PonteClinicTeamTests : IDisposable
         for (var i = 0; i < AcessoService.TentativasAteTravar; i++) await bridge.Enter(new("ana", "errada"), default);
         // Travado: nem a senha certa entra — é a regra dos apps, e as tentativas contam juntas.
         Assert.Equal(401, Status(await bridge.Enter(new("ana", Senha), default)));
-        Assert.NotNull((await db.Usuarios.AsNoTracking().SingleAsync()).BloqueadoAte);
+        Assert.NotNull((await db.Usuarios.AsNoTracking().SingleAsync(u => u.Login == "ana")).BloqueadoAte);
     }
 
     [Fact] public async Task Quem_nao_mexe_na_agenda_e_recusado_com_a_frase_de_acesso()
@@ -150,7 +165,7 @@ public sealed class PonteClinicTeamTests : IDisposable
         var u = Usuario("ana", PerfilAcesso.Recepcao);
         var antes = (u.SenhaHash, u.SenhaSalt);
         await bridge.Enter(new("ana", Senha), default);
-        var depois = await db.Usuarios.AsNoTracking().SingleAsync();
+        var depois = await db.Usuarios.AsNoTracking().SingleAsync(u => u.Login == "ana");
         Assert.Equal(antes, (depois.SenhaHash, depois.SenhaSalt));
     }
 

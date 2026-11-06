@@ -1,4 +1,6 @@
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Clinica.Application.Assinatura;
+using Clinica.Application.Assinatura.SafeID;
 using Clinica.Application.Abstracoes;
 using Clinica.Application.Servicos;
 using Clinica.Domain.Regras;
@@ -17,9 +19,15 @@ public static class DependencyInjection
         services.AddDbContext<ClinicaDbContext>(o => o.UseNpgsql(connectionString, ConfigurarNpgsql)
             .AddInterceptors(InterceptadorMedicao.Instancia)); // só conta idas e tempo (ver MedicaoBanco)
         services.AddScoped<IClinicaRepositorio, ClinicaRepositorio>();
+        // A direção zera o autenticador perdido do portal (tela de Acessos).
+        services.AddScoped<Clinica.Application.Tablet.ISegundoFatorDoPortal, Tablet.AdministracaoDoSegundoFator>();
+        services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<ILeituraParalela, LeituraParalela>();
         services.AddScoped<IAcompanhamentoPacienteService, AcompanhamentoPacienteService>();
         services.AddScoped<IEntradaNoCrmService, EntradaNoCrmService>();
+        // A API do CRM para a tela nativa do WhatsApp (out/2026): SINGLETON — as sessões (uma por
+        // usuário do app) sobrevivem aos escopos por operação da tela; o banco, ele lê por escopo próprio.
+        services.AddSingleton<IClienteDoCrm, Crm.ClienteDoCrmHttp>();
         services.AddScoped<IComissaoRecuperacaoService, ComissaoRecuperacaoService>();
         services.AddScoped<IChatEquipeService, ChatEquipeService>();
         services.AddScoped<AvisosDoSemDorService>();
@@ -43,8 +51,8 @@ public static class DependencyInjection
         services.AddScoped<ConclusaoAutomaticaService>();
         services.AddScoped<ConfiguracaoAgendaService>();
         services.AddScoped<ConciliacaoAgendaService>();
-        services.AddScoped<RetornosAMarcarService>();
         services.AddScoped<BuscaDeVagasService>();
+        services.AddScoped<OcupacaoPorEspecialidadeService>();
         services.AddScoped<EquipeService>();
         services.AddScoped<ListaEsperaService>();
         services.AddScoped<BloqueioAgendaService>();
@@ -81,6 +89,7 @@ public static class DependencyInjection
         services.AddScoped<AssinaturaDePrescricaoService>();
         services.AddScoped<AssinaturaDeDocumentoClinicoService>();
         services.AddSingleton(new AssinaturaDigitalService(exigirCadeiaConfiavel: true));
+        RegistrarSafeID(services);
         services.AddScoped<DocumentoClinicoService>();
         services.AddScoped<DocumentosClinicosPdfService>();
         // Termo assinado pelo paciente (parcela 66). O TermoProcedimentoService entra
@@ -156,6 +165,14 @@ public static class DependencyInjection
         services.AddScoped<DocumentosFinanceirosPdfService>();
         services.AddScoped<IndicadoresService>();
         services.AddScoped<CampanhaService>();
+        services.AddScoped<WhatsAppDaRecepcaoService>();
+        // A auditoria do atendimento (26/10): a gerente confere o atendimento das secretárias no CRM.
+        services.AddScoped<AuditoriaDoAtendimentoService>();
+        // A conversa resolve (25/10): guardar na ficha o arquivo recebido e perguntar a quem trata pelo chat da equipe.
+        services.AddScoped<GuardarNaFichaService>();
+        services.AddScoped<PerguntaAoProfissionalService>();
+        // A renovação diária da fila do recall (aba WhatsApp e Acompanhamento dividem o dia).
+        services.AddSingleton<RecallDoDia>();
         // Documento ao paciente por WhatsApp (fila que o CRM executa) — out/2026; sem e-mail.
         // A fila tem duas portas: o desktop PÕE o pedido, a ponte do CRM o entrega.
         services.AddScoped<EnvioAoPacienteService>();
@@ -225,4 +242,35 @@ public static class DependencyInjection
 
         o.CommandTimeout(60);
     }
+
+    /// <summary>
+    /// Assinatura em nuvem pelo SafeID (parcela 44), quando a clínica a configurou.
+    ///
+    /// <b>Silencioso quando não há configuração, e isso é decisão.</b> Este método roda no
+    /// arranque de todos os aplicativos, inclusive o faturamento CONGELADO, que não assina
+    /// nada — lançar aqui por falta de uma variável de ambiente derrubaria a abertura de um
+    /// app em produção por causa de uma funcionalidade que ele não usa.
+    ///
+    /// O <see cref="HttpClient"/> é registrado com <c>AddHttpClient</c> por causa do
+    /// esgotamento de portas que <c>new HttpClient()</c> por chamada produz — e com um
+    /// tempo-limite curto, porque quem está assinando tem um paciente na frente: falhar em
+    /// 30 s dizendo o motivo é melhor que travar a tela por dois minutos.
+    /// </summary>
+    private static void RegistrarSafeID(IServiceCollection services)
+    {
+        // Registra SEMPRE, e resolve as credenciais só quando alguém for assinar. A versão
+        // anterior lia a configuração aqui e registrava condicionalmente — o que obrigava a
+        // resposta a existir antes de haver banco, e por tabela obrigava a clínica a definir
+        // variável de ambiente em cada máquina.
+        services.AddScoped<ProvedorOpcoesSafeID>();
+
+        // Tempo-limite curto: quem está assinando tem um paciente na frente, e falhar em
+        // 30 s dizendo o motivo é melhor que travar a tela por dois minutos.
+        services.AddHttpClient(NomeHttpSafeID, c => c.Timeout = TimeSpan.FromSeconds(30));
+        services.AddSingleton(sp => new FabricaDoClienteSafeID(
+            () => sp.GetRequiredService<IHttpClientFactory>().CreateClient(NomeHttpSafeID)));
+    }
+
+    /// <summary>Nome do <c>HttpClient</c> configurado para falar com o PSC.</summary>
+    public const string NomeHttpSafeID = BuscaNoSafeID.NomeHttp;
 }

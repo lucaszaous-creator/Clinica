@@ -68,6 +68,8 @@ public sealed class ModuloRecepcao : IModuloApp
 
     // ===== Itens COMPOSTOS (parcela 55) =====
     public const string ChaveGrupoAgenda = "agenda";
+    /// <summary>A aba "Por tipo de atendimento" da Agenda (out/2026): o mapa de ocupação com a coleta de preventivo.</summary>
+    public const string ChaveOcupacaoEspecialidade = "ocupacao-especialidade";
     // ⚠️ "Pacientes" e "Prescrições" vêm da ChavesSuite desde a parcela 95: o Consultório
     // publica compostos com o mesmo rótulo, e a dedupe do shell só funde por CHAVE —
     // literal à mão nos dois módulos era a duplicata da checagem 45 esperando para
@@ -191,6 +193,7 @@ public sealed class ModuloRecepcao : IModuloApp
             [
                 new AbaMenu("Dia", ChaveFila),
                 new AbaMenu("Visão geral", ChavesSuite.OcupacaoAgenda),
+                new AbaMenu("Por tipo de atendimento", ChaveOcupacaoEspecialidade),
                 new AbaMenu("Grade", ChaveAgenda),
                 new AbaMenu("Semana do profissional", ChavesSuite.ConsultorioSemana)
             ]
@@ -201,6 +204,13 @@ public sealed class ModuloRecepcao : IModuloApp
             // "Recepção / Check-in"). Declarado pela checagem 28 — toda `AbaMenu` aponta
             // para item — e escondido pelo composto acima.
             Chave = ChaveFila, Rotulo = "Agenda do dia", Glifo = "\uE8FD", Icone = "dia",
+            Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda
+        },
+        new ItemMenuModulo
+        {
+            // A aba "Por tipo de atendimento" da Agenda (out/2026) — o mapa de horários livres por
+            // tipo de atendimento e das coletas de preventivo. Escondido pelo composto acima.
+            Chave = ChaveOcupacaoEspecialidade, Rotulo = "Ocupação por tipo de atendimento", Glifo = "", Icone = "cal",
             Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda
         },
         // A SALA DE INFUSÃO, onde a ENFERMAGEM alcança (parcela 48).
@@ -446,8 +456,7 @@ public sealed class ModuloRecepcao : IModuloApp
             Chave = ChaveLancamentos, Rotulo = "Lan\u00E7amentos", Glifo = "\uE9D5", Icone = "lista",
             Grupo = GrupoSidebar.Atendimento, Requer = Permissao.LancarAtendimento
         },
-        // "Retornos a marcar" saiu do menu na fase 2 (out/2026, docs/crm-na-recepcao.md): é a fila
-        // "Retornos pedidos" do Acompanhamento — uma porta só para quem a recepção chama de volta.
+        // "Retornos a marcar" saiu do sistema em 26/10/2026, com o "Retorno sugerido" (pedido da clínica).
         // O "Canal de SMS" saiu na fase 3: o CRM é o único remetente de SMS (docs/canal-sms.md).
         // Chamar de volta quem parou de vir (parcela 48). Quem telefona é o BALCÃO — e é
         // por isso que ela continua aqui, virando aba de "Marketing / Recall" só onde a
@@ -503,6 +512,7 @@ public sealed class ModuloRecepcao : IModuloApp
     public object? CriarTela(string chave, IServiceProvider servicos) => chave switch
     {
         ChavesSuite.OcupacaoAgenda => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.VisaoGeralDaAgenda), servicos),
+        ChaveOcupacaoEspecialidade => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.OcupacaoPorEspecialidade), servicos),
         ChavesSuite.PedidosEnfermagem => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PedidosDaEnfermagem), servicos),
         ChaveConfirmacoes => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ConfirmacoesDeAgenda), servicos),
         ChavePagamentos => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PagamentosDoBalcao), servicos),
@@ -517,7 +527,8 @@ public sealed class ModuloRecepcao : IModuloApp
         ChaveConsultas => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ConsultasDeConvenio), servicos),
         ChaveLancamentos => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.LancamentosDoBalcao), servicos),
         ChaveRetorno => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.AcompanhamentoDePacientes), servicos),
-        ChaveWhatsAppCrm => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.WhatsAppNoCrm), servicos),
+        // A tela nativa do WhatsApp da clínica (fase 3, 24/10: a moldura do CRM saiu inteira).
+        ChaveWhatsAppCrm => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ConversasDoWhatsApp), servicos),
         ChaveSalaInfusao => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.SalaDeInfusao), servicos),
         ChaveEnfermagem => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.Enfermagem), servicos),
         // Tela do SHELL (parcela 60), como a sala de infusão acima. O item era publicado

@@ -124,6 +124,11 @@ jobs:
       - name: Testar carregamento e cache das telas Windows
         run: dotnet test tests/Clinica.Windows.Tests/Clinica.Windows.Tests.csproj -c Release
 
+      # A gestão no navegador (nov/2026): a porta (sessão do portal, origem do WebSocket,
+      # cabeçalhos) e o catálogo gerado. Projeto próprio: liga o modo servidor da sessão.
+      - name: Testar a porta e o catálogo da gestão web
+        run: dotnet test tests/Clinica.Gestao.Web.Tests/Clinica.Gestao.Web.Tests.csproj -c Release
+
       - name: Conferir janelas responsivas com dados fictícios
         run: dotnet run --project tools/ValidarLayoutWindows -c Release
 

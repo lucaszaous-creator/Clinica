@@ -19,7 +19,7 @@
     }
     else
     {
-        <CadastroPacienteForm @key="f" PacienteId="f.PacienteId"
+        <CadastroPacienteForm @key="f" PacienteId="f.PacienteId" TelefoneInicial="@f.TelefoneInicial"
                               AoFechar="() => Formularios.Responder(f, null)"
                               AoConcluir="(PacienteCadastrado p) => Formularios.Responder(f, p)" />
     }

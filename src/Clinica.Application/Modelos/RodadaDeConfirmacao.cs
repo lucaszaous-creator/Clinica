@@ -133,6 +133,21 @@ public static class RodadaDeConfirmacao
     public const string SeloSemResposta = "Não confirmou";
 
     /// <summary>
+    /// A palavra do WhatsApp da Recepção para o lembrete que ficou sem resposta (25/10): a mesma na linha da lista, no
+    /// horário da coluna e no aviso da conversa, e a mesma do CRM ("sem resposta"). A agenda ainda diz
+    /// <see cref="SeloSemResposta"/> — as videoaulas e o catálogo de treinamento mostram aquela palavra, e trocá-la sem
+    /// regravá-las faria a aula ensinar uma tela que não existe mais.
+    /// </summary>
+    public const string SemResposta = "Sem resposta";
+
+    /// <summary>
+    /// Quem a ponte do CRM grava como remetente do lembrete AUTOMÁTICO (<c>ClinicAgendaBridge</c>, decisão "notified").
+    /// É o lembrete que pede resposta com botões (Confirmar, Remarcar, Cancelar) — por isso o silêncio dele vira o aviso
+    /// "sem resposta" (<see cref="AvisosDeConfirmacao.Decidir"/>), como o link do SMS antigo virava.
+    /// </summary>
+    public const string LembreteAutomatico = "CRM · WhatsApp";
+
+    /// <summary>
     /// O selo de UMA linha da agenda (lista do dia, grade, Início, quadro do médico): o que a
     /// rodada AFIRMOU, numa definição só (out/2026). Antes, cada tela trocava o status
     /// <c>Respondido</c> por "Confirmou" — e quem respondeu pelo SMS que NÃO vai aparecia

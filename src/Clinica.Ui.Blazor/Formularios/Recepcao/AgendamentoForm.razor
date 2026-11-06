@@ -115,6 +115,16 @@
                                 }
                             </select>
                         </Campo>
+                        @* A coleta de preventivo (out/2026): o teto do dia é conferido pelo
+                           AgendaService ao gravar — a recusa volta com a conta e o que fazer.
+                           O pedido da lista de espera não a leva (o serviço da lista não a conhece). *@
+                        @if (PedidoListaEsperaId is null)
+                        {
+                            <label class="agf-preventivo">
+                                <input type="checkbox" @bind="_preventivo" />
+                                <span>Coleta de preventivo <small>(2ª guia; conta no limite de coletas do dia)</small></span>
+                            </label>
+                        }
                     }
                 </div>
 
@@ -201,6 +211,11 @@
     [Parameter] public string? ModalidadeCodigo { get; set; }
     /// <summary>Pedido da lista de espera que este horário atende (fecha ao salvar, pelo ChamarAsync).</summary>
     [Parameter] public int? PedidoListaEsperaId { get; set; }
+    /// <summary>
+    /// Horário NOVO já com o paciente, travado (25/10: o "Marcar horário" da conversa do WhatsApp — a ficha é a
+    /// que a recepção conferiu na conversa, e o formulário não deixa trocar de pessoa no meio).
+    /// </summary>
+    [Parameter] public int? PacienteId { get; set; }
     /// <summary>Título da porta de um horário NOVO ("Chamar Fulano da lista de espera").</summary>
     [Parameter] public string? Titulo { get; set; }
     /// <summary>Título da porta de um horário que JÁ EXISTE ("Editar o horário"); nulo = "Remarcar horário".</summary>
@@ -224,6 +239,7 @@
     private Sala? _sala;
     private EntradaModalidade? _modalidade;
     private EntradaEspecialidade? _especialidade;
+    private bool _preventivo;
 
     // O que o horário em edição TEM e o catálogo/filtro de hoje não oferece: aparece assim mesmo
     // (habilitação retirada depois da marcação não troca a modalidade em silêncio).
@@ -280,6 +296,17 @@
                 {
                     _mensagem = "Este pedido já saiu da lista de espera.";
                 }
+            }
+
+            if (PacienteId is { } pacienteId && AgendamentoId is null && _paciente is null)
+            {
+                _paciente = await sp.GetRequiredService<PacienteService>().ObterAsync(pacienteId);
+                if (_paciente is null)
+                {
+                    _falha = "A ficha deste paciente não foi encontrada. Marque pela Agenda.";
+                    return;
+                }
+                _pacienteTravado = true;
             }
 
             if (AgendamentoId is { } id)
@@ -354,6 +381,7 @@
             : null;
         _modalidade = _modalidadeDoHorario;
         _especialidade = _especialidadeDoHorario;
+        _preventivo = ag.ColetaPreventivo;
         CarregarCatalogos(_modalidadeDoHorario.Codigo);
 
         _duracao = ag.DuracaoMinutos?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
@@ -619,7 +647,7 @@
                     profissionalId: _profissional?.Id, salaId: _sala?.Id,
                     duracaoMinutos: duracao,
                     manterRecursos: false, encaixe: _encaixe,
-                    avisosGuia: avisos);
+                    avisosGuia: avisos, coletaPreventivo: EhConsulta && _preventivo);
             }
             else if (PedidoListaEsperaId is { } pedidoId)
             {
@@ -641,7 +669,7 @@
                     especialidadeConsultaCodigo: especialidade,
                     profissionalId: _profissional?.Id, salaId: _sala?.Id,
                     duracaoMinutos: duracao, encaixe: _encaixe,
-                    operador: Operador);
+                    operador: Operador, coletaPreventivo: EhConsulta && _preventivo);
             }
 
             await AoConcluir.InvokeAsync(avisos);

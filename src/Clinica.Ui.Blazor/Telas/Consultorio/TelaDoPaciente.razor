@@ -15,10 +15,11 @@
 @namespace Clinica.Ui.Blazor.Telas
 @using Clinica.Application.Modelos
 @using Clinica.Ui.Blazor.Componentes.SecoesDoPaciente
+@using Microsoft.AspNetCore.Components.Sections
 @inherits TelaBase
 @implements ITelaDoPaciente
 
-<div class="pagina tela-paciente">
+<div class="pagina tela-paciente @(NaFolhaDoMedico ? "na-folha" : null)">
     @if (_contexto is not { } ctx)
     {
         <section class="cartao">
@@ -100,7 +101,7 @@
                         <button type="button" class="botao" disabled="@(!PodeMoverFila || _ocupado)" @onclick="ReabrirAsync"
                                 title="Desfaz o encerramento (antes da conclusão)">Reabrir</button>
                     }
-                    @if (PodeFinalizarSessao)
+                    @if (PodeFinalizarSessao && !NaFolhaDoMedico)
                     {
                         @* O "Salvar e finalizar": grava a folha aberta → encerra → conclui (a ordem é amarra). *@
                         <button type="button" class="botao primario" disabled="@_ocupado" @onclick="FinalizarSessaoAsync"
@@ -113,7 +114,9 @@
                     }
                     <button type="button" class="botao fantasma" @onclick="VoltarAsync">Trocar paciente</button>
                 </div>
-                @if (!string.IsNullOrWhiteSpace(_avisoConclusaoAutomatica))
+                @* Na folha do médico a ORIENTAÇÃO ("ao salvar, conclui…") sai: o botão do rodapé já diz isso
+                   ("Salvar e concluir sessão") e a linha comia a altura do notebook. Pendência continua aqui. *@
+                @if (!string.IsNullOrWhiteSpace(_avisoConclusaoAutomatica) && !(NaFolhaDoMedico && _avisoEhOrientacao))
                 {
                     <p class="tp-aviso-conclusao">@_avisoConclusaoAutomatica</p>
                 }
@@ -128,6 +131,7 @@
         <Aviso Texto="@_mensagem" Tom="@(_mensagemEhErro ? "erro" : "sucesso")" />
 
         <div class="tp-corpo">
+            <div class="tp-coluna-esquerda">
             <nav class="tp-rail cartao" aria-label="Seções do prontuário">
                 @* UMA porta por seção: o rail mostra as que a pessoa alcança (a ficha inclusive). As
                    "Prescrições e documentos" saíram do rail em 22/10/2026, a pedido da clínica: a porta
@@ -144,6 +148,8 @@
                     }
                 }
             </nav>
+            <SectionOutlet SectionId="ExtraDoRail" />
+            </div>
 
             <main class="tp-secao-corpo" @key="ctx.Versao">
                 <CascadingValue Value="ctx" IsFixed="true">
@@ -317,6 +323,8 @@
     private bool _mostrarMateriais;
     private bool _materiaisAbertos;
     private string? _avisoConclusaoAutomatica;
+    /// <summary>O aviso é só a orientação de como concluir (não uma pendência) — some na folha do médico.</summary>
+    private bool _avisoEhOrientacao;
 
     private IJanelasDoAtendimentoClinico Janelas
         => Servicos.GetService<IJanelasDoAtendimentoClinico>() ?? JanelasDoAtendimentoClinicoIndisponiveis.Instancia;
@@ -336,9 +344,18 @@
     private static bool PodeConcluirComAcesso => PodeMoverFila && ConclusaoClinica.Permitida(
         SessaoUsuario.Atual.Perfil, SessaoUsuario.Atual.Efetivas, SessaoUsuario.Atual.ProfissionalId);
 
-    private bool PodeFinalizarSessao => SessaoDoAtendimentoNaTela.PodeFinalizar(_horario, PodeConcluirComAcesso);
+    /// <summary>
+    /// Na folha do médico o finalizar mora no rodapé dela (desenho aprovado em 26/10/2026): o botão
+    /// do cabeçalho repetiria o mesmo ato no alto da tela.
+    /// </summary>
+    /// <summary>O espaço debaixo do rail (o EMITIR da folha do médico) — ver <see cref="ITelaDoPaciente.ExtraDoRail"/>.</summary>
+    public object ExtraDoRail { get; } = new();
 
-    private string RotuloFinalizarSessao => SessaoUsuario.Atual.Perfil == PerfilAcesso.Gerente
+    private bool NaFolhaDoMedico => _rail.Count > 0 && _rail[_secao].Rotulo == TelaDoPacienteNaTela.Atendimento;
+
+    public bool PodeFinalizarSessao => SessaoDoAtendimentoNaTela.PodeFinalizar(_horario, PodeConcluirComAcesso);
+
+    public string RotuloFinalizarSessao => SessaoUsuario.Atual.Perfil == PerfilAcesso.Gerente
         ? "Concluir sessão" : SessaoDoAtendimentoNaTela.RotuloFinalizar(_horario);
 
     /// <summary>
@@ -349,6 +366,7 @@
     {
         var mostrar = false;
         string? aviso = null;
+        var orientacao = false;
         if (_horario is { } horario && ctx.AgendamentoId is { } id)
         {
             try
@@ -365,6 +383,7 @@
                           && (politica.Abrange(horario) || registrado);
                 aviso = await p.GetRequiredService<AgendaService>().PendenciaEnfermagemAsync(id)
                         ?? await Janelas.PendenciaDeConclusaoAutomaticaAsync(id);
+                orientacao = aviso is null && horario.FimAtendimentoEm is null;
                 if (horario.FimAtendimentoEm is null)
                     aviso ??= SessaoUsuario.Atual.Perfil == PerfilAcesso.Gerente
                         ? FinalizacaoDaSessao.OrientacaoGerente
@@ -378,6 +397,7 @@
         if (_contexto != ctx) return;
         _mostrarMateriais = mostrar;
         _avisoConclusaoAutomatica = aviso;
+        _avisoEhOrientacao = orientacao;
     }
 
     /// <summary>
@@ -385,7 +405,7 @@
     /// <c>FechamentoSessaoService.RegistrarAtendimentoAsync</c>). Falhar a gravação NÃO encerra;
     /// falhar a conclusão não desfaz a evolução — cada desfecho com a frase do que fazer.
     /// </summary>
-    private async Task FinalizarSessaoAsync()
+    public async Task FinalizarSessaoAsync()
     {
         if (_ocupado || _contexto is not { } ctx) return;
         if (!PodeConcluirComAcesso) { Avisar(FinalizacaoDaSessao.SemAcesso, erro: true); return; }

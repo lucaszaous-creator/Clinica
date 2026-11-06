@@ -33,9 +33,9 @@ public sealed partial class ShellViewModel
 
     public string SituacaoSemDor { get; private set; } = "";
 
-    /// <summary>Recepção e Gerente, e só quem pode ver a ficha (o aviso traz o primeiro nome do paciente).</summary>
-    public bool PodeVerAvisosDoSemDor => _sessaoClinica is { Autenticado: true, Perfil: PerfilAcesso.Recepcao or PerfilAcesso.Gerente }
-        && _sessaoClinica.Pode(Permissao.VerFichaPaciente);
+    /// <summary>Quem atende o WhatsApp (<see cref="AcessoAoWhatsApp"/>: recepção e direção, com o bit), e só quem pode ver a ficha (o aviso traz o primeiro nome do paciente).</summary>
+    public bool PodeVerAvisosDoSemDor => _sessaoClinica is { Autenticado: true } sessao && AcessoAoWhatsApp.Pode(sessao)
+        && sessao.Pode(Permissao.VerFichaPaciente);
 
     private void IniciarAvisosDoSemDor()
     {
@@ -94,12 +94,23 @@ public sealed partial class ShellViewModel
         finally { _consultandoSemDor = false; }
     }
 
-    /// <summary>Abre a conversa no CRM (navegador) e marca o aviso como lido.</summary>
+    /// <summary>
+    /// Abre a conversa na aba WhatsApp do próprio app (fase 3, 24/10: a tela nativa) e marca o aviso
+    /// como lido. App sem a aba (ou link sem conversa): o CRM no navegador, como antes.
+    /// </summary>
     public void AbrirAvisoDoSemDor(AvisoDoSemDorShell aviso)
     {
         if (!PodeVerAvisosDoSemDor) return;
         LerAviso(aviso.Chave);
         AvisosAbertos = false;
+        if (AvisosDoSemDorRegras.ConversaDoLink(aviso.Link) is { } conversa
+            && Itens.Any(i => i.Chave == ConversaNoCrm.ChaveDaAba)
+            && _servicos.GetService<Clinica.Ui.Blazor.Hospedagem.PedidoDeConversaNoCrm>() is { } fila)
+        {
+            fila.Definir(new PedidoDeConversa("", aviso.Paciente, null, null, conversa));
+            if (IrPara(ConversaNoCrm.ChaveDaAba, apenasConferir: false)) return;
+            fila.Consumir();
+        }
         if (!AvisosDoSemDorRegras.LinkSeguro(aviso.Link)) { Snackbar?.Info("O endereço da conversa no CRM não é seguro (https); abra o CRM e procure pelo paciente."); return; }
         try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(aviso.Link) { UseShellExecute = true }); }
         catch (Exception ex)

@@ -29,3 +29,11 @@
 .resultado-regimes td:first-child{font-weight:500}
 .resultado-regimes-total td{font-weight:700;border-top:1px solid var(--borda)}
 .resultado-regimes-frase{margin:var(--space-3) 0 var(--space-2);color:var(--texto-secundario);font-size:var(--text-small-size)}
+/* Celular (nov/2026): a cascata vira uma conta de cima para baixo — rótulo à esquerda, valor
+   inteiro à direita, o operador entre as linhas. Lado a lado, o valor saía "R$ 16.62…". */
+@media (max-width:640px){
+  .resultado-cascata{flex-direction:column;gap:0}
+  .resultado-passo{flex:none;flex-direction:row;align-items:baseline;justify-content:space-between;gap:var(--space-3)}
+  .resultado-passo b{overflow:visible;text-overflow:clip}
+  .resultado-operador{padding:var(--space-1) 0;font-size:var(--text-body-size)}
+}

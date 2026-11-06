@@ -26,7 +26,8 @@
 
 /* ---------- Rail + seção ---------- */
 .tp-corpo{display:grid;grid-template-columns:220px minmax(0,1fr);gap:var(--space-3);align-items:start}
-.tp-rail{display:flex;flex-direction:column;gap:2px;padding:var(--space-3);position:sticky;top:0}
+.tp-coluna-esquerda{min-width:0;display:flex;flex-direction:column;gap:var(--space-3);position:sticky;top:0}
+.tp-rail{display:flex;flex-direction:column;gap:2px;padding:var(--space-3)}
 .tp-grupo{margin:var(--space-3) 0 var(--space-1) var(--space-2);color:var(--texto-secundario);font-size:var(--text-small-size);
   font-weight:600;text-transform:uppercase;letter-spacing:.04em}
 .tp-grupo:first-child{margin-top:0}
@@ -40,7 +41,40 @@
 /* Notebook estreito: o rail vira uma régua por cima da seção, e nada vaza para o lado. */
 @media (max-width:1100px){
   .tp-corpo{grid-template-columns:minmax(0,1fr)}
-  .tp-rail{position:static;flex-direction:row;flex-wrap:wrap}
+  .tp-coluna-esquerda{position:static}
+  .tp-rail{flex-direction:row;flex-wrap:wrap}
   .tp-grupo{display:none}
   .tp-secao{width:auto}
+}
+
+/* ---------- Na folha do médico: a tela inteira na altura da janela (out/2026, pedido da clínica) ----------
+   O notebook dela tem ~680 px úteis: o crachá encolhe, a página NÃO rola, e quem rola é o texto da
+   evolução (por dentro) e a coluna da esquerda (rail + EMITIR). A altura vem do palco (o contêiner da
+   tela no app tem altura fixa). Janela baixa ou estreita demais volta à rolagem de página. */
+.tela-paciente.na-folha .tp-cracha{padding:var(--space-2) var(--space-3);gap:var(--space-2);align-items:center}
+.tela-paciente.na-folha .tp-foto{width:40px;height:40px}
+.tela-paciente.na-folha .tp-nome{font-size:var(--text-h3-size)}
+.tela-paciente.na-folha .tp-origem{display:none}
+.tela-paciente.na-folha .tp-contexto{margin-top:0}
+/* Idade · convênio e o contexto clínico (alergia, acompanhamento) numa linha só, debaixo do nome. */
+.tela-paciente.na-folha .tp-identidade{flex-direction:row;flex-wrap:wrap;align-items:center;column-gap:var(--space-3)}
+.tela-paciente.na-folha .tp-nome{flex-basis:100%}
+/* Janela baixa: o rail compacto, para o EMITIR caber inteiro logo abaixo dele. */
+@media (min-width:1101px) and (max-height:860px){
+  .tela-paciente.na-folha .tp-rail{padding:var(--space-2)}
+  .tela-paciente.na-folha .tp-secao{padding:3px var(--space-3)}
+  .tela-paciente.na-folha .tp-grupo{margin:var(--space-1) 0 2px var(--space-2)}
+}
+/* Janela estreita: o rail é uma régua por cima da seção, e a seção leva o resto da altura. */
+@media (max-width:1100px) and (min-height:500px){
+  .tela-paciente.na-folha{height:100%;padding-top:var(--space-3);padding-bottom:var(--space-3);gap:var(--space-2)}
+  .tela-paciente.na-folha .tp-corpo{flex:1 1 auto;min-height:0;grid-template-rows:auto minmax(0,1fr);gap:var(--space-2);align-items:stretch}
+  .tela-paciente.na-folha .tp-coluna-esquerda{gap:var(--space-2)}
+  .tela-paciente.na-folha .tp-secao-corpo{min-height:0}
+}
+@media (min-width:1101px) and (min-height:500px){
+  .tela-paciente.na-folha{height:100%;padding-top:var(--space-4);padding-bottom:var(--space-4);gap:var(--space-3)}
+  .tela-paciente.na-folha .tp-corpo{flex:1 1 auto;min-height:0;grid-template-rows:minmax(0,1fr);align-items:stretch}
+  .tela-paciente.na-folha .tp-coluna-esquerda{position:static;min-height:0;overflow-y:auto}
+  .tela-paciente.na-folha .tp-secao-corpo{min-height:0}
 }

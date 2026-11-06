@@ -19,7 +19,7 @@ Ao abrir o recall, a lista busca automaticamente pacientes sem retornar há pelo
 
 O histórico permanece entre os meses e entre ciclos. Contatos enviados no recall anterior são preservados na criação do acompanhamento. Abrir o WhatsApp não conta como contato: depois da conversa, a funcionária registra canal, resultado e próxima data. O responsável pelo contato é sempre o usuário conectado, sem seleção de outra pessoa, e essa regra também é aplicada na gravação. O histórico mantém a autoria de cada contato anterior. A autorização de contato do cadastro continua obrigatória.
 
-Filtros: paciente, situação, modalidade, prazo, convênio, profissional, responsável, somente meus, dias sem retornar, motivo, tentativas mínimas e período do último contato. Atalhos: A assumir, Meus contatos de hoje, Atrasados, Sem primeiro contato, Sem resposta e Cancelados/faltosos. Legendas identificam autorização do plano, pacote com saldo, telefone ausente e contato não autorizado. A gerente pode cadastrar outros motivos.
+Filtros: paciente, situação, modalidade, prazo, convênio, profissional, responsável, somente meus, dias sem retornar, motivo, tentativas mínimas e período do último contato. Atalhos: A assumir, Meus contatos de hoje, Atrasados, Sem primeiro contato, Sem resposta e Cancelados/faltosos. Legendas identificam autorização do plano, pacote com saldo, telefone ausente e contato não autorizado (desde 25/10/2026, só quem pediu para não receber mensagens: sem registro conta como autorizado — `docs/fase3-recepcao-crm.md` §6). A gerente pode cadastrar outros motivos.
 
 A lista se atualiza a cada minuto enquanto está aberta, sem interromper a edição de contatos ou filtros. Mudanças simultâneas são recusadas para evitar que uma funcionária sobrescreva a outra.
 

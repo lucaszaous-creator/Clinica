@@ -101,6 +101,9 @@
                                         <button type="button" class="botao mini icone" disabled="@(!PodeGerenciar)" @onclick="() => RedefinirSenha(linha)"
                                                 title="@(PodeGerenciar ? "Redefinir senha (provisória: troca no próximo acesso)" : SemPermissao)"
                                                 aria-label="Redefinir senha"><Icone Nome="cadeado" /></button>
+                                        <button type="button" class="botao mini icone" disabled="@(!PodeGerenciar)" @onclick="() => ZerarAutenticadorAsync(linha)"
+                                                title="@(PodeGerenciar ? "Zerar o autenticador do portal (celular perdido ou travado)" : SemPermissao)"
+                                                aria-label="Zerar o autenticador do portal"><Icone Nome="atualizar" /></button>
                                         <button type="button" class="botao mini icone contorno-perigo" disabled="@(!PodeGerenciar || !l.PodeExcluir)"
                                                 @onclick="() => ExcluirAsync(linha)"
                                                 title="@(!PodeGerenciar ? SemPermissao : l.PodeExcluir ? "Excluir (só quem nunca entrou)" : AcessosNaTela.MotivoSemExcluir)"
@@ -208,6 +211,27 @@
             await escopo.ServiceProvider.GetRequiredService<AcessoService>().ExcluirAsync(linha.Id, Operador);
         }, "Blazor — usuário não pôde ser excluído", "Usuário excluído.");
         if (ok) await CarregarAsync();
+    }
+
+    /// <summary>
+    /// O segundo fator do portal (nov/2026): quem perdeu o celular (ou travou de tanto errar) fica
+    /// sem entrar. Zerar apaga o autenticador, os códigos de recuperação e a confiança nos aparelhos;
+    /// a pessoa entra de novo só com a senha e o portal volta a convidá-la a ativar.
+    /// </summary>
+    private async Task ZerarAutenticadorAsync(LinhaDeAcesso linha)
+    {
+        if (!Exigir(Permissao.GerenciarUsuarios, "zerar o autenticador")) return;
+        if (!await Dialogos.ConfirmarAsync("Zerar o autenticador do portal",
+                $"{linha.Nome} vai entrar no portal só com a senha e será convidada a ativar a verificação em duas etapas de novo. " +
+                "Use quando a pessoa perdeu o celular ou travou o código.", perigoso: true, confirmar: "Zerar"))
+            return;
+        if (!Exigir(Permissao.GerenciarUsuarios, "zerar o autenticador")) return;
+        await ExecutarAsync(async () =>
+        {
+            using var escopo = Escopo();
+            await escopo.ServiceProvider.GetRequiredService<Clinica.Application.Tablet.ISegundoFatorDoPortal>()
+                .ZerarAsync(linha.Id, Operador);
+        }, "Blazor — autenticador não pôde ser zerado", "Autenticador zerado. No próximo acesso, a pessoa entra só com a senha.");
     }
 
     private async Task GravouAsync()

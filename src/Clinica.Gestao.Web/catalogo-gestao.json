@@ -1,0 +1,1673 @@
+[
+ {
+  "app": "gestao",
+  "nome": "Gestão",
+  "perfil": "Gerente",
+  "barra": [
+   {
+    "rotulo": "Gestão",
+    "direto": null,
+    "itens": [
+     "painel-direcao",
+     "direcao-dinheiro",
+     "direcao-producao",
+     "direcao-pacientes",
+     "precos",
+     "conformidade",
+     "direcao-administracao"
+    ]
+   },
+   {
+    "rotulo": "Financeiro",
+    "direto": null,
+    "itens": [
+     "financeiro-caixa",
+     "financeiro-contas",
+     "financeiro-recebimentos",
+     "estoque",
+     "repasses",
+     "faturamento-gerencial",
+     "faturamento-relatorios",
+     "faturamento-parametros"
+    ]
+   },
+   {
+    "rotulo": "Recepção",
+    "direto": null,
+    "itens": [
+     "pagamentos-recepcao",
+     "painel-recepcao",
+     "agenda",
+     "equipe",
+     "pacientes",
+     "atendimento",
+     "relacionamento",
+     "whatsapp-crm",
+     "prontuario-geral",
+     "documentos",
+     "particular",
+     "ajuda"
+    ]
+   },
+   {
+    "rotulo": "Clínico",
+    "direto": null,
+    "itens": [
+     "consultorio-sessoes-enfermagem",
+     "consultorio-agenda",
+     "receituario",
+     "consultorio-enfermagem",
+     "consultorio-meus-numeros"
+    ]
+   }
+  ],
+  "telasTreinamento": [],
+  "itens": [
+   {
+    "chave": "acessos",
+    "rotulo": "Acessos",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "GerenciarUsuarios"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "AcessosDaClinica"
+   },
+   {
+    "chave": "agenda",
+    "rotulo": "Agenda",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerAgenda"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [
+     {
+      "rotulo": "Dia",
+      "chave": "fila"
+     },
+     {
+      "rotulo": "Visão geral",
+      "chave": "ocupacao-agenda"
+     },
+     {
+      "rotulo": "Por tipo de atendimento",
+      "chave": "ocupacao-especialidade"
+     },
+     {
+      "rotulo": "Grade",
+      "chave": "agenda-recepcao"
+     },
+     {
+      "rotulo": "Semana do profissional",
+      "chave": "consultorio-semana"
+     }
+    ],
+    "componente": null
+   },
+   {
+    "chave": "agenda-confirmacoes",
+    "rotulo": "Confirmações de agenda",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerAgenda"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "ConfirmacoesDeAgenda"
+   },
+   {
+    "chave": "agenda-recepcao",
+    "rotulo": "Agenda",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerAgenda"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "GradeDaAgenda"
+   },
+   {
+    "chave": "ajuda",
+    "rotulo": "Ajuda e suporte",
+    "descricao": null,
+    "oculto": false,
+    "requer": [],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "AjudaESuporte"
+   },
+   {
+    "chave": "atendimento",
+    "rotulo": "Marcar",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "EditarAgenda"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [
+     {
+      "rotulo": "Marcar",
+      "chave": "marcar-horario"
+     },
+     {
+      "rotulo": "Lançamentos",
+      "chave": "lancamentos"
+     },
+     {
+      "rotulo": "Consultas de convênio",
+      "chave": "consultas"
+     }
+    ],
+    "componente": null
+   },
+   {
+    "chave": "auditoria",
+    "rotulo": "Auditoria",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerAuditoria"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "TrilhaDeAuditoria"
+   },
+   {
+    "chave": "auditoria-atendimento",
+    "rotulo": "Auditoria do atendimento",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerAuditoria"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "AuditoriaDoAtendimento"
+   },
+   {
+    "chave": "caixa",
+    "rotulo": "Caixa",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFinanceiro"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "Caixa"
+   },
+   {
+    "chave": "campanhas",
+    "rotulo": "Campanhas",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "GerenciarCampanhas"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "CampanhasDaClinica"
+   },
+   {
+    "chave": "comissao-recuperacao",
+    "rotulo": "Comissão de recuperação",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFinanceiro"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "ComissaoRecuperacao"
+   },
+   {
+    "chave": "conciliacao",
+    "rotulo": "Conciliação",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFinanceiro"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "Conciliacao"
+   },
+   {
+    "chave": "configuracoes",
+    "rotulo": "Configurações da clínica",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "GerenciarUsuarios"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "ConfiguracoesDaClinica"
+   },
+   {
+    "chave": "conformidade",
+    "rotulo": "Conformidade",
+    "descricao": null,
+    "oculto": false,
+    "requer": [],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [
+     {
+      "rotulo": "Auditoria",
+      "chave": "auditoria"
+     },
+     {
+      "rotulo": "Documentos emitidos",
+      "chave": "documentos-emitidos"
+     },
+     {
+      "rotulo": "Guarda do prontuário",
+      "chave": "guarda-prontuario"
+     }
+    ],
+    "componente": null
+   },
+   {
+    "chave": "consultas",
+    "rotulo": "Consultas (convênio)",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "LancarAtendimento"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "ConsultasDeConvenio"
+   },
+   {
+    "chave": "consultorio-agenda",
+    "rotulo": "Minha agenda",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerAgenda"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [
+     {
+      "rotulo": "Hoje",
+      "chave": "consultorio-meu-dia"
+     },
+     {
+      "rotulo": "Semana",
+      "chave": "consultorio-semana"
+     },
+     {
+      "rotulo": "Sem evolução",
+      "chave": "consultorio-registros-pendentes"
+     }
+    ],
+    "componente": null
+   },
+   {
+    "chave": "consultorio-atendimento",
+    "rotulo": "Atendimento",
+    "descricao": null,
+    "oculto": true,
+    "requer": [
+     "VerProntuario"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "TelaDoPaciente"
+   },
+   {
+    "chave": "consultorio-atendimento-enfermagem",
+    "rotulo": "Atendimento de enfermagem",
+    "descricao": null,
+    "oculto": true,
+    "requer": [
+     "VerProntuario"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "TelaDoPaciente"
+   },
+   {
+    "chave": "consultorio-avaliacoes",
+    "rotulo": "Avaliações",
+    "descricao": null,
+    "oculto": true,
+    "requer": [
+     "VerProntuario"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "TelaDoPaciente"
+   },
+   {
+    "chave": "consultorio-enfermagem",
+    "rotulo": "Infusões e enfermagem",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerAgenda"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [
+     {
+      "rotulo": "Sala de infusão",
+      "chave": "consultorio-sala-infusao"
+     },
+     {
+      "rotulo": "Passagens",
+      "chave": "enfermagem"
+     }
+    ],
+    "componente": null
+   },
+   {
+    "chave": "consultorio-evolucao-dor",
+    "rotulo": "Evolução da dor",
+    "descricao": null,
+    "oculto": true,
+    "requer": [
+     "VerProntuario"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "TelaDoPaciente"
+   },
+   {
+    "chave": "consultorio-exames",
+    "rotulo": "Exames",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerProntuario"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "PedidosDeExame"
+   },
+   {
+    "chave": "consultorio-exames-anexos",
+    "rotulo": "Exames e anexos",
+    "descricao": null,
+    "oculto": true,
+    "requer": [
+     "VerProntuario"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "TelaDoPaciente"
+   },
+   {
+    "chave": "consultorio-medicamentos",
+    "rotulo": "Medicamentos",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "Prescrever"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "Medicamentos"
+   },
+   {
+    "chave": "consultorio-medidas",
+    "rotulo": "Medidas",
+    "descricao": null,
+    "oculto": true,
+    "requer": [
+     "VerProntuario"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "TelaDoPaciente"
+   },
+   {
+    "chave": "consultorio-meu-dia",
+    "rotulo": "Meu dia",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerAgenda"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "MeuDia"
+   },
+   {
+    "chave": "consultorio-meus-numeros",
+    "rotulo": "Meus números",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerAgenda"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "MeusNumeros"
+   },
+   {
+    "chave": "consultorio-paciente",
+    "rotulo": "Paciente",
+    "descricao": null,
+    "oculto": true,
+    "requer": [
+     "VerProntuario"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "TelaDoPaciente"
+   },
+   {
+    "chave": "consultorio-pacientes",
+    "rotulo": "Pacientes",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerProntuario"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "PacientesDaClinica"
+   },
+   {
+    "chave": "consultorio-prescricao-infusao",
+    "rotulo": "Prescrição de infusão",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "Prescrever"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "PrescricaoDeInfusao"
+   },
+   {
+    "chave": "consultorio-prescricoes",
+    "rotulo": "Prescrições",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerProntuario"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "DocumentosDaRecepcao"
+   },
+   {
+    "chave": "consultorio-prontuario",
+    "rotulo": "Prontuário",
+    "descricao": null,
+    "oculto": true,
+    "requer": [
+     "VerProntuario"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "TelaDoPaciente"
+   },
+   {
+    "chave": "consultorio-prontuarios",
+    "rotulo": "Prontuários",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerProntuario"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "ProntuariosDoPosto"
+   },
+   {
+    "chave": "consultorio-registros-pendentes",
+    "rotulo": "Sessões sem evolução",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerProntuario"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "SessoesSemEvolucao"
+   },
+   {
+    "chave": "consultorio-sala-infusao",
+    "rotulo": "Sala de infusão",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "ChecarPrescricao"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "SalaDeInfusao"
+   },
+   {
+    "chave": "consultorio-semana",
+    "rotulo": "Minha semana",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerAgenda"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "MinhaSemana"
+   },
+   {
+    "chave": "consultorio-sessoes-enfermagem",
+    "rotulo": "Sessões de enfermagem",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "RegistrarEvolucaoEnfermagem"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": "Enfermagem",
+    "abas": [],
+    "componente": "SessoesDeEnfermagem"
+   },
+   {
+    "chave": "contas",
+    "rotulo": "Contas a pagar/receber",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFinanceiro"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "Contas"
+   },
+   {
+    "chave": "custo-transacao",
+    "rotulo": "Custo de taxas e impostos",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFinanceiro"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "CustoDeTaxasEImpostos"
+   },
+   {
+    "chave": "direcao-administracao",
+    "rotulo": "Administração",
+    "descricao": null,
+    "oculto": false,
+    "requer": [],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [
+     {
+      "rotulo": "Configurações",
+      "chave": "configuracoes"
+     },
+     {
+      "rotulo": "Acessos",
+      "chave": "acessos"
+     },
+     {
+      "rotulo": "Importar pacientes",
+      "chave": "importar-pacientes"
+     }
+    ],
+    "componente": null
+   },
+   {
+    "chave": "direcao-dinheiro",
+    "rotulo": "Dinheiro",
+    "descricao": null,
+    "oculto": false,
+    "requer": [],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [
+     {
+      "rotulo": "Resultado do mês",
+      "chave": "resultado"
+     },
+     {
+      "rotulo": "Próximos 90 dias",
+      "chave": "projecao-caixa"
+     },
+     {
+      "rotulo": "Margem por sessão",
+      "chave": "margem-por-sessao"
+     },
+     {
+      "rotulo": "Por convênio",
+      "chave": "rentabilidade-convenio"
+     },
+     {
+      "rotulo": "Custo de receber",
+      "chave": "custo-transacao"
+     }
+    ],
+    "componente": null
+   },
+   {
+    "chave": "direcao-pacientes",
+    "rotulo": "Pacientes e campanhas",
+    "descricao": null,
+    "oculto": false,
+    "requer": [],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [
+     {
+      "rotulo": "De onde vêm",
+      "chave": "origens-pacientes"
+     },
+     {
+      "rotulo": "Campanhas",
+      "chave": "campanhas"
+     },
+     {
+      "rotulo": "Comissão de recuperação",
+      "chave": "comissao-recuperacao"
+     }
+    ],
+    "componente": null
+   },
+   {
+    "chave": "direcao-producao",
+    "rotulo": "Desempenho",
+    "descricao": null,
+    "oculto": false,
+    "requer": [],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [
+     {
+      "rotulo": "Indicadores",
+      "chave": "indicadores"
+     },
+     {
+      "rotulo": "Tendências",
+      "chave": "tendencias"
+     },
+     {
+      "rotulo": "Produção",
+      "chave": "producao"
+     },
+     {
+      "rotulo": "Metas",
+      "chave": "metas"
+     },
+     {
+      "rotulo": "Atendimento",
+      "chave": "auditoria-atendimento"
+     }
+    ],
+    "componente": null
+   },
+   {
+    "chave": "documentos",
+    "rotulo": "Documentos",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerDocumentos"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "DocumentosDaRecepcao"
+   },
+   {
+    "chave": "documentos-emitidos",
+    "rotulo": "Documentos emitidos",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerDocumentos"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "DocumentosEmitidos"
+   },
+   {
+    "chave": "enfermagem",
+    "rotulo": "Enfermagem",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "RegistrarEvolucaoEnfermagem"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "Enfermagem"
+   },
+   {
+    "chave": "equipe",
+    "rotulo": "Profissionais e salas",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "GerenciarEquipe"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "ProfissionaisESalas"
+   },
+   {
+    "chave": "estoque",
+    "rotulo": "Estoque",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFinanceiro"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "Estoque"
+   },
+   {
+    "chave": "extrato-banco",
+    "rotulo": "Extrato do banco",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFinanceiro"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "ExtratoDoBanco"
+   },
+   {
+    "chave": "faturamento-faturados",
+    "rotulo": "Faturados",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFaturamento"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "GuiasFaturadas"
+   },
+   {
+    "chave": "faturamento-gerencial",
+    "rotulo": "Faturamento de guias",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFaturamento"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [
+     {
+      "rotulo": "Resumo",
+      "chave": "faturamento-resumo"
+     },
+     {
+      "rotulo": "Pendências e baixas",
+      "chave": "faturamento-pendencias"
+     },
+     {
+      "rotulo": "Consultar guias",
+      "chave": "faturamento-guias"
+     },
+     {
+      "rotulo": "Faturados",
+      "chave": "faturamento-faturados"
+     },
+     {
+      "rotulo": "Glosas e recursos",
+      "chave": "faturamento-glosas"
+     },
+     {
+      "rotulo": "Não conformidades",
+      "chave": "faturamento-nc"
+     },
+     {
+      "rotulo": "Lotes e XML TISS",
+      "chave": "faturamento-tiss"
+     }
+    ],
+    "componente": null
+   },
+   {
+    "chave": "faturamento-glosas",
+    "rotulo": "Glosas e recursos",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFaturamento"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "GlosasERecursos"
+   },
+   {
+    "chave": "faturamento-guias",
+    "rotulo": "Consultar guias",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFaturamento"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "ConsultaDeGuias"
+   },
+   {
+    "chave": "faturamento-nc",
+    "rotulo": "Não conformidades",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFaturamento"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "NaoConformidadesFaturamento"
+   },
+   {
+    "chave": "faturamento-parametros",
+    "rotulo": "Regras e catálogos TISS",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "ConfigurarFaturamento"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "ConfiguracoesFaturamento"
+   },
+   {
+    "chave": "faturamento-pendencias",
+    "rotulo": "Pendências e baixas",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFaturamento"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "PendenciasFaturamento"
+   },
+   {
+    "chave": "faturamento-relatorios",
+    "rotulo": "Relatórios de guias",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerIndicadores"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "RelatoriosDeGuias"
+   },
+   {
+    "chave": "faturamento-resumo",
+    "rotulo": "Resumo de faturamento",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFaturamento"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "ResumoFaturamento"
+   },
+   {
+    "chave": "faturamento-tiss",
+    "rotulo": "Lotes e XML TISS",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFaturamento"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "LotesTiss"
+   },
+   {
+    "chave": "fechamento-caixa",
+    "rotulo": "Fechamento de caixa",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFinanceiro"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "FechamentoDeCaixa"
+   },
+   {
+    "chave": "ficha-balcao",
+    "rotulo": "Ficha do paciente",
+    "descricao": null,
+    "oculto": true,
+    "requer": [
+     "VerFichaPaciente"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "FichaDoBalcao"
+   },
+   {
+    "chave": "fila",
+    "rotulo": "Agenda do dia",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerAgenda"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "AgendaDoDia"
+   },
+   {
+    "chave": "financeiro-caixa",
+    "rotulo": "Caixa",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFinanceiro"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [
+     {
+      "rotulo": "Caixa",
+      "chave": "caixa"
+     },
+     {
+      "rotulo": "Fechamento",
+      "chave": "fechamento-caixa"
+     },
+     {
+      "rotulo": "Fluxo",
+      "chave": "fluxo-caixa"
+     }
+    ],
+    "componente": null
+   },
+   {
+    "chave": "financeiro-contas",
+    "rotulo": "Contas",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFinanceiro"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [
+     {
+      "rotulo": "A pagar/receber",
+      "chave": "contas"
+     },
+     {
+      "rotulo": "Quem me deve",
+      "chave": "inadimplencia"
+     },
+     {
+      "rotulo": "Plano de contas",
+      "chave": "plano-contas"
+     }
+    ],
+    "componente": null
+   },
+   {
+    "chave": "financeiro-recebimentos",
+    "rotulo": "Recebimentos",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFinanceiro"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [
+     {
+      "rotulo": "Recebíveis de cartão",
+      "chave": "recebiveis"
+     },
+     {
+      "rotulo": "Conciliação",
+      "chave": "conciliacao"
+     },
+     {
+      "rotulo": "Extrato do banco",
+      "chave": "extrato-banco"
+     },
+     {
+      "rotulo": "Taxas e impostos",
+      "chave": "taxas"
+     }
+    ],
+    "componente": null
+   },
+   {
+    "chave": "fluxo-caixa",
+    "rotulo": "Fluxo de caixa",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFinanceiro"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "FluxoDeCaixa"
+   },
+   {
+    "chave": "guarda-prontuario",
+    "rotulo": "Guarda do prontuário",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerAuditoria"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "GuardaDoProntuario"
+   },
+   {
+    "chave": "importar-pacientes",
+    "rotulo": "Importar pacientes",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "EditarPaciente"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "ImportacaoDePacientes"
+   },
+   {
+    "chave": "inadimplencia",
+    "rotulo": "Quem me deve",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFinanceiro"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "QuemMeDeve"
+   },
+   {
+    "chave": "indicadores",
+    "rotulo": "Relatórios / BI",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerIndicadores"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "IndicadoresDaClinica"
+   },
+   {
+    "chave": "lancamentos",
+    "rotulo": "Lançamentos",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "LancarAtendimento"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "LancamentosDoBalcao"
+   },
+   {
+    "chave": "marcar-horario",
+    "rotulo": "Marcar horário",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "EditarAgenda"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "MarcarAtendimento"
+   },
+   {
+    "chave": "margem-por-sessao",
+    "rotulo": "Margem por sessão",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFinanceiro"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "MargemPorSessao"
+   },
+   {
+    "chave": "metas",
+    "rotulo": "Metas",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerIndicadores"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "MetasDaClinica"
+   },
+   {
+    "chave": "ocupacao-agenda",
+    "rotulo": "Ocupação da agenda",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerAgenda"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "VisaoGeralDaAgenda"
+   },
+   {
+    "chave": "ocupacao-especialidade",
+    "rotulo": "Ocupação por tipo de atendimento",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerAgenda"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "OcupacaoPorEspecialidade"
+   },
+   {
+    "chave": "origens-pacientes",
+    "rotulo": "De onde vêm os pacientes",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "GerenciarCampanhas"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "OrigensDosPacientes"
+   },
+   {
+    "chave": "pacientes",
+    "rotulo": "Pacientes",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFichaPaciente"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [
+     {
+      "rotulo": "Cadastro",
+      "chave": "pacientes-recepcao"
+     },
+     {
+      "rotulo": "Em tratamento",
+      "chave": "consultorio-pacientes"
+     }
+    ],
+    "componente": null
+   },
+   {
+    "chave": "pacientes-recepcao",
+    "rotulo": "Pacientes / CRM",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFichaPaciente"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "PacientesDoBalcao"
+   },
+   {
+    "chave": "pacotes",
+    "rotulo": "Pacotes",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VenderPacote"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "PacotesDaClinica"
+   },
+   {
+    "chave": "pagamentos-recepcao",
+    "rotulo": "Pagamentos",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VenderPacote"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "PagamentosDoBalcao"
+   },
+   {
+    "chave": "painel-direcao",
+    "rotulo": "Mesa da direção",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerIndicadores"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "MesaDaDirecao"
+   },
+   {
+    "chave": "painel-recepcao",
+    "rotulo": "Início",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerAgenda"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "InicioRecepcao"
+   },
+   {
+    "chave": "particular",
+    "rotulo": "Particular e pacotes",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VenderPacote"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [
+     {
+      "rotulo": "Pacotes",
+      "chave": "pacotes"
+     },
+     {
+      "rotulo": "Preço da sessão",
+      "chave": "precos-particular"
+     }
+    ],
+    "componente": null
+   },
+   {
+    "chave": "pedidos-enfermagem",
+    "rotulo": "Pedidos da enfermagem",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "EditarAgenda",
+     "VerAgenda",
+     "VerFichaPaciente"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "PedidosDaEnfermagem"
+   },
+   {
+    "chave": "plano-contas",
+    "rotulo": "Plano de contas",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFinanceiro"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "PlanoDeContas"
+   },
+   {
+    "chave": "precos",
+    "rotulo": "Tabela de preços",
+    "descricao": null,
+    "oculto": false,
+    "requer": [],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [
+     {
+      "rotulo": "Convênios",
+      "chave": "precos-convenio"
+     },
+     {
+      "rotulo": "Particular",
+      "chave": "precos-particular"
+     }
+    ],
+    "componente": null
+   },
+   {
+    "chave": "precos-convenio",
+    "rotulo": "Tabela de preço por convênio",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFinanceiro"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "PrecosPorConvenio"
+   },
+   {
+    "chave": "precos-particular",
+    "rotulo": "Preços do particular",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VenderPacote"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "PrecosDoParticular"
+   },
+   {
+    "chave": "producao",
+    "rotulo": "Produção",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFinanceiro"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "Producao"
+   },
+   {
+    "chave": "projecao-caixa",
+    "rotulo": "Caixa dos próximos 90 dias",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFinanceiro"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "CaixaDosProximosDias"
+   },
+   {
+    "chave": "prontuario",
+    "rotulo": "Prontuário",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerProntuario"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "ProntuarioPorPaciente"
+   },
+   {
+    "chave": "prontuario-geral",
+    "rotulo": "Prontuário",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerProntuario"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [
+     {
+      "rotulo": "Por paciente",
+      "chave": "prontuario"
+     },
+     {
+      "rotulo": "Registros e pendências",
+      "chave": "consultorio-prontuarios"
+     },
+     {
+      "rotulo": "Exames",
+      "chave": "consultorio-exames"
+     }
+    ],
+    "componente": null
+   },
+   {
+    "chave": "recebiveis",
+    "rotulo": "Recebíveis de cartão",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFinanceiro"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "Recebiveis"
+   },
+   {
+    "chave": "receituario",
+    "rotulo": "Prescrições",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerProntuario"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [
+     {
+      "rotulo": "Receitas e documentos",
+      "chave": "consultorio-prescricoes"
+     },
+     {
+      "rotulo": "Infusão",
+      "chave": "consultorio-prescricao-infusao"
+     },
+     {
+      "rotulo": "Medicamentos",
+      "chave": "consultorio-medicamentos"
+     }
+    ],
+    "componente": null
+   },
+   {
+    "chave": "relacionamento",
+    "rotulo": "Relacionamento",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerAgenda"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [
+     {
+      "rotulo": "Confirmações",
+      "chave": "agenda-confirmacoes"
+     },
+     {
+      "rotulo": "Acompanhamento",
+      "chave": "retorno-pacientes"
+     },
+     {
+      "rotulo": "Pedidos da enfermagem",
+      "chave": "pedidos-enfermagem"
+     }
+    ],
+    "componente": null
+   },
+   {
+    "chave": "rentabilidade-convenio",
+    "rotulo": "Rentabilidade por convênio",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFinanceiro"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "RentabilidadePorConvenio"
+   },
+   {
+    "chave": "repasses",
+    "rotulo": "Repasses",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFinanceiro"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "Repasses"
+   },
+   {
+    "chave": "resultado",
+    "rotulo": "Resultado do mês",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFinanceiro"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "ResultadoDoMes"
+   },
+   {
+    "chave": "retorno-pacientes",
+    "rotulo": "Acompanhamento de pacientes",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFichaPaciente"
+    ],
+    "requerAlgum": [
+     "GerenciarCampanhas",
+     "VerFaturamento"
+    ],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "AcompanhamentoDePacientes"
+   },
+   {
+    "chave": "taxas",
+    "rotulo": "Taxas e impostos",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFinanceiro"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "TaxasEImpostos"
+   },
+   {
+    "chave": "tendencias",
+    "rotulo": "Tendências",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "VerFinanceiro"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "TendenciasDeAtendimento"
+   },
+   {
+    "chave": "whatsapp-crm",
+    "rotulo": "WhatsApp",
+    "descricao": null,
+    "oculto": false,
+    "requer": [
+     "EditarAgenda"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "ConversasDoWhatsApp"
+   }
+  ]
+ }
+]

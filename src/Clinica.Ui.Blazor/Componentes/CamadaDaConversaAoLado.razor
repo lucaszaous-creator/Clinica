@@ -1,0 +1,74 @@
+@*
+  A CAMADA DA CONVERSA AO LADO (out/2026, fase 2 do WhatsApp nativo): desenha o painel que
+  ConversaAoLado abriu — uma gaveta à direita com a MESMA tela de conversa da aba WhatsApp
+  (ConversasDoWhatsApp no modo painel: sem a lista e sem a coluna da ficha, que a tela de trás já é).
+  Mora na Raiz e no PalcoDeTelas, ANTES das camadas dos formulários e dos diálogos: o que o painel
+  pergunta (cadastro, confirmação) fica por cima dele.
+
+  - Fica ACIMA da tela, não a empurra: a tela de trás não muda de leiaute nem de rolagem, e o que
+    ficou à esquerda continua clicável. Em tela estreita (≤ 760 px) a gaveta ocupa a largura toda.
+  - Fecha pelo X e pelo Esc. O Tab não sai dela (as duas guardas devolvem o foco ao X); o clique na
+    tela de trás sai, de propósito: é para trabalhar ao lado.
+  - Trocar de tela pelo menu NÃO fecha: a conversa é do paciente, não da tela. Fecha quando a aba
+    WhatsApp fica à vista (ela é a mesma conversa, inteira) — no PalcoDeTelas.
+*@
+@implements IDisposable
+@inject ConversaAoLado Painel
+
+@if (Painel.Atual is { } p)
+{
+    <aside class="wa-lado" role="dialog" aria-modal="false" aria-label="@($"Conversa no WhatsApp com {p.Nome}")"
+           tabindex="-1" @ref="_caixa" @onkeydown="TeclaAsync">
+        <span class="wa-lado-guarda" tabindex="0" @onfocus="FocarFecharAsync"></span>
+        <header class="wa-lado-topo">
+            <Icone Nome="chat" />
+            <span class="wa-lado-titulo">WhatsApp da clínica</span>
+            <button type="button" class="botao icone fantasma" aria-label="Fechar a conversa" title="Fechar (Esc)"
+                    @ref="_fechar" @onclick="Painel.Fechar"><Icone Nome="x" /></button>
+        </header>
+        <div class="wa-lado-corpo">
+            <Clinica.Ui.Blazor.Telas.ConversasDoWhatsApp @key="p" AoLado="p" />
+        </div>
+        <span class="wa-lado-guarda" tabindex="0" @onfocus="FocarFecharAsync"></span>
+    </aside>
+}
+
+@code {
+    private ElementReference _caixa, _fechar;
+    private PedidoDeConversa? _focado;
+
+    protected override void OnInitialized()
+    {
+        Painel.CamadaMontada();
+        Painel.Mudou += Redesenhar;
+    }
+
+    private void Redesenhar() => _ = InvokeAsync(StateHasChanged);
+
+    // O foco ENTRA no painel quando ele abre (ou troca de paciente): o Esc e o Tab passam a valer nele.
+    protected override async Task OnAfterRenderAsync(bool primeira)
+    {
+        if (Painel.Atual is not { } p || ReferenceEquals(p, _focado)) return;
+        _focado = p;
+        try { await _caixa.FocusAsync(); }
+        catch (Exception ex) { Clinica.Application.Diagnostico.Registrar("Blazor — foco da conversa ao lado", ex); }
+    }
+
+    private async Task FocarFecharAsync()
+    {
+        try { await _fechar.FocusAsync(); }
+        catch (Exception ex) { Clinica.Application.Diagnostico.Registrar("Blazor — foco da conversa ao lado", ex); }
+    }
+
+    private Task TeclaAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") Painel.Fechar();
+        return Task.CompletedTask;
+    }
+
+    public void Dispose()
+    {
+        Painel.Mudou -= Redesenhar;
+        Painel.CamadaDesmontada();
+    }
+}

@@ -50,6 +50,29 @@ public class TraducaoNoNpgsqlTests
         if (filtro == FiltroListaPacientes.EmTratamento) sql.Should().Contain("EXISTS");
     }
     [Fact]
+    public void Fichas_por_telefone_traduzem_a_limpeza_do_numero_no_banco_sem_a_foto()
+    {
+        using var db = Postgres();
+        var sql = new ClinicaRepositorio(db).ConsultaFichasComTelefone(["22998765432", "5522998765432"], 6).ToQueryString();
+        sql.Should().Contain("replace").And.Contain("LIMIT").And.NotContain("FotoMiniatura").And.NotContain("Observacoes");
+    }
+
+    [Fact]
+    public void Miniaturas_traduzem_em_projecao_sem_a_ficha()
+    {
+        using var db = Postgres();
+        var sql = new ClinicaRepositorio(db).ConsultaMiniaturas([1, 2]).ToQueryString();
+        sql.Should().Contain("FotoMiniatura").And.Contain("IS NOT NULL").And.NotContain("\"Nome\"").And.NotContain("Observacoes");
+    }
+
+    [Fact]
+    public void Donos_dos_horarios_traduzem_em_projecao()
+    {
+        using var db = Postgres();
+        new ClinicaRepositorio(db).ConsultaPacientesDosAgendamentos([1, 2]).ToQueryString().Should().Contain("PacienteId").And.NotContain("JOIN");
+    }
+
+    [Fact]
     public void Marcacoes_da_conferencia_traduzem_sem_trazer_a_ficha_inteira()
     {
         using var db = Postgres();
@@ -744,53 +767,7 @@ public class TraducaoNoNpgsqlTests
             .Should().Contain("\"AtendimentoId\"");
     }
 
-    // ==================== Agenda: retornos a marcar e próximos horários (set/2026) ====================
-
-    /// <summary>
-    /// A projeção da fila "Retornos a marcar": navegação para paciente e profissional,
-    /// construtor de record na projeção, e NUNCA o texto da evolução — a fila lista dezenas
-    /// de linhas e o texto é o campo mais pesado da tabela.
-    /// </summary>
-    [Fact]
-    public void Retornos_sugeridos_traduzem_e_nao_trazem_o_texto_da_evolucao()
-    {
-        using var db = Postgres();
-        var desde = new DateOnly(2026, 7, 1);
-
-        var sql = db.Evolucoes.AsNoTracking()
-            .Where(e => e.CanceladaEm == null
-                        && e.RetornoSugeridoEm != null
-                        && e.RetornoSugeridoEm >= desde)
-            .Select(e => new RetornoSugerido(
-                e.Id, e.PacienteId, e.Paciente!.Nome, e.Paciente.Telefone, e.Data,
-                e.RetornoSugeridoEm!.Value, e.RetornoSugeridoNota, e.ProfissionalId,
-                e.Profissional != null ? e.Profissional.NomeCurto : null,
-                e.Profissional != null ? e.Profissional.Nome : null))
-            .ToQueryString();
-
-        sql.Should().Contain("\"RetornoSugeridoEm\"")
-            .And.Contain("\"Telefone\"")
-            .And.NotContain("\"TextoEvolucao\"")
-            .And.NotContain("\"Conduta\"");
-    }
-
-    [Fact]
-    public void Horarios_ativos_de_um_conjunto_de_pacientes_traduzem()
-    {
-        using var db = Postgres();
-        var ids = new[] { 1, 2, 3 };
-        var corte = new DateTime(2026, 7, 1);
-
-        var sql = db.Agendamentos.AsNoTracking()
-            .Where(a => ids.Contains(a.PacienteId)
-                        && a.DataHora >= corte
-                        && a.Status != StatusAgendamento.Cancelado
-                        && a.Status != StatusAgendamento.Faltou)
-            .Select(a => new HorarioPosterior(a.PacienteId, a.DataHora))
-            .ToQueryString();
-
-        sql.Should().Contain("\"PacienteId\"").And.Contain("\"Status\"");
-    }
+    // ==================== Agenda: próximos horários (set/2026) ====================
 
     [Fact]
     public void Proximos_horarios_do_paciente_traduzem_com_profissional_e_sala()
@@ -899,7 +876,8 @@ public class TraducaoNoNpgsqlTests
     /// <summary>
     /// As respostas dos pacientes no sino (out/2026): navegação ao agendamento, ao paciente e
     /// ao profissional, com <c>??</c> entre duas COLUNAS (NomeCurto ?? Nome — coalescência de
-    /// escalar, que traduz; a de ENTIDADE não traduziria) e o booleano do link.
+    /// escalar, que traduz; a de ENTIDADE não traduziria) e o booleano "pede resposta" (o link do
+    /// SMS antigo OU o remetente do lembrete automático da ponte, 25/10).
     /// </summary>
     [Fact]
     public void Contatos_para_avisos_de_confirmacao_traduzem_sem_foto()
@@ -908,7 +886,7 @@ public class TraducaoNoNpgsqlTests
         var sql = new ClinicaRepositorio(db).ConsultaContatosParaAvisosDeConfirmacao(
             new DateTime(2026, 10, 19, 8, 0, 0), new DateTime(2026, 10, 21, 0, 0, 0)).ToQueryString();
         sql.Should().Contain("\"DataHora\"").And.Contain("COALESCE").And.Contain("\"TokenResposta\"")
-            .And.Contain("ORDER BY");
+            .And.Contain("\"EnviadoPor\"").And.Contain("ORDER BY");
         sql.Should().NotContain("FotoMiniatura");
     }
 }

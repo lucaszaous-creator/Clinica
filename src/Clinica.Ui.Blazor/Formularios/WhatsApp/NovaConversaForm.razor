@@ -1,0 +1,121 @@
+@namespace Clinica.Ui.Blazor.Formularios
+@using Clinica.Application.Modelos
+@using Clinica.Crm.Contracts
+@*
+  NOVA CONVERSA (out/2026, WhatsApp da Recepção). Quem começa é a clínica, então a primeira
+  mensagem é um modelo aprovado (a janela de 24 h nasce fechada). Com 10 dígitos o formulário
+  procura as fichas que têm o telefone; ligar uma delas é escolha da recepção (regra 5), e
+  "nenhuma" é sempre uma resposta possível.
+*@
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="Nova conversa" Subtitulo="Quem começa é a clínica, então a primeira mensagem é um modelo aprovado. Depois que a pessoa responder, o campo livre abre." Largura="pequeno" AoFechar="AoFechar">
+    <ChildContent>
+        <div class="campos">
+            <Campo Rotulo="Telefone" Obrigatorio="true">
+                <input class="campo" inputmode="tel" maxlength="20" placeholder="(22) 9…" value="@_telefone" @oninput="TrocarTelefoneAsync" />
+            </Campo>
+            <Campo Rotulo="Nome">
+                <input class="campo" maxlength="80" placeholder="Como a pessoa se chama" @bind="_nome" @bind:event="oninput" />
+            </Campo>
+            @if (Caixas.Count > 1)
+            {
+                <Campo Rotulo="Pelo número" Classe="largo">
+                    <select class="campo" value="@_caixa" @onchange="e => _caixa = e.Value?.ToString()">
+                        @foreach (var c in Caixas) { <option value="@c.Sender">@c.Name</option> }
+                    </select>
+                </Campo>
+            }
+        </div>
+        @if (_fichas.Count > 0)
+        {
+            <p class="wa-dica">Este telefone está @(_fichas.Count == 1 ? "numa ficha" : $"em {_fichas.Count} fichas"). Ligue a certa antes de começar, ou nenhuma.</p>
+            <div class="wa-opcoes" role="radiogroup" aria-label="Ficha da conversa">
+                @foreach (var f in _fichas)
+                {
+                    <label class="wa-escolha sem-avatar @(_ficha == f.Id ? "marcada" : null)">
+                        <input type="radio" name="wa-nova-ficha" checked="@(_ficha == f.Id)" @onchange="() => _ficha = f.Id" />
+                        <span class="wa-escolha-texto"><strong>@f.Nome</strong>
+                            <span>@(f.DataNascimento is { } n ? n.ToString("dd/MM/yyyy", Formato.PtBr) : "nascimento não informado") · @WhatsAppDaRecepcaoService.FimDoDocumento(f.Documento)</span></span>
+                    </label>
+                }
+                <label class="wa-escolha sem-avatar @(_ficha is null ? "marcada" : null)">
+                    <input type="radio" name="wa-nova-ficha" checked="@(_ficha is null)" @onchange="() => _ficha = null" />
+                    <span class="wa-escolha-texto"><strong>Nenhuma por enquanto</strong><span>A ficha se liga depois, na conversa</span></span>
+                </label>
+            </div>
+        }
+        else
+        {
+            <p class="wa-dica">Se o telefone estiver numa ficha, ela aparece aqui para você ligar antes de começar.</p>
+        }
+        <Aviso Tom="erro" Texto="@_erro" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" disabled="@(!Pronto || _ocupado)" @onclick="ConfirmarAsync">@(_ocupado ? "Começando…" : "Começar")</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter] public IReadOnlyList<AppInbox> Caixas { get; set; } = [];
+    [Parameter] public string? TelefoneInicial { get; set; }
+    [Parameter] public string? NomeInicial { get; set; }
+    [Parameter] public int? FichaInicial { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+    /// <summary>Grava (remetente, telefone, nome, ficha escolhida) e devolve a recusa, ou nulo.</summary>
+    [Parameter, EditorRequired] public Func<string, string, string?, FichaComTelefone?, Task<string?>> AoConfirmar { get; set; } = default!;
+
+    private string _telefone = "";
+    private string? _nome;
+    private string? _caixa;
+    private IReadOnlyList<FichaComTelefone> _fichas = [];
+    private int? _ficha;
+    private string? _erro;
+    private bool _ocupado;
+    private int _geracao;
+
+    private bool Pronto => WhatsAppDaRecepcaoService.ContatoParaOCrm(_telefone) is not null && _caixa is not null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _caixa = Caixas.FirstOrDefault()?.Sender;
+        _nome = NomeInicial;
+        if (!string.IsNullOrWhiteSpace(TelefoneInicial))
+        {
+            await TrocarTelefoneAsync(new ChangeEventArgs { Value = Clinica.Domain.Telefone.Formatar(TelefoneInicial) });
+            if (FichaInicial is { } id && _fichas.Any(f => f.Id == id)) _ficha = id;
+        }
+        if (_caixa is null) _erro = "O CRM não tem caixa de saída do WhatsApp ligada. Fale com a direção.";
+    }
+
+    private async Task TrocarTelefoneAsync(ChangeEventArgs e)
+    {
+        _telefone = e.Value?.ToString() ?? "";
+        var g = ++_geracao;
+        if (WhatsAppDaRecepcaoService.ContatoParaOCrm(_telefone) is null) { _fichas = []; _ficha = null; return; }
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var fichas = await escopo.ServiceProvider.GetRequiredService<WhatsAppDaRecepcaoService>().FichasDoTelefoneAsync(_telefone);
+            if (g != _geracao) return;
+            _fichas = fichas;
+            if (_ficha is { } atual && !fichas.Any(f => f.Id == atual)) _ficha = null;
+        }
+        catch (Exception ex)
+        {
+            if (g != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — fichas do telefone na nova conversa", ex);
+            _fichas = [];
+        }
+    }
+
+    private async Task ConfirmarAsync()
+    {
+        if (!Pronto || _ocupado) return;
+        _ocupado = true;
+        _erro = null;
+        try { _erro = await AoConfirmar(_caixa!, _telefone, _nome, _fichas.FirstOrDefault(f => f.Id == _ficha)); }
+        finally { _ocupado = false; }
+    }
+}

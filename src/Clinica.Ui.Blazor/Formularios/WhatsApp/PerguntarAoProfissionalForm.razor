@@ -1,0 +1,73 @@
+@namespace Clinica.Ui.Blazor.Formularios
+@*
+  PERGUNTAR AO PROFISSIONAL (25/10, R10 — docs/whatsapp-nativo-implementacao.md §16). A mensagem do paciente
+  vai a quem trata como DIRETA no chat da equipe, com o paciente anexado e o trecho citado. A sugestão de quem
+  é o profissional da próxima sessão (ou do caso); a secretária troca. Nada sai do banco da clínica e o relato
+  não entra no prontuário (decisão médica) — o formulário diz isso numa linha.
+*@
+
+<Modal Titulo="Perguntar ao profissional" Subtitulo="@Subtitulo" Largura="pequeno" AoFechar="AoFechar">
+    <ChildContent>
+        <blockquote class="wa-citacao">@Trecho</blockquote>
+        @if (Profissionais.Count == 0)
+        {
+            <Aviso Tom="atencao" Texto="Nenhum profissional tem login ativo no sistema. Fale com a direção para ligar o login ao profissional, em Acessos." />
+        }
+        else
+        {
+            <div class="wa-opcoes wa-perguntar-quem" role="radiogroup" aria-label="Para quem">
+                @foreach (var p in Profissionais)
+                {
+                    <label class="wa-escolha sem-avatar @(_para == p.UsuarioId ? "marcada" : null)">
+                        <input type="radio" name="wa-perguntar-para" checked="@(_para == p.UsuarioId)" @onchange="() => _para = p.UsuarioId" />
+                        <span class="wa-escolha-texto"><strong>@p.Nome</strong>@if (p.UsuarioId == Sugerido) { <span>@MotivoDaSugestao</span> }</span>
+                    </label>
+                }
+            </div>
+        }
+        <Campo Rotulo="O que você quer saber (opcional)" Classe="largo">
+            <textarea class="campo" rows="2" maxlength="500" @bind="_pergunta" @bind:event="oninput" placeholder="Ex.: pode orientar ou devo marcar um retorno?"></textarea>
+        </Campo>
+        <p class="wa-dica">@PerguntaAoProfissionalService.NaoViraProntuario</p>
+        <Aviso Tom="erro" Texto="@_erro" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" disabled="@(_para is null || _ocupado)" @onclick="ConfirmarAsync">
+            <Icone Nome="mensagem" />@(_ocupado ? "Enviando…" : "Enviar pelo chat")</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public string Paciente { get; set; } = "";
+    [Parameter] public bool PacienteAnexado { get; set; }
+    /// <summary>O que o paciente escreveu (o trecho citado).</summary>
+    [Parameter, EditorRequired] public string Trecho { get; set; } = "";
+    [Parameter] public IReadOnlyList<ProfissionalDoChat> Profissionais { get; set; } = [];
+    /// <summary>O login sugerido (o da próxima sessão ou do caso); nulo = a secretária escolhe.</summary>
+    [Parameter] public int? Sugerido { get; set; }
+    [Parameter] public string MotivoDaSugestao { get; set; } = "Sugestão: quem atende este paciente";
+    [Parameter] public EventCallback AoFechar { get; set; }
+    /// <summary>Envia (para quem, a pergunta) e devolve a frase da recusa, ou nulo.</summary>
+    [Parameter, EditorRequired] public Func<ProfissionalDoChat, string?, Task<string?>> AoConfirmar { get; set; } = default!;
+
+    private string Subtitulo => PacienteAnexado
+        ? $"{Paciente}: a pergunta vai pelo chat da equipe, com a ficha anexada."
+        : $"{Paciente}: a pergunta vai pelo chat da equipe (a ficha ainda não foi conferida: o paciente não vai anexado).";
+
+    private int? _para;
+    private string? _pergunta;
+    private string? _erro;
+    private bool _ocupado;
+
+    protected override void OnInitialized() => _para = Sugerido;
+
+    private async Task ConfirmarAsync()
+    {
+        if (_ocupado || Profissionais.FirstOrDefault(p => p.UsuarioId == _para) is not { } para) return;
+        _ocupado = true;
+        _erro = null;
+        try { _erro = await AoConfirmar(para, _pergunta); }
+        finally { _ocupado = false; }
+    }
+}

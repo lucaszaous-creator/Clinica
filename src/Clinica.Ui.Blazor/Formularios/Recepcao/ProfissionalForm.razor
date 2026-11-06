@@ -75,6 +75,9 @@
                     <Campo Rotulo="Duração padrão (min)" Dica="@($"Vazio = padrão da clínica ({Agendamento.DuracaoPadraoMinutos} min).")">
                         <input class="campo valor" @bind="_duracao" maxlength="4" inputmode="numeric" />
                     </Campo>
+                    <Campo Rotulo="Preventivos por dia" Dica="@($"Teto de coletas de preventivo num dia. Vazio = {Profissional.LimitePreventivoPadrao}; 0 = não faz.")">
+                        <input class="campo valor" @bind="_limitePreventivo" maxlength="3" inputmode="numeric" />
+                    </Campo>
                 </div>
             </div>
 
@@ -168,7 +171,7 @@
     [Parameter] public EventCallback AoFechar { get; set; }
 
     private string? _nome, _nomeCurto, _registro, _cpf, _especialidade, _telefone, _email, _cor, _observacoes;
-    private string? _duracao, _ordem = "0";
+    private string? _duracao, _limitePreventivo, _ordem = "0";
     private bool _ativo = true, _trava;
     // O horário LIDO, devolvido intacto ao salvar (quem não edita, preserva).
     private int? _diasLidos;
@@ -231,6 +234,7 @@
                 _email = p.Email;
                 _cor = p.Cor;
                 _duracao = p.DuracaoPadraoMinutos?.ToString(CultureInfo.InvariantCulture);
+                _limitePreventivo = p.LimitePreventivoPorDia?.ToString(CultureInfo.InvariantCulture);
                 GuardarHorario(p);
                 _ordem = p.Ordem.ToString(CultureInfo.InvariantCulture);
                 _ativo = p.Ativo;
@@ -357,6 +361,16 @@
             }
             duracao = minutos;
         }
+        int? limitePreventivo = null;
+        if (!string.IsNullOrWhiteSpace(_limitePreventivo))
+        {
+            if (!int.TryParse(_limitePreventivo.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var limite))
+            {
+                _mensagem = "Preventivos por dia precisa ser um número (0 = não faz preventivo).";
+                return;
+            }
+            limitePreventivo = limite;
+        }
         if (!int.TryParse(_ordem?.Trim(), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var ordem)) ordem = 0;
 
         try
@@ -378,6 +392,7 @@
                 Email = _email,
                 Cor = _cor,
                 DuracaoPadraoMinutos = duracao,
+                LimitePreventivoPorDia = limitePreventivo,
                 DiasDeAtendimento = _diasLidos,
                 AtendeDas = _dasLido,
                 AtendeAte = _ateLido,

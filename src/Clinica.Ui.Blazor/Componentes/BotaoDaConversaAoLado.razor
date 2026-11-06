@@ -1,0 +1,59 @@
+@*
+  O BOTÃO "WHATSAPP" DA LINHA DO PACIENTE (out/2026, fase 2 do WhatsApp nativo): abre a conversa do
+  paciente AO LADO da tela (ConversaAoLado), sem trocar de tela. Usado na Agenda do dia, no
+  Acompanhamento e no crachá da Ficha do balcão — onde já havia um "Escrever no WhatsApp", é ele que
+  passou a abrir o painel (PedidoDeConversaNoCrm.EscreverAsync), e este botão não se repete ali.
+
+  - SOME onde o painel não serve: app sem a aba WhatsApp (Faturamento, Consultório), o CRM sem
+    endereço, ou quem não atende o WhatsApp (AcessoAoWhatsApp: só recepção e direção). Botão para
+    função que não existe aqui é resquício.
+  - As duas barreiras: quem não atende o WhatsApp nem vê o botão; nasce apagado sem telefone, e o
+    clique confere de novo o acesso e o telefone.
+  - Com a gaveta aberta neste paciente, o botão fica marcado (.aberta) e a linha dele se destaca
+    (conversa-ao-lado.css): a recepção vê de quem é a conversa ao lado (25/10/2026).
+*@
+@inherits TelaBase
+@inject ConversaAoLado Painel
+
+@if (_ligada && Painel.Disponivel && PodeWhatsApp)
+{
+    var semTelefone = ConversaNoCrm.Telefone(Telefone) is null;
+    <button type="button" class="botao @(ComRotulo ? null : "mini icone") wa-lado-abrir @(Painel.Atual?.PacienteId == PacienteId ? "aberta" : null)" disabled="@semTelefone"
+            title="@(semTelefone ? "Sem telefone no cadastro." : "Abrir a conversa no WhatsApp ao lado, sem sair desta tela")"
+            aria-label="@($"Conversa no WhatsApp com {Nome}")" @onclick="AbrirAsync"><Icone Nome="chat" />@if (ComRotulo) { <text>WhatsApp</text> }</button>
+}
+
+@code {
+    [Parameter, EditorRequired] public int PacienteId { get; set; }
+    [Parameter, EditorRequired] public string Nome { get; set; } = string.Empty;
+    [Parameter] public string? Telefone { get; set; }
+    /// <summary>O texto que entra como rascunho quando a conversa já está com a janela aberta (nulo: nenhum).</summary>
+    [Parameter] public string? Texto { get; set; }
+    /// <summary>Botão com o rótulo "WhatsApp" (o crachá da ficha); sem ele, o ícone da linha.</summary>
+    [Parameter] public bool ComRotulo { get; set; }
+
+    private bool _ligada;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Painel.Mudou += Redesenhar;
+        _ligada = await Painel.LigadaAsync(Host);
+    }
+
+    private void Redesenhar() => _ = InvokeAsync(StateHasChanged);
+
+    public override void Dispose()
+    {
+        Painel.Mudou -= Redesenhar;
+        base.Dispose();
+    }
+
+    private async Task AbrirAsync()
+    {
+        if (!PodeWhatsApp) { Notificacoes.Info(AcessoAoWhatsApp.SemAcesso); return; }
+        // A segunda barreira do "sem telefone": a ficha ainda carregando (ou sem telefone) não abre gaveta vazia.
+        if (ConversaNoCrm.Telefone(Telefone) is null) { Notificacoes.Info("Sem telefone no cadastro deste paciente."); return; }
+        if (!await Painel.AbrirAsync(Host, new PedidoDeConversa(Telefone ?? "", Nome, PacienteId, Texto)))
+            Notificacoes.Info("O WhatsApp da clínica não está disponível agora neste aplicativo. Tente de novo em instantes.");
+    }
+}

@@ -77,7 +77,27 @@ public sealed class JanelaDoApp : Window
                 _shell.LiberarTelas();
             }
             _moldura?.Dispose();
+            SairDoCrm();
         };
+    }
+
+    /// <summary>
+    /// Tira a pessoa do CRM quando o app fecha (PR 5 do WhatsApp nativo). É o ponto ÚNICO de
+    /// saída: "Sair" fecha esta janela, e "Trocar usuário" reabre o processo (parcela 45) —
+    /// nenhum dos dois troca a sessão em memória. Quem desistiu na entrada não tem sessão, e
+    /// aí o host pode já ter sido descartado: por isso a sessão é conferida ANTES do provedor.
+    /// </summary>
+    private void SairDoCrm()
+    {
+        var sessao = SessaoUsuario.Atual;
+        if (!sessao.Autenticado) return;
+        try
+        {
+            Clinica.Infrastructure.Crm.SaidaDoCrm.AoFecharOApp(
+                _servicos.GetService<Clinica.Application.Abstracoes.IClienteDoCrm>(), sessao.UsuarioId,
+                Clinica.Infrastructure.Crm.SaidaDoCrm.Espera);
+        }
+        catch (Exception ex) { LogSuite.Registrar("Janela do app — saída do CRM no fechamento", ex); }
     }
 
     private void Liberar()

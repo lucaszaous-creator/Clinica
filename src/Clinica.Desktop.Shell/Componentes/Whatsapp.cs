@@ -16,7 +16,7 @@ public static class Whatsapp
     /// </summary>
     public static string? Abrir(string? telefone, string nomePaciente, string mensagem)
     {
-        var fone = Telefone.Normalizar(telefone);
+        var fone = Telefone.SemPrefixoDeDiscagem(Telefone.Normalizar(telefone));
         if (fone.Length is < 10 or > 13)
             return $"{nomePaciente}: telefone ausente ou inválido no cadastro.";
 
@@ -49,11 +49,6 @@ public static class Whatsapp
     public static string ConfirmacaoDeSessao(string nomePaciente, DateTime quando, string? nomeClinica = null)
         => Clinica.Application.Modelos.MensagensDeContato.ConfirmacaoDeSessao(
             nomePaciente, quando, DateOnly.FromDateTime(DateTime.Today), nomeClinica);
-
-    /// <summary>O convite para marcar o retorno pedido por quem atendeu (a fila "Retornos a marcar").</summary>
-    public static string ConviteDeRetorno(string nomePaciente, DateOnly retornoEm, string profissional, string? nomeClinica = null)
-        => Clinica.Application.Modelos.MensagensDeContato.ConviteDeRetorno(
-            nomePaciente, retornoEm, profissional, nomeClinica);
 
     /// <summary>Mensagem padrão da pesquisa de satisfação — o TEXTO mora em <see cref="Clinica.Application.Modelos.MensagensDeContato.PesquisaDeSatisfacao"/>.</summary>
     public static string PesquisaDeSatisfacao(string nomePaciente, string? nomeClinica = null)

@@ -202,6 +202,11 @@ public sealed class SemDorNosAppsTests : IDisposable
         AvisosDoSemDorRegras.LinkSeguro("https://crm.exemplo/#inbox/c1").Should().BeTrue();
         AvisosDoSemDorRegras.LinkSeguro("http://crm.exemplo/").Should().BeFalse();
         AvisosDoSemDorRegras.LinkSeguro("https://a:b@crm.exemplo/").Should().BeFalse();
+        // O sino abre a conversa na aba do app pelo id que vem no link do CRM.
+        AvisosDoSemDorRegras.ConversaDoLink("https://crm.exemplo/#inbox/c%2D1").Should().Be("c-1");
+        AvisosDoSemDorRegras.ConversaDoLink("https://crm.exemplo/#inbox/").Should().BeNull();
+        AvisosDoSemDorRegras.ConversaDoLink("https://crm.exemplo/#today").Should().BeNull();
+        AvisosDoSemDorRegras.ConversaDoLink("não é link").Should().BeNull();
         AvisosDoSemDorRegras.Frase("Maria", "Sintoma grave").Should().Contain("Maria").And.Contain("sintoma grave");
     }
 

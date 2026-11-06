@@ -9,8 +9,7 @@ namespace PreviaBlazor.Sementes;
 /// <summary>
 /// A rodada de confirmação de AMANHÃ (a tela abre nela) com um caso de cada: confirmou pelo
 /// link do SMS, avisou pelo SMS que não vai, SMS enviado sem resposta, WhatsApp sem resposta,
-/// não avisado com e sem telefone, confirmou no balcão e dispensado com motivo. E a fila de
-/// "Retornos a marcar": atrasado, esta semana, mais adiante e um já marcado.
+/// não avisado com e sem telefone, confirmou no balcão e dispensado com motivo.
 ///
 /// Os casos de SMS são HISTÓRICO: o SMS da véspera saiu na fase 3 Recepção×CRM (out/2026), e
 /// as sessões avisadas por ele antes disso continuam aparecendo assim.
@@ -73,30 +72,6 @@ public sealed class SementeConfirmacoesERetornos : ISemente
             StatusContato.Respondido, CanalContato.WhatsApp, 5, "confirmou", "Recepção (prévia)");
         Sessao(P("Igor Nascimento", "(21) 98123-4508"), marcos, 15, 0, ModalidadeAtendimento.Consulta,
             StatusContato.Dispensado, CanalContato.Presencial, comentario: "confirmou pessoalmente no balcão hoje");
-        db.SaveChanges();
-
-        // ===== Retornos a marcar =====
-        void Retorno(Paciente p, Profissional prof, int sessaoHaDias, int retornoEmDias, string? nota)
-            => db.Add(new Evolucao
-            {
-                PacienteId = p.Id, ProfissionalId = prof.Id, Data = hoje.AddDays(-sessaoHaDias),
-                QueixaPrincipal = "Dor lombar crônica", Conduta = "Acupuntura com eletro",
-                RetornoSugeridoEm = hoje.AddDays(retornoEmDias), RetornoSugeridoNota = nota
-            });
-
-        Retorno(P("Helena Batista Cunha", "(21) 98123-4511"), helena, 30, -9, "Reavaliar a dor após o 5º ciclo");
-        Retorno(P("Marcelo Antunes", "(21) 98123-4512"), marcos, 14, -2, null);
-        Retorno(P("Joana D'Arc Freitas", null), helena, 10, 1, "Ver exames de imagem");
-        Retorno(P("Fábio Quintela", "(21) 98123-4514"), bianca, 6, 4, "Sessão de manutenção");
-        Retorno(P("Lúcia Vasconcelos", "(21) 98123-4515"), marcos, 3, 25, "Retorno da consulta psiquiátrica");
-        var marcado = P("Otávio Ramalho", "(21) 98123-4516");
-        Retorno(marcado, helena, 12, 2, "Controle");
-        db.SaveChanges();
-        db.Add(new Agendamento
-        {
-            PacienteId = marcado.Id, ProfissionalId = helena.Id, DataHora = hoje.AddDays(2).ToDateTime(new TimeOnly(16, 0)),
-            ModalidadePrevista = ModalidadeAtendimento.AcupunturaSimples, Status = StatusAgendamento.Agendado, DuracaoMinutos = 30
-        });
         db.SaveChanges();
     }
 }

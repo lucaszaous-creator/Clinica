@@ -260,6 +260,7 @@ public static class RotulosEnum
             TipoCodigo.Acupuntura => "Acupuntura",
             TipoCodigo.Eletroacupuntura => "Eletroacupuntura",
             TipoCodigo.Bsv => "BSV",
+            TipoCodigo.Preventivo => "Preventivo",
             _ => "Consulta de especialidade"
         },
 

@@ -86,7 +86,7 @@ public static class QuemMeDeveTela
     /// </summary>
     public static string? TelefoneParaWhatsApp(string? telefone)
     {
-        var fone = Clinica.Domain.Telefone.Normalizar(telefone);
+        var fone = Clinica.Domain.Telefone.SemPrefixoDeDiscagem(Clinica.Domain.Telefone.Normalizar(telefone));
         if (fone.Length is < 10 or > 13) return null;
         return fone.Length is 10 or 11 ? "55" + fone : fone;
     }

@@ -89,7 +89,7 @@ public enum AssuntoDirecao
     PacientesNaoVem,
 
     /// <summary>
-    /// Lembretes por SMS sem resposta (out/2026) — a regra é a de
+    /// Lembretes sem resposta (out/2026: o automático do WhatsApp da clínica e o link do SMS antigo) — a regra é a de
     /// <see cref="Modelos.AvisosDeConfirmacao.Decidir"/>, a mesma do sino da recepção.
     /// </summary>
     LembretesSemResposta
@@ -180,7 +180,7 @@ public sealed record PainelDirecao(
     /// <summary>Quem avisou que não vem, com o horário ainda marcado (o número do sino, pela mesma decisão).</summary>
     public int PacientesNaoVem { get; init; }
 
-    /// <summary>Lembretes por SMS sem resposta nas próximas sessões (a mesma decisão do sino).</summary>
+    /// <summary>Lembretes sem resposta nas próximas sessões (a mesma decisão do sino).</summary>
     public int LembretesSemResposta { get; init; }
 
     /// <summary>
@@ -726,8 +726,8 @@ public sealed class PainelDirecaoService
                 alertas.Add(new AlertaDirecao(
                     AssuntoDirecao.LembretesSemResposta,
                     $"{semResposta} lembrete(s) de confirmação sem resposta",
-                    $"O SMS saiu há mais de {(int)AvisosDeConfirmacao.EsperaPorResposta.TotalHours} h e o "
-                    + $"paciente não clicou no link (sessões {Janela}). Vale uma ligação antes da sessão.",
+                    $"O lembrete que pede resposta saiu há mais de {(int)AvisosDeConfirmacao.EsperaPorResposta.TotalHours} h e o "
+                    + $"paciente não respondeu (sessões {Janela}). Vale uma ligação antes da sessão.",
                     GravidadeDirecao.Info));
         }
         catch (Exception ex)

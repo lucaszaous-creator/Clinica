@@ -42,6 +42,23 @@ public interface ITelaDoPaciente
 
     /// <summary>A seção avisa que mudou algo que o cabeçalho mostra (a sessão gravada, o atendimento que nasceu).</summary>
     void AvisarMudanca();
+
+    /// <summary>O "Salvar e finalizar" está disponível para este horário e este acesso.</summary>
+    bool PodeFinalizarSessao => false;
+
+    /// <summary>O rótulo do finalizar ("Salvar e finalizar", "Concluir sessão pendente"…).</summary>
+    string RotuloFinalizarSessao => "Salvar e finalizar";
+
+    /// <summary>Grava a folha → encerra → conclui — o MESMO caminho do botão do cabeçalho.</summary>
+    Task FinalizarSessaoAsync() => Task.CompletedTask;
+
+    /// <summary>
+    /// O espaço debaixo do rail desta tela (o <c>SectionOutlet</c>), onde a folha do médico põe o
+    /// EMITIR. É um objeto POR INSTÂNCIA, nunca um nome: o palco mantém telas montadas, e um nome
+    /// global faria duas telas disputarem a mesma área. Nulo = a tela não tem rail (o EMITIR fica
+    /// ao lado da folha).
+    /// </summary>
+    object? ExtraDoRail => null;
 }
 
 /// <summary>

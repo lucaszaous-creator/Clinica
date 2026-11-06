@@ -221,6 +221,12 @@ public interface IClinicaRepositorio
     Task<PacienteFoto?> ObterFotoPacienteAsync(int pacienteId, CancellationToken ct = default);
 
     /// <summary>
+    /// As miniaturas (~160 px, JPEG) dos pacientes pedidos que têm retrato, por id — o avatar de uma
+    /// lista (as conversas do WhatsApp). Lê só essa coluna; quem não tem foto fica fora do dicionário.
+    /// </summary>
+    Task<IReadOnlyDictionary<int, byte[]>> ObterMiniaturasPacientesAsync(IReadOnlyCollection<int> pacienteIds, CancellationToken ct = default);
+
+    /// <summary>
     /// Grava (ou substitui) o retrato do paciente: a foto cheia na tabela própria e a
     /// miniatura na linha do paciente. Não persiste — chame <c>SalvarAsync</c>.
     /// </summary>
@@ -378,22 +384,6 @@ public interface IClinicaRepositorio
     /// </summary>
     Task<IReadOnlyList<Agendamento>> AgendamentosFuturosDoPacienteAsync(
         int pacienteId, DateTime aPartirDe, int limite, CancellationToken ct = default);
-
-    /// <summary>
-    /// As sessões vigentes em que quem atendeu pediu retorno para <paramref name="retornoDesde"/>
-    /// ou depois (set/2026) — projeção, sem o texto da evolução. Alimenta a fila "Retornos a
-    /// marcar" com <see cref="HorariosAtivosDosPacientesAsync"/>.
-    /// </summary>
-    Task<IReadOnlyList<Modelos.RetornoSugerido>> RetornosSugeridosAsync(
-        DateOnly retornoDesde, CancellationToken ct = default);
-
-    /// <summary>
-    /// Os horários ATIVOS (agendado ou realizado — nem cancelado, nem falta, nem substituído
-    /// por sessão lançada por fora) dos pacientes informados a partir de um dia — só quem e
-    /// quando. Uma consulta para o conjunto.
-    /// </summary>
-    Task<IReadOnlyList<Modelos.HorarioPosterior>> HorariosAtivosDosPacientesAsync(
-        IReadOnlyCollection<int> pacienteIds, DateOnly desde, CancellationToken ct = default);
 
     /// <summary>
     /// Sessoes marcadas de uma vez (o pacote de dez), na ordem em que acontecem.
@@ -1159,6 +1149,16 @@ public interface IClinicaRepositorio
         FinalidadeConsentimento finalidade,
         IReadOnlyCollection<int> pacienteIds,
         CancellationToken ct = default);
+    /// <summary>
+    /// Quais destes pacientes podem receber MENSAGEM da recepção (convite, recall, relacionamento) — out/2026,
+    /// decisão da direção: a autorização é colhida no termo do BSV, então quem NÃO tem registro conta como
+    /// autorizado. Só fica de fora quem RECUSOU: o registro mais recente de
+    /// <see cref="FinalidadeConsentimento.ComunicacaoEMarketing"/> não está vigente ("Não" no termo, PARAR no CRM
+    /// ou revogação na ficha). As CAMPANHAS do Gerente continuam no <see cref="PacientesComConsentimentoVigenteAsync"/>.
+    /// </summary>
+    Task<IReadOnlyList<int>> PacientesComMensagensLiberadasAsync(
+        IReadOnlyCollection<int> pacienteIds,
+        CancellationToken ct = default);
 
     // ---- Pacotes, planos e vouchers ----
 
@@ -1780,6 +1780,25 @@ public interface IClinicaRepositorio
     /// ("o paciente manteve o horário"). O mais recente vence, pela mesma regra da leitura em lote.
     /// </summary>
     Task<ContatoCampanha?> ContatoDeConfirmacaoDoAgendamentoAsync(int agendamentoId, CancellationToken ct = default);
+
+    // ---- WhatsApp da Recepção (out/2026, PR 3 do WhatsApp nativo) ----
+
+    /// <summary>
+    /// De quem é cada horário (agendamento → paciente), numa consulta só e em PROJEÇÃO: o aviso
+    /// do sino só traz o <c>AgendamentoId</c>, e a conversa precisa saber se ele é do paciente
+    /// da ficha conferida. São os poucos horários dos avisos, nunca a agenda inteira.
+    /// </summary>
+    Task<IReadOnlyDictionary<int, int>> PacientesDosAgendamentosAsync(
+        IReadOnlyCollection<int> agendamentoIds, CancellationToken ct = default);
+
+    /// <summary>
+    /// As fichas cujo telefone, só com os dígitos, é um dos <paramref name="numeros"/> (as
+    /// variantes do mesmo número: com e sem o 55). Filtra NO BANCO e traz só o que a conferência
+    /// mostra — nome, nascimento, documento e telefone —, cortado em <paramref name="limite"/>.
+    /// O telefone não é identidade (regra 5): quem decide qual ficha é a pessoa é a recepção.
+    /// </summary>
+    Task<IReadOnlyList<FichaComTelefone>> FichasComTelefoneAsync(
+        IReadOnlyCollection<string> numeros, int limite, CancellationToken ct = default);
 
     /// <summary>
     /// Os contatos de confirmação ENVIADOS ou RESPONDIDOS das sessões ainda MARCADAS

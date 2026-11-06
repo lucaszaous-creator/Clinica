@@ -163,6 +163,27 @@ public sealed class FormulariosDoPacienteTests : IDisposable
     }
 
     [Fact]
+    public async Task Cadastro_aberto_pela_conversa_do_WhatsApp_ja_vem_com_o_telefone_e_o_grava()
+    {
+        // "Cadastrar com este telefone" (WhatsApp nativo): quem escreveu não precisa ditar o número.
+        var camada = _ctx.RenderComponent<CamadaDoPaciente>();
+        var cadastro = Formularios.CadastrarAsync("(22) 99712-0045");
+        camada.WaitForAssertion(() => camada.Markup.Should().Contain("Novo paciente"), Prazo);
+        camada.FindAll("input.campo").First(i => i.GetAttribute("maxlength") == "20")
+            .GetAttribute("value").Should().Be("(22) 99712-0045");
+
+        camada.Find("input.campo").Input("Rosa da Conversa");
+        camada.Find("input[aria-label='CPF obrigatório']").Input(CpfValido);
+        SelectDoConvenio(camada).Change(ConvenioCadastro.CodigoParticular);
+        Botao(camada, "Salvar cadastro").Click();
+
+        var novo = await cadastro.WaitAsync(Prazo);
+        novo.Should().NotBeNull();
+        using var db = Db();
+        (await db.Pacientes.SingleAsync(x => x.Id == novo!.Id)).Telefone.Should().Be("(22) 99712-0045");
+    }
+
+    [Fact]
     public async Task Cadastro_sem_convenio_e_com_CPF_invalido_fica_aberto_dizendo_o_que_falta()
     {
         var camada = _ctx.RenderComponent<CamadaDoPaciente>();

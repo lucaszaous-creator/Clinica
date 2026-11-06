@@ -204,7 +204,8 @@ public sealed class AcompanhamentoPacienteService(ClinicaDbContext db, IClinicaR
             .Select(a => new { a.Id, a.PacienteId, a.ModalidadePrevista, a.DataHora, a.Status, a.ProfissionalId }).ToListAsync(ct));
         var lerContatos = Antecipar((d, _) => d.ContatosAcompanhamento.AsNoTracking().Where(c => c.Canal != null && c.Em >= c.AcompanhamentoPaciente!.ReferenciaEm)
             .GroupBy(c => c.AcompanhamentoPacienteId).Select(g => new { Id = g.Key, Total = g.Count(), Ultimo = g.Max(c => c.Em) }).ToDictionaryAsync(c => c.Id, ct));
-        var lerConsentidos = Antecipar((_, r) => r.PacientesComConsentimentoVigenteAsync(FinalidadeConsentimento.ComunicacaoEMarketing, ids, ct));
+        // Só quem RECUSOU fica sem mensagem; sem registro conta como autorizado (termo do BSV, out/2026).
+        var lerConsentidos = Antecipar((_, r) => r.PacientesComMensagensLiberadasAsync(ids, ct));
         var lerPacotes = Antecipar((_, r) => r.PacotesDosPacientesAsync(ids, ct));
         // Total de sessões por paciente, agrupado NO BANCO: é o que separa quem era de
         // tratamento de quem veio uma vez (o recorte da antiga "Quem parou de vir").
@@ -272,8 +273,8 @@ public sealed class AcompanhamentoPacienteService(ClinicaDbContext db, IClinicaR
         await Usuario(usuarioId, Permissao.GerenciarCampanhas, ct);
         var c = await db.Acompanhamentos.AsNoTracking().Include(c => c.Paciente).SingleAsync(c => c.Id == id, ct);
         if (string.IsNullOrWhiteSpace(c.Paciente!.Telefone)) throw new InvalidOperationException("Atualize o telefone do paciente antes de contatar.");
-        if (!(await repo.PacientesComConsentimentoVigenteAsync(FinalidadeConsentimento.ComunicacaoEMarketing, [c.PacienteId], ct)).Contains(c.PacienteId))
-            throw new InvalidOperationException("Contato não autorizado no cadastro do paciente.");
+        if (!(await repo.PacientesComMensagensLiberadasAsync([c.PacienteId], ct)).Contains(c.PacienteId))
+            throw new InvalidOperationException("O paciente pediu para não receber mensagens.");
     }
 
     public async Task AtualizarAsync(int usuarioId, int id, AtualizarAcompanhamento pedido, CancellationToken ct = default)

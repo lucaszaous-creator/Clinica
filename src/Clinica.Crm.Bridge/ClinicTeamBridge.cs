@@ -9,10 +9,11 @@ namespace Clinica.Crm.Bridge;
 /// O acesso ao CRM é o acesso do sistema (out/2026, pedido da direção). O CRM não guarda
 /// senha nenhuma: a lista de atendentes e a conferência da senha vêm daqui.
 ///
-/// Quem entra: usuário ATIVO com <see cref="Permissao.EditarAgenda"/> — o bit de quem marca,
-/// remarca e fala com o paciente no balcão (o enum tem um bit sobrando antes de virar long
-/// numa coluna de produção; um bit "CRM" não se paga). A direção concede ou tira por pessoa
-/// em Acessos, como qualquer permissão. Administra o CRM quem gerencia usuários no sistema.
+/// Quem entra: usuário ATIVO do perfil Recepção ou Gerente e com <see cref="Permissao.EditarAgenda"/>
+/// (25/10/2026, a direção: "só as secretárias e o gerente") — a regra mora em
+/// <see cref="AcessoAoWhatsApp"/>, a mesma do menu e da tela do app. O bit continua sendo o ajuste
+/// fino por pessoa em Acessos; o perfil impede que o bit de agendar, concedido a outra função,
+/// leve junto o número oficial. Administra o CRM quem gerencia usuários no sistema.
 ///
 /// A senha é conferida pelo <see cref="AcessoService.AutenticarAsync"/> — a MESMA regra dos
 /// apps: errar 5 vezes trava o login por 5 minutos, e as tentativas contam juntas (errar no
@@ -21,13 +22,13 @@ namespace Clinica.Crm.Bridge;
 /// </summary>
 public sealed class ClinicTeamBridge(IClinicaRepositorio repo, AcessoService acesso, IEntradaNoCrmService entrada)
 {
-    public const Permissao Requer = Permissao.EditarAgenda;
+    public const Permissao Requer = AcessoAoWhatsApp.Requer;
 
     public const string Recusa = "Usuário ou senha inválidos.";
 
     public const string SemAcesso = "Seu usuário não tem acesso ao CRM. Peça à direção para liberar em Acessos.";
 
-    public static bool PodeEntrar(UsuarioSistema u) => u.Ativo && u.Efetivas.HasFlag(Requer);
+    public static bool PodeEntrar(UsuarioSistema u) => AcessoAoWhatsApp.Pode(u);
 
     public static ClinicTeamMember Membro(UsuarioSistema u) =>
         new(u.Login, u.Nome, u.Efetivas.HasFlag(Permissao.GerenciarUsuarios));

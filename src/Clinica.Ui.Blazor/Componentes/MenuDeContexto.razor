@@ -1,0 +1,91 @@
+@typeparam TAcao
+@using Clinica.Application.Servicos
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+@*
+  O MENU DO BOTÃO DIREITO (out/2026, pedido da direção na aba WhatsApp): o menu que nasce no ponto do clique.
+  A tela é dona do estado (aberto, os itens, a posição) e do que cada ação faz; o componente só desenha, foca e
+  fecha. A REGRA de qual item aparece mora na Application (ex.: MenuDoWhatsApp), com teste.
+
+  - Item que não cabe agora aparece DESABILITADO com o motivo (aria-disabled + title): a pessoa aprende onde a
+    ação mora. aria-disabled, e não disabled, porque o botão desabilitado não mostra o title no Chromium.
+  - Fecha no Esc, no clique fora, no botão direito fora e na rolagem — e sempre depois de escolher.
+  - A posição e as setas são do js/menu-de-contexto.js: medir o menu só dá depois de desenhado.
+*@
+@if (Itens is { Count: > 0 } itens)
+{
+    <div class="menu-contexto-fundo" @onclick="FecharAsync" @oncontextmenu="FecharAsync" @oncontextmenu:preventDefault="true" @onwheel="FecharAsync"></div>
+    <div class="menu-contexto" role="menu" aria-label="@Rotulo" tabindex="-1" @ref="_menu" style="left:@(Px(X));top:@(Px(Y))"
+         @onkeydown="TeclaAsync" @onkeydown:stopPropagation="true" @oncontextmenu:preventDefault="true">
+        @foreach (var item in itens)
+        {
+            @if (item.GrupoNovo && !ReferenceEquals(item, itens[0]))
+            {
+                <hr role="separator" />
+            }
+            <button type="button" role="menuitem" class="@(item.Perigo ? "perigo" : null)" aria-disabled="@(item.Habilitado ? null : "true")"
+                    title="@item.Motivo" @onclick="() => EscolherAsync(item)"><Icone Nome="@item.Icone" /><span>@item.Rotulo</span></button>
+        }
+    </div>
+}
+
+@code {
+    /// <summary>Os itens; nulo ou vazio = fechado.</summary>
+    [Parameter] public IReadOnlyList<ItemDeMenu<TAcao>>? Itens { get; set; }
+
+    /// <summary>O ponto do clique (clientX/clientY).</summary>
+    [Parameter] public double X { get; set; }
+    [Parameter] public double Y { get; set; }
+
+    /// <summary>O nome do menu para o leitor de tela ("Ações da conversa").</summary>
+    [Parameter] public string Rotulo { get; set; } = "Ações";
+
+    [Parameter] public EventCallback<TAcao> AoEscolher { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private const string Modulo = "./js/menu-de-contexto.js";
+    private ElementReference _menu;
+    private IJSObjectReference? _js;
+    private IReadOnlyList<ItemDeMenu<TAcao>>? _posicionados;
+
+    private static string Px(double v) => v.ToString("0", System.Globalization.CultureInfo.InvariantCulture) + "px";
+
+    protected override async Task OnAfterRenderAsync(bool primeira)
+    {
+        if (Itens is not { Count: > 0 } || ReferenceEquals(_posicionados, Itens)) return;
+        _posicionados = Itens;
+        try
+        {
+            _js ??= await JS.InvokeAsync<IJSObjectReference>("import", Modulo);
+            await _js.InvokeVoidAsync("posicionar", _menu, X, Y);
+        }
+        catch (JSException) { }
+        catch (JSDisconnectedException) { }
+        catch (InvalidOperationException) { } // sem navegador (testes): o menu fica visível onde nasceu, só sem o ajuste à borda
+    }
+
+    private async Task EscolherAsync(ItemDeMenu<TAcao> item)
+    {
+        if (!item.Habilitado) return;
+        await FecharAsync();
+        await AoEscolher.InvokeAsync(item.Acao);
+    }
+
+    private async Task TeclaAsync(KeyboardEventArgs e)
+    {
+        if (e.Key is "Escape" or "Tab") await FecharAsync();
+    }
+
+    private Task FecharAsync()
+    {
+        _posicionados = null;
+        return AoFechar.InvokeAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_js is null) return;
+        try { await _js.DisposeAsync(); } catch (JSDisconnectedException) { }
+    }
+}

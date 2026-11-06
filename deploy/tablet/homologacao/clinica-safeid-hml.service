@@ -1,0 +1,26 @@
+[Unit]
+Description=Saida TLS restrita ao SafeID para homologacao
+After=network.target
+
+[Service]
+DynamicUser=true
+ExecStart=/usr/bin/python3 /opt/clinica-posto-hml/current/configuracao/homologacao/safeid-proxy.py
+Restart=on-failure
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CPUQuota=15%
+MemoryMax=64M
+TasksMax=24
+
+[Install]
+WantedBy=multi-user.target

@@ -111,14 +111,13 @@ public static class InicioRecepcaoTela
     /// (ou, no "Confirmar amanhã", não há rodada gerada — e a frase do contador diz qual).
     /// </summary>
     public static IReadOnlyList<ItemDoBalcao> ItensDoBalcao(
-        int? guias, ContadorDoBalcao? confirmarAmanha, int? retornos, int? recall)
+        int? guias, ContadorDoBalcao? confirmarAmanha, int? recall)
     {
         var confirmar = confirmarAmanha ?? new ContadorDoBalcao("Confirmar amanhã", null, "não foi possível conferir");
         return
         [
             Item("guias", "Guias do 2º código", guias, "de pacientes que vêm hoje", "perigo"),
             new ItemDoBalcao("confirmar", confirmar.Titulo, confirmar.ValorTexto, confirmar.Detalhe, "info"),
-            Item("retornos", "Retornos pedidos pelo médico", retornos, "ainda sem horário marcado", "info"),
             Item("recall", "Recall de hoje", recall, "contatos combinados para hoje", "neutro")
         ];
     }

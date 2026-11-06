@@ -145,25 +145,19 @@ public static class CarregamentoDoA1
 public static class AssinaturaDeDocumentoNaTela
 {
     /// <summary>
-    /// O tipo emitido para impressão, sem assinatura digital — a MESMA lista do
-    /// <c>DocumentoNaTela.EmissaoSemCertificado</c> do shell (que passou a ler esta).
+    /// Assinado não se reassina; cancelado não se assina. Todo tipo de documento clínico pode ser
+    /// assinado: a lista "emitido só para impressão" (out/2026, sem A1 na clínica) saiu quando o
+    /// SafeID voltou para receitas e documentos, a pedido da clínica. Assinar continua opcional —
+    /// a via impressa segue valendo do jeito de antes.
     /// </summary>
-    public static bool EmissaoSemCertificado(TipoDocumentoClinico tipo) => tipo is TipoDocumentoClinico.Receita
-        or TipoDocumentoClinico.Atestado or TipoDocumentoClinico.Comparecimento
-        or TipoDocumentoClinico.PedidoExame or TipoDocumentoClinico.RelatorioEvolucao
-        or TipoDocumentoClinico.Anamnese or TipoDocumentoClinico.LaudoMedico;
-
-    /// <summary>Assinado não se reassina; cancelado não se assina.</summary>
     public static bool PodeAssinar(TipoDocumentoClinico tipo, bool cancelado, bool assinado)
-        => !EmissaoSemCertificado(tipo) && !cancelado && !assinado;
+        => !cancelado && !assinado;
 
     /// <summary>
     /// Por que não dá — as duas frases do WPF, antes de qualquer certificado. Nulo = pode.
     /// </summary>
     public static string? Recusa(TipoDocumentoClinico tipo, string numero, bool cancelado, bool assinado)
     {
-        if (EmissaoSemCertificado(tipo))
-            return "Este tipo de documento é emitido para impressão, sem assinatura digital.";
         if (!PodeAssinar(tipo, cancelado, assinado))
             return cancelado
                 ? $"O documento {numero} está cancelado e não pode ser assinado."

@@ -49,8 +49,8 @@ public sealed class SementeAcompanhamento : ISemente
             var p = new Paciente { Nome = nome, Telefone = telefone, Convenio = convenio, DataNascimento = new DateOnly(1975, 6, 12) };
             db.Add(p);
             db.SaveChanges();
-            if (autoriza)
-                db.Add(new ConsentimentoLgpd { PacienteId = p.Id, Finalidade = FinalidadeConsentimento.ComunicacaoEMarketing, Concedido = true, RegistradoEm = agora.AddDays(-200), RegistradoPor = "previa" });
+            // Sem registro conta como autorizado (out/2026); "não autoriza" na semente é a RECUSA gravada.
+            db.Add(new ConsentimentoLgpd { PacienteId = p.Id, Finalidade = FinalidadeConsentimento.ComunicacaoEMarketing, Concedido = autoriza, RegistradoEm = agora.AddDays(-200), RegistradoPor = "previa" });
             return p;
         }
 

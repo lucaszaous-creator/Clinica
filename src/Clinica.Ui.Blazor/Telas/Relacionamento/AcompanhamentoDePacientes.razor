@@ -22,15 +22,15 @@
 
 <div class="pagina acompanhamento @(Carregando && _todos.Count > 0 ? "carregando" : null)">
     <CabecalhoPagina Sobretitulo="Relacionamento · Acompanhamento" Titulo="Acompanhamento de pacientes"
-                     Subtitulo="Quem sumiu, as indicações de BSV e os retornos que o profissional pediu — do primeiro contato até a sessão realizada.">
-        @if (_tipo == TipoAcompanhamento.Recall && !_retornos)
+                     Subtitulo="Quem sumiu e as indicações de BSV — do primeiro contato até a sessão realizada.">
+        @if (_tipo == TipoAcompanhamento.Recall)
         {
             <button type="button" class="botao" disabled="@(!PodeAcompanhar)" @onclick="AbrirGerarRecall"
                     title="@(PodeAcompanhar ? "Buscar quem está há N dias ou mais sem retornar e pôr na fila" : SemAcesso)">
                 <Icone Nome="atualizar" />Gerar recall (@_diasRecall dias)
             </button>
         }
-        <button type="button" class="botao" disabled="@(!PodeAcompanhar || _retornos)" @onclick="ExportarAsync" title="A lista à vista, com a coluna de quem pode receber mensagem (Ctrl+P)">
+        <button type="button" class="botao" disabled="@(!PodeAcompanhar)" @onclick="ExportarAsync" title="A lista à vista, com a coluna de quem pode receber mensagem (Ctrl+P)">
             <Icone Nome="baixar" />Exportar CSV
         </button>
         <button type="button" class="botao icone" @onclick="() => CarregarAsync()" title="Atualizar (F5)" aria-label="Atualizar a lista"><Icone Nome="atualizar" /></button>
@@ -52,14 +52,6 @@
         <section class="cartao lista-cartao">
             <FalhaDeLeitura Titulo="Não foi possível ler a fila de acompanhamento" Detalhe="@_erroLeitura" AoTentarDeNovo="() => CarregarAsync()" />
         </section>
-    }
-    else if (_retornos)
-    {
-        @* Fase 2 (docs/crm-na-recepcao.md): os "Retornos a marcar" moram aqui — a mesma fila, as mesmas ações. *@
-        <section class="cartao lista-cartao">
-            <div class="filtros acomp-barra">@Filas</div>
-        </section>
-        <RetornosAMarcar Embutida="true" />
     }
     else if (!_carregou)
     {
@@ -154,7 +146,7 @@
                                             <span class="acomp-dono" title="@l.Responsavel"><span class="avatar acomp-avatar">@ConversaDoAcompanhamento.Iniciais(l.Responsavel)</span>@ConversaDoAcompanhamento.Dono(l, UsuarioId)</span>
                                         }
                                     </td>
-                                    <td class="direita nao-quebra" @onclick:stopPropagation="true">@Botao(l, passo)</td>
+                                    <td class="direita nao-quebra" @onclick:stopPropagation="true"><span class="botoes-linha acomp-acoes">@if (passo is not (PassoAcompanhamento.Contatar or PassoAcompanhamento.TentarDeNovo)) { <BotaoDaConversaAoLado PacienteId="l.PacienteId" Nome="@l.Paciente" Telefone="@l.Telefone" /> }@Botao(l, passo)</span></td>
                                 </tr>
                             }
                         </tbody>
@@ -207,23 +199,15 @@
     private string? _nomeClinica;
     private int _diasRecall = 60;
     private bool _recallGerado;
-    // A terceira fila (fase 2): os retornos pedidos pelo profissional, sem horário ainda.
-    private bool _retornos;
-    private int? _pendentesRetornos;
 
-    /// <summary>As três filas — o mesmo seletor na lista do acompanhamento e na dos retornos.</summary>
+    /// <summary>As duas filas (a terceira, dos retornos pedidos, saiu com o "Retorno sugerido" em 26/10/2026).</summary>
     private RenderFragment Filas => __builder =>
     {
         <div class="segmentado" role="group" aria-label="Qual fila">
-            <button type="button" aria-pressed="@Bool(!_retornos && _tipo == TipoAcompanhamento.Recall)" @onclick="() => TrocarTipo(TipoAcompanhamento.Recall)"
+            <button type="button" aria-pressed="@Bool(_tipo == TipoAcompanhamento.Recall)" @onclick="() => TrocarTipo(TipoAcompanhamento.Recall)"
                     title="Quem parou de vir — por modalidade">Recall · <b>@_pendentesRecall</b></button>
-            <button type="button" aria-pressed="@Bool(!_retornos && _tipo == TipoAcompanhamento.NovoBsv)" @onclick="() => TrocarTipo(TipoAcompanhamento.NovoBsv)"
+            <button type="button" aria-pressed="@Bool(_tipo == TipoAcompanhamento.NovoBsv)" @onclick="() => TrocarTipo(TipoAcompanhamento.NovoBsv)"
                     title="As indicações de BSV do profissional configurado, até a 1ª sessão">Novos BSV · <b>@_pendentesBsv</b></button>
-            @if (Pode(Permissao.VerAgenda))
-            {
-                <button type="button" aria-pressed="@Bool(_retornos)" @onclick="MostrarRetornos"
-                        title="Quem saiu do atendimento com pedido de retorno e ainda não tem horário">Retornos pedidos@(_pendentesRetornos is { } n ? " · " : "")@if (_pendentesRetornos is { } r) { <b>@r</b> }</button>
-            }
         </div>
     };
 
@@ -243,6 +227,7 @@
 
     // Formulários abertos.
     private LinhaAcompanhamento? _conversa;
+    private int? _casoPedido;
     private CanalContato? _canalInicial;
     private bool _maisFiltros, _gerarRecall, _configurar, _equipe;
 
@@ -273,10 +258,38 @@
         return CarregarAsync(silencioso: true);
     }
 
-    /// <summary>O contador "Retornos" do Início pede a fila de retornos (PedidoDoAcompanhamento).</summary>
+    /// <summary>
+    /// O "Ver caso" do WhatsApp pede o caso de uma pessoa, que abre DEPOIS da leitura (é ela que traz a linha) — ver <see cref="AbrirCasoPedido"/>.
+    /// </summary>
     private void AtenderPedido()
     {
-        if (Servicos.GetService<PedidoDoAcompanhamento>()?.ConsumirRetornos() == true) MostrarRetornos();
+        var pedido = Servicos.GetService<PedidoDoAcompanhamento>();
+        if (pedido is null) return;
+        if (pedido.ConsumirCaso() is { } caso) _casoPedido = caso;
+    }
+
+    /// <summary>
+    /// Abre a conversa do caso pedido, já na fila do tipo dele. Não passa por cima de formulário aberto
+    /// (pode haver texto digitado); o caso que saiu da fila avisa em vez de abrir nada.
+    /// </summary>
+    private void AbrirCasoPedido()
+    {
+        if (_casoPedido is not { } id) return;
+        _casoPedido = null;
+        if (_todos.FirstOrDefault(x => x.Id == id) is not { } l)
+        {
+            Notificacoes.Info("Este caso não está mais na fila do acompanhamento.");
+            return;
+        }
+        if (FormularioAberto && _conversa?.Id != id)
+        {
+            Notificacoes.Info($"Feche o que está aberto para ver o caso de {l.Paciente}.");
+            return;
+        }
+        _tipo = l.Tipo;
+        _faixa = null;
+        Refiltrar();
+        if (_conversa?.Id != id) AbrirConversa(l, null);
     }
 
     /// <summary>F5 relê e Ctrl+P exporta o CSV — pelo MESMO caminho dos botões, com as duas barreiras.</summary>
@@ -294,7 +307,8 @@
     /// A fila, a configuração (motivos e responsáveis), os dias do recall e o nome da clínica —
     /// SEQUENCIAL no mesmo escopo, com contador de geração e tudo publicado depois do último
     /// await. Na primeira abertura gera o recall com os dias da CONFIGURAÇÃO (como a tela WPF):
-    /// sem isso, quem sumiu desde ontem só entraria na fila no clique de alguém.
+    /// sem isso, quem sumiu desde ontem só entraria na fila no clique de alguém. Uma vez por dia no
+    /// app: a aba WhatsApp renova a mesma fila ao ler a Retenção (RecallDoDia, 25/10).
     /// </summary>
     private async Task CarregarAsync(bool silencioso = false)
     {
@@ -310,18 +324,18 @@
             var dias = await parametros.ObterDiasInatividadeRecallAsync();
             if (!_recallGerado)
             {
-                await servico.GerarRecallAsync(UsuarioId, dias);
+                // Uma vez por dia neste app, dividida com a aba WhatsApp (RecallDoDia): é a mesma renovação, e ela não duplica caso.
+                var doDia = sp.GetRequiredService<RecallDoDia>();
+                var hoje = DateOnly.FromDateTime(DateTime.Today);
+                if (doDia.Reservar(hoje))
+                {
+                    try { await servico.GerarRecallAsync(UsuarioId, dias); }
+                    catch { doDia.Liberar(hoje); throw; }
+                }
                 _recallGerado = true;
             }
             var config = await servico.ConfiguracaoAsync(UsuarioId);
             var linhas = await servico.ListarAsync(UsuarioId);
-            // A contagem da fila de retornos (o número no seletor). Falha aqui não derruba a fila principal.
-            int? retornos = null;
-            if (Pode(Permissao.VerAgenda))
-            {
-                try { retornos = (await sp.GetRequiredService<RetornosAMarcarService>().ListarAsync()).Count; }
-                catch (Exception ex) { Clinica.Application.Diagnostico.Registrar("Blazor — contagem dos retornos a marcar não pôde ser lida", ex); }
-            }
             string? nome = _nomeClinica;
             if (nome is null)
             {
@@ -331,7 +345,6 @@
             if (geracao != _geracao || Descartada) return;
 
             _todos = linhas;
-            _pendentesRetornos = retornos;
             _motivos = config.Motivos;
             _responsaveis = config.Responsaveis;
             _diasRecall = dias;
@@ -340,6 +353,7 @@
             _naoVerificado = false;
             _carregou = true;
             Refiltrar();
+            AbrirCasoPedido();
         }
         catch (Exception ex)
         {
@@ -370,8 +384,7 @@
         _resumo = ConversaDoAcompanhamento.Resumo(_linhas.Count, _naFila, Filtrada);
     }
 
-    private void TrocarTipo(TipoAcompanhamento tipo) { _retornos = false; _tipo = tipo; _faixa = null; Refiltrar(); }
-    private void MostrarRetornos() { if (Pode(Permissao.VerAgenda)) _retornos = true; }
+    private void TrocarTipo(TipoAcompanhamento tipo) { _tipo = tipo; _faixa = null; Refiltrar(); }
     private void TrocarEscopo(bool minha) { _minha = minha; Refiltrar(); }
 
     /// <summary>O funil é o filtro: clicar escolhe a faixa; clicar de novo limpa.</summary>
@@ -444,6 +457,12 @@
             await escopo.ServiceProvider.GetRequiredService<IAcompanhamentoPacienteService>().ValidarContatoAsync(UsuarioId, l.Id);
         }, "Blazor — contato do acompanhamento não pôde ser conferido");
         if (!conferido) return;
+        // Fase 2 (24/10): com a tela nativa do WhatsApp, a conversa abre AO LADO da fila, com a mensagem
+        // como rascunho (sem conversa ainda, o convite por modelo, que grava o contato no caso ao sair). O
+        // "Como foi?" aparece na conversa quando a pessoa responde; antes, pela linha daqui. Sem a tela
+        // nativa, o wa.me e a conversa daqui, como antes.
+        if (await ConversaAoLado.AbrirAsync(Servicos, Host, new PedidoDeConversa(l.Telefone ?? "", l.Paciente, l.PacienteId, AcompanhamentoNaTela.Mensagem(l, _nomeClinica))))
+            return;
         var link = PainelPendenciasFaturamento.LinkWhatsApp(l.Telefone, AcompanhamentoNaTela.Mensagem(l, null), _nomeClinica);
         if (link is null) { await Dialogos.AvisoAsync("WhatsApp", PainelPendenciasFaturamento.SemTelefone(l.Paciente)); return; }
         abriu = await Host.AbrirEnderecoAsync(link);

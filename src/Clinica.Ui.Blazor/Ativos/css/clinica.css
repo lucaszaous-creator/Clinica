@@ -40,13 +40,15 @@
 @import url("telas/rec-pedidos-enfermagem.css");
 @import url("telas/rec-dia.css");
 @import url("telas/rec-confirmacoes.css");
-@import url("telas/rec-retornos.css");
 @import url("telas/rec-atendimento.css");
-@import url("telas/whatsapp-crm.css");
+@import url("telas/conversas.css");
+@import url("telas/conversas-midia.css");
+@import url("telas/conversas-resolve.css");
 @import url("telas/rec-lancamentos.css");
 @import url("telas/rec-consultas.css");
 @import url("telas/rec-pagamentos.css");
 @import url("telas/rec-ocupacao.css");
+@import url("telas/rec-ocupacao-especialidade.css");
 @import url("telas/rec-equipe.css");
 @import url("telas/tendencias.css");
 @import url("telas/metas.css");
@@ -64,6 +66,7 @@
 @import url("telas/campanhas.css");
 @import url("telas/origens.css");
 @import url("telas/auditoria.css");
+@import url("telas/auditoria-atendimento.css");
 @import url("telas/guarda.css");
 @import url("telas/documentos-emitidos.css");
 @import url("telas/acessos.css");
@@ -101,6 +104,8 @@
 @import url("telas/chat-equipe.css");
 @import url("telas/treinamento.css");
 @import url("telas/assinatura.css");
+/* A conversa do WhatsApp ao lado das telas da Recepção (fase 2, 24/10): a gaveta e o modo painel. */
+@import url("telas/conversa-ao-lado.css");
 
 :root{
   /* A fonte da casa é a Segoe UI; a Variable é a que o Windows 11 desenha nos apps novos.
@@ -120,7 +125,7 @@ body{
   font-family:var(--font-ui);font-size:var(--text-body-size);color:var(--texto-primario);
   -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
 }
-button,select,input{font:inherit;color:inherit}
+button,select,input,textarea{font:inherit;color:inherit} /* textarea também: sem isto o navegador usa a fonte de máquina de escrever (duas telas já tinham remendado localmente) */
 
 /* ---------- Página ---------- */
 .pagina{padding:var(--space-6) var(--space-8) var(--space-10);max-width:1440px;margin:0 auto;
@@ -183,6 +188,20 @@ h1{font-size:28px;font-weight:700;letter-spacing:-.01em;margin:0;line-height:1.1
   font:inherit;font-weight:400;color:var(--texto-primario);cursor:pointer;white-space:nowrap}
 .kpi-menu-lista button:hover:not(:disabled){background:var(--fundo)}
 .kpi-menu-lista button:disabled{color:var(--texto-secundario);cursor:default}
+/* O menu do botão direito (MenuDeContexto, out/2026): nasce VISÍVEL no ponto do clique e o js/menu-de-contexto.js
+   o puxa para dentro da janela (sem o JS ele continua usável). O fundo é transparente: só fecha o menu. */
+.menu-contexto-fundo{position:fixed;inset:0;z-index:55;background:transparent}
+.menu-contexto{position:fixed;z-index:56;display:flex;flex-direction:column;min-width:220px;max-width:320px;
+  background:var(--superficie);border:1px solid var(--borda);border-radius:var(--radius-control);box-shadow:var(--sombra-popup);
+  padding:var(--space-1);outline:none}
+.menu-contexto button{display:flex;align-items:center;gap:var(--space-2);border:0;background:transparent;text-align:left;
+  padding:var(--space-2) var(--space-3);border-radius:var(--radius-pequeno);font:inherit;font-weight:400;color:var(--texto-primario);
+  cursor:pointer;white-space:nowrap}
+.menu-contexto button .icone,.menu-contexto button svg{flex:none;width:16px;height:16px;color:var(--texto-secundario)}
+.menu-contexto button:hover:not([aria-disabled=true]),.menu-contexto button:focus-visible{background:var(--fundo);outline:none}
+.menu-contexto button[aria-disabled=true]{color:var(--texto-secundario);cursor:default;opacity:.55}
+.menu-contexto button.perigo:not([aria-disabled=true]),.menu-contexto button.perigo:not([aria-disabled=true]) svg{color:var(--erro-texto)}
+.menu-contexto hr{border:0;border-top:1px solid var(--borda);margin:var(--space-1) 0}
 .kpi-valor{font-family:var(--font-num);font-size:var(--text-kpi-size);font-weight:700;letter-spacing:-.02em;
   font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kpi-nota{color:var(--texto-secundario);font-size:var(--text-small-size);line-height:1.4}
@@ -220,7 +239,7 @@ h1{font-size:28px;font-weight:700;letter-spacing:-.01em;margin:0;line-height:1.1
 .dica hr{border:0;border-top:1px solid var(--borda);margin:6px 0}
 
 /* ---------- Categorias ---------- */
-.duas-colunas{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:var(--space-4)}
+.duas-colunas{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:var(--space-4)}
 .categorias{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--space-4)}
 .categoria-topo{display:flex;justify-content:space-between;gap:var(--space-3);margin-bottom:6px}
 .categoria-nome{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -512,3 +531,79 @@ td .selo{margin-left:0}
 .grafico-linha.tom-perigo .grafico-linha-traco,.grafico-linha.tom-perigo .grafico-linha-ponto{stroke:var(--erro)}
 .grafico-linha.tom-sucesso .grafico-linha-traco,.grafico-linha.tom-sucesso .grafico-linha-ponto{stroke:var(--sucesso)}
 .grafico-linha-vazio{padding:var(--space-8) 0;text-align:center;color:var(--texto-secundario);font-size:var(--text-small-size)}
+
+/* ================================================================
+   Celular (nov/2026) — a gestão no navegador do celular.
+   As telas nasceram para a janela do desktop (1024 px ou mais). Abaixo de 640 px:
+   · números em UMA coluna (nunca três espremidos, nunca cartão por cima de cartão);
+   · cada linha de `table.lista` vira um CARTÃO, com o nome da coluna antes de cada valor
+     (o rótulo vem do <th>, copiado pelo js/tabelas-no-celular.js — fonte única);
+   · filtros e campos na largura toda, botões do cabeçalho quebrando linha sem cortar;
+   · gráfico com altura de gráfico, e não de página.
+   Esta seção fica no FIM do arquivo de propósito: as telas são importadas no topo, então
+   aqui vence o empate de especificidade. Tela com grade própria ajusta no próprio CSS.
+   ================================================================ */
+@media (max-width:640px){
+  .pagina{padding:var(--space-4) var(--space-3) var(--space-8)}
+  .kpis,.kpis.tres{grid-template-columns:1fr;gap:var(--space-3)}
+  .kpi{padding:var(--space-4)}
+  .cartao-corpo{padding:var(--space-4)}
+  .lista-cartao .cartao-titulo{padding:var(--space-4) var(--space-4) 0}
+
+  /* Filtros: um campo por linha, na largura toda. */
+  .filtros{padding:var(--space-4);gap:var(--space-3)}
+  /* `.pagina` na frente empata com os `.tela .filtros .estreito` das telas (larguras máximas da
+     janela) e vence por vir depois: no celular, nenhum filtro fica com 170 px. */
+  .pagina .filtros .campo-bloco{min-width:0;max-width:none;flex:1 1 100%}
+  .pagina .filtros .chips{flex:1 1 100%}
+  .filtros .campo,.filtros select,.filtros input:not([type=checkbox]):not([type=radio]){width:100%;max-width:none}
+  .filtros .busca{flex:1 1 100%}
+  .filtros > .botao{flex:1 1 auto;justify-content:center}
+
+  /* Segmentado e seletor de mês ocupam a linha e não cortam opção. */
+  .segmentado{display:flex;width:100%;overflow-x:auto;scrollbar-width:none}
+  .segmentado button{flex:1 0 auto}
+  .seletor-mes{display:flex;width:100%;justify-content:space-between}
+  .seletor-mes-rotulo{min-width:0;flex:1}
+
+  /* Tabela → cartões. */
+  .tabela-rolagem:has(> table.lista){overflow:visible}
+  table.lista,table.lista > tbody,table.lista > tbody > tr,table.lista > tbody > tr > td{display:block;width:100%}
+  table.lista > thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  table.lista > tbody > tr{padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--borda)}
+  table.lista > tbody > tr:last-child{border-bottom:0}
+  table.lista > tbody > tr:hover > td{background:transparent}
+  /* O rótulo flutua numa coluna à esquerda e o conteúdo da célula — texto, selo, linha
+     secundária — continua fluindo junto, na coluna da direita. `flow-root` faz a célula crescer
+     com um rótulo de duas linhas ("Na competência, ainda não se moveu"), sem encavalar na
+     seguinte. Os `.direita`/`.centro` da janela larga são anulados: no cartão, tudo lê da esquerda. */
+  table.lista > tbody > tr > td,
+  table.lista > tbody > tr > td:is(:first-child,:last-child,.direita,.centro,.nao-quebra){display:flow-root;
+    padding:var(--space-1) 0 var(--space-1) 8.5rem;border:0;text-align:left;white-space:normal}
+  table.lista > tbody > tr > td::before{content:attr(data-rotulo);float:left;width:7.75rem;margin-left:-8.5rem;
+    color:var(--texto-secundario);font-size:var(--text-small-size);font-weight:500;line-height:1.5}
+  /* A primeira célula é o título do cartão; célula sem rótulo (ações, ícones) ocupa a largura. */
+  table.lista > tbody > tr > td:first-child,
+  table.lista > tbody > tr > td[data-rotulo=""]{padding-left:0}
+  table.lista > tbody > tr > td:first-child{padding-bottom:var(--space-2);font-weight:600}
+  table.lista > tbody > tr > td:first-child::before,
+  table.lista > tbody > tr > td[data-rotulo=""]::before{content:none}
+  table.lista > tbody > tr > td:has(.botao):last-child{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);
+    padding:var(--space-2) 0 0}
+  table.lista > tbody > tr > td:has(.botao):last-child::before{float:none;width:auto;margin:0;flex:1 0 100%}
+  /* Faixa de alerta que a janela pinta na primeira célula (ex.: recebível atrasado) vai para a linha. */
+  table.lista > tbody > tr > td:first-child{box-shadow:none}
+  table.lista > tbody > tr > td .botoes-linha{justify-content:flex-start}
+  table.lista > tbody > tr > td .numero{white-space:normal}
+  /* Linha de total/rodapé da tabela, quando houver, também em cartão. */
+  table.lista > tfoot,table.lista > tfoot > tr,table.lista > tfoot > tr > td{display:block;width:100%;text-align:left}
+  table.lista > tfoot > tr{padding:var(--space-3) var(--space-4);background:var(--cinza-50)}
+
+  /* Aviso com botão: o texto fica com a largura toda e o botão desce para baixo dele. */
+  .aviso{flex-wrap:wrap}
+  .aviso > span{flex:1 1 0;min-width:0}
+  .aviso > .botao{flex:1 1 100%;justify-content:center}
+
+  /* Gráficos: altura de gráfico. */
+  .grafico svg,.grafico-linha svg{max-height:220px}
+}

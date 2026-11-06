@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<base href="http://127.0.0.1:5199/">
+<title>Marcar horário com preventivo — mockup</title>
+<link rel="stylesheet" href="css/clinica.css">
+<style>
+/* Só o que é NOVO nesta tela; o resto é o CSS real do sistema. */
+.prev-bloco{margin-top:var(--space-4);border:1px solid var(--borda);border-radius:var(--radius-card);overflow:hidden}
+.prev-linha{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);background:var(--acento-suave)}
+.prev-sw{width:38px;height:22px;border-radius:11px;background:var(--acento);position:relative;flex:none}
+.prev-sw::after{content:"";position:absolute;right:3px;top:3px;width:16px;height:16px;border-radius:50%;background:#fff}
+.prev-linha strong{display:block}
+.prev-linha small{color:var(--texto-secundario)}
+.prev-linha .selo{margin-left:auto}
+.prev-corpo{padding:var(--space-3) var(--space-4);display:flex;flex-direction:column;gap:var(--space-3)}
+.prev-dias{display:flex;gap:var(--space-2);flex-wrap:wrap}
+.prev-dia{border:1px solid var(--borda);background:var(--superficie);border-radius:var(--radius-control);padding:var(--space-2) var(--space-3);display:flex;flex-direction:column;line-height:1.3;font-weight:600}
+.prev-dia small{font-weight:500;color:var(--sucesso-forte)}
+.prev-dia.escolhida{border-color:var(--acento);background:var(--acento-suave);color:var(--acento)}
+.prev-dia.lotado{background:var(--erro-suave);border-color:var(--erro-suave);color:var(--erro-texto)}
+.prev-dia.lotado small{color:var(--erro-texto)}
+.ra-hora.riscada{text-decoration:line-through;opacity:.5}
+</style>
+</head>
+<body>
+<div class="pagina rec-atendimento"><header class="cabecalho"><div class="cabecalho-texto"><p class="sobretitulo">Recepção · Atendimento</p><h1>Marcar horário</h1><p class="subtitulo">O paciente não está aqui. O horário entra na agenda de quem atende — e quem precisar voltar ganha outro horário pela agenda.</p></div></header>
+<div class="ra-grade"><div class="ra-form"><fieldset class="ra-travado"><section class="ra-quem" aria-label="Quem"><div class="faixa-paciente" role="group" aria-label="Paciente escolhido"><span class="avatar grande">PG</span>
+  <div class="faixa-paciente-id"><strong class="faixa-paciente-nome">Patrícia Gomes Almeida</strong>
+    <dl class="faixa-paciente-campos"><div><dt>Documento</dt><dd>—</dd></div><div><dt>Idade</dt><dd>41 anos</dd></div><div><dt>Telefone</dt><dd>(22) 99812-4410</dd></div><div><dt>Convênio</dt><dd>Unimed Costa do Sol</dd></div></dl></div>
+  <div class="faixa-paciente-acoes"><button type="button" class="botao">Trocar paciente</button></div></div>
+  <p class="ra-carteirinha"><span>Carteirinha <b>0 865 000123456789 0</b> · vence <b>17/05/2027</b></span></p></section>
+
+<section class="cartao ra-passo"><div class="ra-passo-cab"><span class="ra-numero ">2</span><h2>O que foi pedido</h2></div><div class="ra-modalidades" role="radiogroup" aria-label="Modalidade"><button type="button" role="radio" aria-checked="false" class="ra-modalidade familia-acupuntura "><span class="ra-mod-nome"><span>Acupuntura (apenas)</span></span></button><button type="button" role="radio" aria-checked="false" class="ra-modalidade familia-acupuntura "><span class="ra-mod-nome"><span>Auriculoterapia</span></span></button><button type="button" role="radio" aria-checked="false" class="ra-modalidade familia-eletro "><span class="ra-mod-nome"><span>Acupuntura + eletroacupuntura</span></span></button><button type="button" role="radio" aria-checked="false" class="ra-modalidade familia-bsv-acupuntura "><span class="ra-mod-nome"><span>BSV + acupuntura</span></span></button><button type="button" role="radio" aria-checked="false" class="ra-modalidade familia-bsv "><span class="ra-mod-nome"><span>BSV (apenas)</span></span></button><button type="button" role="radio" aria-checked="true" class="ra-modalidade familia-consulta escolhida"><span class="ra-mod-nome"><span>Consulta</span></span></button></div>
+<div class="campos ra-campos-mod"><label class="campo-bloco "><span class="campo-rotulo">Especialidade da consulta<b class="obrigatorio" aria-hidden="true">*</b></span>
+<select class="campo"><option value="">Escolha…</option><option>Acupuntura</option><option>Clínica da Dor</option><option>Endocrinologia</option><option>Geriatria</option><option selected>Ginecologia</option><option>Psiquiatria</option></select><span class="campo-dica">Fica registrada na guia e nos relatórios.</span></label><label class="campo-bloco largo"><span class="campo-rotulo">Observações</span> <textarea class="campo" rows="2" maxlength="500">Primeira consulta pela Unimed.</textarea></label></div></section>
+
+<section class="cartao ra-passo"><div class="ra-passo-cab"><span class="ra-numero ">3</span><h2>Quando e com quem</h2></div> <div class="campos tres"><label class="campo-bloco "><span class="campo-rotulo">Data</span> <input type="date" class="campo" value="2026-11-25"></label> <label class="campo-bloco "><span class="campo-rotulo">Profissional</span> <select class="campo"><option selected>Dra. Helena · Ginecologia</option></select><span class="campo-dica">Aparece no app de quem atende e entra no repasse.</span></label> <label class="campo-bloco "><span class="campo-rotulo">Sala</span> <select class="campo"><option selected>Consultório Alecrim</option></select></label></div>
+
+<div class="prev-bloco">
+  <div class="prev-linha"><span class="prev-sw" role="switch" aria-checked="true"></span>
+    <div><strong>Coleta de preventivo</strong><small>Conta na agenda de preventivo da Dra. Helena — limite de 5 por dia</small></div>
+    <span class="selo tom-perigo">qua 25/11 · 5 de 5</span></div>
+  <div class="prev-corpo">
+    <div class="aviso erro" role="alert"><svg class="icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg><span><strong>O dia 25/11 já tem os 5 preventivos.</strong> Diga à paciente o próximo dia de coleta — ou desligue o preventivo para marcar só a consulta neste dia.</span></div>
+    <div class="prev-dias">
+      <span class="prev-dia lotado">qua 25/11<small>lotado</small></span>
+      <span class="prev-dia">qui 26/11<small>3 vagas · 15:30 livre</small></span>
+      <span class="prev-dia">seg 30/11<small>4 vagas</small></span>
+      <span class="prev-dia">ter 01/12<small>5 vagas</small></span>
+      <button type="button" class="botao fantasma">Ver o mapa de vagas →</button>
+    </div>
+  </div>
+</div>
+
+<div class="ra-horas" role="group" aria-label="Horários do dia" style="margin-top:var(--space-4)"><button type="button" class="ra-hora">08:00</button><button type="button" class="ra-hora">08:30</button><button type="button" class="ra-hora">09:00</button><button type="button" class="ra-hora">09:30</button><button type="button" class="ra-hora">10:00</button><button type="button" class="ra-hora">10:30</button><button type="button" class="ra-hora">11:00</button><button type="button" class="ra-hora">11:30</button><button type="button" class="ra-hora">14:00</button><button type="button" class="ra-hora">14:30</button><button type="button" class="ra-hora">15:00</button><button type="button" class="ra-hora escolhida" aria-pressed="true">15:30</button><button type="button" class="ra-hora">16:00</button><button type="button" class="ra-hora">16:30</button><button type="button" class="ra-hora">17:00</button><button type="button" class="ra-hora">17:30</button></div></section></fieldset></div>
+
+<aside class="cartao ra-lado" aria-label="O que vai ser gravado"><div class="ra-lado-corpo"><h3 class="ra-lado-titulo">O que vai ser marcado</h3> <dl class="pares ra-resumo"><dt>Paciente</dt><dd>Patrícia Gomes Almeida</dd> <dt>Atendimento</dt><dd>Consulta · Ginecologia</dd> <dt>Coleta</dt><dd>Preventivo</dd> <dt>Quando</dt><dd>qua, 25/11 às 15:30 · 30 min</dd> <dt>Com</dt><dd>Dra. Helena</dd> <dt>Guias</dt><dd>nascem quando o profissional finalizar</dd></dl>
+<h3 class="ra-lado-titulo">Antes de marcar</h3> <div class="ra-avisos"><div class="ra-traco tom-aviso"><b>Sem vaga de preventivo em 25/11</b> (5 de 5). Escolha outro dia para a coleta, ou desligue o preventivo para marcar só a consulta.</div></div></div>
+<div class="ra-lado-rodape"><button type="button" class="botao primario ra-acao" disabled>Escolha outro dia para a coleta</button><p class="ra-dica">Com o preventivo, a vaga do dia é reservada na hora — duas secretárias não passam do limite.</p><button type="button" class="botao fantasma ra-limpar">Limpar</button></div></aside></div></div>
+<script src="file:///C:/Users/ROYA/Documents/SemDor/Clinica/docs/mockups/agenda-preventivo/real-moldura.js"></script>
+</body>
+</html>

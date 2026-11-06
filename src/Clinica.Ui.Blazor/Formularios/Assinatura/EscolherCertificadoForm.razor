@@ -9,14 +9,31 @@
   assinar); o que não foi confirmado é liberado aqui, ao fechar. O arquivo fica na memória só até
   o Carregar (e é zerado), a senha é limpa no Carregar e ao fechar, e nada vai para configuração.
   Enquanto confere, o formulário não fecha: fechar no meio deixaria a pessoa sem saber o estado.
+
+  O SAFEID (out/2026 — de volta para receitas e documentos, a pedido da clínica): com
+  `PermitirNuvem` e a clínica com as credenciais cadastradas, aparece "Usar SafeID". A busca
+  (BuscaNoSafeID, Application) abre o QR Code no navegador e espera a confirmação no celular; o
+  Cancelar interrompe a espera. A infusão abre este formulário SEM `PermitirNuvem` e segue só A1.
 *@
 @using Clinica.Application.Assinatura
+@using Clinica.Application.Assinatura.SafeID
 @using Clinica.Application.Modelos
 @inherits TelaBase
 
-<Modal Titulo="Assinar com certificado A1" Subtitulo="@Assunto" Largura="grande" AoFechar="FecharAsync">
+<Modal Titulo="@(_nuvemDisponivel ? "Assinar com certificado digital" : "Assinar com certificado A1")" Subtitulo="@Assunto" Largura="grande" AoFechar="FecharAsync">
     <ChildContent>
         <p class="secundario">Escolha o SEU certificado: o sistema confere se o CPF que está dentro dele é o mesmo do profissional que assina.</p>
+
+        @if (_nuvemDisponivel)
+        {
+            <fieldset class="assin-a1" disabled="@_conferindo">
+                <legend>Usar SafeID (certificado em nuvem)</legend>
+                <p class="secundario">Abre a página do SafeID: leia o QR Code com o aplicativo e confirme no celular.</p>
+                <div class="assin-a1-linha">
+                    <button type="button" class="botao" @onclick="BuscarNoSafeIDAsync">Usar SafeID</button>
+                </div>
+            </fieldset>
+        }
 
         <fieldset class="assin-a1" disabled="@_conferindo">
             <legend>Usar arquivo A1 (.pfx ou .p12)</legend>
@@ -49,15 +66,17 @@
             }
             else
             {
-                <EstadoVazio Titulo="Carregue seu certificado A1" Icone="cofre"
-                             Descricao="Escolha o arquivo .pfx ou .p12, informe a senha e clique em Carregar A1." />
+                <EstadoVazio Titulo="@(_nuvemDisponivel ? "Escolha o seu certificado" : "Carregue seu certificado A1")" Icone="cofre"
+                             Descricao="@(_nuvemDisponivel
+                                          ? "Use o SafeID ou escolha o arquivo .pfx/.p12, informe a senha e clique em Carregar A1."
+                                          : "Escolha o arquivo .pfx ou .p12, informe a senha e clique em Carregar A1.")" />
             }
         </div>
 
         <Aviso Texto="@_mensagem" Tom="@(_mensagemEhErro ? "erro" : "info")" />
     </ChildContent>
     <Rodape>
-        <button type="button" class="botao" disabled="@_conferindo" @onclick="FecharAsync">Cancelar</button>
+        <button type="button" class="botao" disabled="@(_conferindo && _espera is null)" @onclick="FecharAsync">Cancelar</button>
         <button type="button" class="botao primario" disabled="@(!PodeConfirmar)" @onclick="ConfirmarAsync">Assinar</button>
     </Rodape>
 </Modal>
@@ -66,6 +85,8 @@
     [Parameter, EditorRequired] public string Assunto { get; set; } = string.Empty;
     [Parameter] public EventCallback<CertificadoAssinatura> AoConcluir { get; set; }
     [Parameter] public EventCallback AoFechar { get; set; }
+    /// <summary>Oferece o SafeID (receitas e documentos). A infusão não passa: segue só A1.</summary>
+    [Parameter] public bool PermitirNuvem { get; set; }
 
     private byte[]? _arquivo;
     private string? _nomeArquivo;
@@ -74,6 +95,55 @@
     private bool _conferindo, _transferido;
     private string? _mensagem;
     private bool _mensagemEhErro;
+    private bool _nuvemDisponivel;
+    // A espera da confirmação no celular: o Cancelar a interrompe (a busca leva até 3 min).
+    private CancellationTokenSource? _espera;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (PermitirNuvem) _nuvemDisponivel = await BuscaNoSafeID.ConfiguradoAsync(Escopos);
+    }
+
+    private async Task BuscarNoSafeIDAsync()
+    {
+        if (_conferindo) return;
+        LiberarCarregado();
+        ZerarArquivo();
+        _senha = string.Empty;
+        _conferindo = true;
+        _espera = new CancellationTokenSource();
+        Falar(BuscaNoSafeID.Aguardando, false);
+        try
+        {
+            var certificados = await BuscaNoSafeID.BuscarAsync(Escopos, Assunto,
+                endereco => _ = Host.AbrirEnderecoAsync(endereco.ToString()), ct: _espera.Token);
+            if (Descartada) return;
+            // O primeiro que pode assinar; os outros (raro: mais de um certificado na conta) saem.
+            var escolhido = certificados.FirstOrDefault(c => c.Vigente && c.EhECpf) ?? certificados.FirstOrDefault();
+            if (escolhido is null)
+            {
+                Falar(BuscaNoSafeID.NenhumCertificado, true);
+                return;
+            }
+            _linha = LinhaCertificado.De(escolhido);
+            Falar("Certificado do SafeID autorizado. Confira o titular e clique em Assinar.", false);
+        }
+        catch (OperationCanceledException)
+        {
+            Falar("Busca no SafeID cancelada.", false);
+        }
+        catch (Exception e)
+        {
+            Clinica.Application.Diagnostico.Registrar("SafeID — a autorização não foi concluída", e);
+            Falar(e is InvalidOperationException ? e.Message : "Não foi possível falar com o SafeID. Tente de novo.", true);
+        }
+        finally
+        {
+            _conferindo = false;
+            _espera?.Dispose();
+            _espera = null;
+        }
+    }
 
     private bool PodeConfirmar => !_conferindo && _linha?.PodeEscolher == true;
 
@@ -140,6 +210,8 @@
 
     private async Task FecharAsync()
     {
+        // Na espera do SafeID, o Cancelar só interrompe a busca; o formulário continua aberto.
+        if (_espera is { } espera) { espera.Cancel(); return; }
         if (_conferindo) return;
         _senha = string.Empty;
         await AoFechar.InvokeAsync();
@@ -165,6 +237,7 @@
 
     public override void Dispose()
     {
+        _espera?.Cancel();
         _senha = string.Empty;
         ZerarArquivo();
         LiberarCarregado();

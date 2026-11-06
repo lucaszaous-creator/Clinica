@@ -1,0 +1,237 @@
+@*
+  GRAVAR UM ÁUDIO NA CONVERSA DO WHATSAPP (24/10/2026). O botão do microfone no rodapé do campo de
+  escrever; gravando, a faixa toma o lugar do rodapé (o CSS esconde o resto com :has) e mostra o
+  tempo, Cancelar e Enviar. A gravação é do navegador (js/gravacao-de-audio.js, o mesmo MediaRecorder
+  do CRM web); quem sobe e envia é a tela (AoEnviar), com as regras do anexo.
+
+  - Nada sai sem o clique em Enviar. No limite (MidiaDaConversa.DuracaoMaximaDaGravacao) a gravação
+    PARA e espera; se o envio falhar, o áudio fica aqui para Enviar de novo — a tela guarda o anexo e
+    o Id do envio na Gravacao, e repetir não manda duas vezes.
+  - Trocar de conversa, ir para a nota ou sair da aba descarta a gravação e desliga o microfone.
+  - Sem microfone, sem permissão ou sem MediaRecorder: a frase vai para a tela (AoAvisar), e o
+    caminho que sobra é o Anexar.
+*@
+@implements IAsyncDisposable
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+
+@if (_estado == Estado.Parado)
+{
+    @* "Áudio" e não "Gravar áudio", e só o ícone abaixo de 1180 px: com o rótulo o Enviar caía para a linha de baixo (fotos 02 e 50). *@
+    <button type="button" class="botao mini wa-gravar" disabled="@Desabilitado" aria-label="Gravar áudio" title="Gravar um áudio (até 2 minutos)" @onclick="IniciarAsync"><Icone Nome="microfone" /><span class="wa-gravar-rotulo">Áudio</span></button>
+}
+else
+{
+    <div class="wa-gravando @(_estado == Estado.Gravando ? "ativo" : null)" role="status" aria-live="polite">
+        <button type="button" class="botao mini" disabled="@(_estado == Estado.Enviando)" @onclick="CancelarAsync"><Icone Nome="lixo" />Cancelar</button>
+        <span class="wa-gravando-ponto" aria-hidden="true"></span>
+        <span class="wa-gravando-tempo">@MidiaDaConversa.Tempo(_segundos)</span>
+        <span class="wa-gravando-texto">@Frase</span>
+        <button type="button" class="botao primario" disabled="@(_estado is Estado.Pedindo or Estado.Enviando || Desabilitado)" @onclick="EnviarAsync">
+            <Icone Nome="aviao" />@(_estado == Estado.Enviando ? "Enviando…" : "Enviar áudio")</button>
+    </div>
+}
+
+@code {
+    /// <summary>A conversa da gravação: trocou, a gravação é descartada.</summary>
+    [Parameter, EditorRequired] public string ConversaId { get; set; } = "";
+
+    [Parameter] public bool Desabilitado { get; set; }
+
+    /// <summary>Sobe e envia; verdadeiro quando saiu (a faixa fecha). Falso deixa o áudio para Enviar de novo.</summary>
+    [Parameter, EditorRequired] public Func<Gravacao, Task<bool>> AoEnviar { get; set; } = default!;
+
+    /// <summary>A frase para a tela mostrar (sem microfone, permissão negada, gravação interrompida).</summary>
+    [Parameter] public EventCallback<string> AoAvisar { get; set; }
+
+    /// <summary>
+    /// O áudio gravado. <see cref="Anexo"/> e <see cref="IdDoEnvio"/> são da tela: o anexo que já subiu e o
+    /// Guid "D" do envio, os mesmos na repetição (o envio é idempotente no CRM).
+    /// </summary>
+    public sealed class Gravacao(byte[] bytes, string mime, double segundos)
+    {
+        public byte[] Bytes { get; } = bytes;
+        public string Mime { get; } = mime;
+        public double Segundos { get; } = segundos;
+        public Clinica.Crm.Contracts.AppAttachment? Anexo { get; set; }
+        public string? ConversaDoAnexo { get; set; }
+        public string IdDoEnvio { get; } = Guid.NewGuid().ToString("D");
+    }
+
+    private enum Estado { Parado, Pedindo, Gravando, Pronta, Enviando }
+
+    private const string ModuloJs = "./js/gravacao-de-audio.js";
+
+    private IJSObjectReference? _modulo;
+    private Estado _estado;
+    private double _segundos;
+    private string _mime = "audio/webm";
+    private string? _conversa;
+    private Gravacao? _pronta;
+    private Timer? _relogio;
+    private bool _descartado;
+
+    private string Frase => _estado switch
+    {
+        Estado.Pedindo => "Liberando o microfone…",
+        Estado.Gravando => "Gravando",
+        Estado.Pronta => _segundos >= MidiaDaConversa.DuracaoMaximaDaGravacao - 1 ? "Chegou ao limite de 2 minutos" : "Pronto para enviar",
+        _ => "Enviando o áudio…"
+    };
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_conversa is not null && _conversa != ConversaId && _estado != Estado.Parado) await CancelarAsync();
+        _conversa = ConversaId;
+    }
+
+    private async Task IniciarAsync()
+    {
+        if (_estado != Estado.Parado || Desabilitado) return;
+        _estado = Estado.Pedindo;
+        _segundos = 0;
+        _pronta = null;
+        ResultadoDoInicio? r = null;
+        try
+        {
+            _modulo ??= await JS.InvokeAsync<IJSObjectReference>("import", ModuloJs);
+            if (_modulo is not null) r = await _modulo.InvokeAsync<ResultadoDoInicio?>("iniciar", MidiaDaConversa.DuracaoMaximaDaGravacao);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException)
+        {
+            Clinica.Application.Diagnostico.Registrar("WhatsApp — a gravação de áudio não começou", ex);
+        }
+        if (_descartado) return;
+        if (r?.Estado != "gravando")
+        {
+            _estado = Estado.Parado;
+            if (r?.Estado != "cancelada") await AoAvisar.InvokeAsync(FraseDoInicio(r));
+            return;
+        }
+        _mime = string.IsNullOrWhiteSpace(r.Mime) ? "audio/webm" : r.Mime;
+        _estado = Estado.Gravando;
+        _relogio = new Timer(_ => _ = InvokeAsync(AcompanharAsync), null, TimeSpan.FromMilliseconds(250), TimeSpan.FromMilliseconds(500));
+    }
+
+    private static string FraseDoInicio(ResultadoDoInicio? r) => r?.Estado switch
+    {
+        "negado" => "O microfone não foi liberado. Confira em Configurações do Windows → Privacidade e segurança → Microfone "
+                    + "(inclusive “Permitir que aplicativos da área de trabalho acessem o microfone”). Enquanto isso, use Anexar.",
+        "sem-microfone" => "Nenhum microfone encontrado. Conecte um fone com microfone e tente de novo, ou use Anexar.",
+        "ocupado" => "O microfone está em uso por outro programa. Feche-o e tente de novo, ou use Anexar.",
+        "erro" => $"Não foi possível ligar o microfone ({r.Mensagem}). Use Anexar para mandar um arquivo de áudio.",
+        _ => "Este computador não oferece gravação de áudio aqui. Use Anexar para mandar um arquivo de áudio."
+    };
+
+    /// <summary>O tempo na faixa, e as paradas sozinhas: o limite (fica pronta), o microfone que saiu e os 16 MB (descarta e avisa).</summary>
+    private async Task AcompanharAsync()
+    {
+        if (_estado != Estado.Gravando || _modulo is null || _descartado) return;
+        SituacaoDaGravacao? s;
+        try { s = await _modulo.InvokeAsync<SituacaoDaGravacao?>("situacao"); }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException) { return; }
+        if (s is null || _estado != Estado.Gravando || _descartado) return;
+        _segundos = s.Segundos;
+        if (s.Interrompida || s.Excedeu)
+        {
+            await CancelarAsync();
+            await AoAvisar.InvokeAsync(s.Excedeu ? "A gravação passou de 16 MB e foi descartada. Grave um áudio menor."
+                : "A gravação foi interrompida (o microfone saiu). Grave de novo.");
+            return;
+        }
+        if (!s.Gravando) await PararAsync();
+        StateHasChanged();
+    }
+
+    /// <summary>Para o microfone e guarda o áudio (no limite, e antes de enviar). Falso quando não sobrou nada para enviar.</summary>
+    private async Task<bool> PararAsync()
+    {
+        if (_pronta is not null) return true;
+        _relogio?.Dispose();
+        _relogio = null;
+        byte[]? bytes = null;
+        try
+        {
+            // Em FLUXO, não byte[]: na prévia (Blazor Server) uma mensagem do navegador passa de 32 KB e
+            // derruba o circuito — foi o que a foto 55 mostrou. O fluxo vem em pedaços nos dois hospedeiros.
+            if (_modulo is not null && await _modulo.InvokeAsync<IJSStreamReference?>("parar") is { } fluxo)
+            {
+                await using (fluxo)
+                {
+                    await using var leitura = await fluxo.OpenReadStreamAsync(MidiaDaConversa.Teto);
+                    using var memoria = new MemoryStream();
+                    await leitura.CopyToAsync(memoria);
+                    bytes = memoria.ToArray();
+                }
+            }
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException
+                                       or IOException or ArgumentOutOfRangeException)
+        {
+            Clinica.Application.Diagnostico.Registrar("WhatsApp — a gravação de áudio não pôde ser lida", ex);
+        }
+        if (_descartado) return false;
+        if (bytes is not { Length: > 0 })
+        {
+            _estado = Estado.Parado;
+            await AoAvisar.InvokeAsync("A gravação ficou vazia. Grave de novo.");
+            return false;
+        }
+        _pronta = new Gravacao(bytes, _mime, _segundos);
+        _estado = Estado.Pronta;
+        return true;
+    }
+
+    private async Task EnviarAsync()
+    {
+        if (_estado is not (Estado.Gravando or Estado.Pronta) || Desabilitado) return;
+        if (!await PararAsync() || _pronta is not { } g) return;
+        _estado = Estado.Enviando;
+        var saiu = false;
+        try { saiu = await AoEnviar(g); }
+        finally
+        {
+            // Saiu: a faixa fecha. Não saiu: o áudio fica, para Enviar de novo (a frase do porquê já está na tela).
+            if (!_descartado)
+            {
+                _estado = saiu ? Estado.Parado : Estado.Pronta;
+                if (saiu) _pronta = null;
+            }
+        }
+    }
+
+    /// <summary>Descarta a gravação e desliga o microfone (a tela chama ao sair da aba).</summary>
+    public async Task CancelarAsync()
+    {
+        _relogio?.Dispose();
+        _relogio = null;
+        _pronta = null;
+        _segundos = 0;
+        if (_estado == Estado.Parado || _descartado) return;
+        _estado = Estado.Parado;
+        try { if (_modulo is not null) await _modulo.InvokeVoidAsync("cancelar"); }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException) { /* o navegador já foi */ }
+        if (!_descartado) StateHasChanged();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _descartado = true;
+        _relogio?.Dispose();
+        _relogio = null;
+        if (_modulo is null) return;
+        try
+        {
+            if (_estado != Estado.Parado) await _modulo.InvokeVoidAsync("cancelar");
+            await _modulo.DisposeAsync();
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException) { /* o navegador já foi */ }
+        finally { _estado = Estado.Parado; }
+    }
+
+    /// <summary>O que o js/gravacao-de-audio.js devolve ao ligar o microfone (público para o teste simular o navegador).</summary>
+    public sealed record ResultadoDoInicio(string Estado, string? Mime, string? Mensagem);
+
+    /// <summary>O que o js devolve a cada meio segundo.</summary>
+    public sealed record SituacaoDaGravacao(double Segundos, bool Gravando, bool Interrompida, bool Excedeu);
+}

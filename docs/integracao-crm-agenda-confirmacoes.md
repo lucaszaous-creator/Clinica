@@ -17,10 +17,10 @@ regressão e tem a publicação bloqueada; **esta é a que se instala**.
 |---|---|
 | `GET /crm/snapshot` | Agenda de ontem até +32 dias, catálogo de especialidades e a situação da confirmação de cada horário |
 | `POST /crm/decision` | Resposta do paciente ao lembrete do WhatsApp: `confirm`, `cancel`, `reschedule` ou `notified` |
-| `GET /crm/recall` | Candidatos a recall: **só a fila de recall da clínica** (`Acompanhamentos` tipo Recall), bloqueados "Sem autorização de mensagem" sem consentimento `ComunicacaoEMarketing` vigente e "Ainda não atingiu N dias" pelos dias do Gerente, que voltam em `InactivityDays` (fase 3, out/2026) |
+| `GET /crm/recall` | Candidatos a recall: **só a fila de recall da clínica** (`Acompanhamentos` tipo Recall), bloqueados "Sem autorização de mensagem" quando o paciente RECUSOU (último registro `ComunicacaoEMarketing` não vigente — desde 25/10/2026 sem registro conta como autorizado, `PacientesComMensagensLiberadasAsync`) e "Ainda não atingiu N dias" pelos dias do Gerente, que voltam em `InactivityDays` (fase 3, out/2026) |
 | `GET /crm/relationship` | As filas da tela **Relacionamento** do CRM: sem vir há 15+ dias (até um ano, sem horário marcado), novo no BSV (indicado sem 1ª sessão, ou 1ª sessão de BSV nos últimos 30 dias) e consulta a renovar (`ARenovar`, pelo mesmo `ConsultaService` da agenda do balcão). Só leitura |
 | `POST /crm/recall/notice` | Registro do convite de recall enviado, com o canal (`whatsapp` ou `sms`) |
-| `POST /crm/v1/consent/optout` | **Um PARAR só** (fase 3): o paciente respondeu PARAR no CRM e a autorização de mensagens é revogada em toda ficha com aquele telefone (linha vigente com `RevogadoEm` + linha de recusa, trilha `ConsentimentoRevogado`) |
+| `POST /crm/v1/consent/optout` | **Um PARAR só** (fase 3): o paciente respondeu PARAR no CRM e a autorização de mensagens é revogada em toda ficha com aquele telefone (linha vigente com `RevogadoEm` + linha de recusa, trilha `ConsentimentoRevogado`; desde 25/10/2026 a ficha que nunca respondeu também ganha a linha de recusa) |
 | `POST /crm/v1/appointments/slots` / `reschedule` | Vagas e remarcação assistida (remarcação só com `CRM_SCHEDULING_ENABLED=true`) |
 | `POST /crm/v1/appointments/cancel` | Cancelamento pela secretária, com motivo, pelo mesmo `CancelarAsync` do balcão (suspende as guias). Idempotente pelo comando. Só com `CRM_SCHEDULING_ENABLED=true` |
 | `POST /crm/v1/booking/catalog` · `calendar` · `slots` · `status` | Leitura para marcar: pacientes do telefone, profissionais, salas, modalidades, a agenda ocupada (sem o nome de outros pacientes) e as vagas pela `BuscaDeVagas` |
@@ -126,8 +126,10 @@ a configuração do provedor no Clinica e a campanha de SMS saíram (`docs/canal
 não é usada.
 
 **Recall (fase 3):** o CRM convida só quem está na fila de recall da clínica, só com a autorização
-de mensagens vigente (colhida no termo do BSV — `ModelosTermoBsv.AutorizacaoDeMensagens` — ou no
-termo LGPD) e só a partir dos dias do Gerente. O CRM guarda canal, modelo, janela de horário,
+de mensagens (colhida no termo do BSV — `ModelosTermoBsv.AutorizacaoDeMensagens` — ou no
+termo LGPD) e só a partir dos dias do Gerente. **Desde 25/10/2026** a autorização é considerada
+colhida no termo do BSV: sem registro conta como autorizado, e só quem recusou fica de fora
+(`docs/fase3-recepcao-crm.md` §6). O CRM guarda canal, modelo, janela de horário,
 limite diário e intervalo; as "regras por tipo" com dias próprios saíram. Decisões e comparação
 em `docs/fase3-recepcao-crm.md`.
 

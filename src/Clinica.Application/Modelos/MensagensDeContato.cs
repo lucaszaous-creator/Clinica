@@ -54,17 +54,6 @@ public static class MensagensDeContato
     private static readonly System.Globalization.CultureInfo PtBr = new("pt-BR");
 
     /// <summary>
-    /// O convite para marcar o retorno que quem atendeu pediu (a fila "Retornos a
-    /// marcar"). Diz QUEM pediu e PARA QUANDO; não diz por quê — o motivo é registro
-    /// clínico e não sai numa mensagem.
-    /// </summary>
-    public static string ConviteDeRetorno(
-        string nomePaciente, DateOnly retornoEm, string profissional, string? nomeClinica = null)
-        => $"Olá, {PrimeiroNome(nomePaciente)}! {profissional} pediu seu retorno por volta de "
-           + $"{retornoEm:dd/MM}. Podemos marcar um horário? Responda por aqui com o melhor dia para você."
-           + Assinatura(nomeClinica);
-
-    /// <summary>
     /// O convite de RECALL: o paciente parou de vir e a clínica chama de volta. Morava no
     /// shell (`Whatsapp.Recall`); desceu para cá quando a fila de Acompanhamento virou tela
     /// Blazor (out/2026) — duas redações divergiriam na primeira correção.

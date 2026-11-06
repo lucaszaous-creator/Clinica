@@ -231,6 +231,10 @@ public sealed class PacienteService
     public async Task<byte[]?> ObterFotoAsync(int pacienteId, CancellationToken ct = default)
         => (await _repo.ObterFotoPacienteAsync(pacienteId, ct))?.Conteudo;
 
+    /// <summary>As miniaturas dos retratos (o avatar de uma lista), por id; quem não tem foto fica de fora.</summary>
+    public Task<IReadOnlyDictionary<int, byte[]>> ObterMiniaturasAsync(IReadOnlyCollection<int> pacienteIds, CancellationToken ct = default)
+        => _repo.ObterMiniaturasPacientesAsync(pacienteIds, ct);
+
     /// <summary>
     /// Grava o retrato capturado na recepção: a foto cheia e a miniatura usada nos avatares.
     /// Ambas já chegam em JPEG, recortadas e redimensionadas pela camada visual.

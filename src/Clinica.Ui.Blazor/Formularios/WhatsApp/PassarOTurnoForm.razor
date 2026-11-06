@@ -1,0 +1,51 @@
+@namespace Clinica.Ui.Blazor.Formularios
+@using Clinica.Crm.Contracts
+@*
+  PASSAR O TURNO (25/10, D12 — docs/whatsapp-nativo-implementacao.md §16). Todas as conversas abertas de quem
+  está saindo voltam à fila, com UMA nota que vai em cada uma. A lista do que vai e a nota obrigatória; a
+  devolução, conversa por conversa, é a da tela (WhatsAppDaRecepcaoService.PassarOTurnoAsync). Se alguma não
+  passar, o formulário fica aberto com o relato (quem passou, quem ficou e por quê) e só as que ficaram.
+*@
+
+<Modal Titulo="Passar o turno" Subtitulo="As conversas abaixo voltam à fila e ficam sem responsável. Quem assumir cada uma lê a sua nota." Largura="pequeno" AoFechar="AoFechar">
+    <ChildContent>
+        <ul class="wa-turno-lista" aria-label="O que volta à fila">
+            @foreach (var c in Conversas)
+            {
+                <li @key="c.Id"><Icone Nome="chat" /><span>@ConversasNaTela.NomeDaConversa(c)</span><small>Fila @c.Queue</small></li>
+            }
+        </ul>
+        <Campo Rotulo="Nota da passagem" Obrigatorio="true" Classe="largo" Dica="Vai em cada conversa, como nota interna.">
+            <textarea class="campo" rows="3" maxlength="@WhatsAppDaRecepcaoService.MaximoDoMotivoDeDevolver" @bind="_nota" @bind:event="oninput"
+                      placeholder="Ex.: fim do turno da manhã; a Maria espera o horário de terça."></textarea>
+        </Campo>
+        <Aviso Tom="atencao" Texto="@Relato" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" disabled="@(_ocupado || Conversas.Count == 0 || TurnoNoWhatsApp.Impedimento(_nota) is not null)"
+                title="@TurnoNoWhatsApp.Impedimento(_nota)" @onclick="ConfirmarAsync">
+            <Icone Nome="transferir" />@(_ocupado ? "Passando…" : TurnoNoWhatsApp.Rotulo(Conversas.Count))</button>
+    </Rodape>
+</Modal>
+
+@code {
+    /// <summary>As conversas que passam (as abertas de quem está logado — o filtro "Minhas").</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<AppConversationSummary> Conversas { get; set; } = [];
+    /// <summary>O relato da tentativa anterior em que alguma ficou (inline); nulo na primeira.</summary>
+    [Parameter] public string? Relato { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+    /// <summary>Passa com a nota. A tela fecha o formulário quando todas passaram; quando alguma ficou, devolve o <see cref="Relato"/>.</summary>
+    [Parameter, EditorRequired] public Func<string, Task> AoConfirmar { get; set; } = default!;
+
+    private string? _nota;
+    private bool _ocupado;
+
+    private async Task ConfirmarAsync()
+    {
+        if (_ocupado || TurnoNoWhatsApp.Impedimento(_nota) is not null) return;
+        _ocupado = true;
+        try { await AoConfirmar(_nota!.Trim()); }
+        finally { _ocupado = false; }
+    }
+}

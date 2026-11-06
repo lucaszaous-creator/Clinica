@@ -8,6 +8,9 @@
 .at-titulo{margin:0;font-size:var(--text-h3-size);font-weight:700}
 .at-cabecalho p{margin:var(--space-1) 0 0}
 .at-contexto{margin:0;padding:0 var(--space-4) var(--space-3);color:var(--texto-secundario);font-size:var(--text-small-size);overflow-wrap:anywhere}
+/* Dentro do cabeçalho (entre a data e o histórico), o contexto ocupa o meio e quebra se precisar. */
+.at-cabecalho{align-items:center}
+.at-cabecalho .at-contexto{flex:1 1 320px;min-width:0;padding:0}
 
 /* Os avisos: UMA superfície, uma linha por aviso, cor no traço — o peso segue a GRAVIDADE. */
 .at-avisos{display:flex;flex-direction:column;gap:var(--space-1);margin:0 var(--space-4) var(--space-3);padding:var(--space-2) var(--space-3);
@@ -34,39 +37,54 @@
 .at-personalizados summary{cursor:pointer;font-weight:600;margin-bottom:var(--space-2)}
 .at-personalizados-grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:var(--space-2) var(--space-3)}
 
-.at-tira{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:var(--space-2) var(--space-3);
-  padding:var(--space-3) var(--space-4);border-top:1px solid var(--borda);background:var(--fundo)}
+/* A barra do Registro clínico: a EVA em par ANTES das ferramentas da escrita (pedido da clínica). */
+.at-consulta{display:flex;align-items:center;gap:var(--space-2);color:var(--texto-secundario);font-size:var(--text-small-size);font-weight:600}
+.at-consulta .campo{width:auto}
+.at-eva{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);margin-left:var(--space-3);margin-right:auto}
+.at-eva-campo{display:flex;align-items:center;gap:var(--space-1);padding:0 var(--space-1) 0 var(--space-3);border:1px solid var(--borda);
+  border-radius:var(--radius-chip);background:var(--superficie);font-size:var(--text-small-size);color:var(--texto-secundario);font-weight:600}
+.at-eva-campo .campo{width:auto;min-height:0;border:0;background:transparent;padding:var(--space-1)}
+.at-eva-resultado{padding:var(--space-1) var(--space-3);border-radius:var(--radius-chip);background:var(--fundo);
+  color:var(--texto-secundario);font-size:var(--text-small-size);font-weight:600}
+.at-eva-resultado.melhora{background:var(--sucesso-suave);color:var(--sucesso-forte)}
+.at-eva-resultado.piora{background:var(--erro-suave);color:var(--erro-texto)}
+.at-editor .editor-texto{max-height:none}
 
-.at-rodape{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-2);padding:var(--space-3) var(--space-4);border-top:1px solid var(--borda)}
+/* O rodapé (Imprimir e Salvar) preso ao pé da janela enquanto a folha está à vista — no notebook de
+   1280×720 ele caía abaixo da dobra e só aparecia rolando. */
+.at-rodape{position:sticky;bottom:0;z-index:1;background:var(--superficie);border-radius:0 0 var(--radius-card) var(--radius-card);display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-2);padding:var(--space-3) var(--space-4);border-top:1px solid var(--borda)}
 .at-rodape-texto{flex:1 1 280px;min-width:0;display:flex;flex-direction:column;gap:2px;font-size:var(--text-small-size)}
-/* A escrita à esquerda; a data, a dor, o retorno e o Salvar à direita, à vista sem rolar. */
-.at-registro-corpo{display:grid;grid-template-columns:minmax(0,1fr) 220px;align-items:stretch}
-.at-registro-escrita{min-width:0;display:flex;flex-direction:column}
-.at-registro-lado{min-width:0;display:flex;flex-direction:column;border-left:1px solid var(--borda);background:var(--fundo)}
-.at-registro-lado .at-tira{grid-template-columns:minmax(0,1fr);border-top:0;background:transparent}
-.at-registro-lado .at-rodape{flex-direction:column;align-items:stretch;margin-top:auto}
-.at-registro-lado .at-rodape-texto{flex:none}
-.at-registro-lado .botoes-linha{flex-direction:column-reverse;align-items:stretch}
-.at-registro-lado .botoes-linha .botao{justify-content:center}
-@media (max-width:760px){
-  .at-registro-corpo{grid-template-columns:minmax(0,1fr)}
-  .at-registro-lado{border-left:0;border-top:1px solid var(--borda)}
-  .at-registro-lado .at-tira{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
-}
 .at-mensagem{color:var(--texto-secundario);overflow-wrap:anywhere}
 .at-mensagem.erro{color:var(--erro-texto);font-weight:600}
 
-/* ---------- A coluna do lado: EMITIR ---------- */
+/* ---------- O EMITIR debaixo do rail (a folha na largura toda) e o histórico ao lado ---------- */
+.at-folha-pagina.at-sem-coluna{grid-template-columns:minmax(0,1fr)}
 .at-emitir,.at-historico{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-3)}
+.at-emitir{gap:2px}
 .at-lado-titulo{margin:0;color:var(--texto-secundario);font-size:var(--text-secao-size);letter-spacing:var(--text-secao-tracking);font-weight:600}
+.at-emitir .at-lado-titulo,.at-emitir .at-emitir-acoes{padding:0 var(--space-3)}
 .at-lado-subtitulo{margin:var(--space-2) 0 0;font-size:var(--text-small-size);color:var(--texto-secundario)}
-.at-papel{display:flex;flex-direction:column;gap:2px;width:100%;padding:var(--space-2) var(--space-3);border:1px solid var(--borda);
-  border-radius:var(--radius-control);background:var(--superficie);color:var(--texto-primario);text-align:left;cursor:pointer}
-.at-papel:hover:not(:disabled){background:var(--superficie-hover);border-color:var(--borda-hover)}
+/* Os papéis com a MESMA cara dos itens do rail logo acima: ícone, texto sem negrito, sem moldura;
+   a explicação ("em branco — você escreve…") numa linha pequena embaixo. */
+.at-papel{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:var(--space-2);align-items:start;width:100%;
+  padding:var(--space-2) var(--space-3);border:0;border-radius:var(--radius-control);background:transparent;
+  color:var(--texto-secundario);text-align:left;cursor:pointer}
+.at-papel:hover:not(:disabled){background:var(--superficie-hover)}
 .at-papel:disabled{cursor:not-allowed;opacity:.6}
-.at-papel span{font-size:var(--text-small-size);overflow-wrap:anywhere}
+.at-papel svg.icone{grid-row:span 2;margin-top:2px}
+.at-papel b{font-weight:500;color:var(--texto-primario)}
+.at-papel:disabled b{color:var(--texto-secundario)}
+.at-papel span{grid-column:2;font-size:var(--text-small-size);font-weight:400;line-height:1.35;overflow-wrap:anywhere}
+/* Com o EMITIR embaixo, a coluna passa da altura do notebook: ela rola com a página. */
+.tp-coluna-esquerda:has(.at-emitir){position:static}
 .at-heranca{color:var(--acento)}
 .at-emitir-acoes{flex-wrap:wrap}
+/* Fechado = só o título; abre no hover, no foco do teclado ou no toque (.aberto). Aberto, o
+   invólucro é `contents`: os papéis seguem o leiaute do bloco (lista, janela baixa, faixa). */
+.at-emitir-alternar{all:unset;display:block;width:100%;cursor:pointer;font:inherit;color:inherit;letter-spacing:inherit}
+.at-emitir-alternar:focus-visible{outline:2px solid var(--acento);outline-offset:2px;border-radius:var(--radius-control)}
+.at-emitir-itens{display:none}
+.at-emitir:hover .at-emitir-itens,.at-emitir:focus-within .at-emitir-itens,.at-emitir.aberto .at-emitir-itens{display:contents}
 .at-termo{width:100%}
 .at-termo-conferir{background:var(--aviso-suave);color:var(--aviso-texto);border-color:var(--aviso)}
 .at-saiu{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--space-1)}
@@ -139,3 +157,59 @@
 
 /* O aviso da conclusão automática, no cabeçalho da tela do paciente. */
 .tp-aviso-conclusao{flex-basis:100%;margin:0;color:var(--texto-secundario);font-size:var(--text-small-size);text-align:right}
+
+/* Na folha do médico com a tela na altura da janela (tela-paciente.css): a folha ocupa o resto da
+   altura e o EDITOR leva o que sobra — rola por dentro, e a página não rola. */
+@media (min-height:500px){
+  .na-folha .at-folha-pagina{flex:1 1 auto;min-height:0;grid-template-rows:minmax(0,1fr);align-items:stretch}
+  .na-folha .at-coluna-folha{min-height:0}
+  /* Rola por DENTRO quando a janela é baixa demais para o piso do editor: cortar seria pior. O
+     rodapé é sticky, então o Salvar continua no pé do cartão. */
+  .na-folha .at-coluna-folha > .cartao{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow-y:auto}
+  .na-folha .at-cabecalho{padding-top:var(--space-2);padding-bottom:var(--space-2)}
+  .na-folha .at-registro{flex:1 1 auto;min-height:0}
+  /* O PISO da caixa de texto mora no contêiner: com min-height:0 nos elos de dentro, um piso só no
+     texto não segurava nada e a caixa encolhia a uma linha. Faltando altura, o cartão rola por dentro. */
+  .na-folha .at-editor{flex:1 0 auto;min-height:13em;display:flex;flex-direction:column;padding-top:var(--space-2);padding-bottom:var(--space-2)}
+  .na-folha .at-editor .editor-clinico{flex:1 1 auto;min-height:0}
+  /* O mínimo em LINHAS do componente vira um piso pequeno: aqui quem decide a altura é a janela. */
+  .na-folha .at-editor .editor-texto{flex:1 1 auto;min-height:0 !important;overflow-y:auto}
+  .na-folha .at-detalhe{margin-bottom:var(--space-2);padding-top:var(--space-1);padding-bottom:var(--space-1)}
+  .na-folha .at-rodape{padding-top:var(--space-2);padding-bottom:var(--space-2)}
+  .na-folha .at-registro-barra{padding-top:var(--space-1);padding-bottom:var(--space-1)}
+  /* Os avisos numa linha só (alergia · uso contínuo · …): empilhados, comiam a altura do texto. */
+  .na-folha .at-avisos{flex-direction:row;flex-wrap:wrap;gap:var(--space-1) var(--space-4);padding:var(--space-1) var(--space-3);margin-bottom:var(--space-2)}
+  .na-folha .at-contexto{padding-bottom:var(--space-2)}
+  .na-folha .at-personalizados{flex:none;max-height:30%;overflow-y:auto}
+  .na-folha .at-coluna-lado{min-height:0;overflow-y:auto}
+}
+
+/* "Já saiu hoje" no rodapé da folha: um botão que abre a lista POR CIMA (o rodapé é o pé da tela). */
+.at-saiu-hoje{position:relative}
+.at-saiu-hoje summary{list-style:none;cursor:pointer}
+.at-saiu-hoje summary::-webkit-details-marker{display:none}
+.at-saiu-hoje[open] .at-saiu{position:absolute;right:0;bottom:calc(100% + var(--space-1));z-index:2;min-width:340px;max-height:50vh;overflow-y:auto;
+  padding:var(--space-2) var(--space-3);border:1px solid var(--borda);border-radius:var(--radius-control);background:var(--superficie);box-shadow:var(--sombra-cartao)}
+.at-aviso .at-termo{width:auto}
+
+/* Janela BAIXA (o notebook de 1280×720: ~570 px sobram para a tela no app): o EMITIR inteiro à
+   vista debaixo do rail — um documento por linha, só ícone e nome; a explicação vai para a dica
+   (title) do botão. Com a explicação embaixo, a infusão e o "Documentos emitidos" caíam abaixo da
+   borda da coluna, e parecia que faltavam. Em janela alta a explicação volta. */
+@media (min-width:1101px) and (max-height:860px){
+  .na-folha .at-emitir{padding:var(--space-2)}
+  .na-folha .at-papel{align-items:center;padding:3px var(--space-3)}
+  .na-folha .at-papel svg.icone{grid-row:auto;margin-top:0}
+  .na-folha .at-papel span{display:none}
+}
+
+/* Janela ESTREITA (o rail vira régua por cima da seção): o EMITIR vira uma faixa de botões lado a
+   lado — uma lista alta ali empurraria a folha e o Salvar para fora da tela. */
+@media (max-width:1100px){
+  .at-emitir{flex-direction:row;flex-wrap:wrap;align-items:center;gap:var(--space-1) var(--space-2);padding:var(--space-2) var(--space-3)}
+  .at-emitir .at-lado-titulo{padding:0;margin-right:var(--space-2)}
+  .at-papel{width:auto;align-items:center;padding:var(--space-1) var(--space-2)}
+  .at-papel svg.icone{grid-row:auto;margin-top:0}
+  .at-papel span{display:none}
+  .at-emitir .at-emitir-acoes{flex-basis:100%;padding:0}
+}

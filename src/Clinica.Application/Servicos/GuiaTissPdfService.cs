@@ -40,12 +40,27 @@ public sealed class GuiaTissPdfService
 
     public byte[] GerarPdf(Atendimento atendimento, DadosPrestador prestador)
     {
-        var codigos = atendimento.Codigos.Where(c => c.Status != StatusCodigo.NaoAplicavel).ToList();
-        var somenteConsulta = codigos.Count > 0 &&
-            codigos.All(c => c.Tipo is TipoCodigo.Consulta or TipoCodigo.ConsultaEspecialidade);
+        // Uma PÁGINA por guia (out/2026): a consulta com coleta de preventivo tem duas guias —
+        // a de consulta e a SP/SADT do preventivo —, e misturá-las numa folha só imprimiria
+        // uma guia que a operadora não reconhece. A separação é a MESMA do lote XML.
+        var guias = TissExportService.SepararGuias(
+            atendimento.Codigos.Where(c => c.Status != StatusCodigo.NaoAplicavel));
+        if (guias.Count == 0) guias = [[]];
+
+        return Document.Create(doc =>
+        {
+            foreach (var codigos in guias)
+                Pagina(doc, atendimento, prestador, codigos);
+        }).GeneratePdf();
+    }
+
+    private static void Pagina(IDocumentContainer doc, Atendimento atendimento, DadosPrestador prestador,
+        IReadOnlyList<CodigoFaturamento> codigos)
+    {
+        var somenteConsulta = codigos.Count > 0 && codigos.All(c => TissExportService.EhConsulta(c.Tipo));
         var titulo = somenteConsulta ? "GUIA DE CONSULTA" : "GUIA DE SERVIÇO PROFISSIONAL / SADT";
 
-        return Document.Create(doc => doc.Page(page =>
+        doc.Page(page =>
         {
             page.Size(PageSizes.A4.Landscape());
             page.Margin(24);
@@ -169,7 +184,7 @@ public sealed class GuiaTissPdfService
                     t.TotalPages();
                 });
             });
-        })).GeneratePdf();
+        });
     }
 
     private static void Secao(ColumnDescriptor col, string titulo)

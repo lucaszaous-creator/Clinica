@@ -188,7 +188,8 @@ public sealed class AtendimentoService
         int pacienteId, DateOnly data, ModalidadeAtendimento modalidade, string? observacoes = null,
         CancellationToken ct = default, TipoCodigo? primeiroCodigo = null,
         Especialidade? especialidadeConsulta = null, string? modalidadeCodigo = null,
-        string? especialidadeConsultaCodigo = null, string? operador = null)
+        string? especialidadeConsultaCodigo = null, string? operador = null,
+        bool coletaPreventivo = false)
     {
         var paciente = await _repo.ObterPacienteAsync(pacienteId, ct)
             ?? throw new InvalidOperationException($"Paciente {pacienteId} não encontrado.");
@@ -226,6 +227,8 @@ public sealed class AtendimentoService
             EspecialidadeConsultaCodigo = ehConsulta
                 ? especialidadeConsultaCodigo ?? especialidadeConsulta?.ToString()
                 : null,
+            // A coleta de preventivo só existe na consulta (é ela que gera a 2ª guia).
+            ColetaPreventivo = ehConsulta && coletaPreventivo,
             Observacoes = observacoes,
             // Quem lançou, e quando. Vem do chamador (`SessaoUsuario.Atual.Operador` na
             // tela): este serviço é compartilhado com o faturamento e não lê a sessão.
@@ -457,7 +460,7 @@ public sealed class AtendimentoService
         int pacienteId, DateOnly data, ModalidadeAtendimento modalidade,
         CancellationToken ct = default, TipoCodigo? primeiroCodigo = null,
         Especialidade? especialidadeConsulta = null, string? modalidadeCodigo = null,
-        string? especialidadeConsultaCodigo = null)
+        string? especialidadeConsultaCodigo = null, bool coletaPreventivo = false)
     {
         var paciente = await _repo.ObterPacienteAsync(pacienteId, ct)
             ?? throw new InvalidOperationException($"Paciente {pacienteId} não encontrado.");
@@ -467,7 +470,7 @@ public sealed class AtendimentoService
 
         return Simular(paciente, data, modalidade, historicoMes, parametros,
                        primeiroCodigo, especialidadeConsulta, modalidadeCodigo,
-                       especialidadeConsultaCodigo);
+                       especialidadeConsultaCodigo, coletaPreventivo);
     }
 
     /// <summary>
@@ -518,7 +521,8 @@ public sealed class AtendimentoService
     public async Task<(PreviaLancamento Previa, IReadOnlyDictionary<string, PreviaLancamento> PorModalidade)> PreverComModalidadesAsync(
         int pacienteId, DateOnly data, ModalidadeAtendimento modalidade, IEnumerable<string> modalidadeCodigos,
         CancellationToken ct = default, TipoCodigo? primeiroCodigo = null,
-        string? modalidadeCodigo = null, string? especialidadeConsultaCodigo = null)
+        string? modalidadeCodigo = null, string? especialidadeConsultaCodigo = null,
+        bool coletaPreventivo = false)
     {
         var paciente = await _repo.ObterPacienteAsync(pacienteId, ct)
             ?? throw new InvalidOperationException($"Paciente {pacienteId} não encontrado.");
@@ -526,7 +530,7 @@ public sealed class AtendimentoService
         var parametros = _parametros is null ? null : await _parametros.ObterAsync(ct);
 
         var previa = Simular(paciente, data, modalidade, historicoMes, parametros,
-            primeiroCodigo, null, modalidadeCodigo, especialidadeConsultaCodigo);
+            primeiroCodigo, null, modalidadeCodigo, especialidadeConsultaCodigo, coletaPreventivo);
 
         var previas = new Dictionary<string, PreviaLancamento>();
         foreach (var codigo in modalidadeCodigos.Distinct())
@@ -553,7 +557,7 @@ public sealed class AtendimentoService
         Paciente paciente, DateOnly data, ModalidadeAtendimento modalidade,
         IReadOnlyList<CodigoFaturamento> historicoMes, ParametrosSnapshot? parametros,
         TipoCodigo? primeiroCodigo, Especialidade? especialidadeConsulta,
-        string? modalidadeCodigo, string? especialidadeConsultaCodigo)
+        string? modalidadeCodigo, string? especialidadeConsultaCodigo, bool coletaPreventivo = false)
     {
         if (modalidadeCodigo is not null)
             modalidade = CatalogoModalidades.Base(modalidadeCodigo);
@@ -572,7 +576,8 @@ public sealed class AtendimentoService
             EspecialidadeConsulta = especialidadeEnum,
             EspecialidadeConsultaCodigo = ehConsulta
                 ? especialidadeConsultaCodigo ?? especialidadeConsulta?.ToString()
-                : null
+                : null,
+            ColetaPreventivo = ehConsulta && coletaPreventivo
         };
 
         var generica = paciente.Convenio == Convenio.Personalizado
@@ -759,6 +764,8 @@ public sealed class AtendimentoService
             atendimento.ModalidadeCodigo = ag.ModalidadeCodigo;
             atendimento.EspecialidadeConsulta = ag.EspecialidadeConsulta;
             atendimento.EspecialidadeConsultaCodigo = ag.EspecialidadeConsultaCodigo;
+            atendimento.ColetaPreventivo = ag.ColetaPreventivo
+                                           && ag.ModalidadePrevista == ModalidadeAtendimento.Consulta;
 
             var substituidas = 0;
             foreach (var c in atendimento.Codigos.Where(c => c.Status == StatusCodigo.Aberto))

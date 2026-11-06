@@ -47,6 +47,12 @@ public sealed class ModuloGerente : IModuloApp
     public const string ChaveOrigens = "origens-pacientes";
 
     /// <summary>
+    /// A auditoria do atendimento das secretárias no WhatsApp (26/10, pedido da direção): o @SemDor pré-avalia a
+    /// amostra da semana e a gerente confirma ou corrige. Aba "Atendimento" do Desempenho.
+    /// </summary>
+    public const string ChaveAuditoriaAtendimento = "auditoria-atendimento";
+
+    /// <summary>
     /// A verificação da comissão de recuperação (out/2026, pedido da clínica): o VALOR e a
     /// VALIDAÇÃO moram aqui, na gestão; a recepção e o faturamento só assumem e falam com o
     /// paciente na fila do Acompanhamento, sem ver dinheiro.
@@ -100,7 +106,8 @@ public sealed class ModuloGerente : IModuloApp
         //                     rentabilidade por convênio e o custo de taxas e impostos);
         //   Desempenho ...... quanto a clínica produz e se bate o que combinou (indicadores,
         //                     tendências, produção e metas — as metas medem sessões e ocupação
-        //                     além de faturamento, por isso saíram do Dinheiro);
+        //                     além de faturamento, por isso saíram do Dinheiro) e como a equipe
+        //                     atende no WhatsApp (a auditoria do atendimento, 26/10);
         //   Pacientes ....... de onde vêm, como trazê-los de volta e quanto isso custa;
         //   Tabela de preços  o que a clínica cobra (convênio e particular);
         //   Conformidade .... o que a auditoria pergunta: quem mexeu, o que saiu, o que está guardado;
@@ -135,7 +142,8 @@ public sealed class ModuloGerente : IModuloApp
                 new AbaMenu("Indicadores", ChaveIndicadores),
                 new AbaMenu("Tendências", ChavesSuite.Tendencias),
                 new AbaMenu("Produção", ChavesSuite.Producao),
-                new AbaMenu("Metas", ChaveMetas)
+                new AbaMenu("Metas", ChaveMetas),
+                new AbaMenu("Atendimento", ChaveAuditoriaAtendimento)
             ]
         },
         // O Acompanhamento NÃO entra aqui: ele é aba do "Relacionamento" da Recepção, e dois
@@ -242,6 +250,15 @@ public sealed class ModuloGerente : IModuloApp
             Chave = ChaveMetas, Rotulo = "Metas", Glifo = "\uE7C1", Icone = "alvo",
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerIndicadores
         },
+        // A auditoria do atendimento: VerAuditoria, o bit da FISCALIZAÇÃO (só da direção nos perfis padrão). A
+        // tela lê conversas de pacientes e julga a equipe — a mesma natureza da trilha de auditoria —, e os 31 bits
+        // do inteiro já estão em uso (um bit próprio pediria trocar o tipo gravado). O CRM tem a segunda tranca:
+        // só a gestão (administrador ou supervisor) lê /api/quality.
+        new ItemMenuModulo
+        {
+            Chave = ChaveAuditoriaAtendimento, Rotulo = "Auditoria do atendimento", Glifo = "\uE8BD", Icone = "balao",
+            Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerAuditoria
+        },
         new ItemMenuModulo
         {
             Chave = ChaveRentabilidade, Rotulo = "Rentabilidade por conv\u00EAnio", Glifo = "\uE9F3", Icone = "pizza",
@@ -332,6 +349,7 @@ public sealed class ModuloGerente : IModuloApp
         ChaveAcessos => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.AcessosDaClinica), servicos),
         ChaveConfiguracoes => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ConfiguracoesDaClinica), servicos),
         ChaveMetas => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.MetasDaClinica), servicos),
+        ChaveAuditoriaAtendimento => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.AuditoriaDoAtendimento), servicos),
         ChaveProjecaoCaixa => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.CaixaDosProximosDias), servicos),
         ChaveMargem => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.MargemPorSessao), servicos),
         ChaveDocumentosEmitidos => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.DocumentosEmitidos), servicos),

@@ -1,3 +1,5 @@
+> **27/10/2026 — o SafeID voltou** para receitas e documentos (sistema e portal), ao lado do A1; a infusão segue só com o A1. Ver [safeid-de-volta-out2026.md](safeid-de-volta-out2026.md).
+
 > Registro histórico. A integração descrita foi retirada em 01/10/2026. Para o fluxo atual, consulte [assinatura A1](assinatura-a1.md) e [relatório de remoção](remocao-provedor-assinatura.md).
 
 # ⛔ CONGELADO: SafeID e assinatura digital

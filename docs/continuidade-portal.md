@@ -93,8 +93,8 @@ nem substitui a aprovação dos titulares das assinaturas reais.
    O pacote atual inclui a migration aditiva
    `20260928211121_ChecagemNaoExecutavel` em SQL idempotente. A base deve estar
    em `20260926120000_DevolucaoInfusaoExterna` ou já nessa migration.
-   **Quando o Gerente já migrou o banco** (o caso comum desde out/2026: o posto não traz
-   migration própria), acrescentar `-SemMigracao`. O manifesto passa a dizer
+   **Quando os apps da suíte já migraram o banco** (o caso comum desde out/2026: o posto
+   não traz migration própria), acrescentar `-SemMigracao`. O manifesto passa a dizer
    `migracao_nova: false` e o atualizador não exige a base parada na migration do posto.
    Sem a opção, a base à frente dela faz o atualizador parar em "Base mudou; conferir antes
    de migrar", antes de qualquer troca.

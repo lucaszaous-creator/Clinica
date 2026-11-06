@@ -195,6 +195,7 @@
                                                     title="@(Permissoes.EditarHorario ? "Editar o horário — corrigir modalidade, especialidade, profissional ou hora" : "Seu acesso não permite editar o horário.")"
                                                     aria-label="Editar o horário de @l.Paciente"><Icone Nome="editar" /></button>
                                         }
+                                        <BotaoDaConversaAoLado PacienteId="l.PacienteId" Nome="@l.Paciente" Telefone="@l.Telefone" />
                                         <span class="rd-menu">
                                             <button type="button" class="botao mini icone" aria-haspopup="menu" aria-expanded="@Bool(_menu == l.AgendamentoId)"
                                                     title="Mais ações" aria-label="Mais ações de @l.Paciente" @onclick="e => AlternarMenu(l, e)">⋯</button>

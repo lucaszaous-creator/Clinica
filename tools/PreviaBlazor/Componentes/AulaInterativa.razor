@@ -25,6 +25,7 @@ else
     [Parameter] public int? SubAba { get; set; }
     [Parameter] public int? Agendamento { get; set; }
     [Parameter] public string? Usuario { get; set; }
+    [Parameter] public bool Espera { get; set; }
 
     private PreviaBlazor.MolduraDaAula? _moldura;
     private string _erro = "";
@@ -67,5 +68,15 @@ else
         var sessao = Clinica.Domain.Entities.SessaoUsuario.Atual;
         _moldura = new PreviaBlazor.MolduraDaAula(app, Chave, sessao.Autenticado ? sessao.Rotulo : "Ana · Recepção");
         Aula.Moldura = _moldura;
+        if (Espera && Servicos.GetService<Clinica.Application.Abstracoes.IClienteDoCrm>() is { } crm)
+        {
+            var moldura = _moldura;
+            moldura.AoAbrirEspera = e =>
+            {
+                Servicos.GetService<PedidoDeConversaNoCrm>()?.Definir(new Clinica.Application.Servicos.PedidoDeConversa("", e.Nome, null, null, (string)e.Alvo));
+                Aula.Navegar(Clinica.Application.Servicos.ConversaNoCrm.ChaveDaAba);
+            };
+            await moldura.LerEsperaAsync(new Clinica.Application.Servicos.VigiaDoWhatsApp(crm), Math.Max(1, sessao.UsuarioId));
+        }
     }
 }

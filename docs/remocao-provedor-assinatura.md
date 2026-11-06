@@ -1,5 +1,7 @@
 # Assinatura exclusivamente com A1 — revisão de 01/10/2026
 
+> **27/10/2026 — o SafeID voltou** para receitas e documentos (sistema e portal), ao lado do A1; a infusão segue só com o A1. Ver [safeid-de-volta-out2026.md](safeid-de-volta-out2026.md).
+
 Alteração local nas branches `codex/assinatura-a1` e `codex/portal-a1`. Não houve
 publicação, acesso ao banco de produção nem alteração de documentos da clínica.
 

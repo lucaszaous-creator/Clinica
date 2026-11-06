@@ -21,9 +21,10 @@ public sealed class ClinicRecallBridge(ClinicaDbContext db)
     /// Acompanhamento), com três regras da clínica e não do CRM:
     /// - os DIAS sem vir são os do Gerente ("Recall: dias sem vir", <see cref="ParametrosService.ObterDiasInatividadeRecallAsync"/>),
     ///   devolvidos em <see cref="RecallSnapshot.InactivityDays"/> — o CRM não tem mais regra de dias;
-    /// - sem consentimento VIGENTE de comunicação (<see cref="FinalidadeConsentimento.ComunicacaoEMarketing"/>)
-    ///   o paciente fica BLOQUEADO ("Sem autorização de mensagem"): o recall usa um modelo de
-    ///   marketing da Meta, que exige o aceite — colhido no termo do BSV ou no termo LGPD;
+    /// - quem RECUSOU mensagens (<see cref="FinalidadeConsentimento.ComunicacaoEMarketing"/> com o último
+    ///   registro não vigente: "Não" no termo, PARAR, revogação) fica BLOQUEADO ("Sem autorização de
+    ///   mensagem"). Sem registro nenhum conta como autorizado (out/2026, decisão da direção: a
+    ///   autorização é colhida no termo do BSV) — <see cref="ClinicaRepositorio.PacientesComMensagensLiberadasAsync"/>;
     /// - as listas que o CRM montava fora da fila ("sem retorno", "sem BSV", "sem acupuntura")
     ///   saíram: eram uma segunda definição de "quem está sumido", e a fila já é gerada pelos
     ///   mesmos dias do Gerente.
@@ -40,7 +41,7 @@ public sealed class ClinicRecallBridge(ClinicaDbContext db)
             .GroupBy(a => new {a.PacienteId, a.Modalidade})
             .Select(g => new {g.Key.PacienteId, g.Key.Modalidade, Last = g.Max(a => a.Data)}).ToListAsync(ct);
         var patients = await db.Pacientes.AsNoTracking().Where(p => ids.Contains(p.Id)).Select(p => new {p.Id,p.Nome,p.Telefone}).ToDictionaryAsync(p => p.Id,ct);
-        var consent = (await repo.PacientesComConsentimentoVigenteAsync(FinalidadeConsentimento.ComunicacaoEMarketing,ids,ct)).ToHashSet();
+        var consent = (await repo.PacientesComMensagensLiberadasAsync(ids,ct)).ToHashSet();
         var future = await db.Agendamentos.AsNoTracking().Where(a => ids.Contains(a.PacienteId) && a.Status == StatusAgendamento.Agendado && a.DataHora >= today.ToDateTime(TimeOnly.MinValue))
             .Select(a => new {a.PacienteId,a.ModalidadePrevista}).ToListAsync(ct);
         var contacts = await db.ContatosAcompanhamento.AsNoTracking().Where(c => c.Canal != null && ids.Contains(c.AcompanhamentoPaciente!.PacienteId))
@@ -82,6 +83,7 @@ public sealed class ClinicRecallBridge(ClinicaDbContext db)
     /// e o envio vai para o número, não para a ficha (o telefone não é identidade — por isso
     /// mesmo nenhuma ficha é escolhida). Grava como o termo grava uma revogação: a linha vigente
     /// ganha <c>RevogadoEm</c> e uma linha nova registra a recusa, com a mensagem como evidência.
+    /// Quem nunca respondeu ganha só a linha da recusa: sem registro conta como autorizado (out/2026).
     /// Repetir o mesmo pedido não faz nada (já não há o que revogar).
     /// </summary>
     public Task<ClinicDecisionResult> OptOut(ConsentOptOut input, CancellationToken ct) => TransacaoDaPonte.Executar(db, () => OptOutCore(input, ct), ct);
@@ -95,16 +97,20 @@ public sealed class ClinicRecallBridge(ClinicaDbContext db)
         var fichas = (await db.Pacientes.AsNoTracking().Select(p => new {p.Id,p.Telefone}).ToListAsync(ct))
             .Where(p => ClinicAgendaBridge.Phone(p.Telefone)==phone).Select(p => p.Id).ToArray();
         if (fichas.Length==0) return new("recorded","Nenhuma ficha da clínica com este telefone");
-        var vigentes = await db.Consentimentos.Where(c => fichas.Contains(c.PacienteId) && c.Finalidade==FinalidadeConsentimento.ComunicacaoEMarketing).ToListAsync(ct);
+        var registros = await db.Consentimentos.Where(c => fichas.Contains(c.PacienteId) && c.Finalidade==FinalidadeConsentimento.ComunicacaoEMarketing).ToListAsync(ct);
+        var ultimos = registros.GroupBy(c => c.PacienteId).ToDictionary(g => g.Key, g => g.OrderByDescending(c => c.RegistradoEm).ThenByDescending(c => c.Id).First());
         var revogadas = 0;
-        foreach (var atual in vigentes.GroupBy(c => c.PacienteId)
-                     .Select(g => g.OrderByDescending(c => c.RegistradoEm).ThenByDescending(c => c.Id).First())
-                     .Where(c => c.Vigente))
+        // Quem NUNCA respondeu também recebe a recusa (out/2026): sem registro conta como autorizado
+        // (PacientesComMensagensLiberadasAsync), então o PARAR precisa deixar a linha — senão continuaria liberado.
+        foreach (var pid in fichas.Where(id => !ultimos.TryGetValue(id, out var u) || u.Vigente))
         {
             var observacao = $"PARAR pelo {canal} (CRM, mensagem {input.MessageId})";
-            atual.RevogadoEm = DateTime.Now;
-            atual.Observacoes = Limitar(string.IsNullOrWhiteSpace(atual.Observacoes) ? "Revogado: "+observacao : atual.Observacoes+" — revogado: "+observacao);
-            var (registro, evento) = ConsentimentoService.Montar(atual.PacienteId, FinalidadeConsentimento.ComunicacaoEMarketing, false, null, operador, Limitar(observacao));
+            if (ultimos.TryGetValue(pid, out var atual))
+            {
+                atual.RevogadoEm = DateTime.Now;
+                atual.Observacoes = Limitar(string.IsNullOrWhiteSpace(atual.Observacoes) ? "Revogado: "+observacao : atual.Observacoes+" — revogado: "+observacao);
+            }
+            var (registro, evento) = ConsentimentoService.Montar(pid, FinalidadeConsentimento.ComunicacaoEMarketing, false, null, operador, Limitar(observacao));
             // A ação da trilha é a da REVOGAÇÃO (a mesma do ConsentimentoService.RevogarAsync): é
             // pelo nome que uma investigação procura "quando ele pediu para parar".
             evento.Acao = "ConsentimentoRevogado";

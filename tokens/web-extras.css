@@ -2,6 +2,12 @@
 :root{
 /* Séries de gráfico — três azuis + cinza de comparação; verde/vermelho ficam reservados à variação */
 --serie-1:var(--azul-600);--serie-2:var(--marca-medio);--serie-3:var(--ciano-500);--serie-comparacao:var(--cinza-300);
+/* Paleta CATEGÓRICA (identidade: uma cor por pessoa — Evolução da auditoria do atendimento, 27/10). Validada pelo
+   validate_palette do skill de visualização sobre o branco, TODOS os pares (as linhas se cruzam): CVD ΔE 9,1 e visão
+   normal 22,9 entre as três primeiras; a 4ª (rosa) fica na faixa 6–8 de CVD e só vale com o nome na linha e a tabela.
+   Fora dela, de propósito: o verde, o laranja e o vermelho (sucesso, aviso, erro são de ESTADO). Amarelo e verde-água
+   ficam abaixo de 3:1 no branco: a tela traz o nome na ponta da linha e a tabela (a regra de alívio). */
+--categoria-1:#2A78D6;--categoria-2:#EDA100;--categoria-3:#1BAF7A;--categoria-4:#E87BA4;--categoria-outras:var(--cinza-500);
 /* Sombras — só popups, tooltips e snackbar (cartões são flat) */
 --sombra-popup:0 12px 32px rgba(17,24,39,.16); /* @kind shadow */
 --sombra-tooltip:0 4px 16px rgba(17,24,39,.12); /* @kind shadow */

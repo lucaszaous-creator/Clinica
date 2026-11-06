@@ -263,14 +263,15 @@ public static class ConfiguracoesFaturamentoNaTela
         await parametros.SalvarPrestadorAsync(MesclarDadosDaClinica(atual, dados), ct);
     }
 
-    /// <summary>Os cinco códigos TUSS que a tela mostra, na ordem dela.</summary>
+    /// <summary>Os códigos TUSS que a tela mostra, na ordem dela — um por <see cref="TipoCodigo"/>.</summary>
     public static IReadOnlyList<(TipoCodigo Tipo, string Rotulo)> CodigosTussDaTela { get; } =
     [
         (TipoCodigo.Acupuntura, "Acupuntura"),
         (TipoCodigo.Eletroacupuntura, "Eletroacupuntura"),
         (TipoCodigo.Bsv, "BSV"),
         (TipoCodigo.Consulta, "Consulta"),
-        (TipoCodigo.ConsultaEspecialidade, "Consulta especialidade")
+        (TipoCodigo.ConsultaEspecialidade, "Consulta especialidade"),
+        (TipoCodigo.Preventivo, "Preventivo (coleta)")
     ];
 }
 

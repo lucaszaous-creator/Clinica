@@ -175,6 +175,8 @@
 @code {
     /// <summary>Nulo = paciente novo.</summary>
     [Parameter] public int? PacienteId { get; set; }
+    /// <summary>Só no cadastro NOVO: o telefone que já vem preenchido (a conversa do WhatsApp). A edição ignora.</summary>
+    [Parameter] public string? TelefoneInicial { get; set; }
     [Parameter] public EventCallback AoFechar { get; set; }
     /// <summary>Gravado: quem é (o Id nasce no Salvar do cadastro novo).</summary>
     [Parameter] public EventCallback<PacienteCadastrado> AoConcluir { get; set; }
@@ -206,6 +208,7 @@
             if (_id is not { } id)
             {
                 _dados = CadastroPacienteNaTela.Novo(_modalidades);
+                if (!string.IsNullOrWhiteSpace(TelefoneInicial)) _dados.Telefone = TelefoneInicial.Trim();
                 _carregado = true;
                 return;
             }

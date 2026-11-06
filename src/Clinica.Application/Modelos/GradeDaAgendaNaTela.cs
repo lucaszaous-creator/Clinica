@@ -289,8 +289,7 @@ public static class GradeDaAgendaNaTela
         Telefone = a.Paciente?.Telefone,
         DataHora = a.DataHora,
         Fim = a.FimPrevisto,
-        Modalidade = CatalogoModalidades.NomeComEspecialidade(
-            a.ModalidadeCodigo, a.ModalidadePrevista, a.EspecialidadeConsultaCodigo),
+        Modalidade = CatalogoModalidades.NomeDoHorario(a),
         ModalidadeFamilia = a.ModalidadePrevista,
         Sala = a.Sala?.Nome ?? string.Empty,
         Profissional = a.Profissional?.Rotulo ?? "sem profissional",

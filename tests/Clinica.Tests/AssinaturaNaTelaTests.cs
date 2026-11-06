@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Clinica.Application.Abstracoes;
 using Clinica.Application.Assinatura;
+using Clinica.Application.Assinatura.SafeID;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Domain;
@@ -56,6 +57,7 @@ public sealed class AssinaturaNaTelaTests : IDisposable
             sp.GetRequiredService<IClinicaRepositorio>(), sp.GetRequiredService<PrescricaoService>()));
         s.AddScoped(sp => new ParametrosService(sp.GetRequiredService<IClinicaRepositorio>()));
         s.AddSingleton(new AssinaturaDigitalService(exigirCadeiaConfiavel: false));
+        s.AddScoped(sp => new ProvedorOpcoesSafeID(sp.GetRequiredService<ParametrosService>()));
         s.AddScoped(sp => new AssinaturaDePrescricaoService(
             sp.GetRequiredService<IClinicaRepositorio>(), sp.GetRequiredService<PrescricaoInternaService>(),
             sp.GetRequiredService<PrescricaoInternaPdfService>(), sp.GetRequiredService<AssinaturaDigitalService>(),
@@ -227,11 +229,38 @@ public sealed class AssinaturaNaTelaTests : IDisposable
 
     // ==================== As frases e as recusas de antes do certificado ====================
 
+    /// <summary>
+    /// O SafeID de volta (out/2026): a opção só aparece com as credenciais cadastradas, some quando
+    /// a direção apaga o client_id, e todo tipo de documento clínico voltou a ser assinável.
+    /// </summary>
+    [Fact]
+    public async Task O_SafeID_so_aparece_com_credenciais_e_todo_documento_pode_ser_assinado()
+    {
+        foreach (var tipo in Enum.GetValues<TipoDocumentoClinico>())
+            AssinaturaDeDocumentoNaTela.PodeAssinar(tipo, cancelado: false, assinado: false).Should().BeTrue(tipo.ToString());
+
+        (await BuscaNoSafeID.ConfiguradoAsync(null)).Should().BeFalse();
+        // Máquina com as variáveis de ambiente do SafeID: o ambiente vence o banco, nada a provar aqui.
+        if (ConfiguracaoSafeID.DoAmbiente() is not null) return;
+
+        (await BuscaNoSafeID.ConfiguradoAsync(_escopos)).Should().BeFalse();
+        using (var e = _escopos.CreateScope())
+            await e.ServiceProvider.GetRequiredService<ParametrosService>()
+                .SalvarCredenciaisSafeIDAsync("app-da-clinica", "segredo-da-clinica", "producao");
+        (await BuscaNoSafeID.ConfiguradoAsync(_escopos)).Should().BeTrue();
+
+        using (var e = _escopos.CreateScope())
+            await e.ServiceProvider.GetRequiredService<ParametrosService>()
+                .SalvarCredenciaisSafeIDAsync(null, null, "producao");
+        (await BuscaNoSafeID.ConfiguradoAsync(_escopos)).Should().BeFalse();
+    }
+
     [Fact]
     public void As_recusas_do_documento_sao_as_do_WPF()
     {
+        // A receita voltou a ser assinável (SafeID ou A1, out/2026): nenhuma recusa antes do certificado.
         AssinaturaDeDocumentoNaTela.Recusa(TipoDocumentoClinico.Receita, "2026/0001", false, false)
-            .Should().Be("Este tipo de documento é emitido para impressão, sem assinatura digital.");
+            .Should().BeNull();
         AssinaturaDeDocumentoNaTela.Recusa(TipoDocumentoClinico.TermoProcedimento, "2026/0002", cancelado: true, assinado: false)
             .Should().Be("O documento 2026/0002 está cancelado e não pode ser assinado.");
         AssinaturaDeDocumentoNaTela.Recusa(TipoDocumentoClinico.TermoProcedimento, "2026/0003", cancelado: false, assinado: true)

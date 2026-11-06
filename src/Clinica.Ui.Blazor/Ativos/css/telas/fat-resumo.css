@@ -16,3 +16,6 @@
 .fat-resumo-curva{padding-top:var(--space-2);padding-bottom:var(--space-2)}
 .fat-resumo .fat-resumo-linha{fill:none;stroke:var(--acento);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round}
 .fat-resumo .fat-resumo-ponto{fill:var(--superficie);stroke:var(--acento);stroke-width:2}
+/* Celular (nov/2026): com 170 px por cartão o rótulo quebrava em três linhas ("Guias / no /
+   período"); numa coluna, rótulo e número têm a largura toda. */
+@media (max-width:640px){.fat-resumo .kpis.fat-resumo-kpis{grid-template-columns:1fr}}

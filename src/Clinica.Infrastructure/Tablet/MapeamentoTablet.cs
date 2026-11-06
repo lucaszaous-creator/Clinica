@@ -82,5 +82,34 @@ internal static class MapeamentoTablet
             e.HasOne(x => x.Documento).WithOne().HasForeignKey<ViaAssinadaPaciente>(x => x.DocumentoId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(x => x.Coleta).WithOne().HasForeignKey<ViaAssinadaPaciente>(x => x.ColetaId).OnDelete(DeleteBehavior.Restrict);
         });
+        // O segundo fator do portal (nov/2026): tabelas novas, nenhuma coluna em tabela existente.
+        b.Entity<SegundoFatorPortal>(e =>
+        {
+            e.ToTable("SegundoFatorPortal");
+            e.HasKey(x => x.UsuarioId);
+            e.Property(x => x.UsuarioId).ValueGeneratedNever();
+            e.Property(x => x.SegredoProtegido).HasMaxLength(1000);
+            e.Property(x => x.Versao).IsConcurrencyToken();
+            e.HasOne(x => x.Usuario).WithOne().HasForeignKey<SegundoFatorPortal>(x => x.UsuarioId).OnDelete(DeleteBehavior.Restrict);
+        });
+        b.Entity<DispositivoConfiavelPortal>(e =>
+        {
+            e.ToTable("DispositivosConfiaveisPortal");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasMaxLength(64);
+            e.Property(x => x.Origem).HasMaxLength(64);
+            e.Property(x => x.Credencial).HasMaxLength(64);
+            e.HasIndex(x => new { x.UsuarioId, x.ExpiraEm });
+            e.HasOne<UsuarioSistema>().WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.Restrict);
+        });
+        b.Entity<CodigoRecuperacaoPortal>(e =>
+        {
+            e.ToTable("CodigosRecuperacaoPortal");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Resumo).HasMaxLength(64);
+            e.HasIndex(x => x.Resumo).IsUnique();
+            e.HasIndex(x => x.UsuarioId);
+            e.HasOne<UsuarioSistema>().WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.Restrict);
+        });
     }
 }

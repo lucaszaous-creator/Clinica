@@ -33,7 +33,8 @@ public enum TipoCodigo
     Acupuntura,
     Eletroacupuntura,
     Bsv,
-    ConsultaEspecialidade // usado pela Petrobras (acupuntura faturada como consulta de especialidade)
+    ConsultaEspecialidade, // usado pela Petrobras (acupuntura faturada como consulta de especialidade)
+    Preventivo            // coleta de preventivo junto da consulta: guia própria (SP/SADT), no mesmo dia
 }
 
 /// <summary>

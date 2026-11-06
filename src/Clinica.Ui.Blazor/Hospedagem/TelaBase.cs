@@ -92,6 +92,9 @@ public abstract class TelaBase : ComponentBase, IDisposable
     /// <summary>Basta UM dos bits (um OU, não um E).</summary>
     protected static bool PodeAlgum(Permissao permissoes) => SessaoUsuario.Atual.PodeAlgum(permissoes);
 
+    /// <summary>Alcança o WhatsApp da clínica (perfil Recepção ou Gerente, com o bit) — <see cref="AcessoAoWhatsApp"/>.</summary>
+    protected static bool PodeWhatsApp => AcessoAoWhatsApp.Pode(SessaoUsuario.Atual);
+
     /// <summary>
     /// A segunda barreira. Falso = não pode, e a pessoa já foi avisada. Use no começo de
     /// todo comando que grava: <c>if (!Exigir(Permissao.EditarFinanceiro, "lançar no caixa")) return;</c>

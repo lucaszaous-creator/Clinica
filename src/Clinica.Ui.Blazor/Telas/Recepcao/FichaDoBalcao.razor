@@ -94,6 +94,7 @@
                 }
                 <button type="button" class="botao" disabled="@(!Pode(Permissao.EditarPaciente))" @onclick="EditarCadastroAsync"
                         title="@(Pode(Permissao.EditarPaciente) ? "Editar nome, contato, documento e convênio" : "Editar o cadastro exige acesso de edição do cadastro.")"><Icone Nome="editar" />Editar cadastro</button>
+                <BotaoDaConversaAoLado PacienteId="ctx.PacienteId" Nome="@ctx.Nome" Telefone="@_telefone" ComRotulo="true" />
                 <button type="button" class="botao" @onclick="() => _aba = AbaDocumentos"
                         title="Receita, atestado, declaração, termo — a central de Documentos já no paciente"><Icone Nome="documento" />Emitir documento</button>
                 <button type="button" class="botao primario" disabled="@(!Pode(Permissao.EditarAgenda))" @onclick="MarcarAsync"

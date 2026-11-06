@@ -1,9 +1,0 @@
-/* Estilo PRÓPRIO da aba "WhatsApp" da Recepção (out/2026, docs/crm-na-recepcao.md): uma barra
-   fina e o CRM ocupando o resto da altura. Só tokens. */
-.whatsapp-crm{display:flex;flex-direction:column;gap:var(--space-2);padding-bottom:var(--space-4)}
-.wcrm-barra{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2) var(--space-3)}
-.wcrm-titulo{display:inline-flex;align-items:center;gap:var(--space-2);font-weight:700;color:var(--texto-primario)}
-.wcrm-dica{flex:1;min-width:0;font-size:var(--text-small-size);color:var(--texto-secundario)}
-/* A moldura enche a altura útil (a mesma conta do chat da equipe: a janela menos a barra do app e a desta
-   tela) — a página não rola por fora dela; quem rola é o CRM, por dentro. */
-.wcrm-moldura{width:100%;height:max(420px,calc(100vh - 168px));border:1px solid var(--borda);border-radius:var(--radius-card);background:var(--superficie)}

@@ -17,8 +17,11 @@ namespace Clinica.Ui.Blazor.Moldura;
 // e a prévia implementam versões de mentira. As REGRAS continuam onde estavam: a navegação, o
 // filtro de permissões e o sino no ShellViewModel; a senha e o travamento no AcessoService.
 
-/// <summary>Um item do menu do topo (uma tela, ou um item com abas).</summary>
-public sealed record ItemDaBarra(string Chave, string Rotulo, string? Descricao, bool Ativo);
+/// <summary>
+/// Um item do menu do topo (uma tela, ou um item com abas). <paramref name="Contador"/>: o número ao lado do
+/// rótulo — quantos pacientes esperam resposta no "WhatsApp" (25/10); nulo = nenhum.
+/// </summary>
+public sealed record ItemDaBarra(string Chave, string Rotulo, string? Descricao, bool Ativo, string? Contador = null);
 
 /// <summary>
 /// Uma entrada da barra do topo: ou um item DIRETO (a Recepção, com os principais à mostra),
@@ -27,6 +30,9 @@ public sealed record ItemDaBarra(string Chave, string Rotulo, string? Descricao,
 public sealed record GrupoDaBarra(string Rotulo, ItemDaBarra? Direto, IReadOnlyList<ItemDaBarra> Itens)
 {
     public bool Ativo => Direto?.Ativo ?? Itens.Any(i => i.Ativo);
+
+    /// <summary>O número da entrada: o do item direto, ou o do item do submenu que o tem (o submenu fechado não esconde a espera).</summary>
+    public string? Contador => Direto is not null ? Direto.Contador : Itens.Select(i => i.Contador).FirstOrDefault(c => c is not null);
 }
 
 /// <summary>Uma aba da tela composta à vista ("Caixa" → Movimento, Fechamento…).</summary>
@@ -58,6 +64,12 @@ public sealed record RespostaNoSino(object Alvo, string Titulo, string Sessao, s
 /// conversa no CRM.
 /// </summary>
 public sealed record AvisoDoSemDorNoSino(object Alvo, string Paciente, string Assunto, string Quando, bool NaoLida = false);
+
+/// <summary>
+/// Uma conversa em que o paciente espera resposta (25/10, R8): <paramref name="Quando"/> é "há 12 min". O clique abre a
+/// conversa na aba WhatsApp (<paramref name="Alvo"/> volta no clique) e marca a leitura.
+/// </summary>
+public sealed record EsperaNoSino(object Alvo, string Nome, string Quando, bool NaoLida = false);
 
 /// <summary>Uma seção do sino: só aparece para quem a tela que resolve existe.</summary>
 public sealed record SecaoDoSino<T>(bool Visivel, string Contador, IReadOnlyList<T> Linhas, string Situacao)
@@ -132,6 +144,10 @@ public interface IMolduraDoApp
     void AbrirResposta(RespostaNoSino resposta);
     /// <summary>Abre a conversa do aviso no CRM (navegador) e marca a leitura. Padrão: não faz nada.</summary>
     void AbrirAvisoDoSemDor(AvisoDoSemDorNoSino aviso) { }
+    /// <summary>Quem espera resposta no WhatsApp (25/10). Padrão: oculta (a prévia e os testes da moldura sem CRM).</summary>
+    SecaoDoSino<EsperaNoSino> EsperasNoWhatsApp => SecaoDoSino<EsperaNoSino>.Oculta;
+    /// <summary>Abre a conversa que espera na aba WhatsApp e marca a leitura. Padrão: não faz nada.</summary>
+    void AbrirEspera(EsperaNoSino espera) { }
     void AbrirConfirmacoes();
 
     /// <summary>
@@ -146,6 +162,18 @@ public interface IMolduraDoApp
 
     /// <summary>Reabre o app na tela de entrada (a confirmação é da moldura, antes).</summary>
     void TrocarUsuario();
+
+    /// <summary>O botão "Treinamento" (as videoaulas do app). A gestão web não tem: as aulas são do app.</summary>
+    bool TemTreinamento => true;
+
+    /// <summary>O sino. A gestão web (nov/2026) ainda não vigia pedidos e respostas — o vigia é do shell do app.</summary>
+    bool TemSino => true;
+
+    /// <summary>
+    /// O botão de sair e a pergunta antes dele. No app é "Trocar usuário" (o sistema fecha e reabre);
+    /// na gestão web é "Sair" (encerra a sessão do portal e volta ao login).
+    /// </summary>
+    TextosDeSaida Saida => TextosDeSaida.DoApp;
 
     /// <summary>
     /// A moldura entrega ao hospedeiro os diálogos e as notificações DESTE navegador: os avisos
@@ -238,4 +266,11 @@ public sealed class EstadoDaJanela
         _desenhou = true;
         Desenhou?.Invoke();
     }
+}
+
+/// <summary>Os textos do botão de sair e da confirmação (ver <see cref="IMolduraDoApp.Saida"/>).</summary>
+public sealed record TextosDeSaida(string Botao, string Titulo, string Texto, string Confirmar)
+{
+    public static TextosDeSaida DoApp { get; } = new("Trocar usuário", "Trocar usuário",
+        "O sistema vai fechar e abrir de novo na tela de entrada. Salve o que estiver editando antes de continuar.", "Fechar e trocar");
 }

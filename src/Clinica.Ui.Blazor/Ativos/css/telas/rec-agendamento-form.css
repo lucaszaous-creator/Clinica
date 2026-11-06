@@ -21,3 +21,8 @@
   font-size:var(--text-small-size);line-height:1.45;color:var(--texto-primario);overflow-wrap:anywhere}
 .agf-traco.tom-perigo{--cor-traco-borda:var(--erro);--fundo-traco:var(--erro-suave);font-weight:600}
 .agf-traco.tom-aviso{--cor-traco-borda:var(--aviso);--fundo-traco:var(--aviso-suave)}
+
+/* Coleta de preventivo (out/2026). */
+.agf-preventivo{display:flex;align-items:center;gap:var(--space-2);grid-column:1/-1;cursor:pointer}
+.agf-preventivo input{width:16px;height:16px;accent-color:var(--acento)}
+.agf-preventivo small{color:var(--texto-secundario)}

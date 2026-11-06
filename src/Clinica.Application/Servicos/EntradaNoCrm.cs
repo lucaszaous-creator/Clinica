@@ -45,10 +45,6 @@ public static class EntradaNoCrm
     public static bool Vale(DateTime criadoEm, DateTime venceEm, DateTime? usadoEm, DateTime agora)
         => usadoEm is null && agora <= venceEm + Folga && criadoEm <= agora + Folga;
 
-    /// <summary>O endereço que a aba abre: o CRM no modo Recepção, com o bilhete no fragmento (não vai ao servidor nem ao log).</summary>
-    public static string Endereco(string enderecoDoCrm, string bilhete)
-        => enderecoDoCrm.TrimEnd('/') + "/?modo=recepcao#entrada=" + Uri.EscapeDataString(bilhete);
-
     /// <summary>
     /// O endereço do CRM que a Gerência digita: só https, sem caminho, consulta ou fragmento —
     /// é a origem do CRM. Devolve a forma limpa, ou <c>null</c> quando não serve.

@@ -24,6 +24,13 @@ public class Atendimento
     /// <summary>Código da especialidade no catálogo. Null = embutida = EspecialidadeConsulta.ToString().</summary>
     public string? EspecialidadeConsultaCodigo { get; set; }
 
+    /// <summary>
+    /// A consulta inclui a COLETA DE PREVENTIVO (out/2026). Só vale para Consulta: a regra
+    /// gera então uma segunda guia, do tipo <see cref="TipoCodigo.Preventivo"/>, no mesmo dia.
+    /// Vem do horário (<see cref="Agendamento.ColetaPreventivo"/>) na confirmação.
+    /// </summary>
+    public bool ColetaPreventivo { get; set; }
+
     /// <summary>Categoria definida pela regra no momento do atendimento.</summary>
     public Categoria Categoria { get; set; }
 

@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Clinica.Ui.Blazor.Hospedagem;
 
 /// <summary>
-/// A PORTA DA ASSINATURA COM O A1 NAS TELAS BLAZOR (out/2026 — autorização da direção de
+/// A PORTA DA ASSINATURA COM CERTIFICADO NAS TELAS BLAZOR (A1; e o SafeID nos documentos) (out/2026 — autorização da direção de
 /// 19/10/2026, só a camada de tela). Substitui o <c>EscolherCertificadoWindow</c> WPF e o caminho
 /// do <c>AcoesDoDocumento.AssinarAsync</c>: as telas Blazor (e as que outras frentes estão
 /// convertendo — documentos, exames, prontuário) assinam POR AQUI, sem janela WPF por cima.
@@ -26,6 +26,13 @@ public interface IAssinaturaNaTela
     /// confirmado — que passa a ser de quem chamou (use <c>using</c>). Nulo = desistiu.
     /// </summary>
     Task<CertificadoAssinatura?> EscolherCertificadoAsync(string assunto);
+
+    /// <summary>
+    /// O mesmo seletor, com o SafeID (certificado em nuvem) ao lado do A1 — o das RECEITAS E
+    /// DOCUMENTOS (out/2026, a pedido da clínica). A infusão usa <see cref="EscolherCertificadoAsync"/>
+    /// e segue só com o A1.
+    /// </summary>
+    Task<CertificadoAssinatura?> EscolherCertificadoParaDocumentoAsync(string assunto);
 
     /// <summary>
     /// Assina um documento clínico JÁ EMITIDO — o MESMO ato do "Assinar com o e-CPF…" do WPF:
@@ -48,6 +55,10 @@ public sealed class AssinaturaNaTela(
         => janelas.AbrirAsync<EscolherCertificadoForm, CertificadoAssinatura>(
             new Dictionary<string, object?> { ["Assunto"] = assunto });
 
+    public Task<CertificadoAssinatura?> EscolherCertificadoParaDocumentoAsync(string assunto)
+        => janelas.AbrirAsync<EscolherCertificadoForm, CertificadoAssinatura>(
+            new Dictionary<string, object?> { ["Assunto"] = assunto, ["PermitirNuvem"] = true });
+
     public async Task<ResultadoDoAto> AssinarDocumentoAsync(DocumentoEmitido doc)
     {
         if (AssinaturaDeDocumentoNaTela.Recusa(doc.Tipo, doc.Numero, doc.Cancelado, doc.Assinado) is { } recusa)
@@ -60,7 +71,7 @@ public sealed class AssinaturaNaTela(
 
             var assinado = await AssinaturaDeDocumentoNaTela.AssinarAsync(
                 escopos, doc.DocumentoId, AssinaturaDeDocumentoNaTela.Assunto(doc.Rotulo, doc.Numero),
-                EscolherCertificadoAsync,
+                EscolherCertificadoParaDocumentoAsync,
                 SessaoUsuario.Atual.Autenticado ? SessaoUsuario.Atual.UsuarioId : null,
                 SessaoUsuario.Atual.Operador);
 
@@ -86,7 +97,7 @@ public sealed class AssinaturaNaTela(
     public async Task<(string Frase, bool EhErro)?> AssinarDocumentoPorIdAsync(int documentoId, string assunto)
     {
         var assinado = await AssinaturaDeDocumentoNaTela.AssinarAsync(
-            escopos, documentoId, assunto, EscolherCertificadoAsync,
+            escopos, documentoId, assunto, EscolherCertificadoParaDocumentoAsync,
             SessaoUsuario.Atual.Autenticado ? SessaoUsuario.Atual.UsuarioId : null,
             SessaoUsuario.Atual.Operador);
         if (assinado is null) return null;

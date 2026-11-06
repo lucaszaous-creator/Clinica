@@ -1,0 +1,17 @@
+@*
+  O QUE SE FAZ COM UMA MENSAGEM DO PACIENTE (25/10, R10 — docs/whatsapp-nativo-implementacao.md §16): "Perguntar
+  ao profissional" leva o trecho a quem trata pelo chat da equipe, com a ficha anexada. Fica ao lado do balão e
+  aparece ao passar o mouse ou ao chegar pelo teclado (e sempre, em tela de toque), para a linha do tempo não
+  virar uma fileira de botões. Só desenha: quem pergunta é a tela.
+*@
+
+<div class="wa-m-acoes">
+    <button type="button" class="botao mini icone" disabled="@Desabilitado" title="@(Dica ?? "Perguntar ao profissional: leva esta mensagem a quem trata, pelo chat da equipe")"
+            aria-label="Perguntar ao profissional sobre esta mensagem" @onclick="AoPerguntar"><Icone Nome="pessoas" /></button>
+</div>
+
+@code {
+    [Parameter] public bool Desabilitado { get; set; }
+    [Parameter] public string? Dica { get; set; }
+    [Parameter] public EventCallback AoPerguntar { get; set; }
+}
