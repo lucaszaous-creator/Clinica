@@ -46,7 +46,8 @@ echo "ok: a gestão lê as chaves"
 passo "Papel do banco (só DML; raízes do prontuário sem DELETE)"
 dono=$(sudo -u postgres psql -p "$PORTA" -d "$BANCO" -Atc "select tableowner from pg_tables where tablename='Evolucoes'")
 [ -n "$dono" ] || { echo "tabela Evolucoes não encontrada em $BANCO" >&2; exit 1; }
-sudo -u postgres psql -p "$PORTA" -d "$BANCO" -q -v ON_ERROR_STOP=1 -v desktop="$dono" -f "$tmp/papel-gestao.sql"
+# O SQL vai pela entrada padrão: a pasta temporária é só do root, e o psql roda como postgres.
+sudo -u postgres psql -p "$PORTA" -d "$BANCO" -q -v ON_ERROR_STOP=1 -v desktop="$dono" -f - < "$tmp/papel-gestao.sql"
 if sudo -u clinica-gestao psql -h /var/run/postgresql -p "$PORTA" -d "$BANCO" -Atc 'select count(*) from "Usuarios"' >/dev/null 2>&1; then
   echo "ok: a gestão entra no banco (peer, sem senha)"
 else
