@@ -330,10 +330,15 @@ app.MapPost("/api/entrar/codigo",async(HttpContext ctx,CodigoEntrada pedido,Clin
     return await AbrirSessao(ctx,u,p.Dispositivo,svc);
 });
 // ── ATIVAR o segundo fator, já dentro do portal (nov/2026). ────────────────────────────────────
-// O convite aparece a cada login até a pessoa ativar. O segredo do QR vive num cookie cifrado de
-// 10 min, preso a ESTA sessão e a este usuário; só vai ao banco quando o código prova o celular.
-var cookieAtivacao=demo ? "clinica.ativacao" : "__Host-clinica.ativacao";
-var protetorAtivacao=app.Services.GetRequiredService<IDataProtectionProvider>().CreateProtector("AtivacaoSegundoFator.v1").ToTimeLimitedDataProtector();
+// O convite aparece a cada login até a pessoa ativar. O segredo do QR fica na MEMÓRIA deste processo,
+// preso a ESTA sessão e a este usuário, por 10 min; só vai ao banco quando o código prova o celular.
+// Era um cookie cifrado: dois /iniciar quase juntos (o convite e a tela disputando) geravam duas chaves,
+// a tela mostrava uma e o cookie guardava a outra — e o código certo do aplicativo era recusado
+// (produção, nov/2026: o código enviado batia com a chave da tela). Aqui o segundo /iniciar da mesma
+// sessão devolve a MESMA chave, sob trava. Reiniciar o portal perde a ativação em curso: "comece de novo".
+var ativacoes=new Dictionary<string,(int Usuario,byte[] Segredo,DateTimeOffset Expira)>(StringComparer.Ordinal);
+var travaAtivacoes=new object();
+var cookieAtivacaoAntigo=demo ? "clinica.ativacao" : "__Host-clinica.ativacao";
 app.MapPost("/api/conta/segundo-fator/iniciar",async(HttpContext ctx,PortalTabletService svc,SegundoFatorPortalService fator)=>
 {
     var s=await Sessao(ctx,svc,false);
@@ -341,18 +346,15 @@ app.MapPost("/api/conta/segundo-fator/iniciar",async(HttpContext ctx,PortalTable
     var u=s.Usuario!;
     if(await fator.TemAutenticadorAsync(u.Id,ctx.RequestAborted))
         return Results.Json(new {erro="A verificação em duas etapas já está ativa nesta conta."},statusCode:409);
-    // A MESMA chave enquanto a ativação desta sessão estiver valendo: um segundo /iniciar (clique duplo,
-    // tela remontada, aba reaberta) devolvia uma chave nova no cookie enquanto a tela mostrava a anterior —
-    // e nenhum código do aplicativo batia ("não confere" com o código certo, nov/2026).
-    byte[]? segredo=null;
-    try
+    byte[] segredo;
+    var agora=DateTimeOffset.UtcNow;
+    lock(travaAtivacoes)
     {
-        var partes=protetorAtivacao.Unprotect(ctx.Request.Cookies[cookieAtivacao] ?? "").Split('|');
-        if(partes.Length==3 && partes[0]==s.Id && partes[1]==u.Id.ToString()) segredo=Convert.FromBase64String(partes[2]);
+        foreach(var vencida in ativacoes.Where(x=>x.Value.Expira<=agora).Select(x=>x.Key).ToList()) ativacoes.Remove(vencida);
+        if(ativacoes.TryGetValue(s.Id,out var a) && a.Usuario==u.Id) segredo=a.Segredo;
+        else { segredo=Totp.NovoSegredo(); ativacoes[s.Id]=(u.Id,segredo,agora.AddMinutes(10)); }
     }
-    catch(Exception e) when (e is CryptographicException or FormatException) { }
-    segredo ??= Totp.NovoSegredo();
-    ctx.Response.Cookies.Append(cookieAtivacao,protetorAtivacao.Protect(s.Id+"|"+u.Id+"|"+Convert.ToBase64String(segredo),TimeSpan.FromMinutes(10)),Cookie(1));
+    ctx.Response.Cookies.Delete(cookieAtivacaoAntigo,Cookie(0)); // o cookie da versão anterior, se ficou
     return Results.Ok(new {conta=$"Clínica SemDor ({u.Login})",chave=Totp.ChaveLegivel(segredo),
         qrSvg=EntradaDoPortal.QrSvg(Totp.Endereco("Clínica SemDor",u.Login,segredo))});
 });
@@ -361,16 +363,16 @@ app.MapPost("/api/conta/segundo-fator/ativar",async(HttpContext ctx,CodigoEntrad
     var s=await Sessao(ctx,svc,false);
     if(s.Modo!="equipe") throw new UnauthorizedAccessException();
     var u=s.Usuario!;
-    string[] partes;
-    try { partes=protetorAtivacao.Unprotect(ctx.Request.Cookies[cookieAtivacao] ?? "").Split('|'); }
-    catch(CryptographicException) { partes=[]; }
-    if(partes.Length!=3 || partes[0]!=s.Id || partes[1]!=u.Id.ToString())
+    byte[]? segredo=null;
+    lock(travaAtivacoes)
+        if(ativacoes.TryGetValue(s.Id,out var a) && a.Usuario==u.Id && a.Expira>DateTimeOffset.UtcNow) segredo=a.Segredo;
+    if(segredo is null)
         return Results.Json(new {erro="A ativação demorou demais. Comece de novo."},statusCode:410);
-    var codigos=await fator.Para(u).CadastrarAsync(u.Id,Convert.FromBase64String(partes[2]),pedido.Codigo,ctx.RequestAborted);
+    var codigos=await fator.Para(u).CadastrarAsync(u.Id,segredo,pedido.Codigo,ctx.RequestAborted);
     if(codigos is null)
         return Results.Json(new {erro="Código não confere. Confira se leu o QR desta tela e digite o código que aparece no aplicativo."},statusCode:401);
+    lock(travaAtivacoes) ativacoes.Remove(s.Id);
     if(pedido.Confiar) await fator.ConfiarAsync(u,s.Dispositivo,Origem(ctx),ctx.RequestAborted);
-    ctx.Response.Cookies.Delete(cookieAtivacao,Cookie(0));
     return Results.Ok(new {recuperacao=codigos});
 });
 app.MapPost("/api/entrar/recuperacao",async(HttpContext ctx,CodigoEntrada pedido,ClinicaDbContext db,PortalTabletService svc,SegundoFatorPortalService fator)=>
