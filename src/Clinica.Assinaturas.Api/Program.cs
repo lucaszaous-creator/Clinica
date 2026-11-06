@@ -32,7 +32,7 @@ if(demo && !builder.Environment.IsDevelopment()) throw new InvalidOperationExcep
 // Na demonstração (Development, dados fictícios) o segundo fator fica desligado por padrão: as
 // suítes HTTP entram só com a senha. O teste do segundo fator o liga com Portal:SegundoFatorNaDemo.
 var segundoFatorAtivo=!demo || builder.Configuration.GetValue<bool>("Portal:SegundoFatorNaDemo");
-string cookieDispositivo=demo ? "clinica.tablet.device" : "__Host-clinica.tablet.device";
+string cookieDispositivo=demo ? "clinica.tablet.device" : CookiesDoPortal.Dispositivo;
 var modelos=builder.Configuration.GetSection("Portal:Modelos").Get<int[]>() ?? [];
 if(!demo && (modelos.Length!=2 || modelos.Distinct().Count()!=2 || modelos.Any(id=>id<=0)))
     throw new InvalidOperationException("Configure os dois modelos clínicos aprovados.");
@@ -106,7 +106,7 @@ builder.Services.AddSingleton(opcoes);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddHostedService<FinalizadorTablet>();
 builder.Services.AddHostedService<ConclusaoAutomaticaWorker>();
-var protecao=builder.Services.AddDataProtection().SetApplicationName("Clinica.Assinaturas.Tablet.v1");
+var protecao=builder.Services.AddDataProtection().SetApplicationName(CookiesDoPortal.AplicacaoDaProtecao);
 var chaves=builder.Configuration["Portal:DiretorioChaves"];
 if(!demo && string.IsNullOrWhiteSpace(chaves)) throw new InvalidOperationException("Configure o diretório protegido e persistente das chaves do portal.");
 if(!string.IsNullOrWhiteSpace(chaves)) protecao.PersistKeysToFileSystem(new DirectoryInfo(chaves));
@@ -125,11 +125,9 @@ string? DispositivoRegistrado(HttpContext ctx)
     try
     {
         var protetorDispositivo=ctx.RequestServices.GetRequiredService<IDataProtectionProvider>()
-            .CreateProtector(EntradaDoPortal.PropositoDispositivo);
-        var valor=protetorDispositivo.Unprotect(ctx.Request.Cookies[cookieDispositivo] ?? "").Split('|');
-        if(valor.Length==3 && valor[0]==EntradaDoPortal.MarcaDispositivo
-            && long.TryParse(valor[2],out var expira) && expira>DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
-            return valor[1];
+            .CreateProtector(CookiesDoPortal.PropositoDispositivo);
+        return CookiesDoPortal.LerDispositivo(protetorDispositivo.Unprotect(ctx.Request.Cookies[cookieDispositivo] ?? ""),
+            DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
     }
     catch(Exception e) when(e is CryptographicException or FormatException or ArgumentException) { }
     return null;
@@ -161,8 +159,8 @@ builder.Logging.AddFilter("Microsoft.EntityFrameworkCore",LogLevel.Critical);
 // O HttpClient do SafeID registraria URL e cabeçalhos das chamadas ao PSC.
 builder.Logging.AddFilter("System.Net.Http.HttpClient",LogLevel.Warning);
 var app=builder.Build();
-var cookieSessao=demo ? "clinica.tablet" : "__Host-clinica.tablet";
-var protetor=app.Services.GetRequiredService<IDataProtectionProvider>().CreateProtector(EntradaDoPortal.PropositoDispositivo);
+var cookieSessao=demo ? "clinica.tablet" : CookiesDoPortal.Sessao;
+var protetor=app.Services.GetRequiredService<IDataProtectionProvider>().CreateProtector(CookiesDoPortal.PropositoDispositivo);
 var protetorEntrada=app.Services.GetRequiredService<IDataProtectionProvider>().CreateProtector(EntradaDoPortal.PropositoEntrada).ToTimeLimitedDataProtector();
 var cookieEntrada=demo ? "clinica.entrada" : "__Host-clinica.entrada";
 var extensoesPublicas=new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -307,8 +305,8 @@ app.MapPost("/api/entrar",async(HttpContext ctx,Entrada pedido,AcessoService ace
     if(dispositivo is null)
     {
         dispositivo=PortalTabletService.Token();
-        ctx.Response.Cookies.Append(cookieDispositivo,protetor.Protect(EntradaDoPortal.MarcaDispositivo+"|"+dispositivo+"|"
-            +DateTimeOffset.UtcNow.AddDays(400).ToUnixTimeMilliseconds()),Cookie(400*24));
+        ctx.Response.Cookies.Append(cookieDispositivo,protetor.Protect(CookiesDoPortal.EscreverDispositivo(dispositivo,
+            DateTimeOffset.UtcNow.AddDays(400).ToUnixTimeMilliseconds())),Cookie(400*24));
     }
     if(!segundoFatorAtivo) return await AbrirSessao(ctx,u,dispositivo,svc);
     if(await fator.TemAutenticadorAsync(u.Id,ctx.RequestAborted))

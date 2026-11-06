@@ -33,7 +33,7 @@ public sealed class SessaoUsuario
     /// Antes do login (e nos testes) aponta para uma sessão vazia, que libera tudo:
     /// ver <see cref="Pode"/>.
     /// </summary>
-    public static SessaoUsuario Atual => _doFluxo.Value ?? _doProcesso;
+    public static SessaoUsuario Atual => _doFluxo.Value?.Invoke() ?? _doProcesso;
 
     // ── Modo SERVIDOR (nov/2026, a gestão no navegador) ──────────────────────────────
     // No desktop há UM usuário por processo, e `Atual` é a sessão do processo. Num servidor
@@ -44,7 +44,7 @@ public sealed class SessaoUsuario
     // um fluxo com sessão. Uma tela aberta sem login no servidor não
     // é teste nem prévia — é uma porta aberta na internet.
     private static SessaoUsuario _doProcesso = new();
-    private static readonly AsyncLocal<SessaoUsuario?> _doFluxo = new();
+    private static readonly AsyncLocal<Func<SessaoUsuario>?> _doFluxo = new();
     private static volatile bool _modoServidor;
 
     /// <summary>A sessão de quem não entrou, no servidor: nega toda permissão.</summary>
@@ -90,12 +90,24 @@ public sealed class SessaoUsuario
     public static IDisposable UsarNesteFluxo(SessaoUsuario sessao)
     {
         ArgumentNullException.ThrowIfNull(sessao);
+        return UsarNesteFluxo(() => sessao);
+    }
+
+    /// <summary>
+    /// A variante que LÊ a sessão na hora: o servidor define a sessão da conexão no meio da
+    /// primeira atividade dela (o login é conferido ali), e um valor fixo deixaria o resto da
+    /// mesma atividade — a primeira tela — com a sessão que nega tudo. Encerrar a sessão também
+    /// vale na hora, sem esperar a próxima atividade.
+    /// </summary>
+    public static IDisposable UsarNesteFluxo(Func<SessaoUsuario> fonte)
+    {
+        ArgumentNullException.ThrowIfNull(fonte);
         var anterior = _doFluxo.Value;
-        _doFluxo.Value = sessao;
+        _doFluxo.Value = fonte;
         return new Restaurar(anterior);
     }
 
-    private sealed class Restaurar(SessaoUsuario? anterior) : IDisposable
+    private sealed class Restaurar(Func<SessaoUsuario>? anterior) : IDisposable
     {
         private bool _feito;
         public void Dispose()

@@ -12,9 +12,7 @@ namespace Clinica.Assinaturas.Api;
 /// </summary>
 public static class EntradaDoPortal
 {
-    /// <summary>O propósito da proteção do cookie do aparelho. Mudou com a saída do código do tablet: cookie antigo não vale mais.</summary>
-    public const string PropositoDispositivo = "DispositivoPortal.v2";
-    public const string MarcaDispositivo = "portal-v2";
+    // O cookie do aparelho mora em CookiesDoPortal (Infrastructure): a gestão web também o lê.
     public const string PropositoEntrada = "EntradaPendentePortal.v1";
     public static readonly TimeSpan VidaDaEntrada = TimeSpan.FromMinutes(5);
 
