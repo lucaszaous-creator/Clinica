@@ -1,0 +1,3 @@
+# /etc/sudoers.d/clinica-deploy (root:root 0440; conferir com `visudo -cf`).
+# O usuário que o GitHub usa só roda o comando de deploy — nenhum shell de root, nenhum outro comando.
+clinica-deploy ALL=(root) NOPASSWD: /usr/local/sbin/clinica-deploy

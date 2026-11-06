@@ -81,6 +81,9 @@ Ordem — cada passo só depois do anterior conferido:
    gerente (→ gestão, as quatro áreas), sair (a gestão volta ao login em até 1 min), e a
    recepção que digita `/gestao` volta ao login.
 
+**Depois da primeira instalação**, o merge na `main` publica o portal e a gestão sozinho:
+`docs/deploy-automatico.md`.
+
 **O segundo fator é OPCIONAL, com convite (decisão da direção, nov/2026).** Para não travar quem
 não tem familiaridade técnica (e não virar chamado de suporte), quem ainda não ativou entra só com a
 senha, e o portal mostra, **a cada login**, o convite "Ativar agora / Agora não" até a pessoa ativar.

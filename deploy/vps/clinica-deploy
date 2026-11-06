@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# /usr/local/sbin/clinica-deploy (root:root 0755) — o ÚNICO comando que o usuário de deploy pode rodar
+# com sudo (deploy/vps/sudoers-clinica-deploy). Recebe o pacote que o workflow do GitHub copiou para
+# /home/clinica-deploy/stage, confere o nome e o SHA-256 e chama o atualizador do serviço, que faz
+# backup, troca o release, testa a saúde e volta para o anterior se falhar.
+#   clinica-deploy portal <arquivo.tar.gz> <sha256>
+#   clinica-deploy gestao <arquivo.tar.gz> <sha256>
+set -euo pipefail
+[ "$(id -u)" -eq 0 ] || { echo "rode com sudo" >&2; exit 1; }
+[ $# -eq 3 ] || { echo "uso: clinica-deploy portal|gestao arquivo.tar.gz sha256" >&2; exit 2; }
+alvo="$1"; arquivo="$2"; sha="$3"
+[[ "$sha" =~ ^[a-f0-9]{64}$ ]] || { echo "sha256 inválido" >&2; exit 2; }
+stage=/home/clinica-deploy/stage
+nome="$(basename -- "$arquivo")"
+origem="$stage/$nome"
+[ -f "$origem" ] && [ ! -L "$origem" ] || { echo "pacote ausente em $stage" >&2; exit 2; }
+[ "$(sha256sum "$origem" | cut -d' ' -f1)" = "$sha" ] || { echo "SHA-256 não confere" >&2; exit 2; }
+exec 9>/run/lock/clinica-deploy.lock; flock -n 9 || { echo "outro deploy em andamento" >&2; exit 3; }
+motivo="Deploy automático após merge na main (decisão da direção, nov/2026)"
+case "$alvo" in
+  portal)
+    [[ "$nome" =~ ^tablet-continuidade-[a-f0-9]{12}-[a-f0-9]{12}\.tar\.gz$ ]] || { echo "nome de pacote do portal inválido" >&2; exit 2; }
+    destino=/home/clinica-admin/tablet-stage
+    install -d -m 0700 -o root -g root "$destino"
+    install -m 0600 -o root -g root "$origem" "$destino/$nome"
+    anterior="$(basename "$(readlink -f /opt/clinica-tablet/current)")"
+    trabalho="$(mktemp -d)"; trap 'rm -rf "$trabalho"' EXIT
+    tar -xzf "$destino/$nome" -C "$trabalho" --wildcards '*/atualizar-posto.py' '*/regras_publicacao.py'
+    cd "$trabalho"/tablet-continuidade-*
+    python3 atualizar-posto.py producao "$destino/$nome" "$sha" "$anterior" --pular-hml "$motivo"
+    ;;
+  gestao)
+    [[ "$nome" =~ ^gestao-web-[a-f0-9]{12}\.tar\.gz$ ]] || { echo "nome de pacote da gestão inválido" >&2; exit 2; }
+    trabalho="$(mktemp -d)"; trap 'rm -rf "$trabalho"' EXIT
+    install -m 0600 -o root -g root "$origem" "$trabalho/$nome"
+    tar -xzf "$trabalho/$nome" -C "$trabalho" --wildcards '*/atualizar-gestao.py'
+    python3 "$trabalho"/gestao-web-*/atualizar-gestao.py "$trabalho/$nome" "$sha"
+    ;;
+  *) echo "alvo inválido: $alvo" >&2; exit 2 ;;
+esac
+rm -f -- "$origem"

@@ -1,0 +1,138 @@
+name: Deploy do portal e da gestão (VPS)
+
+# Decisão da direção (nov/2026): o merge na main PUBLICA o portal (API + telas do clinica-site) e a
+# gestão web na VPS, sem aprovação manual. Docs: docs/deploy-automatico.md.
+#
+# O que protege a clínica, já que ninguém aprova:
+#   · só roda da main (o Environment "producao" aceita só a main — configurar no GitHub);
+#   · antes de publicar, roda as redes que o CI do PR NÃO roda (API do portal, tablet, gestão web);
+#   · na VPS, o usuário de deploy só executa /usr/local/sbin/clinica-deploy, que confere o SHA-256,
+#     faz backup, troca o release, testa a saúde e VOLTA para o anterior se falhar;
+#   · um deploy por vez (concurrency), nunca cancelando um que já começou;
+#   · migration é dos apps da suíte (release do Velopack): o pacote do portal não migra o banco.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/Clinica.Assinaturas.Api/**'
+      - 'src/Clinica.Gestao.Web/**'
+      - 'src/Clinica.Ui.Blazor/**'
+      - 'src/Clinica.Infrastructure/**'
+      - 'src/Clinica.Application/**'
+      - 'src/Clinica.Domain/**'
+      - 'deploy/tablet/**'
+      - 'deploy/gestao/**'
+      - 'tools/empacotar-continuidade-tablet.ps1'
+      - 'tools/empacotar-gestao-web.sh'
+      - '.github/workflows/deploy-portal.yml'
+  # O clinica-site avisa quando a main dele muda (portal/**): .github/workflows/disparar-deploy-portal.yml de lá.
+  repository_dispatch:
+    types: [portal-site-main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-producao
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  conferir:
+    name: Conferir antes de publicar
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with: {dotnet-version: '8.0.x'}
+      - name: API do portal (fluxo de entrada, segundo fator, tablet)
+        run: dotnet test tests/Clinica.Assinaturas.Tests/Clinica.Assinaturas.Tests.csproj -c Debug
+      - name: Gestão web (a porta e o catálogo)
+        run: dotnet test tests/Clinica.Gestao.Web.Tests/Clinica.Gestao.Web.Tests.csproj -c Release
+      - name: Atualizador do posto (Python)
+        run: python3 -m unittest discover -s deploy/tablet -p 'test_*.py'
+      - name: Catálogo da gestão em dia (checagem 50)
+        run: python3 tools/gerar-catalogo-gestao-web.py --conferir
+
+  publicar:
+    name: Publicar na VPS
+    needs: conferir
+    runs-on: ubuntu-latest
+    environment: producao
+    steps:
+      - name: Código da API e da gestão (main)
+        uses: actions/checkout@v5
+        with: {path: Clinica}
+      - name: Telas do portal (main do clinica-site)
+        uses: actions/checkout@v5
+        with:
+          repository: lucaszaous-creator/clinica-site
+          ref: main
+          path: clinica-site
+          token: ${{ secrets.SITE_READ_TOKEN }}
+      - uses: actions/setup-dotnet@v5
+        with: {dotnet-version: '8.0.x'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: Dependências das telas (visualizador de PDF do portal)
+        working-directory: clinica-site
+        run: npm ci
+      - name: Empacotar o portal (sem migration)
+        id: portal
+        shell: pwsh
+        run: |
+          $saida = & ./Clinica/tools/empacotar-continuidade-tablet.ps1 -Site ./clinica-site -SemMigracao
+          $pacote = ($saida | Where-Object { "$_" -like 'pacote=*' } | Select-Object -Last 1) -replace '^pacote=', ''
+          if (-not $pacote) { throw 'O empacotador não informou o pacote.' }
+          "pacote=$pacote" >> $env:GITHUB_OUTPUT
+          "sha256=$((Get-FileHash -LiteralPath $pacote -Algorithm SHA256).Hash.ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+      - name: Empacotar a gestão web
+        id: gestao
+        run: ./Clinica/tools/empacotar-gestao-web.sh | tee /dev/stderr | grep -E '^(pacote|sha256)=' >> "$GITHUB_OUTPUT"
+      - name: Acesso à VPS pelo túnel da Cloudflare (sem porta 22 aberta)
+        env:
+          CHAVE: ${{ secrets.VPS_SSH_KEY }}
+          HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+          HOST: ${{ secrets.VPS_SSH_HOST }}
+          CF_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/cloudflared.deb https://github.com/cloudflare/cloudflared/releases/download/2024.12.2/cloudflared-linux-amd64.deb
+          sudo dpkg -i /tmp/cloudflared.deb
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$CHAVE" > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy
+          printf '%s\n' "$HOSTS" > ~/.ssh/known_hosts && chmod 600 ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<CFG
+          Host vps
+            HostName $HOST
+            User clinica-deploy
+            IdentityFile ~/.ssh/deploy
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+            UserKnownHostsFile ~/.ssh/known_hosts
+            ProxyCommand cloudflared access ssh --hostname %h --service-token-id $CF_ID --service-token-secret $CF_SECRET
+          CFG
+          chmod 600 ~/.ssh/config
+      - name: Publicar o portal (API + telas)
+        run: |
+          set -euo pipefail
+          scp -q "${{ steps.portal.outputs.pacote }}" vps:stage/
+          ssh vps sudo /usr/local/sbin/clinica-deploy portal "$(basename "${{ steps.portal.outputs.pacote }}")" "${{ steps.portal.outputs.sha256 }}"
+      - name: Publicar a gestão web
+        run: |
+          set -euo pipefail
+          scp -q "${{ steps.gestao.outputs.pacote }}" vps:stage/
+          ssh vps sudo /usr/local/sbin/clinica-deploy gestao "$(basename "${{ steps.gestao.outputs.pacote }}")" "${{ steps.gestao.outputs.sha256 }}"
+      - name: Resumo
+        if: always()
+        run: |
+          {
+            echo "### Deploy do portal e da gestão"
+            echo "- Portal: \`$(basename "${{ steps.portal.outputs.pacote }}")\` · sha256 \`${{ steps.portal.outputs.sha256 }}\`"
+            echo "- Gestão: \`$(basename "${{ steps.gestao.outputs.pacote }}")\` · sha256 \`${{ steps.gestao.outputs.sha256 }}\`"
+            echo "Se a saúde falhou, o atualizador voltou para o release anterior — o passo aparece em vermelho."
+          } >> "$GITHUB_STEP_SUMMARY"
