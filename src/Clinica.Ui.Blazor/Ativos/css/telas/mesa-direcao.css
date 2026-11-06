@@ -104,3 +104,32 @@
 .mesa-atalhos .link,.kpi-ir{display:inline-flex;align-items:center;gap:var(--space-1)}
 .mesa-atalhos svg,.kpi-ir svg{width:14px;height:14px}
 .kpi-ir{margin-top:var(--space-2);font-size:var(--text-small-size);align-self:flex-start}
+
+/* Celular (nov/2026): a régua e os cinco números cabem em 390 px sem espremer. Os números
+   vão em duas colunas (o quinto ocupa a linha); a barra das listas desce para a linha de
+   baixo, e o nome ganha a largura que o número não usa. */
+@media (max-width:640px){
+  .mesa-regua{padding:var(--space-4) var(--space-4) 0}
+  .mesa-regua-topo{gap:var(--space-3) var(--space-6)}
+  .mesa-grande{font-size:28px}
+  .mesa-media{font-size:18px}
+  .mesa-selo,.mesa-sem-meta{margin-left:0}
+  .mesa-escala{flex-wrap:wrap;row-gap:var(--space-2)}
+  .mesa-escala .mesa-legenda{order:3;flex-basis:100%}
+  .mesa-linhas{grid-template-columns:repeat(2,minmax(0,1fr));margin:var(--space-4) calc(-1 * var(--space-4)) 0}
+  .mesa-linhas > div,.mesa-linhas > div:first-child,.mesa-linhas > div:nth-child(4){padding:var(--space-3) var(--space-4);border-left:0;border-bottom:1px solid var(--borda)}
+  .mesa-linhas > div:nth-child(even){border-left:1px solid var(--borda)}
+  .mesa-linhas > div:last-child{border-bottom:0}
+  .mesa-linhas > div:last-child:nth-child(odd){grid-column:1/-1}
+  .mesa-valor{font-size:17px}
+  .mesa-cab{flex-wrap:wrap;padding:var(--space-4) var(--space-4) var(--space-2)}
+  .mesa-pauta li{grid-template-columns:10px minmax(0,1fr);align-items:start;padding:var(--space-3) var(--space-4)}
+  .mesa-pauta li .mesa-ponto{margin-top:var(--space-2)}
+  .mesa-pauta li .mesa-ir{grid-column:2;justify-self:start}
+  .mesa-barras{padding:var(--space-1) var(--space-4) var(--space-4)}
+  .mesa-linha-barra,.mesa-linha-barra.conv,.mesa-linha-barra.meta{grid-template-columns:minmax(0,1fr) auto auto;row-gap:var(--space-1)}
+  .mesa-linha-barra .mesa-barra{grid-column:1/-1;grid-row:2}
+  .mesa-mais{margin:0 var(--space-4) var(--space-4)}
+  .mesa-crm{padding:var(--space-1) var(--space-4) var(--space-4)}
+  .mesa-vazio{padding:var(--space-2) var(--space-4) var(--space-4)}
+}

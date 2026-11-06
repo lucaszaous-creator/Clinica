@@ -37,3 +37,12 @@
   font-size:var(--text-small-size);letter-spacing:var(--text-secao-tracking);text-transform:uppercase;color:var(--texto-secundario)}
 .guia-glosas-detalhe .aviso{margin-top:var(--space-4)}
 @media (max-width:1100px){.guia-glosas{grid-template-columns:240px 1fr}}
+/* Celular (nov/2026): o motivo, a explicação e o botão em pilha — lado a lado, a explicação
+   virava uma coluna de três palavras por linha. */
+@media (max-width:640px){
+  .fat-glosas .motivos-recorrentes{padding:var(--space-4)}
+  .fat-glosas .motivos-recorrentes ul{gap:var(--space-4)}
+  .fat-glosas .motivos-recorrentes li{flex-wrap:wrap;align-items:flex-start;gap:var(--space-2)}
+  .fat-glosas .motivos-recorrentes li .selo{max-width:none}
+  .fat-glosas .motivos-recorrentes .como-evitar{flex:1 1 100%}
+}

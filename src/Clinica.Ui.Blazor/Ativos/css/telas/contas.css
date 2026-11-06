@@ -9,7 +9,9 @@
   .pagina-contas .kpis > *{grid-column:span 2}
   .pagina-contas .kpis > :nth-child(-n+2){grid-column:span 3}
 }
-@media (max-width:640px){.pagina-contas .kpis{grid-template-columns:1fr}.pagina-contas .kpis > *{grid-column:auto}}
+/* O seletor do celular repete o `:nth-child` de cima: sem isso, os dois primeiros cartões
+   continuavam pedindo três colunas numa grade de uma, e o terceiro aparecia espremido. */
+@media (max-width:640px){.pagina-contas .kpis{grid-template-columns:1fr}.pagina-contas .kpis > *,.pagina-contas .kpis > :nth-child(-n+2){grid-column:auto}}
 
 .pagina-contas .cartao-titulo{margin-bottom:0}
 .contas-resumo-vencido{color:var(--erro-texto);font-weight:600}
