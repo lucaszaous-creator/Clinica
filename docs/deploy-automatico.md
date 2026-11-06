@@ -19,8 +19,10 @@ republica mesmo sem mudança).
 
 Um par que falhou é tentado de novo na janela seguinte de 6 h (ou já, com Run workflow). A
 **migration** não é deste workflow: sai pelo release do app (o Gerente aplica ao abrir). Se o
-portal precisar de tabela que ainda não existe, o atualizador recusa e nada muda. A gestão só é
-atualizada depois de instalada uma vez à mão (`docs/gestao-web.md`); até lá, o deploy a pula.
+portal precisar de tabela que ainda não existe, o atualizador recusa e nada muda. A gestão entra
+depois de `deploy/vps/instalar-gestao.sh` (uma vez, como root, com o portal novo no ar) e de uma rota
+`^/gestao` no túnel acima da do portal; o deploy seguinte instala o primeiro release. Até lá, o
+deploy a pula.
 
 ## Configurar uma vez (só a VPS)
 

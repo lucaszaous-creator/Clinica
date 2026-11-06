@@ -2,7 +2,8 @@
 """Atualização da GESTÃO WEB na VPS (nov/2026): confere o pacote, troca o release e VOLTA se falhar.
 
 Uso (root, chamado pelo /usr/local/sbin/clinica-deploy): atualizar-gestao.py pacote.tar.gz sha256
-A primeira instalação é manual (docs/gestao-web.md); este script só atualiza um release que já existe.
+Primeira instalação: depois de deploy/vps/instalar-gestao.sh (usuário, banco, chaves, unidade), sem
+`current` ainda — o release entra, o serviço sobe e, se a saúde falhar, ele é parado e nada fica no ar.
 """
 import hashlib, json, pathlib, re, shutil, subprocess, sys, tarfile, time
 
@@ -14,8 +15,15 @@ assert re.fullmatch('[a-f0-9]{64}', sha) and hashlib.sha256(pacote.read_bytes())
 base = pathlib.Path('/opt/clinica-gestao')
 servico = 'clinica-gestao'
 socket = '/run/clinica-gestao/gestao.sock'
-anterior = (base / 'current').resolve()
-assert anterior.parent == base / 'releases' and anterior.is_dir(), 'Instale a gestão à mão uma vez antes (docs/gestao-web.md)'
+if (base / 'current').is_symlink():
+    anterior = (base / 'current').resolve()
+    assert anterior.parent == base / 'releases' and anterior.is_dir(), 'current da gestão fora de releases/'
+else:
+    # Primeira instalação: só depois do preparo da VPS (deploy/vps/instalar-gestao.sh).
+    anterior = None
+    assert pathlib.Path('/etc/systemd/system/clinica-gestao.service').is_file() and pathlib.Path('/etc/clinica-gestao/gestao.env').is_file(), \
+        'Prepare a VPS antes: deploy/vps/instalar-gestao.sh'
+    (base / 'releases').mkdir(parents=True, exist_ok=True)
 
 def run(cmd):
     return subprocess.run(cmd, check=True, capture_output=True, text=True).stdout.strip()
@@ -63,13 +71,20 @@ def apontar(destino):
 apontar(release)
 run(['systemctl', 'restart', servico])
 if not saude():
+    if anterior is None:
+        run(['systemctl', 'stop', servico])
+        (base / 'current').unlink()
+        print(json.dumps({'resultado': 'primeira instalação falhou; serviço parado', 'release': release.name}))
+        sys.exit(1)
     apontar(anterior)
     run(['systemctl', 'restart', servico])
     ok = saude()
     print(json.dumps({'resultado': 'recuou', 'release': release.name, 'anterior': anterior.name, 'saude_apos_recuo': ok}))
     sys.exit(1)
+if anterior is None:
+    run(['systemctl', 'enable', servico])
 # Guarda os cinco últimos releases (o atual e quatro para voltar à mão).
-for velho in sorted((p for p in (base / 'releases').iterdir() if p.is_dir() and p != release and p != anterior),
+for velho in sorted((p for p in (base / 'releases').iterdir() if p.is_dir() and p not in (release, anterior)),
                     key=lambda p: p.stat().st_mtime)[:-3]:
     shutil.rmtree(velho)
-print(json.dumps({'resultado': 'publicado', 'release': release.name, 'anterior': anterior.name, 'commit': manifesto['commit']}))
+print(json.dumps({'resultado': 'publicado', 'release': release.name, 'anterior': anterior.name if anterior else None, 'commit': manifesto['commit']}))

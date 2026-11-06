@@ -61,6 +61,9 @@ profissional que o gerente NÃO deva ver, aí uma política RLS por `Profissiona
 
 ## Implantação (VPS)
 
+**Atalho (nov/2026):** os passos 2 a 5 são o `deploy/vps/instalar-gestao.sh` (root, uma vez) +
+a rota `^/gestao` no painel do túnel; o app chega pelo deploy automático (`docs/deploy-automatico.md`).
+
 Ordem — cada passo só depois do anterior conferido:
 
 1. **Publicar um app da suíte** (Gerente) com a migration `SegundoFatorDoPortal` — os apps aplicam
