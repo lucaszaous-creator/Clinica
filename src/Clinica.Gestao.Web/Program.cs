@@ -137,10 +137,14 @@ app.UseRateLimiter();
 // vindo da origem do portal (contra o sequestro de WebSocket entre sites — o "CORS" do Blazor).
 app.Use(async (ctx, next) =>
 {
-    if (ctx.Request.Path.StartsWithSegments("/_blazor") || HttpMethods.IsPost(ctx.Request.Method))
     {
+        // A origem é EXIGIDA no WebSocket e no POST (o navegador sempre a manda nos dois) e, quando vem,
+        // tem de ser a do portal. Um GET da mesma origem NÃO traz Origin (o /_blazor/initializers e os
+        // arquivos do arranque): exigir ali deixava a gestão em tela branca (403 no próprio arranque).
         var o = ctx.Request.Headers.Origin.ToString().TrimEnd('/');
-        if (!string.Equals(o, origem, StringComparison.OrdinalIgnoreCase) && !(desenvolvimento && o.Length == 0))
+        var daPropria = string.Equals(o, origem, StringComparison.OrdinalIgnoreCase);
+        var exigida = ctx.WebSockets.IsWebSocketRequest || HttpMethods.IsPost(ctx.Request.Method);
+        if ((o.Length > 0 && !daPropria) || (exigida && o.Length == 0 && !desenvolvimento))
         {
             ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
             return;

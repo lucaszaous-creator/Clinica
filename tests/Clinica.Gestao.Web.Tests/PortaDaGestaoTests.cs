@@ -157,8 +157,22 @@ public sealed class PortaDaGestaoTests : IAsyncLifetime
         var s = await Sessao(PerfilAcesso.Gerente);
         var alheio = await Cliente().SendAsync(Pedido("/gestao/_blazor/negotiate?negotiateVersion=1", s, origem: "https://atacante.invalid", accept: "*/*"));
         Assert.Equal(HttpStatusCode.Forbidden, alheio.StatusCode);
-        var semOrigem = await Cliente().SendAsync(Pedido("/gestao/_blazor/negotiate?negotiateVersion=1", s, origem: null, accept: "*/*"));
-        Assert.Equal(HttpStatusCode.Forbidden, semOrigem.StatusCode);
+        // O negotiate de verdade é POST: sem Origin, recusado.
+        var post = Pedido("/gestao/_blazor/negotiate?negotiateVersion=1", s, origem: null, accept: "*/*");
+        post.Method = HttpMethod.Post;
+        post.Content = new StringContent("");
+        Assert.Equal(HttpStatusCode.Forbidden, (await Cliente().SendAsync(post)).StatusCode);
+    }
+
+    [Fact]
+    public async Task GET_da_mesma_origem_sem_Origin_passa_no_arranque()
+    {
+        // O navegador NÃO manda Origin num GET da mesma origem: o /_blazor/initializers do arranque vinha 403 e a
+        // gestão ficava em tela branca em produção (nov/2026).
+        var s = await Sessao(PerfilAcesso.Gerente);
+        var r = await Cliente().SendAsync(Pedido("/gestao/_blazor/initializers", s, origem: null, accept: "*/*"));
+        Assert.NotEqual(HttpStatusCode.Forbidden, r.StatusCode);
+        Assert.NotEqual(HttpStatusCode.Unauthorized, r.StatusCode);
     }
 
     [Fact]
