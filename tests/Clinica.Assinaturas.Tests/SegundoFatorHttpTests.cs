@@ -1,4 +1,3 @@
-using Microsoft.Extensions.DependencyInjection;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
@@ -27,15 +26,6 @@ public sealed class SegundoFatorHttpTests
             b.UseSetting("Portal:BancoDemo", Path.Combine(pasta, "demo.db"));
             b.UseSetting("Portal:DiretorioChaves", Path.Combine(pasta, "chaves"));
         });
-
-    /// <summary>A direção libera o primeiro acesso (na tela de Acessos) e entrega o código.</summary>
-    private static async Task<string> Liberar(WebApplicationFactory<Program> f, string login)
-    {
-        using var escopo = f.Services.CreateScope();
-        var db = escopo.ServiceProvider.GetRequiredService<Clinica.Infrastructure.ClinicaDbContext>();
-        var id = db.Usuarios.Single(u => u.Login == login).Id;
-        return await new Clinica.Infrastructure.Tablet.AdministracaoDoSegundoFator(db, TimeProvider.System).LiberarPrimeiroAcessoAsync(id, "direcao");
-    }
 
     private static async Task<HttpClient> Cliente(WebApplicationFactory<Program> f)
     {
@@ -72,7 +62,7 @@ public sealed class SegundoFatorHttpTests
         => Totp.Codigo(segredo, _passo + deslocamento);
 
     [Fact]
-    public async Task Primeiro_acesso_cadastra_o_autenticador_e_os_seguintes_pedem_o_codigo()
+    public async Task Sem_autenticador_entra_com_a_senha_e_e_convidado_a_ativar_por_dentro()
     {
         var pasta = Path.Combine(Path.GetTempPath(), "clinica-2fa-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(pasta);
@@ -82,65 +72,49 @@ public sealed class SegundoFatorHttpTests
         {
             var c = await Cliente(f);
 
-            // 1) Senha certa, sem autenticador: pede a LIBERAÇÃO da direção — a senha sozinha não cadastra.
+            // 1) Sem autenticador: entra só com a senha, e a resposta convida a ativar.
             var (st, j) = await Post(c, "/api/entrar", new { login = "medica.demo", senha = Senha });
             Assert.Equal(HttpStatusCode.OK, st);
-            Assert.Equal("liberacao", (string?)j!["etapa"]);
-            Assert.Null(j["qrSvg"]); // nenhum segredo antes da liberação
-            // Pular a liberação e ir direto ao cadastro: entrada vencida.
-            Assert.Equal(HttpStatusCode.Gone, (await Post(c, "/api/entrar/cadastro", new { codigo = "123456", confiar = false })).Status);
-            (st, j) = await Post(c, "/api/entrar", new { login = "medica.demo", senha = Senha });
-            Assert.Equal(HttpStatusCode.Unauthorized, (await Post(c, "/api/entrar/liberacao", new { codigo = "aaaaa-bbbbb", confiar = false })).Status);
-            var liberacao = await Liberar(f, "medica.demo");
-            (st, j) = await Post(c, "/api/entrar/liberacao", new { codigo = liberacao, confiar = false });
-            Assert.Equal(HttpStatusCode.OK, st);
-            Assert.Equal("cadastro", (string?)j!["etapa"]);
-            Assert.StartsWith("<svg", (string?)j["qrSvg"]);
-            var segredo = DeBase32((string)j["chave"]!);
-            Assert.Equal(20, segredo.Length);
-            Assert.Equal(HttpStatusCode.Unauthorized, (await c.GetAsync("/api/clinico/dia")).StatusCode);
+            Assert.Equal("equipe", (string?)j!["modo"]);
+            Assert.True((bool)j["convidarSegundoFator"]!);
+            Assert.Equal(HttpStatusCode.OK, (await c.GetAsync("/api/clinico/dia")).StatusCode);
+            Assert.False((bool)JsonNode.Parse(await c.GetStringAsync("/api/sessao"))!["segundoFatorAtivo"]!);
 
-            // Código errado não cadastra.
-            Assert.Equal(HttpStatusCode.Unauthorized, (await Post(c, "/api/entrar/cadastro", new { codigo = "000000", confiar = false })).Status);
-            // Código certo cadastra, abre a sessão e devolve os dez códigos de recuperação, uma vez.
-            (st, j) = await Post(c, "/api/entrar/cadastro", new { codigo = CodigoAgora(segredo), confiar = false });
+            // 2) Ativar por dentro: sem iniciar, a ativação é "vencida"; iniciar entrega o QR.
+            Assert.Equal(HttpStatusCode.Gone, (await Post(c, "/api/conta/segundo-fator/ativar", new { codigo = "123456", confiar = false })).Status);
+            (st, j) = await Post(c, "/api/conta/segundo-fator/iniciar", new { });
+            Assert.Equal(HttpStatusCode.OK, st);
+            Assert.StartsWith("<svg", (string?)j!["qrSvg"]);
+            var segredo = DeBase32((string)j["chave"]!);
+            Assert.Equal(HttpStatusCode.Unauthorized, (await Post(c, "/api/conta/segundo-fator/ativar", new { codigo = "000000", confiar = false })).Status);
+            (st, j) = await Post(c, "/api/conta/segundo-fator/ativar", new { codigo = CodigoAgora(segredo), confiar = false });
             Assert.Equal(HttpStatusCode.OK, st);
             var recuperacao = j!["recuperacao"]!.AsArray().Select(x => (string)x!).ToList();
-            Assert.Equal(10, recuperacao.Count);
             Assert.Equal(10, recuperacao.Distinct().Count());
-            Assert.Contains("posto", j["destinos"]!.AsArray().Select(x => (string)x!));
-            Assert.Equal(HttpStatusCode.OK, (await c.GetAsync("/api/clinico/dia")).StatusCode);
-            // A entrada pendente acabou: repetir o cadastro é "entrada vencida".
-            Assert.Equal(HttpStatusCode.Gone, (await Post(c, "/api/entrar/cadastro", new { codigo = CodigoAgora(segredo), confiar = false })).Status);
+            Assert.True((bool)JsonNode.Parse(await c.GetStringAsync("/api/sessao"))!["segundoFatorAtivo"]!);
+            Assert.Equal(HttpStatusCode.Conflict, (await Post(c, "/api/conta/segundo-fator/iniciar", new { })).Status);
 
-            // 2) Sair e entrar de novo NESTE aparelho (não confiável): pede o código.
+            // 3) Ativado: o próximo login pede o código; o mesmo código não entra duas vezes.
             Assert.Equal(HttpStatusCode.NoContent, (await c.PostAsync("/api/sair", null)).StatusCode);
             (st, j) = await Post(c, "/api/entrar", new { login = "medica.demo", senha = Senha });
             Assert.Equal("codigo", (string?)j!["etapa"]);
             Assert.Equal(HttpStatusCode.Unauthorized, (await c.GetAsync("/api/clinico/dia")).StatusCode);
-            // O código do cadastro (mesmo passo) não vale de novo: um código entra uma vez.
             Assert.Equal(HttpStatusCode.Unauthorized, (await Post(c, "/api/entrar/codigo", new { codigo = CodigoAgora(segredo), confiar = true })).Status);
-            // O do passo seguinte (relógio do celular 30 s adiantado) entra; marca o aparelho como confiável.
             (st, j) = await Post(c, "/api/entrar/codigo", new { codigo = CodigoAgora(segredo, +1), confiar = true });
             Assert.Equal(HttpStatusCode.OK, st);
-            Assert.Equal("equipe", (string?)j!["modo"]);
+            Assert.False((bool)j!["convidarSegundoFator"]!);
 
-            // 3) Aparelho confiável: a senha basta.
+            // 4) Aparelho confiável: a senha basta.
             Assert.Equal(HttpStatusCode.NoContent, (await c.PostAsync("/api/sair", null)).StatusCode);
             (st, j) = await Post(c, "/api/entrar", new { login = "medica.demo", senha = Senha });
             Assert.Equal("equipe", (string?)j!["modo"]);
-            Assert.Equal(HttpStatusCode.OK, (await c.GetAsync("/api/clinico/dia")).StatusCode);
 
-            // 4) Sem entrada pendente, as rotas do código respondem "vencida" — e nunca abrem sessão.
+            // 5) Sem entrada pendente, as rotas do código respondem "vencida".
             var outro = await Cliente(f);
             Assert.Equal(HttpStatusCode.Gone, (await Post(outro, "/api/entrar/codigo", new { codigo = CodigoAgora(segredo, +1), confiar = false })).Status);
             Assert.Equal(HttpStatusCode.Gone, (await Post(outro, "/api/entrar/recuperacao", new { codigo = recuperacao[0], confiar = false })).Status);
-
-            // 5) Perdeu o celular: o código de recuperação entra uma vez (a confiança é por aparelho;
-            //    na demonstração todos os clientes são o mesmo "aparelho", então a pessoa é outra).
-            var g = await Cliente(f);
-            (st, j) = await Post(g, "/api/entrar", new { login = "medica.demo", senha = Senha });
-            Assert.Equal("equipe", (string?)j!["modo"]); // mesmo aparelho de demonstração, já confiável
+            // E ativar exige sessão.
+            Assert.Equal(HttpStatusCode.Unauthorized, (await Post(outro, "/api/conta/segundo-fator/iniciar", new { })).Status);
         }
         finally { Directory.Delete(pasta, true); }
     }
@@ -156,13 +130,11 @@ public sealed class SegundoFatorHttpTests
         {
             var c = await Cliente(f);
             var (_, j) = await Post(c, "/api/entrar", new { login = "demo", senha = Senha }); // perfil Gerente
-            Assert.Equal("liberacao", (string?)j!["etapa"]);
-            (_, j) = await Post(c, "/api/entrar/liberacao", new { codigo = await Liberar(f, "demo"), confiar = false });
+            Assert.Equal("gestao", (string?)j!["destinos"]![0]); // o gerente vai primeiro à gestão
+            (_, j) = await Post(c, "/api/conta/segundo-fator/iniciar", new { });
             var segredo = DeBase32((string)j!["chave"]!);
-            (_, j) = await Post(c, "/api/entrar/cadastro", new { codigo = CodigoAgora(segredo), confiar = false });
-            var destinos = j!["destinos"]!.AsArray().Select(x => (string)x!).ToList();
-            Assert.Equal("gestao", destinos[0]); // o gerente vai primeiro à gestão
-            var recuperacao = (string)j["recuperacao"]![0]!;
+            (_, j) = await Post(c, "/api/conta/segundo-fator/ativar", new { codigo = CodigoAgora(segredo), confiar = false });
+            var recuperacao = (string)j!["recuperacao"]![0]!;
 
             Assert.Equal(HttpStatusCode.NoContent, (await c.PostAsync("/api/sair", null)).StatusCode);
             (_, j) = await Post(c, "/api/entrar", new { login = "demo", senha = Senha });
@@ -171,13 +143,9 @@ public sealed class SegundoFatorHttpTests
 
             Assert.Equal(HttpStatusCode.NoContent, (await c.PostAsync("/api/sair", null)).StatusCode);
             (_, j) = await Post(c, "/api/entrar", new { login = "demo", senha = Senha });
-            Assert.Equal("codigo", (string?)j!["etapa"]);
             Assert.Equal(HttpStatusCode.Unauthorized, (await Post(c, "/api/entrar/recuperacao", new { codigo = recuperacao, confiar = false })).Status);
-
-            // A sessão informa os destinos ao recarregar a página.
             Assert.Equal(HttpStatusCode.OK, (await Post(c, "/api/entrar/codigo", new { codigo = CodigoAgora(segredo, +1), confiar = false })).Status);
-            var s = JsonNode.Parse(await c.GetStringAsync("/api/sessao"))!;
-            Assert.Equal("gestao", (string?)s["destinos"]![0]);
+            Assert.Equal("gestao", (string?)JsonNode.Parse(await c.GetStringAsync("/api/sessao"))!["destinos"]![0]);
         }
         finally { Directory.Delete(pasta, true); }
     }

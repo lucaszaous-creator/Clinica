@@ -101,9 +101,9 @@
                                         <button type="button" class="botao mini icone" disabled="@(!PodeGerenciar)" @onclick="() => RedefinirSenha(linha)"
                                                 title="@(PodeGerenciar ? "Redefinir senha (provisória: troca no próximo acesso)" : SemPermissao)"
                                                 aria-label="Redefinir senha"><Icone Nome="cadeado" /></button>
-                                        <button type="button" class="botao mini icone" disabled="@(!PodeGerenciar)" @onclick="() => LiberarPortalAsync(linha)"
-                                                title="@(PodeGerenciar ? "Liberar o portal: código de uso único para cadastrar o autenticador (zera o anterior)" : SemPermissao)"
-                                                aria-label="Liberar o portal"><Icone Nome="enviar" /></button>
+                                        <button type="button" class="botao mini icone" disabled="@(!PodeGerenciar)" @onclick="() => ZerarAutenticadorAsync(linha)"
+                                                title="@(PodeGerenciar ? "Zerar o autenticador do portal (celular perdido ou travado)" : SemPermissao)"
+                                                aria-label="Zerar o autenticador do portal"><Icone Nome="atualizar" /></button>
                                         <button type="button" class="botao mini icone contorno-perigo" disabled="@(!PodeGerenciar || !l.PodeExcluir)"
                                                 @onclick="() => ExcluirAsync(linha)"
                                                 title="@(!PodeGerenciar ? SemPermissao : l.PodeExcluir ? "Excluir (só quem nunca entrou)" : AcessosNaTela.MotivoSemExcluir)"
@@ -214,30 +214,24 @@
     }
 
     /// <summary>
-    /// O primeiro acesso ao portal (nov/2026): a senha não basta para cadastrar o autenticador — a
-    /// direção gera aqui o código de uso único e o entrega à pessoa. Para quem perdeu o celular,
-    /// liberar também zera o autenticador antigo. A regra mora em ISegundoFatorDoPortal.
+    /// O segundo fator do portal (nov/2026): quem perdeu o celular (ou travou de tanto errar) fica
+    /// sem entrar. Zerar apaga o autenticador, os códigos de recuperação e a confiança nos aparelhos;
+    /// a pessoa entra de novo só com a senha e o portal volta a convidá-la a ativar.
     /// </summary>
-    private async Task LiberarPortalAsync(LinhaDeAcesso linha)
+    private async Task ZerarAutenticadorAsync(LinhaDeAcesso linha)
     {
-        if (!Exigir(Permissao.GerenciarUsuarios, "liberar o portal")) return;
-        if (!await Dialogos.ConfirmarAsync("Liberar o portal",
-                $"Gera um código de uso único para {linha.Nome} cadastrar o autenticador no portal. Se já houver um autenticador, " +
-                "ele é zerado (celular perdido) e o próximo acesso cadastra de novo. O código vale 72 horas.",
-                confirmar: "Gerar código"))
+        if (!Exigir(Permissao.GerenciarUsuarios, "zerar o autenticador")) return;
+        if (!await Dialogos.ConfirmarAsync("Zerar o autenticador do portal",
+                $"{linha.Nome} vai entrar no portal só com a senha e será convidada a ativar a verificação em duas etapas de novo. " +
+                "Use quando a pessoa perdeu o celular ou travou o código.", perigoso: true, confirmar: "Zerar"))
             return;
-        if (!Exigir(Permissao.GerenciarUsuarios, "liberar o portal")) return;
-        string? codigo = null;
-        var ok = await ExecutarAsync(async () =>
+        if (!Exigir(Permissao.GerenciarUsuarios, "zerar o autenticador")) return;
+        await ExecutarAsync(async () =>
         {
             using var escopo = Escopo();
-            codigo = await escopo.ServiceProvider.GetRequiredService<Clinica.Application.Tablet.ISegundoFatorDoPortal>()
-                .LiberarPrimeiroAcessoAsync(linha.Id, Operador);
-        }, "Blazor — portal não pôde ser liberado");
-        if (ok && codigo is not null)
-            await Dialogos.AvisoAsync("Código de liberação do portal",
-                $"Entregue a {linha.Nome}, pessoalmente: {codigo}. Vale uma vez, por 72 horas. " +
-                "No portal, depois da senha, ela digita este código e cadastra o autenticador do celular.");
+            await escopo.ServiceProvider.GetRequiredService<Clinica.Application.Tablet.ISegundoFatorDoPortal>()
+                .ZerarAsync(linha.Id, Operador);
+        }, "Blazor — autenticador não pôde ser zerado", "Autenticador zerado. No próximo acesso, a pessoa entra só com a senha.");
     }
 
     private async Task GravouAsync()

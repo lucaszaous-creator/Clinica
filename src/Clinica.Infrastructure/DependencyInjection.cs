@@ -19,7 +19,7 @@ public static class DependencyInjection
         services.AddDbContext<ClinicaDbContext>(o => o.UseNpgsql(connectionString, ConfigurarNpgsql)
             .AddInterceptors(InterceptadorMedicao.Instancia)); // só conta idas e tempo (ver MedicaoBanco)
         services.AddScoped<IClinicaRepositorio, ClinicaRepositorio>();
-        // A direção libera o primeiro acesso ao portal e zera o autenticador perdido (tela de Acessos).
+        // A direção zera o autenticador perdido do portal (tela de Acessos).
         services.AddScoped<Clinica.Application.Tablet.ISegundoFatorDoPortal, Tablet.AdministracaoDoSegundoFator>();
         services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<ILeituraParalela, LeituraParalela>();

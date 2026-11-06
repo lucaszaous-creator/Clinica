@@ -15,7 +15,7 @@ namespace Clinica.Infrastructure.Tablet;
 /// a de cada minuto durante o uso (sem o cookie, pelo id da sessão): sair do portal, trocar a
 /// senha ou perder o perfil derruba a gestão aberta em até um minuto.
 /// </summary>
-public sealed class SessaoDoPortalNaGestao(ClinicaDbContext db, TimeProvider relogio)
+public sealed class SessaoDoPortalNaGestao(ClinicaDbContext db, TimeProvider relogio, OpcoesDaGestaoWeb? opcoes = null)
 {
     public sealed record Valida(string SessaoId, UsuarioSistema Usuario, long ExpiraEm);
 
@@ -39,6 +39,9 @@ public sealed class SessaoDoPortalNaGestao(ClinicaDbContext db, TimeProvider rel
         if (dispositivo is not null && s.Dispositivo != dispositivo) return null;
         if (!u.Ativo || u.Travado(DateTime.Now) || s.CredencialVersao != ContratoTablet.Hash(u.SenhaHash)) return null;
         if (!AcessoAoPortal.PodeGestao(u)) return null;
+        // A chave da direção (Gestao:ExigirSegundoFator): com ela ligada, a gestão — o sistema
+        // inteiro na internet — só abre para quem já ativou o segundo fator no portal.
+        if (opcoes?.ExigirSegundoFator == true && !await db.SegundosFatoresPortal.AnyAsync(x => x.UsuarioId == u.Id, ct)) return null;
         return new Valida(s.Id, u, s.ExpiraEm);
     }
 
@@ -54,3 +57,6 @@ public sealed class SessaoDoPortalNaGestao(ClinicaDbContext db, TimeProvider rel
         await db.SaveChangesAsync(ct);
     }
 }
+
+/// <summary>As opções da gestão web. <see cref="ExigirSegundoFator"/> desligada por padrão (decisão da direção, nov/2026).</summary>
+public sealed record OpcoesDaGestaoWeb(bool ExigirSegundoFator);
