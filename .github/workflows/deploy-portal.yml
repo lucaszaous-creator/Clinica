@@ -195,10 +195,21 @@ jobs:
           CFG
           chmod 600 ~/.ssh/config
       - name: Testar o acesso à VPS (diagnóstico legível se falhar)
+        env:
+          VPS_DEPLOY: ${{ secrets.VPS_DEPLOY }}
         run: |
           # Os segredos já estão mascarados (add-mask); o -v mostra em que etapa a conexão cai:
           # Access (cloudflared), chave do servidor, autenticação ou o comando restrito.
           if ! ssh -o ConnectTimeout=30 -o BatchMode=yes vps true 2> ssh.log; then
+            # O Access aceita o service token? 403 = token recusado (ID/segredo errados ou fora da
+            # política); qualquer outro código = o token passou e o problema é depois do Access.
+            declare -A v
+            while IFS='=' read -r k val; do [ -n "$k" ] && v[$k]="$val"; done < <(printf '%s' "$VPS_DEPLOY" | base64 -d)
+            curl -s -o /dev/null -w "Access com o service token: HTTP %{http_code}\n" \
+              -H "CF-Access-Client-Id: ${v[CF_ID]}" -H "CF-Access-Client-Secret: ${v[CF_SECRET]}" "https://${v[HOST]}/"
+            timeout 15 cloudflared access ssh --hostname "${v[HOST]}" --service-token-id "${v[CF_ID]}" \
+              --service-token-secret "${v[CF_SECRET]}" --loglevel debug --logfile /tmp/cf.log < /dev/null > /dev/null 2>&1 || true
+            echo "--- cloudflared:"; tail -15 /tmp/cf.log 2>/dev/null || true
             grep -vE 'debug1: (Reading|Applying|identity file|Local version|compat|kex_|SSH2_MSG|expecting|channel|client_input)' ssh.log | tail -25
             ssh -v -o ConnectTimeout=30 -o BatchMode=yes vps true 2>&1 | grep -vE 'debug1: (Reading|Applying|identity file|Local version|compat|kex_|SSH2_MSG|expecting)' | tail -30
             exit 1
