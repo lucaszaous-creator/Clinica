@@ -10,7 +10,8 @@ set -euo pipefail
 [ "$(id -u)" -eq 0 ] || { echo "rode como root (sudo -i)" >&2; exit 1; }
 BIN=$(systemctl show -p ExecStart cloudflared-site | grep -o '/usr/local/bin/cloudflared[^ ;]*' | head -1)
 [ -x "$BIN" ] || { echo "binário do cloudflared do site não encontrado" >&2; exit 1; }
-# A mesma lista de IPs da Cloudflare que o túnel do site já usa, mais o SSH local.
+# A mesma lista de IPs da Cloudflare que o túnel do site já usa, mais o SSH local e o DNS local
+# (127.0.0.53, o systemd-resolved: sem ele a busca SRV do túnel é recusada e o conector não sobe).
 PERMITIDOS=$(systemctl show -p IPAddressAllow --value cloudflared-site)
 [ -n "$PERMITIDOS" ] || { echo "lista de IPs do túnel do site vazia" >&2; exit 1; }
 
@@ -42,7 +43,7 @@ PrivateDevices=true
 CapabilityBoundingSet=
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 IPAddressDeny=any
-IPAddressAllow=$PERMITIDOS 127.0.0.1 ::1
+IPAddressAllow=$PERMITIDOS 127.0.0.1 ::1 127.0.0.53
 MemoryMax=200M
 
 [Install]
