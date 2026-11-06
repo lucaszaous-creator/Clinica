@@ -105,7 +105,7 @@ commands.append(f'GRANT SELECT ("Id") ON "Auditoria" TO "{ROLE}";') # INSERT RET
 commands.append(f'GRANT UPDATE ("Categoria") ON "Pacientes" TO "{ROLE}";') # Categoria recalculada pelo núcleo ao concluir e gerar guias.
 # Segundo fator do portal (nov/2026): o autenticador, os aparelhos confiáveis e os códigos de recuperação.
 for tabela, privilegios in (('SegundoFatorPortal','SELECT, INSERT, UPDATE'),('DispositivosConfiaveisPortal','SELECT, INSERT, UPDATE'),
-                            ('CodigosRecuperacaoPortal','SELECT, INSERT, UPDATE, DELETE')):
+                            ('CodigosRecuperacaoPortal','SELECT, INSERT, UPDATE, DELETE'),('LiberacoesPortal','SELECT, UPDATE, DELETE')):
     if sql(DB, f'SELECT to_regclass(\'"{tabela}"\') IS NOT NULL') == 't':
         commands.append(f'GRANT {privilegios} ON "{tabela}" TO "{ROLE}";')
 if sql(DB, 'SELECT to_regclass(\'"CodigosRecuperacaoPortal"\') IS NOT NULL') == 't':

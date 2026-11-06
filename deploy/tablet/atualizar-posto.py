@@ -393,11 +393,13 @@ if migracao == '20261014192239_PedidosEnfermagem':
                     conceder.append(f'GRANT {priv} ON SEQUENCE {sequence} TO {ident(destinatario)};')
                     revogar.append(f'REVOKE {priv} ON SEQUENCE {sequence} FROM {ident(destinatario)};')
 # Segundo fator do portal (nov/2026): o código do tablet saiu. As tabelas nascem pela migration
-# 20261106061426_SegundoFatorDoPortal (aplicada pelos apps da suíte); aqui só o papel do portal
+# 20261106070920_SegundoFatorDoPortal (aplicada pelos apps da suíte); aqui só o papel do portal
 # recebe o mínimo — sem DELETE no autenticador (zerar é da direção, pelo app).
 for tabela,privilegios in {'SegundoFatorPortal':('SELECT','INSERT','UPDATE'),
         'DispositivosConfiaveisPortal':('SELECT','INSERT','UPDATE'),
-        'CodigosRecuperacaoPortal':('SELECT','INSERT','UPDATE','DELETE')}.items():
+        'CodigosRecuperacaoPortal':('SELECT','INSERT','UPDATE','DELETE'),
+        # A liberação do primeiro acesso: a direção a cria pelo app; o portal confere, conta erro e consome.
+        'LiberacoesPortal':('SELECT','UPDATE','DELETE')}.items():
     assert sql(f"SELECT to_regclass('{ident(tabela)}') IS NOT NULL")=='t', \
         f'Tabela {tabela} ausente: publique antes um app da suíte com a migration SegundoFatorDoPortal'
     for priv in privilegios: grant(priv,tabela)

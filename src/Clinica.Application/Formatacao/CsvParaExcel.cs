@@ -23,7 +23,11 @@ public static partial class CsvParaExcel
         texto.AppendLine(string.Join(';', cabecalho.Select(Escapar)));
         foreach (var linha in linhas)
             texto.AppendLine(string.Join(';', linha.Select(Escapar)));
-        return new UTF8Encoding(encoderShouldEmitUTF8Identifier: true).GetBytes(texto.ToString());
+        // ⚠️ GetBytes NUNCA escreve o BOM, mesmo com encoderShouldEmitUTF8Identifier: true — só o
+        // GetPreamble o devolve. O shell WPF fazia `new UTF8Encoding(true).GetBytes(…)` com o
+        // comentário dizendo que gravava o BOM, e os CSVs saíam sem ele (achado pelo teste, nov/2026).
+        var utf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
+        return [.. utf8.GetPreamble(), .. utf8.GetBytes(texto.ToString())];
     }
 
     public static string Escapar(string? campo)

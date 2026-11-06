@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Clinica.Application.Assinatura;
 using Clinica.Application.Assinatura.SafeID;
 using Clinica.Application.Abstracoes;
@@ -18,6 +19,9 @@ public static class DependencyInjection
         services.AddDbContext<ClinicaDbContext>(o => o.UseNpgsql(connectionString, ConfigurarNpgsql)
             .AddInterceptors(InterceptadorMedicao.Instancia)); // só conta idas e tempo (ver MedicaoBanco)
         services.AddScoped<IClinicaRepositorio, ClinicaRepositorio>();
+        // A direção libera o primeiro acesso ao portal e zera o autenticador perdido (tela de Acessos).
+        services.AddScoped<Clinica.Application.Tablet.ISegundoFatorDoPortal, Tablet.AdministracaoDoSegundoFator>();
+        services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<ILeituraParalela, LeituraParalela>();
         services.AddScoped<IAcompanhamentoPacienteService, AcompanhamentoPacienteService>();
         services.AddScoped<IEntradaNoCrmService, EntradaNoCrmService>();

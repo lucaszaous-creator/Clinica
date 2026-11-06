@@ -312,18 +312,28 @@ app.MapPost("/api/entrar",async(HttpContext ctx,Entrada pedido,AcessoService ace
     if(await fator.TemAutenticadorAsync(u.Id,ctx.RequestAborted))
     {
         if(await fator.ConfiavelAsync(u,dispositivo,ctx.RequestAborted)) return await AbrirSessao(ctx,u,dispositivo,svc);
-        ctx.Response.Cookies.Append(cookieEntrada,EntradaDoPortal.Proteger(protetorEntrada,new(u.Id,ContratoTablet.Hash(u.SenhaHash),dispositivo,null)),Cookie(1));
+        ctx.Response.Cookies.Append(cookieEntrada,EntradaDoPortal.Proteger(protetorEntrada,new(u.Id,ContratoTablet.Hash(u.SenhaHash),dispositivo,null,"codigo")),Cookie(1));
         return Results.Ok(new {etapa="codigo"});
     }
+    // Primeiro acesso: a senha NÃO basta para cadastrar o autenticador (quem a soubesse cadastraria o
+    // próprio celular e trancaria o dono fora). Falta o código de liberação que a direção entregou.
+    ctx.Response.Cookies.Append(cookieEntrada,EntradaDoPortal.Proteger(protetorEntrada,new(u.Id,ContratoTablet.Hash(u.SenhaHash),dispositivo,null,"liberacao")),Cookie(1));
+    return Results.Ok(new {etapa="liberacao"});
+});
+app.MapPost("/api/entrar/liberacao",async(HttpContext ctx,CodigoEntrada pedido,ClinicaDbContext db,PortalTabletService svc,SegundoFatorPortalService fator)=>
+{
+    if(await Pendente(ctx,db,svc) is not var (u,p) || p.Etapa!="liberacao") return EntradaVencida();
+    if(!await fator.Para(u).ConferirLiberacaoAsync(u.Id,pedido.Codigo,ctx.RequestAborted))
+        return Results.Json(new {erro="Código de liberação não confere ou venceu. Peça um novo à direção da clínica."},statusCode:401);
     var segredo=Totp.NovoSegredo();
-    ctx.Response.Cookies.Append(cookieEntrada,EntradaDoPortal.Proteger(protetorEntrada,new(u.Id,ContratoTablet.Hash(u.SenhaHash),dispositivo,Convert.ToBase64String(segredo))),Cookie(1));
+    ctx.Response.Cookies.Append(cookieEntrada,EntradaDoPortal.Proteger(protetorEntrada,new(u.Id,p.Credencial,p.Dispositivo,Convert.ToBase64String(segredo),"cadastro")),Cookie(1));
     var conta=u.Login;
     return Results.Ok(new {etapa="cadastro",conta=$"Clínica SemDor ({conta})",chave=Totp.ChaveLegivel(segredo),
         qrSvg=EntradaDoPortal.QrSvg(Totp.Endereco("Clínica SemDor",conta,segredo))});
 });
 app.MapPost("/api/entrar/codigo",async(HttpContext ctx,CodigoEntrada pedido,ClinicaDbContext db,PortalTabletService svc,SegundoFatorPortalService fator)=>
 {
-    if(await Pendente(ctx,db,svc) is not var (u,p) || p.SegredoNovo is not null) return EntradaVencida();
+    if(await Pendente(ctx,db,svc) is not var (u,p) || p.Etapa!="codigo") return EntradaVencida();
     if(!await fator.Para(u).VerificarAsync(u.Id,pedido.Codigo,ctx.RequestAborted))
         return Results.Json(new {erro="Código não confere. Confira a hora do celular e digite o código que está na tela agora."},statusCode:401);
     if(pedido.Confiar) await fator.ConfiarAsync(u,p.Dispositivo,Origem(ctx),ctx.RequestAborted);
@@ -331,7 +341,7 @@ app.MapPost("/api/entrar/codigo",async(HttpContext ctx,CodigoEntrada pedido,Clin
 });
 app.MapPost("/api/entrar/cadastro",async(HttpContext ctx,CodigoEntrada pedido,ClinicaDbContext db,PortalTabletService svc,SegundoFatorPortalService fator)=>
 {
-    if(await Pendente(ctx,db,svc) is not var (u,p) || p.SegredoNovo is null) return EntradaVencida();
+    if(await Pendente(ctx,db,svc) is not var (u,p) || p.Etapa!="cadastro" || p.SegredoNovo is null) return EntradaVencida();
     var codigos=await fator.Para(u).CadastrarAsync(u.Id,Convert.FromBase64String(p.SegredoNovo),pedido.Codigo,ctx.RequestAborted);
     if(codigos is null)
         return Results.Json(new {erro="Código não confere. Confira se leu o QR desta tela e digite o código que aparece no aplicativo."},statusCode:401);
@@ -343,7 +353,7 @@ app.MapPost("/api/entrar/cadastro",async(HttpContext ctx,CodigoEntrada pedido,Cl
 });
 app.MapPost("/api/entrar/recuperacao",async(HttpContext ctx,CodigoEntrada pedido,ClinicaDbContext db,PortalTabletService svc,SegundoFatorPortalService fator)=>
 {
-    if(await Pendente(ctx,db,svc) is not var (u,p) || p.SegredoNovo is not null) return EntradaVencida();
+    if(await Pendente(ctx,db,svc) is not var (u,p) || p.Etapa!="codigo") return EntradaVencida();
     if(!await fator.Para(u).UsarRecuperacaoAsync(u.Id,pedido.Codigo,ctx.RequestAborted))
         return Results.Json(new {erro="Código de recuperação não confere ou já foi usado."},statusCode:401);
     if(pedido.Confiar) await fator.ConfiarAsync(u,p.Dispositivo,Origem(ctx),ctx.RequestAborted);

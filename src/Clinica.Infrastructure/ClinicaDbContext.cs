@@ -137,6 +137,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<SegundoFatorPortal> SegundosFatoresPortal => Set<SegundoFatorPortal>();
     public DbSet<DispositivoConfiavelPortal> DispositivosConfiaveisPortal => Set<DispositivoConfiavelPortal>();
     public DbSet<CodigoRecuperacaoPortal> CodigosRecuperacaoPortal => Set<CodigoRecuperacaoPortal>();
+    public DbSet<LiberacaoPortal> LiberacoesPortal => Set<LiberacaoPortal>();
     public DbSet<ViaAssinadaPaciente> ViasAssinadasPaciente => Set<ViaAssinadaPaciente>();
     public DbSet<BloqueioAgenda> BloqueiosAgenda => Set<BloqueioAgenda>();
     public DbSet<MetaMensal> Metas => Set<MetaMensal>();

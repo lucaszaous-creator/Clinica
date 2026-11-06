@@ -89,4 +89,11 @@ public class SessaoPorConexaoTests
         Assert.Equal(77, foto.UsuarioId);
         Assert.True(foto.Autenticado);
     }
+
+    [Fact]
+    public void O_whatsapp_tambem_nega_a_sessao_fechada_do_servidor()
+    {
+        Assert.False(AcessoAoWhatsApp.Pode(SessaoUsuario.SemLoginNoServidor));
+        Assert.True(AcessoAoWhatsApp.Pode(new SessaoUsuario())); // a vazia do desktop continua liberando
+    }
 }

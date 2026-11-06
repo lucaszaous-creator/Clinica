@@ -77,6 +77,10 @@ public sealed class SegundoFatorPortalService(ClinicaDbContext db, IProtecaoDoSe
         var passo = Totp.Verificar(segredo, codigo, relogio.GetUtcNow(), long.MinValue);
         if (passo is null) return null;
         if (await TemAutenticadorAsync(usuarioId, ct)) return null; // corrida: outro aparelho cadastrou antes
+        // A liberação da direção é consumida AQUI, junto com o cadastro: vale uma vez.
+        var liberacao = await db.LiberacoesPortal.FindAsync([usuarioId], ct);
+        if (liberacao is null || liberacao.ExpiraEm <= Agora || liberacao.Falhas >= FalhasDaLiberacao) return null;
+        db.LiberacoesPortal.Remove(liberacao);
         db.SegundosFatoresPortal.Add(new SegundoFatorPortal
         {
             UsuarioId = usuarioId, SegredoProtegido = protecao.Proteger(segredo), AtivadoEm = Agora, UltimoPasso = passo.Value
@@ -128,17 +132,28 @@ public sealed class SegundoFatorPortalService(ClinicaDbContext db, IProtecaoDoSe
         await db.SaveChangesAsync(ct);
     }
 
-    /// <summary>A direção zera o segundo fator (celular perdido sem códigos): o próximo login cadastra de novo.</summary>
-    public async Task ZerarAsync(int usuarioId, string operador, CancellationToken ct)
+    /// <summary>Erros do código de liberação até ele deixar de valer (a direção gera outro).</summary>
+    public const int FalhasDaLiberacao = 5;
+
+    /// <summary>
+    /// O código que a direção entregou para o PRIMEIRO acesso confere? Errar conta; no teto, o código
+    /// morre. Não consome: o consumo é no cadastro, quando o celular provou o código.
+    /// </summary>
+    public async Task<bool> ConferirLiberacaoAsync(int usuarioId, string? codigo, CancellationToken ct)
     {
-        var f = await db.SegundosFatoresPortal.SingleOrDefaultAsync(x => x.UsuarioId == usuarioId, ct);
-        if (f is not null) db.SegundosFatoresPortal.Remove(f);
-        db.CodigosRecuperacaoPortal.RemoveRange(db.CodigosRecuperacaoPortal.Where(x => x.UsuarioId == usuarioId));
-        var agora = Agora;
-        await db.DispositivosConfiaveisPortal.Where(x => x.UsuarioId == usuarioId && x.ExpiraEm > agora)
-            .ForEachAsync(x => x.ExpiraEm = agora, ct);
-        Auditar(usuarioId, "PortalSegundoFatorZerado", $"zerado por {operador}");
-        await db.SaveChangesAsync(ct);
+        var l = await db.LiberacoesPortal.FindAsync([usuarioId], ct);
+        if (l is null || l.ExpiraEm <= Agora || l.Falhas >= FalhasDaLiberacao) return false;
+        var certo = !string.IsNullOrWhiteSpace(codigo) && codigo.Length <= 40
+            && System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
+                System.Text.Encoding.ASCII.GetBytes(AdministracaoDoSegundoFator.ResumoDaLiberacao(usuarioId, codigo)),
+                System.Text.Encoding.ASCII.GetBytes(l.Resumo));
+        if (!certo)
+        {
+            l.Falhas++;
+            Auditar(usuarioId, l.Falhas >= FalhasDaLiberacao ? "PortalLiberacaoInvalidada" : "PortalLiberacaoFalhou", $"falhas: {l.Falhas}");
+            await db.SaveChangesAsync(ct);
+        }
+        return certo;
     }
 
     private async Task<IReadOnlyList<string>> TrocarRecuperacaoAsync(int usuarioId, CancellationToken ct)

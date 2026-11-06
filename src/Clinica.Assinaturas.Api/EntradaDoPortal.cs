@@ -16,8 +16,12 @@ public static class EntradaDoPortal
     public const string PropositoEntrada = "EntradaPendentePortal.v1";
     public static readonly TimeSpan VidaDaEntrada = TimeSpan.FromMinutes(5);
 
-    /// <summary>Quem passou da senha e ainda deve o código. <paramref name="SegredoNovo"/> só no primeiro acesso.</summary>
-    public sealed record Pendente(int UsuarioId, string Credencial, string Dispositivo, string? SegredoNovo);
+    /// <summary>
+    /// Quem passou da senha e ainda deve o próximo passo. <paramref name="Etapa"/>: "codigo" (tem
+    /// autenticador), "liberacao" (primeiro acesso: falta o código que a direção entregou) ou
+    /// "cadastro" (liberação conferida; <paramref name="SegredoNovo"/> é o segredo do QR).
+    /// </summary>
+    public sealed record Pendente(int UsuarioId, string Credencial, string Dispositivo, string? SegredoNovo, string Etapa = "codigo");
 
     public static string Proteger(ITimeLimitedDataProtector p, Pendente pendente)
         => p.Protect(JsonSerializer.Serialize(pendente), VidaDaEntrada);

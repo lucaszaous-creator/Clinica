@@ -56,6 +56,28 @@ namespace Clinica.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "LiberacoesPortal",
+                columns: table => new
+                {
+                    UsuarioId = table.Column<int>(type: "integer", nullable: false),
+                    Resumo = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
+                    CriadaEm = table.Column<long>(type: "bigint", nullable: false),
+                    ExpiraEm = table.Column<long>(type: "bigint", nullable: false),
+                    CriadaPor = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    Falhas = table.Column<int>(type: "integer", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_LiberacoesPortal", x => x.UsuarioId);
+                    table.ForeignKey(
+                        name: "FK_LiberacoesPortal_Usuarios_UsuarioId",
+                        column: x => x.UsuarioId,
+                        principalTable: "Usuarios",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "SegundoFatorPortal",
                 columns: table => new
                 {
@@ -102,6 +124,9 @@ namespace Clinica.Infrastructure.Migrations
 
             migrationBuilder.DropTable(
                 name: "DispositivosConfiaveisPortal");
+
+            migrationBuilder.DropTable(
+                name: "LiberacoesPortal");
 
             migrationBuilder.DropTable(
                 name: "SegundoFatorPortal");

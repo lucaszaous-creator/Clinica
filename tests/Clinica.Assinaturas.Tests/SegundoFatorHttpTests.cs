@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Nodes;
@@ -26,6 +27,15 @@ public sealed class SegundoFatorHttpTests
             b.UseSetting("Portal:BancoDemo", Path.Combine(pasta, "demo.db"));
             b.UseSetting("Portal:DiretorioChaves", Path.Combine(pasta, "chaves"));
         });
+
+    /// <summary>A direção libera o primeiro acesso (na tela de Acessos) e entrega o código.</summary>
+    private static async Task<string> Liberar(WebApplicationFactory<Program> f, string login)
+    {
+        using var escopo = f.Services.CreateScope();
+        var db = escopo.ServiceProvider.GetRequiredService<Clinica.Infrastructure.ClinicaDbContext>();
+        var id = db.Usuarios.Single(u => u.Login == login).Id;
+        return await new Clinica.Infrastructure.Tablet.AdministracaoDoSegundoFator(db, TimeProvider.System).LiberarPrimeiroAcessoAsync(id, "direcao");
+    }
 
     private static async Task<HttpClient> Cliente(WebApplicationFactory<Program> f)
     {
@@ -72,8 +82,17 @@ public sealed class SegundoFatorHttpTests
         {
             var c = await Cliente(f);
 
-            // 1) Senha certa, sem autenticador: o cadastro, e NENHUMA sessão ainda.
+            // 1) Senha certa, sem autenticador: pede a LIBERAÇÃO da direção — a senha sozinha não cadastra.
             var (st, j) = await Post(c, "/api/entrar", new { login = "medica.demo", senha = Senha });
+            Assert.Equal(HttpStatusCode.OK, st);
+            Assert.Equal("liberacao", (string?)j!["etapa"]);
+            Assert.Null(j["qrSvg"]); // nenhum segredo antes da liberação
+            // Pular a liberação e ir direto ao cadastro: entrada vencida.
+            Assert.Equal(HttpStatusCode.Gone, (await Post(c, "/api/entrar/cadastro", new { codigo = "123456", confiar = false })).Status);
+            (st, j) = await Post(c, "/api/entrar", new { login = "medica.demo", senha = Senha });
+            Assert.Equal(HttpStatusCode.Unauthorized, (await Post(c, "/api/entrar/liberacao", new { codigo = "aaaaa-bbbbb", confiar = false })).Status);
+            var liberacao = await Liberar(f, "medica.demo");
+            (st, j) = await Post(c, "/api/entrar/liberacao", new { codigo = liberacao, confiar = false });
             Assert.Equal(HttpStatusCode.OK, st);
             Assert.Equal("cadastro", (string?)j!["etapa"]);
             Assert.StartsWith("<svg", (string?)j["qrSvg"]);
@@ -137,6 +156,8 @@ public sealed class SegundoFatorHttpTests
         {
             var c = await Cliente(f);
             var (_, j) = await Post(c, "/api/entrar", new { login = "demo", senha = Senha }); // perfil Gerente
+            Assert.Equal("liberacao", (string?)j!["etapa"]);
+            (_, j) = await Post(c, "/api/entrar/liberacao", new { codigo = await Liberar(f, "demo"), confiar = false });
             var segredo = DeBase32((string)j!["chave"]!);
             (_, j) = await Post(c, "/api/entrar/cadastro", new { codigo = CodigoAgora(segredo), confiar = false });
             var destinos = j!["destinos"]!.AsArray().Select(x => (string)x!).ToList();
