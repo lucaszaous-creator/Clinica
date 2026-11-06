@@ -54,7 +54,9 @@ jobs:
       janela: ${{ steps.versoes.outputs.janela }}
     steps:
       - uses: actions/checkout@v5
-        with: {fetch-depth: 0}
+        # Sem guardar a credencial do Actions no git: ela passaria na frente do SITE_READ_TOKEN no
+        # ls-remote abaixo, e o GITHUB_TOKEN não enxerga o clinica-site ("Repository not found").
+        with: {fetch-depth: 0, persist-credentials: false}
       - name: Versões da main
         id: versoes
         env:
