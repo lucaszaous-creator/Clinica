@@ -219,6 +219,14 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyList<CodigoFaturamento>> CodigosDoPacienteDesdeAsync(int pacienteId, DateOnly desde, CancellationToken ct = default)
+        => await ConsultaCodigosDoPacienteDesde(pacienteId, desde).ToListAsync(ct);
+
+    /// <summary>Sem rastreio: o motor de regras só LÊ tipo, data e situação dessas guias.</summary>
+    internal IQueryable<CodigoFaturamento> ConsultaCodigosDoPacienteDesde(int pacienteId, DateOnly desde)
+        => _db.Codigos.AsNoTracking()
+            .Where(c => c.Atendimento!.PacienteId == pacienteId && c.DataPrevistaFaturamento >= desde);
+
     /// <remarks>
     /// Desempenho (out/2026): é a consulta mais repetida da suíte — Fila a cada minuto, Painel,
     /// Novo atendimento, pendências do faturamento — e cobre a clínica inteira. Ela trazia a ficha
@@ -1017,6 +1025,9 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             existe.DiasSegundoCodigo = convenio.DiasSegundoCodigo;
             existe.FaturaBsv = convenio.FaturaBsv;
             existe.InverteDatasBsv = convenio.InverteDatasBsv;
+            existe.EletroNoMesmoDia = convenio.EletroNoMesmoDia;
+            existe.IntervaloAcupunturaDias = convenio.IntervaloAcupunturaDias;
+            existe.IntervaloEletroDias = convenio.IntervaloEletroDias;
             existe.ValidadeConsultaDias = convenio.ValidadeConsultaDias;
             existe.CategoriaComApp = convenio.CategoriaComApp;
             existe.CategoriaSemApp = convenio.CategoriaSemApp;
