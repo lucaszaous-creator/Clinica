@@ -74,6 +74,14 @@ public class TraducaoNoNpgsqlTests
     }
 
     [Fact]
+    public void Autorizacoes_utilizaveis_do_convenio_traduzem()
+    {
+        using var db = Postgres();
+        new ClinicaRepositorio(db).ConsultaAutorizacoesUtilizaveis("Particular", new DateOnly(2026, 11, 8))
+            .ToQueryString().Should().Contain("DataValidade").And.Contain("Encerrada");
+    }
+
+    [Fact]
     public void Donos_dos_horarios_traduzem_em_projecao()
     {
         using var db = Postgres();

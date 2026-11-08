@@ -321,6 +321,20 @@ public interface IClinicaRepositorio
     /// <summary>Há algum paciente cadastrado com este código de convênio?</summary>
     Task<bool> ConvenioEmUsoAsync(string codigo, CancellationToken ct = default);
 
+    /// <summary>
+    /// JUNTAR CONVÊNIOS (nov/2026): o que aponta para o código e se MOVE numa junção —
+    /// pacientes, preços e autorizações ainda utilizáveis (não encerradas e com validade a
+    /// partir de <paramref name="hoje"/>). RASTREADOS: o serviço muda o código e grava no
+    /// mesmo SaveChanges da auditoria. Financeiro, repasse, tributo e lote TISS NÃO entram:
+    /// são fatos já lançados.
+    /// </summary>
+    Task<IReadOnlyList<Paciente>> PacientesDoConvenioAsync(string codigo, CancellationToken ct = default);
+    Task<IReadOnlyList<PrecoConvenio>> PrecosDoConvenioAsync(string codigo, CancellationToken ct = default);
+    Task<IReadOnlyList<AutorizacaoSessoes>> AutorizacoesUtilizaveisDoConvenioAsync(string codigo, DateOnly hoje, CancellationToken ct = default);
+
+    /// <summary>Quantos pacientes, preços e autorizações utilizáveis apontam para o código (só contagem).</summary>
+    Task<(int Pacientes, int Precos, int Autorizacoes)> ContarUsoDoConvenioAsync(string codigo, DateOnly hoje, CancellationToken ct = default);
+
     /// <summary>Catálogo de modalidades (todas, ativas e inativas).</summary>
     Task<IReadOnlyList<ModalidadeCadastro>> ModalidadesAsync(CancellationToken ct = default);
     Task SalvarModalidadeAsync(ModalidadeCadastro modalidade, CancellationToken ct = default);

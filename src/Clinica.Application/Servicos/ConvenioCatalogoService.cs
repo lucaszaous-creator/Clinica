@@ -116,4 +116,133 @@ public sealed class ConvenioCatalogoService
         await RecarregarCacheAsync(ct);
         return (true, $"Convênio \"{salvo.Nome}\" excluído.");
     }
+
+    // ===================== JUNTAR DOIS CONVÊNIOS (nov/2026) =====================
+    //
+    // Nasceu dos dois "Particular" da clínica: o criado à mão e o que o catálogo garantia,
+    // cada um com parte dos pacientes. Juntar põe tudo no que FICA e aposenta o que SAI.
+    //
+    // O que se move é o que decide o FUTURO: o convênio de cada paciente, a tabela de preço
+    // e as autorizações ainda utilizáveis. O que NÃO se move é o passado — financeiro,
+    // repasse, tributo e lote TISS guardam o código que valia quando foram lançados, e
+    // reescrevê-los mudaria relatórios já fechados. Por isso o que sai não é apagado: fica
+    // DESATIVADO e renomeado ("… (juntado em …)"), e o histórico continua com nome legível.
+
+    /// <summary>O que aponta hoje para o convênio — os números que a tela mostra antes de juntar.</summary>
+    public async Task<UsoDoConvenio> UsoAsync(string codigo, DateOnly hoje, CancellationToken ct = default)
+    {
+        var (pacientes, precos, autorizacoes) = await _repo.ContarUsoDoConvenioAsync(codigo, hoje, ct);
+        return new UsoDoConvenio(pacientes, precos, autorizacoes);
+    }
+
+    /// <summary>
+    /// Junta <paramref name="origem"/> em <paramref name="destino"/>: pacientes e autorizações
+    /// utilizáveis passam para o destino; os preços passam só se o destino ainda não tiver
+    /// tabela ativa (senão a do destino vence e a da origem fica onde está). A origem fica
+    /// desativada e renomeada. Tudo — e a auditoria — num SaveChanges só.
+    /// Recusa (InvalidOperationException, com a frase para a tela): mesmo convênio, origem
+    /// embutida, "a definir" de qualquer lado, destino desativado ou inexistente.
+    /// </summary>
+    public async Task<ResultadoJuncaoConvenios> JuntarAsync(
+        string origem, string destino, string? operador, DateOnly hoje, CancellationToken ct = default)
+    {
+        if (string.Equals(origem?.Trim(), destino?.Trim(), StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Escolha OUTRO convênio para receber os pacientes.");
+
+        var lista = await ListarAsync(ct);
+        var sai = lista.FirstOrDefault(c => string.Equals(c.Codigo, origem, StringComparison.OrdinalIgnoreCase))
+            ?? throw new InvalidOperationException("O convênio que sairia não existe mais no catálogo.");
+        var fica = lista.FirstOrDefault(c => string.Equals(c.Codigo, destino, StringComparison.OrdinalIgnoreCase))
+            ?? throw new InvalidOperationException("O convênio escolhido para ficar não existe mais no catálogo.");
+
+        if (EhEmbutido(sai.Codigo))
+            throw new InvalidOperationException(
+                $"\"{sai.Nome}\" é um convênio embutido e não pode sair do catálogo. Junte o outro nele.");
+        if (EhADefinir(sai) || EhADefinir(fica))
+            throw new InvalidOperationException(
+                "\"A definir\" é a pergunta que a recepção ainda precisa responder, ficha a ficha — "
+                + "ele não se junta a convênio nenhum.");
+        if (!fica.Ativo)
+            throw new InvalidOperationException(
+                $"\"{fica.Nome}\" está desativado. Ative-o antes de juntar os pacientes nele.");
+
+        // O destino pode ser o particular GARANTIDO, que só existe na leitura: grava-o antes,
+        // senão os pacientes apontariam para um código sem linha no banco.
+        var gravados = await _repo.ConveniosAsync(ct);
+        if (!gravados.Any(c => string.Equals(c.Codigo, fica.Codigo, StringComparison.OrdinalIgnoreCase)))
+            await _repo.SalvarConvenioAsync(fica, ct);
+
+        var pacientes = await _repo.PacientesDoConvenioAsync(sai.Codigo, ct);
+        foreach (var p in pacientes)
+        {
+            p.ConvenioCodigo = fica.Codigo;
+            p.Convenio = fica.Familia;
+        }
+
+        var autorizacoes = await _repo.AutorizacoesUtilizaveisDoConvenioAsync(sai.Codigo, hoje, ct);
+        foreach (var a in autorizacoes)
+        {
+            a.ConvenioCodigo = fica.Codigo;
+            a.Convenio = fica.Familia;
+        }
+
+        var precosDoDestino = await _repo.PrecosDoConvenioAsync(fica.Codigo, ct);
+        var precosDaOrigem = await _repo.PrecosDoConvenioAsync(sai.Codigo, ct);
+        var precosMovidos = 0;
+        var precosMantidos = 0;
+        if (precosDoDestino.Any(p => p.Ativo))
+            precosMantidos = precosDaOrigem.Count(p => p.Ativo);
+        else
+            foreach (var p in precosDaOrigem)
+            {
+                p.ConvenioCodigo = fica.Codigo;
+                if (p.Ativo) precosMovidos++;
+            }
+
+        var nomeAntigo = sai.Nome;
+        var sufixo = $" (juntado em {fica.Nome.Trim()}, {hoje.ToString("dd/MM/yyyy", System.Globalization.CultureInfo.InvariantCulture)})";
+        sai.Nome = (nomeAntigo.Trim().Length + sufixo.Length <= 80
+            ? nomeAntigo.Trim() + sufixo
+            : nomeAntigo.Trim()[..Math.Max(1, 80 - sufixo.Length)] + sufixo);
+        sai.Ativo = false;
+        await _repo.SalvarConvenioAsync(sai, ct);
+
+        var resultado = new ResultadoJuncaoConvenios(
+            nomeAntigo, fica.Nome, pacientes.Count, precosMovidos, precosMantidos, autorizacoes.Count);
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
+            Acao = "ConveniosJuntados",
+            Detalhe = $"\"{nomeAntigo}\" ({sai.Codigo}) juntado em \"{fica.Nome}\" ({fica.Codigo}): "
+                      + resultado.Resumo()
+        }, ct);
+
+        await _repo.SalvarAsync(ct);
+        await RecarregarCacheAsync(ct);
+        return resultado;
+    }
+
+    private static bool EhADefinir(ConvenioCadastro c)
+        => string.Equals(c.Codigo, ConvenioCadastro.CodigoADefinir, StringComparison.OrdinalIgnoreCase);
+}
+
+/// <summary>Quantos pacientes, preços ativos e autorizações utilizáveis apontam para um convênio.</summary>
+public sealed record UsoDoConvenio(int Pacientes, int Precos, int Autorizacoes);
+
+/// <summary>O que a junção moveu — a frase da notificação e da auditoria.</summary>
+public sealed record ResultadoJuncaoConvenios(
+    string Saiu, string Ficou, int Pacientes, int PrecosMovidos, int PrecosMantidos, int Autorizacoes)
+{
+    public string Resumo()
+    {
+        var partes = new List<string>
+        {
+            Pacientes == 1 ? "1 paciente movido" : $"{Pacientes} pacientes movidos",
+            PrecosMovidos == 1 ? "1 preço movido" : $"{PrecosMovidos} preços movidos",
+            Autorizacoes == 1 ? "1 autorização movida" : $"{Autorizacoes} autorizações movidas"
+        };
+        if (PrecosMantidos > 0)
+            partes.Add($"{PrecosMantidos} preço(s) do antigo ficaram nele, porque \"{Ficou}\" já tem tabela própria");
+        return string.Join("; ", partes) + ".";
+    }
 }

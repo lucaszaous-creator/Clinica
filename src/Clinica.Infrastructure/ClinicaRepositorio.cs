@@ -1061,6 +1061,29 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task<bool> ConvenioEmUsoAsync(string codigo, CancellationToken ct = default)
         => await _db.Pacientes.AnyAsync(p => p.ConvenioCodigo == codigo, ct);
 
+    public async Task<IReadOnlyList<Paciente>> PacientesDoConvenioAsync(string codigo, CancellationToken ct = default)
+        => await _db.Pacientes.Where(p => p.ConvenioCodigo == codigo).ToListAsync(ct);
+
+    public async Task<IReadOnlyList<PrecoConvenio>> PrecosDoConvenioAsync(string codigo, CancellationToken ct = default)
+        => await _db.PrecosConvenio.Where(p => p.ConvenioCodigo == codigo).ToListAsync(ct);
+
+    public async Task<IReadOnlyList<AutorizacaoSessoes>> AutorizacoesUtilizaveisDoConvenioAsync(
+        string codigo, DateOnly hoje, CancellationToken ct = default)
+        => await ConsultaAutorizacoesUtilizaveis(codigo, hoje).ToListAsync(ct);
+
+    internal IQueryable<AutorizacaoSessoes> ConsultaAutorizacoesUtilizaveis(string codigo, DateOnly hoje)
+        => _db.Autorizacoes.Where(a => a.ConvenioCodigo == codigo && !a.Encerrada && a.DataValidade >= hoje);
+
+    /// <remarks>Sequencial: é o mesmo DbContext (nada de Task.WhenAll aqui).</remarks>
+    public async Task<(int Pacientes, int Precos, int Autorizacoes)> ContarUsoDoConvenioAsync(
+        string codigo, DateOnly hoje, CancellationToken ct = default)
+    {
+        var pacientes = await _db.Pacientes.CountAsync(p => p.ConvenioCodigo == codigo, ct);
+        var precos = await _db.PrecosConvenio.CountAsync(p => p.ConvenioCodigo == codigo && p.Ativo, ct);
+        var autorizacoes = await ConsultaAutorizacoesUtilizaveis(codigo, hoje).CountAsync(ct);
+        return (pacientes, precos, autorizacoes);
+    }
+
     public async Task<IReadOnlyList<ModalidadeCadastro>> ModalidadesAsync(CancellationToken ct = default)
         => await _db.Modalidades.AsNoTracking().ToListAsync(ct);
 

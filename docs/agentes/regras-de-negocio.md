@@ -4731,3 +4731,12 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   A garantia passou a olhar também o NOME; a linha da clínica vence (é a que tem os pacientes). Se as
   duas linhas já estiverem GRAVADAS no banco, a correção não as junta — renomear ou excluir a da
   clínica (a com lixeira) destrava. Teste: `ParticularNoCatalogoTests.Particular_criado_a_mao_*`.
+  **JUNTAR CONVÊNIOS** (botão ⇄ na linha do convênio, Configurações do faturamento): para os dois
+  "Particular" — e para qualquer operadora cadastrada duas vezes. `ConvenioCatalogoService.JuntarAsync`
+  move o que decide o FUTURO — o convênio dos pacientes, as autorizações ainda utilizáveis e os preços
+  (só se quem fica ainda não tem tabela ativa; senão a dele vence) — e NÃO mexe no passado: financeiro,
+  repasse, tributo e lote TISS guardam o código de quando foram lançados. O que sai não é apagado: fica
+  desativado e renomeado "… (juntado em X, dd/MM/aaaa)", e o histórico continua legível. Tudo, com a
+  auditoria `ConveniosJuntados`, num SaveChanges só. Recusa: mesmo convênio, embutido saindo (junte o
+  outro nele), "a definir" de qualquer lado, destino desativado. Grava NA HORA, então a tela só abre
+  o formulário sem alteração pendente. Testes: `JuntarConveniosTests`.
