@@ -65,6 +65,29 @@ public static class ConfiguracoesFaturamentoNaTela
            && !string.Equals(c.Codigo, ConvenioCadastro.CodigoParticular, StringComparison.OrdinalIgnoreCase)
            && !string.Equals(c.Codigo, ConvenioCadastro.CodigoADefinir, StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Pode SAIR numa junção (nov/2026): qualquer convênio da clínica, inclusive o particular
+    /// garantido — o embutido não sai (a regra dele vive no código; junte o outro nele) e o
+    /// "a definir" não se junta a nada (é a pergunta que a recepção responde ficha a ficha).
+    /// </summary>
+    public static bool ConvenioPodeSerJuntado(ConvenioCadastro c)
+        => !ConvenioEmbutido(c)
+           && !string.Equals(c.Codigo, ConvenioCadastro.CodigoADefinir, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Para onde a origem pode ir: os outros convênios ATIVOS, menos o "a definir", por nome.</summary>
+    public static IReadOnlyList<ConvenioCadastro> DestinosDaJuncao(ConvenioCadastro origem, IEnumerable<ConvenioCadastro> catalogo)
+        => catalogo
+            .Where(c => c.Ativo
+                        && !string.Equals(c.Codigo, origem.Codigo, StringComparison.OrdinalIgnoreCase)
+                        && !string.Equals(c.Codigo, ConvenioCadastro.CodigoADefinir, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(c => c.Nome, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    /// <summary>O destino que já vem escolhido: o homônimo (o outro "Particular"), se houver.</summary>
+    public static ConvenioCadastro? DestinoSugerido(ConvenioCadastro origem, IEnumerable<ConvenioCadastro> catalogo)
+        => DestinosDaJuncao(origem, catalogo).FirstOrDefault(c =>
+            string.Equals(c.Nome?.Trim(), origem.Nome?.Trim(), StringComparison.OrdinalIgnoreCase));
+
     public static bool ModalidadeEmbutida(ModalidadeCadastro m) => ModalidadeCatalogoService.EhEmbutida(m.Codigo);
     public static bool EspecialidadeEmbutida(EspecialidadeCadastro e) => EspecialidadeCatalogoService.EhEmbutida(e.Codigo);
 
