@@ -66,6 +66,14 @@ public class TraducaoNoNpgsqlTests
     }
 
     [Fact]
+    public void Guias_do_paciente_desde_uma_data_traduzem_sem_rastreio()
+    {
+        using var db = Postgres();
+        var sql = new ClinicaRepositorio(db).ConsultaCodigosDoPacienteDesde(7, new DateOnly(2026, 11, 1)).ToQueryString();
+        sql.Should().Contain("PacienteId").And.Contain("DataPrevistaFaturamento");
+    }
+
+    [Fact]
     public void Donos_dos_horarios_traduzem_em_projecao()
     {
         using var db = Postgres();

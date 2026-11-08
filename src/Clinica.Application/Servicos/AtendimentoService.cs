@@ -289,10 +289,14 @@ public sealed class AtendimentoService
             : null;
         var dias = generica?.DiasSegundoCodigo
             ?? (_parametros is null ? 1 : (await _parametros.ObterAsync(ct)).DiasSegundoCodigo(paciente.Convenio));
+        var recentes = (await CodigosParaIntervaloAsync(paciente, atendimento.Data, ct))
+            .Where(c => atendimento.Id == 0 || c.AtendimentoId != atendimento.Id)
+            .ToList();
 
         var contexto = new ContextoFaturamento
         {
             CodigosNoMes = historicoMes,
+            CodigosRecentes = recentes,
             DiasSegundoCodigo = dias,
             PrimeiroCodigoPreferido = primeiroCodigo,
             Generica = generica
@@ -466,9 +470,10 @@ public sealed class AtendimentoService
             ?? throw new InvalidOperationException($"Paciente {pacienteId} não encontrado.");
 
         var historicoMes = await _repo.CodigosDoPacienteNoMesAsync(pacienteId, data.Year, data.Month, ct);
+        var recentes = await CodigosParaIntervaloAsync(paciente, data, ct);
         var parametros = _parametros is null ? null : await _parametros.ObterAsync(ct);
 
-        return Simular(paciente, data, modalidade, historicoMes, parametros,
+        return Simular(paciente, data, modalidade, historicoMes, recentes, parametros,
                        primeiroCodigo, especialidadeConsulta, modalidadeCodigo,
                        especialidadeConsultaCodigo, coletaPreventivo);
     }
@@ -491,6 +496,7 @@ public sealed class AtendimentoService
             ?? throw new InvalidOperationException($"Paciente {pacienteId} não encontrado.");
 
         var historicoMes = await _repo.CodigosDoPacienteNoMesAsync(pacienteId, data.Year, data.Month, ct);
+        var recentes = await CodigosParaIntervaloAsync(paciente, data, ct);
         var parametros = _parametros is null ? null : await _parametros.ObterAsync(ct);
 
         var previas = new Dictionary<string, PreviaLancamento>();
@@ -501,7 +507,7 @@ public sealed class AtendimentoService
             try
             {
                 previas[codigo] = Simular(
-                    paciente, data, CatalogoModalidades.Base(codigo), historicoMes, parametros,
+                    paciente, data, CatalogoModalidades.Base(codigo), historicoMes, recentes, parametros,
                     primeiroCodigo: null, especialidadeConsulta, codigo, especialidadeConsultaCodigo);
             }
             catch (Exception ex)
@@ -527,9 +533,10 @@ public sealed class AtendimentoService
         var paciente = await _repo.ObterPacienteAsync(pacienteId, ct)
             ?? throw new InvalidOperationException($"Paciente {pacienteId} não encontrado.");
         var historicoMes = await _repo.CodigosDoPacienteNoMesAsync(pacienteId, data.Year, data.Month, ct);
+        var recentes = await CodigosParaIntervaloAsync(paciente, data, ct);
         var parametros = _parametros is null ? null : await _parametros.ObterAsync(ct);
 
-        var previa = Simular(paciente, data, modalidade, historicoMes, parametros,
+        var previa = Simular(paciente, data, modalidade, historicoMes, recentes, parametros,
             primeiroCodigo, null, modalidadeCodigo, especialidadeConsultaCodigo, coletaPreventivo);
 
         var previas = new Dictionary<string, PreviaLancamento>();
@@ -538,7 +545,7 @@ public sealed class AtendimentoService
             try
             {
                 previas[codigo] = Simular(
-                    paciente, data, CatalogoModalidades.Base(codigo), historicoMes, parametros,
+                    paciente, data, CatalogoModalidades.Base(codigo), historicoMes, recentes, parametros,
                     primeiroCodigo: null, null, codigo, null);
             }
             catch (Exception ex)
@@ -550,13 +557,26 @@ public sealed class AtendimentoService
     }
 
     /// <summary>
+    /// As guias do paciente que o intervalo mínimo entre procedimentos precisa enxergar —
+    /// só para convênio personalizado que TEM intervalo; os demais não pagam a ida ao banco.
+    /// </summary>
+    private async Task<IReadOnlyList<CodigoFaturamento>> CodigosParaIntervaloAsync(
+        Paciente paciente, DateOnly data, CancellationToken ct)
+    {
+        var dias = paciente.Convenio == Convenio.Personalizado
+            ? CatalogoConvenios.Config(paciente.ConvenioCodigo)?.MaiorIntervaloDias ?? 0
+            : 0;
+        return dias <= 0 ? [] : await _repo.CodigosDoPacienteDesdeAsync(paciente.Id, data.AddDays(-dias), ct);
+    }
+
+    /// <summary>
     /// O miolo compartilhado entre o lançamento e a prévia: monta o atendimento
     /// transitório, resolve o contexto do convênio e roda a regra. Sem banco.
     /// </summary>
     private PreviaLancamento Simular(
         Paciente paciente, DateOnly data, ModalidadeAtendimento modalidade,
-        IReadOnlyList<CodigoFaturamento> historicoMes, ParametrosSnapshot? parametros,
-        TipoCodigo? primeiroCodigo, Especialidade? especialidadeConsulta,
+        IReadOnlyList<CodigoFaturamento> historicoMes, IReadOnlyList<CodigoFaturamento> recentes,
+        ParametrosSnapshot? parametros, TipoCodigo? primeiroCodigo, Especialidade? especialidadeConsulta,
         string? modalidadeCodigo, string? especialidadeConsultaCodigo, bool coletaPreventivo = false)
     {
         if (modalidadeCodigo is not null)
@@ -589,6 +609,7 @@ public sealed class AtendimentoService
         var contexto = new ContextoFaturamento
         {
             CodigosNoMes = historicoMes,
+            CodigosRecentes = recentes,
             DiasSegundoCodigo = dias,
             PrimeiroCodigoPreferido = primeiroCodigo,
             Generica = generica
@@ -796,8 +817,12 @@ public sealed class AtendimentoService
         {
             var delta = dataNova.DayNumber - dataAnterior.DayNumber;
             atendimento.Data = dataNova;
-            foreach (var c in atendimento.Codigos.Where(c => c.Status == StatusCodigo.Aberto))
-                c.DataPrevistaFaturamento = c.DataPrevistaFaturamento.AddDays(delta);
+            var paciente = atendimento.Paciente ?? await _repo.ObterPacienteAsync(atendimento.PacienteId, ct);
+            if (paciente is not null && TemIntervaloEntreProcedimentos(paciente))
+                await RecalcularPeloIntervaloAsync(paciente, atendimento, ag.PrimeiroCodigo, delta, avisos, ct);
+            else
+                foreach (var c in atendimento.Codigos.Where(c => c.Status == StatusCodigo.Aberto))
+                    c.DataPrevistaFaturamento = c.DataPrevistaFaturamento.AddDays(delta);
 
             await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
             {
@@ -810,6 +835,43 @@ public sealed class AtendimentoService
         }
 
         return avisos;
+    }
+
+    private static bool TemIntervaloEntreProcedimentos(Paciente paciente)
+        => paciente.Convenio == Convenio.Personalizado
+           && (CatalogoConvenios.Config(paciente.ConvenioCodigo)?.MaiorIntervaloDias ?? 0) > 0;
+
+    /// <summary>
+    /// Remarcação por DATA num convênio com intervalo mínimo entre procedimentos (Sul América,
+    /// nov/2026). O delta fixo não serve aqui: uma eletro adiada para respeitar os 7 dias
+    /// carregaria o adiamento para a data nova (sessão movida para depois da liberação ficaria
+    /// adiada à toa) — e uma sessão puxada para perto de outra eletro não seria adiada. A regra
+    /// roda de novo na data nova e as guias ABERTAS recebem a data, a ordem, a forma e a
+    /// descrição da guia do mesmo tipo — as MESMAS linhas, sem substituir nem auditar troca de
+    /// guia, porque a modalidade não mudou. Guia sem par no resultado cai no delta.
+    /// ⚠️ Não mexe na categoria do paciente: remarcar não é lançar.
+    /// </summary>
+    private async Task RecalcularPeloIntervaloAsync(
+        Paciente paciente, Atendimento atendimento, TipoCodigo? primeiroCodigo, int delta,
+        List<string> avisos, CancellationToken ct)
+    {
+        var resultado = await GerarPelaRegraAsync(paciente, atendimento, primeiroCodigo, ct);
+        var livres = resultado.Codigos.ToList();
+        foreach (var c in atendimento.Codigos.Where(c => c.Status == StatusCodigo.Aberto))
+        {
+            var par = livres.FirstOrDefault(n => n.Tipo == c.Tipo);
+            if (par is null)
+            {
+                c.DataPrevistaFaturamento = c.DataPrevistaFaturamento.AddDays(delta);
+                continue;
+            }
+            livres.Remove(par);
+            c.DataPrevistaFaturamento = par.DataPrevistaFaturamento;
+            c.Ordem = par.Ordem;
+            c.FormaObtencao = par.FormaObtencao;
+            c.Descricao = par.Descricao;
+        }
+        avisos.AddRange(resultado.Avisos);
     }
 
     private static void AplicarParticular(Paciente paciente, ResultadoFaturamento resultado)

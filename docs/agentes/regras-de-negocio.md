@@ -6,7 +6,7 @@ mora o código. Mexer numa área? Leia antes o tópico dela — vários registra
 teste pega. Lição nova de uma área entra aqui, no tópico dela; regra que vale para TODA mudança
 continua no `CLAUDE.md`.
 
-## Índice (188 tópicos, na ordem do arquivo)
+## Índice (189 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -198,6 +198,7 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
 - A FICHA ÚNICA LIGA EM UM CLIQUE — e quem confere continua sendo a recepção
 - O TELEFONE DA FICHA VAI AO CRM SEM O 0 DO INTERURBANO
 - O "RETORNO SUGERIDO" SAIU DO SISTEMA — e o dado gravado fica
+- SUL AMÉRICA: ACUPUNTURA + ELETRO NO MESMO DIA, E O INTERVALO ENTRE AUTORIZAÇÕES
 
 ---
 
@@ -4688,3 +4689,39 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   ao gravar — quem não edita, preserva —; sem isso a primeira correção de uma sessão antiga apagaria o
   retorno que ela tinha. O "Retorno do 2º código" (`OrigemAgendamento.RetornoSugerido`) é outro assunto
   e não mudou.
+
+- **SUL AMÉRICA: ACUPUNTURA + ELETRO NO MESMO DIA, E O INTERVALO ENTRE AUTORIZAÇÕES** (08/11/2026,
+  pedido da cliente: *"pode fazer acupuntura + eletroacupuntura no mesmo dia. Acupuntura libera nova
+  com intervalo de 1 dia e eletroacupuntura autoriza com 7 dias"*). A Sul América é convênio
+  PERSONALIZADO (não existe no enum), então a mudança é na regra genérica e vale para qualquer
+  operadora personalizada que a clínica configurar igual — três ajustes novos no formulário do
+  convênio (`ConvenioCadastro` → `ConfiguracaoRegraGenerica`): **"acupuntura e eletro no mesmo dia"**
+  (`EletroNoMesmoDia`: na acupuntura+eletro as duas guias saem hoje como 1º código, sem depender do
+  app nem de "gera 2º código") e os **intervalos mínimos** entre duas acupunturas e entre duas eletros
+  do mesmo paciente (`IntervaloAcupunturaDias`/`IntervaloEletroDias`, 0 = sem limite; a migration
+  `IntervaloEntreProcedimentosDoConvenio` nasce em 0/falso, então nenhum convênio muda sozinho).
+  ⚠️ **A clínica precisa marcar os três no cadastro da Sul América** (Configurações do faturamento →
+  Convênios → Sul América): o código não sabe qual linha é ela.
+  **Decisão da direção sobre o que fazer quando o intervalo não venceu: ADIAR a data, não recusar.**
+  A guia nasce com a data em que o convênio a libera (eletro 4 dias depois da anterior → +3 dias; ela
+  vira 2º código, obtida pela forma do 2º código) e aparece nas pendências nesse dia, com aviso no
+  lançamento e o porquê na descrição. O cálculo (`RegraGenerica.Liberar`) olha para trás E para a
+  frente: nenhuma guia do mesmo tipo a menos de N dias — senão um lançamento retroativo encostaria
+  numa eletro já adiada, e uma fila de eletros adiadas se empilha de 7 em 7. Guia "não aplicável"
+  (estorno, sem app) não conta. O histórico vem de `CodigosDoPacienteDesdeAsync` (cruza o mês — o
+  `CodigosNoMes` da Petrobras não serve) e só é lido quando o convênio TEM intervalo; o próprio
+  atendimento sai dele na correção/recuperação, como no histórico do mês. Testes: `RegraGenericaTests`
+  (bloco Sul América), `IntervaloEntreProcedimentosTests` (prévia e lançamento atravessando o mês) e
+  `TraducaoNoNpgsqlTests`.
+  **Guia no agendamento** (a guia nasce na marcação): (a) **remarcar por DATA** num convênio com
+  intervalo NÃO desloca pelo delta — o delta levaria o adiamento junto (sessão movida para depois da
+  liberação continuaria adiada) e não adiaria a sessão puxada para perto de outra eletro. A regra roda
+  de novo na data nova e as MESMAS guias abertas recebem data, ordem, forma e descrição
+  (`AtendimentoService.RecalcularPeloIntervaloAsync`); sem intervalo, segue o delta de sempre.
+  (b) **A série** já respeita o intervalo entre as próprias sessões: `AgendarSerieAsync` grava sessão a
+  sessão, e cada uma enxerga a anterior. (c) ⚠️ **`CancelarSerieAsync` mudava o status e NÃO suspendia
+  as guias** (o cancelamento de um horário só suspende, via `RefletirStatusDoHorarioAsync`): as guias
+  das sessões desistidas ficavam abertas — pendência fantasma rumo à rodada bloqueante, e, aqui, eletro
+  que nunca houve segurando as reais. Corrigido no mesmo PR. ⚠️ **Limite conhecido:** estornar,
+  cancelar ou remarcar a sessão ANTERIOR não puxa de volta a guia já adiada da seguinte — o recálculo
+  só acontece na guia que está sendo gerada ou remarcada.

@@ -30,6 +30,13 @@ public interface IClinicaRepositorio
     /// <summary>Códigos do paciente lançados no mês informado (usado pela rotação de especialidades da Petrobras).</summary>
     Task<IReadOnlyList<CodigoFaturamento>> CodigosDoPacienteNoMesAsync(int pacienteId, int ano, int mes, CancellationToken ct = default);
 
+    /// <summary>
+    /// Códigos do paciente com data prevista a partir de <paramref name="desde"/>, inclusive os
+    /// de datas futuras (guias já adiadas). Alimenta o intervalo mínimo entre procedimentos do
+    /// convênio personalizado (Sul América: acupuntura 1 dia, eletro 7 dias), que cruza o mês.
+    /// </summary>
+    Task<IReadOnlyList<CodigoFaturamento>> CodigosDoPacienteDesdeAsync(int pacienteId, DateOnly desde, CancellationToken ct = default);
+
     /// <summary>Todos os códigos ainda em aberto (não baixados, não "não aplicável" e não "não conformidade"), com paciente carregado.</summary>
     Task<IReadOnlyList<CodigoFaturamento>> CodigosEmAbertoAsync(CancellationToken ct = default, int? pacienteId = null);
 

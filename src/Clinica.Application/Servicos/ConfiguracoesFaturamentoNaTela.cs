@@ -160,6 +160,9 @@ public static class ConfiguracoesFaturamentoNaTela
         DiasSegundoCodigo = c.DiasSegundoCodigo,
         FaturaBsv = c.FaturaBsv,
         InverteDatasBsv = c.InverteDatasBsv,
+        EletroNoMesmoDia = c.EletroNoMesmoDia,
+        IntervaloAcupunturaDias = c.IntervaloAcupunturaDias,
+        IntervaloEletroDias = c.IntervaloEletroDias,
         ValidadeConsultaDias = c.ValidadeConsultaDias,
         CategoriaComApp = c.CategoriaComApp,
         CategoriaSemApp = c.CategoriaSemApp

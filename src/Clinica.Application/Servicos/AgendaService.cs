@@ -640,6 +640,12 @@ public sealed class AgendaService
         foreach (var a in daSerie.Where(a => a.Status == StatusAgendamento.Agendado))
         {
             a.Status = StatusAgendamento.Cancelado;
+            // GUIA NO AGENDAMENTO (parcela 70): o cancelamento em bloco suspende as guias
+            // abertas de cada horário, como o cancelamento de um só (`AlterarStatusAsync`).
+            // Faltava: as guias das sessões desistidas ficavam ABERTAS — pendência fantasma
+            // que chegava à rodada bloqueante e, num convênio com intervalo mínimo (Sul
+            // América), ainda empurrava as guias reais para depois de sessões que não houve.
+            await _atendimentos.RefletirStatusDoHorarioAsync(a, operador, ct);
             cancelados++;
         }
 

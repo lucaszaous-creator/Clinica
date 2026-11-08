@@ -1925,6 +1925,9 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<int>("DiasSegundoCodigo")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("EletroNoMesmoDia")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Familia")
                         .IsRequired()
                         .HasMaxLength(40)
@@ -1948,6 +1951,12 @@ namespace Clinica.Infrastructure.Migrations
 
                     b.Property<bool>("GeraGuia")
                         .HasColumnType("boolean");
+
+                    b.Property<int>("IntervaloAcupunturaDias")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("IntervaloEletroDias")
+                        .HasColumnType("integer");
 
                     b.Property<bool>("InverteDatasBsv")
                         .HasColumnType("boolean");
