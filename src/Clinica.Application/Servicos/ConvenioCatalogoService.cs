@@ -51,7 +51,17 @@ public sealed class ConvenioCatalogoService
         //
         // Só é acrescentado quando não existe: a clínica que já criou o dela (com outro
         // nome, ou com o formato do número preenchido) continua com a linha dela.
-        if (!salvos.ContainsKey(ConvenioCadastro.CodigoParticular))
+        //
+        // ⚠️ "Não existe" é pelo código E pelo NOME (nov/2026). A clínica tinha criado o
+        // "Particular" dela à mão, com outro código, antes de esta garantia existir — e a
+        // garantia, olhando só o código, punha um SEGUNDO "Particular" na lista. A
+        // conferência de nomes repetidos do "Salvar configurações" então recusava TODA
+        // gravação do catálogo, inclusive a de convênios que nada tinham a ver (a Sul
+        // América não pôde ser configurada). A linha da clínica vence: é a que tem os
+        // pacientes dela.
+        var nomeParticular = ConvenioCadastro.Particular().Nome;
+        if (!salvos.ContainsKey(ConvenioCadastro.CodigoParticular)
+            && !salvos.Values.Any(c => string.Equals(c.Nome?.Trim(), nomeParticular, StringComparison.OrdinalIgnoreCase)))
             salvos[ConvenioCadastro.CodigoParticular] = ConvenioCadastro.Particular();
 
         return salvos.Values.OrderBy(c => c.Nome).ToList();

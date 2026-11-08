@@ -4725,3 +4725,9 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   que nunca houve segurando as reais. Corrigido no mesmo PR. ⚠️ **Limite conhecido:** estornar,
   cancelar ou remarcar a sessão ANTERIOR não puxa de volta a guia já adiada da seguinte — o recálculo
   só acontece na guia que está sendo gerada ou remarcada.
+  ⚠️ **Ao configurar a Sul América, a clínica esbarrou em "Há convênios com o mesmo nome: Particular"**
+  e o "Salvar configurações" recusou tudo: o `ConvenioCatalogoService.ListarAsync` GARANTE o particular
+  (código `Particular`) olhando só o CÓDIGO, e a clínica já tinha o dela criado à mão com outro código.
+  A garantia passou a olhar também o NOME; a linha da clínica vence (é a que tem os pacientes). Se as
+  duas linhas já estiverem GRAVADAS no banco, a correção não as junta — renomear ou excluir a da
+  clínica (a com lixeira) destrava. Teste: `ParticularNoCatalogoTests.Particular_criado_a_mao_*`.

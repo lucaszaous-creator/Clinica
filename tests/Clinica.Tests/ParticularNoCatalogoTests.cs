@@ -211,4 +211,26 @@ public class ParticularNoCatalogoTests : IDisposable
         cfg.EletroNoMesmoDia.Should().BeTrue();
         cfg.MaiorIntervaloDias.Should().Be(7);
     }
+
+    /// <summary>
+    /// A clínica que criou o "Particular" à mão, com OUTRO código, antes da garantia existir
+    /// não ganha um segundo — o par de nomes iguais travava o "Salvar configurações" inteiro
+    /// (nov/2026: a Sul América não pôde ser configurada por causa dele).
+    /// </summary>
+    [Fact]
+    public async Task Particular_criado_a_mao_com_outro_codigo_nao_ganha_um_segundo()
+    {
+        await _catalogo.SalvarAsync([new ConvenioCadastro
+        {
+            Codigo = "CVparticularDaClinica", Nome = "particular ", Familia = Convenio.Personalizado,
+            Ativo = true, GeraGuia = false
+        }]);
+
+        var lista = await _catalogo.ListarAsync();
+
+        lista.Where(c => c.Nome.Trim().Equals("Particular", StringComparison.OrdinalIgnoreCase))
+            .Should().ContainSingle().Which.Codigo.Should().Be("CVparticularDaClinica");
+        ConfiguracoesFaturamentoNaTela.ConferirAntesDeSalvar(lista, [], []).Should().BeNull(
+            "sem nome repetido, o Salvar configurações grava");
+    }
 }
