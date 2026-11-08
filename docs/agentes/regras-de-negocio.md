@@ -4713,3 +4713,15 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   atendimento sai dele na correção/recuperação, como no histórico do mês. Testes: `RegraGenericaTests`
   (bloco Sul América), `IntervaloEntreProcedimentosTests` (prévia e lançamento atravessando o mês) e
   `TraducaoNoNpgsqlTests`.
+  **Guia no agendamento** (a guia nasce na marcação): (a) **remarcar por DATA** num convênio com
+  intervalo NÃO desloca pelo delta — o delta levaria o adiamento junto (sessão movida para depois da
+  liberação continuaria adiada) e não adiaria a sessão puxada para perto de outra eletro. A regra roda
+  de novo na data nova e as MESMAS guias abertas recebem data, ordem, forma e descrição
+  (`AtendimentoService.RecalcularPeloIntervaloAsync`); sem intervalo, segue o delta de sempre.
+  (b) **A série** já respeita o intervalo entre as próprias sessões: `AgendarSerieAsync` grava sessão a
+  sessão, e cada uma enxerga a anterior. (c) ⚠️ **`CancelarSerieAsync` mudava o status e NÃO suspendia
+  as guias** (o cancelamento de um horário só suspende, via `RefletirStatusDoHorarioAsync`): as guias
+  das sessões desistidas ficavam abertas — pendência fantasma rumo à rodada bloqueante, e, aqui, eletro
+  que nunca houve segurando as reais. Corrigido no mesmo PR. ⚠️ **Limite conhecido:** estornar,
+  cancelar ou remarcar a sessão ANTERIOR não puxa de volta a guia já adiada da seguinte — o recálculo
+  só acontece na guia que está sendo gerada ou remarcada.

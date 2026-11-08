@@ -817,8 +817,12 @@ public sealed class AtendimentoService
         {
             var delta = dataNova.DayNumber - dataAnterior.DayNumber;
             atendimento.Data = dataNova;
-            foreach (var c in atendimento.Codigos.Where(c => c.Status == StatusCodigo.Aberto))
-                c.DataPrevistaFaturamento = c.DataPrevistaFaturamento.AddDays(delta);
+            var paciente = atendimento.Paciente ?? await _repo.ObterPacienteAsync(atendimento.PacienteId, ct);
+            if (paciente is not null && TemIntervaloEntreProcedimentos(paciente))
+                await RecalcularPeloIntervaloAsync(paciente, atendimento, ag.PrimeiroCodigo, delta, avisos, ct);
+            else
+                foreach (var c in atendimento.Codigos.Where(c => c.Status == StatusCodigo.Aberto))
+                    c.DataPrevistaFaturamento = c.DataPrevistaFaturamento.AddDays(delta);
 
             await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
             {
@@ -831,6 +835,43 @@ public sealed class AtendimentoService
         }
 
         return avisos;
+    }
+
+    private static bool TemIntervaloEntreProcedimentos(Paciente paciente)
+        => paciente.Convenio == Convenio.Personalizado
+           && (CatalogoConvenios.Config(paciente.ConvenioCodigo)?.MaiorIntervaloDias ?? 0) > 0;
+
+    /// <summary>
+    /// Remarcação por DATA num convênio com intervalo mínimo entre procedimentos (Sul América,
+    /// nov/2026). O delta fixo não serve aqui: uma eletro adiada para respeitar os 7 dias
+    /// carregaria o adiamento para a data nova (sessão movida para depois da liberação ficaria
+    /// adiada à toa) — e uma sessão puxada para perto de outra eletro não seria adiada. A regra
+    /// roda de novo na data nova e as guias ABERTAS recebem a data, a ordem, a forma e a
+    /// descrição da guia do mesmo tipo — as MESMAS linhas, sem substituir nem auditar troca de
+    /// guia, porque a modalidade não mudou. Guia sem par no resultado cai no delta.
+    /// ⚠️ Não mexe na categoria do paciente: remarcar não é lançar.
+    /// </summary>
+    private async Task RecalcularPeloIntervaloAsync(
+        Paciente paciente, Atendimento atendimento, TipoCodigo? primeiroCodigo, int delta,
+        List<string> avisos, CancellationToken ct)
+    {
+        var resultado = await GerarPelaRegraAsync(paciente, atendimento, primeiroCodigo, ct);
+        var livres = resultado.Codigos.ToList();
+        foreach (var c in atendimento.Codigos.Where(c => c.Status == StatusCodigo.Aberto))
+        {
+            var par = livres.FirstOrDefault(n => n.Tipo == c.Tipo);
+            if (par is null)
+            {
+                c.DataPrevistaFaturamento = c.DataPrevistaFaturamento.AddDays(delta);
+                continue;
+            }
+            livres.Remove(par);
+            c.DataPrevistaFaturamento = par.DataPrevistaFaturamento;
+            c.Ordem = par.Ordem;
+            c.FormaObtencao = par.FormaObtencao;
+            c.Descricao = par.Descricao;
+        }
+        avisos.AddRange(resultado.Avisos);
     }
 
     private static void AplicarParticular(Paciente paciente, ResultadoFaturamento resultado)
