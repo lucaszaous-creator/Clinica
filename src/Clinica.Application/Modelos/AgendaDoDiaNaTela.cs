@@ -296,7 +296,9 @@ public static class AgendaDoDiaNaTela
             // "sem profissional" é aviso: horário sem dono some do Meu dia e do repasse.
             Profissional = a.Profissional?.Rotulo ?? "sem profissional",
             Sala = a.Sala?.Nome ?? string.Empty,
-            Convenio = a.Paciente?.ConvenioNome ?? string.Empty,
+            // O PAGADOR desta sessão: "Particular" quando o horário foi marcado assim, mesmo
+            // com convênio na ficha (nov/2026) — é o que a recepção precisa ler na linha.
+            Convenio = a.Paciente is null ? string.Empty : SessaoParticular.PagadorComFicha(a.Paciente, a.Particular),
             Observacoes = a.Observacoes,
             Foto = a.Paciente?.FotoMiniatura,
             Telefone = a.Paciente?.Telefone,
@@ -320,13 +322,9 @@ public static class AgendaDoDiaNaTela
             FechamentoPendente = a.Etapa == EtapaFila.Finalizado
                                  && a.AtendimentoId is { } atendimentoId
                                  && !d.JaFechados.Contains(atendimentoId)
-                                 && (d.Pacotes.ContainsKey(a.PacienteId) || EhParticular(a.Paciente))
+                                 && (d.Pacotes.ContainsKey(a.PacienteId) || SessaoParticular.Eh(a))
         };
     }
-
-    /// <summary>O convênio da ficha NÃO gera guia (parcela 60) — do cache do catálogo, sem banco.</summary>
-    public static bool EhParticular(Paciente? paciente)
-        => paciente is not null && !CatalogoConvenios.GeraGuia(paciente.ConvenioCodigo ?? paciente.Convenio.ToString());
 
     /// <summary>"Marcado por Ana em 08/08/2026 14:32" — ou a frase que assume a lacuna.</summary>
     public static string DescreverLancamento(Agendamento a)

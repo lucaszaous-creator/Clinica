@@ -115,6 +115,22 @@ public class Agendamento
     /// </summary>
     public bool ColetaPreventivo { get; set; }
 
+    /// <summary>
+    /// ESTE horário é PARTICULAR, mesmo que a ficha do paciente tenha convênio (nov/2026,
+    /// pedido das médicas: "a paciente tem plano, mas eu não atendo o plano dela").
+    ///
+    /// O convênio mora na FICHA e continua lá — é com ele que a acupuntura da mesma
+    /// paciente segue faturando. O que este campo diz é só sobre ESTA sessão: não gera
+    /// guia, o dinheiro entra pelo caixa e os relatórios a contam como particular. Viaja
+    /// para <see cref="Atendimento.Particular"/> quando o atendimento nasce.
+    ///
+    /// Falso é o caso normal e o valor de toda linha anterior: quem decide é o convênio da
+    /// ficha — inclusive quando ELE é o particular. Por isso a pergunta "esta sessão é
+    /// particular?" nunca se responde lendo só este campo: use
+    /// <see cref="Regras.SessaoParticular"/>.
+    /// </summary>
+    public bool Particular { get; set; }
+
     public StatusAgendamento Status { get; set; } = StatusAgendamento.Agendado;
 
     public OrigemAgendamento Origem { get; set; } = OrigemAgendamento.Manual;

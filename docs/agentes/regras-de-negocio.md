@@ -6,7 +6,7 @@ mora o código. Mexer numa área? Leia antes o tópico dela — vários registra
 teste pega. Lição nova de uma área entra aqui, no tópico dela; regra que vale para TODA mudança
 continua no `CLAUDE.md`.
 
-## Índice (189 tópicos, na ordem do arquivo)
+## Índice (190 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -14,6 +14,7 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
 - A SUÍTE PASSOU A RODAR CONTRA UM POSTGRES DE VERDADE — e a primeira rodada achou TRÊS
 - A AMARRA ENTRE O HORÁRIO E A SESSÃO, e a pergunta que ela produz
 - O CIRCUITO DO PARTICULAR — a Recepção é o centro, e o dinheiro de quem não tem
+- PARTICULAR POR HORÁRIO — a paciente tem plano, e quem atende não o aceita
 - ESTORNAR UM ATENDIMENTO
 - A BUSCA DE PACIENTE VIROU A TELA
 - O SELETOR DE PACIENTE DEIXOU DE DESPEJAR O ALFABETO
@@ -387,6 +388,43 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   Financeiro) — o balcão vê o aviso e ainda não RECEBE dali; e a prévia da guia do Novo
   atendimento ainda não mostra o preço do particular — ele aparece no Finalizar, que é
   onde a cobrança acontece.
+- **PARTICULAR POR HORÁRIO — a paciente tem plano, e quem atende não o aceita** (nov/2026; as
+  médicas, em vídeo: *"essa paciente tem plano, mas o atendimento dela por mim foi particular,
+  porque eu não atendo o plano dela… uma forma de já no agendamento sinalizar… para a gente ter
+  um relatório de quantas consultas particulares têm"*). Até aqui particular era só o convênio
+  da FICHA sem guia (parcela 60), e a saída era trocar a ficha — o que tirava a guia da
+  acupuntura da mesma paciente, que É pelo plano. Agora a marca é do HORÁRIO:
+  `Agendamento.Particular` viaja para `Atendimento.Particular`, e o motor NÃO mudou — os
+  códigos nascem `NaoAplicavel` pelo mesmo `AplicarParticular` do particular de ficha. Decisão,
+  comparação das opções e o que ficou de fora: `docs/particular-por-horario.md`.
+  ⚠️ **A pergunta "esta sessão é particular?" tem DUAS fontes e mora num lugar só**:
+  `SessaoParticular` (Domain). Leitor que olha só `CatalogoConvenios.GeraGuia(paciente…)` erra
+  a sessão marcada; o que olha só a marca erra a ficha particular. Leitor novo pergunta ali —
+  hoje: fechamento, fila, grade, relatório por médico, recuperação de guias, tablet, conciliação
+  e o cabeçalho do Consultório.
+  ⚠️ **Nulo preserva, de novo** (a regra da parcela 68): `RemarcarAsync` e
+  `LancarNoHorarioAsync` recebem `bool? particular`, e `null` mantém a marca — o Empurrar, o
+  arrastar da grade e o faturamento remarcam sem saber dela, e desligá-la ali devolveria ao
+  convênio, calado, uma consulta que a médica não atende pelo plano. Mudar a marca REGERA as
+  guias pelo caminho da troca de modalidade, que recusa guia baixada, em lote ou em NC.
+  ⚠️ **O que a sessão particular por escolha NÃO faz**: não renova a consulta do convênio
+  (`ConcluirPresencaAsync` — a validade é do plano), não reescreve `paciente.Categoria` (o
+  semáforo é do plano) e não carimba o convênio da ficha na receita
+  (`SessaoSemReceita.ParticularApesarDoConvenio` — dinheiro do bolso não entra na receita da
+  Unimed). E ela PASSA pela recusa do convênio "a definir" (parcela 92): a falta de guia deixou
+  de ser calada, é a escolha registrada.
+  ⚠️ **Corrigir a sessão JÁ ATENDIDA não é estorno**: `AgendaService.DefinirParticularAsync`
+  troca só essa resposta (marca + guias + trilha, no mesmo `SaveChanges`); o caso do vídeo era
+  uma consulta de ontem. A renovação da consulta do plano feita na conclusão NÃO é desfeita
+  sozinha — o serviço avisa. A porta é a janela do horário atendido ("Foi particular…"), com
+  `EditarAgenda` E `LancarAtendimento`; no horário em aberto a escolha está no formulário.
+  ⚠️ **Projeção em árvore de expressão não aceita parâmetro opcional** (CS0854): o
+  `SessaoSemReceita` é montado dentro de um `Select` traduzido, então o campo novo do record é
+  POSICIONAL e obrigatório — e a cópia da consulta em `TraducaoNoNpgsqlTests` muda junto.
+  **A cobrança NO ATO DA MARCAÇÃO não foi construída**: o preço é DITO na marcação (a mesma
+  frase do Finalizar, `CobrancaDaSessao`) e a cobrança continua no Finalizar/Conciliação.
+  Receber antes de a sessão existir pede política da clínica (devolução, crédito, falta) — as
+  opções e as quatro perguntas estão no documento.
 - **ESTORNAR UM ATENDIMENTO** (parcela 94). O `RemarcarAsync` recusava horário realizado
   dizendo "Estorne o atendimento antes" — e **não havia estorno nenhum**: a instrução
   mandava fazer o que não existe, e a saída que sobrava era o `Cancelar`, sem trava.

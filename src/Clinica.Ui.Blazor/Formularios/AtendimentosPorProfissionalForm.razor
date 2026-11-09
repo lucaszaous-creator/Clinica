@@ -66,6 +66,7 @@
                             <tr>
                                 <th>Profissional</th>
                                 <th class="direita" style="width:110px">Atendimentos</th>
+                                <th class="direita" style="width:104px" title="Atendimentos particulares: pela ficha do paciente ou pelo horário marcado como particular">Particulares</th>
                                 <th class="direita" style="width:96px">Pacientes</th>
                                 <th class="direita" style="width:150px">Valor de tabela</th>
                                 <th class="direita" style="width:130px">Recebido</th>
@@ -79,6 +80,7 @@
                                     <td><span class="principal">@p.Profissional</span>
                                         @if (p.SemPreco > 0) { <span class="secundario">@p.SemPreco sem preço cadastrado</span> }</td>
                                     <td class="direita numero">@p.Quantidade.ToString(Formato.PtBr)</td>
+                                    <td class="direita numero">@p.Particulares.ToString(Formato.PtBr)</td>
                                     <td class="direita numero">@p.PacientesDistintos.ToString(Formato.PtBr)</td>
                                     <td class="direita numero">@Formato.Dinheiro(p.TotalTabela)</td>
                                     <td class="direita numero">@Formato.Dinheiro(p.TotalRecebido)</td>
@@ -90,6 +92,7 @@
                             <tr>
                                 <td><b>Total</b></td>
                                 <td class="direita numero"><b>@visiveis.Sum(p => p.Quantidade).ToString(Formato.PtBr)</b></td>
+                                <td class="direita numero"><b>@visiveis.Sum(p => p.Particulares).ToString(Formato.PtBr)</b></td>
                                 <td></td>
                                 <td class="direita numero"><b>@Formato.Dinheiro(visiveis.Sum(p => p.TotalTabela))</b></td>
                                 <td class="direita numero"><b>@Formato.Dinheiro(visiveis.Sum(p => p.TotalRecebido))</b></td>
@@ -101,7 +104,7 @@
             }
             else if (visiveis.FirstOrDefault() is { } prof)
             {
-                <p class="texto-secundario pequeno">@prof.Quantidade atendimento(s) · @prof.PacientesDistintos paciente(s) · tabela @Formato.Dinheiro(prof.TotalTabela) · recebido @Formato.Dinheiro(prof.TotalRecebido)</p>
+                <p class="texto-secundario pequeno">@prof.Quantidade atendimento(s) · @prof.Particulares particular(es) · @prof.PacientesDistintos paciente(s) · tabela @Formato.Dinheiro(prof.TotalTabela) · recebido @Formato.Dinheiro(prof.TotalRecebido)</p>
                 <div class="tabela-rolagem rel-prof-detalhe">
                     <table class="lista rel-prof-tabela">
                         <thead>

@@ -99,7 +99,8 @@ public sealed class ListaEsperaService
         int pedidoId, DateTime dataHora, ModalidadeAtendimento modalidade,
         int? profissionalId = null, int? salaId = null, int? duracaoMinutos = null,
         bool encaixe = false, string? modalidadeCodigo = null, CancellationToken ct = default,
-        string? operador = null, string? especialidadeConsultaCodigo = null)
+        string? operador = null, string? especialidadeConsultaCodigo = null,
+        bool particular = false)
     {
         var pedido = await _repo.ObterListaEsperaAsync(pedidoId, ct)
             ?? throw new InvalidOperationException("Pedido da lista de espera não encontrado.");
@@ -121,7 +122,8 @@ public sealed class ListaEsperaService
             salaId: salaId,
             duracaoMinutos: duracaoMinutos,
             encaixe: encaixe,
-            operador: operador);
+            operador: operador,
+            particular: particular);
 
         pedido.Status = StatusListaEspera.Agendado;
         pedido.ResolvidoEm = DateTime.Now;

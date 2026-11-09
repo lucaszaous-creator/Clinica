@@ -3137,7 +3137,8 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             a.EspecialidadeConsultaCodigo,
             a.Paciente.Convenio,
             a.Paciente.ConvenioCodigo,
-            a.Codigos.OrderBy(c => c.Id).Select(c => c.Tipo).First());
+            a.Codigos.OrderBy(c => c.Id).Select(c => c.Tipo).First(),
+            a.Particular);
 
     // ---- Estoque ----
 

@@ -192,6 +192,9 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<int>("PacienteId")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("Particular")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("PrimeiroCodigo")
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
@@ -655,6 +658,9 @@ namespace Clinica.Infrastructure.Migrations
 
                     b.Property<int>("PacienteId")
                         .HasColumnType("integer");
+
+                    b.Property<bool>("Particular")
+                        .HasColumnType("boolean");
 
                     b.Property<DateTime?>("RealizadoEm")
                         .HasColumnType("timestamp without time zone");

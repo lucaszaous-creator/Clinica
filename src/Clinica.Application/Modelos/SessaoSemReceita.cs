@@ -31,7 +31,9 @@ public sealed record SessaoSemReceita(
     string? EspecialidadeCodigo,
     Convenio Convenio,
     string? ConvenioCodigo,
-    TipoCodigo Tipo)
+    TipoCodigo Tipo,
+    // A sessão foi MARCADA como particular (nov/2026) — a ficha pode ter convênio que fatura.
+    bool ParticularDaSessao)
 {
     /// <summary>Código da modalidade como a tabela do particular o conhece (família quando não há código).</summary>
     public string CodigoDaModalidade => ModalidadeCodigo ?? Modalidade.ToString();
@@ -42,9 +44,29 @@ public sealed record SessaoSemReceita(
     /// <summary>Nome do CATÁLOGO, nunca o enum (a lição da parcela 41).</summary>
     public string ModalidadeNome => CatalogoModalidades.Nome(ModalidadeCodigo, Modalidade);
 
-    /// <summary>"Particular", ou o nome que a clínica deu ao cadastro sem guia.</summary>
-    public string ConvenioNome => CatalogoConvenios.Nome(ConvenioCodigo, Convenio);
+    /// <summary>
+    /// "Particular", ou o nome que a clínica deu ao cadastro sem guia. Quando a sessão é
+    /// particular por ESCOLHA do horário, a linha diz isso e mostra o plano da ficha ao lado —
+    /// senão a aba Particulares exibiria "Unimed" e a recepção acharia que é engano.
+    /// </summary>
+    public string ConvenioNome
+    {
+        get
+        {
+            var daFicha = CatalogoConvenios.Nome(ConvenioCodigo, Convenio);
+            return ParticularApesarDoConvenio
+                ? $"Particular (ficha: {daFicha})"
+                : daFicha;
+        }
+    }
 
     /// <summary>Código do convênio como a tabela de preço o conhece (família quando não há código).</summary>
     public string CodigoParaTabela => ConvenioCodigo ?? Convenio.ToString();
+
+    /// <summary>
+    /// A sessão é particular por ESCOLHA do horário e a ficha tem convênio que fatura. A
+    /// receita dela NÃO leva o convênio da ficha como pagador: quem pagou foi o paciente, e
+    /// carimbar "Unimed" no lançamento poria dinheiro do bolso na receita do plano.
+    /// </summary>
+    public bool ParticularApesarDoConvenio => ParticularDaSessao && CatalogoConvenios.GeraGuia(CodigoParaTabela);
 }
