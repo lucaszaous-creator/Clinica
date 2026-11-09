@@ -1,0 +1,258 @@
+@*
+  ATENDIMENTOS POR PROFISSIONAL, COM VALORES (nov/2026, pedido da gerência: "relatórios de
+  atendimentos por médico, com os respectivos valores, para auxiliar na elaboração da folha
+  de pagamento e dos repasses").
+
+  Abre da tela de Repasses — a porta da pergunta "quanto cada um produziu" já é ela (regra
+  1 de tela: uma porta por pergunta). O Repasses mostra o TOTAL que a regra calcula; este
+  mostra cada atendimento, com o valor de tabela do convênio e o que entrou no caixa, lado a
+  lado. O que a tela afirma (quem atendeu, o que vale, a lacuna do preço não cadastrado) mora
+  no AtendimentosPorProfissionalService, na Application, com teste; aqui só se desenha.
+
+  Barreira: sai nome de paciente e valor — VerFinanceiro, a mesma do CSV dos Repasses.
+*@
+@using Clinica.Application.Modelos
+@inject IServiceScopeFactory Escopos
+@inject IHostDaTela Host
+@inject Notificacoes Notificacoes
+
+<Modal Titulo="Atendimentos por profissional" Largura="largo" Maximizavel="true" AoFechar="AoFechar"
+       Subtitulo="Cada atendimento realizado, com quem atendeu, o valor de tabela do convênio e o que entrou no caixa — a conferência da folha e do repasse.">
+    <ChildContent>
+        <div class="filtros rel-prof-filtros">
+            <Campo Rotulo="De" Classe="data">
+                <input type="date" class="campo" value="@_inicio.ToString("yyyy-MM-dd")" @onchange="e => TrocarAsync(Data(e) ?? _inicio, _fim)" />
+            </Campo>
+            <Campo Rotulo="Até" Classe="data">
+                <input type="date" class="campo" value="@_fim.ToString("yyyy-MM-dd")" @onchange="e => TrocarAsync(_inicio, Data(e) ?? _fim)" />
+            </Campo>
+            <Campo Rotulo="Profissional">
+                <select class="campo" value="@(_profissional?.ToString() ?? "")" @onchange="e => _profissional = int.TryParse(e.Value?.ToString(), out var id) ? id : null">
+                    <option value="">Todos</option>
+                    @foreach (var p in _relatorio?.Profissionais ?? []) { <option value="@p.ProfissionalId">@p.Profissional</option> }
+                </select>
+            </Campo>
+        </div>
+
+        @if (_falha is not null)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível montar o relatório" Detalhe="@($"Os números não estão zerados — eles não puderam ser lidos. {_falha}")" AoTentarDeNovo="() => CarregarAsync()" />
+        }
+        else if (_relatorio is null)
+        {
+            <Esqueleto Altura="220" />
+        }
+        else if (_relatorio.Profissionais.Count == 0)
+        {
+            <EstadoVazio Icone="calendario" Titulo="Nenhum atendimento realizado no período"
+                         Descricao="Entram aqui os horários da agenda marcados como realizados, com o profissional escolhido. Mude as datas." />
+        }
+        else
+        {
+            var visiveis = Visiveis;
+            @if (AtendimentosPorProfissionalService.RessalvaSemPreco(visiveis.Sum(p => p.SemPreco)) is { } ressalva)
+            {
+                <Aviso Tom="atencao" Texto="@ressalva" />
+            }
+            @if (_profissional is null)
+            {
+                <div class="tabela-rolagem">
+                    <table class="lista rel-prof-tabela">
+                        <thead>
+                            <tr>
+                                <th>Profissional</th>
+                                <th class="direita" style="width:110px">Atendimentos</th>
+                                <th class="direita" style="width:96px">Pacientes</th>
+                                <th class="direita" style="width:150px">Valor de tabela</th>
+                                <th class="direita" style="width:130px">Recebido</th>
+                                <th class="direita" style="width:96px"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var p in visiveis)
+                            {
+                                <tr @key="p.ProfissionalId">
+                                    <td><span class="principal">@p.Profissional</span>
+                                        @if (p.SemPreco > 0) { <span class="secundario">@p.SemPreco sem preço cadastrado</span> }</td>
+                                    <td class="direita numero">@p.Quantidade.ToString(Formato.PtBr)</td>
+                                    <td class="direita numero">@p.PacientesDistintos.ToString(Formato.PtBr)</td>
+                                    <td class="direita numero">@Formato.Dinheiro(p.TotalTabela)</td>
+                                    <td class="direita numero">@Formato.Dinheiro(p.TotalRecebido)</td>
+                                    <td class="direita"><button type="button" class="botao mini" @onclick="() => _profissional = p.ProfissionalId">Detalhar</button></td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td><b>Total</b></td>
+                                <td class="direita numero"><b>@visiveis.Sum(p => p.Quantidade).ToString(Formato.PtBr)</b></td>
+                                <td></td>
+                                <td class="direita numero"><b>@Formato.Dinheiro(visiveis.Sum(p => p.TotalTabela))</b></td>
+                                <td class="direita numero"><b>@Formato.Dinheiro(visiveis.Sum(p => p.TotalRecebido))</b></td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            }
+            else if (visiveis.FirstOrDefault() is { } prof)
+            {
+                <p class="texto-secundario pequeno">@prof.Quantidade atendimento(s) · @prof.PacientesDistintos paciente(s) · tabela @Formato.Dinheiro(prof.TotalTabela) · recebido @Formato.Dinheiro(prof.TotalRecebido)</p>
+                <div class="tabela-rolagem rel-prof-detalhe">
+                    <table class="lista rel-prof-tabela">
+                        <thead>
+                            <tr>
+                                <th style="width:120px">Data</th>
+                                <th>Paciente</th>
+                                <th style="width:16%">Convênio</th>
+                                <th style="width:22%">Procedimento e guias</th>
+                                <th class="direita" style="width:140px">Valor de tabela</th>
+                                <th class="direita" style="width:110px">Recebido</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var a in prof.Atendimentos)
+                            {
+                                <tr @key="a.AtendimentoId">
+                                    <td class="nao-quebra">@a.DataHora.ToString("dd/MM/yyyy HH:mm", Formato.PtBr)</td>
+                                    <td><span class="principal">@a.Paciente</span></td>
+                                    <td class="texto-secundario">@a.Convenio</td>
+                                    <td><span>@a.Procedimento</span>
+                                        @if (a.Guias.Count > 0) { <span class="secundario">@string.Join(" + ", a.Guias)</span> }</td>
+                                    <td class="direita numero @(a.GuiasSemPreco > 0 ? "tom-aviso" : null)">@AtendimentosPorProfissionalService.ValorDeTabela(a)</td>
+                                    <td class="direita numero">@Formato.Dinheiro(a.Recebido)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+    </ChildContent>
+    <Rodape>
+        @if (_profissional is not null)
+        {
+            <button type="button" class="botao fantasma" @onclick="() => _profissional = null">Ver todos</button>
+        }
+        <button type="button" class="botao" @onclick="ExportarCsvAsync" disabled="@(!PodeVer || _relatorio is not { Quantidade: > 0 })"
+                title="@(PodeVer ? "Exportar cada atendimento em CSV (abre no Excel)" : "Seu acesso não permite exportar dados do financeiro.")"><Icone Nome="baixar" />Exportar CSV</button>
+        <button type="button" class="botao primario" @onclick="ImprimirAsync" disabled="@(!PodeVer || _relatorio is null || _gerando)"
+                title="@(PodeVer ? "Imprimir o relatório (PDF), um bloco por profissional com o total" : "Seu acesso não permite emitir relatórios do financeiro.")"><Icone Nome="imprimir" />@(_gerando ? "Gerando…" : "Imprimir")</button>
+        <button type="button" class="botao" @onclick="AoFechar">Fechar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    /// <summary>O período com que abre — o mês que a tela de Repasses está mostrando.</summary>
+    [Parameter] public DateOnly Inicio { get; set; }
+    [Parameter] public DateOnly Fim { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private DateOnly _inicio;
+    private DateOnly _fim;
+    private int? _profissional;
+    private RelatorioAtendimentosPorProfissional? _relatorio;
+    private string? _falha;
+    private bool _gerando;
+    private int _geracao;
+
+    private static bool PodeVer => SessaoUsuario.Atual.Pode(Permissao.VerFinanceiro);
+
+    /// <summary>O recorte à vista: todos, ou o profissional escolhido.</summary>
+    private IReadOnlyList<ProfissionalNoRelatorio> Visiveis
+        => _relatorio is null ? []
+            : _profissional is { } id ? _relatorio.Profissionais.Where(p => p.ProfissionalId == id).ToList()
+            : _relatorio.Profissionais;
+
+    private RelatorioAtendimentosPorProfissional? RelatorioVisivel
+        => _relatorio is null ? null : _relatorio with { Profissionais = Visiveis };
+
+    private string? NomeDoProfissional => _profissional is null ? null : Visiveis.FirstOrDefault()?.Profissional;
+
+    protected override Task OnInitializedAsync()
+    {
+        _inicio = Inicio == default ? new DateOnly(DateTime.Today.Year, DateTime.Today.Month, 1) : Inicio;
+        _fim = Fim == default ? _inicio.AddMonths(1).AddDays(-1) : Fim;
+        return CarregarAsync();
+    }
+
+    private Task TrocarAsync(DateOnly inicio, DateOnly fim)
+    {
+        _inicio = inicio;
+        _fim = fim;
+        return CarregarAsync();
+    }
+
+    /// <summary>Contador de geração: trocar as datas duas vezes rápido não deixa a lista de um período sob o outro.</summary>
+    private async Task CarregarAsync()
+    {
+        var g = ++_geracao;
+        _falha = null;
+        if (_fim < _inicio)
+        {
+            _relatorio = null;
+            _falha = "A data final está antes da inicial. Corrija as datas.";
+            return;
+        }
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var relatorio = await escopo.ServiceProvider.GetRequiredService<AtendimentosPorProfissionalService>().GerarAsync(_inicio, _fim);
+            if (g != _geracao) return;
+            _relatorio = relatorio;
+            if (_profissional is { } id && relatorio.Profissionais.All(p => p.ProfissionalId != id)) _profissional = null;
+        }
+        catch (Exception ex)
+        {
+            if (g != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — relatório de atendimentos por profissional não pôde ser lido", ex);
+            _relatorio = null;
+            _falha = ex.Message;
+        }
+    }
+
+    private async Task ImprimirAsync()
+    {
+        if (_gerando || RelatorioVisivel is not { } rel) return;
+        if (!SessaoUsuario.Atual.Pode(Permissao.VerFinanceiro))
+        {
+            Notificacoes.Erro("Seu acesso não permite emitir relatórios do financeiro.");
+            return;
+        }
+        _gerando = true;
+        try
+        {
+            string? clinica;
+            using (var escopo = Escopos.CreateScope())
+            {
+                var d = await escopo.ServiceProvider.GetRequiredService<ParametrosService>().ObterPrestadorAsync();
+                clinica = string.IsNullOrWhiteSpace(d.NomeFantasia) ? d.RazaoSocial : d.NomeFantasia;
+            }
+            var pdf = AtendimentosPorProfissionalService.Pdf(rel, NomeDoProfissional, clinica);
+            var erro = await Host.SalvarEAbrirAsync(pdf, AtendimentosPorProfissionalService.NomeArquivo(rel.Inicio, rel.Fim, ".pdf"), "PDF (*.pdf)|*.pdf", ".pdf");
+            if (erro is not null) Notificacoes.Erro(erro);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — PDF de atendimentos por profissional não pôde ser gerado", ex);
+            Notificacoes.Erro($"Não foi possível gerar o relatório: {ex.Message}");
+        }
+        finally { _gerando = false; }
+    }
+
+    private async Task ExportarCsvAsync()
+    {
+        if (RelatorioVisivel is not { } rel) return;
+        if (!SessaoUsuario.Atual.Pode(Permissao.VerFinanceiro))
+        {
+            Notificacoes.Erro("Seu acesso não permite exportar dados do financeiro.");
+            return;
+        }
+        var erro = await Host.ExportarCsvAsync(AtendimentosPorProfissionalService.CabecalhoCsv,
+            AtendimentosPorProfissionalService.LinhasCsv(rel), AtendimentosPorProfissionalService.NomeArquivo(rel.Inicio, rel.Fim, ".csv"));
+        if (erro is not null) Notificacoes.Erro(erro);
+    }
+
+    private static DateOnly? Data(ChangeEventArgs e)
+        => DateOnly.TryParseExact(e.Value?.ToString(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : null;
+}

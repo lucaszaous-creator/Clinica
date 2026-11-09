@@ -10,3 +10,11 @@ table.lista tr.repasse-sem-regra .repasse-valor{color:var(--texto-secundario);fo
 .repasse-situacao .selo{white-space:nowrap}
 .repasse-base{align-self:flex-start}
 .repasse-tabela-form .selo{white-space:nowrap}
+/* Atendimentos por profissional (nov/2026): os filtros sem a moldura da página, a lista rola por
+   dentro com o cabeçalho preso, e o total fica no pé da tabela. */
+.rel-prof-filtros{padding:0 0 var(--space-3);border-bottom:0}
+.rel-prof-filtros .data{min-width:150px;max-width:160px}
+.rel-prof-filtros + .aviso{margin-bottom:var(--space-3)}
+.rel-prof-detalhe{max-height:440px;overflow:auto}
+.rel-prof-detalhe thead th{position:sticky;top:0;z-index:1}
+.rel-prof-tabela tfoot td{border-top:1px solid var(--borda);background:var(--cinza-50)}
