@@ -345,6 +345,52 @@ public sealed class AtendimentosPorProfissionalTests : IDisposable
     }
 
     [Fact]
+    public async Task Atendimento_com_data_diferente_da_do_horario_nao_some_do_relatorio()
+    {
+        var (paciente, prof) = await BaseAsync();
+        var id = await SessaoAsync(paciente, prof, Inicio.AddDays(10));
+        // Lançado à mão antes de o horário existir: o atendimento ficou com outra data.
+        var at = await _db.Atendimentos.SingleAsync(x => x.Id == id);
+        at.Data = Inicio.AddDays(-20);
+        await _db.SaveChangesAsync();
+        _db.ChangeTracker.Clear();
+
+        var r = await _servico.GerarAsync(Inicio, Fim);
+
+        r.Profissionais.Single().Atendimentos.Single().AtendimentoId.Should().Be(id);
+    }
+
+    /// <summary>
+    /// A leitura composta contra um banco LENTO (a regra do CabecalhoClinicoTests): as leituras
+    /// vão em fila no mesmo DbContext — em paralelo, o Postgres recusaria "a second operation".
+    /// </summary>
+    [Fact]
+    public async Task Relatorio_monta_contra_um_banco_LENTO_como_o_de_producao()
+    {
+        var (paciente, prof) = await BaseAsync();
+        await _precos.SalvarAsync(new PrecoConvenio { ConvenioCodigo = nameof(Convenio.Amil), Tipo = TipoCodigo.Acupuntura, Valor = 60m });
+        await SessaoAsync(paciente, prof, Inicio.AddDays(2), guias: [(TipoCodigo.Acupuntura, StatusCodigo.Aberto)]);
+
+        var lento = new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(_conn).AddInterceptors(new LentidaoDeRede()).Options;
+        using var db = new ClinicaDbContext(lento);
+        var repo = new ClinicaRepositorio(db);
+        var r = await new AtendimentosPorProfissionalService(repo, new PrecoConvenioService(repo)).GerarAsync(Inicio, Fim);
+
+        r.TotalTabela.Should().Be(60m);
+    }
+
+    private sealed class LentidaoDeRede : Microsoft.EntityFrameworkCore.Diagnostics.DbCommandInterceptor
+    {
+        public override async ValueTask<Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<System.Data.Common.DbDataReader>>
+            ReaderExecutingAsync(System.Data.Common.DbCommand command, Microsoft.EntityFrameworkCore.Diagnostics.CommandEventData eventData,
+                Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<System.Data.Common.DbDataReader> result, CancellationToken cancellationToken = default)
+        {
+            await Task.Delay(25, cancellationToken);
+            return result;
+        }
+    }
+
+    [Fact]
     public async Task Periodo_invertido_ou_longo_demais_e_recusado_com_a_frase()
     {
         await FluentActions.Awaiting(() => _servico.GerarAsync(Fim, Inicio)).Should().ThrowAsync<InvalidOperationException>();

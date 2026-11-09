@@ -107,6 +107,13 @@ public sealed class AtendimentosPorProfissionalService
         var atendimentos = (await _repo.AtendimentosNoPeriodoAsync(inicio.AddDays(-1), fim.AddDays(1), ct))
             .ToDictionary(a => a.Id);
         var ids = agendamentos.Select(a => a.AtendimentoId!.Value).Distinct().ToList();
+        // O atendimento acompanha a data do horário na remarcação, mas o lançado à mão antes
+        // de o horário existir (e o histórico de antes da regra) pode ter outra data. Sem esta
+        // volta ele sairia do relatório EM SILÊNCIO — e a folha sairia menor com cara de
+        // conferida. Normalmente não falta nenhum, e não há ida ao banco a mais.
+        foreach (var id in ids.Where(id => !atendimentos.ContainsKey(id)).ToList())
+            if (await _repo.ObterAtendimentoAsync(id, ct) is { Estornado: false } avulso)
+                atendimentos[id] = avulso;
         var recebidos = (await _repo.LancamentosDosAtendimentosAsync(ids, ct))
             .Where(l => l.Tipo == TipoLancamento.Entrada && l.Status == StatusLancamento.Realizado && l.AtendimentoId is not null)
             .GroupBy(l => l.AtendimentoId!.Value)
@@ -120,7 +127,7 @@ public sealed class AtendimentosPorProfissionalService
             var atendimentoId = ag.AtendimentoId!.Value;
             var prof = ag.ProfissionalId!.Value;
             if (!vistos.Add((prof, atendimentoId))) continue;
-            // Estornado (ou fora da leitura): não foi sessão dada — sai do relatório.
+            // Estornado: não foi sessão dada — sai do relatório.
             if (!atendimentos.TryGetValue(atendimentoId, out var atendimento)) continue;
 
             var linha = await MontarLinhaAsync(ag, atendimento, recebidos.GetValueOrDefault(atendimentoId), ct);

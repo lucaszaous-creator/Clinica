@@ -34,7 +34,11 @@
             </Campo>
         </div>
 
-        @if (_falha is not null)
+        @if (_recusa is not null)
+        {
+            <Aviso Tom="atencao" Texto="@_recusa" />
+        }
+        else if (_falha is not null)
         {
             <FalhaDeLeitura Titulo="Não foi possível montar o relatório" Detalhe="@($"Os números não estão zerados — eles não puderam ser lidos. {_falha}")" AoTentarDeNovo="() => CarregarAsync()" />
         }
@@ -153,6 +157,8 @@
     private int? _profissional;
     private RelatorioAtendimentosPorProfissional? _relatorio;
     private string? _falha;
+    /// <summary>Período recusado (invertido ou longo demais): não é falha de leitura e não se tenta de novo.</summary>
+    private string? _recusa;
     private bool _gerando;
     private int _geracao;
 
@@ -188,10 +194,14 @@
     {
         var g = ++_geracao;
         _falha = null;
-        if (_fim < _inicio)
+        _recusa = _fim < _inicio
+            ? "A data final está antes da inicial. Corrija as datas."
+            : _fim.DayNumber - _inicio.DayNumber + 1 > AtendimentosPorProfissionalService.MaximoDias
+                ? $"Escolha um período de até {AtendimentosPorProfissionalService.MaximoDias} dias."
+                : null;
+        if (_recusa is not null)
         {
             _relatorio = null;
-            _falha = "A data final está antes da inicial. Corrija as datas.";
             return;
         }
         try

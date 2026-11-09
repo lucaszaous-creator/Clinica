@@ -577,7 +577,8 @@
         {
             // Período recusado não consulta: a frase fica onde estaria a lista.
             var (periodo, erroPeriodo) = VisaoGeralDaAgendaNaTela.PeriodoPersonalizado(_de, _ate);
-            if (periodo is not { } p) { _erroPeriodo = erroPeriodo; return; }
+            // Carregando volta a falso: uma leitura anterior ainda no ar perdeu a geração e não o faria.
+            if (periodo is not { } p) { _erroPeriodo = erroPeriodo; Carregando = false; return; }
             (inicio, fim) = p;
         }
         Carregando = true;
