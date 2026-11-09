@@ -125,6 +125,7 @@ public static class DependencyInjection
         services.AddScoped<CustoTransacaoService>();
         services.AddScoped<RentabilidadeConvenioService>();
         services.AddScoped<PrecoConvenioService>();
+        services.AddScoped<AtendimentosPorProfissionalService>();
         services.AddScoped<PrecoParticularService>();
         services.AddScoped<AuditoriaService>();
 

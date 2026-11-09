@@ -20,17 +20,36 @@ public sealed record FiltroFaturados(
 {
     public static readonly FiltroFaturados Nenhum = new();
 
+    /// <summary>
+    /// Modalidade do atendimento (nov/2026 — o mesmo combo da Consulta de guias, pedido da
+    /// gerência para padronizar pendências e baixas com ela).
+    /// </summary>
+    public ModalidadeAtendimento? Modalidade { get; init; }
+
+    /// <summary>
+    /// Especialidade da GUIA, com o atendimento como caminho de baixo — a mesma regra da coluna
+    /// e do filtro do repositório na Consulta de guias.
+    /// </summary>
+    public Especialidade? Especialidade { get; init; }
+
     public bool Ativo =>
         Convenio != GuiasFaturadasNaTela.TodosConvenios
         || !string.IsNullOrWhiteSpace(Paciente)
-        || !string.IsNullOrWhiteSpace(Guia);
+        || !string.IsNullOrWhiteSpace(Guia)
+        || Modalidade is not null
+        || Especialidade is not null;
 
     /// <summary>Paciente sem acento e sem caixa (a mesma <see cref="Busca"/> da Conciliação); guia por trecho.</summary>
     public bool Casa(CodigoFaturamento c)
         => (Convenio == GuiasFaturadasNaTela.TodosConvenios || ConsultaDeGuiasNaTela.Convenio(c) == Convenio)
            && Busca.Casa(c.Atendimento?.Paciente?.Nome, Paciente)
-           && Busca.Casa(c.NumeroGuiaReal, Guia);
+           && Busca.Casa(c.NumeroGuiaReal, Guia)
+           && (Modalidade is not { } m || c.Atendimento?.Modalidade == m)
+           && (Especialidade is not { } e || (c.Especialidade ?? c.Atendimento?.EspecialidadeConsulta) == e);
 }
+
+/// <summary>Os atalhos de período da tela de baixas: o histórico de UM paciente raramente cabe no mês corrente.</summary>
+public enum AtalhoPeriodoFaturados { EsteMes, MesPassado, Ultimos3Meses, Ultimos12Meses }
 
 public static class GuiasFaturadasNaTela
 {
@@ -80,6 +99,40 @@ public static class GuiasFaturadasNaTela
 
     public static string NomeArquivoCsv(DateOnly inicio, DateOnly fim)
         => $"Faturados-{inicio:yyyy-MM-dd}-a-{fim:yyyy-MM-dd}.csv";
+
+    public static string Rotulo(AtalhoPeriodoFaturados atalho) => atalho switch
+    {
+        AtalhoPeriodoFaturados.EsteMes => "Este mês",
+        AtalhoPeriodoFaturados.MesPassado => "Mês passado",
+        AtalhoPeriodoFaturados.Ultimos3Meses => "Últimos 3 meses",
+        _ => "Últimos 12 meses"
+    };
+
+    /// <summary>
+    /// O período de cada atalho, contado a partir de hoje. "Últimos N meses" vai do dia 1º do
+    /// mês de N-1 meses atrás até o fim do mês corrente — o mês corrente inteiro entra, e o
+    /// período nunca começa no meio de um mês (a conferência com o demonstrativo é mensal).
+    /// </summary>
+    public static (DateOnly Inicio, DateOnly Fim) Periodo(AtalhoPeriodoFaturados atalho, DateOnly hoje)
+    {
+        var (inicioMes, fimMes) = MesDe(hoje);
+        return atalho switch
+        {
+            AtalhoPeriodoFaturados.MesPassado => (inicioMes.AddMonths(-1), inicioMes.AddDays(-1)),
+            AtalhoPeriodoFaturados.Ultimos3Meses => (inicioMes.AddMonths(-2), fimMes),
+            AtalhoPeriodoFaturados.Ultimos12Meses => (inicioMes.AddMonths(-11), fimMes),
+            _ => (inicioMes, fimMes)
+        };
+    }
+
+    /// <summary>
+    /// O aviso de quem procura UM paciente num período curto: o histórico dele está em meses
+    /// que a tela não leu. Nulo quando não há paciente digitado ou o período já é longo.
+    /// </summary>
+    public static string? DicaHistoricoDoPaciente(FiltroFaturados filtro, DateOnly inicio, DateOnly fim)
+        => string.IsNullOrWhiteSpace(filtro.Paciente) || fim.DayNumber - inicio.DayNumber > 120
+            ? null
+            : "Procurando o histórico de um paciente? Use “Últimos 12 meses” — a lista só traz as baixas do período escolhido.";
 
     /// <summary>O mês corrente — o período com que a tela abre, como no WPF.</summary>
     public static (DateOnly Inicio, DateOnly Fim) MesDe(DateOnly hoje)

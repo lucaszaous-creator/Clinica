@@ -85,7 +85,12 @@
             {
                 <button type="button" class="botao fantasma" @onclick="() => Filtrar(FiltroInicial)">Limpar filtros</button>
             }
-            <span class="resumo-filtro">@(VendoMarcacoes ? LancamentosNaTela.ResumoMarcacoes(_linhasMarcacoes.Count, _marcacoes.Count) : LancamentosNaTela.Resumo(_linhas.Count, _carregadas.Count))</span>
+            <span class="resumo-filtro">@(VendoMarcacoes ? LancamentosNaTela.ResumoMarcacoes(_linhasMarcacoes.Count, _marcacoes.Count) : LancamentosNaTela.ResumoComPacientes(_linhas, _carregadas.Count))</span>
+            @if (!VendoMarcacoes)
+            {
+                <button type="button" class="botao mini" @onclick="ExportarCsvAsync" disabled="@(_linhas.Count == 0)"
+                        title="Exportar os atendimentos da lista (com o filtro) em CSV — abre no Excel"><Icone Nome="baixar" />Exportar CSV</button>
+            }
         </div>
 
         @if (_naoVerificado)
@@ -302,6 +307,19 @@
     {
         _linhas = _carregadas.Where(l => LancamentosNaTela.Passa(l, _filtro)).ToList();
         _linhasMarcacoes = _marcacoes.Where(m => LancamentosNaTela.Passa(m, _filtro)).ToList();
+    }
+
+    /// <summary>
+    /// Os atendimentos À VISTA (com o filtro) em CSV — a planilha de "atendimentos por convênio
+    /// no período" (nov/2026). O bit é o da própria tela: o CSV leva o que ela já mostra.
+    /// </summary>
+    private async Task ExportarCsvAsync()
+    {
+        if (!Exigir(Permissao.LancarAtendimento, "exportar os atendimentos")) return;
+        var erro = await Host.ExportarCsvAsync(LancamentosNaTela.CabecalhoCsv,
+            _linhas.OrderBy(l => l.Data).Select(LancamentosNaTela.LinhaCsv).ToList(),
+            LancamentosNaTela.NomeArquivoCsv(_de, _ate));
+        if (erro is not null) Notificacoes.Erro(erro);
     }
 
     private void Estornar(LinhaLancamentoBalcao l)

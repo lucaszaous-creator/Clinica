@@ -30,6 +30,11 @@ public sealed record LinhaLancamentoBalcao
     public required string Lancamento { get; init; }
     /// <summary>A chave de filtro de "quem lançou": o operador cru, sem a frase em volta.</summary>
     public required string Operador { get; init; }
+    /// <summary>
+    /// O paciente da linha (nov/2026): é por ele que se conta "quantos pacientes foram
+    /// efetivamente atendidos no período" — o nome não serve, dois pacientes podem ter o mesmo.
+    /// </summary>
+    public int PacienteId { get; init; }
 }
 
 /// <summary>
@@ -135,6 +140,7 @@ public static class LancamentosNaTela
         return new LinhaLancamentoBalcao
         {
             AtendimentoId = atendimento.Id,
+            PacienteId = atendimento.PacienteId,
             Data = atendimento.Data,
             DataRotulo = atendimento.Data.ToString("dd/MM", PtBr),
             Paciente = paciente?.Nome ?? "—",
@@ -239,6 +245,29 @@ public static class LancamentosNaTela
     /// <summary>"27 atendimento(s)" ou "8 de 27" quando algum filtro está ligado.</summary>
     public static string Resumo(int mostradas, int carregadas)
         => mostradas == carregadas ? $"{mostradas} atendimento(s)" : $"{mostradas} de {carregadas} atendimento(s)";
+
+    /// <summary>
+    /// "27 atendimento(s) · 19 paciente(s)" (nov/2026, pedido da gerência: "os pacientes
+    /// efetivamente atendidos no mês ou período"). Atendimento é a sessão; paciente é a pessoa —
+    /// quem veio três vezes conta três atendimentos e um paciente.
+    /// </summary>
+    public static string ResumoComPacientes(IReadOnlyCollection<LinhaLancamentoBalcao> mostradas, int carregadas)
+        => $"{Resumo(mostradas.Count, carregadas)} · {PacientesDistintos(mostradas)} paciente(s)";
+
+    public static int PacientesDistintos(IEnumerable<LinhaLancamentoBalcao> linhas)
+        => linhas.Select(l => l.PacienteId).Distinct().Count();
+
+    public static readonly IReadOnlyList<string> CabecalhoCsv =
+        ["Data", "Paciente", "Convênio", "Modalidade", "Guias", "Situação das guias", "Nº atendimento", "Lançado por"];
+
+    /// <summary>Uma linha do CSV dos atendimentos — as palavras da tela, a data inteira.</summary>
+    public static IReadOnlyList<string> LinhaCsv(LinhaLancamentoBalcao l) =>
+    [
+        l.Data.ToString("dd/MM/yyyy", PtBr), l.Paciente, l.Convenio, l.Modalidade, l.Guias, l.Pendencia, l.Numero, l.Operador
+    ];
+
+    public static string NomeArquivoCsv(DateOnly de, DateOnly ate)
+        => $"Atendimentos-{de:yyyy-MM-dd}-a-{ate:yyyy-MM-dd}.csv";
 
     /// <summary>Quantas linhas pedem atenção (guia que só libera depois) — o número do cartão.</summary>
     public static int ComPendencia(IEnumerable<LinhaLancamentoBalcao> linhas) => linhas.Count(l => l.TemPendencia);

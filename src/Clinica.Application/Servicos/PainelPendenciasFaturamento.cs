@@ -26,6 +26,32 @@ public sealed record FiltroPendencias
     public bool SoAtrasadas { get; init; }
     public bool SoNoPrazo { get; init; }
 
+    /// <summary>
+    /// Trecho do nome do paciente (nov/2026 — o mesmo campo da Consulta de guias). Sem caixa e
+    /// sem acento (<see cref="Formatacao.Busca"/>); o telefone também casa, porque é por ele
+    /// que o paciente às vezes se identifica ao devolver a guia.
+    /// </summary>
+    public string? Paciente { get; init; }
+
+    /// <summary>
+    /// Período do ATENDIMENTO (nov/2026, pedido da gerência). Ponta vazia = sem limite daquele
+    /// lado; as duas pontas entram. Guia sem data de atendimento conhecida fica FORA de um
+    /// período declarado — afirmar que ela é "de março" sem saber seria pior que omiti-la.
+    /// </summary>
+    public DateOnly? Inicio { get; init; }
+
+    /// <inheritdoc cref="Inicio"/>
+    public DateOnly? Fim { get; init; }
+
+    /// <summary>
+    /// Como a guia se obtém — app do paciente, sistema do convênio ou ligação (nov/2026). É o
+    /// recorte de "o que eu resolvo sozinha no portal" × "o que depende do paciente".
+    /// </summary>
+    public FormaObtencao? Forma { get; init; }
+
+    /// <summary>A data final antes da inicial: nenhuma guia cabe — a tela avisa em vez de mostrar o vazio mudo.</summary>
+    public bool PeriodoInvertido => Inicio is { } i && Fim is { } f && f < i;
+
     public static FiltroPendencias Nenhum { get; } = new();
 
     public FiltroPendencias AlternarPrimeiros() => this with { SoPrimeiros = !SoPrimeiros, SoSegundos = !SoPrimeiros ? false : SoSegundos };
@@ -44,6 +70,12 @@ public sealed record FiltroPendencias
         if (SoSegundos) f = f.Where(p => p.Ordem == OrdemCodigo.Segundo);
         if (SoAtrasadas) f = f.Where(p => p.Urgencia == NivelUrgencia.Vermelho);
         if (SoNoPrazo) f = f.Where(p => p.Urgencia == NivelUrgencia.Amarelo);
+        if (Forma is { } forma) f = f.Where(p => p.FormaObtencao == forma);
+        if (!string.IsNullOrWhiteSpace(Paciente))
+            f = f.Where(p => Formatacao.Busca.Casa(p.PacienteNome, Paciente)
+                             || CasaTelefone(p.PacienteTelefone, Paciente));
+        if (Inicio is { } ini) f = f.Where(p => p.DataAtendimento is { } d && d >= ini);
+        if (Fim is { } fim) f = f.Where(p => p.DataAtendimento is { } d && d <= fim);
         return f;
     }
 
@@ -59,7 +91,31 @@ public sealed record FiltroPendencias
         if (Modalidade is { } mod) partes.Add(ModalidadeInfo.NomeExibicao(mod));
         if (Especialidade is { } esp) partes.Add(EspecialidadeInfo.NomeExibicao(esp));
         if (Convenio is { } cv) partes.Add(CatalogoConvenios.Nome(cv));
+        if (Forma is { } forma) partes.Add(PainelPendenciasFaturamento.ComoObter(forma));
+        if (!string.IsNullOrWhiteSpace(Paciente)) partes.Add($"paciente “{Paciente.Trim()}”");
+        if (RotuloPeriodo() is { } periodo) partes.Add(periodo);
         return partes;
+    }
+
+    /// <summary>"atendidas de 01/11/2026 a 30/11/2026" / "atendidas desde…" / "atendidas até…"; nulo sem período.</summary>
+    public string? RotuloPeriodo()
+    {
+        var pt = CultureInfo.GetCultureInfo("pt-BR");
+        return (Inicio, Fim) switch
+        {
+            ({ } i, { } f) => $"atendidas de {i.ToString("dd/MM/yyyy", pt)} a {f.ToString("dd/MM/yyyy", pt)}",
+            ({ } i, null) => $"atendidas desde {i.ToString("dd/MM/yyyy", pt)}",
+            (null, { } f) => $"atendidas até {f.ToString("dd/MM/yyyy", pt)}",
+            _ => null
+        };
+    }
+
+    /// <summary>Só dígitos, e só a partir de 4 — "12" casaria com metade da agenda.</summary>
+    private static bool CasaTelefone(string? telefone, string termo)
+    {
+        var digitos = new string(termo.Where(char.IsDigit).ToArray());
+        if (digitos.Length < 4 || string.IsNullOrWhiteSpace(telefone)) return false;
+        return new string(telefone.Where(char.IsDigit).ToArray()).Contains(digitos, StringComparison.Ordinal);
     }
 
     public bool Ativo => Partes().Count > 0;
@@ -237,4 +293,84 @@ public static class PainelPendenciasFaturamento
         => falhas.Count > 0
             ? $"{feitas} guia(s) baixada(s); {falhas.Count} NÃO:\n\n" + string.Join("\n", falhas)
             : feitas == 0 ? "Nenhuma linha tinha número de guia — nada foi baixado." : null;
+
+    // ==================== relatório impresso e CSV (nov/2026) ====================
+
+    /// <summary>
+    /// A situação do prazo como a linha a escreve — "atrasada há 3 dia(s)", "vence hoje", "no prazo".
+    /// Uma regra só para a tela, o CSV e o papel.
+    /// </summary>
+    public static string SituacaoDoPrazo(PendenciaCodigo p, DateOnly hoje) => p.DiasEmAtraso > 0
+        ? $"atrasada há {p.DiasEmAtraso} dia(s)"
+        : p.DataPrevista == hoje ? "vence hoje" : "no prazo";
+
+    public static readonly IReadOnlyList<string> CabecalhoRelatorio =
+        ["Paciente", "Telefone", "Convênio", "Código", "Atendimento", "Prevista", "Situação", "Como obter", "Observação"];
+
+    private static readonly IReadOnlyList<float> PesosRelatorio = [3.2f, 1.6f, 2f, 2f, 1.3f, 1.3f, 1.8f, 1.9f, 3f];
+
+    /// <summary>
+    /// Uma linha do relatório de guias pendentes — a MESMA para o CSV e para o PDF, com as
+    /// palavras da tela (nunca o identificador do enum).
+    /// </summary>
+    public static IReadOnlyList<string> LinhaRelatorio(PendenciaCodigo p, DateOnly hoje) =>
+    [
+        p.PacienteNome,
+        string.IsNullOrWhiteSpace(p.PacienteTelefone) ? "—" : p.PacienteTelefone!,
+        p.ConvenioNome,
+        $"{RotulosEnum.De(p.Tipo)} · {RotulosEnum.De(p.Ordem)}",
+        p.DataAtendimento?.ToString("dd/MM/yyyy", PtBr) ?? "—",
+        p.DataPrevista.ToString("dd/MM/yyyy", PtBr),
+        SituacaoDoPrazo(p, hoje),
+        ComoObter(p.FormaObtencao),
+        string.IsNullOrWhiteSpace(p.ObservacaoPendencia) ? "—" : p.ObservacaoPendencia!.Trim()
+    ];
+
+    /// <summary>
+    /// O recorte por extenso para o cabeçalho do papel. Sem filtro o relatório DIZ que é a
+    /// lista inteira — papel sem recorte declarado é lido como "tudo", e um filtro esquecido
+    /// viraria "só faltam essas".
+    /// </summary>
+    public static string RecorteDoRelatorio(FiltroPendencias filtro, int noRecorte, int total)
+    {
+        var partes = filtro.Partes();
+        return partes.Count == 0
+            ? $"Todas as {total} guia(s) pendentes"
+            : $"{noRecorte} de {total} guia(s) pendentes — {string.Join(" · ", partes)}";
+    }
+
+    /// <summary>
+    /// O relatório impresso das guias pendentes À VISTA, na ordem de quem precisa de ação
+    /// primeiro: a mais atrasada no topo, depois pela prevista e pelo nome.
+    /// </summary>
+    public static byte[] RelatorioPdf(
+        IReadOnlyList<PendenciaCodigo> linhas, FiltroPendencias filtro, int total, DateOnly hoje, string? nomeClinica)
+    {
+        var ordenadas = OrdenarParaRelatorio(linhas);
+        var atrasadas = ordenadas.Count(p => p.Urgencia == NivelUrgencia.Vermelho);
+        return RelatorioListaPdf.Gerar(
+            nomeClinica ?? string.Empty,
+            "Relatório de guias pendentes",
+            RecorteDoRelatorio(filtro, ordenadas.Count, total),
+            [
+                new("Guias no relatório", ordenadas.Count.ToString(PtBr)),
+                new("Atrasadas", atrasadas.ToString(PtBr)),
+                new("No prazo", (ordenadas.Count - atrasadas).ToString(PtBr)),
+                new("2º código", ordenadas.Count(p => p.Ordem == OrdemCodigo.Segundo).ToString(PtBr)),
+            ],
+            [new SecaoRelatorioPdf(string.Empty, CabecalhoRelatorio, PesosRelatorio,
+                ordenadas.Select(p => LinhaRelatorio(p, hoje)).ToList())],
+            "Nenhuma guia pendente neste recorte.");
+    }
+
+    /// <summary>Atrasadas primeiro (a mais antiga no topo), depois a prevista e o nome.</summary>
+    public static IReadOnlyList<PendenciaCodigo> OrdenarParaRelatorio(IEnumerable<PendenciaCodigo> linhas)
+        => linhas
+            .OrderByDescending(p => p.DiasEmAtraso)
+            .ThenBy(p => p.DataPrevista)
+            .ThenBy(p => p.PacienteNome, StringComparer.Create(PtBr, true))
+            .ToList();
+
+    public static string NomeArquivoRelatorio(DateOnly hoje, string extensao)
+        => $"Guias-pendentes-{hoje:yyyy-MM-dd}{extensao}";
 }

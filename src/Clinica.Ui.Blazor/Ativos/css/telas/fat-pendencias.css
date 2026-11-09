@@ -89,3 +89,22 @@ textarea.campo.fat-texto{font:inherit}
   .fat-pendencias .faixa-rodada .aviso{align-items:flex-start}
   .fat-pendencias .faixa-rodada .aviso .botao{flex:1 1 100%;justify-content:center}
 }
+/* Nov/2026 — o MESMO padrão de filtros da Consulta de guias (pedido da gerência): os chips numa
+   faixa própria, os campos embaixo, o resumo do recorte numa faixa e as datas na largura delas. */
+.fat-pendencias .filtros.recorte{border-bottom:0;padding-bottom:0}
+.fat-pendencias .filtros .data{min-width:150px;max-width:160px}
+.fat-pendencias .acoes-titulo{display:flex;flex-wrap:wrap;gap:var(--space-2);justify-content:flex-end}
+.fat-pendencias th.col-atend,.fat-pendencias td.col-atend{width:104px}
+.fat-pendencias .secundario.modalidade{color:var(--texto-secundario)}
+/* Em 1024 (medido na foto) a coluna Atendimento empurrava as ações para fora: ela sai, e a data
+   do atendimento desce para baixo da prevista. A modalidade fica só no título da célula. */
+.fat-pendencias .so-estreito{display:none}
+@media (max-width:1280px){
+  .fat-pendencias th.col-atend,.fat-pendencias td.col-atend{display:none}
+  .fat-pendencias .so-estreito{display:block}
+  .fat-pendencias .secundario.modalidade{display:none}
+}
+@media (max-width:1280px){
+  .fat-pendencias td.col-obs,.fat-pendencias .obs{max-width:96px}
+  .fat-pendencias td.col-conv{min-width:120px}
+}

@@ -64,14 +64,31 @@
             <button type="button" class="botao rec-oc-periodo" disabled="@Carregando" @onclick="HojeAsync" title="Voltar para hoje">@PeriodoCurto</button>
             <button type="button" class="botao icone" disabled="@Carregando" @onclick="() => AndarAsync(1)" aria-label="Próximo período" title="Próximo período"><Icone Nome="direita" /></button>
         </div>
-        <label class="rec-oc-data" title="Ir para a data">
-            <Icone Nome="calendario" />
-            <input type="date" class="campo" value="@_dia.ToString("yyyy-MM-dd")" disabled="@Carregando" @onchange="IrParaDataAsync" aria-label="Ir para a data" />
-        </label>
+        @if (_modo == ModoVisaoAgenda.Periodo)
+        {
+            @* Período personalizado (nov/2026, pedido da gerência): as duas datas no lugar do "ir para". *@
+            <label class="rec-oc-data" title="Início do período">
+                <span class="rec-oc-data-rotulo">De</span>
+                <input type="date" class="campo" value="@_de.ToString("yyyy-MM-dd")" disabled="@Carregando" @onchange="e => TrocarPeriodoAsync(e, inicio: true)" aria-label="Início do período" />
+            </label>
+            <label class="rec-oc-data" title="Fim do período">
+                <span class="rec-oc-data-rotulo">até</span>
+                <input type="date" class="campo" value="@_ate.ToString("yyyy-MM-dd")" disabled="@Carregando" @onchange="e => TrocarPeriodoAsync(e, inicio: false)" aria-label="Fim do período" />
+            </label>
+        }
+        else
+        {
+            <label class="rec-oc-data" title="Ir para a data">
+                <Icone Nome="calendario" />
+                <input type="date" class="campo" value="@_dia.ToString("yyyy-MM-dd")" disabled="@Carregando" @onchange="IrParaDataAsync" aria-label="Ir para a data" />
+            </label>
+        }
         <div class="segmentado" role="group" aria-label="Período">
             <button type="button" aria-pressed="@Bool(_modo == ModoVisaoAgenda.Dia)" disabled="@Carregando" @onclick="() => EscolherModoAsync(ModoVisaoAgenda.Dia)">Dia</button>
             <button type="button" aria-pressed="@Bool(_modo == ModoVisaoAgenda.Semana)" disabled="@Carregando" @onclick="() => EscolherModoAsync(ModoVisaoAgenda.Semana)">Semana</button>
             <button type="button" aria-pressed="@Bool(_modo == ModoVisaoAgenda.Mes)" disabled="@Carregando" @onclick="() => EscolherModoAsync(ModoVisaoAgenda.Mes)">Mês</button>
+            <button type="button" aria-pressed="@Bool(_modo == ModoVisaoAgenda.Periodo)" disabled="@Carregando" @onclick="() => EscolherModoAsync(ModoVisaoAgenda.Periodo)"
+                    title="Escolher as duas datas — até @VisaoGeralDaAgendaNaTela.MaximoDiasPeriodo dias">Período</button>
         </div>
         <select class="campo rec-oc-profissional" value="@(_profissional?.ToString() ?? "")" disabled="@Carregando" @onchange="ProfissionalMudouAsync" aria-label="Profissional">
             <option value="">Toda a equipe</option>
@@ -81,7 +98,11 @@
         <button type="button" class="botao icone" disabled="@Carregando" @onclick="AtualizarAsync" title="@(Carregando ? "Atualizando…" : "Atualizar (F5)")" aria-label="Atualizar"><Icone Nome="atualizar" /></button>
     </section>
 
-    @if (_erro is not null)
+    @if (_erroPeriodo is not null)
+    {
+        <section class="cartao lista-cartao"><div class="cartao-corpo"><Aviso Tom="atencao" Texto="@_erroPeriodo" /></div></section>
+    }
+    else if (_erro is not null)
     {
         <section class="cartao lista-cartao">
             <FalhaDeLeitura Titulo="Não foi possível carregar a agenda" Detalhe="@_erro" AoTentarDeNovo="AtualizarAsync" />
@@ -341,15 +362,38 @@
 
             <section class="cartao lista-cartao">
                 <div class="cartao-titulo"><div><h2>Atendimentos do dia</h2><p>Em ordem de horário; cancelados e faltas continuam, apagados.</p></div></div>
+                @FiltroDeProcedimento()
                 @if (_horarios.Count == 0)
                 {
                     <EstadoVazio Titulo="Nenhum atendimento neste dia" Descricao="Os vãos dentro das faixas acima estão livres para marcar." Icone="calendario" />
                 }
                 else
                 {
-                    @TabelaDeHorarios(_horarios)
+                    @ListaFiltrada()
                 }
             </section>
+        }
+        else if (_modo == ModoVisaoAgenda.Periodo)
+        {
+            <section class="cartao lista-cartao">
+                <div class="cartao-titulo">
+                    <div><h2>Atendimentos do período</h2><p>Todos os horários entre as duas datas, em ordem de data e hora; cancelados e faltas continuam, apagados. Clique para abrir o horário.</p></div>
+                    @if (Filtrando)
+                    {
+                        <button type="button" class="botao fantasma mini" disabled="@Carregando" @onclick="() => FiltrarAsync(null)">Ver toda a equipe</button>
+                    }
+                </div>
+                @FiltroDeProcedimento()
+                @if (_horarios.Count == 0)
+                {
+                    <EstadoVazio Titulo="Nenhum atendimento no período" Descricao="Mude as datas ou o profissional." Icone="calendario" />
+                }
+                else
+                {
+                    @ListaFiltrada()
+                }
+            </section>
+            @Equipe("O mesmo período, com o horário de atendimento de cada um.")
         }
         else
         {
@@ -393,40 +437,7 @@
                 </div>
             </section>
 
-            <section class="cartao lista-cartao rec-oc-equipe">
-                <div class="cartao-titulo">
-                    <div><h2>Ocupação por profissional</h2><p>O mesmo mês, com o horário de atendimento de cada um.</p></div>
-                    @if (Filtrando)
-                    {
-                        <button type="button" class="botao fantasma mini" disabled="@Carregando" @onclick="() => FiltrarAsync(null)">Ver toda a equipe</button>
-                    }
-                </div>
-                @if (_equipe.Count == 0)
-                {
-                    <EstadoVazio Titulo="Nenhum profissional disponível neste filtro." Icone="pessoas" />
-                }
-                else
-                {
-                    <ul class="rec-oc-pessoas">
-                        @foreach (var p in _equipe)
-                        {
-                            <li @key="p.Id">
-                                <button type="button" class="rec-oc-pessoa @(p.Id == _profissional ? "ativa" : null)" disabled="@Carregando"
-                                        title="Filtrar @p.Nome" @onclick="() => FiltrarAsync(p.Id)">
-                                    <span class="rec-oc-pessoa-nome"><span class="principal">@p.Nome</span><span class="secundario">@p.Jornada</span></span>
-                                    <span class="rec-oc-pessoa-total numero"><strong>@p.Atendimentos</strong> atendimentos</span>
-                                    <span class="rec-oc-pessoa-barra">
-                                        <span class="rec-oc-pessoa-pct numero">@p.Percentual</span>
-                                        <span class="trilho"><i style="width:@Largura(p.Fracao)"></i></span>
-                                    </span>
-                                    <span class="rec-oc-pessoa-livres secundario">@p.Livres</span>
-                                </button>
-                            </li>
-                        }
-                    </ul>
-                }
-                <div class="rodape-lista">A ocupação considera o tempo dos profissionais dentro do horário de atendimento cadastrado, descontando a agenda fechada. Horários simultâneos contam uma vez; cancelamentos e faltas não ocupam. Tempo livre não equivale a vagas reservadas.</div>
-            </section>
+            @Equipe("O mesmo mês, com o horário de atendimento de cada um.")
         }
     }
 </div>
@@ -458,6 +469,11 @@
 
     private DateOnly _dia = DateOnly.FromDateTime(DateTime.Today);
     private ModoVisaoAgenda _modo = ModoVisaoAgenda.Semana;
+    // Período personalizado: abre no mês corrente (a pergunta mais comum), e o procedimento em Todos.
+    private DateOnly _de = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private DateOnly _ate = new DateOnly(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(1).AddDays(-1);
+    private string? _erroPeriodo;
+    private ProcedimentoDaAgenda _procedimento = ProcedimentoDaAgenda.Todos;
     private int? _profissional;
     private List<(int Id, string Nome)> _profissionais = [];
     private OcupacaoAgenda? _dados;
@@ -554,9 +570,18 @@
     private async Task CarregarAsync()
     {
         var geracao = ++_geracao;
-        Carregando = true;
         _erro = null;
+        _erroPeriodo = null;
         var (inicio, fim) = VisaoGeralDaAgendaNaTela.Periodo(_modo, _dia);
+        if (_modo == ModoVisaoAgenda.Periodo)
+        {
+            // Período recusado não consulta: a frase fica onde estaria a lista.
+            var (periodo, erroPeriodo) = VisaoGeralDaAgendaNaTela.PeriodoPersonalizado(_de, _ate);
+            // Carregando volta a falso: uma leitura anterior ainda no ar perdeu a geração e não o faria.
+            if (periodo is not { } p) { _erroPeriodo = erroPeriodo; Carregando = false; return; }
+            (inicio, fim) = p;
+        }
+        Carregando = true;
         var filtro = _profissional;
         try
         {
@@ -569,7 +594,7 @@
             // Monta tudo e só então publica — entre limpar e preencher não há espera.
             _dados = resultado;
             if (filtro is null) _profissionais = resultado.Profissionais.Select(p => (p.Id, p.Nome)).ToList();
-            _horarios = VisaoGeralDaAgendaNaTela.HorariosDoDia(resultado);
+            _horarios = _modo == ModoVisaoAgenda.Periodo ? VisaoGeralDaAgendaNaTela.HorariosDoPeriodo(resultado) : VisaoGeralDaAgendaNaTela.HorariosDoDia(resultado);
             _semana = _modo == ModoVisaoAgenda.Semana ? VisaoGeralDaAgendaNaTela.Semana(resultado, filtro is not null, DateOnly.FromDateTime(DateTime.Today)) : [];
             _calendario = _modo == ModoVisaoAgenda.Mes ? VisaoGeralDaAgendaNaTela.Calendario(resultado, _dia) : [];
             _equipe = VisaoGeralDaAgendaNaTela.Equipe(resultado);
@@ -628,6 +653,84 @@
         </div>
     };
 
+    /// <summary>A ocupação por profissional — a do mês e a do período personalizado, o MESMO desenho.</summary>
+    private RenderFragment Equipe(string subtitulo) => __builder =>
+    {
+        <section class="cartao lista-cartao rec-oc-equipe">
+            <div class="cartao-titulo">
+                <div><h2>Ocupação por profissional</h2><p>@subtitulo</p></div>
+                @if (Filtrando)
+                {
+                    <button type="button" class="botao fantasma mini" disabled="@Carregando" @onclick="() => FiltrarAsync(null)">Ver toda a equipe</button>
+                }
+            </div>
+            @if (_equipe.Count == 0)
+            {
+                <EstadoVazio Titulo="Nenhum profissional disponível neste filtro." Icone="pessoas" />
+            }
+            else
+            {
+                <ul class="rec-oc-pessoas">
+                    @foreach (var p in _equipe)
+                    {
+                        <li @key="p.Id">
+                            <button type="button" class="rec-oc-pessoa @(p.Id == _profissional ? "ativa" : null)" disabled="@Carregando"
+                                    title="Filtrar @p.Nome" @onclick="() => FiltrarAsync(p.Id)">
+                                <span class="rec-oc-pessoa-nome"><span class="principal">@p.Nome</span><span class="secundario">@p.Jornada</span></span>
+                                <span class="rec-oc-pessoa-total numero"><strong>@p.Atendimentos</strong> atendimentos</span>
+                                <span class="rec-oc-pessoa-barra">
+                                    <span class="rec-oc-pessoa-pct numero">@p.Percentual</span>
+                                    <span class="trilho"><i style="width:@Largura(p.Fracao)"></i></span>
+                                </span>
+                                <span class="rec-oc-pessoa-livres secundario">@p.Livres</span>
+                            </button>
+                        </li>
+                    }
+                </ul>
+            }
+            <div class="rodape-lista">A ocupação considera o tempo dos profissionais dentro do horário de atendimento cadastrado, descontando a agenda fechada. Horários simultâneos contam uma vez; cancelamentos e faltas não ocupam. Tempo livre não equivale a vagas reservadas.</div>
+        </section>
+    };
+
+    /// <summary>
+    /// O filtro de procedimento da lista (nov/2026, pedido da gerência: BSV, consulta e
+    /// acupuntura), com a contagem À VISTA antes do clique. A família da modalidade decide —
+    /// <see cref="VisaoGeralDaAgendaNaTela.Casa"/>, na Application, com teste.
+    /// </summary>
+    private RenderFragment FiltroDeProcedimento() => __builder =>
+    {
+        var contagem = VisaoGeralDaAgendaNaTela.ContagemPorProcedimento(_horarios);
+        <div class="filtros rec-oc-procedimentos">
+            <div class="segmentado" role="group" aria-label="Procedimento">
+                @foreach (var p in Enum.GetValues<ProcedimentoDaAgenda>())
+                {
+                    <button type="button" aria-pressed="@Bool(_procedimento == p)" title="@VisaoGeralDaAgendaNaTela.Dica(p)" @onclick="() => _procedimento = p">
+                        @VisaoGeralDaAgendaNaTela.Rotulo(p) <b class="numero">@contagem[p]</b>
+                    </button>
+                }
+            </div>
+            <span class="resumo-filtro">@VisaoGeralDaAgendaNaTela.ResumoDaLista(Filtradas, _horarios.Count, _procedimento)</span>
+        </div>
+    };
+
+    private IReadOnlyList<LinhaHorarioOcupacao> Filtradas
+        => _procedimento == ProcedimentoDaAgenda.Todos ? _horarios
+            : _horarios.Where(h => VisaoGeralDaAgendaNaTela.Casa(_procedimento, h.Horario.Familia)).ToList();
+
+    private RenderFragment ListaFiltrada() => __builder =>
+    {
+        var linhas = Filtradas;
+        if (linhas.Count == 0)
+        {
+            <EstadoVazio Titulo="@($"Nenhum horário de {VisaoGeralDaAgendaNaTela.Rotulo(_procedimento)} aqui")" Icone="filtro"
+                         Descricao="@($"Há {_horarios.Count} horário(s) de outros procedimentos. Escolha Todos para vê-los.")" />
+        }
+        else
+        {
+            @TabelaDeHorarios(linhas)
+        }
+    };
+
     private Task EscolherModoAsync(ModoVisaoAgenda modo)
     {
         if (!PodeConsultar() || Carregando) return Task.CompletedTask;
@@ -638,6 +741,13 @@
     private Task AndarAsync(int passo)
     {
         if (!PodeConsultar() || Carregando) return Task.CompletedTask;
+        if (_modo == ModoVisaoAgenda.Periodo)
+        {
+            if (VisaoGeralDaAgendaNaTela.PeriodoPersonalizado(_de, _ate).Periodo is null
+                || VisaoGeralDaAgendaNaTela.AndarPeriodo(_de, _ate, passo) is not { } novo) return Task.CompletedTask;
+            (_de, _ate) = novo;
+            return CarregarAsync();
+        }
         if (VisaoGeralDaAgendaNaTela.Andar(_modo, _dia, passo) is not { } destino) return Task.CompletedTask;
         _dia = destino;
         return CarregarAsync();
@@ -647,6 +757,16 @@
     {
         if (!PodeConsultar() || Carregando) return Task.CompletedTask;
         _dia = DateOnly.FromDateTime(DateTime.Today);
+        // No período personalizado, "hoje" é o mês corrente — o mesmo com que o modo abre.
+        if (_modo == ModoVisaoAgenda.Periodo) (_de, _ate) = VisaoGeralDaAgendaNaTela.Periodo(ModoVisaoAgenda.Mes, _dia);
+        return CarregarAsync();
+    }
+
+    private Task TrocarPeriodoAsync(ChangeEventArgs e, bool inicio)
+    {
+        if (Carregando || !DateOnly.TryParseExact(e.Value?.ToString(), "yyyy-MM-dd", out var nova)) return Task.CompletedTask;
+        if (nova.Year is < 1901 or > 2199 || !PodeConsultar()) return Task.CompletedTask;
+        if (inicio) _de = nova; else _ate = nova;
         return CarregarAsync();
     }
 

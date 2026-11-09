@@ -65,6 +65,14 @@ public sealed record PendenciaCodigo(
     /// </summary>
     public Especialidade? Especialidade { get; init; }
 
+    /// <summary>
+    /// Data do ATENDIMENTO que gerou a guia (nov/2026, pedido da gerência: "filtrar as
+    /// pendências por período"). É o mesmo período da Consulta de guias ("De (atendimento)")
+    /// — a prevista muda com a regra do convênio, o dia em que o paciente veio não. Nulo só
+    /// quando o atendimento não veio junto na leitura.
+    /// </summary>
+    public DateOnly? DataAtendimento { get; init; }
+
     /// <summary>True quando há uma observação registrada (para destacar a linha na tela).</summary>
     public bool TemObservacao => !string.IsNullOrWhiteSpace(ObservacaoPendencia);
 }
