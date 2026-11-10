@@ -85,11 +85,21 @@ public sealed class AgendaService
     /// A trava que este horário acenderia, ou nulo. É a MESMA resposta que a gravação usa —
     /// as telas a chamam a cada troca de paciente/dia para mostrar a box ANTES do Salvar.
     /// </summary>
+    /// <remarks>
+    /// ⚠️ MESMA ESPECIALIDADE E MESMO MÉDICO (nov/2026, correção pedida pela direção depois do
+    /// primeiro dia de uso: "o bloqueio só pode ser se for a mesma especialidade e o mesmo
+    /// médico durante o período"). A primeira versão travava QUALQUER consulta do paciente pelo
+    /// convênio — e barrou a Clínica da Dor de quem tinha consultado outra especialidade dias
+    /// antes. Sem especialidade ou sem profissional escolhidos ainda não há o que comparar:
+    /// a tela não acende a box, e a gravação exige os dois antes de chegar aqui.
+    /// </remarks>
     public async Task<TravaAcesa?> TravaDeConsultaAsync(
         int pacienteId, DateTime dataHora, ModalidadeAtendimento modalidade, bool particular,
-        int? ignorarAgendamentoId = null, CancellationToken ct = default)
+        int? ignorarAgendamentoId = null, CancellationToken ct = default,
+        string? especialidadeCodigo = null, int? profissionalId = null)
     {
         if (modalidade != ModalidadeAtendimento.Consulta || particular) return null;
+        if (string.IsNullOrWhiteSpace(especialidadeCodigo) || profissionalId is null) return null;
         if (_parametros is null || !await _parametros.TravaDeConsultaAsync(ct)) return null;
 
         var paciente = await _repo.ObterPacienteAsync(pacienteId, ct);
@@ -111,6 +121,9 @@ public sealed class AgendaService
                 pacienteId, dia.AddDays(-dias).ToDateTime(TimeOnly.MinValue),
                 dia.AddDays(dias + 1).ToDateTime(TimeOnly.MinValue), ct))
             .Where(c => c.AgendamentoId != ignorarAgendamentoId)
+            // Só a MESMA especialidade com o MESMO médico disputa o prazo.
+            .Where(c => c.ProfissionalId == profissionalId
+                        && string.Equals(c.EspecialidadeCodigo, especialidadeCodigo, StringComparison.OrdinalIgnoreCase))
             .ToList();
         if (TravaDeConsulta.Conferir(dia, dias, outras) is not { } consulta) return null;
 
@@ -120,7 +133,12 @@ public sealed class AgendaService
         // Solta depois da ÚLTIMA consulta da janela — com duas marcadas, soltar depois da
         // primeira mandaria marcar em cima do prazo da segunda.
         var solta = DateOnly.FromDateTime(outras.Max(c => c.DataHora)).AddDays(dias);
-        return new TravaAcesa(paciente.ConvenioNome, dias, consulta.DataHora, consulta.AtendimentoNumero, solta, consulta.Atendida);
+        var medico = await _repo.ObterProfissionalAsync(profissionalId.Value, ct);
+        return new TravaAcesa(paciente.ConvenioNome, dias, consulta.DataHora, consulta.AtendimentoNumero, solta, consulta.Atendida)
+        {
+            Especialidade = CatalogoEspecialidades.Nome(especialidadeCodigo),
+            Profissional = medico?.Rotulo
+        };
     }
 
     // ==================== COBERTURA DO CONVÊNIO (nov/2026) ====================
@@ -174,9 +192,10 @@ public sealed class AgendaService
 
     private async Task GarantirSemTravaDeConsultaAsync(
         int pacienteId, DateTime dataHora, ModalidadeAtendimento modalidade, bool particular,
-        int? ignorarAgendamentoId, CancellationToken ct)
+        int? ignorarAgendamentoId, string? especialidadeCodigo, int? profissionalId, CancellationToken ct)
     {
-        if (await TravaDeConsultaAsync(pacienteId, dataHora, modalidade, particular, ignorarAgendamentoId, ct) is { } trava)
+        if (await TravaDeConsultaAsync(pacienteId, dataHora, modalidade, particular, ignorarAgendamentoId, ct,
+                especialidadeCodigo, profissionalId) is { } trava)
             throw new TravaDeConsultaException(trava, DateOnly.FromDateTime(dataHora));
     }
 
@@ -256,7 +275,8 @@ public sealed class AgendaService
         await GarantirHorarioPermitidoAsync(dataHora, duracaoMinutos, profissionalId, salaId, pacienteId, null, ct);
         await GarantirCoberturaDoConvenioAsync(pacienteId, dataHora, modalidade, modalidadeCodigo,
             especialidadeConsultaCodigo ?? especialidadeConsulta?.ToString(), particular, null, soIntervalo: false, ct);
-        await GarantirSemTravaDeConsultaAsync(pacienteId, dataHora, modalidade, particular, null, ct);
+        await GarantirSemTravaDeConsultaAsync(pacienteId, dataHora, modalidade, particular, null,
+            especialidadeConsultaCodigo ?? especialidadeConsulta?.ToString(), profissionalId, ct);
 
         var ehConsulta = modalidade == ModalidadeAtendimento.Consulta;
         coletaPreventivo = coletaPreventivo && ehConsulta;
@@ -424,10 +444,20 @@ public sealed class AgendaService
         // consulta pelo convênio, mudou de DIA, ou voltou de um cancelamento. Corrigir sala,
         // hora ou observação de uma consulta que já estava marcada não a confere de novo —
         // senão a consulta liberada (ou anterior à chave) não poderia mais ser editada.
+        // (nov/2026) A trava compara ESPECIALIDADE e MÉDICO: trocar um dos dois também faz o
+        // horário passar a disputar outro prazo.
         var eraConsultaPeloConvenio = ag.ModalidadePrevista == ModalidadeAtendimento.Consulta && !ag.Particular;
+        var especialidadeDaTrava = !ehConsulta ? null
+            : modalidadeCodigo is null && especialidadeConsultaCodigo is null
+                ? ag.EspecialidadeConsultaCodigo ?? ag.EspecialidadeConsulta?.ToString()
+                : especialidadeConsultaCodigo;
+        var mudouOQueATravaCompara = novoProfissional != ag.ProfissionalId
+            || !string.Equals(especialidadeDaTrava, ag.EspecialidadeConsultaCodigo ?? ag.EspecialidadeConsulta?.ToString(),
+                StringComparison.OrdinalIgnoreCase);
         if (ehConsulta && !novoParticular
-            && (!eraConsultaPeloConvenio || dataHora.Date != ag.DataHora.Date || !ag.OcupaAgenda))
-            await GarantirSemTravaDeConsultaAsync(ag.PacienteId, dataHora, modalidade, false, ag.Id, ct);
+            && (!eraConsultaPeloConvenio || dataHora.Date != ag.DataHora.Date || !ag.OcupaAgenda || mudouOQueATravaCompara))
+            await GarantirSemTravaDeConsultaAsync(ag.PacienteId, dataHora, modalidade, false, ag.Id,
+                especialidadeDaTrava, novoProfissional, ct);
 
         // A vaga de preventivo é conferida quando o horário passa a DISPUTÁ-LA: coleta
         // ligada agora, outro dia, outro profissional ou um horário cancelado que volta.
@@ -1547,7 +1577,8 @@ public sealed class AgendaService
         // O encaixe avulso também é marcação NOVA pelo convênio: a cobertura e a trava valem (nov/2026).
         await GarantirCoberturaDoConvenioAsync(pacienteId, dataHora, modalidade, modalidadeCodigo,
             especialidadeConsultaCodigo, particular, null, soIntervalo: false, ct);
-        await GarantirSemTravaDeConsultaAsync(pacienteId, dataHora, modalidade, particular, null, ct);
+        await GarantirSemTravaDeConsultaAsync(pacienteId, dataHora, modalidade, particular, null,
+            especialidadeConsultaCodigo, profissionalId, ct);
 
         var agora = DateTime.Now;
         var ehConsulta = modalidade == ModalidadeAtendimento.Consulta;

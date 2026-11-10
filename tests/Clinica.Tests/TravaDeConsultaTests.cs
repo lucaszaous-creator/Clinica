@@ -95,6 +95,88 @@ public class TravaDeConsultaTests : IDisposable
             especialidadeConsultaCodigo: nameof(Especialidade.Endocrinologia), profissionalId: _medica,
             operador: "recepcao", particular: particular);
 
+    // ==================== mesma especialidade E mesmo médico (nov/2026) ====================
+
+    private Task<Agendamento> ConsultaDeAsync(int pacienteId, DateTime quando, Especialidade especialidade, int medico)
+        => _agenda.AgendarAsync(pacienteId, quando, ModalidadeAtendimento.Consulta, null,
+            especialidadeConsultaCodigo: especialidade.ToString(), profissionalId: medico, operador: "recepcao");
+
+    private async Task<int> OutroMedicoAsync()
+    {
+        var outro = new Profissional { Nome = "Dr. Gustavo" };
+        _db.Profissionais.Add(outro);
+        await _db.SaveChangesAsync();
+        return outro.Id;
+    }
+
+    [Fact]
+    public async Task Outra_especialidade_com_o_mesmo_medico_nao_e_travada()
+    {
+        // O primeiro dia de uso na clínica: a paciente consultou uma especialidade no dia 7 e
+        // foi barrada na Clínica da Dor do dia 10. "O bloqueio só pode ser se for a mesma
+        // especialidade e o mesmo médico durante o período."
+        await _parametros.DefinirTravaDeConsultaAsync(true);
+        var p = await PacienteAsync();
+        await ConsultaDeAsync(p.Id, Primeira, Especialidade.Endocrinologia, _medica);
+
+        (await ConsultaDeAsync(p.Id, Primeira.AddDays(3), Especialidade.ClinicaDaDor, _medica)).Id.Should().BeGreaterThan(0);
+        (await _agenda.TravaDeConsultaAsync(p.Id, Primeira.AddDays(4), ModalidadeAtendimento.Consulta, false,
+            especialidadeCodigo: nameof(Especialidade.Geriatria), profissionalId: _medica)).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task A_mesma_especialidade_com_OUTRO_medico_nao_e_travada()
+    {
+        await _parametros.DefinirTravaDeConsultaAsync(true);
+        var p = await PacienteAsync();
+        var outro = await OutroMedicoAsync();
+        await ConsultaDeAsync(p.Id, Primeira, Especialidade.Endocrinologia, _medica);
+
+        (await ConsultaDeAsync(p.Id, Primeira.AddDays(3), Especialidade.Endocrinologia, outro)).Id.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public async Task Mesma_especialidade_e_mesmo_medico_dentro_do_prazo_continua_travada_e_a_frase_diz_quais()
+    {
+        await _parametros.DefinirTravaDeConsultaAsync(true);
+        var p = await PacienteAsync();
+        await ConsultaDeAsync(p.Id, Primeira, Especialidade.Endocrinologia, _medica);
+
+        var recusa = await FluentActions.Awaiting(() => ConsultaDeAsync(p.Id, Primeira.AddDays(3), Especialidade.Endocrinologia, _medica))
+            .Should().ThrowAsync<TravaDeConsultaException>();
+        recusa.Which.Message.Should().Contain("consulta de Endocrinologia com Dra. Patrícia");
+    }
+
+    [Fact]
+    public async Task Sem_especialidade_ou_sem_medico_escolhidos_a_tela_ainda_nao_acende_a_trava()
+    {
+        await _parametros.DefinirTravaDeConsultaAsync(true);
+        var p = await PacienteAsync();
+        await ConsultaDeAsync(p.Id, Primeira, Especialidade.Endocrinologia, _medica);
+
+        (await _agenda.TravaDeConsultaAsync(p.Id, Primeira.AddDays(3), ModalidadeAtendimento.Consulta, false)).Should().BeNull();
+        (await _agenda.TravaDeConsultaAsync(p.Id, Primeira.AddDays(3), ModalidadeAtendimento.Consulta, false,
+            especialidadeCodigo: nameof(Especialidade.Endocrinologia))).Should().BeNull();
+        (await _agenda.TravaDeConsultaAsync(p.Id, Primeira.AddDays(3), ModalidadeAtendimento.Consulta, false,
+            especialidadeCodigo: nameof(Especialidade.Endocrinologia), profissionalId: _medica)).Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task Trocar_o_medico_de_uma_consulta_para_o_de_outra_da_mesma_especialidade_e_recusado()
+    {
+        await _parametros.DefinirTravaDeConsultaAsync(true);
+        var p = await PacienteAsync();
+        var outro = await OutroMedicoAsync();
+        await ConsultaDeAsync(p.Id, Primeira, Especialidade.Endocrinologia, _medica);
+        var segunda = await ConsultaDeAsync(p.Id, Primeira.AddDays(3), Especialidade.Endocrinologia, outro);
+        _db.ChangeTracker.Clear();
+
+        await FluentActions.Awaiting(() => _agenda.RemarcarAsync(segunda.Id, Primeira.AddDays(3), null, operador: "recepcao",
+                modalidadeCodigo: nameof(ModalidadeAtendimento.Consulta), especialidadeConsultaCodigo: nameof(Especialidade.Endocrinologia),
+                profissionalId: _medica, manterRecursos: false))
+            .Should().ThrowAsync<TravaDeConsultaException>();
+    }
+
     private LiberacaoDeTravaService Liberacoes() => new(_db, _agenda, () => _agora);
 
     private NovoPedidoDeLiberacao Pedido(int pacienteId, DateTime quando, string motivo = "Retorno com exames, pedido da médica")
