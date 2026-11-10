@@ -109,6 +109,8 @@
 </div>
 
 @code {
+    [Inject] private IServiceProvider Servicos { get; set; } = default!;
+
     private List<LinhaConsultaBalcao> _todas = [];
     private List<LinhaConsultaBalcao> _linhas = [];
     private IReadOnlyList<string> _convenios = [ConsultasNaTela.TodosConvenios];
@@ -129,8 +131,21 @@
     private bool FiltroAtivo => ConsultasNaTela.FiltroAtivo(_filtroSituacao, _filtroConvenio, _filtroPaciente);
     private int Contar(string situacao) => _todas.Count(l => l.SituacaoFiltro == situacao);
 
-    protected override Task OnInitializedAsync() => CarregarAsync();
-    protected override Task AoVoltarAsync() => CarregarAsync();
+    protected override Task OnInitializedAsync() { ConsumirPedido(); return CarregarAsync(); }
+    protected override Task AoVoltarAsync() { ConsumirPedido(); return CarregarAsync(); }
+
+    /// <summary>
+    /// O Início da Recepção pediu a lista já numa situação (o contador "Consultas a renovar").
+    /// Ler LIMPA o pedido; a escolha fica visível no combo, e "Limpar filtro" a desfaz.
+    /// </summary>
+    private void ConsumirPedido()
+    {
+        if (Servicos.GetService<PedidoDasConsultas>()?.Consumir() is not { } situacao
+            || !ConsultasNaTela.OpcoesSituacao.Contains(situacao)) return;
+        _filtroSituacao = situacao;
+        _filtroConvenio = ConsultasNaTela.TodosConvenios;
+        _filtroPaciente = string.Empty;
+    }
     protected override Task AoAtalhoAsync(AtalhoDeTela atalho) => atalho == AtalhoDeTela.Atualizar ? CarregarAsync() : Task.CompletedTask;
 
     /// <summary>

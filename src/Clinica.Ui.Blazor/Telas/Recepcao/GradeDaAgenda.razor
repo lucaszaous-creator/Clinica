@@ -236,16 +236,18 @@
                                                                 title="@c.Contexto" @onclick="() => AbrirHorario(c)" aria-label="Abrir o horário de @c.Paciente">
                                                             <span class="rg-titulo">
                                                                 @if (c.ConfirmouPresenca) { <i class="rg-confirmou" title="Confirmou a presença na rodada de confirmação">✓</i> }
+                                                                @if (c.SeloDaConsulta is not null) { <i class="rg-consulta @(c.ConsultaVencida ? "perigo" : null)" title="@c.AvisoDaConsulta" aria-label="@c.SeloDaConsulta">!</i> }
                                                                 @c.TituloPlanejamento
                                                             </span>
                                                             @if (!c.Compacto)
                                                             {
                                                                 <span class="rg-contexto">@c.Contexto</span>
-                                                                @if (c.EhEncaixe || c.ParticularApesarDoConvenio || c.NaoConfirmou || c.NaoVem || c.PediuCancelar || c.EhRetornoDoSegundoCodigo)
+                                                                @if (c.EhEncaixe || c.ParticularApesarDoConvenio || c.SeloDaConsulta is not null || c.NaoConfirmou || c.NaoVem || c.PediuCancelar || c.EhRetornoDoSegundoCodigo)
                                                                 {
                                                                     <span class="rg-selos">
                                                                         @if (c.EhEncaixe) { <span class="rg-selo">Encaixe</span> }
                                                                         @if (c.ParticularApesarDoConvenio) { <span class="rg-selo" title="Horário particular: a ficha tem convênio, mas esta sessão não gera guia — a cobrança é no caixa">Particular</span> }
+                                                                        @if (c.SeloDaConsulta is { } seloConsulta) { <span class="rg-selo @(c.ConsultaVencida ? "perigo" : "aviso")" title="@c.AvisoDaConsulta">@seloConsulta</span> }
                                                                         @if (c.NaoConfirmou) { <span class="rg-selo" title="Avisado na rodada de confirmação e ainda sem resposta">Não confirmou</span> }
                                                                         @if (c.NaoVem) { <span class="rg-selo perigo" title="O paciente respondeu que não vem — ligue para remarcar e libere o horário">Não vem — remarcar</span> }
                                                                         @if (c.PediuCancelar) { <span class="rg-selo perigo" title="O paciente pediu pelo WhatsApp para cancelar — aceite o cancelamento na aba Dia ou na janela do horário">Pediu para cancelar</span> }
@@ -548,13 +550,31 @@
             }
             if (g != _geracao || Descartada) return;
 
+            // A consulta do convênio vencida ou a renovar, numa consulta só para o período
+            // inteiro (nov/2026). Falhar não derruba: o selo some, com rastro no log.
+            IReadOnlyDictionary<int, StatusConsultaPaciente> consultas = new Dictionary<int, StatusConsultaPaciente>();
+            if (tHorarios.Result.Count > 0)
+            {
+                try
+                {
+                    using var escopo = Escopo();
+                    consultas = await escopo.ServiceProvider.GetRequiredService<ConsultaService>()
+                        .ARenovarNosHorariosAsync(tHorarios.Result);
+                }
+                catch (Exception ex)
+                {
+                    Clinica.Application.Diagnostico.Registrar("Recepção — consultas a renovar da agenda não puderam ser conferidas", ex);
+                }
+            }
+            if (g != _geracao || Descartada) return;
+
             var esperaQuantos = await ContarEsperaAsync();
             if (g != _geracao || Descartada) return;
 
             // Publicação — sem await daqui para baixo.
             PrepararFiltros(tProfissionais.Result, tSalas.Result);
             _leitura = new LeituraDaGrade(tHorarios.Result, tAnteriores.Result, tProfissionais.Result, tSalas.Result,
-                bloqueios, verificados, confirmacoes);
+                bloqueios, verificados, confirmacoes) { Consultas = consultas };
             _esperaQuantos = esperaQuantos;
             Remontar();
             if (!_grade.DisponibilidadeNaoVerificada)

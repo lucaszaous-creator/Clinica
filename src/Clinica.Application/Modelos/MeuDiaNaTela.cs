@@ -80,6 +80,18 @@ public sealed record LinhaMeuDia
     /// <summary>"Escrever" e "Abrir" não são a mesma ação.</summary>
     public string RotuloRegistro => EvolucaoEscrita ? "Ver registro" : "Atender";
 
+    /// <summary>
+    /// A consulta do convênio que esta sessão cobra renovar (nov/2026) — a MESMA leitura do
+    /// selo da Agenda do dia do balcão (<c>ConsultaService.ARenovarNosHorariosAsync</c>): quem
+    /// atende vê o que a recepção vê. Nula quando não há o que renovar.
+    /// </summary>
+    public StatusConsultaPaciente? ConsultaARenovar { get; init; }
+
+    /// <summary>"Consulta vencida" · "Consulta a renovar".</summary>
+    public string? SeloDaConsulta => ConsultaARenovar?.SeloRenovacao;
+    public bool ConsultaVencida => ConsultaARenovar is { Vencida: true };
+    public string? AvisoDaConsulta => ConsultaARenovar?.AvisoRenovacao;
+
     /// <summary>Em atendimento: a linha ganha o fundo do acento.</summary>
     public bool EmAtendimento => Etapa == EtapaFila.EmAtendimento;
 }
@@ -138,11 +150,15 @@ public static class MeuDiaNaTela
     /// entram as sessões cuja modalidade admite passagem de enfermagem — a mesma regra que o
     /// <c>MeuDiaViewModel</c> aplicava (<see cref="EvolucaoEnfermagemService.PermiteEvolucao"/>).
     /// </summary>
-    public static IReadOnlyList<LinhaMeuDia> Montar(DiaDoProfissional dia, bool perfilDeEnfermagem, DateOnly hoje)
+    public static IReadOnlyList<LinhaMeuDia> Montar(DiaDoProfissional dia, bool perfilDeEnfermagem, DateOnly hoje,
+        IReadOnlyDictionary<int, StatusConsultaPaciente>? consultas = null)
         => dia.Sessoes
             .Where(s => !perfilDeEnfermagem || EvolucaoEnfermagemService.PermiteEvolucao(s.ModalidadeFamilia))
             .OrderBy(s => s.DataHora).ThenBy(s => s.AgendamentoId)
-            .Select(s => Linha(s, hoje))
+            .Select(s => Linha(s, hoje) with
+            {
+                ConsultaARenovar = consultas is not null && consultas.TryGetValue(s.AgendamentoId, out var c) ? c : null
+            })
             .ToList();
 
     /// <summary>Os horários como o filtro os enxerga.</summary>

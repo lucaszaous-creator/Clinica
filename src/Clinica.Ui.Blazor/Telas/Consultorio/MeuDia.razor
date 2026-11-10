@@ -96,6 +96,7 @@
                                         <div class="con-paciente-texto">
                                             <span class="principal">@l.Paciente</span>
                                             @if (l.Encaixe) { <Selo Tom="info" Dica="Marcado por cima de um horário ocupado">Encaixe</Selo> }
+                                            @if (l.SeloDaConsulta is { } seloConsulta) { <Selo Tom="@(l.ConsultaVencida ? "perigo" : "aviso")" Dica="@l.AvisoDaConsulta">@seloConsulta</Selo> }
                                             @if (l.ColetaPreventivo) { <Selo Tom="aviso" Dica="A consulta inclui a coleta de preventivo — gera a 2ª guia">Preventivo</Selo> }
                                             <span class="secundario">@l.Contexto</span>
                                             @if (l.Observacoes.Length > 0)
@@ -249,7 +250,26 @@
                 if (geracao != _geracao || Descartada) return;
             }
 
-            _linhas = MeuDiaNaTela.Montar(doDia, perfilEnfermagem, Hoje);
+            // A consulta do convênio vencida ou a renovar (nov/2026) — a mesma leitura do selo
+            // do balcão. Aviso: falhar não derruba o dia, o selo some com rastro no log.
+            IReadOnlyDictionary<int, StatusConsultaPaciente>? consultas = null;
+            if (doDia.Sessoes.Count > 0)
+            {
+                try
+                {
+                    var meus = doDia.Sessoes.Select(s => s.AgendamentoId).ToHashSet();
+                    var horarios = (await escopo.ServiceProvider.GetRequiredService<AgendaService>().DoDiaAsync(dia))
+                        .Where(a => meus.Contains(a.Id)).ToList();
+                    consultas = await escopo.ServiceProvider.GetRequiredService<ConsultaService>().ARenovarNosHorariosAsync(horarios);
+                }
+                catch (Exception ex)
+                {
+                    Clinica.Application.Diagnostico.Registrar("Consultório — consultas a renovar do dia não puderam ser conferidas", ex);
+                }
+                if (geracao != _geracao || Descartada) return;
+            }
+
+            _linhas = MeuDiaNaTela.Montar(doDia, perfilEnfermagem, Hoje, consultas);
             _profissional = doDia.ProfissionalNome;
             _listaDaClinica = profissionalId is null;
             _motivoDaLista = motivo;

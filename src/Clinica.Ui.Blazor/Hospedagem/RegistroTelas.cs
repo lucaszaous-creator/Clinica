@@ -31,6 +31,8 @@ public static class RegistroTelas
         servicos.AddScoped<IJanelasDaPrescricaoDeInfusao, JanelasDaPrescricaoDeInfusaoNaPagina>();
         // Singleton: a ponte entre duas telas (a Visão geral pede, a Agenda do dia consome).
         servicos.TryAddSingleton<PedidoDaAgendaDoDia>();
+        // Singleton: o Início da Recepção pede "Consultas, só as que precisam renovar".
+        servicos.TryAddSingleton<PedidoDasConsultas>();
         // Singleton: o paciente e a seção que a tela do paciente deve mostrar (quem pede é a
         // navegação do posto; quem lê é a tela, na abertura e a cada volta).
         servicos.TryAddSingleton<PedidoDaTelaDoPaciente>();

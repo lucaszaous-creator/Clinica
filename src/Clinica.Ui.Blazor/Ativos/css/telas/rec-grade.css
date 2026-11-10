@@ -143,6 +143,9 @@
 .rg-selos{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
 .rg-selo{padding:0 6px;border-radius:var(--radius-pequeno);border:1px solid var(--marca-medio);background:var(--acento-suave);
   color:var(--acento);white-space:nowrap}
+.rg-selo.aviso{border-color:var(--aviso);background:var(--aviso-suave);color:var(--aviso-texto)}
+.rg-consulta{font-style:normal;font-weight:700;color:var(--aviso-texto);margin-right:3px}
+.rg-consulta.perigo{color:var(--erro-texto)}
 .rg-selo.perigo{border-color:var(--erro);background:var(--erro-suave);color:var(--erro-texto)}
 .rg-selo.neutro{border-color:var(--borda);background:var(--superficie-hover);color:var(--texto-secundario)}
 .rg-mais{flex:none;align-self:flex-start}

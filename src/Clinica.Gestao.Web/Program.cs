@@ -54,6 +54,7 @@ builder.Services.AddSingleton(new OpcoesDaGestaoWeb(cfg.GetValue<bool>("Gestao:E
 // pessoa por processo. Aqui são POR CONEXÃO — registrados antes do AddTelasBlazor, que só os
 // acrescenta se faltarem: o pedido de uma pessoa nunca aparece na tela de outra.
 builder.Services.AddScoped<PedidoDaAgendaDoDia>();
+builder.Services.AddScoped<PedidoDasConsultas>();
 builder.Services.AddScoped<PedidoDaTelaDoPaciente>();
 builder.Services.AddScoped<PedidoDaFichaDoBalcao>();
 builder.Services.AddScoped<PedidoDeDocumento>();

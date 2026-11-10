@@ -34,11 +34,12 @@
             {
                 var c = _cartao;
                 <p class="gh-contexto">@c.Contexto</p>
-                @if (c.EhEncaixe || c.ParticularApesarDoConvenio || c.VeioDaListaEspera || c.EhRetornoDoSegundoCodigo || c.ForaDoDia)
+                @if (c.EhEncaixe || c.ParticularApesarDoConvenio || c.SeloDaConsulta is not null || c.VeioDaListaEspera || c.EhRetornoDoSegundoCodigo || c.ForaDoDia)
                 {
                     <div class="gh-selos">
                         @if (c.EhEncaixe) { <Selo Tom="aviso">Encaixe</Selo> }
                         @if (c.ParticularApesarDoConvenio) { <Selo Tom="aviso" Dica="A ficha tem convênio, mas este horário não gera guia — a cobrança é no caixa">Particular</Selo> }
+                        @if (c.SeloDaConsulta is { } seloConsulta) { <Selo Tom="@(c.ConsultaVencida ? "perigo" : "aviso")" Dica="@c.AvisoDaConsulta">@seloConsulta</Selo> }
                         @if (c.VeioDaListaEspera) { <Selo Tom="sucesso">Da lista de espera</Selo> }
                         @if (c.EhRetornoDoSegundoCodigo) { <Selo Tom="info" Dica="Legado: guia não é atendimento — pode apagar">Retorno do 2º código</Selo> }
                         @if (c.ForaDoDia) { <Selo Tom="perigo">@c.StatusRotulo</Selo> }
@@ -178,7 +179,18 @@ else if (_modo == Modo.Espera && _cartao is { } e)
                 _falha = "Este horário não existe mais — ele pode ter sido removido ou remarcado em outra máquina.";
                 return;
             }
-            _cartao = GradeDaAgendaNaTela.Cartao(a, new Dictionary<int, RespostaDeConfirmacao>());
+            // A consulta do convênio vencida ou a renovar — aviso: falhar não impede abrir o horário.
+            IReadOnlyDictionary<int, StatusConsultaPaciente>? consultas = null;
+            try
+            {
+                consultas = await escopo.ServiceProvider.GetRequiredService<ConsultaService>().ARenovarNosHorariosAsync([a]);
+            }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar("Blazor — janela do horário: consulta a renovar não pôde ser conferida", ex);
+            }
+            if (Descartada) return;
+            _cartao = GradeDaAgendaNaTela.Cartao(a, new Dictionary<int, RespostaDeConfirmacao>(), consultas: consultas);
         }
         catch (Exception ex)
         {
