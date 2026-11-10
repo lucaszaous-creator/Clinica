@@ -445,9 +445,15 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   sozinha decide ("sim", "não") e só para quem aprova e tem pedido aberto — "não vou conseguir
   hoje" é conversa. Com o número, o resto é o motivo. Entra ANTES das outras perguntas no
   `SistemaEquipeService` (chat do app) e no `AssistenteWhatsAppService` (WhatsApp).
-  ⚠️ **Sem mudar o CRM nem o contrato da ponte**: as mensagens à equipe saem em `staff/notices`
-  com o `RequestId` NEGATIVO (−id do `AvisoDeLiberacao`) e a do paciente em `patient/messages`
-  com o Id `liberacao:{id}`; o ack separa pelo sinal/prefixo. A leitura da fila da equipe é
+  ⚠️ **As mensagens à equipe saem em `staff/notices`** com o `RequestId` NEGATIVO (−id do
+  `AvisoDeLiberacao`); o ack separa pelo sinal. O pedido à gerência vai como MODELO da Meta
+  (`liberacao_de_consulta`, 7 campos, botões Liberar/Negar cujo payload é "liberar N"/"negar N")
+  — `StaffNotice` ganhou `Template`/`Parameters`/`ButtonPayloads` no FIM, com padrão, e o
+  arquivo de contrato segue idêntico ao do `semdor-crm`. O corpo mora em
+  `LiberacaoDeTravaRegras.CorpoDoModelo`, com teste que casa os campos: mudar um lado sem o
+  outro faz o CRM cair no texto livre (que só chega na janela de 24 h). **Ao paciente a
+  liberação não manda nada**: o horário liberado é horário novo, e quem confirma é a "mensagem
+  ao marcar" do CRM — duas mensagens sobre o mesmo fato seriam ruído. A leitura da fila da equipe é
   também o pulso que EXPIRA pedidos. Tabela nova na ponte = linha nova no
   `deploy/ponte-crm/papel-ponte-crm.sql` (rodar de novo) — e a fila nova tem `try/catch` para
   não derrubar a antiga enquanto o GRANT não foi dado.

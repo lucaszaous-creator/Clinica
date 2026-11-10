@@ -89,6 +89,66 @@ public static partial class LiberacaoDeTravaRegras
            + $"Responda *liberar {l.Id}* ou *negar {l.Id}* (se for o único pedido aberto, basta *sim* ou *não*). "
            + $"Sem resposta até {Quando(l.ExpiraEm)}, o pedido expira e nada é marcado.";
 
+    // ---------------------------------------------------------------- o MODELO da Meta
+
+    /// <summary>
+    /// O nome do modelo a cadastrar na conta do WhatsApp da clínica (Meta › Modelos de mensagem,
+    /// categoria Utilidade, idioma Português (BR)). É por este nome que o CRM o procura entre os
+    /// aprovados; enquanto não existir, o pedido sai como mensagem livre.
+    /// </summary>
+    public const string ModeloParaGerencia = "liberacao_de_consulta";
+
+    /// <summary>
+    /// O CORPO do modelo, como deve ser cadastrado na Meta — sete campos, na ordem de
+    /// <see cref="ParametrosParaGerencia"/>. Mora aqui (com teste que casa os campos) para o
+    /// documento e o código não divergirem: modelo com campo a mais ou a menos é recusado no envio.
+    /// </summary>
+    public const string CorpoDoModelo =
+        "Pedido de liberação nº {{1}}: consulta antes do prazo do convênio.\n\n"
+        + "Paciente: {{2}}\n"
+        + "Convênio: {{3}}\n"
+        + "Última consulta: {{4}}\n"
+        + "Nova consulta pedida: {{5}}\n"
+        + "Motivo: {{6}}\n"
+        + "Pedido por: {{7}}\n\n"
+        + "Toque em Liberar ou Negar. Sem resposta, o pedido expira e nada é marcado.";
+
+    /// <summary>Os dois botões de resposta rápida do modelo, nesta ordem.</summary>
+    public static readonly IReadOnlyList<string> BotoesDoModelo = ["Liberar", "Negar"];
+
+    /// <summary>
+    /// Os valores dos sete campos. A Meta recusa parâmetro com quebra de linha, tabulação ou
+    /// mais de quatro espaços seguidos — o motivo é texto digitado, então é limpo aqui.
+    /// </summary>
+    public static IReadOnlyList<string> ParametrosParaGerencia(LiberacaoDeTrava l) =>
+    [
+        l.Id.ToString(CultureInfo.InvariantCulture),
+        Campo(l.PacienteNome, 120),
+        Campo($"{l.ConvenioNome} (uma consulta a cada {l.PrazoDias} dias)", 160),
+        Campo(l.ConsultaAnteriorEm.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)
+              + (l.AtendimentoAnteriorNumero is { } n ? $", atendimento {n}" : ""), 80),
+        Campo(Quando(l.DataHora) + (l.ProfissionalNome.Length > 0 ? $", com {l.ProfissionalNome}" : ""), 160),
+        Campo(l.Motivo, 300),
+        Campo(l.PedidoPorNome, 120),
+    ];
+
+    /// <summary>
+    /// O que cada botão devolve ao ser tocado — as MESMAS palavras que a gerência digitaria, com
+    /// o número do pedido: o toque decide aquele pedido e nenhum outro, mesmo com vários abertos.
+    /// </summary>
+    public static IReadOnlyList<string> BotoesParaGerencia(LiberacaoDeTrava l)
+        => [$"liberar {l.Id}", $"negar {l.Id}"];
+
+    private static string Campo(string? valor, int maximo)
+    {
+        var limpo = EspacosSeguidos().Replace((valor ?? "").Replace('\r', ' ').Replace('\n', ' ').Replace('\t', ' '), " ").Trim();
+        if (limpo.Length == 0) return "—";
+        return limpo.Length <= maximo ? limpo : limpo[..(maximo - 1)].TrimEnd() + "…";
+    }
+
+    [GeneratedRegex(@"\s{2,}")]
+    private static partial Regex EspacosSeguidos();
+
     /// <summary>Vários pedidos abertos e a gerência respondeu só "sim": a lista, para ela dizer qual.</summary>
     public static string TextoVarios(IReadOnlyList<LiberacaoDeTrava> pendentes)
         => $"Há {pendentes.Count} pedidos de liberação abertos. Diga qual:\n"
@@ -128,20 +188,4 @@ public static partial class LiberacaoDeTravaRegras
                 + $"marcado sozinho: {l.Desfecho} Marque pela agenda — a trava está liberada para este paciente nesse dia."
         };
 
-    /// <summary>
-    /// A confirmação ao paciente. Diz o que a clínica FEZ (o horário marcado) e nada do
-    /// bastidor: o paciente não precisa saber que houve trava nem quem liberou.
-    /// </summary>
-    public static string TextoParaPaciente(LiberacaoDeTrava l, string? nomeDaClinica)
-        => $"Olá, {PrimeiroNome(l.PacienteNome)}! Sua consulta"
-           + (string.IsNullOrWhiteSpace(nomeDaClinica) ? "" : $" na {nomeDaClinica}")
-           + $" está marcada para {Quando(l.DataHora)}"
-           + (l.ProfissionalNome.Length > 0 ? $", com {l.ProfissionalNome}" : "")
-           + ". Se precisar remarcar, é só responder por aqui.";
-
-    private static string PrimeiroNome(string nome)
-    {
-        var p = (nome ?? "").Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
-        return p.Length <= 1 ? p : char.ToUpper(p[0], CultureInfo.GetCultureInfo("pt-BR")) + p[1..].ToLower(CultureInfo.GetCultureInfo("pt-BR"));
-    }
 }

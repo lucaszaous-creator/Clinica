@@ -211,6 +211,14 @@ public class TravaDeConsultaTests : IDisposable
         fila[0].Texto.Should().Contain("Mariane Carvalho").And.Contain("Sul América").And.Contain("a cada 15 dias")
             .And.Contain("10/11/2026").And.Contain("Retorno com exames").And.Contain($"liberar {criado.Pedido.Id}");
 
+        // Vai como MODELO da Meta (o que chega fora da janela de 24 h): os sete campos da consulta
+        // e os dois botões, que devolvem a decisão JÁ com o número do pedido.
+        fila[0].Modelo.Should().Be(LiberacaoDeTravaRegras.ModeloParaGerencia);
+        fila[0].Parametros.Should().Equal(
+            criado.Pedido.Id.ToString(), "Mariane Carvalho", "Sul América (uma consulta a cada 15 dias)", "10/11/2026",
+            "15/11/2026 às 14:00, com Dra. Patrícia", "Retorno com exames, pedido da médica", "Rayssa Recepcao");
+        fila[0].Botoes.Should().Equal($"liberar {criado.Pedido.Id}", $"negar {criado.Pedido.Id}");
+
         // As duas aprovadoras leem o pedido na conversa com o sistema, no app — é a porta que
         // funciona quando o WhatsApp não entrega.
         foreach (var gerente in new[] { ana, bia })
@@ -262,13 +270,13 @@ public class TravaDeConsultaTests : IDisposable
         marcado.ProfissionalId.Should().Be(_medica);
         marcado.CriadoPor.Should().Be("Rayssa Recepcao");
 
-        // A secretária lê o desfecho na conversa com o sistema; o paciente recebe a confirmação.
+        // A secretária lê o desfecho na conversa com o sistema. Ao paciente a liberação não manda
+        // nada por conta própria: o horário novo na agenda é o que dispara a mensagem de
+        // agendamento que o CRM já envia — duas mensagens sobre o mesmo fato seriam ruído.
         (await _db.MensagensEquipe.AsNoTracking().SingleAsync(m => m.Conversa == ChatEquipeRegras.Sistema(secretaria.Id)))
             .Texto.Should().Contain("Liberado por Ana Gerente").And.Contain("MARCADO");
-        var aoPaciente = (await Liberacoes().AvisosParaPacienteAsync()).Single();
-        aoPaciente.Telefone.Should().Be("5522998887766");
-        aoPaciente.Texto.Should().Contain("Mariane").And.Contain("15/11/2026").And.Contain("Dra. Patrícia")
-            .And.NotContain("libera", "o paciente não precisa saber do bastidor");
+        (await _db.AvisosDeLiberacao.AsNoTracking().Select(a => a.Telefone).ToListAsync())
+            .Should().OnlyContain(t => t == "5522999990001", "só a equipe recebe mensagem da liberação");
 
         // E a trilha diz quem pediu e quem liberou.
         (await _db.Auditoria.AsNoTracking().Where(e => e.PacienteId == paciente.Id).Select(e => e.Acao).ToListAsync())
@@ -286,7 +294,6 @@ public class TravaDeConsultaTests : IDisposable
 
         resposta.Should().Contain("NEGADO");
         (await _db.Agendamentos.AsNoTracking().CountAsync(a => a.PacienteId == paciente.Id)).Should().Be(1, "só a primeira consulta");
-        (await Liberacoes().AvisosParaPacienteAsync()).Should().BeEmpty("nada foi marcado: nada a dizer ao paciente");
         (await _db.MensagensEquipe.AsNoTracking().SingleAsync(m => m.Conversa == ChatEquipeRegras.Sistema(secretaria.Id)))
             .Texto.Should().Contain("NEGADA").And.Contain("já consultou na semana passada");
 
@@ -333,9 +340,9 @@ public class TravaDeConsultaTests : IDisposable
         resposta.Should().Contain("Há 2 pedidos").And.Contain($"nº {a.Pedido.Id}").And.Contain($"nº {b.Pedido.Id}");
         (await _db.LiberacoesDeTrava.AsNoTracking().CountAsync(l => l.Estado == LiberacaoDeTrava.Pendente)).Should().Be(2);
 
-        // Liberada a paciente SEM celular: marca, e não há mensagem a mandar a ela.
+        // O toque no botão do modelo devolve "liberar N": decide AQUELE pedido, e o outro continua aberto.
         (await Liberacoes().DecidirPorTextoAsync(ana, $"liberar {b.Pedido.Id}", "whatsapp")).Should().Contain("LIBERADO");
-        (await Liberacoes().AvisosParaPacienteAsync()).Should().BeEmpty();
+        (await _db.LiberacoesDeTrava.AsNoTracking().SingleAsync(l => l.Id == a.Pedido.Id)).Estado.Should().Be(LiberacaoDeTrava.Pendente);
     }
 
     [Fact]
@@ -371,6 +378,33 @@ public class TravaDeConsultaTests : IDisposable
         var gravado = await _db.AvisosDeLiberacao.AsNoTracking().SingleAsync(a => a.Id == aviso.Id);
         gravado.Entregue.Should().BeFalse();
         gravado.Motivo.Should().Contain("fora da janela");
+    }
+
+    // ==================== O modelo da Meta ====================
+
+    [Fact]
+    public void O_corpo_do_modelo_tem_exatamente_os_campos_que_o_codigo_preenche()
+    {
+        var pedido = new LiberacaoDeTrava
+        {
+            Id = 12, PacienteNome = "Mariane Carvalho", ConvenioNome = "Sul América", PrazoDias = 15,
+            ConsultaAnteriorEm = Primeira, AtendimentoAnteriorNumero = "2026-000123", DataHora = Primeira.AddDays(5),
+            ProfissionalNome = "Dra. Patrícia", Motivo = "Retorno\ncom   exames\t(pedido da médica)", PedidoPorNome = "Rayssa"
+        };
+        var parametros = LiberacaoDeTravaRegras.ParametrosParaGerencia(pedido);
+
+        // Modelo com campo a mais ou a menos é recusado no envio: o texto que a clínica cadastra
+        // na Meta e a lista que o código manda têm de casar, de {{1}} a {{7}}, sem buraco.
+        var campos = System.Text.RegularExpressions.Regex.Matches(LiberacaoDeTravaRegras.CorpoDoModelo, @"\{\{(\d+)\}\}")
+            .Select(m => int.Parse(m.Groups[1].Value)).Distinct().Order().ToList();
+        campos.Should().Equal(Enumerable.Range(1, parametros.Count));
+        LiberacaoDeTravaRegras.CorpoDoModelo.Length.Should().BeLessThan(1024, "é o teto do corpo de um modelo");
+        LiberacaoDeTravaRegras.BotoesDoModelo.Should().HaveCount(LiberacaoDeTravaRegras.BotoesParaGerencia(pedido).Count);
+
+        // A Meta recusa parâmetro com quebra de linha, tabulação ou espaços seguidos.
+        parametros.Should().OnlyContain(p => p.Length > 0 && !p.Contains('\n') && !p.Contains('\t') && !p.Contains("  "));
+        parametros[5].Should().Be("Retorno com exames (pedido da médica)");
+        parametros[3].Should().Be("10/11/2026, atendimento 2026-000123");
     }
 
     // ==================== O que conta como decisão ====================

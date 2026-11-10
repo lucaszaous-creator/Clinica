@@ -56,14 +56,17 @@ liberação à gerência…** (motivo obrigatório). O Salvar apaga e diz por qu
 
 **3 · O pedido.** Vai a cada gerente marcado em Acessos — WhatsApp (se o celular do sistema
 estiver cadastrado) e conversa com o sistema — com paciente, convênio, prazo, última consulta e
-nº do atendimento, a consulta pedida, o motivo e quem pediu. A tela diz **a quantos chegou e
+nº do atendimento, a consulta pedida, o motivo e quem pediu. No WhatsApp ele sai como **modelo
+aprovado da Meta** (`liberacao_de_consulta`, com os botões **Liberar** e **Negar**), que é o
+que chega fora da janela de 24 h; o texto do modelo e como cadastrá-lo estão em
+`semdor-crm/docs/liberacao-de-consulta-modelo.md`. A tela diz **a quantos chegou e
 por onde**. Sem ninguém marcado, o pedido é recusado dizendo onde marcar.
 
-**4 · A decisão.** A gerência responde **sim** / **não** (ou **liberar 12** / **negar 12
-motivo**, quando há mais de um pedido aberto). Liberado: o horário é **marcado pela agenda de
-sempre** (ou **remarcado**, se o pedido nasceu de uma remarcação), a secretária recebe o
-desfecho na conversa com o sistema (e no WhatsApp, se tiver) e o **paciente recebe a
-confirmação** do horário. Negado ou sem resposta em 48 h (ou até a hora da consulta): nada é
+**4 · A decisão.** A gerência **toca no botão** do modelo — ou responde **sim** / **não**,
+**liberar 12** / **negar 12 motivo**. Liberado: o horário é **marcado pela agenda de sempre**
+(ou **remarcado**, se o pedido nasceu de uma remarcação) e a secretária recebe o desfecho na
+conversa com o sistema (e no WhatsApp, se tiver). O **paciente recebe a mensagem de agendamento
+que o CRM já manda** para todo horário novo — a liberação não tem mensagem própria. Negado ou sem resposta em 48 h (ou até a hora da consulta): nada é
 marcado e a secretária é avisada. Tudo na trilha, com o nome de quem pediu e de quem decidiu.
 
 **5 · Acessos.** No cadastro do usuário com perfil de gerente: *"Aprova liberação de trava de
@@ -97,21 +100,26 @@ falha, o pedido está na conversa com o sistema e a resposta lá vale igual.
 - A decisão entra por `SistemaEquipeService` (chat do app) e `AssistenteWhatsAppService`
   (WhatsApp) — antes das outras perguntas. **Sem o número do pedido, só a palavra sozinha
   decide**: "não vou conseguir hoje" não nega nada.
-- **Nenhuma mudança no CRM nem no contrato da ponte**: as mensagens à equipe saem na fila
-  `staff/notices` com o número **negativo** (−id); a do paciente, na `patient/messages` com o
-  prefixo `liberacao:`.
+- As mensagens à equipe saem na fila `staff/notices` que o CRM já lê, com o número
+  **negativo** (−id). O contrato `StaffNotice` ganhou três campos no fim, com padrão
+  (`Template`, `Parameters`, `ButtonPayloads`), e o CRM passou a enviar como modelo quando o
+  aviso pede um e ele está aprovado na conta — senão, texto livre, como antes.
+- Ao paciente nada sai daqui: o horário liberado é horário novo, e a "mensagem ao marcar" do
+  CRM o confirma. O corpo do modelo mora em `LiberacaoDeTravaRegras.CorpoDoModelo`, com teste
+  que casa os campos com `ParametrosParaGerencia`.
 - A decisão é reivindicada com UPDATE condicional: dois gerentes ao mesmo tempo não marcam dois
   horários.
 - Quem aprova é uma coluna do usuário, **não** um bit de `Permissao` — o enum está no último
   bit de um `int` em produção.
 - Migration aditiva `TravaDeConsultaEPrecoPorProfissional` (duas tabelas, três colunas).
-- Rede: `TravaDeConsultaTests` (28), `PrecoPorProfissionalEConveniosTests` (8) e a linha nova
+- Rede: `TravaDeConsultaTests` (29), `PrecoPorProfissionalEConveniosTests` (8) e a linha nova
   da `TraducaoNoNpgsqlTests`.
 
 ### 🤝 CX
-- **Nada muda até a direção ligar a chave.** Ordem: (1) publicar os apps; (2) rodar de novo
-  `deploy/ponte-crm/papel-ponte-crm.sql` e reiniciar a ponte; (3) marcar em Acessos quem aprova
-  e o celular de cada um; (4) ligar a chave.
+- **Nada muda até a direção ligar a chave.** Ordem: (1) cadastrar o modelo
+  `liberacao_de_consulta` na Meta e esperar a aprovação; (2) publicar o CRM e os apps;
+  (3) rodar de novo `deploy/ponte-crm/papel-ponte-crm.sql` e reiniciar a ponte; (4) marcar em
+  Acessos quem aprova e o celular de cada um; (5) ligar a chave.
 - O faturamento (`Clinica.Desktop`) e o CRM passam a **recusar** a consulta dentro do prazo
   quando a chave liga, com a frase que diz o prazo — mas **não têm o botão de pedir
   liberação**; o pedido é feito pela Recepção.
@@ -121,12 +129,13 @@ falha, o pedido está na conversa com o sistema e a resposta lá vale igual.
 
 ## Limites que a clínica precisa conhecer
 
-1. **Janela de 24 h do WhatsApp.** A Meta só entrega mensagem livre a quem escreveu ao número da
-   clínica nas últimas 24 h. Gerente (ou paciente) fora da janela **não recebe** — o pedido
-   continua na conversa com o sistema, e o desfecho diz à secretária se o horário foi marcado.
-   Para entregar sempre seria preciso um **modelo aprovado pela Meta** no CRM; não foi feito.
+1. **O modelo precisa estar aprovado na Meta.** Com ele, o pedido chega à gerência a qualquer
+   hora. Sem ele (ou se alguém mudar o número de campos), o pedido sai como mensagem livre, que
+   só chega a quem escreveu ao número da clínica nas últimas 24 h — e continua, sempre, na
+   conversa com o sistema. O desfecho à secretária é mensagem livre (ela o lê no app).
 2. **O que precisa estar ligado no CRM**: `CRM_STAFF_WHATSAPP_ENABLED` (pedido e resposta da
-   gerência) e `CRM_PATIENT_OFFERS_ENABLED` (confirmação ao paciente).
+   gerência) e a **mensagem ao marcar**, em Automação (confirmação ao paciente — a de sempre:
+   horário marcado há até 2 h e com mais de 1 h de antecedência; remarcação não repete).
 3. **O horário não fica reservado** enquanto a gerência decide. Liberado, ele é marcado pela
    agenda; se a agenda recusar (agenda protegida, vaga de preventivo), a gerência e a
    secretária leem o motivo, e a liberação continua valendo para aquele paciente naquele dia.
@@ -142,7 +151,7 @@ falha, o pedido está na conversa com o sistema e a resposta lá vale igual.
   profissional, então a Conciliação propõe o preço geral. O Finalizar propõe o do profissional.
 - **Trava para acupuntura/eletro**: decisão da direção — só consulta.
 - **Redes que não rodaram aqui**: a suíte contra o Postgres (há migration e consultas novas —
-  vale rodar com `CLINICA_TESTES_POSTGRES` antes de publicar) e os testes do tablet. No CRM não
-  houve mudança de código; o fluxo ponta a ponta com o WhatsApp de verdade **não foi testado**.
+  vale rodar com `CLINICA_TESTES_POSTGRES` antes de publicar) e os testes do tablet. O fluxo
+  ponta a ponta com o WhatsApp de verdade **não foi testado** — depende do modelo aprovado.
 
 Evidências (prévia com dados fictícios): `docs/evidencias/trava-de-consulta/`.

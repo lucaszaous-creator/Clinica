@@ -86,7 +86,9 @@ namespace Clinica.Infrastructure.Migrations
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     LiberacaoDeTravaId = table.Column<int>(type: "integer", nullable: false),
-                    Destino = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: false),
+                    Modelo = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    Parametros = table.Column<string>(type: "character varying(4000)", maxLength: 4000, nullable: true),
+                    Botoes = table.Column<string>(type: "character varying(400)", maxLength: 400, nullable: true),
                     Telefone = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
                     Texto = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: false),
                     CriadoEm = table.Column<DateTime>(type: "timestamp without time zone", nullable: false),
@@ -111,14 +113,14 @@ namespace Clinica.Infrastructure.Migrations
                 column: "ProfissionalId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_AvisosDeLiberacao_Destino_TratadoEm",
-                table: "AvisosDeLiberacao",
-                columns: new[] { "Destino", "TratadoEm" });
-
-            migrationBuilder.CreateIndex(
                 name: "IX_AvisosDeLiberacao_LiberacaoDeTravaId",
                 table: "AvisosDeLiberacao",
                 column: "LiberacaoDeTravaId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AvisosDeLiberacao_TratadoEm",
+                table: "AvisosDeLiberacao",
+                column: "TratadoEm");
 
             migrationBuilder.CreateIndex(
                 name: "IX_LiberacoesDeTrava_Estado_ExpiraEm",

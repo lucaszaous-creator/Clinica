@@ -1919,14 +1919,16 @@ public class ClinicaDbContext : DbContext
         b.Entity<AvisoDeLiberacao>(e =>
         {
             e.ToTable("AvisosDeLiberacao");
-            e.Property(x => x.Destino).IsRequired().HasMaxLength(10);
+            e.Property(x => x.Modelo).HasMaxLength(100);
+            e.Property(x => x.Parametros).HasMaxLength(4000);
+            e.Property(x => x.Botoes).HasMaxLength(400);
             e.Property(x => x.Telefone).IsRequired().HasMaxLength(20);
             e.Property(x => x.Texto).IsRequired().HasMaxLength(2000);
             e.Property(x => x.Motivo).HasMaxLength(500);
             e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
             e.Property(x => x.TratadoEm).HasColumnType("timestamp without time zone");
             e.HasOne(x => x.Liberacao).WithMany().HasForeignKey(x => x.LiberacaoDeTravaId).OnDelete(DeleteBehavior.Cascade);
-            e.HasIndex(x => new { x.Destino, x.TratadoEm });
+            e.HasIndex(x => x.TratadoEm);
         });
 
         b.Entity<PedidoRecepcao>(e =>

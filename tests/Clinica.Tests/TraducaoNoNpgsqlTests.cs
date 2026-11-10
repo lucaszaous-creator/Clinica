@@ -833,8 +833,8 @@ public class TraducaoNoNpgsqlTests
         sql.Should().Contain("\"Particular\"").And.Contain("\"ModalidadePrevista\"").And.Contain("\"Numero\"");
 
         var fila = new LiberacaoDeTravaService(db, null!, () => new DateTime(2026, 11, 10))
-            .Fila(AvisoDeLiberacao.ParaEquipe).ToQueryString();
-        fila.Should().Contain("\"TratadoEm\" IS NULL").And.Contain("\"Destino\"");
+            .Fila().ToQueryString();
+        fila.Should().Contain("\"TratadoEm\" IS NULL").And.Contain("\"Modelo\"");
     }
 
     /// <summary>

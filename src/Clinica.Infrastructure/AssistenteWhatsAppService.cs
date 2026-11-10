@@ -23,7 +23,9 @@ public sealed record OpcoesDocumentoPeloWhatsApp(bool Habilitado, string Portal)
 }
 
 /// <summary>O desfecho de um pedido à recepção que ainda precisa chegar pelo WhatsApp a quem pediu.</summary>
-public sealed record AvisoWhatsAppEquipe(int PedidoId, string Telefone, string Texto);
+/// <param name="Modelo">Nome do modelo aprovado da Meta, quando a mensagem precisa chegar fora da janela de 24 h (o pedido de liberação de trava).</param>
+public sealed record AvisoWhatsAppEquipe(int PedidoId, string Telefone, string Texto,
+    string? Modelo = null, IReadOnlyList<string>? Parametros = null, IReadOnlyList<string>? Botoes = null);
 
 /// <summary>
 /// O sistema da clínica respondendo pelo WhatsApp a quem é da equipe (out/2026). O médico manda
@@ -339,7 +341,7 @@ public sealed class AssistenteWhatsAppService
         try
         {
             avisos.AddRange((await LiberacaoDeTravaService.Sobre(db, agora).AvisosParaEquipeAsync(ct))
-                .Select(a => new AvisoWhatsAppEquipe(-a.Id, a.Telefone, a.Texto)));
+                .Select(a => new AvisoWhatsAppEquipe(-a.Id, a.Telefone, a.Texto, a.Modelo, a.Parametros, a.Botoes)));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

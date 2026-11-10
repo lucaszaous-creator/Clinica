@@ -833,13 +833,12 @@ namespace Clinica.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Botoes")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)");
+
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("timestamp without time zone");
-
-                    b.Property<string>("Destino")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)");
 
                     b.Property<bool>("Entregue")
                         .HasColumnType("boolean");
@@ -847,9 +846,17 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<int>("LiberacaoDeTravaId")
                         .HasColumnType("integer");
 
+                    b.Property<string>("Modelo")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<string>("Motivo")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Parametros")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
 
                     b.Property<string>("Telefone")
                         .IsRequired()
@@ -868,7 +875,7 @@ namespace Clinica.Infrastructure.Migrations
 
                     b.HasIndex("LiberacaoDeTravaId");
 
-                    b.HasIndex("Destino", "TratadoEm");
+                    b.HasIndex("TratadoEm");
 
                     b.ToTable("AvisosDeLiberacao", (string)null);
                 });

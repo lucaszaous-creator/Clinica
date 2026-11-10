@@ -6,14 +6,20 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Clinica.Infrastructure;
 
-/// <summary>Uma mensagem da liberação que o CRM ainda precisa mandar.</summary>
-public sealed record AvisoDaLiberacao(int Id, string Telefone, string Texto);
+/// <summary>
+/// Uma mensagem da liberação que o CRM ainda precisa mandar à equipe. Com <paramref name="Modelo"/>,
+/// vai como modelo aprovado da Meta (campos e botões); sem ele — ou sem o modelo aprovado na
+/// conta —, vai o <paramref name="Texto"/>.
+/// </summary>
+public sealed record AvisoDaLiberacao(int Id, string Telefone, string Texto,
+    string? Modelo = null, IReadOnlyList<string>? Parametros = null, IReadOnlyList<string>? Botoes = null);
 
 /// <summary>
 /// O PEDIDO DE LIBERAÇÃO DA TRAVA DE CONSULTA, de ponta a ponta (nov/2026, pedido da gerência):
 /// a secretária pede → a gerência recebe no WhatsApp e na conversa com o sistema → responde
-/// "sim" ou "não" → liberado, o horário é marcado pela MESMA agenda de sempre, a secretária é
-/// avisada e o paciente recebe a confirmação.
+/// "sim" ou "não" (ou toca no botão do modelo) → liberado, o horário é marcado pela MESMA agenda
+/// de sempre e a secretária é avisada. O paciente recebe a mensagem de agendamento que o CRM já
+/// manda para todo horário novo — a liberação não tem mensagem própria ao paciente.
 ///
 /// Quem decide é um LOGIN: o celular que responde é o cadastrado em Acessos para aquela pessoa
 /// (o mesmo mecanismo do WhatsApp da equipe), e ela precisa estar marcada como quem aprova
@@ -123,6 +129,10 @@ public sealed class LiberacaoDeTravaService : ILiberacaoDeTravaService
         await db.SaveChangesAsync(ct);
 
         var texto = LiberacaoDeTravaRegras.TextoParaGerencia(pedido);
+        // O pedido à gerência vai como MODELO (chega fora da janela de 24 h), com os botões que
+        // devolvem "liberar N"/"negar N"; o texto vai junto, para o CRM usar se o modelo não existir.
+        var parametros = System.Text.Json.JsonSerializer.Serialize(LiberacaoDeTravaRegras.ParametrosParaGerencia(pedido));
+        var botoes = System.Text.Json.JsonSerializer.Serialize(LiberacaoDeTravaRegras.BotoesParaGerencia(pedido));
         var comWhatsApp = 0;
         foreach (var gerente in aprovadores)
         {
@@ -133,8 +143,8 @@ public sealed class LiberacaoDeTravaService : ILiberacaoDeTravaService
             {
                 db.AvisosDeLiberacao.Add(new AvisoDeLiberacao
                 {
-                    LiberacaoDeTravaId = pedido.Id, Destino = AvisoDeLiberacao.ParaEquipe, Telefone = celular,
-                    Texto = Cortar(texto, 2000), CriadoEm = momento,
+                    LiberacaoDeTravaId = pedido.Id, Telefone = celular, Texto = Cortar(texto, 2000), CriadoEm = momento,
+                    Modelo = LiberacaoDeTravaRegras.ModeloParaGerencia, Parametros = parametros, Botoes = botoes,
                 });
                 comWhatsApp++;
             }
@@ -251,7 +261,10 @@ public sealed class LiberacaoDeTravaService : ILiberacaoDeTravaService
         return resposta;
     }
 
-    /// <summary>Quem pediu fica sabendo (chat e WhatsApp, se tiver); liberado e marcado, o paciente recebe a confirmação.</summary>
+    /// <summary>
+    /// Quem pediu fica sabendo (chat e WhatsApp, se tiver o número ligado). Ao PACIENTE nada sai
+    /// daqui: o horário marcado entra na agenda, e a mensagem de agendamento do CRM o confirma.
+    /// </summary>
     private async Task AvisarDesfechoAsync(LiberacaoDeTrava pedido, DateTime momento, CancellationToken ct)
     {
         var quemPediu = await db.Usuarios.AsNoTracking().SingleOrDefaultAsync(u => u.Id == pedido.PedidoPorId, ct);
@@ -264,20 +277,9 @@ public sealed class LiberacaoDeTravaService : ILiberacaoDeTravaService
             if (quemPediu is { Ativo: true, TelefoneWhatsApp: { Length: > 0 } celular })
                 db.AvisosDeLiberacao.Add(new AvisoDeLiberacao
                 {
-                    LiberacaoDeTravaId = pedido.Id, Destino = AvisoDeLiberacao.ParaEquipe, Telefone = celular,
-                    Texto = Cortar(texto, 2000), CriadoEm = momento,
+                    LiberacaoDeTravaId = pedido.Id, Telefone = celular, Texto = Cortar(texto, 2000), CriadoEm = momento,
                 });
         }
-
-        if (pedido is not { Estado: LiberacaoDeTrava.Liberada, AgendamentoId: not null }) return;
-        var telefone = await db.Pacientes.AsNoTracking().Where(p => p.Id == pedido.PacienteId).Select(p => p.Telefone).SingleOrDefaultAsync(ct);
-        if (TelefoneDaEquipe.Chave(telefone) is not { } doPaciente) return;
-        var clinica = (await new ParametrosService(new ClinicaRepositorio(db)).ObterPrestadorAsync(ct)).NomeFantasia;
-        db.AvisosDeLiberacao.Add(new AvisoDeLiberacao
-        {
-            LiberacaoDeTravaId = pedido.Id, Destino = AvisoDeLiberacao.ParaPaciente, Telefone = doPaciente,
-            Texto = Cortar(LiberacaoDeTravaRegras.TextoParaPaciente(pedido, clinica), 2000), CriadoEm = momento,
-        });
     }
 
     // ================================================================ as filas que o CRM lê
@@ -289,21 +291,24 @@ public sealed class LiberacaoDeTravaService : ILiberacaoDeTravaService
     public async Task<IReadOnlyList<AvisoDaLiberacao>> AvisosParaEquipeAsync(CancellationToken ct = default)
     {
         await ExpirarAsync(ct);
-        return await Fila(AvisoDeLiberacao.ParaEquipe).ToListAsync(ct);
+        return (await Fila().ToListAsync(ct)).Select(a => new AvisoDaLiberacao(a.Id, a.Telefone, a.Texto, a.Modelo,
+            Lista(a.Parametros), Lista(a.Botoes))).ToList();
     }
 
-    /// <summary>A confirmação ao PACIENTE que ainda não saiu.</summary>
-    public async Task<IReadOnlyList<AvisoDaLiberacao>> AvisosParaPacienteAsync(CancellationToken ct = default)
-        => await Fila(AvisoDeLiberacao.ParaPaciente).ToListAsync(ct);
-
-    /// <summary>A fila de um destino: três dias para trás, cinquenta por leitura (a mesma do desfecho dos pedidos).</summary>
-    internal IQueryable<AvisoDaLiberacao> Fila(string destino)
+    /// <summary>A fila: três dias para trás, cinquenta por leitura (a mesma do desfecho dos pedidos).</summary>
+    internal IQueryable<AvisoDeLiberacao> Fila()
     {
         var desde = agora().AddDays(-3);
         return db.AvisosDeLiberacao.AsNoTracking()
-            .Where(a => a.Destino == destino && a.TratadoEm == null && a.CriadoEm >= desde)
-            .OrderBy(a => a.Id).Take(50)
-            .Select(a => new AvisoDaLiberacao(a.Id, a.Telefone, a.Texto));
+            .Where(a => a.TratadoEm == null && a.CriadoEm >= desde)
+            .OrderBy(a => a.Id).Take(50);
+    }
+
+    private static IReadOnlyList<string>? Lista(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try { return System.Text.Json.JsonSerializer.Deserialize<List<string>>(json); }
+        catch (System.Text.Json.JsonException) { return null; }
     }
 
     /// <summary>

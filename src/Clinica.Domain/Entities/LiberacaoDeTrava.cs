@@ -88,22 +88,34 @@ public class LiberacaoDeTrava
 }
 
 /// <summary>
-/// Uma MENSAGEM de WhatsApp que o pedido de liberação precisa mandar: à gerência (o pedido),
-/// a quem pediu (o desfecho) e ao paciente (o horário marcado). Quem envia é o CRM, pelas
-/// filas que ele já lê na ponte — esta linha é só a fila. Entregue ou não, ela é marcada
-/// como tratada: fora da janela de 24 h a Meta recusa mensagem livre, e repetir não muda isso
-/// (a mesma decisão do desfecho do pedido à recepção).
+/// Uma MENSAGEM de WhatsApp que o pedido de liberação manda à EQUIPE: à gerência (o pedido) e a
+/// quem pediu (o desfecho). Quem envia é o CRM, pela fila de avisos da equipe que ele já lê na
+/// ponte — esta linha é só a fila.
+///
+/// O pedido à gerência vai como MODELO aprovado pela Meta (<see cref="Modelo"/>), com os dados
+/// da consulta nos parâmetros e os botões Liberar/Negar: modelo é o que chega FORA da janela
+/// de 24 h, e a gerência não escreve ao número da clínica todo dia. Sem o modelo aprovado, o
+/// CRM manda o <see cref="Texto"/> — que só chega dentro da janela. Entregue ou não, a linha é
+/// marcada como tratada (repetir não muda a resposta da Meta); o pedido continua na conversa
+/// com o sistema, no app.
+///
+/// A confirmação ao PACIENTE não passa por aqui: o horário liberado é marcado pela agenda, e
+/// quem avisa é a mensagem de agendamento que o CRM já manda para todo horário novo.
 /// </summary>
 public class AvisoDeLiberacao
 {
-    public const string ParaEquipe = "equipe";
-    public const string ParaPaciente = "paciente";
-
     public int Id { get; set; }
     public int LiberacaoDeTravaId { get; set; }
     public LiberacaoDeTrava? Liberacao { get; set; }
 
-    public string Destino { get; set; } = ParaEquipe;
+    /// <summary>O nome do modelo da Meta; nulo = mensagem livre (o desfecho a quem pediu).</summary>
+    public string? Modelo { get; set; }
+
+    /// <summary>Os valores dos campos {{1}}…{{n}} do modelo, em JSON (lista de textos).</summary>
+    public string? Parametros { get; set; }
+
+    /// <summary>O que cada botão do modelo devolve quando tocado ("liberar 12", "negar 12"), em JSON.</summary>
+    public string? Botoes { get; set; }
 
     /// <summary>Chave canônica (55 + DDD + número).</summary>
     public string Telefone { get; set; } = string.Empty;
