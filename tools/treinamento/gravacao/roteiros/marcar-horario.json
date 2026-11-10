@@ -1,10 +1,17 @@
 {
   "chave": "marcar-horario",
   "titulo": "Marcar horário",
-  "descricao": "Marcar um atendimento para quem não está no balcão: quem, o que foi pedido, quando e com quem.",
+  "descricao": "Marcar um atendimento: quem, plano ou particular, o tipo de atendimento, a trava do convênio, quando e com quem.",
   "inventario": [
-    { "alvo": "entrada=Buscar paciente por nome, CPF ou telefone", "acao": "digitar", "valor": "Rosana" },
-    { "alvo": "opcao=Rosana Figueiredo Lemos", "acao": "clicar" }
+    {
+      "alvo": "entrada=Buscar paciente por nome, CPF ou telefone",
+      "acao": "digitar",
+      "valor": "Sueli"
+    },
+    {
+      "alvo": "opcao=Sueli Brandão Teles",
+      "acao": "clicar"
+    }
   ],
   "passos": [
     {
@@ -14,75 +21,92 @@
     },
     {
       "titulo": "Veja quem tem horário hoje",
-      "texto": "O chip Com horário hoje lista os pacientes da agenda do dia, com a hora e o atendimento de cada um.",
+      "texto": "O chip Com horário hoje lista os pacientes da agenda do dia. Todos os pacientes mostra o cadastro inteiro, em ordem de nome.",
       "alvo": "botao=Com horário hoje"
     },
     {
-      "titulo": "Liste todos os pacientes",
-      "texto": "Todos os pacientes mostra o cadastro inteiro, em ordem de nome. Use quando não lembrar como o nome foi escrito.",
-      "alvo": "botao=Todos os pacientes",
-      "acao": "clicar"
-    },
-    { "alvo": "botao=Com horário hoje", "acao": "clicar", "ms": 1500 },
-    {
       "titulo": "Cadastre quem é novo",
       "texto": "Paciente de primeira vez? Cadastrar paciente abre a ficha: nome, CPF, telefone e convênio ou particular.",
-      "alvo": "botao=Cadastrar paciente",
-      "acao": "clicar"
+      "alvo": "botao=Cadastrar paciente"
     },
-    {
-      "titulo": "Preencha a ficha",
-      "texto": "Os campos com asterisco são obrigatórios. Salvar cadastro grava a ficha e já a escolhe para a marcação.",
-      "alvo": "janela-campo=Nome completo",
-      "acao": "digitar",
-      "valor": "Juliana Prado Martins"
-    },
-    { "alvo": "janela-campo=Telefone", "acao": "digitar", "valor": "(21) 98765-4321", "ms": 1500 },
-    { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
     {
       "titulo": "Busque o paciente",
       "texto": "Digite parte do nome, o CPF ou o telefone. A lista mostra documento e telefone para conferir que é a pessoa certa.",
       "alvo": "entrada=Buscar paciente por nome, CPF ou telefone",
       "acao": "digitar",
-      "valor": "Rosana"
+      "valor": "Sueli"
     },
     {
       "titulo": "Escolha a pessoa certa",
       "texto": "Clique na linha. A busca vira a faixa do paciente, com documento, idade, telefone e convênio para conferir.",
-      "alvo": "opcao=Rosana Figueiredo Lemos",
+      "alvo": "opcao=Sueli Brandão Teles",
       "acao": "clicar"
     },
     {
-      "titulo": "Confira a carteirinha",
-      "texto": "Logo abaixo, o número e a validade da carteirinha. Vencida aparece em destaque: peça a nova antes da sessão.",
-      "alvo": "texto=Carteirinha"
+      "titulo": "Troque o paciente",
+      "texto": "Escolheu a pessoa errada? Trocar paciente volta para a busca para você escolher outra pessoa.",
+      "alvo": "botao=Trocar paciente"
+    },
+    {
+      "titulo": "Plano ou particular: é obrigatório",
+      "texto": "Toda marcação precisa dizer se o atendimento é pelo plano ou particular, mesmo quando o paciente tem plano. Nenhum dos dois vem escolhido.",
+      "alvo": "texto=Obrigatório: diga se este atendimento"
     },
     {
       "titulo": "Escolha o que foi pedido",
-      "texto": "Escolha a modalidade. Cada opção já diz quantas guias gera e quando; a marcada como habitual é a de sempre dele.",
+      "texto": "Escolha a modalidade. Cada opção já diz quantas guias gera e quando.",
       "alvo": "texto-exato=Consulta",
       "acao": "clicar"
     },
     {
-      "titulo": "Diga a especialidade",
-      "texto": "Consulta pede a especialidade. Ela fica registrada na guia e nos relatórios.",
+      "titulo": "Diga o tipo de atendimento",
+      "texto": "Consulta pede a especialidade, que é o tipo do atendimento. Ela aparece na agenda, no faturamento e nos relatórios.",
       "alvo": "campo=Especialidade da consulta",
       "acao": "selecionar",
       "valor": "Clínica da Dor"
-    },
-    {
-      "titulo": "Anote o que for preciso",
-      "texto": "Observações ficam no horário e aparecem para a recepção e para quem atende.",
-      "alvo": "campo=Observações",
-      "acao": "digitar",
-      "valor": "Trazer os exames de imagem."
     },
     {
       "titulo": "Escolha quem vai atender",
       "texto": "O horário entra na agenda dessa pessoa e no repasse dela. Sem profissional, não aparece no aplicativo de quem atende.",
       "alvo": "campo=Profissional",
       "acao": "selecionar",
-      "valor": "Dr. Marcos"
+      "valor": "Dra. Helena"
+    },
+    {
+      "titulo": "Entenda a trava de consulta",
+      "texto": "O convênio aceita uma consulta da mesma especialidade com o mesmo médico a cada tantos dias. Dentro do prazo, a caixa avisa e o botão de marcar trava.",
+      "alvo": "texto=Trava de consulta do convênio"
+    },
+    {
+      "titulo": "Peça liberação à gerência",
+      "texto": "Pedir liberação manda o pedido à gerência com o motivo. Quando ela liberar, o horário é marcado sozinho e você recebe o aviso.",
+      "alvo": "botao=Pedir liberação"
+    },
+    {
+      "titulo": "Ou marque como particular",
+      "texto": "Marcar como particular tira a trava: a consulta não vai pelo plano e a cobrança é no caixa.",
+      "alvo": "botao=Marcar como particular"
+    },
+    {
+      "titulo": "Outra especialidade não trava",
+      "texto": "A trava vale só para a mesma especialidade com o mesmo médico. Trocando o tipo de atendimento, a caixa some.",
+      "alvo": "campo=Especialidade da consulta",
+      "acao": "selecionar",
+      "valor": "Infertilidade"
+    },
+    {
+      "titulo": "Infertilidade pede a guia",
+      "texto": "Na consulta de Infertilidade, escolha em qual guia interna ela é lançada: Geriatria ou Psiquiatria. É controle interno, para o relatório e o repasse.",
+      "alvo": "campo=lançar na guia de",
+      "acao": "selecionar",
+      "valor": "Geriatria"
+    },
+    {
+      "titulo": "Anote o que for preciso",
+      "texto": "Observações ficam no horário e aparecem para a recepção e para quem atende.",
+      "alvo": "campo=Observações",
+      "acao": "digitar",
+      "valor": "Primeira consulta do casal."
     },
     {
       "titulo": "Busque as próximas vagas",
@@ -107,20 +131,57 @@
       "alvo": "texto=O que vai ser marcado"
     },
     {
-      "titulo": "Marque o horário",
-      "texto": "O botão diz o dia e a hora que vai marcar. Clicado, o horário entra na agenda e aparece Marcar outro.",
-      "alvo": "css=.ra-acao"
-    },
-    {
-      "titulo": "Troque o paciente",
-      "texto": "Escolheu a pessoa errada? Trocar paciente volta para a busca para você escolher outra pessoa.",
-      "alvo": "botao=Trocar paciente"
-    },
-    {
       "titulo": "Recomece do zero",
-      "texto": "Limpar descarta o que foi preenchido e volta para a pergunta do paciente.",
-      "alvo": "botao-exato=Limpar",
+      "texto": "Limpar descarta o que foi preenchido e volta para a pergunta do paciente. Use quando a marcação mudou inteira.",
+      "alvo": "botao-exato=Limpar"
+    },
+    {
+      "titulo": "Marque o horário",
+      "texto": "O botão diz o dia e a hora que vai marcar. Como ninguém respondeu plano ou particular, o sistema pergunta antes de gravar.",
+      "alvo": "css=.ra-acao",
       "acao": "clicar"
+    },
+    {
+      "titulo": "Responda: plano ou particular?",
+      "texto": "A pergunta mostra o nome do paciente e do plano. Cancelar não escolhe por você: é preciso responder uma das duas.",
+      "alvo": "janela-toda="
+    },
+    {
+      "titulo": "Respondeu particular",
+      "texto": "Particular não gera guia do plano: a cobrança é no caixa e a sessão entra nos relatórios como particular.",
+      "alvo": "janela-exato=Particular",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Confira e confirme de novo",
+      "texto": "Como a resposta mudou o resumo, a tela pede para conferir e clicar em marcar outra vez. Ninguém marca um particular sem ver o que mudou.",
+      "alvo": "texto=Escolha registrada"
+    },
+    {
+      "titulo": "Agora sim, marque",
+      "texto": "Com a resposta dada, o horário entra na agenda de quem atende, com o selo de Infertilidade e a guia escolhida.",
+      "alvo": "css=.ra-acao",
+      "acao": "clicar"
+    },
+    {
+      "titulo": "Imprima o comprovante",
+      "texto": "Marcado o horário, o sistema oferece o comprovante de agendamento. Confirmar imprime; Cancelar segue sem imprimir.",
+      "alvo": "janela-toda="
+    },
+    {
+      "alvo": "janela=Cancelar",
+      "acao": "clicar",
+      "ms": 1200
+    },
+    {
+      "titulo": "Veja o que foi marcado",
+      "texto": "O resumo vira O que foi marcado: paciente, atendimento, dia, hora, quem atende, as guias e o pagamento do particular.",
+      "alvo": "texto=O que foi marcado"
+    },
+    {
+      "titulo": "Marque o próximo",
+      "texto": "Marcar outro limpa a tela para a próxima marcação, começando de novo pelo paciente.",
+      "alvo": "botao=Marcar outro"
     }
   ]
 }
