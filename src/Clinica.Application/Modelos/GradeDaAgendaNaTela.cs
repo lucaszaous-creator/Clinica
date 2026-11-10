@@ -67,6 +67,18 @@ public sealed record CartaoDaGrade
     public string Grupo => SituacaoVisualAgenda.Grupo(Situacao, Etapa);
 
     public required bool EhEncaixe { get; init; }
+
+    /// <summary>
+    /// O horário é PARTICULAR embora a ficha tenha convênio (nov/2026) — vira selo no cartão
+    /// e na janela do horário: é o caso em que o balcão cobra de quem "tem plano".
+    /// </summary>
+    public bool ParticularApesarDoConvenio { get; init; }
+
+    /// <summary>
+    /// Dá para trocar convênio ↔ particular pela janela do horário: ele está de pé (marcado ou
+    /// atendido) e a ficha tem convênio que fatura — com a ficha particular não há o que trocar.
+    /// </summary>
+    public bool PodeTrocarFormaDeAtendimento { get; init; }
     public required bool EhRetornoDoSegundoCodigo { get; init; }
     public required bool VeioDaListaEspera { get; init; }
     public string? Observacoes { get; init; }
@@ -297,6 +309,9 @@ public static class GradeDaAgendaNaTela
         Situacao = a.Status,
         Etapa = a.Etapa,
         EhEncaixe = a.Encaixe,
+        ParticularApesarDoConvenio = SessaoParticular.ApesarDoConvenio(a.Paciente, a.Particular),
+        PodeTrocarFormaDeAtendimento = a.OcupaAgenda && a.Paciente is { ConvenioADefinir: false } ficha
+                                       && !SessaoParticular.PelaFicha(ficha),
         EhRetornoDoSegundoCodigo = a.Origem == OrigemAgendamento.RetornoSugerido,
         VeioDaListaEspera = a.Origem == OrigemAgendamento.ListaEspera,
         Observacoes = a.Observacoes,

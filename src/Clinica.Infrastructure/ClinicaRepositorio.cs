@@ -2,6 +2,7 @@ using Clinica.Application.Abstracoes;
 using Clinica.Application.Modelos;
 using Clinica.Domain.Entities;
 using Clinica.Domain;
+using Clinica.Domain.Regras;
 using Microsoft.EntityFrameworkCore;
 
 namespace Clinica.Infrastructure;
@@ -546,6 +547,30 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
                         && a.DataHora >= inicio && a.DataHora <= fim)
             .OrderBy(a => a.DataHora)
             .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<ConsultaParaTrava>> ConsultasPeloConvenioDoPacienteAsync(
+        int pacienteId, DateTime de, DateTime ate, CancellationToken ct = default)
+        => await ConsultaParaTravaDoPaciente(pacienteId, de, ate).ToListAsync(ct);
+
+    /// <summary>As COLUNAS, nunca as derivadas (`OcupaAgenda`): está em `TraducaoNoNpgsqlTests`.</summary>
+    internal IQueryable<ConsultaParaTrava> ConsultaParaTravaDoPaciente(int pacienteId, DateTime de, DateTime ate)
+        => _db.Agendamentos.AsNoTracking()
+            .Where(a => a.PacienteId == pacienteId
+                        && a.ModalidadePrevista == ModalidadeAtendimento.Consulta
+                        && !a.Particular
+                        && (a.Status == StatusAgendamento.Agendado || a.Status == StatusAgendamento.Realizado)
+                        && a.DataHora >= de && a.DataHora < ate)
+            .OrderBy(a => a.DataHora)
+            .Select(a => new ConsultaParaTrava(a.Id, a.DataHora, a.Atendimento!.Numero, a.Status == StatusAgendamento.Realizado));
+
+    public Task<bool> ExisteLiberacaoDeTravaAsync(int pacienteId, DateOnly dia, CancellationToken ct = default)
+    {
+        var inicio = dia.ToDateTime(TimeOnly.MinValue);
+        var fim = inicio.AddDays(1);
+        return _db.LiberacoesDeTrava.AsNoTracking().AnyAsync(l =>
+            l.PacienteId == pacienteId && l.Estado == LiberacaoDeTrava.Liberada
+            && l.DataHora >= inicio && l.DataHora < fim, ct);
     }
 
     // O profissional fornece a duração padrão quando o agendamento não a informou.
@@ -2953,6 +2978,8 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task<IReadOnlyList<PrecoParticular>> PrecosParticularAsync(
         bool somenteAtivos = false, CancellationToken ct = default)
         => await _db.PrecosParticular.AsNoTracking()
+            // O profissional vem junto (nov/2026): a descrição do preço diz de quem ele é.
+            .Include(p => p.Profissional)
             .Where(p => !somenteAtivos || p.Ativo)
             .OrderBy(p => p.ModalidadeCodigo)
             .ThenBy(p => p.EspecialidadeCodigo)
@@ -3137,7 +3164,8 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             a.EspecialidadeConsultaCodigo,
             a.Paciente.Convenio,
             a.Paciente.ConvenioCodigo,
-            a.Codigos.OrderBy(c => c.Id).Select(c => c.Tipo).First());
+            a.Codigos.OrderBy(c => c.Id).Select(c => c.Tipo).First(),
+            a.Particular);
 
     // ---- Estoque ----
 

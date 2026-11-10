@@ -2,6 +2,7 @@ using System.Globalization;
 using Clinica.Application.Abstracoes;
 using Clinica.Application.Modelos;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Regras;
 
 namespace Clinica.Application.Servicos;
 
@@ -92,8 +93,26 @@ public sealed class IndicadoresService
             Encaixes: ocupam.Count(a => a.Encaixe),
             PacientesDistintos: ocupam.Select(a => a.PacienteId).Distinct().Count(),
             MinutosOcupados: ocupam.Sum(a => a.DuracaoEfetiva),
-            MinutosDisponiveis: MinutosDisponiveis(agendamentos, jornada, profissionais));
+            MinutosDisponiveis: MinutosDisponiveis(agendamentos, jornada, profissionais))
+        {
+            PorPagador = PorPagador(agendamentos)
+        };
     }
+
+    /// <summary>
+    /// Os atendidos por PAGADOR. A pergunta "é particular?" é a do domínio
+    /// (<see cref="SessaoParticular"/>): a marca do horário OU o convênio da ficha — todo
+    /// particular soma numa linha só, "Particular", qualquer que seja o nome do cadastro.
+    /// </summary>
+    private static IReadOnlyList<AtendidosPorPagador> PorPagador(IReadOnlyList<Agendamento> agendamentos)
+        => agendamentos
+            .Where(a => a.Status == StatusAgendamento.Realizado)
+            .Select(a => (Particular: SessaoParticular.Eh(a), a.PacienteId,
+                Nome: SessaoParticular.Eh(a) ? "Particular" : a.Paciente?.ConvenioNome ?? "(sem ficha)"))
+            .GroupBy(x => (x.Particular, x.Nome))
+            .Select(g => new AtendidosPorPagador(g.Key.Nome, g.Key.Particular, g.Count(), g.Select(x => x.PacienteId).Distinct().Count()))
+            .OrderByDescending(p => p.Atendidos).ThenBy(p => p.Pagador, StringComparer.Create(System.Globalization.CultureInfo.GetCultureInfo("pt-BR"), true))
+            .ToList();
 
     /// <summary>
     /// Base da ocupação: cada par (profissional, dia) com agenda vale uma jornada. Os

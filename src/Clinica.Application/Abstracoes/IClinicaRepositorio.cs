@@ -166,6 +166,17 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<Agendamento>> AgendamentosDoPacienteNoPeriodoAsync(
         int pacienteId, DateOnly de, DateOnly ate, CancellationToken ct = default);
 
+    /// <summary>
+    /// As CONSULTAS do paciente pelo convênio (marcadas ou atendidas, nunca as particulares, as
+    /// canceladas nem as faltas) num intervalo — o que a trava de consulta confere (nov/2026).
+    /// Projeção curta: o dia e o número do atendimento, sem ficha nem guias.
+    /// </summary>
+    Task<IReadOnlyList<Clinica.Domain.Regras.ConsultaParaTrava>> ConsultasPeloConvenioDoPacienteAsync(
+        int pacienteId, DateTime de, DateTime ate, CancellationToken ct = default);
+
+    /// <summary>Há liberação da gerência, já aprovada, para uma consulta deste paciente neste dia?</summary>
+    Task<bool> ExisteLiberacaoDeTravaAsync(int pacienteId, DateOnly dia, CancellationToken ct = default);
+
     /// <summary>Paciente com todo o histórico (atendimentos e seus códigos) carregado.</summary>
     Task<Paciente?> ObterPacienteComHistoricoAsync(int pacienteId, CancellationToken ct = default);
 

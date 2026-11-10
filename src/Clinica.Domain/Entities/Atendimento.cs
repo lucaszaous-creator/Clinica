@@ -31,6 +31,14 @@ public class Atendimento
     /// </summary>
     public bool ColetaPreventivo { get; set; }
 
+    /// <summary>
+    /// A sessão foi atendida como PARTICULAR apesar do convênio da ficha (nov/2026). Vem do
+    /// horário (<see cref="Agendamento.Particular"/>) e é o que faz as guias nascerem
+    /// <see cref="StatusCodigo.NaoAplicavel"/>, como as de quem tem o particular na ficha.
+    /// Falso = quem decide é o convênio da ficha. Ver <see cref="Regras.SessaoParticular"/>.
+    /// </summary>
+    public bool Particular { get; set; }
+
     /// <summary>Categoria definida pela regra no momento do atendimento.</summary>
     public Categoria Categoria { get; set; }
 

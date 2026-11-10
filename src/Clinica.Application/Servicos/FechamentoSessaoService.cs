@@ -227,10 +227,10 @@ public sealed class FechamentoSessaoService
         // e o `AtendimentoJaConsumiuPacoteAsync` do PacoteService.
         var dia = hoje ?? DateOnly.FromDateTime(ag.DataHora);
 
-        // PARTICULAR = o convênio da ficha não gera guia (parcela 60). É o paciente cujo
-        // dinheiro SÓ entra por aqui — o de convênio entra pela conciliação da guia.
-        var ehParticular = ag.Paciente is { } pac
-                           && !CatalogoConvenios.GeraGuia(pac.ConvenioCodigo ?? pac.Convenio.ToString());
+        // PARTICULAR = o convênio da ficha não gera guia (parcela 60) OU o horário foi
+        // marcado como particular apesar do convênio (nov/2026). É a sessão cujo dinheiro SÓ
+        // entra por aqui — a de convênio entra pela conciliação da guia.
+        var ehParticular = SessaoParticular.Eh(ag);
 
         var pacote = await PacoteADebitarAsync(ag.PacienteId, dia, ct);
         var (valor, procedencia, forma) = await ValorSugeridoAsync(ag.PacienteId, ct);
@@ -553,7 +553,8 @@ public sealed class FechamentoSessaoService
             var proposto = await _precos.ProporAsync(
                 ag.ModalidadeCodigo, ag.ModalidadePrevista,
                 ag.EspecialidadeConsultaCodigo ?? ag.EspecialidadeConsulta?.ToString(),
-                dia, ct);
+                // O preço de QUEM ATENDE ganha do geral (nov/2026): o horário sabe quem é.
+                dia, ct, ag.ProfissionalId);
 
             return proposto.Houve ? (proposto.Valor, proposto.Procedencia) : (null, null);
         }

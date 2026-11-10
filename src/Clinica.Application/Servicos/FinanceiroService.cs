@@ -478,8 +478,10 @@ public sealed class FinanceiroService
             categoriaId: categoriaId,
             pacienteId: sessao.PacienteId,
             atendimentoId: sessao.AtendimentoId,
-            convenio: sessao.Convenio,
-            convenioCodigo: sessao.CodigoParaTabela,
+            // O pagador é o PACIENTE quando a sessão foi particular por escolha (nov/2026): o
+            // convênio da ficha não entra no lançamento — "nulo em receita particular".
+            convenio: sessao.ParticularApesarDoConvenio ? null : sessao.Convenio,
+            convenioCodigo: sessao.ParticularApesarDoConvenio ? null : sessao.CodigoParaTabela,
             dataPagamento: aReceber ? null : dataRecebimento,
             operador: operador,
             deducoes: aReceber ? null : deducoes,

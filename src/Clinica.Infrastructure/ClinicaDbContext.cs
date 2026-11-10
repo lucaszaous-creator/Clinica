@@ -148,6 +148,9 @@ public class ClinicaDbContext : DbContext
     public DbSet<PresencaEquipe> PresencasEquipe => Set<PresencaEquipe>();
     public DbSet<ConversaEquipe> ConversasEquipe => Set<ConversaEquipe>();
     public DbSet<PedidoRecepcao> PedidosRecepcao => Set<PedidoRecepcao>();
+    /// <summary>Pedidos de liberação da trava de consulta do convênio (nov/2026) e as mensagens deles.</summary>
+    public DbSet<LiberacaoDeTrava> LiberacoesDeTrava => Set<LiberacaoDeTrava>();
+    public DbSet<AvisoDeLiberacao> AvisosDeLiberacao => Set<AvisoDeLiberacao>();
     public DbSet<PedidoDocumentoWhatsApp> PedidosDocumentoWhatsApp => Set<PedidoDocumentoWhatsApp>();
     public DbSet<BilheteEntradaCrm> BilhetesEntradaCrm => Set<BilheteEntradaCrm>();
     public DbSet<EventoPedidoRecepcao> EventosPedidoRecepcao => Set<EventoPedidoRecepcao>();
@@ -497,6 +500,7 @@ public class ClinicaDbContext : DbContext
             e.HasKey(p => p.Id);
             e.Property(p => p.Nome).IsRequired().HasMaxLength(120);
             e.Property(p => p.NomeCurto).HasMaxLength(40);
+            e.Property(p => p.ConveniosNaoAtendidos).HasMaxLength(1000);
             e.Property(p => p.RegistroConselho).HasMaxLength(40);
             // Só dígitos — é comparado com o CPF extraído do e-CPF ICP-Brasil (parcela 42).
             e.Property(p => p.Cpf).HasMaxLength(11);
@@ -1884,6 +1888,49 @@ public class ClinicaDbContext : DbContext
         });
         // O pedido à recepção (out/2026): o recado de quem atende, com dono e desfecho. Nada
         // apaga em cascata — paciente, horário e usuário não somem por causa de um pedido.
+        // ---------- Trava de consulta do convênio: o pedido de liberação (nov/2026) ----------
+        b.Entity<LiberacaoDeTrava>(e =>
+        {
+            e.ToTable("LiberacoesDeTrava");
+            e.Property(x => x.PacienteNome).IsRequired().HasMaxLength(200);
+            e.Property(x => x.ConvenioNome).IsRequired().HasMaxLength(120);
+            e.Property(x => x.ProfissionalNome).IsRequired().HasMaxLength(120);
+            e.Property(x => x.ModalidadeCodigo).IsRequired().HasMaxLength(40);
+            e.Property(x => x.EspecialidadeConsultaCodigo).HasMaxLength(40);
+            e.Property(x => x.Observacoes).HasMaxLength(500);
+            e.Property(x => x.AtendimentoAnteriorNumero).HasMaxLength(40);
+            e.Property(x => x.Motivo).IsRequired().HasMaxLength(500);
+            e.Property(x => x.PedidoPorNome).IsRequired().HasMaxLength(120);
+            e.Property(x => x.Estado).IsRequired().HasMaxLength(20);
+            e.Property(x => x.DecididoPorNome).HasMaxLength(120);
+            e.Property(x => x.DecididoPor).HasMaxLength(20);
+            e.Property(x => x.Desfecho).HasMaxLength(1000);
+            e.Property(x => x.DataHora).HasColumnType("timestamp without time zone");
+            e.Property(x => x.ConsultaAnteriorEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.PedidoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.ExpiraEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.DecididoEm).HasColumnType("timestamp without time zone");
+            // O pedido é trilha: a ficha com pedido não some por arrasto.
+            e.HasOne(x => x.Paciente).WithMany().HasForeignKey(x => x.PacienteId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => new { x.Estado, x.ExpiraEm });
+            e.HasIndex(x => new { x.PacienteId, x.DataHora });
+        });
+
+        b.Entity<AvisoDeLiberacao>(e =>
+        {
+            e.ToTable("AvisosDeLiberacao");
+            e.Property(x => x.Modelo).HasMaxLength(100);
+            e.Property(x => x.Parametros).HasMaxLength(4000);
+            e.Property(x => x.Botoes).HasMaxLength(400);
+            e.Property(x => x.Telefone).IsRequired().HasMaxLength(20);
+            e.Property(x => x.Texto).IsRequired().HasMaxLength(2000);
+            e.Property(x => x.Motivo).HasMaxLength(500);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.TratadoEm).HasColumnType("timestamp without time zone");
+            e.HasOne(x => x.Liberacao).WithMany().HasForeignKey(x => x.LiberacaoDeTravaId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => x.TratadoEm);
+        });
+
         b.Entity<PedidoRecepcao>(e =>
         {
             e.ToTable("PedidosRecepcao");
@@ -2370,6 +2417,11 @@ public class ClinicaDbContext : DbContext
 
             e.HasIndex(x => new { x.ModalidadeCodigo, x.EspecialidadeCodigo });
             e.HasIndex(x => x.Ativo);
+
+            // O preço POR PROFISSIONAL (nov/2026). Restrict: apagar o profissional não pode
+            // transformar, calado, o preço dele no preço de todo mundo.
+            e.HasOne(x => x.Profissional).WithMany().HasForeignKey(x => x.ProfissionalId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             e.Ignore(x => x.Descricao);
             e.Ignore(x => x.Vigencia);

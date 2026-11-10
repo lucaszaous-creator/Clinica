@@ -238,6 +238,25 @@ public sealed class ParametrosService
         await _repo.SalvarAsync(ct);
     }
 
+    // ---- Trava de consulta do convênio (nov/2026 — docs/trava-de-consulta.md) ----
+
+    /// <summary>
+    /// A trava de consulta está ligada? DESLIGADA por padrão, e é decisão: ela RECUSA marcação
+    /// em todas as portas (inclusive a ponte do CRM e o app do faturamento, que não têm o
+    /// botão de pedir liberação), e a agenda até aqui "avisa e não impede". A direção liga em
+    /// Configurações depois de marcar em Acessos quem aprova e de avisar a recepção.
+    /// </summary>
+    public const string ChaveTravaDeConsulta = "TravaDeConsulta";
+
+    public async Task<bool> TravaDeConsultaAsync(CancellationToken ct = default)
+        => await _repo.ObterConfiguracaoAsync(ChaveTravaDeConsulta, ct) == "1";
+
+    public async Task DefinirTravaDeConsultaAsync(bool ligada, CancellationToken ct = default)
+    {
+        await _repo.SalvarConfiguracaoAsync(ChaveTravaDeConsulta, ligada ? "1" : "0", ct);
+        await _repo.SalvarAsync(ct);
+    }
+
     // ---- Tela que o PACIENTE vê: REMOVIDA em out/2026 (decisão da direção) ----
     // A chave "TelaDoPacienteDispositivo" pode continuar gravada nas bases que a usaram:
     // ninguém mais a lê nem a grava, e apagá-la exigiria migration por nada. A coleta da

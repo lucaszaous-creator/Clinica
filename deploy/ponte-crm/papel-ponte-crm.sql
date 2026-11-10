@@ -64,6 +64,10 @@ BEGIN
       -- pulso do CRM e substitui a lista dos avisos "Atenção" do sino (aviso não é registro clínico).
       ['PerguntasAoSemDor','UPDATE'], ['SemDorNoCrm','INSERT, UPDATE'],
       ['AvisosDoSemDor','INSERT, UPDATE, DELETE'],
+      -- A liberação da trava de consulta (nov/2026): o pedido nasce no app; a ponte grava a DECISÃO
+      -- da gerência (UPDATE), as mensagens que saem dela (o desfecho e a confirmação ao paciente) e
+      -- marca o que o CRM enviou. O horário liberado é marcado pela agenda (Agendamentos, acima).
+      ['LiberacoesDeTrava','UPDATE'], ['AvisosDeLiberacao','INSERT, UPDATE'],
       ['Pacientes','UPDATE'], ['Auditoria','INSERT']] LOOP
     IF to_regclass(format('public.%I', g[1])) IS NOT NULL THEN
       EXECUTE format('GRANT %s ON public.%I TO ponte_crm', g[2], g[1]);

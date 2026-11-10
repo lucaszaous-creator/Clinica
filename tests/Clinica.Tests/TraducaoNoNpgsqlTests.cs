@@ -821,6 +821,23 @@ public class TraducaoNoNpgsqlTests
     }
 
     /// <summary>
+    /// A trava de consulta do convênio (nov/2026): as consultas do paciente pelo convênio, com o
+    /// número do atendimento pela navegação — e as filas das mensagens da liberação.
+    /// </summary>
+    [Fact]
+    public void Consultas_para_a_trava_e_as_filas_da_liberacao_traduzem()
+    {
+        using var db = Postgres();
+        var sql = new ClinicaRepositorio(db)
+            .ConsultaParaTravaDoPaciente(7, new DateTime(2026, 11, 1), new DateTime(2026, 12, 1)).ToQueryString();
+        sql.Should().Contain("\"Particular\"").And.Contain("\"ModalidadePrevista\"").And.Contain("\"Numero\"");
+
+        var fila = new LiberacaoDeTravaService(db, null!, () => new DateTime(2026, 11, 10))
+            .Fila().ToQueryString();
+        fila.Should().Contain("\"TratadoEm\" IS NULL").And.Contain("\"Modelo\"");
+    }
+
+    /// <summary>
     /// A conciliação do PARTICULAR (set/2026): três subconsultas (códigos, lançamentos,
     /// consumos) e a projeção do TIPO do primeiro código. É o tipo de expressão em que o
     /// SQLite dos testes e o Npgsql da clínica mais divergem — e a tela que a lê é a que
@@ -844,7 +861,7 @@ public class TraducaoNoNpgsqlTests
                 a.Id, a.PacienteId, a.Paciente!.Nome, a.Data, a.Modalidade, a.ModalidadeCodigo,
                 a.EspecialidadeConsulta, a.EspecialidadeConsultaCodigo,
                 a.Paciente.Convenio, a.Paciente.ConvenioCodigo,
-                a.Codigos.OrderBy(c => c.Id).Select(c => c.Tipo).First()))
+                a.Codigos.OrderBy(c => c.Id).Select(c => c.Tipo).First(), a.Particular))
             .ToQueryString();
 
         sql.Should().Contain("\"RealizadoEm\" IS NOT NULL")

@@ -145,6 +145,16 @@ h1{font-size:28px;font-weight:700;letter-spacing:-.01em;margin:0;line-height:1.1
 .segmentado button:hover{color:var(--texto-primario);background:var(--superficie-hover)}
 .segmentado button[aria-pressed="true"]{background:var(--acento);color:var(--texto-invertido)}
 
+/* Convênio ou particular — a escolha do HORÁRIO (EscolhaDeFormaDeAtendimento, nov/2026).
+   O segmentado quebra de linha: o nome do plano é longo ("Unimed Costa do Sol Intercâmbio")
+   e em 1024 os dois botões não cabem lado a lado dentro do formulário. */
+.forma-atendimento{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2) var(--space-3)}
+.forma-atendimento-rotulo{font-weight:600;color:var(--texto-secundario)}
+.forma-atendimento .segmentado{flex-wrap:wrap;max-width:100%}
+.forma-atendimento .segmentado button{text-align:left}
+.forma-atendimento .segmentado button:disabled{cursor:default;opacity:.5}
+.forma-atendimento-nota{flex-basis:100%;margin:0;color:var(--texto-secundario);line-height:1.45}
+
 .alternar{display:inline-flex;align-items:center;gap:var(--space-2);cursor:pointer;user-select:none;
   color:var(--cinza-700);font-weight:500}
 .alternar input{appearance:none;width:34px;height:20px;border-radius:999px;background:var(--cinza-300);
@@ -607,3 +617,16 @@ td .selo{margin-left:0}
   /* Gráficos: altura de gráfico. */
   .grafico svg,.grafico-linha svg{max-height:220px}
 }
+
+/* A box da TRAVA DE CONSULTA do convênio (TravaDeConsultaBox, nov/2026): o que trava, quando
+   solta e as saídas — particular, ou pedir a liberação à gerência. */
+.trava-box{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-4);
+  border:1px solid var(--laranja-100);border-radius:var(--radius-control);background:var(--aviso-suave);color:var(--aviso-texto)}
+.trava-titulo{display:flex;align-items:center;gap:var(--space-2);margin:0;font-weight:700}
+.trava-frase,.trava-pendente,.trava-nota{margin:0;line-height:1.45}
+.trava-pendente{font-weight:600}
+.trava-nota{color:var(--texto-secundario)}
+.trava-acoes{display:flex;flex-wrap:wrap;gap:var(--space-2);margin-top:var(--space-1)}
+.forma-atendimento-sugestao{color:var(--aviso-texto);font-weight:600}
+/* Convênios que o profissional NÃO atende (ProfissionalForm): caixinhas em colunas que quebram. */
+.pf-convenios{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:var(--space-2) var(--space-4)}

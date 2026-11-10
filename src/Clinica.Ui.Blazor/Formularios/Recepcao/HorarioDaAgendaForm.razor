@@ -34,10 +34,11 @@
             {
                 var c = _cartao;
                 <p class="gh-contexto">@c.Contexto</p>
-                @if (c.EhEncaixe || c.VeioDaListaEspera || c.EhRetornoDoSegundoCodigo || c.ForaDoDia)
+                @if (c.EhEncaixe || c.ParticularApesarDoConvenio || c.VeioDaListaEspera || c.EhRetornoDoSegundoCodigo || c.ForaDoDia)
                 {
                     <div class="gh-selos">
                         @if (c.EhEncaixe) { <Selo Tom="aviso">Encaixe</Selo> }
+                        @if (c.ParticularApesarDoConvenio) { <Selo Tom="aviso" Dica="A ficha tem convênio, mas este horário não gera guia — a cobrança é no caixa">Particular</Selo> }
                         @if (c.VeioDaListaEspera) { <Selo Tom="sucesso">Da lista de espera</Selo> }
                         @if (c.EhRetornoDoSegundoCodigo) { <Selo Tom="info" Dica="Legado: guia não é atendimento — pode apagar">Retorno do 2º código</Selo> }
                         @if (c.ForaDoDia) { <Selo Tom="perigo">@c.StatusRotulo</Selo> }
@@ -85,6 +86,16 @@
                 @if (!c.EmAberto && !c.ForaDoDia)
                 {
                     <p class="secundario gh-texto">Este horário já saiu do fluxo do dia — não dá para remarcar nem cancelar. Ele continua aqui porque a linha do dia precisa mostrar que ele existiu.</p>
+                    @* CONVÊNIO ↔ PARTICULAR depois de atendido (nov/2026): a consulta foi particular e
+                       ficou registrada pelo plano. Corrige só isso — sem estornar a sessão. No horário
+                       em aberto a escolha está no formulário do Remarcar (uma porta por pergunta). *@
+                    @if (c.PodeTrocarFormaDeAtendimento)
+                    {
+                        <button type="button" class="botao" disabled="@(!PodeTrocarForma || _ocupado)" @onclick="TrocarFormaAsync"
+                                title="@(PodeTrocarForma ? HorarioDaAgendaNaTela.DicaDaTroca(c.ParticularApesarDoConvenio) : "Trocar convênio/particular mexe nas guias: exige acesso à agenda e ao lançamento de atendimento.")">
+                            @HorarioDaAgendaNaTela.RotuloDaTroca(c.ParticularApesarDoConvenio)
+                        </button>
+                    }
                 }
                 @if (c.EhSerie)
                 {
@@ -130,6 +141,8 @@ else if (_modo == Modo.Espera && _cartao is { } e)
     private bool _mudou;
 
     private static bool PodeEditar => Pode(Permissao.EditarAgenda);
+    /// <summary>Trocar convênio ↔ particular dispensa ou gera GUIAS: pede a agenda E o lançamento.</summary>
+    private static bool PodeTrocarForma => Pode(Permissao.EditarAgenda) && Pode(Permissao.LancarAtendimento);
     private static bool PodeRegistrarChegada => PodeAlgum(Permissao.EditarAgenda | Permissao.MovimentarFila);
     private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
 
@@ -173,6 +186,28 @@ else if (_modo == Modo.Espera && _cartao is { } e)
             _falha = $"Não foi possível ler o horário: {ex.Message}";
         }
     }
+
+    /// <summary>
+    /// A sessão atendida foi particular (ou voltou ao convênio): pergunta dizendo o que muda,
+    /// grava pelo AgendaService.DefinirParticularAsync e mostra os avisos das guias.
+    /// </summary>
+    private Task TrocarFormaAsync() => AgirAsync(async () =>
+    {
+        if (!Exigir(Permissao.EditarAgenda, "mexer na agenda")) return;
+        if (!Exigir(Permissao.LancarAtendimento, "mexer nas guias do atendimento")) return;
+        var c = _cartao!;
+        var paraParticular = !c.ParticularApesarDoConvenio;
+        if (!await Dialogos.ConfirmarAsync(HorarioDaAgendaNaTela.TituloDaTroca(paraParticular),
+                HorarioDaAgendaNaTela.PerguntaDaTroca(c.Paciente, paraParticular), perigoso: false))
+            return;
+
+        IReadOnlyList<string> avisos;
+        using (var escopo = Escopo())
+            avisos = await escopo.ServiceProvider.GetRequiredService<AgendaService>()
+                .DefinirParticularAsync(c.AgendamentoId, paraParticular, Operador);
+        Notificacoes.Sucesso(avisos.Count > 0 ? string.Join(" ", avisos) : HorarioDaAgendaNaTela.TrocaFeita(paraParticular));
+        await FecharMudandoAsync();
+    }, "troca entre convênio e particular");
 
     /// <summary>Executa uma ação de escrita: uma por vez; a falha vira notificação e vai ao log.</summary>
     private async Task AgirAsync(Func<Task> acao, string contexto)

@@ -189,7 +189,7 @@ public sealed class AtendimentoService
         CancellationToken ct = default, TipoCodigo? primeiroCodigo = null,
         Especialidade? especialidadeConsulta = null, string? modalidadeCodigo = null,
         string? especialidadeConsultaCodigo = null, string? operador = null,
-        bool coletaPreventivo = false)
+        bool coletaPreventivo = false, bool particular = false)
     {
         var paciente = await _repo.ObterPacienteAsync(pacienteId, ct)
             ?? throw new InvalidOperationException($"Paciente {pacienteId} não encontrado.");
@@ -204,7 +204,11 @@ public sealed class AtendimentoService
         // sessão gravada sem guia, calada.
         //
         // Ver <see cref="ConvenioNaoDefinidoException"/> para o porquê de ser recusa.
-        if (paciente.ConvenioADefinir)
+        //
+        // ⚠️ A sessão MARCADA COMO PARTICULAR passa (nov/2026): o que a recusa impede é a
+        // sessão sem guia CALADA, e aqui a falta de guia é a escolha que alguém registrou
+        // no horário — o dinheiro dela é cobrado no caixa e a conciliação a enxerga.
+        if (paciente.ConvenioADefinir && !particular)
             throw new ConvenioNaoDefinidoException(paciente.Id, paciente.Nome);
 
         // Variante do catálogo: a base (comportamento no motor de regras) vem do código.
@@ -229,6 +233,9 @@ public sealed class AtendimentoService
                 : null,
             // A coleta de preventivo só existe na consulta (é ela que gera a 2ª guia).
             ColetaPreventivo = ehConsulta && coletaPreventivo,
+            // Particular POR ESCOLHA do horário (nov/2026): é o que o motor lê para dispensar
+            // as guias, com a ficha continuando no convênio dela.
+            Particular = particular,
             Observacoes = observacoes,
             // Quem lançou, e quando. Vem do chamador (`SessaoUsuario.Atual.Operador` na
             // tela): este serviço é compartilhado com o faturamento e não lê a sessão.
@@ -242,7 +249,7 @@ public sealed class AtendimentoService
         atendimento.Codigos.AddRange(resultado.Codigos);
 
         // Mantém a categoria mais recente na ficha do paciente.
-        paciente.Categoria = resultado.Categoria;
+        AtualizarCategoriaDaFicha(paciente, atendimento, resultado);
 
         return new AtendimentoMontado(atendimento, resultado.Avisos);
     }
@@ -303,7 +310,7 @@ public sealed class AtendimentoService
         };
 
         var resultado = _regras.Para(paciente.Convenio).Gerar(paciente, atendimento, contexto);
-        AplicarParticular(paciente, resultado);
+        AplicarParticular(paciente, atendimento, resultado);
         return resultado;
     }
 
@@ -358,6 +365,11 @@ public sealed class AtendimentoService
         var avisos = new List<string>();
         if (atendimento.Modalidade != ModalidadeAtendimento.Consulta || _consultas is null)
             return avisos;
+
+        // Consulta PARTICULAR não renova a consulta do CONVÊNIO (nov/2026): a validade é do
+        // plano (Unimed 22 dias…), e quem atendeu foi justamente a médica que não o aceita.
+        // Renovar aqui apagaria da pendência uma consulta do convênio que continua vencendo.
+        if (atendimento.Particular) return avisos;
 
         try
         {
@@ -464,7 +476,8 @@ public sealed class AtendimentoService
         int pacienteId, DateOnly data, ModalidadeAtendimento modalidade,
         CancellationToken ct = default, TipoCodigo? primeiroCodigo = null,
         Especialidade? especialidadeConsulta = null, string? modalidadeCodigo = null,
-        string? especialidadeConsultaCodigo = null, bool coletaPreventivo = false)
+        string? especialidadeConsultaCodigo = null, bool coletaPreventivo = false,
+        bool particular = false)
     {
         var paciente = await _repo.ObterPacienteAsync(pacienteId, ct)
             ?? throw new InvalidOperationException($"Paciente {pacienteId} não encontrado.");
@@ -475,7 +488,7 @@ public sealed class AtendimentoService
 
         return Simular(paciente, data, modalidade, historicoMes, recentes, parametros,
                        primeiroCodigo, especialidadeConsulta, modalidadeCodigo,
-                       especialidadeConsultaCodigo, coletaPreventivo);
+                       especialidadeConsultaCodigo, coletaPreventivo, particular);
     }
 
     /// <summary>
@@ -490,7 +503,7 @@ public sealed class AtendimentoService
     public async Task<IReadOnlyDictionary<string, PreviaLancamento>> PreverModalidadesAsync(
         int pacienteId, DateOnly data, IEnumerable<string> modalidadeCodigos,
         CancellationToken ct = default, Especialidade? especialidadeConsulta = null,
-        string? especialidadeConsultaCodigo = null)
+        string? especialidadeConsultaCodigo = null, bool particular = false)
     {
         var paciente = await _repo.ObterPacienteAsync(pacienteId, ct)
             ?? throw new InvalidOperationException($"Paciente {pacienteId} não encontrado.");
@@ -508,7 +521,8 @@ public sealed class AtendimentoService
             {
                 previas[codigo] = Simular(
                     paciente, data, CatalogoModalidades.Base(codigo), historicoMes, recentes, parametros,
-                    primeiroCodigo: null, especialidadeConsulta, codigo, especialidadeConsultaCodigo);
+                    primeiroCodigo: null, especialidadeConsulta, codigo, especialidadeConsultaCodigo,
+                    particular: particular);
             }
             catch (Exception ex)
             {
@@ -528,7 +542,7 @@ public sealed class AtendimentoService
         int pacienteId, DateOnly data, ModalidadeAtendimento modalidade, IEnumerable<string> modalidadeCodigos,
         CancellationToken ct = default, TipoCodigo? primeiroCodigo = null,
         string? modalidadeCodigo = null, string? especialidadeConsultaCodigo = null,
-        bool coletaPreventivo = false)
+        bool coletaPreventivo = false, bool particular = false)
     {
         var paciente = await _repo.ObterPacienteAsync(pacienteId, ct)
             ?? throw new InvalidOperationException($"Paciente {pacienteId} não encontrado.");
@@ -537,7 +551,7 @@ public sealed class AtendimentoService
         var parametros = _parametros is null ? null : await _parametros.ObterAsync(ct);
 
         var previa = Simular(paciente, data, modalidade, historicoMes, recentes, parametros,
-            primeiroCodigo, null, modalidadeCodigo, especialidadeConsultaCodigo, coletaPreventivo);
+            primeiroCodigo, null, modalidadeCodigo, especialidadeConsultaCodigo, coletaPreventivo, particular);
 
         var previas = new Dictionary<string, PreviaLancamento>();
         foreach (var codigo in modalidadeCodigos.Distinct())
@@ -546,7 +560,7 @@ public sealed class AtendimentoService
             {
                 previas[codigo] = Simular(
                     paciente, data, CatalogoModalidades.Base(codigo), historicoMes, recentes, parametros,
-                    primeiroCodigo: null, null, codigo, null);
+                    primeiroCodigo: null, null, codigo, null, particular: particular);
             }
             catch (Exception ex)
             {
@@ -577,7 +591,8 @@ public sealed class AtendimentoService
         Paciente paciente, DateOnly data, ModalidadeAtendimento modalidade,
         IReadOnlyList<CodigoFaturamento> historicoMes, IReadOnlyList<CodigoFaturamento> recentes,
         ParametrosSnapshot? parametros, TipoCodigo? primeiroCodigo, Especialidade? especialidadeConsulta,
-        string? modalidadeCodigo, string? especialidadeConsultaCodigo, bool coletaPreventivo = false)
+        string? modalidadeCodigo, string? especialidadeConsultaCodigo, bool coletaPreventivo = false,
+        bool particular = false)
     {
         if (modalidadeCodigo is not null)
             modalidade = CatalogoModalidades.Base(modalidadeCodigo);
@@ -597,7 +612,8 @@ public sealed class AtendimentoService
             EspecialidadeConsultaCodigo = ehConsulta
                 ? especialidadeConsultaCodigo ?? especialidadeConsulta?.ToString()
                 : null,
-            ColetaPreventivo = ehConsulta && coletaPreventivo
+            ColetaPreventivo = ehConsulta && coletaPreventivo,
+            Particular = particular
         };
 
         var generica = paciente.Convenio == Convenio.Personalizado
@@ -616,7 +632,7 @@ public sealed class AtendimentoService
         };
 
         var resultado = _regras.Para(paciente.Convenio).Gerar(paciente, atendimento, contexto);
-        AplicarParticular(paciente, resultado);
+        AplicarParticular(paciente, atendimento, resultado);
         return new PreviaLancamento(resultado.Codigos, resultado.Categoria, resultado.Avisos);
     }
 
@@ -772,7 +788,8 @@ public sealed class AtendimentoService
             if (atendimento.Codigos.Any(c =>
                     c.Baixado || c.LoteTissId is not null || c.Status == StatusCodigo.NaoConformidade))
                 throw new InvalidOperationException(
-                    "A modalidade/especialidade deste horário não pode mudar: há guia dele já "
+                    "A modalidade, a especialidade e a forma de atendimento (convênio ou particular) "
+                    + "deste horário não podem mudar: há guia dele já "
                     + "baixada, em lote TISS ou em não conformidade. Estorne/resolva antes — ou "
                     + "cancele este horário e marque outro.");
 
@@ -787,31 +804,45 @@ public sealed class AtendimentoService
             atendimento.EspecialidadeConsultaCodigo = ag.EspecialidadeConsultaCodigo;
             atendimento.ColetaPreventivo = ag.ColetaPreventivo
                                            && ag.ModalidadePrevista == ModalidadeAtendimento.Consulta;
+            // Convênio ↔ particular também regera (nov/2026): a marca do horário é a
+            // autoridade, e o atendimento a acompanha no mesmo commit.
+            var virouParticular = ag.Particular && !atendimento.Particular;
+            var voltouAoConvenio = !ag.Particular && atendimento.Particular;
+            atendimento.Particular = ag.Particular;
+            var motivo = virouParticular ? "o horário passou a ser PARTICULAR"
+                : voltouAoConvenio ? "o horário voltou a ser pelo convênio"
+                : "modalidade/especialidade do horário alterada";
 
             var substituidas = 0;
             foreach (var c in atendimento.Codigos.Where(c => c.Status == StatusCodigo.Aberto))
             {
                 c.Status = StatusCodigo.NaoAplicavel;
                 c.RegistrarObservacaoPendencia(
-                    $"Substituída em {DateTime.Now:dd/MM/yyyy} — modalidade/especialidade do horário alterada.");
+                    $"Substituída em {DateTime.Now:dd/MM/yyyy} — {motivo}.");
                 substituidas++;
             }
 
             var resultado = await GerarPelaRegraAsync(paciente, atendimento, ag.PrimeiroCodigo, ct);
             atendimento.Categoria = resultado.Categoria;
             atendimento.Codigos.AddRange(resultado.Codigos);
-            paciente.Categoria = resultado.Categoria;
+            AtualizarCategoriaDaFicha(paciente, atendimento, resultado);
 
             await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
             {
                 Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
                 Acao = "GuiasRegeradas",
-                Detalhe = $"Modalidade/especialidade do horário de {ag.DataHora:dd/MM/yyyy HH:mm} alterada — "
+                Detalhe = $"Horário de {ag.DataHora:dd/MM/yyyy HH:mm}: {motivo} — "
                           + $"{substituidas} guia(s) substituída(s) por {resultado.Codigos.Count} nova(s)",
                 PacienteId = ag.PacienteId
             }, ct);
-            avisos.Add($"As guias foram regeradas pela nova modalidade/especialidade "
-                       + $"({resultado.Codigos.Count} código(s) novos).");
+            avisos.Add(virouParticular
+                ? substituidas == 0
+                    ? "O horário passou a ser PARTICULAR: não há guia a faturar, e a cobrança é no caixa."
+                    : $"O horário passou a ser PARTICULAR: {substituidas} guia(s) do convênio foram dispensadas, e a cobrança é no caixa."
+                : voltouAoConvenio
+                    ? $"O horário voltou a ser pelo convênio: {resultado.Codigos.Count(c => c.Status != StatusCodigo.NaoAplicavel)} guia(s) geradas."
+                    : $"As guias foram regeradas pela nova modalidade/especialidade "
+                      + $"({resultado.Codigos.Count} código(s) novos).");
         }
         else if (dataNova != dataAnterior)
         {
@@ -874,9 +905,28 @@ public sealed class AtendimentoService
         avisos.AddRange(resultado.Avisos);
     }
 
-    private static void AplicarParticular(Paciente paciente, ResultadoFaturamento resultado)
+    /// <summary>
+    /// A categoria (semáforo) da ficha é a do CONVÊNIO dela. A sessão particular por escolha
+    /// não a reescreve: a regra rodou só para desenhar os códigos dispensados, e gravar o
+    /// resultado na ficha mudaria o semáforo de um plano que não foi usado.
+    /// </summary>
+    private static void AtualizarCategoriaDaFicha(
+        Paciente paciente, Atendimento atendimento, ResultadoFaturamento resultado)
     {
-        if (CatalogoConvenios.GeraGuia(paciente.ConvenioCodigo ?? paciente.Convenio.ToString()))
+        if (SessaoParticular.ApesarDoConvenio(paciente, atendimento.Particular)) return;
+        paciente.Categoria = resultado.Categoria;
+    }
+
+    /// <summary>
+    /// Particular não fatura: os códigos nascem <see cref="StatusCodigo.NaoAplicavel"/> — a
+    /// sessão fica registrada (lastro) e nada vira pendência de guia. Vale para o particular
+    /// da FICHA (parcela 60) e para a sessão MARCADA como particular (nov/2026); a pergunta
+    /// é uma só (<see cref="SessaoParticular.Eh(Paciente?, bool)"/>).
+    /// </summary>
+    private static void AplicarParticular(
+        Paciente paciente, Atendimento atendimento, ResultadoFaturamento resultado)
+    {
+        if (!SessaoParticular.Eh(paciente, atendimento.Particular))
             return;
 
         foreach (var c in resultado.Codigos) c.Status = StatusCodigo.NaoAplicavel;

@@ -48,11 +48,23 @@
                     <FaixaDoPaciente Paciente="_paciente" AoTrocar="Trocar" />
                     <p class="ra-carteirinha">
                         <span>Carteirinha <b>@_carteirinha</b> · vence <b class="@(_avisoCarteirinha is null ? null : "ra-vencida")">@_validade</b></span>
-                        @if (_paciente.ConvenioADefinir)
+                        @if (SemConvenioNaSessao)
                         {
                             <Selo Tom="perigo">sem convênio</Selo>
                         }
                     </p>
+                    @* CONVÊNIO ou PARTICULAR (nov/2026): a escolha é DESTE horário — a paciente tem
+                       plano e quem atende não o aceita. A ficha continua com o convênio dela. *@
+                    <EscolhaDeFormaDeAtendimento Paciente="_paciente" Particular="_particular" ParticularChanged="TrocarParticular" Nota="@_notaDoParticular" />
+                    @* A TRAVA DE CONSULTA do convênio (nov/2026): só onde nasce um horário NOVO — lançar
+                       sobre o horário que já está na agenda não a confere (a trava é da marcação). *@
+                    @if (!UsarHorarioDoDia && !_lancado)
+                    {
+                        <TravaDeConsultaBox Paciente="_paciente" Quando="QuandoPretendido" Modalidade="_modalidade?.Base" Particular="_particular"
+                                            OfereceParticular="FormaDeAtendimentoNaTela.OfereceEscolha(_paciente)"
+                                            AoMarcarParticular="() => TrocarParticular(true)" TravadoChanged="MudouTrava"
+                                            MontarPedido="MontarPedidoDeLiberacao" />
+                    }
                 </section>
 
                 @* ============ 2 · O QUE FOI FEITO / PEDIDO ============ *@
@@ -292,7 +304,7 @@
                     {
                         <h3 class="ra-lado-titulo">Antes de @(Marcar ? "marcar" : "lançar")</h3>
                         <div class="ra-avisos">
-                            @if (_paciente.ConvenioADefinir)
+                            @if (SemConvenioNaSessao)
                             {
                                 <div class="ra-traco tom-perigo">
                                     <span>@AtendimentoDoBalcaoNaTela.SemConvenio</span>
@@ -313,15 +325,16 @@
                                     }
                                 </div>
                             }
-                            @if (_avisoCarteirinha is not null)
+                            @* Os três avisos do PLANO calam quando a sessão é particular por escolha. *@
+                            @if (_avisoCarteirinha is not null && !_particular)
                             {
                                 <div class="ra-traco tom-perigo">@_avisoCarteirinha</div>
                             }
-                            @if (_avisoConsulta is not null)
+                            @if (_avisoConsulta is not null && !_particular)
                             {
                                 <div class="ra-traco @(_consultaVencida ? "tom-perigo" : "tom-aviso")">@_avisoConsulta</div>
                             }
-                            @if (_saldoAutorizacao is not null)
+                            @if (_saldoAutorizacao is not null && !_particular)
                             {
                                 <div class="ra-traco @(_autorizacaoCritica ? "tom-perigo" : _autorizacaoNaUltima ? "tom-aviso" : "tom-info")">@_saldoAutorizacao</div>
                             }
@@ -363,9 +376,9 @@
                         @if (_guiaAberta)
                         {
                             <div class="ra-guia" aria-label="Prévia da guia">
-                                <div class="ra-guia-tarja"><span>PRÉVIA — NADA FOI GRAVADO AINDA</span>@if (_paciente.ConvenioADefinir) { <Selo Tom="perigo">sem convênio</Selo> }</div>
+                                <div class="ra-guia-tarja"><span>PRÉVIA — NADA FOI GRAVADO AINDA</span>@if (SemConvenioNaSessao) { <Selo Tom="perigo">sem convênio</Selo> }</div>
                                 <dl class="ra-guia-campos">
-                                    <div class="@(_paciente.ConvenioADefinir ? "falta" : null)"><dt>Convênio</dt><dd>@_paciente.ConvenioNome</dd></div>
+                                    <div class="@(SemConvenioNaSessao ? "falta" : null)"><dt>Convênio</dt><dd>@SessaoParticular.PagadorComFicha(_paciente, _particular)</dd></div>
                                     <div><dt>Carteirinha</dt><dd>@_carteirinha</dd></div>
                                     <div><dt>Beneficiário</dt><dd>@_paciente.Nome</dd></div>
                                     <div class="@(_avisoCarteirinha is null ? null : "falta")"><dt>Validade</dt><dd>@_validade</dd></div>
@@ -400,8 +413,8 @@
                     }
                     @if (!_lancado)
                     {
-                        <button type="button" class="botao primario ra-acao" disabled="@(_ocupado || !PodeGravar || FaltaHora || PreventivoSemVaga)" @onclick="LancarAsync"
-                                title="@(PodeGravar ? null : Marcar ? "Marcar exige acesso de edição à agenda (e ao lançamento, com a guia na marcação)." : "Lançar exige o acesso de lançamento de atendimento.")">
+                        <button type="button" class="botao primario ra-acao" disabled="@(_ocupado || !PodeGravar || FaltaHora || PreventivoSemVaga || Travado)" @onclick="LancarAsync"
+                                title="@(Travado ? TravaDeConsultaNaTela.SalvarTravado : PodeGravar ? null : Marcar ? "Marcar exige acesso de edição à agenda (e ao lançamento, com a guia na marcação)." : "Lançar exige o acesso de lançamento de atendimento.")">
                             @(_ocupado ? "Gravando…" : PreventivoSemVaga ? "Escolha outro dia para a coleta" : RotuloDoBotao)
                         </button>
                     }
@@ -411,7 +424,7 @@
                     }
                     @if (Marcar)
                     {
-                        <p class="ra-dica">@AtendimentoDoBalcaoNaTela.NotaGuiaNaMarcacao(_guiaNaMarcacao)</p>
+                        <p class="ra-dica">@(_particular ? AtendimentoDoBalcaoNaTela.NotaDoParticular : AtendimentoDoBalcaoNaTela.NotaGuiaNaMarcacao(_guiaNaMarcacao))</p>
                     }
                     @if (!_lancado)
                     {
@@ -465,6 +478,48 @@
     private EntradaModalidade? _modalidade;
     private EntradaEspecialidade? _especialidade;
     private bool _preventivo;
+
+    /// <summary>ESTE horário é particular apesar do convênio da ficha (Agendamento.Particular, nov/2026).</summary>
+    private bool _particular;
+    /// <summary>A pessoa clicou na escolha: a pré-marcação pelo profissional para de valer para este paciente.</summary>
+    private bool _formaEscolhidaNaMao;
+    private string? _notaDoParticular;
+
+    /// <summary>A trava de consulta do convênio acendeu (a box decide); só vale onde nasce horário novo.</summary>
+    private bool _travado;
+    private bool Travado => _travado && !UsarHorarioDoDia;
+
+    /// <summary>O dia e a hora pretendidos — hora ainda em branco vale meia-noite: a trava é do DIA.</summary>
+    private DateTime QuandoPretendido => _data.ToDateTime(TimeOnly.TryParse(_hora, out var h) ? h : TimeOnly.MinValue);
+
+    private void MudouTrava(bool travado)
+    {
+        _travado = travado;
+        StateHasChanged();
+    }
+
+    /// <summary>O pedido de liberação leva o horário inteiro; o que falta é dito como no botão principal.</summary>
+    private NovoPedidoDeLiberacao? MontarPedidoDeLiberacao(string motivo)
+    {
+        if (_paciente is not { } paciente || _modalidade is not { } modalidade) return null;
+        string? falta = !TimeOnly.TryParse(_hora, out var hora) ? TravaDeConsultaNaTela.FaltaHora
+            : EhConsulta && _especialidade is null ? TravaDeConsultaNaTela.FaltaEspecialidade
+            : Marcar && !_comoEncaixe && _profissional is null ? TravaDeConsultaNaTela.FaltaProfissional
+            : null;
+        if (falta is not null)
+        {
+            Avisar(falta, "erro");
+            return null;
+        }
+        // Lançar (paciente no balcão) vira ENCAIXE quando liberarem, como o avulso de sempre.
+        return new NovoPedidoDeLiberacao(paciente.Id, _data.ToDateTime(hora), modalidade.Codigo,
+            EhConsulta ? _especialidade?.Codigo : null, _profissional?.Id, _sala?.Id,
+            AtendimentoDoBalcaoNaTela.DuracaoInformada(_duracao), !Marcar || _comoEncaixe, EhConsulta && _preventivo,
+            _observacoes, motivo);
+    }
+
+    /// <summary>A ficha está "a definir" E a sessão não foi marcada particular — o que ainda trava o lançamento.</summary>
+    private bool SemConvenioNaSessao => _paciente is { ConvenioADefinir: true } && !_particular;
     private VagasDePreventivoNoDia? _vagasPreventivo;
     private IReadOnlyList<VagasDePreventivoNoDia> _proximosPreventivo = [];
     private int _gPreventivo;
@@ -545,9 +600,10 @@
     private string? AvisoHorarioDoDia => AtendimentoDoBalcaoNaTela.AvisoHorarioDoDia(
         _horarioDoDia, _outrosHorarios, _horarioNaoVerificado, Marcar, _data);
 
-    private bool TemAvisos => _paciente is { } p && (p.ConvenioADefinir || _avisoJaLancado is not null
-        || AvisoHorarioDoDia is not null || _avisoCarteirinha is not null || _avisoConsulta is not null
-        || _saldoAutorizacao is not null || _avisoPendencias is not null || _alertas.Count > 0);
+    private bool TemAvisos => _paciente is not null && (SemConvenioNaSessao || _avisoJaLancado is not null
+        || AvisoHorarioDoDia is not null
+        || (!_particular && (_avisoCarteirinha is not null || _avisoConsulta is not null || _saldoAutorizacao is not null))
+        || _avisoPendencias is not null || _alertas.Count > 0);
 
     private string QuandoPorExtenso => AtendimentoDoBalcaoNaTela.QuandoPorExtenso(_data, _hora);
 
@@ -570,7 +626,8 @@
         }
     }
 
-    private string ResumoGuias => !MostraGuias ? AtendimentoDoBalcaoNaTela.GuiasNoFinalizar
+    private string ResumoGuias => _particular ? AtendimentoDoBalcaoNaTela.GuiasDoParticular
+        : !MostraGuias ? AtendimentoDoBalcaoNaTela.GuiasNoFinalizar
         : _modalidade is not null && _consequencias.TryGetValue(_modalidade.Codigo, out var c)
         ? $"{c.QuantasGuias.Replace(" guias", "").Replace(" guia", "")} · {c.Quando}" : AtendimentoDoBalcaoNaTela.Travessao;
 
@@ -737,6 +794,12 @@
     private async Task EscolherAsync(Paciente paciente)
     {
         _paciente = paciente;
+        // A escolha é do horário DESTA pessoa: paciente novo volta ao convênio da ficha — ou ao
+        // particular, se quem atende não atende o plano dela.
+        _particular = false;
+        _formaEscolhidaNaMao = false;
+        _notaDoParticular = null;
+        SugerirFormaPeloProfissional();
         _jaRealizado = false;
         _avisoJaLancado = null;
         _horarioDoDia = null;
@@ -785,6 +848,9 @@
     private void Trocar()
     {
         _paciente = null;
+        _particular = false;
+        _formaEscolhidaNaMao = false;
+        _notaDoParticular = null;
         _contextoDoPedido = null;
         _gPrevia++; _gElegibilidade++; _gJaLancado++; _gHorarioDoDia++; _gConsulta++; _gAutorizacao++; _gPendencias++;
         LimparPrevia();
@@ -842,6 +908,33 @@
         var cod = e.Value?.ToString();
         _especialidade = _especialidades.FirstOrDefault(x => x.Codigo == cod);
         Disparar(PreverAsync);
+    }
+
+    /// <summary>
+    /// Convênio ↔ particular: muda as guias (a prévia), o dinheiro (preço de tabela) e quais
+    /// avisos do plano valem — tudo relido, com os contadores de geração de cada leitura.
+    /// </summary>
+    private void TrocarParticular(bool particular)
+    {
+        _particular = particular;
+        _formaEscolhidaNaMao = true;
+        _notaDoParticular = null;
+        Disparar(PreverAsync);
+        if (_paciente is { } p) Disparar(() => VerificarElegibilidadeAsync(p.Id));
+    }
+
+    /// <summary>
+    /// Quem atende não atende pelo convênio da ficha (cadastro do profissional): o horário nasce
+    /// marcado como particular, com a nota que diz por quê. Sugestão — não desfaz a escolha feita na mão.
+    /// </summary>
+    private void SugerirFormaPeloProfissional()
+    {
+        if (_formaEscolhidaNaMao || _lancado) return;
+        var sugere = FormaDeAtendimentoNaTela.SugereParticular(_profissional, _paciente);
+        _notaDoParticular = sugere ? FormaDeAtendimentoNaTela.PreMarcado(_profissional!, _paciente!) : null;
+        if (sugere == _particular) return;
+        _particular = sugere;
+        if (_paciente is { } p) Disparar(() => VerificarElegibilidadeAsync(p.Id));
     }
 
     private void TrocarPreventivo(ChangeEventArgs e)
@@ -921,6 +1014,7 @@
     {
         _profissional = int.TryParse(e.Value?.ToString(), out var id) ? _profissionais.FirstOrDefault(p => p.Id == id) : null;
         CarregarCatalogos();
+        SugerirFormaPeloProfissional();
         Disparar(PreverAsync);
         Disparar(ConferirConflitosAsync);
         Disparar(MontarHorasAsync);
@@ -1040,6 +1134,7 @@
             return;
         }
         var data = _data;
+        var particular = _particular;
         var baseMod = modalidade.Base;
         var especialidade = EhConsulta ? _especialidade?.Codigo : null;
         var primeiro = EhDupla ? _primeiroCodigo : null;
@@ -1051,15 +1146,17 @@
             var (previa, porModalidade) = await sp.GetRequiredService<AtendimentoService>().PreverComModalidadesAsync(
                 paciente.Id, data, baseMod, codigos, primeiroCodigo: primeiro,
                 modalidadeCodigo: modalidade.Codigo, especialidadeConsultaCodigo: especialidade,
-                coletaPreventivo: EhConsulta && _preventivo);
+                coletaPreventivo: EhConsulta && _preventivo, particular: particular);
 
             // ⚠️ Sequencial, nunca WhenAll — é o mesmo DbContext do escopo.
             var cobranca = CobrancaDaSessao.Nenhuma;
-            var ehParticular = !paciente.ConvenioADefinir
-                               && !CatalogoConvenios.GeraGuia(paciente.ConvenioCodigo ?? paciente.Convenio.ToString());
+            // Particular pela FICHA (parcela 60) ou por ESCOLHA deste horário (nov/2026) — a
+            // ficha "a definir" só conta quando alguém marcou a sessão como particular.
+            var ehParticular = particular
+                               || (!paciente.ConvenioADefinir && SessaoParticular.PelaFicha(paciente));
             if (ehParticular)
             {
-                var preco = await sp.GetRequiredService<PrecoParticularService>().ProporAsync(modalidade.Codigo, baseMod, especialidade, data);
+                var preco = await sp.GetRequiredService<PrecoParticularService>().ProporAsync(modalidade.Codigo, baseMod, especialidade, data, profissionalId: _profissional?.Id);
                 var pacote = await sp.GetRequiredService<PacoteService>().ADebitarAsync(paciente.Id, data);
                 cobranca = CobrancaDaSessao.Montar(ehParticular, preco, pacote);
             }
@@ -1111,7 +1208,8 @@
             using var escopo = Escopo();
             var resultado = await escopo.ServiceProvider.GetRequiredService<ElegibilidadeService>().ConferirAsync(pacienteId, _data);
             if (g != _gElegibilidade || _paciente?.Id != pacienteId) return;
-            _alertas = resultado.Alertas.Where(a => !AtendimentoDoBalcaoNaTela.JaDitoPelaTela(a.Motivo))
+            _alertas = FormaDeAtendimentoNaTela.AlertasDaSessao(resultado.Alertas, _particular)
+                .Where(a => !AtendimentoDoBalcaoNaTela.JaDitoPelaTela(a.Motivo))
                 .Select(a => (a.Descricao, a.Urgencia == NivelUrgencia.Vermelho, a.Motivo == ImpedimentoElegibilidade.PacienteEmDebito))
                 .ToList();
         }
@@ -1171,6 +1269,13 @@
                     _preventivo = _horarioDoDia.ColetaPreventivo;
                     Disparar(ConferirPreventivoAsync);
                 }
+            }
+            // O horário marcado como PARTICULAR chega assim ao lançamento (nov/2026): lançar
+            // sobre ele pelo convênio seria desfazer, sem ninguém ver, o que a agenda combinou.
+            if (!Marcar && _horarioDoDia is { Particular: true } && !_particular)
+            {
+                _particular = true;
+                Disparar(PreverAsync);
             }
         }
         catch (Exception ex)
@@ -1365,7 +1470,8 @@
         if (!TimeOnly.TryParse(_hora, out var hora)) { Avisar(AtendimentoDoBalcaoNaTela.RecusaSemHora(Marcar), "erro"); return; }
 
         // SEM CONVÊNIO NÃO SE LANÇA (parcela 92) — a condição vale onde o atendimento NASCE.
-        if (AtendimentoDoBalcaoNaTela.NasceAtendimento(Marcar, _guiaNaMarcacao) && paciente.ConvenioADefinir)
+        // A sessão PARTICULAR por escolha passa: a falta de guia é a decisão registrada no horário.
+        if (AtendimentoDoBalcaoNaTela.NasceAtendimento(Marcar, _guiaNaMarcacao) && paciente.ConvenioADefinir && !_particular)
         {
             if (!await Formularios.EscolherConvenioAsync(paciente.Id))
             {
@@ -1406,12 +1512,14 @@
                     horarioUsado.AgendamentoId, _observacoes,
                     modalidadeCodigo: modalidade.Codigo, especialidadeConsultaCodigo: especialidade,
                     primeiroCodigo: primeiro, profissionalId: _profissional?.Id, operador: Operador,
-                    salaId: _sala?.Id, concluirSessao: _jaRealizado, coletaPreventivo: EhConsulta && _preventivo)
+                    salaId: _sala?.Id, concluirSessao: _jaRealizado, coletaPreventivo: EhConsulta && _preventivo,
+                    particular: _particular)
                 : await agenda.LancarAvulsoAsync(
                     paciente.Id, _data.ToDateTime(hora), modalidade.Base, _observacoes,
                     modalidadeCodigo: modalidade.Codigo, especialidadeConsultaCodigo: especialidade,
                     primeiroCodigo: primeiro, profissionalId: _profissional?.Id, operador: Operador,
-                    salaId: _sala?.Id, concluirSessao: _jaRealizado, coletaPreventivo: EhConsulta && _preventivo);
+                    salaId: _sala?.Id, concluirSessao: _jaRealizado, coletaPreventivo: EhConsulta && _preventivo,
+                    particular: _particular);
 
             agendamentoId = agendamento.Id;
             var hoje = DateOnly.FromDateTime(DateTime.Today);
@@ -1534,7 +1642,7 @@
                 profissionalId: _profissional?.Id, salaId: _sala?.Id,
                 duracaoMinutos: AtendimentoDoBalcaoNaTela.DuracaoInformada(_duracao), encaixe: _comoEncaixe,
                 operador: Operador, primeiroCodigo: EhDupla ? _primeiroCodigo : null,
-                coletaPreventivo: EhConsulta && _preventivo);
+                coletaPreventivo: EhConsulta && _preventivo, particular: _particular);
 
             if (ag.Atendimento is { } atendimento)
             {
@@ -1648,6 +1756,7 @@
         DefinirModalidade(null, prever: false);
         _especialidade = null;
         _preventivo = false;
+        _particular = false;
         _vagasPreventivo = null;
         _proximosPreventivo = [];
         _sala = null;

@@ -26,3 +26,8 @@
 .agf-preventivo{display:flex;align-items:center;gap:var(--space-2);grid-column:1/-1;cursor:pointer}
 .agf-preventivo input{width:16px;height:16px;accent-color:var(--acento)}
 .agf-preventivo small{color:var(--texto-secundario)}
+
+/* O dinheiro da sessão PARTICULAR, dito na marcação (nov/2026): preço de tabela ou pacote. */
+.agf-cobranca{display:flex;align-items:flex-start;gap:var(--space-2);margin:0;padding:var(--space-3) var(--space-4);
+  border-radius:var(--radius-control);background:var(--superficie-hover);line-height:1.45}
+.agf-cobranca svg{flex:none;margin-top:2px;color:var(--texto-secundario)}

@@ -35,6 +35,11 @@ public sealed record ProfissionalNoRelatorio(int ProfissionalId, string Profissi
 {
     public int Quantidade => Atendimentos.Count;
     public int PacientesDistintos => Atendimentos.Select(a => a.PacienteId).Distinct().Count();
+    /// <summary>
+    /// Quantos foram PARTICULARES — pela ficha ou pela marca do horário (nov/2026, o pedido
+    /// das médicas: "para a gente ter um relatório de quantas consultas particulares têm").
+    /// </summary>
+    public int Particulares => Atendimentos.Count(a => a.Particular);
     public decimal TotalTabela => Atendimentos.Sum(a => a.ValorTabela ?? 0m);
     public decimal TotalRecebido => Atendimentos.Sum(a => a.Recebido);
     /// <summary>Atendimentos de convênio cujo valor de tabela não pôde ser calculado (preço não cadastrado).</summary>
@@ -45,6 +50,7 @@ public sealed record ProfissionalNoRelatorio(int ProfissionalId, string Profissi
 public sealed record RelatorioAtendimentosPorProfissional(DateOnly Inicio, DateOnly Fim, IReadOnlyList<ProfissionalNoRelatorio> Profissionais)
 {
     public int Quantidade => Profissionais.Sum(p => p.Quantidade);
+    public int Particulares => Profissionais.Sum(p => p.Particulares);
     public decimal TotalTabela => Profissionais.Sum(p => p.TotalTabela);
     public decimal TotalRecebido => Profissionais.Sum(p => p.TotalRecebido);
     public int SemPreco => Profissionais.Sum(p => p.SemPreco);
@@ -148,7 +154,9 @@ public sealed class AtendimentosPorProfissionalService
         Agendamento ag, Atendimento atendimento, decimal recebido, CancellationToken ct)
     {
         var paciente = atendimento.Paciente ?? ag.Paciente;
-        var particular = AgendaDoDiaNaTela.EhParticular(paciente);
+        // Particular pela ficha OU pela marca da sessão (nov/2026: "a paciente tem plano, mas
+        // eu não atendo o plano dela") — a mesma pergunta do fechamento e da fila.
+        var particular = SessaoParticular.Eh(paciente, atendimento.Particular || ag.Particular);
         // As guias que a operadora PAGA: a dispensada (não aplicável) e a justificada como não
         // conformidade não viram valor de ninguém.
         var guias = atendimento.Codigos
@@ -242,7 +250,7 @@ public sealed class AtendimentosPorProfissionalService
     public static byte[] Pdf(RelatorioAtendimentosPorProfissional r, string? profissional, string? nomeClinica)
     {
         var secoes = r.Profissionais.Select(p => new SecaoRelatorioPdf(
-            $"{p.Profissional} — {p.Quantidade} atendimento(s), {p.PacientesDistintos} paciente(s)",
+            $"{p.Profissional} — {p.Quantidade} atendimento(s), {p.Particulares} particular(es), {p.PacientesDistintos} paciente(s)",
             ColunasPdf, PesosPdf,
             p.Atendimentos.Select(a => (IReadOnlyList<string>)
             [
@@ -265,6 +273,7 @@ public sealed class AtendimentosPorProfissionalService
             recorte,
             [
                 new("Atendimentos", r.Quantidade.ToString(PtBr)),
+                new("Particulares", r.Particulares.ToString(PtBr)),
                 new("Profissionais", r.Profissionais.Count.ToString(PtBr)),
                 new("Valor de tabela (convênios)", Dinheiro(r.TotalTabela)),
                 new("Recebido no caixa", Dinheiro(r.TotalRecebido)),

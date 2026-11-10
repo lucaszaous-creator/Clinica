@@ -96,6 +96,29 @@ public class Profissional
     /// <summary>Trava compartilhada: impede sobreposição, bloqueios e marcação fora da jornada.</summary>
     public bool AgendaProtegida { get; set; }
 
+    /// <summary>
+    /// Os convênios que este profissional NÃO atende (nov/2026 — "a endocrinologista não atende
+    /// a Unimed, a psiquiatra não atende a Unimed"): os códigos do catálogo, separados por
+    /// ponto e vírgula. Vazio = atende todos, que é o caso de quem já estava cadastrado.
+    ///
+    /// Guarda-se o que ele NÃO atende, e não o que atende, porque a exceção é o que a clínica
+    /// sabe dizer — e porque convênio novo cadastrado amanhã nasce atendido por todos, sem
+    /// ninguém precisar voltar a cada profissional. É o que PRÉ-MARCA "Particular" na
+    /// marcação; a escolha final continua sendo de quem marca.
+    /// </summary>
+    public string? ConveniosNaoAtendidos { get; set; }
+
+    /// <summary>Os códigos de <see cref="ConveniosNaoAtendidos"/>, sem vazios nem repetidos.</summary>
+    public IReadOnlyList<string> CodigosNaoAtendidos
+        => (ConveniosNaoAtendidos ?? string.Empty)
+            .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+    /// <summary>Este profissional não atende pelo convênio da ficha deste paciente?</summary>
+    public bool NaoAtende(Paciente? paciente)
+        => paciente is not null && !paciente.ConvenioADefinir
+           && CodigosNaoAtendidos.Contains(paciente.ConvenioCodigo ?? paciente.Convenio.ToString(), StringComparer.OrdinalIgnoreCase);
+
     // ==================== Jornada: dias e horário de atendimento (set/2026) ====================
     //
     // Até aqui o cadastro só tinha a duração padrão e o "ativo": quem atende terça e quinta

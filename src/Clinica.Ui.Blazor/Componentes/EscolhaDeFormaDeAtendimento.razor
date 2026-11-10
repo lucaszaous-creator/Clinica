@@ -1,0 +1,52 @@
+@*
+  CONVÊNIO ou PARTICULAR — a escolha do HORÁRIO (nov/2026, pedido das médicas: a paciente tem
+  plano, mas quem atende não o aceita). Um componente só para as duas portas de marcação
+  (AgendamentoForm e AtendimentoDoBalcao): duas cópias da mesma pergunta divergiriam.
+
+  Ele não decide nada: mostra o plano da ficha de um lado, "Particular" do outro, e devolve o
+  booleano. O que a escolha FAZ (dispensar a guia, cobrar no caixa, contar como particular)
+  mora no domínio (SessaoParticular) e no AtendimentoService; os textos, em
+  FormaDeAtendimentoNaTela (Application, com teste).
+
+  Some quando a ficha já é particular — não há o que escolher.
+*@
+@namespace Clinica.Ui.Blazor.Componentes
+@using Clinica.Application.Modelos
+
+@if (FormaDeAtendimentoNaTela.OfereceEscolha(Paciente))
+{
+    <div class="forma-atendimento">
+        <span class="forma-atendimento-rotulo" id="@_idRotulo">@FormaDeAtendimentoNaTela.Rotulo</span>
+        <div class="segmentado" role="group" aria-labelledby="@_idRotulo">
+            <button type="button" aria-pressed="@(Particular ? "false" : "true")" disabled="@Desabilitado"
+                    @onclick="() => EscolherAsync(false)">@FormaDeAtendimentoNaTela.RotuloConvenio(Paciente!)</button>
+            <button type="button" aria-pressed="@(Particular ? "true" : "false")" disabled="@Desabilitado"
+                    @onclick="() => EscolherAsync(true)">@FormaDeAtendimentoNaTela.RotuloParticular</button>
+        </div>
+        @if (Particular)
+        {
+            <p class="forma-atendimento-nota">@FormaDeAtendimentoNaTela.Explicacao(Paciente!, true)</p>
+        }
+        @if (!string.IsNullOrEmpty(Nota))
+        {
+            <p class="forma-atendimento-nota forma-atendimento-sugestao">@Nota</p>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public Paciente? Paciente { get; set; }
+    [Parameter] public bool Particular { get; set; }
+    [Parameter] public EventCallback<bool> ParticularChanged { get; set; }
+    [Parameter] public bool Desabilitado { get; set; }
+    /// <summary>Por que a escolha veio assim (o profissional não atende o plano) — some quando a pessoa escolhe.</summary>
+    [Parameter] public string? Nota { get; set; }
+
+    private readonly string _idRotulo = "forma-" + Guid.NewGuid().ToString("N")[..8];
+
+    private async Task EscolherAsync(bool particular)
+    {
+        if (particular == Particular) return;
+        await ParticularChanged.InvokeAsync(particular);
+    }
+}
