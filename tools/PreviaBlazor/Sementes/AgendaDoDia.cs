@@ -79,6 +79,14 @@ public sealed class SementeAgendaDoDia : ISemente
                 PacienteId = p.Id, Data = DateOnly.FromDateTime(quando), Modalidade = ModalidadeAtendimento.Consulta,
                 EspecialidadeConsultaCodigo = tipo, Particular = particular, RealizadoEm = quando.AddMinutes(40)
             };
+            // Pelo plano, a consulta deixa a guia pendente de baixa — é a linha que o faturista vê.
+            if (!particular)
+                atendimento.Codigos.Add(new CodigoFaturamento
+                {
+                    Tipo = TipoCodigo.Consulta, Ordem = OrdemCodigo.Primeiro, EspecialidadeCodigo = tipo,
+                    DataPrevistaFaturamento = DateOnly.FromDateTime(quando), FormaObtencao = FormaObtencao.NaoAplica,
+                    Status = StatusCodigo.Aberto, Descricao = $"Consulta de {tipo}."
+                });
             db.Add(atendimento);
             db.SaveChanges();
             db.Add(new Agendamento

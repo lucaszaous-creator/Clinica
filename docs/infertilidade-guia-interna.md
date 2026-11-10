@@ -83,8 +83,26 @@ repasse — **Financeiro → Repasses → Atendimentos por profissional** — em
 - 📸 A foto achou um defeito do próprio acréscimo: com os quadros abaixo, o corpo flexível do
   formulário espremia a tabela dos profissionais até UMA linha. Corrigido em `repasses.css`.
 
+## No faturamento: o selo do TIPO antes da baixa (10/11/2026)
+
+A direção: "não seria de bom tom ter algum selo sinalizando ao que se refere aquele
+atendimento no faturamento, antes de o faturista dar baixa?"
+
+- No painel **Pendências do faturamento**, a guia de consulta mostra o selo com o **tipo de
+  atendimento** ("Infertilidade", "Ginecologia", "Suplementação para gestante"…), lido pelo
+  catálogo — os tipos novos não estão no enum, e a linha os mostrava sem dizer do que eram.
+- A **guia interna NÃO aparece no faturamento**, de propósito: a baixa é o ato de efetivar a
+  guia no sistema do convênio, e a guia interna foi aceita como controle da agenda e do
+  relatório. `PendenciaCodigo` nem a carrega, e um teste prende isso.
+- A Consulta de guias já lia o tipo pelo catálogo (`ConsultaDeGuiasNaTela.Especialidade`).
+- ⚠️ É mudança na tela de quem fatura (`PendenciaCodigo` é compartilhado): só chega ao app de
+  faturamento instalado com uma release dele — decisão do dono.
+
 ## O que NÃO foi feito
 
+- Selo "Particular" e aviso na baixa do faturamento: a sessão particular não gera guia
+  pendente, então não há linha onde pôr o selo; o aviso na baixa seria recusa/alerta novo no
+  fluxo de quem fatura e fica para decisão.
 - A **regra de repasse** por guia interna (percentual por profissional) — o relatório mostra
   a contagem e o recebido; a conta do repasse continua a das regras já cadastradas.
 - O relatório conta atendimentos REALIZADOS (o mesmo critério da folha); o que está só marcado

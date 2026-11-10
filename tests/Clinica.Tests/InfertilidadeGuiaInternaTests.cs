@@ -261,6 +261,29 @@ public class InfertilidadeGuiaInternaTests : IDisposable
         relatorio.PorGuiaInterna.Should().BeEmpty();
     }
 
+    // ==================== o faturamento ====================
+
+    [Fact]
+    public async Task No_painel_do_faturamento_a_guia_pendente_diz_o_TIPO_do_atendimento_e_nunca_a_guia_interna()
+    {
+        // O selo que o faturista lê antes da baixa é o tipo ("Infertilidade"). A guia interna é
+        // controle da agenda e do relatório: a linha de pendência nem a carrega.
+        await new EspecialidadeCatalogoService(new ClinicaRepositorio(_db)).RecarregarCacheAsync();
+        var p = await PacienteAsync();
+        var horario = await ConsultaDoTipoAsync(p.Id, Segunda, "Infertilidade", "Geriatria");
+        await _agenda.ConfirmarPresencaAsync(horario.Id, operador: "recepcao");
+        _db.ChangeTracker.Clear();
+
+        var pendencias = await new PendenciaService(new ClinicaRepositorio(_db))
+            .PendenciasDoPacienteAsync(p.Id, DateOnly.FromDateTime(Segunda.AddDays(1)));
+
+        var linha = pendencias.Single();
+        linha.TipoDeAtendimento.Should().Be("Infertilidade");
+        linha.Especialidade.Should().BeNull("o tipo novo não está no enum — por isso a linha lê o catálogo");
+        typeof(PendenciaCodigo).GetProperties().Select(x => x.Name)
+            .Should().NotContain(n => n.Contains("GuiaInterna") || n.Contains("InfertilidadeGuia"));
+    }
+
     // ==================== a premissa ====================
 
     [Fact]

@@ -214,7 +214,9 @@
                                     </td>
                                     <td class="col-conv">@Copiavel(p.ConvenioNome, null)</td>
                                     <td>
-                                        @if (p.Modalidade is { } mod) { <span class="secundario modalidade">@ModalidadeInfo.NomeExibicao(mod)@(p.Especialidade is { } esp ? $" · {EspecialidadeInfo.NomeExibicao(esp)}" : null)</span> }
+                                        @if (p.Modalidade is { } mod) { <span class="secundario modalidade">@ModalidadeInfo.NomeExibicao(mod)</span> }
+                                        @* O TIPO do atendimento, à vista antes da baixa (nov/2026) — pelo catálogo: os tipos novos não estão no enum. *@
+                                        @if (p.TipoDeAtendimento is { } tipo) { <Selo Tom="info" Dica="O tipo de atendimento a que esta guia se refere">@tipo</Selo> }
                                         @Copiavel(RotulosEnum.De(p.Tipo), null)
                                         <span class="secundario">@RotulosEnum.De(p.Ordem) · @PainelPendenciasFaturamento.ComoObter(p.FormaObtencao)</span>
                                     </td>

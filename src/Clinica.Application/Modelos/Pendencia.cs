@@ -66,6 +66,21 @@ public sealed record PendenciaCodigo(
     public Especialidade? Especialidade { get; init; }
 
     /// <summary>
+    /// O código da especialidade no CATÁLOGO (nov/2026). Os tipos de atendimento novos —
+    /// Infertilidade, Suplementação para gestante — não estão no enum acima, e a linha que só
+    /// lesse o enum mostraria a guia deles sem dizer do que é. Aditivo, <c>init</c> com padrão nulo.
+    /// </summary>
+    public string? EspecialidadeCodigo { get; init; }
+
+    /// <summary>
+    /// O TIPO DE ATENDIMENTO a que a guia se refere, pelo nome que a clínica vê — é o selo que
+    /// o faturista lê antes da baixa. Nulo quando a guia não tem especialidade.
+    /// </summary>
+    public string? TipoDeAtendimento => EspecialidadeCodigo is { Length: > 0 } codigo
+        ? CatalogoEspecialidades.Nome(codigo)
+        : Especialidade is { } e ? EspecialidadeInfo.NomeExibicao(e) : null;
+
+    /// <summary>
     /// Data do ATENDIMENTO que gerou a guia (nov/2026, pedido da gerência: "filtrar as
     /// pendências por período"). É o mesmo período da Consulta de guias ("De (atendimento)")
     /// — a prevista muda com a regra do convênio, o dia em que o paciente veio não. Nulo só
