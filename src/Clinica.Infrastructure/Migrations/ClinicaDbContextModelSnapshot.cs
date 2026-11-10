@@ -168,6 +168,10 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<bool?>("HouveAtendimentoEnfermagem")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("InfertilidadeGuiaDe")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
                     b.Property<DateTime?>("InicioAtendimentoEm")
                         .HasColumnType("timestamp without time zone");
 

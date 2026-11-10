@@ -451,6 +451,7 @@ public class ClinicaDbContext : DbContext
             e.Property(a => a.ModalidadeCodigo).HasMaxLength(40);
             e.Property(a => a.EspecialidadeConsulta).HasConversion<string>().HasMaxLength(30);
             e.Property(a => a.EspecialidadeConsultaCodigo).HasMaxLength(40);
+            e.Property(a => a.InfertilidadeGuiaDe).HasMaxLength(40);
             e.Property(a => a.Status).HasConversion<string>().HasMaxLength(20);
             e.Property(a => a.Origem).HasConversion<string>().HasMaxLength(20);
             // TEXTO, como todo enum deste banco. Gravado como int, acrescentar um valor no

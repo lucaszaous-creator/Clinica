@@ -636,3 +636,6 @@ td .selo{margin-left:0}
 .cobertura-especialidades{border:1px solid var(--borda);border-radius:var(--radius-control);padding:var(--space-3) var(--space-4);margin:var(--space-3) 0}
 .cobertura-especialidades legend{font-weight:600;padding:0 var(--space-2)}
 .cobertura-lista{display:grid;grid-template-columns:repeat(auto-fill,minmax(11rem,1fr));gap:var(--space-2) var(--space-4);margin-top:var(--space-2)}
+.infertilidade{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2) var(--space-4)}
+.infertilidade-guia{display:inline-flex;align-items:center;gap:var(--space-2);font-weight:600;color:var(--texto-secundario)}
+.infertilidade .campo-dica{flex-basis:100%}

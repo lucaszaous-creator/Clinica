@@ -60,6 +60,12 @@
                    ficha fica como está. O preço aparece aqui para ser combinado ANTES do dia. *@
                 <EscolhaDeFormaDeAtendimento Paciente="_paciente" Particular="_particular" ParticularChanged="TrocarParticular" Nota="@_notaDoParticular"
                                              Respondida="@(Edicao || _formaEscolhidaNaMao)" />
+                @* ATENDIMENTO DE INFERTILIDADE (nov/2026): a marca e a guia interna em que ele é
+                   lançado — controle interno. O chamado da lista de espera não a oferece. *@
+                @if (PedidoListaEsperaId is null)
+                {
+                    <EscolhaDeInfertilidade Guia="@_infertilidadeGuiaDe" GuiaChanged="@(g => { _infertilidadeGuiaDe = g; _mensagem = null; })" />
+                }
                 @if (!string.IsNullOrEmpty(_cobranca))
                 {
                     <p class="agf-cobranca"><Icone Nome="moeda" />@_cobranca</p>
@@ -267,6 +273,8 @@
     private bool _particular;
     /// <summary>A pessoa clicou na escolha: a pré-marcação pelo profissional para de valer para este paciente.</summary>
     private bool _formaEscolhidaNaMao;
+    /// <summary>null = não é infertilidade; "" = é, falta escolher a guia; código = a guia interna.</summary>
+    private string? _infertilidadeGuiaDe;
     private string? _notaDoParticular;
     /// <summary>A frase do dinheiro quando a sessão é particular (preço de tabela ou pacote); vazia no convênio.</summary>
     private string _cobranca = string.Empty;
@@ -449,6 +457,7 @@
         _modalidade = _modalidadeDoHorario;
         _especialidade = _especialidadeDoHorario;
         _preventivo = ag.ColetaPreventivo;
+        _infertilidadeGuiaDe = ag.InfertilidadeGuiaDe;
         _particular = ag.Particular;
         CarregarCatalogos(_modalidadeDoHorario.Codigo);
 
@@ -501,6 +510,7 @@
         _particular = false;
         _formaEscolhidaNaMao = false;
         _notaDoParticular = null;
+        _infertilidadeGuiaDe = null;
         SugerirFormaPeloProfissional();
         Disparar(ConferirConflitosAsync);
         Disparar(ConferirElegibilidadeAsync);
@@ -762,6 +772,8 @@
         }
         var paciente = _paciente!;
         var modalidade = _modalidade!;
+        // Marcou infertilidade e não disse a guia: recusa aqui, com a mesma frase do serviço.
+        if (_infertilidadeGuiaDe is { Length: 0 }) { _mensagem = InfertilidadeNaTela.RecusaSemGuia; return; }
         if (!await GarantirFormaRespondidaAsync(paciente)) return;
         AgendamentoNaTela.TentarMontarDataHora(_data, _hora, out var dataHora);
         var duracao = AgendamentoNaTela.DuracaoInformada(_duracao);
@@ -815,7 +827,9 @@
                     duracaoMinutos: duracao,
                     manterRecursos: false, encaixe: _encaixe,
                     avisosGuia: avisos, coletaPreventivo: EhConsulta && _preventivo,
-                    particular: _particular);
+                    particular: _particular,
+                    // Na edição o formulário SABE da marca: vazio limpa, código troca.
+                    infertilidadeGuiaDe: _infertilidadeGuiaDe ?? string.Empty);
             }
             else if (PedidoListaEsperaId is { } pedidoId)
             {
@@ -839,7 +853,7 @@
                     profissionalId: _profissional?.Id, salaId: _sala?.Id,
                     duracaoMinutos: duracao, encaixe: _encaixe,
                     operador: Operador, coletaPreventivo: EhConsulta && _preventivo,
-                    particular: _particular);
+                    particular: _particular, infertilidadeGuiaDe: _infertilidadeGuiaDe);
             }
 
             await AoConcluir.InvokeAsync(avisos);

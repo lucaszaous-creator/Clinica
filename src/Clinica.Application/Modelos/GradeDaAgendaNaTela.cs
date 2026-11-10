@@ -94,6 +94,11 @@ public sealed record CartaoDaGrade
 
     /// <summary>A frase com a data — a dica do selo e a linha da janela do horário.</summary>
     public string? AvisoDaConsulta => ConsultaARenovar?.AvisoRenovacao;
+
+    /// <summary>A guia interna do atendimento de infertilidade (nov/2026); nulo quando não é.</summary>
+    public string? InfertilidadeGuiaDe { get; init; }
+    public string? SeloDaInfertilidade => InfertilidadeNaTela.Selo(InfertilidadeGuiaDe);
+    public string? DicaDaInfertilidade => InfertilidadeNaTela.DicaDoSelo(InfertilidadeGuiaDe);
     public required bool EhRetornoDoSegundoCodigo { get; init; }
     public required bool VeioDaListaEspera { get; init; }
     public string? Observacoes { get; init; }
@@ -316,6 +321,7 @@ public static class GradeDaAgendaNaTela
         int? profissionalDaColuna = null, IReadOnlyDictionary<int, StatusConsultaPaciente>? consultas = null) => new()
     {
         ConsultaARenovar = consultas is not null && consultas.TryGetValue(a.Id, out var consulta) ? consulta : null,
+        InfertilidadeGuiaDe = a.InfertilidadeGuiaDe,
         AgendamentoId = a.Id,
         PacienteId = a.PacienteId,
         ProfissionalId = profissionalDaColuna ?? a.ProfissionalId,

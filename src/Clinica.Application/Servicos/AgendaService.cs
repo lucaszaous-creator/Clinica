@@ -207,8 +207,12 @@ public sealed class AgendaService
         string? especialidadeConsultaCodigo = null,
         int? profissionalId = null, int? salaId = null, int? duracaoMinutos = null,
         bool encaixe = false, string? operador = null, TipoCodigo? primeiroCodigo = null,
-        bool coletaPreventivo = false, bool particular = false)
+        bool coletaPreventivo = false, bool particular = false, string? infertilidadeGuiaDe = null)
     {
+        // A guia INTERNA do atendimento de infertilidade (nov/2026): nulo = não é. Validada
+        // antes de qualquer gravação — só classificação interna, não entra em regra de guia.
+        infertilidadeGuiaDe = InfertilidadeNaTela.Normalizar(infertilidadeGuiaDe is not null, infertilidadeGuiaDe);
+
         // Variante do catálogo: a base (comportamento) vem do código. Sem código, usa o enum.
         if (modalidadeCodigo is not null)
             modalidade = CatalogoModalidades.Base(modalidadeCodigo);
@@ -286,6 +290,7 @@ public sealed class AgendaService
             // PARTICULAR por escolha (nov/2026): a ficha tem convênio, e este horário não vai
             // por ele. Atravessa o horário para chegar ao motor, como o primeiro código.
             Particular = particular,
+            InfertilidadeGuiaDe = infertilidadeGuiaDe,
             // Quem marcou, e quando. O operador chega da TELA (`SessaoUsuario.Atual`) —
             // este serviço não lê a sessão, pela mesma razão dos demais: é o chamador que
             // sabe quem está logado.
@@ -342,10 +347,16 @@ public sealed class AgendaService
         int? profissionalId = null, int? salaId = null, int? duracaoMinutos = null,
         bool manterRecursos = true, bool encaixe = false,
         ICollection<string>? avisosGuia = null, bool? coletaPreventivo = null,
-        bool? particular = null)
+        bool? particular = null, string? infertilidadeGuiaDe = null)
     {
         var ag = await _repo.ObterAgendamentoAsync(agendamentoId, ct)
             ?? throw new InvalidOperationException("Agendamento não encontrado.");
+
+        // A guia interna da infertilidade (nov/2026): NULO preserva (o faturamento, o Empurrar e
+        // a grade remarcam sem saber dela); vazio LIMPA; um código troca — validado aqui.
+        var novaGuiaDeInfertilidade = infertilidadeGuiaDe is null
+            ? ag.InfertilidadeGuiaDe
+            : InfertilidadeNaTela.Normalizar(infertilidadeGuiaDe.Trim().Length > 0, infertilidadeGuiaDe);
 
         if (ag.Status == StatusAgendamento.Realizado)
             throw new InvalidOperationException(
@@ -465,6 +476,19 @@ public sealed class AgendaService
         }
         ag.ColetaPreventivo = novoPreventivo;
         ag.Particular = novoParticular;
+        if (!string.Equals(novaGuiaDeInfertilidade, ag.InfertilidadeGuiaDe, StringComparison.OrdinalIgnoreCase))
+        {
+            // Rastreável: a troca da guia interna fica na trilha, no MESMO SaveChanges do ato.
+            await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+            {
+                Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
+                Acao = "InfertilidadeGuiaInterna",
+                Detalhe = $"Horário de {dataHora:dd/MM/yyyy HH:mm}: guia interna da infertilidade "
+                          + $"de \"{InfertilidadeNaTela.Selo(ag.InfertilidadeGuiaDe) ?? "nenhuma"}\" "
+                          + $"para \"{InfertilidadeNaTela.Selo(novaGuiaDeInfertilidade) ?? "nenhuma"}\"."
+            }, ct);
+            ag.InfertilidadeGuiaDe = novaGuiaDeInfertilidade;
+        }
         ag.Observacoes = observacoes;
         // Remarcar um horário cancelado/faltado/substituído o traz de volta para a agenda.
         // O vínculo com a sessão que o substituiu vai embora junto: horário reaberto é

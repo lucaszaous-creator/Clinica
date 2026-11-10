@@ -6,7 +6,7 @@ mora o código. Mexer numa área? Leia antes o tópico dela — vários registra
 teste pega. Lição nova de uma área entra aqui, no tópico dela; regra que vale para TODA mudança
 continua no `CLAUDE.md`.
 
-## Índice (193 tópicos, na ordem do arquivo)
+## Índice (194 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -203,6 +203,7 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
 - SUL AMÉRICA: ACUPUNTURA + ELETRO NO MESMO DIA, E O INTERVALO ENTRE AUTORIZAÇÕES
 - CONSULTA VENCIDA / A RENOVAR NA AGENDA — o selo e quando ele se cala
 - COBERTURA DO CONVÊNIO — o que a clínica aceita MARCAR por um plano
+- INFERTILIDADE: A GUIA INTERNA DO HORÁRIO — classificação, nunca regra de guia
 
 ---
 
@@ -4846,3 +4847,11 @@ que a regra nunca alcança. Quem já estava na agenda fica como está (concluir 
 horário existente não conferem). O convênio com intervalo próprio sai da trava geral de
 consulta. Porta nova de marcação passa por `GarantirCoberturaDoConvenioAsync`, ao lado da trava.
 Detalhes: `docs/cobertura-do-convenio.md`.
+
+- **INFERTILIDADE: A GUIA INTERNA DO HORÁRIO — classificação, nunca regra de guia** (nov/2026):
+`Agendamento.InfertilidadeGuiaDe` guarda em qual guia interna (Geriatria ou Psiquiatria) o
+atendimento de infertilidade é lançado, para controle, relatório e repasse. A direção o pediu
+dizendo que "não vai para o convênio", e o campo foi aceito NESSA premissa: ele não pode entrar
+em regra de guia, código TISS, lote nem XML — quem atende é o profissional do horário. O teste
+`A_marca_e_so_classificacao_interna_as_guias_geradas_sao_as_mesmas` prende isso. Remarcar sem o
+parâmetro preserva; vazio limpa; a troca vai à trilha. Detalhes: `docs/infertilidade-guia-interna.md`.

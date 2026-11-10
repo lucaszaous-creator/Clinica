@@ -1,0 +1,45 @@
+@*
+  ATENDIMENTO DE INFERTILIDADE — a marca do HORÁRIO e a guia interna em que ele é lançado
+  (nov/2026, pedido da direção: "sinalizar, já no agendamento, na guia de quem vai passar").
+  Um componente só para as duas portas de marcação (AgendamentoForm e AtendimentoDoBalcao).
+
+  Ele não decide nada: liga a marca e devolve o código da guia. As opções, os textos e a recusa
+  de "marcou e não disse a guia" moram em InfertilidadeNaTela (Application, com teste), e a
+  validação que vale é a da AgendaService. Controle INTERNO — não entra em guia do convênio.
+
+  O valor: null = não é infertilidade; "" = é, e a guia ainda não foi escolhida; código = escolhida.
+*@
+@namespace Clinica.Ui.Blazor.Componentes
+@using Clinica.Application.Modelos
+
+<div class="infertilidade">
+    <label class="alternar">
+        <input type="checkbox" checked="@Marcada" disabled="@Desabilitado" @onchange="e => MarcarAsync(e.Value is true)" />
+        @InfertilidadeNaTela.Rotulo
+    </label>
+    @if (Marcada)
+    {
+        <label class="infertilidade-guia">
+            <span>@InfertilidadeNaTela.RotuloDaGuia</span>
+            <select class="campo" value="@(Guia ?? string.Empty)" disabled="@Desabilitado"
+                    @onchange="e => GuiaChanged.InvokeAsync(e.Value?.ToString() ?? string.Empty)">
+                <option value="">Escolha a guia</option>
+                @foreach (var o in InfertilidadeNaTela.Opcoes)
+                {
+                    <option value="@o.Codigo">@o.Nome</option>
+                }
+            </select>
+        </label>
+        <span class="campo-dica">@InfertilidadeNaTela.Dica</span>
+    }
+</div>
+
+@code {
+    [Parameter] public string? Guia { get; set; }
+    [Parameter] public EventCallback<string?> GuiaChanged { get; set; }
+    [Parameter] public bool Desabilitado { get; set; }
+
+    private bool Marcada => Guia is not null;
+
+    private Task MarcarAsync(bool marcada) => GuiaChanged.InvokeAsync(marcada ? string.Empty : null);
+}

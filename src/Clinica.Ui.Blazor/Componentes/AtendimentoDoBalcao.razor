@@ -57,6 +57,11 @@
                        plano e quem atende não o aceita. A ficha continua com o convênio dela. *@
                     <EscolhaDeFormaDeAtendimento Paciente="_paciente" Particular="_particular" ParticularChanged="TrocarParticular" Nota="@_notaDoParticular"
                                                  Respondida="FormaRespondida" />
+                    @* ATENDIMENTO DE INFERTILIDADE (nov/2026): só onde nasce o HORÁRIO (Marcar). *@
+                    @if (Marcar && !_lancado)
+                    {
+                        <EscolhaDeInfertilidade Guia="@_infertilidadeGuiaDe" GuiaChanged="@(g => { _infertilidadeGuiaDe = g; _mensagem = null; })" />
+                    }
                     @* A TRAVA DE CONSULTA do convênio (nov/2026): só onde nasce um horário NOVO — lançar
                        sobre o horário que já está na agenda não a confere (a trava é da marcação). *@
                     @if (!UsarHorarioDoDia && !_lancado)
@@ -484,6 +489,8 @@
     private bool _particular;
     /// <summary>A pessoa clicou na escolha: a pré-marcação pelo profissional para de valer para este paciente.</summary>
     private bool _formaEscolhidaNaMao;
+    /// <summary>null = não é infertilidade; "" = é, falta escolher a guia; código = a guia interna.</summary>
+    private string? _infertilidadeGuiaDe;
     private string? _notaDoParticular;
 
     /// <summary>A trava de consulta do convênio acendeu (a box decide); só vale onde nasce horário novo.</summary>
@@ -799,6 +806,7 @@
         // particular, se quem atende não atende o plano dela.
         _particular = false;
         _formaEscolhidaNaMao = false;
+        _infertilidadeGuiaDe = null;
         _notaDoParticular = null;
         SugerirFormaPeloProfissional();
         _jaRealizado = false;
@@ -851,6 +859,7 @@
         _paciente = null;
         _particular = false;
         _formaEscolhidaNaMao = false;
+        _infertilidadeGuiaDe = null;
         _notaDoParticular = null;
         _contextoDoPedido = null;
         _gPrevia++; _gElegibilidade++; _gJaLancado++; _gHorarioDoDia++; _gConsulta++; _gAutorizacao++; _gPendencias++;
@@ -1492,6 +1501,7 @@
         if (_modalidade is not { } modalidade) { Avisar("Selecione a modalidade.", "erro"); return; }
         if (EhConsulta && _especialidade is null) { Avisar("Informe a especialidade da consulta.", "erro"); return; }
         if (!TimeOnly.TryParse(_hora, out var hora)) { Avisar(AtendimentoDoBalcaoNaTela.RecusaSemHora(Marcar), "erro"); return; }
+        if (Marcar && _infertilidadeGuiaDe is { Length: 0 }) { Avisar(InfertilidadeNaTela.RecusaSemGuia, "erro"); return; }
         if (!await GarantirFormaRespondidaAsync(paciente)) return;
 
         // SEM CONVÊNIO NÃO SE LANÇA (parcela 92) — a condição vale onde o atendimento NASCE.
@@ -1667,7 +1677,8 @@
                 profissionalId: _profissional?.Id, salaId: _sala?.Id,
                 duracaoMinutos: AtendimentoDoBalcaoNaTela.DuracaoInformada(_duracao), encaixe: _comoEncaixe,
                 operador: Operador, primeiroCodigo: EhDupla ? _primeiroCodigo : null,
-                coletaPreventivo: EhConsulta && _preventivo, particular: _particular);
+                coletaPreventivo: EhConsulta && _preventivo, particular: _particular,
+                infertilidadeGuiaDe: _infertilidadeGuiaDe);
 
             if (ag.Atendimento is { } atendimento)
             {

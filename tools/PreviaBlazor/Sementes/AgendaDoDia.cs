@@ -88,6 +88,8 @@ public sealed class SementeAgendaDoDia : ISemente
         aHeitor.ChegadaEm = agora.AddMinutes(-12);
         aHeitor.Encaixe = true;
         aHeitor.Observacoes = "Trazer exames de imagem da última consulta.";
+        // Atendimento de infertilidade lançado numa guia interna (nov/2026): o selo da linha.
+        aHeitor.InfertilidadeGuiaDe = nameof(Especialidade.Geriatria);
 
         // Ainda vêm: confirmou, não confirmou, não vem, e um sem profissional.
         var aMarta = A(marta, 14, 0, ModalidadeAtendimento.AcupunturaComEletro, helena);

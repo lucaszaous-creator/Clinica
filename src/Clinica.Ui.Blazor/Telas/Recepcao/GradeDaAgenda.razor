@@ -242,11 +242,12 @@
                                                             @if (!c.Compacto)
                                                             {
                                                                 <span class="rg-contexto">@c.Contexto</span>
-                                                                @if (c.EhEncaixe || c.ParticularApesarDoConvenio || c.SeloDaConsulta is not null || c.NaoConfirmou || c.NaoVem || c.PediuCancelar || c.EhRetornoDoSegundoCodigo)
+                                                                @if (c.EhEncaixe || c.ParticularApesarDoConvenio || c.SeloDaInfertilidade is not null || c.SeloDaConsulta is not null || c.NaoConfirmou || c.NaoVem || c.PediuCancelar || c.EhRetornoDoSegundoCodigo)
                                                                 {
                                                                     <span class="rg-selos">
                                                                         @if (c.EhEncaixe) { <span class="rg-selo">Encaixe</span> }
                                                                         @if (c.ParticularApesarDoConvenio) { <span class="rg-selo" title="Horário particular: a ficha tem convênio, mas esta sessão não gera guia — a cobrança é no caixa">Particular</span> }
+                                                                        @if (c.SeloDaInfertilidade is { } seloInfertilidade) { <span class="rg-selo" title="@c.DicaDaInfertilidade">@seloInfertilidade</span> }
                                                                         @if (c.SeloDaConsulta is { } seloConsulta) { <span class="rg-selo @(c.ConsultaVencida ? "perigo" : "aviso")" title="@c.AvisoDaConsulta">@seloConsulta</span> }
                                                                         @if (c.NaoConfirmou) { <span class="rg-selo" title="Avisado na rodada de confirmação e ainda sem resposta">Não confirmou</span> }
                                                                         @if (c.NaoVem) { <span class="rg-selo perigo" title="O paciente respondeu que não vem — ligue para remarcar e libere o horário">Não vem — remarcar</span> }
