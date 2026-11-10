@@ -28,7 +28,24 @@ public sealed record AtendimentoDoProfissional(
     IReadOnlyList<string> Guias,
     decimal? ValorTabela,
     int GuiasSemPreco,
-    decimal Recebido);
+    decimal Recebido)
+{
+    /// <summary>
+    /// O TIPO DE ATENDIMENTO da consulta — "Infertilidade", "Ginecologia", "Suplementação para
+    /// gestante"… (nov/2026, a direção: "fica mais caracterizado o tipo de atendimento"). Vazio
+    /// quando não é consulta: acupuntura e BSV já se dizem pelo procedimento.
+    /// </summary>
+    public string TipoDeAtendimento { get; init; } = string.Empty;
+
+    /// <summary>
+    /// A GUIA INTERNA em que o atendimento de infertilidade foi lançado ("Geriatria",
+    /// "Psiquiatria"); nulo quando não é. Controle interno — vem do horário, não de guia do convênio.
+    /// </summary>
+    public string? GuiaInterna { get; init; }
+}
+
+/// <summary>Uma linha do resumo "por tipo de atendimento" ou "por guia interna".</summary>
+public sealed record ContagemDoRelatorio(string Nome, int Quantidade, int Particulares, decimal Recebido);
 
 /// <summary>Os atendimentos de UM profissional no período, com os totais.</summary>
 public sealed record ProfissionalNoRelatorio(int ProfissionalId, string Profissional, IReadOnlyList<AtendimentoDoProfissional> Atendimentos)
@@ -44,6 +61,12 @@ public sealed record ProfissionalNoRelatorio(int ProfissionalId, string Profissi
     public decimal TotalRecebido => Atendimentos.Sum(a => a.Recebido);
     /// <summary>Atendimentos de convênio cujo valor de tabela não pôde ser calculado (preço não cadastrado).</summary>
     public int SemPreco => Atendimentos.Count(a => a.GuiasSemPreco > 0);
+
+    /// <summary>As consultas deste profissional por TIPO de atendimento (nov/2026).</summary>
+    public IReadOnlyList<ContagemDoRelatorio> PorTipo => AtendimentosPorProfissionalService.ContarPorTipo(Atendimentos);
+
+    /// <summary>Os atendimentos de infertilidade por GUIA INTERNA em que foram lançados (nov/2026).</summary>
+    public IReadOnlyList<ContagemDoRelatorio> PorGuiaInterna => AtendimentosPorProfissionalService.ContarPorGuiaInterna(Atendimentos);
 }
 
 /// <summary>O relatório inteiro: período e um bloco por profissional.</summary>
@@ -54,6 +77,12 @@ public sealed record RelatorioAtendimentosPorProfissional(DateOnly Inicio, DateO
     public decimal TotalTabela => Profissionais.Sum(p => p.TotalTabela);
     public decimal TotalRecebido => Profissionais.Sum(p => p.TotalRecebido);
     public int SemPreco => Profissionais.Sum(p => p.SemPreco);
+
+    /// <summary>A clínica inteira por tipo de atendimento e por guia interna da infertilidade.</summary>
+    public IReadOnlyList<ContagemDoRelatorio> PorTipo
+        => AtendimentosPorProfissionalService.ContarPorTipo(Profissionais.SelectMany(p => p.Atendimentos));
+    public IReadOnlyList<ContagemDoRelatorio> PorGuiaInterna
+        => AtendimentosPorProfissionalService.ContarPorGuiaInterna(Profissionais.SelectMany(p => p.Atendimentos));
 }
 
 /// <summary>
@@ -179,7 +208,14 @@ public sealed class AtendimentosPorProfissionalService
             valor = semPreco == 0 ? soma : null;
         }
 
-        var especialidade = atendimento.EspecialidadeConsulta is { } e ? $" · {EspecialidadeInfo.NomeExibicao(e)}" : string.Empty;
+        // O TIPO pelo CATÁLOGO (nov/2026): os tipos novos — Infertilidade, Suplementação para
+        // gestante — não estão no enum, e ler só o enum os deixaria fora do relatório, em silêncio.
+        var codigoDoTipo = atendimento.EspecialidadeConsultaCodigo ?? atendimento.EspecialidadeConsulta?.ToString()
+                           ?? ag.EspecialidadeConsultaCodigo ?? ag.EspecialidadeConsulta?.ToString();
+        var tipo = atendimento.Modalidade == ModalidadeAtendimento.Consulta && codigoDoTipo is not null
+            ? CatalogoEspecialidades.Nome(codigoDoTipo) : string.Empty;
+        var guiaInterna = ag.EhInfertilidade ? CatalogoEspecialidades.Nome(ag.InfertilidadeGuiaDe) : null;
+        var especialidade = tipo.Length > 0 ? $" · {tipo}" : string.Empty;
         return new AtendimentoDoProfissional(
             ag.DataHora,
             atendimento.Id,
@@ -192,8 +228,40 @@ public sealed class AtendimentosPorProfissionalService
             guias.Select(g => $"{RotulosEnum.De(g.Tipo)} · {RotulosEnum.De(g.Ordem)}").ToList(),
             valor,
             semPreco,
-            recebido);
+            recebido)
+        {
+            TipoDeAtendimento = tipo,
+            GuiaInterna = guiaInterna
+        };
     }
+
+    // ==================== por tipo de atendimento e por guia interna (nov/2026) ====================
+
+    /// <summary>
+    /// As CONSULTAS por tipo de atendimento, do mais frequente para o menos. Só consulta tem
+    /// tipo; o que não é consulta fica de fora desta conta (e continua no total do relatório).
+    /// </summary>
+    public static IReadOnlyList<ContagemDoRelatorio> ContarPorTipo(IEnumerable<AtendimentoDoProfissional> atendimentos)
+        => Contar(atendimentos.Where(a => a.TipoDeAtendimento.Length > 0), a => a.TipoDeAtendimento);
+
+    /// <summary>Os atendimentos de infertilidade por guia interna em que foram lançados.</summary>
+    public static IReadOnlyList<ContagemDoRelatorio> ContarPorGuiaInterna(IEnumerable<AtendimentoDoProfissional> atendimentos)
+        => Contar(atendimentos.Where(a => a.GuiaInterna is not null), a => a.GuiaInterna!);
+
+    private static IReadOnlyList<ContagemDoRelatorio> Contar(
+        IEnumerable<AtendimentoDoProfissional> atendimentos, Func<AtendimentoDoProfissional, string> chave)
+        => atendimentos.GroupBy(chave, StringComparer.Create(PtBr, true))
+            .Select(g => new ContagemDoRelatorio(g.Key, g.Count(), g.Count(a => a.Particular), g.Sum(a => a.Recebido)))
+            .OrderByDescending(c => c.Quantidade).ThenBy(c => c.Nome, StringComparer.Create(PtBr, true))
+            .ToList();
+
+    /// <summary>"Infertilidade 4 · Ginecologia 3 · Suplementação para gestante 1" — a linha do papel.</summary>
+    public static string ResumoDasContagens(IReadOnlyList<ContagemDoRelatorio> contagens)
+        => string.Join(" · ", contagens.Select(c => $"{c.Nome} {c.Quantidade.ToString(PtBr)}"));
+
+    /// <summary>O procedimento com a guia interna ao lado, quando há — a linha do PDF e do detalhe.</summary>
+    public static string ProcedimentoComGuiaInterna(AtendimentoDoProfissional a)
+        => a.GuiaInterna is null ? a.Procedimento : $"{a.Procedimento} (guia interna: {a.GuiaInterna})";
 
     // ==================== o que a tela, o CSV e o papel escrevem ====================
 
@@ -221,7 +289,9 @@ public sealed class AtendimentosPorProfissionalService
             : $"{semPreco} atendimento(s) de convênio sem preço cadastrado para alguma guia — o valor de tabela deles não entra no total. Cadastre o preço em Gerente › Preços por convênio.";
 
     public static readonly IReadOnlyList<string> CabecalhoCsv =
-        ["Profissional", "Data", "Hora", "Paciente", "Convênio", "Procedimento", "Guias", "Valor de tabela", "Recebido no caixa", "Nº atendimento"];
+        ["Profissional", "Data", "Hora", "Paciente", "Convênio", "Procedimento", "Guias", "Valor de tabela", "Recebido no caixa", "Nº atendimento",
+         // No FIM (nov/2026): quem já tem planilha montada sobre as dez primeiras não a perde.
+         "Tipo de atendimento", "Guia interna (infertilidade)"];
 
     public static IReadOnlyList<IReadOnlyList<string>> LinhasCsv(RelatorioAtendimentosPorProfissional r)
         => r.Profissionais.SelectMany(p => p.Atendimentos.Select(a => (IReadOnlyList<string>)
@@ -236,7 +306,9 @@ public sealed class AtendimentosPorProfissionalService
             // Número puro na planilha (o Excel soma), a lacuna por extenso.
             a.ValorTabela is { } v && !a.Particular ? v.ToString("0.00", PtBr) : ValorDeTabela(a),
             a.Recebido.ToString("0.00", PtBr),
-            a.NumeroAtendimento ?? string.Empty
+            a.NumeroAtendimento ?? string.Empty,
+            a.TipoDeAtendimento,
+            a.GuiaInterna ?? string.Empty
         ])).ToList();
 
     public static string NomeArquivo(DateOnly inicio, DateOnly fim, string extensao)
@@ -257,7 +329,7 @@ public sealed class AtendimentosPorProfissionalService
                 a.DataHora.ToString("dd/MM/yyyy HH:mm", PtBr),
                 a.Paciente,
                 a.Convenio,
-                a.Procedimento,
+                ProcedimentoComGuiaInterna(a),
                 a.Guias.Count == 0 ? "—" : string.Join(" + ", a.Guias),
                 ValorDeTabela(a),
                 Dinheiro(a.Recebido)
@@ -265,6 +337,8 @@ public sealed class AtendimentosPorProfissionalService
             ["Total", "", "", "", "", Dinheiro(p.TotalTabela) + (p.SemPreco > 0 ? " *" : ""), Dinheiro(p.TotalRecebido)])).ToList();
 
         var recorte = Recorte(r, profissional);
+        if (r.PorTipo.Count > 0) recorte += $"  ·  Consultas por tipo: {ResumoDasContagens(r.PorTipo)}";
+        if (r.PorGuiaInterna.Count > 0) recorte += $"  ·  Infertilidade por guia interna: {ResumoDasContagens(r.PorGuiaInterna)}";
         if (RessalvaSemPreco(r.SemPreco) is { } ressalva) recorte += $"  ·  * {ressalva}";
 
         return RelatorioListaPdf.Gerar(

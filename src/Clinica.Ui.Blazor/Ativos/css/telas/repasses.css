@@ -18,3 +18,6 @@ table.lista tr.repasse-sem-regra .repasse-valor{color:var(--texto-secundario);fo
 .rel-prof-detalhe{max-height:440px;overflow:auto}
 .rel-prof-detalhe thead th{position:sticky;top:0;z-index:1}
 .rel-prof-tabela tfoot td{border-top:1px solid var(--borda);background:var(--cinza-50)}
+/* nov/2026 — com os quadros por tipo abaixo da tabela, o corpo do formulário (coluna flexível)
+   espremia a tabela dos profissionais até uma linha. Nenhum dos dois encolhe: quem rola é o corpo. */
+.tabela-rolagem:has(> .rel-prof-tabela),.rel-prof-contagens{flex-shrink:0}

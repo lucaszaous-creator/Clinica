@@ -101,10 +101,33 @@
                         </tfoot>
                     </table>
                 </div>
+                @* POR TIPO DE ATENDIMENTO e POR GUIA INTERNA (nov/2026): só aparecem quando há o que contar. *@
+                @if (_relatorio.PorTipo.Count > 0)
+                {
+                    <div class="rel-prof-contagens">
+                        <ContagensDoRelatorio Titulo="Consultas por tipo de atendimento" Itens="_relatorio.PorTipo" />
+                        @if (_relatorio.PorGuiaInterna.Count > 0)
+                        {
+                            <ContagensDoRelatorio Titulo="Infertilidade por guia interna" Itens="_relatorio.PorGuiaInterna"
+                                                  Nota="Controle interno: em qual guia cada atendimento de infertilidade foi lançado." />
+                        }
+                    </div>
+                }
             }
             else if (visiveis.FirstOrDefault() is { } prof)
             {
                 <p class="texto-secundario pequeno">@prof.Quantidade atendimento(s) · @prof.Particulares particular(es) · @prof.PacientesDistintos paciente(s) · tabela @Formato.Dinheiro(prof.TotalTabela) · recebido @Formato.Dinheiro(prof.TotalRecebido)</p>
+                @if (prof.PorTipo.Count > 0)
+                {
+                    <div class="rel-prof-contagens">
+                        <ContagensDoRelatorio Titulo="Consultas por tipo de atendimento" Itens="prof.PorTipo" />
+                        @if (prof.PorGuiaInterna.Count > 0)
+                        {
+                            <ContagensDoRelatorio Titulo="Infertilidade por guia interna" Itens="prof.PorGuiaInterna"
+                                                  Nota="Controle interno: em qual guia cada atendimento de infertilidade foi lançado." />
+                        }
+                    </div>
+                }
                 <div class="tabela-rolagem rel-prof-detalhe">
                     <table class="lista rel-prof-tabela">
                         <thead>
@@ -125,6 +148,7 @@
                                     <td><span class="principal">@a.Paciente</span></td>
                                     <td class="texto-secundario">@a.Convenio</td>
                                     <td><span>@a.Procedimento</span>
+                                        @if (a.GuiaInterna is { } guiaInterna) { <Selo Tom="info" Dica="Atendimento de infertilidade — a guia interna em que foi lançado (controle interno)">guia interna: @guiaInterna</Selo> }
                                         @if (a.Guias.Count > 0) { <span class="secundario">@string.Join(" + ", a.Guias)</span> }</td>
                                     <td class="direita numero @(a.GuiasSemPreco > 0 ? "tom-aviso" : null)">@AtendimentosPorProfissionalService.ValorDeTabela(a)</td>
                                     <td class="direita numero">@Formato.Dinheiro(a.Recebido)</td>

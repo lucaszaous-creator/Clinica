@@ -63,10 +63,32 @@ gestante — fica ainda mais caracterizado o tipo de atendimento."
 - 🤝 **CX** — a clínica passa a saber, por horário, em qual guia interna cada atendimento de
   infertilidade foi lançado. Publicar: Recepção, Gerente e Consultório.
 
+## O relatório (10/11/2026 — "precisamos lastrear e deixar nos relatórios")
+
+Uma porta por pergunta: o dado entrou no relatório que a gerência já usa para a folha e o
+repasse — **Financeiro → Repasses → Atendimentos por profissional** — em vez de numa tela nova.
+
+- **Dois quadros** (na visão geral e no detalhe de cada profissional): **Consultas por tipo de
+  atendimento** (Infertilidade, Ginecologia, Suplementação para gestante… com atendimentos,
+  particulares e recebido) e **Infertilidade por guia interna** (Geriatria × Psiquiatria).
+- **Na linha do atendimento**: o tipo no procedimento ("Consulta · Infertilidade") e o selo
+  "guia interna: Geriatria".
+- **CSV**: duas colunas novas no FIM ("Tipo de atendimento", "Guia interna (infertilidade)") —
+  a planilha de quem já usava as dez primeiras não desloca.
+- **PDF**: o procedimento leva a guia interna, e o cabeçalho traz as duas contagens.
+- O tipo é lido pelo CATÁLOGO: os tipos novos não estão no enum, e ler só o enum os deixaria fora
+  do relatório em silêncio (era o que o relatório fazia até aqui).
+- 🛠️ Quem conta é `AtendimentosPorProfissionalService.ContarPorTipo` / `ContarPorGuiaInterna`,
+  com teste; a tela só desenha (`ContagensDoRelatorio`). Sem consulta nova ao banco.
+- 📸 A foto achou um defeito do próprio acréscimo: com os quadros abaixo, o corpo flexível do
+  formulário espremia a tabela dos profissionais até UMA linha. Corrigido em `repasses.css`.
+
 ## O que NÃO foi feito
 
-- **O relatório** (por período: quantos atendimentos de infertilidade em cada guia interna, com
-  quem atendeu) e a **regra de repasse** por guia — o dado já está gravado; a tela é o próximo passo.
+- A **regra de repasse** por guia interna (percentual por profissional) — o relatório mostra
+  a contagem e o recebido; a conta do repasse continua a das regras já cadastradas.
+- O relatório conta atendimentos REALIZADOS (o mesmo critério da folha); o que está só marcado
+  aparece na agenda, pelo selo.
 - O **vínculo marido ↔ esposa** entre as duas fichas.
 - A marca no **Lançar** (atendimento sem horário prévio), no chamado da **lista de espera**, na
   **série** e na marcação pelo **CRM**.

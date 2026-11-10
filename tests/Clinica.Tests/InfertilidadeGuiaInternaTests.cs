@@ -193,6 +193,74 @@ public class InfertilidadeGuiaInternaTests : IDisposable
         trilha[0].Detalhe.Should().Contain("guia Geriatria").And.Contain("guia Psiquiatria");
     }
 
+    // ==================== o relatório ====================
+
+    private Task<Agendamento> ConsultaDoTipoAsync(int pacienteId, DateTime quando, string tipo, string? guiaDe = null, bool particular = false)
+        => _agenda.AgendarAsync(pacienteId, quando, ModalidadeAtendimento.Consulta, null,
+            especialidadeConsultaCodigo: tipo, profissionalId: _medica, operador: "recepcao",
+            particular: particular, infertilidadeGuiaDe: guiaDe);
+
+    [Fact]
+    public async Task O_relatorio_por_profissional_conta_por_tipo_de_atendimento_e_por_guia_interna()
+    {
+        // "Precisamos lastrear e deixar nos relatórios": o que foi marcado tem de sair contado.
+        var catalogo = new EspecialidadeCatalogoService(new ClinicaRepositorio(_db));
+        await catalogo.RecarregarCacheAsync();
+        var p = await PacienteAsync();
+        var horarios = new[]
+        {
+            await ConsultaDoTipoAsync(p.Id, Segunda, "Infertilidade", "Geriatria"),
+            await ConsultaDoTipoAsync(p.Id, Segunda.AddDays(1), "Infertilidade", "Psiquiatria", particular: true),
+            await ConsultaDoTipoAsync(p.Id, Segunda.AddDays(2), "Infertilidade", "Geriatria"),
+            await ConsultaDoTipoAsync(p.Id, Segunda.AddDays(3), "Ginecologia"),
+            await ConsultaDoTipoAsync(p.Id, Segunda.AddDays(4), "SuplementacaoGestante")
+        };
+        foreach (var h in horarios) await _agenda.ConfirmarPresencaAsync(h.Id, operador: "recepcao");
+        _db.ChangeTracker.Clear();
+
+        var repo = new ClinicaRepositorio(_db);
+        var relatorio = await new AtendimentosPorProfissionalService(repo, new PrecoConvenioService(repo))
+            .GerarAsync(DateOnly.FromDateTime(Segunda), DateOnly.FromDateTime(Segunda.AddDays(6)));
+
+        relatorio.Quantidade.Should().Be(5);
+        relatorio.PorTipo.Select(c => (c.Nome, c.Quantidade, c.Particulares)).Should().Equal(
+            ("Infertilidade", 3, 1), ("Ginecologia", 1, 0), ("Suplementação para gestante", 1, 0));
+        relatorio.PorGuiaInterna.Select(c => (c.Nome, c.Quantidade)).Should().Equal(("Geriatria", 2), ("Psiquiatria", 1));
+
+        var linhas = relatorio.Profissionais.Single().Atendimentos;
+        linhas[0].Procedimento.Should().Be("Consulta · Infertilidade");
+        linhas[0].GuiaInterna.Should().Be("Geriatria");
+        linhas[3].GuiaInterna.Should().BeNull("ginecologia não tem guia interna");
+        AtendimentosPorProfissionalService.ProcedimentoComGuiaInterna(linhas[1])
+            .Should().Be("Consulta · Infertilidade (guia interna: Psiquiatria)");
+
+        // A planilha: as duas colunas novas no FIM, sem deslocar as que já existiam.
+        AtendimentosPorProfissionalService.CabecalhoCsv.TakeLast(2)
+            .Should().Equal("Tipo de atendimento", "Guia interna (infertilidade)");
+        var csv = AtendimentosPorProfissionalService.LinhasCsv(relatorio);
+        csv[0].TakeLast(2).Should().Equal("Infertilidade", "Geriatria");
+        csv[4].TakeLast(2).Should().Equal("Suplementação para gestante", "");
+        AtendimentosPorProfissionalService.ResumoDasContagens(relatorio.PorGuiaInterna).Should().Be("Geriatria 2 · Psiquiatria 1");
+        AtendimentosPorProfissionalService.Pdf(relatorio, null, "Clínica").Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public async Task Sem_consulta_no_periodo_os_quadros_novos_ficam_vazios()
+    {
+        var p = await PacienteAsync();
+        var ag = await _agenda.AgendarAsync(p.Id, Segunda, ModalidadeAtendimento.BsvApenas, null, profissionalId: _medica, operador: "recepcao");
+        await _agenda.ConfirmarPresencaAsync(ag.Id, operador: "recepcao");
+        _db.ChangeTracker.Clear();
+
+        var repo = new ClinicaRepositorio(_db);
+        var relatorio = await new AtendimentosPorProfissionalService(repo, new PrecoConvenioService(repo))
+            .GerarAsync(DateOnly.FromDateTime(Segunda), DateOnly.FromDateTime(Segunda));
+
+        relatorio.Quantidade.Should().Be(1);
+        relatorio.PorTipo.Should().BeEmpty("BSV não é consulta: não tem tipo de atendimento");
+        relatorio.PorGuiaInterna.Should().BeEmpty();
+    }
+
     // ==================== a premissa ====================
 
     [Fact]

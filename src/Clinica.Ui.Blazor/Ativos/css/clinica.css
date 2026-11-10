@@ -639,3 +639,6 @@ td .selo{margin-left:0}
 .infertilidade{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2) var(--space-4)}
 .infertilidade-guia{display:inline-flex;align-items:center;gap:var(--space-2);font-weight:600;color:var(--texto-secundario)}
 .infertilidade .campo-dica{flex-basis:100%}
+.rel-prof-contagens{display:grid;grid-template-columns:repeat(auto-fit,minmax(18rem,1fr));gap:var(--space-4);margin-top:var(--space-4)}
+.contagens{border:1px solid var(--borda);border-radius:var(--radius-card);padding:var(--space-3) var(--space-4);min-width:0}
+.contagens h3{margin:0 0 var(--space-2);font-weight:700}

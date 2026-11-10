@@ -69,6 +69,35 @@ public sealed class SementeAgendaDoDia : ISemente
         db.SaveChanges();
         for (var i = 0; i < 9; i++) db.Add(new ConsumoPacote { PacotePacienteId = pacote.Id, Data = DateOnly.FromDateTime(hoje).AddDays(-7 * (i + 1)) });
 
+        // Consultas JÁ REALIZADAS nos dias anteriores, pelos três tipos de atendimento (nov/2026) —
+        // é o que o relatório por profissional conta: tipo e guia interna da infertilidade.
+        void ConsultaRealizada(Paciente p, int diasAtras, string tipo, string? guiaInterna = null, bool particular = false)
+        {
+            var quando = hoje.AddDays(-diasAtras).AddHours(9);
+            var atendimento = new Atendimento
+            {
+                PacienteId = p.Id, Data = DateOnly.FromDateTime(quando), Modalidade = ModalidadeAtendimento.Consulta,
+                EspecialidadeConsultaCodigo = tipo, Particular = particular, RealizadoEm = quando.AddMinutes(40)
+            };
+            db.Add(atendimento);
+            db.SaveChanges();
+            db.Add(new Agendamento
+            {
+                PacienteId = p.Id, ProfissionalId = helena.Id, DataHora = quando, DuracaoMinutos = 30,
+                ModalidadePrevista = ModalidadeAtendimento.Consulta, ModalidadeCodigo = nameof(ModalidadeAtendimento.Consulta),
+                EspecialidadeConsultaCodigo = tipo, Status = StatusAgendamento.Realizado, AtendimentoId = atendimento.Id,
+                Particular = particular, InfertilidadeGuiaDe = guiaInterna,
+                ChegadaEm = quando.AddMinutes(-5), InicioAtendimentoEm = quando, FimAtendimentoEm = quando.AddMinutes(40),
+                CriadoPor = "recepcao", CriadoEm = quando.AddDays(-2)
+            });
+        }
+        ConsultaRealizada(clara, 1, "Infertilidade", nameof(Especialidade.Geriatria));
+        ConsultaRealizada(felipe, 1, "Infertilidade", nameof(Especialidade.Psiquiatria), particular: true);
+        ConsultaRealizada(ivo, 2, "Infertilidade", nameof(Especialidade.Geriatria));
+        ConsultaRealizada(nadia, 2, nameof(Especialidade.Ginecologia));
+        ConsultaRealizada(marta, 3, nameof(Especialidade.Ginecologia));
+        ConsultaRealizada(simone, 3, "SuplementacaoGestante", particular: true);
+
         // Cancelou e faltou: ficam na lista, apagados.
         A(andre, 8, 30, ModalidadeAtendimento.AcupunturaSimples, marcos, StatusAgendamento.Cancelado);
         A(simone, 9, 0, ModalidadeAtendimento.BsvApenas, helena, StatusAgendamento.Faltou, 60);
