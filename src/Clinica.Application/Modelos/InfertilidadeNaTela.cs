@@ -18,6 +18,15 @@ namespace Clinica.Application.Modelos;
 public static class InfertilidadeNaTela
 {
     public const string Rotulo = "Atendimento de infertilidade";
+
+    /// <summary>
+    /// A consulta é de INFERTILIDADE? É o tipo de atendimento (a especialidade da consulta) que
+    /// pede a guia interna — uma porta só: quem escolhe "Infertilidade" no que foi pedido já
+    /// disse o que é, e a tela só pergunta onde lançar.
+    /// </summary>
+    public static bool EhInfertilidade(bool ehConsulta, string? especialidadeCodigo)
+        => ehConsulta && string.Equals(especialidadeCodigo, Clinica.Application.Servicos.EspecialidadeCatalogoService.CodigoInfertilidade,
+            StringComparison.OrdinalIgnoreCase);
     public const string RotuloDaGuia = "Lançar na guia de";
     public const string Dica = "Controle interno: diz em qual guia este atendimento é lançado, para o relatório e o repasse.";
 

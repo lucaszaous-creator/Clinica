@@ -14,11 +14,29 @@ repasse. **Não vai para o convênio.** O campo foi desenhado em cima dessa fras
 > A_marca_e_so_classificacao_interna_as_guias_geradas_sao_as_mesmas` quebra se alguém o ligar
 > à geração de guia.
 
+## Os três tipos de atendimento (áudio de 10/11, 09:56)
+
+"Pode dividir o meu atendimento em três: infertilidade, ginecologia e suplementação para
+gestante — fica ainda mais caracterizado o tipo de atendimento."
+
+- O tipo de atendimento é a **especialidade da consulta**. Ginecologia já existia; **Infertilidade**
+  e **Suplementação para gestante** entram pelo catálogo (`EspecialidadeCatalogoService.DaCasa`),
+  nunca pelo enum embutido. A clínica pode renomear ou desativar qualquer um nas Configurações.
+- Com isso a chave separada "atendimento de infertilidade" da primeira versão **saiu**: quem
+  escolhe a consulta de Infertilidade já disse o que é, e a tela só pergunta em qual guia lançar
+  (uma porta por pergunta).
+- ⚠️ `FaturamentoCongeladoTests` foi atualizado de propósito: os dois tipos passam a aparecer no
+  seletor de especialidade do app de faturamento **a partir da próxima release dele** (a
+  garantia é de código, não de linha no banco). Nenhuma regra de guia os conhece.
+- ⚠️ Onde a **cobertura do convênio** restringe as especialidades (Petrobras: geriatria,
+  ginecologia e psiquiatria), consulta de Infertilidade ou de Suplementação **pelo plano** é
+  recusada — entra como particular, ou o gerente acrescenta o tipo à lista do plano.
+
 ## O que foi feito
 
-- **Na marcação** (formulário do horário e Marcar do balcão): a chave **Atendimento de
-  infertilidade** e, ligada, o seletor **Lançar na guia de** — Geriatria ou Psiquiatria. Marcou
-  a chave e não escolheu a guia: recusa com a frase que diz o que falta.
+- **Na marcação** (formulário do horário e Marcar do balcão): ao escolher a consulta de
+  **Infertilidade**, aparece o seletor **Lançar na guia de** — Geriatria ou Psiquiatria. Sem a
+  guia escolhida, a tela recusa com a frase que diz o que falta.
 - **Na agenda**: o selo **"Infertilidade · guia Geriatria"** na Agenda do dia, na Grade, na
   janela do horário e no Meu dia do Consultório, com a dica que diz que é controle interno.
 - **Na edição do horário**: dá para trocar ou tirar a guia; a troca fica na **trilha de
@@ -37,7 +55,7 @@ repasse. **Não vai para o convênio.** O campo foi desenhado em cima dessa fras
 ## UX · DX · CX
 
 - 🧑‍💻 **UX** — a secretária marca na mesma tela em que marca o horário; a guia é obrigatória
-  quando a chave está ligada; o selo aparece sem clique para ela e para quem atende.
+  quando o tipo é Infertilidade; o selo aparece sem clique para ela e para quem atende.
 - 🛠️ **DX** — uma coluna aditiva (`20261110124442_InfertilidadeGuiaInterna`); regra e textos em
   `InfertilidadeNaTela` (Application); componente único `EscolhaDeInfertilidade`; a gravação
   passa pela `AgendaService` (`AgendarAsync` / `RemarcarAsync`: nulo preserva, vazio limpa).

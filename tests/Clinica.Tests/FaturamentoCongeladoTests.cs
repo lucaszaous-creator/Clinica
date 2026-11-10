@@ -101,7 +101,8 @@ public class FaturamentoCongeladoTests
     }
 
     /// <summary>
-    /// O catálogo que o faturamento carrega na abertura mantém as seis embutidas.
+    /// O catálogo que o faturamento carrega na abertura mantém as seis embutidas — mais os
+    /// tipos de atendimento da casa (nov/2026), que entram pelo catálogo.
     /// A migração pode acrescentar Psicologia como entrada configurável, sem alterar
     /// o enum nem os códigos e regras das guias.
     ///
@@ -123,8 +124,16 @@ public class FaturamentoCongeladoTests
         var especialidades = await new EspecialidadeCatalogoService(repo).ListarAsync();
         var codigos = especialidades.Select(e => e.Codigo).ToArray();
         codigos.Should().Contain(Enum.GetNames<Especialidade>());
+        // nov/2026 — MUDANÇA INTENCIONAL, pedida pela direção ("pode dividir o meu atendimento em
+        // três: infertilidade, ginecologia e suplementação para gestante"): os dois tipos novos
+        // entram pelo CATÁLOGO (`EspecialidadeCatalogoService.DaCasa`), não pelo enum. A resposta
+        // à pergunta deste arquivo é "sim, vai aparecer": no seletor de especialidade da consulta
+        // do faturamento, a partir da PRÓXIMA release dele (a garantia é de código, não de linha
+        // no banco — o app instalado hoje não muda). Nenhuma regra de guia os conhece.
+        var daCasa = EspecialidadeCatalogoService.DaCasa.Select(t => t.Codigo).ToArray();
+        daCasa.Should().BeEquivalentTo("Infertilidade", "SuplementacaoGestante");
         codigos.Should().OnlyContain(c => Enum.GetNames<Especialidade>().Contains(c)
-            || c == "Psicologia");
+            || c == "Psicologia" || daCasa.Contains(c));
 
         var modalidades = await new ModalidadeCatalogoService(repo).ListarAsync();
         modalidades.Select(m => m.Codigo).Should()

@@ -4855,3 +4855,7 @@ dizendo que "não vai para o convênio", e o campo foi aceito NESSA premissa: el
 em regra de guia, código TISS, lote nem XML — quem atende é o profissional do horário. O teste
 `A_marca_e_so_classificacao_interna_as_guias_geradas_sao_as_mesmas` prende isso. Remarcar sem o
 parâmetro preserva; vazio limpa; a troca vai à trilha. Detalhes: `docs/infertilidade-guia-interna.md`.
+Os TIPOS de atendimento da direção (Infertilidade, Ginecologia, Suplementação para gestante) são
+especialidades de consulta; os dois novos vêm de `EspecialidadeCatalogoService.DaCasa` (catálogo,
+nunca o enum — `FaturamentoCongeladoTests` os lista de propósito). É a consulta de Infertilidade
+que faz a tela pedir a guia interna (`InfertilidadeNaTela.EhInfertilidade`); não há chave separada.

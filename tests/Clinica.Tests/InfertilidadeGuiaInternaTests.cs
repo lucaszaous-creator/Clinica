@@ -95,6 +95,37 @@ public class InfertilidadeGuiaInternaTests : IDisposable
         InfertilidadeNaTela.Selo(" ").Should().BeNull();
     }
 
+    [Fact]
+    public void A_guia_e_pedida_pelo_TIPO_de_atendimento_infertilidade_e_so_por_ele()
+    {
+        InfertilidadeNaTela.EhInfertilidade(ehConsulta: true, "Infertilidade").Should().BeTrue();
+        InfertilidadeNaTela.EhInfertilidade(ehConsulta: true, "Ginecologia").Should().BeFalse();
+        InfertilidadeNaTela.EhInfertilidade(ehConsulta: true, "SuplementacaoGestante").Should().BeFalse();
+        InfertilidadeNaTela.EhInfertilidade(ehConsulta: true, null).Should().BeFalse();
+        InfertilidadeNaTela.EhInfertilidade(ehConsulta: false, "Infertilidade").Should().BeFalse("só consulta tem tipo de atendimento");
+    }
+
+    [Fact]
+    public async Task Os_tres_tipos_de_atendimento_estao_no_catalogo_e_a_clinica_que_desativa_um_e_obedecida()
+    {
+        // A direção: "pode dividir o meu atendimento em três: infertilidade, ginecologia e
+        // suplementação para gestante". Os dois novos entram pelo catálogo, nunca pelo enum.
+        var catalogo = new EspecialidadeCatalogoService(new ClinicaRepositorio(_db));
+
+        var tipos = await catalogo.ListarAsync();
+        tipos.Should().Contain(e => e.Codigo == "Infertilidade" && e.Nome == "Infertilidade" && e.Ativo);
+        tipos.Should().Contain(e => e.Codigo == "SuplementacaoGestante" && e.Nome == "Suplementação para gestante" && e.Ativo);
+        tipos.Should().Contain(e => e.Codigo == nameof(Especialidade.Ginecologia));
+        Enum.GetNames<Especialidade>().Should().NotContain("Infertilidade", "tipo novo não entra no enum embutido");
+
+        await catalogo.SalvarAsync([new EspecialidadeCadastro { Codigo = "SuplementacaoGestante", Nome = "Suplementação", Ativo = false }]);
+        _db.ChangeTracker.Clear();
+
+        var depois = (await catalogo.ListarAsync()).Single(e => e.Codigo == "SuplementacaoGestante");
+        depois.Ativo.Should().BeFalse();
+        depois.Nome.Should().Be("Suplementação");
+    }
+
     // ==================== a gravação ====================
 
     [Fact]

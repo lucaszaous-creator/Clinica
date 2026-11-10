@@ -57,8 +57,8 @@
                        plano e quem atende não o aceita. A ficha continua com o convênio dela. *@
                     <EscolhaDeFormaDeAtendimento Paciente="_paciente" Particular="_particular" ParticularChanged="TrocarParticular" Nota="@_notaDoParticular"
                                                  Respondida="FormaRespondida" />
-                    @* ATENDIMENTO DE INFERTILIDADE (nov/2026): só onde nasce o HORÁRIO (Marcar). *@
-                    @if (Marcar && !_lancado)
+                    @* CONSULTA DE INFERTILIDADE (nov/2026): a guia interna, só onde nasce o HORÁRIO (Marcar). *@
+                    @if (Marcar && !_lancado && EhInfertilidade)
                     {
                         <EscolhaDeInfertilidade Guia="@_infertilidadeGuiaDe" GuiaChanged="@(g => { _infertilidadeGuiaDe = g; _mensagem = null; })" />
                     }
@@ -491,6 +491,8 @@
     private bool _formaEscolhidaNaMao;
     /// <summary>null = não é infertilidade; "" = é, falta escolher a guia; código = a guia interna.</summary>
     private string? _infertilidadeGuiaDe;
+    private bool EhInfertilidade => InfertilidadeNaTela.EhInfertilidade(EhConsulta, _especialidade?.Codigo);
+    private string? GuiaDaInfertilidade => EhInfertilidade ? _infertilidadeGuiaDe ?? string.Empty : null;
     private string? _notaDoParticular;
 
     /// <summary>A trava de consulta do convênio acendeu (a box decide); só vale onde nasce horário novo.</summary>
@@ -1501,7 +1503,7 @@
         if (_modalidade is not { } modalidade) { Avisar("Selecione a modalidade.", "erro"); return; }
         if (EhConsulta && _especialidade is null) { Avisar("Informe a especialidade da consulta.", "erro"); return; }
         if (!TimeOnly.TryParse(_hora, out var hora)) { Avisar(AtendimentoDoBalcaoNaTela.RecusaSemHora(Marcar), "erro"); return; }
-        if (Marcar && _infertilidadeGuiaDe is { Length: 0 }) { Avisar(InfertilidadeNaTela.RecusaSemGuia, "erro"); return; }
+        if (Marcar && GuiaDaInfertilidade is { Length: 0 }) { Avisar(InfertilidadeNaTela.RecusaSemGuia, "erro"); return; }
         if (!await GarantirFormaRespondidaAsync(paciente)) return;
 
         // SEM CONVÊNIO NÃO SE LANÇA (parcela 92) — a condição vale onde o atendimento NASCE.
@@ -1678,7 +1680,7 @@
                 duracaoMinutos: AtendimentoDoBalcaoNaTela.DuracaoInformada(_duracao), encaixe: _comoEncaixe,
                 operador: Operador, primeiroCodigo: EhDupla ? _primeiroCodigo : null,
                 coletaPreventivo: EhConsulta && _preventivo, particular: _particular,
-                infertilidadeGuiaDe: _infertilidadeGuiaDe);
+                infertilidadeGuiaDe: GuiaDaInfertilidade);
 
             if (ag.Atendimento is { } atendimento)
             {
