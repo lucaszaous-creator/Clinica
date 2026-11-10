@@ -77,6 +77,7 @@
                    as saídas: particular, ou o pedido de liberação à gerência — liberado, o
                    horário é marcado (ou remarcado) sozinho. O Salvar apaga enquanto ela acende. *@
                 <TravaDeConsultaBox Paciente="_paciente" Quando="QuandoPretendido" Modalidade="_modalidade?.Base" Particular="_particular"
+                                    EspecialidadeCodigo="@(EhConsulta ? _especialidade?.Codigo : null)" ProfissionalId="_profissional?.Id"
                                     IgnorarAgendamentoId="AgendamentoId" OfereceParticular="FormaDeAtendimentoNaTela.OfereceEscolha(_paciente)"
                                     AoMarcarParticular="() => TrocarParticular(true)" TravadoChanged="MudouTrava"
                                     MontarPedido="MontarPedidoDeLiberacao" AoPedir="_ => AoFechar.InvokeAsync()" />

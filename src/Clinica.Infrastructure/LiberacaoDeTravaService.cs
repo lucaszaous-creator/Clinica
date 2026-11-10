@@ -87,7 +87,7 @@ public sealed class LiberacaoDeTravaService : ILiberacaoDeTravaService
 
         var modalidade = CatalogoModalidades.Base(novo.ModalidadeCodigo);
         var trava = await agenda.TravaDeConsultaAsync(novo.PacienteId, novo.DataHora, modalidade, particular: false,
-                        novo.AgendamentoARemarcarId, ct)
+                        novo.AgendamentoARemarcarId, ct, novo.EspecialidadeConsultaCodigo, novo.ProfissionalId)
             ?? throw new InvalidOperationException("Não há trava de consulta para este horário — marque normalmente.");
         if (await PendenteAsync(novo.PacienteId, DateOnly.FromDateTime(novo.DataHora), ct) is { } aberto)
             throw new InvalidOperationException(

@@ -52,6 +52,9 @@
     [Parameter] public DateTime? Quando { get; set; }
     [Parameter] public ModalidadeAtendimento? Modalidade { get; set; }
     [Parameter] public bool Particular { get; set; }
+    /// <summary>A especialidade e o médico escolhidos: a trava só vale para a MESMA dupla (nov/2026).</summary>
+    [Parameter] public string? EspecialidadeCodigo { get; set; }
+    [Parameter] public int? ProfissionalId { get; set; }
     /// <summary>Na edição: o próprio horário não trava a si mesmo.</summary>
     [Parameter] public int? IgnorarAgendamentoId { get; set; }
     /// <summary>O formulário oferece a escolha "Particular" para este paciente (a ficha tem convênio que fatura).</summary>
@@ -74,11 +77,12 @@
     private string? _erro;
     private bool _ocupado;
     private int _geracao;
-    private (int Paciente, DateOnly Dia, ModalidadeAtendimento? Modalidade, bool Particular, int? Ignorar) _lido = (-1, default, null, false, null);
+    private (int Paciente, DateOnly Dia, ModalidadeAtendimento? Modalidade, bool Particular, int? Ignorar, string? Especialidade, int? Profissional) _lido
+        = (-1, default, null, false, null, null, null);
 
     protected override async Task OnParametersSetAsync()
     {
-        var chave = (Paciente?.Id ?? 0, Quando is { } q ? DateOnly.FromDateTime(q) : default, Modalidade, Particular, IgnorarAgendamentoId);
+        var chave = (Paciente?.Id ?? 0, Quando is { } q ? DateOnly.FromDateTime(q) : default, Modalidade, Particular, IgnorarAgendamentoId, EspecialidadeCodigo, ProfissionalId);
         if (chave == _lido) return;
         _lido = chave;
         await ConferirAsync();
@@ -98,7 +102,8 @@
                 using var escopo = Escopo();
                 var sp = escopo.ServiceProvider;
                 trava = await sp.GetRequiredService<AgendaService>()
-                    .TravaDeConsultaAsync(paciente.Id, quando, modalidade, Particular, IgnorarAgendamentoId);
+                    .TravaDeConsultaAsync(paciente.Id, quando, modalidade, Particular, IgnorarAgendamentoId,
+                        especialidadeCodigo: EspecialidadeCodigo, profissionalId: ProfissionalId);
                 if (trava is not null)
                     pendente = await sp.GetRequiredService<ILiberacaoDeTravaService>().PendenteAsync(paciente.Id, DateOnly.FromDateTime(quando));
             }

@@ -155,3 +155,36 @@ falha, o pedido está na conversa com o sistema e a resposta lá vale igual.
   ponta a ponta com o WhatsApp de verdade **não foi testado** — depende do modelo aprovado.
 
 Evidências (prévia com dados fictícios): `docs/evidencias/trava-de-consulta/`.
+
+---
+
+## Correção de 10/11/2026: só a MESMA especialidade com o MESMO médico
+
+**O que aconteceu.** No primeiro dia com a trava ligada, a clínica foi barrada ao marcar uma
+consulta de Clínica da Dor de uma paciente que tinha consultado outra coisa três dias antes. A
+direção: "funcionou, mas o bloqueio só pode ser se for a mesma especialidade e o mesmo médico
+durante o período".
+
+Isso REVOGA a decisão original deste documento ("vale para qualquer consulta, especialidade e
+médico"). Agora:
+
+- a trava só compara consultas pelo convênio da **mesma especialidade** com o **mesmo
+  profissional**; outra especialidade, ou a mesma com outro médico, marca normalmente;
+- a frase da recusa diz quais ("…aceita uma consulta de Endocrinologia com Dra. Patrícia a cada
+  22 dias…");
+- a box da tela só acende depois de escolhidos a especialidade e quem atende — antes disso não
+  há o que comparar;
+- remarcar trocando a especialidade ou o médico confere de novo;
+- o pedido de liberação à gerência continua igual, para o caso que ainda trava.
+
+| | A — mesma especialidade + mesmo médico (feito, pedido da direção) | B — qualquer consulta (a versão anterior) | C — só a mesma especialidade |
+|---|---|---|---|
+| 🧑‍💻 UX | trava só o retorno antecipado ao mesmo médico | barrou consultas legítimas no primeiro dia | barraria a segunda opinião com outro médico |
+| 🛠️ DX | dois filtros na mesma leitura; a consulta ao banco ganhou duas colunas | — | um filtro |
+| 🤝 CX | menos pedidos de liberação desnecessários à gerência | gerência acionada à toa | meio-termo que ninguém pediu |
+
+- 🧑‍💻 **UX** — menos bloqueio indevido; a frase explica exatamente o que está sendo comparado.
+- 🛠️ **DX** — `AgendaService.TravaDeConsultaAsync` ganhou `especialidadeCodigo` e `profissionalId`
+  (sem um dos dois, devolve nulo); `ConsultaParaTrava` carrega os dois. Testes novos em
+  `TravaDeConsultaTests`; a leitura continua em `TraducaoNoNpgsqlTests`.
+- 🤝 **CX** — publicar Recepção e Gerente; a ponte do CRM, para valer na marcação pelo WhatsApp.

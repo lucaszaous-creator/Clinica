@@ -259,7 +259,7 @@
                 </div>
                 <div class="cfg-grupo">
                     <h3>Trava de consulta dos convênios</h3>
-                    <label class="alternar"><input type="checkbox" @bind="_travaDeConsulta" @bind:after="MudouOperacao" /> Impedir nova consulta pelo convênio antes do prazo dele</label>
+                    <label class="alternar"><input type="checkbox" @bind="_travaDeConsulta" @bind:after="MudouOperacao" /> Impedir nova consulta da mesma especialidade com o mesmo médico, pelo convênio, antes do prazo dele</label>
                     <span class="campo-dica">O prazo é a validade da consulta já cadastrada em cada convênio (Unimed 22 dias, Amil e Petrobras 30, os demais no cadastro deles). Ligada, a recepção não consegue marcar outra consulta do mesmo paciente pelo convênio dentro do prazo — qualquer especialidade, qualquer médico. As saídas ficam na própria tela de marcar: outra data, consulta particular, ou o pedido de liberação à gerência. Só consulta: acupuntura, eletro e BSV não entram.</span>
                     <Aviso Tom="atencao" Texto="ANTES DE LIGAR: marque em Acessos quais gerentes aprovam a liberação (e o celular do WhatsApp do sistema de cada um) — sem ninguém marcado, o pedido de liberação não tem a quem chegar. A trava vale em todas as portas de marcação, inclusive o CRM e o app do faturamento, que mostram a recusa mas não têm o botão de pedir liberação." />
                 </div>

@@ -1,7 +1,10 @@
 namespace Clinica.Domain.Regras;
 
 /// <summary>Uma consulta pelo convênio que pode acender a trava: quando foi (ou será) e o atendimento dela.</summary>
-public sealed record ConsultaParaTrava(int AgendamentoId, DateTime DataHora, string? AtendimentoNumero, bool Atendida = false);
+/// <param name="EspecialidadeCodigo">A especialidade da consulta (código do catálogo, ou o enum das antigas).</param>
+/// <param name="ProfissionalId">Quem atende(u) a consulta.</param>
+public sealed record ConsultaParaTrava(int AgendamentoId, DateTime DataHora, string? AtendimentoNumero, bool Atendida = false,
+    string? EspecialidadeCodigo = null, int? ProfissionalId = null);
 
 /// <summary>
 /// A trava ACESA: a consulta que a acende, o prazo do convênio e a partir de quando ela solta.
@@ -16,7 +19,15 @@ public sealed record ConsultaParaTrava(int AgendamentoId, DateTime DataHora, str
 /// <param name="ConsultaAtendida">A consulta que acende a trava já aconteceu (falso = só marcada).</param>
 public sealed record TravaAcesa(
     string ConvenioNome, int PrazoDias, DateTime ConsultaEm, string? AtendimentoNumero, DateOnly LiberadaAPartirDe,
-    bool ConsultaAtendida = false);
+    bool ConsultaAtendida = false)
+{
+    /// <summary>
+    /// A especialidade e o profissional da consulta que acende a trava (nov/2026): a trava só
+    /// vale para a MESMA especialidade com o MESMO médico, e a frase precisa dizer quais.
+    /// </summary>
+    public string? Especialidade { get; init; }
+    public string? Profissional { get; init; }
+}
 
 /// <summary>
 /// A TRAVA DE CONSULTA DO CONVÊNIO (nov/2026, pedido da gerência: "se a secretária tentar fazer
@@ -56,14 +67,18 @@ public static class TravaDeConsulta
     public static string Frase(TravaAcesa trava, DateOnly diaPretendido)
     {
         var quando = trava.ConsultaEm.ToString("dd/MM/yyyy");
+        // "consulta de Clínica da Dor com Dr. Marcos" — o que a trava compara (nov/2026).
+        var oque = "uma consulta"
+                   + (string.IsNullOrWhiteSpace(trava.Especialidade) ? string.Empty : $" de {trava.Especialidade}")
+                   + (string.IsNullOrWhiteSpace(trava.Profissional) ? string.Empty : $" com {trava.Profissional}");
         // Três estados, três frases: com número, atendida sem número (agenda importada), só marcada.
         var atendimento = trava.AtendimentoNumero is { } n ? $" (atendimento {n})"
             : trava.ConsultaAtendida ? string.Empty : " (marcada)";
         return DateOnly.FromDateTime(trava.ConsultaEm) > diaPretendido
-            ? $"{trava.ConvenioNome} aceita uma consulta a cada {trava.PrazoDias} dias, e este paciente já tem "
+            ? $"{trava.ConvenioNome} aceita {oque} a cada {trava.PrazoDias} dias, e este paciente já tem "
               + $"consulta em {quando}{atendimento}. Marque até {DateOnly.FromDateTime(trava.ConsultaEm).AddDays(-trava.PrazoDias):dd/MM/yyyy} "
               + $"ou a partir de {trava.LiberadaAPartirDe:dd/MM/yyyy}."
-            : $"{trava.ConvenioNome} aceita uma consulta a cada {trava.PrazoDias} dias, e a última deste paciente "
+            : $"{trava.ConvenioNome} aceita {oque} a cada {trava.PrazoDias} dias, e a última deste paciente "
               + $"foi em {quando}{atendimento}. Nova consulta pelo convênio a partir de {trava.LiberadaAPartirDe:dd/MM/yyyy}.";
     }
 }

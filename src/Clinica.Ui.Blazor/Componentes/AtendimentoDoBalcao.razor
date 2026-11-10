@@ -67,6 +67,7 @@
                     @if (!UsarHorarioDoDia && !_lancado)
                     {
                         <TravaDeConsultaBox Paciente="_paciente" Quando="QuandoPretendido" Modalidade="_modalidade?.Base" Particular="_particular"
+                                    EspecialidadeCodigo="@(EhConsulta ? _especialidade?.Codigo : null)" ProfissionalId="_profissional?.Id"
                                             OfereceParticular="FormaDeAtendimentoNaTela.OfereceEscolha(_paciente)"
                                             AoMarcarParticular="() => TrocarParticular(true)" TravadoChanged="MudouTrava"
                                             MontarPedido="MontarPedidoDeLiberacao" />

@@ -551,10 +551,13 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
     public async Task<IReadOnlyList<ConsultaParaTrava>> ConsultasPeloConvenioDoPacienteAsync(
         int pacienteId, DateTime de, DateTime ate, CancellationToken ct = default)
-        => await ConsultaParaTravaDoPaciente(pacienteId, de, ate).ToListAsync(ct);
+        => (await ConsultaParaTravaDoPaciente(pacienteId, de, ate).ToListAsync(ct))
+            // A especialidade pelo código do catálogo, ou o enum das consultas antigas — em memória.
+            .Select(c => new ConsultaParaTrava(c.Id, c.DataHora, c.Numero, c.Atendida, c.Codigo ?? c.Enum?.ToString(), c.ProfissionalId))
+            .ToList();
 
     /// <summary>As COLUNAS, nunca as derivadas (`OcupaAgenda`): está em `TraducaoNoNpgsqlTests`.</summary>
-    internal IQueryable<ConsultaParaTrava> ConsultaParaTravaDoPaciente(int pacienteId, DateTime de, DateTime ate)
+    internal IQueryable<ConsultaParaTravaLida> ConsultaParaTravaDoPaciente(int pacienteId, DateTime de, DateTime ate)
         => _db.Agendamentos.AsNoTracking()
             .Where(a => a.PacienteId == pacienteId
                         && a.ModalidadePrevista == ModalidadeAtendimento.Consulta
@@ -562,7 +565,11 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
                         && (a.Status == StatusAgendamento.Agendado || a.Status == StatusAgendamento.Realizado)
                         && a.DataHora >= de && a.DataHora < ate)
             .OrderBy(a => a.DataHora)
-            .Select(a => new ConsultaParaTrava(a.Id, a.DataHora, a.Atendimento!.Numero, a.Status == StatusAgendamento.Realizado));
+            .Select(a => new ConsultaParaTravaLida(a.Id, a.DataHora, a.Atendimento!.Numero, a.Status == StatusAgendamento.Realizado,
+                a.EspecialidadeConsultaCodigo, a.EspecialidadeConsulta, a.ProfissionalId));
+
+    internal sealed record ConsultaParaTravaLida(int Id, DateTime DataHora, string? Numero, bool Atendida,
+        string? Codigo, Especialidade? Enum, int? ProfissionalId);
 
     public async Task<IReadOnlyList<ConsultaDaCobertura>> ConsultasPeloConvenioComEspecialidadeAsync(
         int pacienteId, DateTime de, DateTime ate, CancellationToken ct = default)
