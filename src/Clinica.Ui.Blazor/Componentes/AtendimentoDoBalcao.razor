@@ -55,7 +55,8 @@
                     </p>
                     @* CONVÊNIO ou PARTICULAR (nov/2026): a escolha é DESTE horário — a paciente tem
                        plano e quem atende não o aceita. A ficha continua com o convênio dela. *@
-                    <EscolhaDeFormaDeAtendimento Paciente="_paciente" Particular="_particular" ParticularChanged="TrocarParticular" Nota="@_notaDoParticular" />
+                    <EscolhaDeFormaDeAtendimento Paciente="_paciente" Particular="_particular" ParticularChanged="TrocarParticular" Nota="@_notaDoParticular"
+                                                 Respondida="FormaRespondida" />
                     @* A TRAVA DE CONSULTA do convênio (nov/2026): só onde nasce um horário NOVO — lançar
                        sobre o horário que já está na agenda não a confere (a trava é da marcação). *@
                     @if (!UsarHorarioDoDia && !_lancado)
@@ -930,11 +931,34 @@
     private void SugerirFormaPeloProfissional()
     {
         if (_formaEscolhidaNaMao || _lancado) return;
+        // nov/2026 — a pergunta virou OBRIGATÓRIA: o sistema avisa, mas não responde por quem marca.
         var sugere = FormaDeAtendimentoNaTela.SugereParticular(_profissional, _paciente);
         _notaDoParticular = sugere ? FormaDeAtendimentoNaTela.PreMarcado(_profissional!, _paciente!) : null;
-        if (sugere == _particular) return;
-        _particular = sugere;
-        if (_paciente is { } p) Disparar(() => VerificarElegibilidadeAsync(p.Id));
+    }
+
+    /// <summary>
+    /// Alguém já disse se é pelo plano ou particular: clicou no seletor, ou o lançamento é
+    /// sobre o HORÁRIO DO DIA — a resposta foi dada na marcação e veio com ele.
+    /// </summary>
+    private bool FormaRespondida => _formaEscolhidaNaMao || _lancado || UsarHorarioDoDia;
+
+    /// <summary>
+    /// A PERGUNTA OBRIGATÓRIA (nov/2026): nada se marca nem se lança sem alguém dizer se é pelo
+    /// plano ou particular. Devolve falso quando a pessoa desistiu — ou quando a resposta mudou
+    /// o resumo (guias, preço, avisos): aí ela confere e confirma de novo.
+    /// </summary>
+    private async Task<bool> GarantirFormaRespondidaAsync(Paciente paciente)
+    {
+        if (!FormaDeAtendimentoNaTela.PrecisaPerguntar(paciente, FormaRespondida)) return true;
+        var resposta = await Dialogos.EscolherAsync(FormaDeAtendimentoNaTela.TituloDaPergunta,
+            FormaDeAtendimentoNaTela.Pergunta(paciente, _profissional), FormaDeAtendimentoNaTela.Respostas(paciente));
+        if (resposta is not { } escolhida || Descartada) return false;
+        var particular = escolhida == FormaDeAtendimentoNaTela.RespostaParticular;
+        var mudou = particular != _particular;
+        TrocarParticular(particular);
+        if (!mudou) return true;
+        Avisar(FormaDeAtendimentoNaTela.ConfiraDeNovo);
+        return false;
     }
 
     private void TrocarPreventivo(ChangeEventArgs e)
@@ -1468,6 +1492,7 @@
         if (_modalidade is not { } modalidade) { Avisar("Selecione a modalidade.", "erro"); return; }
         if (EhConsulta && _especialidade is null) { Avisar("Informe a especialidade da consulta.", "erro"); return; }
         if (!TimeOnly.TryParse(_hora, out var hora)) { Avisar(AtendimentoDoBalcaoNaTela.RecusaSemHora(Marcar), "erro"); return; }
+        if (!await GarantirFormaRespondidaAsync(paciente)) return;
 
         // SEM CONVÊNIO NÃO SE LANÇA (parcela 92) — a condição vale onde o atendimento NASCE.
         // A sessão PARTICULAR por escolha passa: a falta de guia é a decisão registrada no horário.

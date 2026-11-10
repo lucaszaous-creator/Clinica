@@ -435,6 +435,8 @@ td .selo{margin-left:0}
   cursor:pointer;color:var(--texto-secundario);flex:none}
 .fechar:hover{background:var(--superficie-hover);color:var(--texto-primario)}
 .dialogo-mensagem{margin:0;line-height:1.55;white-space:pre-line;color:var(--cinza-700)}
+.dialogo-opcoes{display:flex;flex-direction:column;gap:var(--space-2);margin-top:var(--space-4)}
+.dialogo-opcoes .botao{justify-content:center;width:100%}
 .secao-form{display:flex;flex-direction:column;gap:var(--space-3)}
 .secao-form > h3{margin:0;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:var(--text-secao-tracking);
   color:var(--texto-secundario)}
@@ -628,5 +630,6 @@ td .selo{margin-left:0}
 .trava-nota{color:var(--texto-secundario)}
 .trava-acoes{display:flex;flex-wrap:wrap;gap:var(--space-2);margin-top:var(--space-1)}
 .forma-atendimento-sugestao{color:var(--aviso-texto);font-weight:600}
+.forma-atendimento-falta{color:var(--erro-texto);font-weight:600}
 /* Convênios que o profissional NÃO atende (ProfissionalForm): caixinhas em colunas que quebram. */
 .pf-convenios{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:var(--space-2) var(--space-4)}

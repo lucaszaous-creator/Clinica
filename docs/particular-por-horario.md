@@ -153,3 +153,57 @@ feita no código seria uma política financeira decidida por quem programa.
   `CLINICA_TESTES_POSTGRES` antes de publicar.
 
 Evidências (prévia com dados fictícios): `docs/evidencias/particular-por-horario/`.
+
+---
+
+## A pergunta virou OBRIGATÓRIA em toda marcação (nov/2026)
+
+**Pedido da direção**, uma semana depois da escolha opcional: "em toda marcação aparecer um
+pop-up perguntando se é particular ou convênio e salvando a informação — mesmo o paciente
+sendo plano, ela tem que dizer. Cada especialidade é credenciada em alguns planos."
+
+### O que mudou
+
+- O seletor **Atendimento por** deixa de vir respondido: nenhum dos dois botões nasce
+  apertado, e a linha em vermelho diz "Obrigatório: diga se este atendimento é pelo plano ou
+  particular".
+- Quem clica no seletor já respondeu. Quem não clicou recebe, ao **Marcar/Salvar/Lançar**, o
+  pop-up **"Plano ou particular?"** com o nome do paciente e do plano e duas respostas do mesmo
+  tamanho. Cancelar e Esc não escolhem por ninguém, e o Enter cai no Cancelar.
+- Respondeu **pelo plano**: grava. Respondeu **particular**: a tela aplica a escolha, mostra o
+  resumo novo (sem guia, preço da tabela) e pede a confirmação de novo — ninguém grava um
+  particular sem ter visto o preço.
+- Quando quem atende não aceita o plano (cadastro do profissional), o sistema **avisa** — sob o
+  seletor e dentro do pop-up — mas **não responde mais sozinho**. A pré-marcação automática de
+  nov/2026 saiu: ela era exatamente a resposta dada por ninguém.
+- A resposta é gravada onde já era: `Agendamento.Particular` → `Atendimento.Particular`.
+
+Vale no formulário do horário (`AgendamentoForm`) e no Marcar/Lançar do balcão
+(`AtendimentoDoBalcao`). Não pergunta: a ficha que já é particular (não há escolha), a EDIÇÃO
+de um horário (a resposta foi dada na marcação) e o lançamento sobre o horário do dia (idem).
+
+### Opções comparadas
+
+| | A — seletor obrigatório + pop-up só para quem não respondeu (feito) | B — pop-up SEMPRE, mesmo já tendo clicado | C — só o seletor obrigatório, com recusa em texto |
+|---|---|---|---|
+| 🧑‍💻 UX | quem responde no seletor não ganha clique; quem esquece é parado | um clique a mais em toda marcação, para sempre | recusa em texto no rodapé é fácil de não ver |
+| 🛠️ DX | um diálogo novo de escolha (`Dialogos.EscolherAsync`), reutilizável | igual | menor |
+| 🤝 CX | impossível marcar sem resposta; a resposta é consciente | idem, com mais atrito | idem, com mais chamado de "não deixa salvar" |
+
+### UX · DX · CX
+
+- 🧑‍💻 **UX** — nenhuma marcação sai sem a resposta, e ela nunca é a do Enter. Custo: um clique
+  (no seletor ou no pop-up).
+- 🛠️ **DX** — a regra de QUANDO perguntar e os textos moram em `FormaDeAtendimentoNaTela`
+  (`PrecisaPerguntar`, `Pergunta`, `Respostas`), com `PerguntaPlanoOuParticularTests`. O diálogo
+  de escolha é genérico (`TipoDialogo.Escolha`). Sem migration.
+- 🤝 **CX** — o relatório de particulares e o faturamento passam a refletir uma resposta dada, não
+  um padrão. Publicar: Recepção e Gerente.
+
+### O que NÃO foi feito
+
+- A marcação feita pelo **CRM/WhatsApp** (ponte) continua sem a pergunta: ela nasce pelo
+  convênio da ficha, como antes. A tela é do CRM; fica para decisão da direção.
+- A suíte completa e o `TelasBlazorAbremTests` ficam com o CI do PR (rodaram localmente só as
+  famílias da mudança).
+- O faturamento (`Clinica.Desktop`) não foi tocado.
