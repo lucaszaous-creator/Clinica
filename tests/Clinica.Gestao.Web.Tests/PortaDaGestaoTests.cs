@@ -58,6 +58,8 @@ public sealed class PortaDaGestaoTests : IAsyncLifetime
                 var catalogos = s.Where(d => d.ImplementationType == typeof(CatalogosDaGestao)).ToList();
                 _catalogosRegistrados = catalogos.Count == 1 && catalogos[0].ServiceType == typeof(Microsoft.Extensions.Hosting.IHostedService);
                 foreach (var d in catalogos) s.Remove(d);
+                // A escuta do banco tentaria conectar no Postgres que o teste não tem.
+                foreach (var d in s.Where(d => d.ImplementationType == typeof(EscutaDoBancoDaGestao)).ToList()) s.Remove(d);
             });
         });
         using var escopo = _fabrica.Services.CreateScope();
@@ -133,6 +135,34 @@ public sealed class PortaDaGestaoTests : IAsyncLifetime
         Assert.Contains(linhas, m => m.Codigo == "VarianteDoPortal");
         foreach (var embutida in Enum.GetValues<ModalidadeAtendimento>())
             Assert.Contains(linhas, m => m.Codigo == embutida.ToString());
+    }
+
+    /// <summary>
+    /// Toda ponte que as telas pedem ao hospedeiro tem resposta no portal: ponte nova que o app
+    /// registra e o portal esquece volta ao "indisponível" da prévia — o defeito de nov/2026.
+    /// </summary>
+    [Fact]
+    public void O_portal_responde_a_todas_as_pontes_das_telas()
+    {
+        using var escopo = _fabrica.Services.CreateScope();
+        var sp = escopo.ServiceProvider;
+        Type[] pontes =
+        [
+            typeof(Clinica.Ui.Blazor.Hospedagem.IHostDaTela), typeof(Clinica.Ui.Blazor.Hospedagem.IPostoDoConsultorio),
+            typeof(Clinica.Ui.Blazor.Hospedagem.IJanelasDaAgenda), typeof(Clinica.Ui.Blazor.Hospedagem.IMarcacaoDeHorario),
+            typeof(Clinica.Ui.Blazor.Hospedagem.IJanelasDoAtendimento), typeof(Clinica.Ui.Blazor.Hospedagem.IAgendaDaVisaoGeral),
+            typeof(Clinica.Ui.Blazor.Hospedagem.IBalcaoDaRecepcao), typeof(Clinica.Ui.Blazor.Hospedagem.IJanelasDoAtendimentoClinico),
+            typeof(Clinica.Ui.Blazor.Hospedagem.IJanelasDosExames), typeof(Clinica.Ui.Blazor.Hospedagem.IJanelasDosProntuarios),
+            typeof(Clinica.Ui.Blazor.Hospedagem.IDocumentosDaRecepcao), typeof(Clinica.Ui.Blazor.Hospedagem.IAvisosDoBanco),
+            typeof(Clinica.Ui.Blazor.Hospedagem.IAssinaturaNaTela),
+        ];
+        foreach (var ponte in pontes)
+        {
+            var servico = sp.GetService(ponte);
+            Assert.True(servico is not null, $"O portal não registra {ponte.Name}.");
+            Assert.True(servico!.GetType().Assembly == typeof(CatalogosDaGestao).Assembly,
+                $"{ponte.Name} está respondendo com {servico.GetType().Name}, que não é do portal.");
+        }
     }
 
     /// <summary>Banco fora do ar não derruba o portal: a carga responde falso e tenta de novo depois.</summary>
