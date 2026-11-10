@@ -55,6 +55,22 @@
                 </Campo>
             </div>
 
+            @* O PREÇO POR PROFISSIONAL (nov/2026): duas médicas da mesma especialidade cobram valores
+               diferentes. Em branco vale para todos; com profissional, ganha do preço geral. *@
+            <div class="campos">
+                <Campo Rotulo="Profissional" Classe="largo"
+                       Dica="Em branco, o preço vale para todos. Escolhido, ele vale só para as sessões deste profissional e ganha do preço geral da mesma modalidade — é como se monta a tabela de valores de cada um.">
+                    <select class="campo" value="@(_profissionalId?.ToString(CultureInfo.InvariantCulture) ?? "")"
+                            @onchange="e => _profissionalId = int.TryParse(e.Value?.ToString(), out var id) ? id : null">
+                        <option value="">(todos os profissionais)</option>
+                        @foreach (var p in _profissionais)
+                        {
+                            <option value="@p.Id">@p.Rotulo@(p.Ativo ? "" : " (inativo)")</option>
+                        }
+                    </select>
+                </Campo>
+            </div>
+
             <div class="campos tres">
                 <Campo Rotulo="Valor da sessão" Obrigatorio="true" Erro="@_erroValor">
                     <input class="campo valor" @bind="_valor" @bind:event="oninput" maxlength="14" inputmode="decimal" placeholder="Ex.: 180,00" />
@@ -92,6 +108,8 @@
     private IReadOnlyList<OpcaoDeCatalogo> _modalidades = [];
     private IReadOnlyList<OpcaoDeCatalogo> _especialidades = [];
     private string? _modalidade, _especialidade, _valor;
+    private IReadOnlyList<Profissional> _profissionais = [];
+    private int? _profissionalId;
     private DateOnly? _vigenteDe, _vigenteAte;
     private bool _ativo = true;
     /// <summary>A tela não as mostra: carregadas para voltarem INTACTAS no Salvar.</summary>
@@ -125,6 +143,12 @@
                     return;
                 }
             }
+
+            // Os ativos — e, na edição, o dono do preço mesmo inativo (quem não edita, PRESERVA).
+            var equipe = await sp.GetRequiredService<EquipeService>().ProfissionaisAtivosAsync();
+            _profissionais = existente?.Profissional is { } dono && equipe.All(x => x.Id != dono.Id)
+                ? [.. equipe, dono] : equipe.ToList();
+            _profissionalId = existente?.ProfissionalId;
 
             _modalidades = PrecosParticularNaTela.Opcoes(
                 modalidades.Select(m => (m.Codigo, m.Nome, m.Ativo)), existente?.ModalidadeCodigo);
@@ -170,6 +194,7 @@
                 Id = PrecoId,
                 ModalidadeCodigo = _modalidade!,
                 EspecialidadeCodigo = _especialidade,
+                ProfissionalId = _profissionalId,
                 Valor = valor,
                 VigenteDe = _vigenteDe,
                 VigenteAte = _vigenteAte,

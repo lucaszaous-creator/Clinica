@@ -39,6 +39,30 @@ public static class FormaDeAtendimentoNaTela
                 : $"Sem guia do {paciente.ConvenioNome}: a cobrança é no caixa, e a sessão entra nos "
                   + "relatórios como particular. O convênio da ficha não muda.";
 
+    /// <summary>
+    /// A sugestão do sistema: quem atende NÃO atende pelo convênio da ficha (cadastro do
+    /// profissional), então o horário nasce marcado como particular. É SUGESTÃO — a escolha
+    /// continua na mão de quem marca, e a tela diz por que veio assim.
+    /// </summary>
+    public static bool SugereParticular(Profissional? profissional, Paciente? paciente)
+        => OfereceEscolha(paciente) && profissional?.NaoAtende(paciente) == true;
+
+    public static string PreMarcado(Profissional profissional, Paciente paciente)
+        => $"{profissional.Rotulo} não atende pelo {paciente.ConvenioNome} — o horário veio marcado como particular. "
+           + "Se desta vez for pelo convênio, troque acima.";
+
+    /// <summary>Os convênios que entram no cadastro do profissional: os que FATURAM (particular e "a definir" não são escolha).</summary>
+    public static IReadOnlyList<(string Codigo, string Nome)> ConveniosParaOProfissional(
+        IEnumerable<(string Codigo, string Nome, bool GeraGuia, bool Ativo)> catalogo, IEnumerable<string> jaMarcados)
+    {
+        var marcados = jaMarcados.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return catalogo
+            .Where(c => c.GeraGuia && (c.Ativo || marcados.Contains(c.Codigo)))
+            .OrderBy(c => c.Nome, StringComparer.Create(System.Globalization.CultureInfo.GetCultureInfo("pt-BR"), true))
+            .Select(c => (c.Codigo, c.Nome))
+            .ToList();
+    }
+
     /// <summary>Os alertas que são do CONVÊNIO — e que não dizem nada de uma sessão particular.</summary>
     private static readonly HashSet<ImpedimentoElegibilidade> DoConvenio =
     [

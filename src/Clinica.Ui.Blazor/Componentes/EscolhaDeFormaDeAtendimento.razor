@@ -27,6 +27,10 @@
         {
             <p class="forma-atendimento-nota">@FormaDeAtendimentoNaTela.Explicacao(Paciente!, true)</p>
         }
+        @if (!string.IsNullOrEmpty(Nota))
+        {
+            <p class="forma-atendimento-nota forma-atendimento-sugestao">@Nota</p>
+        }
     </div>
 }
 
@@ -35,6 +39,8 @@
     [Parameter] public bool Particular { get; set; }
     [Parameter] public EventCallback<bool> ParticularChanged { get; set; }
     [Parameter] public bool Desabilitado { get; set; }
+    /// <summary>Por que a escolha veio assim (o profissional não atende o plano) — some quando a pessoa escolhe.</summary>
+    [Parameter] public string? Nota { get; set; }
 
     private readonly string _idRotulo = "forma-" + Guid.NewGuid().ToString("N")[..8];
 

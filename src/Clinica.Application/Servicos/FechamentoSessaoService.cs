@@ -553,7 +553,8 @@ public sealed class FechamentoSessaoService
             var proposto = await _precos.ProporAsync(
                 ag.ModalidadeCodigo, ag.ModalidadePrevista,
                 ag.EspecialidadeConsultaCodigo ?? ag.EspecialidadeConsulta?.ToString(),
-                dia, ct);
+                // O preço de QUEM ATENDE ganha do geral (nov/2026): o horário sabe quem é.
+                dia, ct, ag.ProfissionalId);
 
             return proposto.Houve ? (proposto.Valor, proposto.Procedencia) : (null, null);
         }

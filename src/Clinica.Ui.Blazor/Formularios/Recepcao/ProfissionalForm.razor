@@ -1,5 +1,6 @@
 @namespace Clinica.Ui.Blazor.Formularios
 @using Clinica.Domain.Regras
+@using Clinica.Application.Modelos
 @*
   Cadastro do PROFISSIONAL (o que no WPF era a ProfissionalWindow / ProfissionalEdicaoViewModel).
 
@@ -80,6 +81,27 @@
                     </Campo>
                 </div>
             </div>
+
+            @* OS CONVÊNIOS QUE ESTE PROFISSIONAL NÃO ATENDE (nov/2026 — "a endocrinologista não atende a
+               Unimed"). Marca-se a EXCEÇÃO: sem nada marcado, atende todos. É o que pré-marca
+               "Particular" na marcação quando o paciente é de um desses planos. *@
+            @if (_convenios.Count > 0)
+            {
+                <div class="secao-form">
+                    <h3>Convênios que NÃO atende</h3>
+                    <p class="campo-dica">Sem nada marcado, atende por todos. Ao marcar um horário deste profissional para paciente de um convênio marcado aqui, o sistema já propõe o atendimento como PARTICULAR (sem guia, com o preço da tabela) — quem marca ainda pode trocar.</p>
+                    <div class="pf-convenios">
+                        @foreach (var c in _convenios)
+                        {
+                            <label class="marcar">
+                                <input type="checkbox" checked="@_naoAtende.Contains(c.Codigo)"
+                                       @onchange="e => { if (e.Value is true) _naoAtende.Add(c.Codigo); else _naoAtende.Remove(c.Codigo); }" />
+                                @c.Nome
+                            </label>
+                        }
+                    </div>
+                </div>
+            }
 
             <div class="secao-form">
                 <h3>Atende na marcação</h3>
@@ -173,6 +195,12 @@
     private string? _nome, _nomeCurto, _registro, _cpf, _especialidade, _telefone, _email, _cor, _observacoes;
     private string? _duracao, _limitePreventivo, _ordem = "0";
     private bool _ativo = true, _trava;
+    private IReadOnlyList<(string Codigo, string Nome, bool GeraGuia, bool Ativo)> _catalogoDeConvenios = [];
+    private readonly HashSet<string> _naoAtende = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>O que estava marcado ao abrir: o convênio desativado depois continua na lista (quem não edita, PRESERVA).</summary>
+    private IReadOnlyList<string> _naoAtendeAoAbrir = [];
+    private IReadOnlyList<(string Codigo, string Nome)> _convenios
+        => FormaDeAtendimentoNaTela.ConveniosParaOProfissional(_catalogoDeConvenios, _naoAtendeAoAbrir);
     // O horário LIDO, devolvido intacto ao salvar (quem não edita, preserva).
     private int? _diasLidos;
     private TimeOnly? _dasLido, _ateLido;
@@ -210,6 +238,10 @@
 
             // O catálogo é o cache do app (carregado na abertura); vazio — a prévia, um posto
             // que ainda não carregou —, lê do banco. Sem mexer no cache global.
+            // Os convênios do cadastro (para "não atende"): do banco, como o cadastro os tem hoje.
+            _catalogoDeConvenios = (await sp.GetRequiredService<ConvenioCatalogoService>().ListarAsync())
+                .Where(c => c.Codigo != ConvenioCadastro.CodigoADefinir)
+                .Select(c => (c.Codigo, c.Nome, c.GeraGuia, c.Ativo)).ToList();
             IReadOnlyList<EntradaModalidade> modalidades = CatalogoModalidades.Ativas;
             IReadOnlyList<EntradaEspecialidade> especialidades = CatalogoEspecialidades.Ativas;
             if (modalidades.Count == 0)
@@ -239,6 +271,8 @@
                 _ordem = p.Ordem.ToString(CultureInfo.InvariantCulture);
                 _ativo = p.Ativo;
                 _trava = p.AgendaProtegida;
+                _naoAtendeAoAbrir = p.CodigosNaoAtendidos;
+                foreach (var codigo in _naoAtendeAoAbrir) _naoAtende.Add(codigo);
                 _observacoes = p.Observacoes;
                 _originais = p.HabilitacoesAtendimento;
                 _resumoHabilitacoes = TelaDaEquipe.Habilitacoes(p);
@@ -393,6 +427,8 @@
                 Cor = _cor,
                 DuracaoPadraoMinutos = duracao,
                 LimitePreventivoPorDia = limitePreventivo,
+                // Vazio (e não nulo) quando nada está marcado: nulo é "não sei" e preservaria o antigo.
+                ConveniosNaoAtendidos = string.Join(';', _naoAtende),
                 DiasDeAtendimento = _diasLidos,
                 AtendeDas = _dasLido,
                 AtendeAte = _ateLido,

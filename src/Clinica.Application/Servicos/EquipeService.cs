@@ -108,6 +108,14 @@ public sealed class EquipeService
         destino.Cor = Limpar(dados.Cor);
         destino.DuracaoPadraoMinutos = dados.DuracaoPadraoMinutos;
         destino.LimitePreventivoPorDia = dados.LimitePreventivoPorDia;
+        // Os convênios que NÃO atende (nov/2026). NULO = "o chamador não sabe" e fica o que
+        // estava (a tela de Acessos regrava o profissional só para o CPF — quem não edita,
+        // PRESERVA); vazio = atende todos. Guardado limpo: sem repetido, sem espaço.
+        if (dados.ConveniosNaoAtendidos is not null)
+        {
+            var codigos = dados.CodigosNaoAtendidos;
+            destino.ConveniosNaoAtendidos = codigos.Count == 0 ? null : string.Join(';', codigos);
+        }
         // Zero dias não é jornada: vira "não declarado". E só os sete bits valem — um valor
         // fora deles seria um dia que não existe.
         destino.DiasDeAtendimento = dados.DiasDeAtendimento is { } dias && (dias & Profissional.TodosOsDias) != 0

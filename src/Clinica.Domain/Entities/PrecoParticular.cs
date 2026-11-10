@@ -43,6 +43,15 @@ public class PrecoParticular
     /// </summary>
     public string? EspecialidadeCodigo { get; set; }
 
+    /// <summary>
+    /// De QUEM é este preço (nov/2026, pedido da gerência: "o preço por profissional, para
+    /// criar a tabela de valores"). Nulo = vale para todos — o que toda linha anterior vale.
+    /// O preço com profissional GANHA do genérico: duas médicas da mesma especialidade cobram
+    /// valores diferentes, e é a agenda (quem atende) que decide qual a tela propõe.
+    /// </summary>
+    public int? ProfissionalId { get; set; }
+    public Profissional? Profissional { get; set; }
+
     /// <summary>Quanto a clínica cobra do particular por esta sessão.</summary>
     public decimal Valor { get; set; }
 
@@ -77,9 +86,11 @@ public class PrecoParticular
 
     /// <summary>"Consulta · Psiquiatria — R$ 400,00" ou "Acupuntura + eletro — R$ 180,00".</summary>
     public string Descricao => string.Format(
-        Brasil, "{0}{1} — {2:C}",
+        Brasil, "{0}{1}{2} — {3:C}",
         ModalidadeNome,
         string.IsNullOrWhiteSpace(EspecialidadeCodigo) ? string.Empty : $" · {EspecialidadeNome}",
+        // O preço DE UM profissional diz de quem é: a procedência fica gravada no lançamento.
+        ProfissionalId is null ? string.Empty : $" · {Profissional?.Rotulo ?? "profissional " + ProfissionalId}",
         Valor);
 
     /// <summary>Vigência escrita, para a lista.</summary>

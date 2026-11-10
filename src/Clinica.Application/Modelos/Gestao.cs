@@ -4,6 +4,9 @@ namespace Clinica.Application.Modelos;
 
 // ==================== BI (feature 12) ====================
 
+/// <summary>Quantos atendimentos um pagador (convênio, ou "Particular") teve no período, e quantos pacientes.</summary>
+public sealed record AtendidosPorPagador(string Pagador, bool Particular, int Atendidos, int Pacientes);
+
 /// <summary>
 /// Números da agenda num período. Ocupação e no-show são as duas perguntas que a
 /// direção faz — e as duas que o sistema não sabia responder antes da parcela 1,
@@ -19,6 +22,14 @@ public sealed record IndicadoresAgenda(
     int MinutosOcupados,
     int MinutosDisponiveis)
 {
+    /// <summary>
+    /// Os ATENDIDOS do período por quem paga (nov/2026, pedido da gerência: indicadores por
+    /// convênio). Conta a SESSÃO, não a pessoa: a consulta marcada como particular de quem tem
+    /// plano entra em "Particular" — é a resposta de "quantas consultas particulares tivemos".
+    /// Do maior para o menor.
+    /// </summary>
+    public IReadOnlyList<AtendidosPorPagador> PorPagador { get; init; } = [];
+
     /// <summary>Horários que chegaram ao fim: atendidos + faltas (o denominador honesto do no-show).</summary>
     public int Fechados => Atendidos + Faltas;
 

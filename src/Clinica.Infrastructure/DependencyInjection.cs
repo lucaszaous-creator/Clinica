@@ -32,6 +32,9 @@ public static class DependencyInjection
         services.AddScoped<IChatEquipeService, ChatEquipeService>();
         services.AddScoped<AvisosDoSemDorService>();
         services.AddScoped<IPedidosRecepcaoService, PedidosRecepcaoService>();
+        // O pedido de liberação da trava de consulta (nov/2026): pedido pelo app, decidido pela gerência.
+        services.AddScoped<LiberacaoDeTravaService>();
+        services.AddScoped<ILiberacaoDeTravaService>(sp => sp.GetRequiredService<LiberacaoDeTravaService>());
         // A remarcação pedida pelo paciente (@SemDor): a tela usa a interface; a ponte, a classe (fila do CRM).
         services.AddScoped<RemarcacaoPeloPacienteService>();
         services.AddScoped<IRemarcacaoPeloPacienteService>(sp => sp.GetRequiredService<RemarcacaoPeloPacienteService>());

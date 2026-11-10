@@ -68,6 +68,64 @@ public sealed class AgendaService
     private async Task<bool> GuiaNaMarcacaoLigadaAsync(CancellationToken ct)
         => _parametros is not null && await _parametros.GuiaNoAgendamentoAsync(ct);
 
+    // ==================== TRAVA DE CONSULTA DO CONVÊNIO (nov/2026) ====================
+    //
+    // O convênio paga uma consulta a cada N dias (a validade da consulta do cadastro). Com a
+    // chave ligada em Configurações, marcar outra consulta pelo convênio dentro do prazo é
+    // RECUSADO — aqui, e não nas telas, pela razão de sempre: são várias portas de marcação
+    // (formulário do horário, Marcar/Lançar do balcão, lista de espera, série, a ponte do CRM)
+    // e conferir numa deixaria as outras passando. Quem atravessa a trava é a liberação da
+    // gerência (`LiberacaoDeTrava`), e quem não a sofre é a consulta particular.
+    //
+    // ⚠️ Concluir, confirmar presença e lançar SOBRE um horário que já existe não conferem: a
+    // trava é da MARCAÇÃO. O paciente que já está na agenda (marcado antes de a chave ligar,
+    // ou liberado) não pode ficar preso na Fila por uma regra que nasceu depois.
+
+    /// <summary>
+    /// A trava que este horário acenderia, ou nulo. É a MESMA resposta que a gravação usa —
+    /// as telas a chamam a cada troca de paciente/dia para mostrar a box ANTES do Salvar.
+    /// </summary>
+    public async Task<TravaAcesa?> TravaDeConsultaAsync(
+        int pacienteId, DateTime dataHora, ModalidadeAtendimento modalidade, bool particular,
+        int? ignorarAgendamentoId = null, CancellationToken ct = default)
+    {
+        if (modalidade != ModalidadeAtendimento.Consulta || particular) return null;
+        if (_parametros is null || !await _parametros.TravaDeConsultaAsync(ct)) return null;
+
+        var paciente = await _repo.ObterPacienteAsync(pacienteId, ct);
+        // Ficha particular ou "a definir": não há convênio cujo prazo conferir.
+        if (paciente is null || SessaoParticular.PelaFicha(paciente)) return null;
+
+        var prazo = paciente.Convenio == Convenio.Personalizado
+            ? CatalogoConvenios.ValidadeConsultaDias(paciente.ConvenioCodigo)
+            : (await _parametros.ObterAsync(ct)).ValidadeConsultaDias(paciente.Convenio);
+        if (prazo is not { } dias || dias <= 0) return null;
+
+        var dia = DateOnly.FromDateTime(dataHora);
+        var outras = (await _repo.ConsultasPeloConvenioDoPacienteAsync(
+                pacienteId, dia.AddDays(-dias).ToDateTime(TimeOnly.MinValue),
+                dia.AddDays(dias + 1).ToDateTime(TimeOnly.MinValue), ct))
+            .Where(c => c.AgendamentoId != ignorarAgendamentoId)
+            .ToList();
+        if (TravaDeConsulta.Conferir(dia, dias, outras) is not { } consulta) return null;
+
+        // A gerência já liberou uma consulta deste paciente NESTE dia: a trava está atravessada.
+        if (await _repo.ExisteLiberacaoDeTravaAsync(pacienteId, dia, ct)) return null;
+
+        // Solta depois da ÚLTIMA consulta da janela — com duas marcadas, soltar depois da
+        // primeira mandaria marcar em cima do prazo da segunda.
+        var solta = DateOnly.FromDateTime(outras.Max(c => c.DataHora)).AddDays(dias);
+        return new TravaAcesa(paciente.ConvenioNome, dias, consulta.DataHora, consulta.AtendimentoNumero, solta, consulta.Atendida);
+    }
+
+    private async Task GarantirSemTravaDeConsultaAsync(
+        int pacienteId, DateTime dataHora, ModalidadeAtendimento modalidade, bool particular,
+        int? ignorarAgendamentoId, CancellationToken ct)
+    {
+        if (await TravaDeConsultaAsync(pacienteId, dataHora, modalidade, particular, ignorarAgendamentoId, ct) is { } trava)
+            throw new TravaDeConsultaException(trava, DateOnly.FromDateTime(dataHora));
+    }
+
     private async Task<bool> ConsultaDePsicologiaAsync(int? profissionalId, ModalidadeAtendimento modalidade,
         string? modalidadeCodigo, string? especialidadeCodigo, CancellationToken ct)
     {
@@ -138,6 +196,7 @@ public sealed class AgendaService
                 + "de ninguém — nem no \"Meu dia\" de quem atende — e fica de fora do repasse.");
 
         await GarantirHorarioPermitidoAsync(dataHora, duracaoMinutos, profissionalId, salaId, pacienteId, null, ct);
+        await GarantirSemTravaDeConsultaAsync(pacienteId, dataHora, modalidade, particular, null, ct);
 
         var ehConsulta = modalidade == ModalidadeAtendimento.Consulta;
         coletaPreventivo = coletaPreventivo && ehConsulta;
@@ -273,6 +332,15 @@ public sealed class AgendaService
         if (dataHora != ag.DataHora || novoProfissional != ag.ProfissionalId || novaSala != ag.SalaId
             || novaDuracao != ag.DuracaoMinutos || !ag.OcupaAgenda)
             await GarantirHorarioPermitidoAsync(dataHora, novaDuracao, novoProfissional, novaSala, ag.PacienteId, ag.Id, ct);
+
+        // A TRAVA DE CONSULTA (nov/2026) é conferida quando o horário passa a disputá-la: virou
+        // consulta pelo convênio, mudou de DIA, ou voltou de um cancelamento. Corrigir sala,
+        // hora ou observação de uma consulta que já estava marcada não a confere de novo —
+        // senão a consulta liberada (ou anterior à chave) não poderia mais ser editada.
+        var eraConsultaPeloConvenio = ag.ModalidadePrevista == ModalidadeAtendimento.Consulta && !ag.Particular;
+        if (ehConsulta && !novoParticular
+            && (!eraConsultaPeloConvenio || dataHora.Date != ag.DataHora.Date || !ag.OcupaAgenda))
+            await GarantirSemTravaDeConsultaAsync(ag.PacienteId, dataHora, modalidade, false, ag.Id, ct);
 
         // A vaga de preventivo é conferida quando o horário passa a DISPUTÁ-LA: coleta
         // ligada agora, outro dia, outro profissional ou um horário cancelado que volta.
@@ -1368,6 +1436,9 @@ public sealed class AgendaService
         if (await ConsultaDePsicologiaAsync(profissionalId, modalidade, modalidadeCodigo,
             especialidadeConsultaCodigo, ct))
             especialidadeConsultaCodigo = "Psicologia";
+
+        // O encaixe avulso também é uma consulta NOVA pelo convênio: a trava vale (nov/2026).
+        await GarantirSemTravaDeConsultaAsync(pacienteId, dataHora, modalidade, particular, null, ct);
 
         var agora = DateTime.Now;
         var ehConsulta = modalidade == ModalidadeAtendimento.Consulta;

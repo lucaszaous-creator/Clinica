@@ -70,6 +70,8 @@ public sealed class PrecoParticularService
         // especialidade chamada "" que nunca casa com nada.
         preco.EspecialidadeCodigo = string.IsNullOrWhiteSpace(dados.EspecialidadeCodigo)
             ? null : dados.EspecialidadeCodigo.Trim();
+        // Nulo = vale para todos os profissionais (o que toda linha anterior vale).
+        preco.ProfissionalId = dados.ProfissionalId;
         preco.Valor = dados.Valor;
         preco.VigenteDe = dados.VigenteDe;
         preco.VigenteAte = dados.VigenteAte;
@@ -99,13 +101,18 @@ public sealed class PrecoParticularService
     /// pelo CÓDIGO ou pela FAMÍLIA (o código embutido da família é o nome do enum) e cuja
     /// especialidade é a da sessão ou "qualquer". Vence o mais específico; entre iguais, o
     /// reajuste mais novo.
+    ///
+    /// O PROFISSIONAL (nov/2026) é a especificidade mais forte: o preço cadastrado para quem
+    /// atende ganha de qualquer preço geral, e o preço de OUTRO profissional nunca serve. Sem
+    /// profissional informado (a Conciliação, que não o conhece), só concorrem os gerais.
     /// </summary>
     public async Task<PrecoParticular?> ResolverAsync(
         string? modalidadeCodigo,
         ModalidadeAtendimento familia,
         string? especialidadeCodigo,
         DateOnly dia,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        int? profissionalId = null)
     {
         var codigo = string.IsNullOrWhiteSpace(modalidadeCodigo) ? familia.ToString() : modalidadeCodigo;
         var codigoDaFamilia = familia.ToString();
@@ -113,7 +120,7 @@ public sealed class PrecoParticularService
 
         var candidatos = (await AtivosAsync(ct))
             .Where(p => p.VigenteEm(dia))
-            .Select(p => (Preco: p, Pontos: Pontuar(p, codigo, codigoDaFamilia, especialidade)))
+            .Select(p => (Preco: p, Pontos: Pontuar(p, codigo, codigoDaFamilia, especialidade, profissionalId)))
             .Where(c => c.Pontos >= 0)
             .ToList();
 
@@ -129,26 +136,35 @@ public sealed class PrecoParticularService
     /// -1 = não serve. Modalidade: código exato vale 2, família vale 1. Especialidade:
     /// declarada e igual vale +1, "qualquer" vale 0, declarada e diferente não serve.
     /// </summary>
-    private static int Pontuar(PrecoParticular p, string codigo, string codigoDaFamilia, string? especialidade)
+    private static int Pontuar(PrecoParticular p, string codigo, string codigoDaFamilia, string? especialidade,
+        int? profissionalId)
     {
+        // Preço de um profissional: só serve a ELE, e pesa mais que modalidade e especialidade
+        // juntas (10 > 3) — "a consulta da Dra. Ana" ganha de "consulta de endocrinologia".
+        var doProfissional = 0;
+        if (p.ProfissionalId is { } dono)
+        {
+            if (dono != profissionalId) return -1;
+            doProfissional = 10;
+        }
         int modalidade;
         if (string.Equals(p.ModalidadeCodigo, codigo, StringComparison.OrdinalIgnoreCase)) modalidade = 2;
         else if (string.Equals(p.ModalidadeCodigo, codigoDaFamilia, StringComparison.OrdinalIgnoreCase)) modalidade = 1;
         else return -1;
 
-        if (string.IsNullOrWhiteSpace(p.EspecialidadeCodigo)) return modalidade;
+        if (string.IsNullOrWhiteSpace(p.EspecialidadeCodigo)) return doProfissional + modalidade;
         if (especialidade is not null
             && string.Equals(p.EspecialidadeCodigo, especialidade, StringComparison.OrdinalIgnoreCase))
-            return modalidade + 1;
+            return doProfissional + modalidade + 1;
         return -1;
     }
 
     /// <summary>O valor a propor, com a procedência escrita. Não grava nada.</summary>
     public async Task<PrecoProposto> ProporAsync(
         string? modalidadeCodigo, ModalidadeAtendimento familia, string? especialidadeCodigo,
-        DateOnly dia, CancellationToken ct = default)
+        DateOnly dia, CancellationToken ct = default, int? profissionalId = null)
     {
-        var preco = await ResolverAsync(modalidadeCodigo, familia, especialidadeCodigo, dia, ct);
+        var preco = await ResolverAsync(modalidadeCodigo, familia, especialidadeCodigo, dia, ct, profissionalId);
         return preco is null
             ? PrecoProposto.Nenhum
             : new PrecoProposto(preco.Valor, $"tabela do particular: {preco.Descricao} ({preco.Vigencia})");

@@ -133,6 +133,10 @@ feita no código seria uma política financeira decidida por quem programa.
 
 ## O que ficou de fora, com o motivo
 
+> **Atualização (nov/2026, mesma semana):** a pré-marcação pelo profissional, o preço por
+> profissional e o indicador do Gerente por convênio foram entregues junto com a trava de
+> consulta — ver `docs/trava-de-consulta.md`. Os três primeiros itens abaixo ficam como registro.
+
 - **Pré-marcar pelo profissional** (opção D): depende de cadastrar quais convênios cada um
   aceita. É o próximo passo natural — o botão já existe, falta quem o pré-selecione.
 - **Preço por PROFISSIONAL**: a tabela do particular é por modalidade + especialidade. Se duas

@@ -1,0 +1,150 @@
+@*
+  A BOX DA TRAVA DE CONSULTA DO CONVÊNIO (nov/2026, pedido da gerência): o convênio aceita uma
+  consulta a cada N dias, e este paciente já tem uma dentro do prazo. A box diz o que trava e a
+  partir de quando solta, e oferece as saídas ANTES do Salvar: marcar como particular, ou pedir
+  a liberação à gerência — que recebe o pedido no WhatsApp e na conversa com o sistema, responde
+  "sim" ou "não", e o horário é marcado sozinho quando ela libera.
+
+  Um componente só para as duas portas (AgendamentoForm e AtendimentoDoBalcao). Ele NÃO decide
+  nada: pergunta ao AgendaService.TravaDeConsultaAsync — a MESMA resposta que a gravação usa — e
+  grava o pedido pelo LiberacaoDeTravaService. As frases vêm do domínio (TravaDeConsulta.Frase)
+  e de TravaDeConsultaNaTela (Application, com teste).
+
+  Com a chave desligada em Configurações, com consulta particular ou sem trava, não desenha nada.
+  Falha da leitura também não desenha: a recusa de verdade está no Salvar.
+*@
+@namespace Clinica.Ui.Blazor.Componentes
+@using Clinica.Application.Modelos
+@using Clinica.Domain.Regras
+@inherits TelaBase
+
+@if (_trava is { } trava)
+{
+    <div class="trava-box" role="alert" aria-live="polite">
+        <p class="trava-titulo"><Icone Nome="relogio" />@TravaDeConsultaNaTela.Titulo</p>
+        <p class="trava-frase">@TravaDeConsulta.Frase(trava, _dia)</p>
+        @if (_pendente is { } aberto)
+        {
+            <p class="trava-pendente">@TravaDeConsultaNaTela.Pendente(aberto)</p>
+        }
+        else
+        {
+            <div class="trava-acoes">
+                @if (OfereceParticular)
+                {
+                    <button type="button" class="botao" disabled="@_ocupado" @onclick="AoMarcarParticular"
+                            title="A consulta particular não passa pela trava: sem guia, cobrança no caixa">Marcar como particular</button>
+                }
+                <button type="button" class="botao primario" disabled="@(_ocupado || !Pode(Permissao.EditarAgenda))" @onclick="PedirAsync"
+                        title="@(Pode(Permissao.EditarAgenda) ? TravaDeConsultaNaTela.DicaDoPedido : "Pedir liberação é de quem marca na agenda.")">
+                    @(_ocupado ? "Enviando…" : TravaDeConsultaNaTela.RotuloDoPedido)
+                </button>
+            </div>
+            <p class="trava-nota">@TravaDeConsultaNaTela.Nota</p>
+        }
+        <Aviso Tom="erro" Texto="@_erro" />
+    </div>
+}
+
+@code {
+    [Parameter] public Paciente? Paciente { get; set; }
+    /// <summary>O dia (e a hora, quando já escolhida) pretendido.</summary>
+    [Parameter] public DateTime? Quando { get; set; }
+    [Parameter] public ModalidadeAtendimento? Modalidade { get; set; }
+    [Parameter] public bool Particular { get; set; }
+    /// <summary>Na edição: o próprio horário não trava a si mesmo.</summary>
+    [Parameter] public int? IgnorarAgendamentoId { get; set; }
+    /// <summary>O formulário oferece a escolha "Particular" para este paciente (a ficha tem convênio que fatura).</summary>
+    [Parameter] public bool OfereceParticular { get; set; }
+    [Parameter] public EventCallback AoMarcarParticular { get; set; }
+    /// <summary>A trava acendeu ou apagou: o formulário apaga/acende o Salvar.</summary>
+    [Parameter] public EventCallback<bool> TravadoChanged { get; set; }
+    /// <summary>
+    /// O formulário monta o pedido com o motivo digitado — ou devolve nulo e diz, na própria
+    /// tela, o que falta (hora, profissional…): o pedido guarda o horário INTEIRO, porque é ele
+    /// que o sistema marca quando a gerência libera.
+    /// </summary>
+    [Parameter] public Func<string, NovoPedidoDeLiberacao?>? MontarPedido { get; set; }
+    /// <summary>O pedido foi enviado: o formulário fecha (o horário nasce quando liberarem).</summary>
+    [Parameter] public EventCallback<string> AoPedir { get; set; }
+
+    private TravaAcesa? _trava;
+    private LiberacaoDeTrava? _pendente;
+    private DateOnly _dia;
+    private string? _erro;
+    private bool _ocupado;
+    private int _geracao;
+    private (int Paciente, DateOnly Dia, ModalidadeAtendimento? Modalidade, bool Particular, int? Ignorar) _lido = (-1, default, null, false, null);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var chave = (Paciente?.Id ?? 0, Quando is { } q ? DateOnly.FromDateTime(q) : default, Modalidade, Particular, IgnorarAgendamentoId);
+        if (chave == _lido) return;
+        _lido = chave;
+        await ConferirAsync();
+    }
+
+    /// <summary>A trava deste paciente neste dia — relida a cada troca, com o contador de geração.</summary>
+    private async Task ConferirAsync()
+    {
+        var g = ++_geracao;
+        var antes = _trava is not null;
+        TravaAcesa? trava = null;
+        LiberacaoDeTrava? pendente = null;
+        if (Paciente is { } paciente && Quando is { } quando && Modalidade is { } modalidade)
+        {
+            try
+            {
+                using var escopo = Escopo();
+                var sp = escopo.ServiceProvider;
+                trava = await sp.GetRequiredService<AgendaService>()
+                    .TravaDeConsultaAsync(paciente.Id, quando, modalidade, Particular, IgnorarAgendamentoId);
+                if (trava is not null)
+                    pendente = await sp.GetRequiredService<ILiberacaoDeTravaService>().PendenteAsync(paciente.Id, DateOnly.FromDateTime(quando));
+            }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar("Blazor — trava de consulta não pôde ser conferida", ex);
+            }
+            if (g != _geracao || Descartada) return;
+            _dia = DateOnly.FromDateTime(quando);
+        }
+        else if (g != _geracao || Descartada) return;
+
+        _trava = trava;
+        _pendente = pendente;
+        _erro = null;
+        if (antes != (trava is not null)) await TravadoChanged.InvokeAsync(trava is not null);
+        StateHasChanged();
+    }
+
+    private async Task PedirAsync()
+    {
+        if (_ocupado || _trava is null) return;
+        if (!Exigir(Permissao.EditarAgenda, "pedir a liberação da trava")) return;
+        _erro = null;
+        // Cancelar é desistir (null) — nunca um pedido sem motivo.
+        var motivo = await Dialogos.PerguntarTextoAsync(TravaDeConsultaNaTela.TituloDoMotivo, TravaDeConsultaNaTela.PerguntaDoMotivo);
+        if (motivo is null) return;
+        if (MontarPedido?.Invoke(motivo) is not { } pedido) return;
+
+        _ocupado = true;
+        try
+        {
+            using var escopo = Escopo();
+            var criado = await escopo.ServiceProvider.GetRequiredService<ILiberacaoDeTravaService>()
+                .PedirAsync(pedido, SessaoUsuario.Atual.UsuarioId);
+            if (Descartada) return;
+            var mensagem = TravaDeConsultaNaTela.PedidoEnviado(criado.Pedido.Id, criado.Aprovadores, criado.ComWhatsApp);
+            Notificacoes.Sucesso(mensagem);
+            _pendente = criado.Pedido;
+            await AoPedir.InvokeAsync(mensagem);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — pedido de liberação da trava não pôde ser enviado", ex);
+            _erro = ex.Message;
+        }
+        finally { _ocupado = false; }
+    }
+}

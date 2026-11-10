@@ -90,10 +90,14 @@ app.MapPost("/crm/v1/semdor/alerts",(SemDorAlerts input,ClinicSemDorBridge bridg
 // A remarcação pedida pelo paciente (@SemDor, out/2026): a fila de mensagens ao paciente (ofertas com
 // botões e confirmações), o resultado de cada uma e o toque do paciente num horário. Sem chave de ligar
 // aqui: quem decide mandar é o CRM (CRM_PATIENT_OFFERS_ENABLED). RemarcacaoPeloPacienteService já vem do AddClinica.
-app.MapGet("/crm/v1/patient/messages",async(RemarcacaoPeloPacienteService s,CancellationToken ct)=>
-    (await s.MensagensPendentesAsync(ct)).Select(m=>new PatientMessage(m.Id,m.Telefone,m.Texto,m.Opcoes.Select(o=>new PatientOption(o.Id,o.Titulo)).ToArray())).ToArray());
-app.MapPost("/crm/v1/patient/messages/ack",async(PatientMessageAck input,RemarcacaoPeloPacienteService s,CancellationToken ct)=>{
-    await s.ConfirmarMensagemAsync(input.Id??"",input.Delivered,input.Reason,ct);
+// A confirmação ao paciente da consulta LIBERADA pela gerência (trava de consulta, nov/2026) sai pela mesma
+// fila, sem botões e sem mudar o contrato: o Id leva o prefixo "liberacao:" e o ack o separa.
+app.MapGet("/crm/v1/patient/messages",async(RemarcacaoPeloPacienteService s,LiberacaoDeTravaService liberacoes,CancellationToken ct)=>
+    (await s.MensagensPendentesAsync(ct)).Select(m=>new PatientMessage(m.Id,m.Telefone,m.Texto,m.Opcoes.Select(o=>new PatientOption(o.Id,o.Titulo)).ToArray()))
+    .Concat((await FilaDaLiberacao.DoPacienteAsync(liberacoes,ct)).Select(a=>new PatientMessage(FilaDaLiberacao.Prefixo+a.Id,a.Telefone,a.Texto,[]))).ToArray());
+app.MapPost("/crm/v1/patient/messages/ack",async(PatientMessageAck input,RemarcacaoPeloPacienteService s,LiberacaoDeTravaService liberacoes,CancellationToken ct)=>{
+    if(FilaDaLiberacao.Ler(input.Id) is { } aviso)await liberacoes.ConfirmarAvisoAsync(aviso,input.Delivered,input.Reason,ct);
+    else await s.ConfirmarMensagemAsync(input.Id??"",input.Delivered,input.Reason,ct);
     return Results.Ok(new{ok=true});
 });
 app.MapPost("/crm/v1/patient/choice",async(PatientChoice input,RemarcacaoPeloPacienteService s,CancellationToken ct)=>{

@@ -6,7 +6,7 @@ mora o código. Mexer numa área? Leia antes o tópico dela — vários registra
 teste pega. Lição nova de uma área entra aqui, no tópico dela; regra que vale para TODA mudança
 continua no `CLAUDE.md`.
 
-## Índice (190 tópicos, na ordem do arquivo)
+## Índice (191 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -15,6 +15,7 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
 - A AMARRA ENTRE O HORÁRIO E A SESSÃO, e a pergunta que ela produz
 - O CIRCUITO DO PARTICULAR — a Recepção é o centro, e o dinheiro de quem não tem
 - PARTICULAR POR HORÁRIO — a paciente tem plano, e quem atende não o aceita
+- TRAVA DE CONSULTA DO CONVÊNIO e a liberação da gerência pelo WhatsApp
 - ESTORNAR UM ATENDIMENTO
 - A BUSCA DE PACIENTE VIROU A TELA
 - O SELETOR DE PACIENTE DEIXOU DE DESPEJAR O ALFABETO
@@ -425,6 +426,47 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   frase do Finalizar, `CobrancaDaSessao`) e a cobrança continua no Finalizar/Conciliação.
   Receber antes de a sessão existir pede política da clínica (devolução, crédito, falta) — as
   opções e as quatro perguntas estão no documento.
+- **TRAVA DE CONSULTA DO CONVÊNIO e a liberação da gerência pelo WhatsApp** (nov/2026, pedido
+  da gerência; decisão, opções e limites em `docs/trava-de-consulta.md`). O convênio paga uma
+  consulta a cada N dias — o N é a **validade da consulta que já estava cadastrada** (Unimed 22,
+  Amil/Petrobras 30, personalizados no cadastro). Com a chave `TravaDeConsulta` ligada
+  (Configurações; **desligada por padrão**), o `AgendaService` RECUSA marcar outra consulta pelo
+  convênio dentro do prazo (`TravaDeConsultaException`, com a `TravaAcesa` para a tela desenhar a
+  box). Qualquer consulta do paciente conta (especialidade e médico não zeram); só consulta;
+  particular não acende nem sofre.
+  ⚠️ **A trava é da MARCAÇÃO**: `AgendarAsync`, `LancarAvulsoAsync` e o `RemarcarAsync` quando o
+  horário passa a disputá-la (virou consulta pelo convênio, mudou de DIA, voltou de cancelado).
+  Concluir, confirmar presença e lançar sobre o horário que já existe NÃO conferem — senão a
+  consulta marcada antes de a chave ligar ficaria presa na Fila.
+  ⚠️ **Quem aprova é COLUNA do usuário, não bit de `Permissao`**
+  (`UsuarioSistema.AprovaLiberacaoDeTrava`, só perfil Gerente — `PodeAprovarLiberacao`): há mais
+  de um gerente e a direção escolhe quais; e o enum está no último bit de um `int` de produção.
+  ⚠️ **A decisão por texto**: `LiberacaoDeTravaRegras.Ler`. Sem o NÚMERO do pedido, só a palavra
+  sozinha decide ("sim", "não") e só para quem aprova e tem pedido aberto — "não vou conseguir
+  hoje" é conversa. Com o número, o resto é o motivo. Entra ANTES das outras perguntas no
+  `SistemaEquipeService` (chat do app) e no `AssistenteWhatsAppService` (WhatsApp).
+  ⚠️ **Sem mudar o CRM nem o contrato da ponte**: as mensagens à equipe saem em `staff/notices`
+  com o `RequestId` NEGATIVO (−id do `AvisoDeLiberacao`) e a do paciente em `patient/messages`
+  com o Id `liberacao:{id}`; o ack separa pelo sinal/prefixo. A leitura da fila da equipe é
+  também o pulso que EXPIRA pedidos. Tabela nova na ponte = linha nova no
+  `deploy/ponte-crm/papel-ponte-crm.sql` (rodar de novo) — e a fila nova tem `try/catch` para
+  não derrubar a antiga enquanto o GRANT não foi dado.
+  ⚠️ **Só um decide**: `DecidirAsync` reivindica com `ExecuteUpdate` (pendente → decidido); o
+  segundo gerente lê "já foi decidido por Fulano". Liberado, marca por `AgendarAsync` — ou
+  `RemarcarAsync`, quando o pedido nasceu de uma remarcação (`AgendamentoARemarcarId`), para o
+  paciente não ficar com dois horários. A trava enxerga a liberação pelo ESTADO
+  (`ExisteLiberacaoDeTravaAsync`: paciente + dia), sem parâmetro atravessando a agenda.
+  ⚠️ **Limite que não é do código**: fora da janela de 24 h da Meta a mensagem livre não chega.
+  O pedido está SEMPRE na conversa com o sistema, no app, e a resposta lá vale igual.
+  **No mesmo pedido**: (a) **preço por profissional** — `PrecoParticular.ProfissionalId`; o
+  preço de quem atende ganha do geral (10 pontos > modalidade+especialidade) e o de OUTRO nunca
+  serve; a Conciliação não conhece o profissional e propõe o geral. (b) **convênios que o
+  profissional NÃO atende** — `Profissional.ConveniosNaoAtendidos` (códigos separados por `;`;
+  guarda-se a EXCEÇÃO, para convênio novo nascer atendido por todos). ⚠️ No
+  `SalvarProfissionalAsync`, NULO preserva (a tela de Acessos regrava o profissional só para o
+  CPF) e vazio limpa. É o que PRÉ-MARCA particular nas telas (`SugereParticular`) — sugestão
+  com nota, que a escolha feita na mão desliga. (c) **Atendidos por convênio** nos Indicadores —
+  `IndicadoresAgenda.PorPagador`, pela SESSÃO (`SessaoParticular.Eh`).
 - **ESTORNAR UM ATENDIMENTO** (parcela 94). O `RemarcarAsync` recusava horário realizado
   dizendo "Estorne o atendimento antes" — e **não havia estorno nenhum**: a instrução
   mandava fazer o que não existe, e a saída que sobrava era o `Cancelar`, sem trava.

@@ -79,6 +79,16 @@
                             <input class="campo" @bind="_whatsapp" @bind:after="ConferirWhatsApp" maxlength="20" inputmode="tel"
                                    placeholder="(22) 99999-9999" />
                         </Campo>
+                        @* QUEM APROVA a liberação da trava de consulta (nov/2026): a clínica tem mais de um
+                           gerente, e a direção marca quais respondem. Só aparece no perfil de gerente. *@
+                        @if (_perfil == PerfilAcesso.Gerente)
+                        {
+                            <label class="alternar largo">
+                                <input type="checkbox" @bind="_aprovaLiberacao" />
+                                Aprova liberação de trava de consulta dos convênios
+                            </label>
+                            <span class="campo-dica largo">Quando a recepção pede para marcar uma consulta antes do prazo do convênio, o pedido chega a esta pessoa — no celular do WhatsApp do sistema (acima) e na conversa com o sistema, no app. Ela responde "sim" ou "não", e a resposta fica registrada no nome dela.</span>
+                        }
                     </div>
                 </div>
 
@@ -180,6 +190,7 @@
 
     private bool _carregando = true, _salvando, _lendoCpf;
     private string? _falhaAoAbrir, _mensagem, _erroCpf, _erroWhatsApp, _whatsapp;
+    private bool _aprovaLiberacao;
 
     /// <summary>Descarta a leitura do CPF que chega fora de ordem (trocar o vínculo duas vezes rápido).</summary>
     private int _geracaoCpf;
@@ -228,6 +239,7 @@
             _marcadas = usuario.Efetivas;
             _cpf = FormatarCpf(profissionais.FirstOrDefault(p => p.Id == usuario.ProfissionalId)?.Cpf);
             _whatsapp = usuario.TelefoneWhatsApp is { Length: 13 } w ? Telefone.Formatar(w[2..]) : null;
+            _aprovaLiberacao = usuario.AprovaLiberacaoDeTrava;
         }
         catch (Exception ex)
         {
@@ -338,11 +350,14 @@
                 if (extras != Permissao.Nenhuma || negadas != Permissao.Nenhuma)
                     await acesso.AtualizarAsync(novo.Id, _nome!, _perfil, _profissionalId, extras, negadas, _ativo, operador);
                 await acesso.DefinirWhatsAppAsync(novo.Id, _whatsapp, operador);
+                await acesso.DefinirAprovacaoDeLiberacaoAsync(novo.Id, _aprovaLiberacao && _perfil == PerfilAcesso.Gerente, operador);
             }
             else
             {
                 await acesso.AtualizarAsync(UsuarioId, _nome!, _perfil, _profissionalId, extras, negadas, _ativo, operador);
                 await acesso.DefinirWhatsAppAsync(UsuarioId, _whatsapp, operador);
+                // Saiu do perfil de gerente: a marca sai junto (quem não edita, PRESERVA — mas aqui a regra muda).
+                await acesso.DefinirAprovacaoDeLiberacaoAsync(UsuarioId, _aprovaLiberacao && _perfil == PerfilAcesso.Gerente, operador);
                 if (!string.IsNullOrEmpty(_senha))
                     await acesso.DefinirSenhaAsync(UsuarioId, _senha, _deveTrocar, operador);
                 else if (_deveTrocar != _deveTrocarOriginal)

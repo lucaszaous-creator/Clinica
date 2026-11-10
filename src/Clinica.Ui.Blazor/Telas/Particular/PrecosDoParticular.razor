@@ -72,6 +72,7 @@
                         <tr>
                             <th>Modalidade</th>
                             <th>Especialidade</th>
+                            <th title="De quem é o preço. O preço de um profissional ganha do geral.">Profissional</th>
                             <th>Vigência</th>
                             <th class="direita">Valor</th>
                             <th>Situação</th>
@@ -84,6 +85,7 @@
                             <tr @key="l.PrecoId" class="@(l.ValendoAgora ? null : "precos-fora")">
                                 <td><span class="principal" title="@l.Modalidade">@l.Modalidade</span></td>
                                 <td>@l.Especialidade</td>
+                                <td>@l.Profissional</td>
                                 <td class="nao-quebra">@l.Vigencia</td>
                                 <td class="direita numero"><b>@l.Valor</b></td>
                                 <td class="nao-quebra"><Selo Tom="@(l.ValendoAgora ? "sucesso" : "neutro")"
