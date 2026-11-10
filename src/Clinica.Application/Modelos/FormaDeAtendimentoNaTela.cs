@@ -26,6 +26,44 @@ public static class FormaDeAtendimentoNaTela
     public static bool OfereceEscolha(Paciente? paciente)
         => paciente is not null && (paciente.ConvenioADefinir || !SessaoParticular.PelaFicha(paciente));
 
+    // ==================== a pergunta obrigatória (nov/2026) ====================
+    //
+    // A direção, depois de uma semana com a escolha opcional: "em TODA marcação a secretária
+    // tem de dizer se é pelo plano ou particular — mesmo o paciente tendo plano. Cada
+    // especialidade é credenciada em alguns planos, e quem cala gera a confusão". A escolha
+    // deixa de ter resposta padrão: ou a pessoa clicou no seletor, ou o Salvar pergunta.
+
+    public const string TituloDaPergunta = "Plano ou particular?";
+
+    /// <summary>A dica sob o seletor enquanto ninguém respondeu.</summary>
+    public const string FaltaResponder = "Obrigatório: diga se este atendimento é pelo plano ou particular.";
+
+    /// <summary>
+    /// O Salvar precisa perguntar? Só quando HÁ escolha (a ficha particular não tem o que
+    /// responder) e ninguém a fez NESTA marcação. Sugestão do sistema não é resposta.
+    /// </summary>
+    public static bool PrecisaPerguntar(Paciente? paciente, bool respondida)
+        => !respondida && OfereceEscolha(paciente);
+
+    public static string Pergunta(Paciente paciente, Profissional? profissional = null)
+        => $"O atendimento de {paciente.Nome} é pelo {RotuloConvenio(paciente)} ou é particular?"
+           + (profissional?.NaoAtende(paciente) == true
+               ? $"\n\n{profissional.Rotulo} não atende pelo {paciente.ConvenioNome}."
+               : string.Empty);
+
+    /// <summary>As duas respostas, na ordem dos botões: [0] pelo plano, [1] particular.</summary>
+    public static IReadOnlyList<string> Respostas(Paciente paciente)
+        => [$"Pelo {RotuloConvenio(paciente)}", RotuloParticular];
+
+    /// <summary>O índice da resposta "particular" em <see cref="Respostas"/>.</summary>
+    public const int RespostaParticular = 1;
+
+    /// <summary>
+    /// A resposta do diálogo mudou o que a tela mostrava (preço, guias, trava): a tela aplica
+    /// a escolha e NÃO grava — a pessoa confere o resumo novo e confirma de novo.
+    /// </summary>
+    public const string ConfiraDeNovo = "Escolha registrada. Confira o resumo, que mudou com ela, e confirme de novo.";
+
     /// <summary>O botão do convênio leva o NOME do plano da ficha — é ele que a recepção reconhece.</summary>
     public static string RotuloConvenio(Paciente paciente)
         => paciente.ConvenioADefinir ? "Convênio (a definir)" : paciente.ConvenioNome;
@@ -41,15 +79,15 @@ public static class FormaDeAtendimentoNaTela
 
     /// <summary>
     /// A sugestão do sistema: quem atende NÃO atende pelo convênio da ficha (cadastro do
-    /// profissional), então o horário nasce marcado como particular. É SUGESTÃO — a escolha
-    /// continua na mão de quem marca, e a tela diz por que veio assim.
+    /// profissional). É AVISO, não resposta (nov/2026 — a pergunta virou obrigatória): a tela
+    /// diz, e quem marca responde.
     /// </summary>
     public static bool SugereParticular(Profissional? profissional, Paciente? paciente)
         => OfereceEscolha(paciente) && profissional?.NaoAtende(paciente) == true;
 
     public static string PreMarcado(Profissional profissional, Paciente paciente)
-        => $"{profissional.Rotulo} não atende pelo {paciente.ConvenioNome} — o horário veio marcado como particular. "
-           + "Se desta vez for pelo convênio, troque acima.";
+        => $"{profissional.Rotulo} não atende pelo {paciente.ConvenioNome} — este atendimento deve ser particular. "
+           + "Confirme acima.";
 
     /// <summary>Os convênios que entram no cadastro do profissional: os que FATURAM (particular e "a definir" não são escolha).</summary>
     public static IReadOnlyList<(string Codigo, string Nome)> ConveniosParaOProfissional(

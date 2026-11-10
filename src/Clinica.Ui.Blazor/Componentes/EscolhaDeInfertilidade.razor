@@ -1,0 +1,34 @@
+@*
+  CONSULTA DE INFERTILIDADE — em qual guia interna ela é lançada (nov/2026, pedido da direção:
+  "sinalizar, já no agendamento, na guia de quem vai passar"). Um componente só para as duas
+  portas de marcação (AgendamentoForm e AtendimentoDoBalcao).
+
+  Quem o mostra é a tela, quando o tipo de atendimento escolhido é INFERTILIDADE
+  (InfertilidadeNaTela.EhInfertilidade) — não há chave separada: uma porta por pergunta. Ele
+  só devolve o código da guia; as opções, os textos e a recusa de "não disse a guia" moram em
+  InfertilidadeNaTela (Application, com teste). Controle INTERNO — não entra em guia do convênio.
+*@
+@namespace Clinica.Ui.Blazor.Componentes
+@using Clinica.Application.Modelos
+
+<div class="infertilidade">
+    <label class="infertilidade-guia">
+        <span>@InfertilidadeNaTela.Rotulo · @InfertilidadeNaTela.RotuloDaGuia.ToLowerInvariant()</span>
+        <select class="campo" value="@(Guia ?? string.Empty)" disabled="@Desabilitado"
+                @onchange="e => GuiaChanged.InvokeAsync(e.Value?.ToString() ?? string.Empty)">
+            <option value="">Escolha a guia</option>
+            @foreach (var o in InfertilidadeNaTela.Opcoes)
+            {
+                <option value="@o.Codigo">@o.Nome</option>
+            }
+        </select>
+    </label>
+    <span class="campo-dica">@InfertilidadeNaTela.Dica</span>
+</div>
+
+@code {
+    /// <summary>O código da guia escolhida; nulo ou vazio = ainda não escolhida.</summary>
+    [Parameter] public string? Guia { get; set; }
+    [Parameter] public EventCallback<string?> GuiaChanged { get; set; }
+    [Parameter] public bool Desabilitado { get; set; }
+}

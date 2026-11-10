@@ -10,6 +10,17 @@
             </header>
             <div class="modal-corpo">
                 <p class="dialogo-mensagem">@d.Mensagem</p>
+                @if (d.Tipo == TipoDialogo.Escolha)
+                {
+                    @* As respostas ficam no CORPO, uma por linha e do mesmo tamanho: nenhuma é "a principal". *@
+                    <div class="dialogo-opcoes">
+                        @for (var i = 0; i < d.Opcoes.Count; i++)
+                        {
+                            var opcao = i;
+                            <button type="button" class="botao primario" @onclick="() => Dialogos.Escolher(d, opcao)">@d.Opcoes[opcao]</button>
+                        }
+                    </div>
+                }
                 @if (d.Tipo == TipoDialogo.Texto)
                 {
                     <textarea class="campo" rows="3" @bind="d.Texto" @bind:event="oninput" @ref="_caixa"
@@ -21,12 +32,20 @@
                 }
             </div>
             <footer class="modal-rodape">
-                @if (d.Tipo != TipoDialogo.Aviso)
+                @if (d.Tipo == TipoDialogo.Escolha)
                 {
-                    <button type="button" class="botao" @onclick="() => Dialogos.Responder(d, false)">Cancelar</button>
+                    @* O foco fica no Cancelar: o Enter de quem veio do botão de trás não escolhe por ela. *@
+                    <button type="button" class="botao" @ref="_cancelar" @onclick="() => Dialogos.Responder(d, false)">Cancelar</button>
                 }
-                <button type="button" class="botao @(d.Perigoso ? "perigo" : "primario")" @ref="_confirmar"
-                        @onclick="() => Dialogos.Responder(d, true)">@d.RotuloConfirmar</button>
+                else
+                {
+                    @if (d.Tipo != TipoDialogo.Aviso)
+                    {
+                        <button type="button" class="botao" @onclick="() => Dialogos.Responder(d, false)">Cancelar</button>
+                    }
+                    <button type="button" class="botao @(d.Perigoso ? "perigo" : "primario")" @ref="_confirmar"
+                            @onclick="() => Dialogos.Responder(d, true)">@d.RotuloConfirmar</button>
+                }
             </footer>
         </div>
     </div>
@@ -35,6 +54,7 @@
 @code {
     private ElementReference _caixa;
     private ElementReference _confirmar;
+    private ElementReference _cancelar;
     private DialogoAberto? _focado;
 
     protected override void OnInitialized() => Dialogos.Mudou += Redesenhar;
@@ -48,7 +68,7 @@
         if (Dialogos.Atual is { } d && !ReferenceEquals(d, _focado))
         {
             _focado = d;
-            try { await (d.Tipo == TipoDialogo.Texto ? _caixa : _confirmar).FocusAsync(); }
+            try { await (d.Tipo == TipoDialogo.Texto ? _caixa : d.Tipo == TipoDialogo.Escolha ? _cancelar : _confirmar).FocusAsync(); }
             catch (Exception) { /* o elemento pode não existir mais: foco é conforto */ }
         }
     }

@@ -58,7 +58,15 @@
                 @* ============ Por onde: o convênio da ficha, ou particular ============
                    A paciente tem plano e quem atende não o aceita: o horário é particular e a
                    ficha fica como está. O preço aparece aqui para ser combinado ANTES do dia. *@
-                <EscolhaDeFormaDeAtendimento Paciente="_paciente" Particular="_particular" ParticularChanged="TrocarParticular" Nota="@_notaDoParticular" />
+                <EscolhaDeFormaDeAtendimento Paciente="_paciente" Particular="_particular" ParticularChanged="TrocarParticular" Nota="@_notaDoParticular"
+                                             Respondida="@(Edicao || _formaEscolhidaNaMao)" />
+                @* CONSULTA DE INFERTILIDADE (nov/2026): a guia interna em que ela é lançada — controle
+                   interno. Aparece quando o tipo de atendimento escolhido é Infertilidade. O
+                   chamado da lista de espera não a oferece. *@
+                @if (PedidoListaEsperaId is null && EhInfertilidade)
+                {
+                    <EscolhaDeInfertilidade Guia="@_infertilidadeGuiaDe" GuiaChanged="@(g => { _infertilidadeGuiaDe = g; _mensagem = null; })" />
+                }
                 @if (!string.IsNullOrEmpty(_cobranca))
                 {
                     <p class="agf-cobranca"><Icone Nome="moeda" />@_cobranca</p>
@@ -266,6 +274,11 @@
     private bool _particular;
     /// <summary>A pessoa clicou na escolha: a pré-marcação pelo profissional para de valer para este paciente.</summary>
     private bool _formaEscolhidaNaMao;
+    /// <summary>null = não é infertilidade; "" = é, falta escolher a guia; código = a guia interna.</summary>
+    private string? _infertilidadeGuiaDe;
+    private bool EhInfertilidade => InfertilidadeNaTela.EhInfertilidade(EhConsulta, _especialidade?.Codigo);
+    /// <summary>O que vai ao serviço: a guia quando a consulta é de infertilidade ("" = falta escolher), senão nulo.</summary>
+    private string? GuiaDaInfertilidade => EhInfertilidade ? _infertilidadeGuiaDe ?? string.Empty : null;
     private string? _notaDoParticular;
     /// <summary>A frase do dinheiro quando a sessão é particular (preço de tabela ou pacote); vazia no convênio.</summary>
     private string _cobranca = string.Empty;
@@ -448,6 +461,7 @@
         _modalidade = _modalidadeDoHorario;
         _especialidade = _especialidadeDoHorario;
         _preventivo = ag.ColetaPreventivo;
+        _infertilidadeGuiaDe = ag.InfertilidadeGuiaDe;
         _particular = ag.Particular;
         CarregarCatalogos(_modalidadeDoHorario.Codigo);
 
@@ -500,6 +514,7 @@
         _particular = false;
         _formaEscolhidaNaMao = false;
         _notaDoParticular = null;
+        _infertilidadeGuiaDe = null;
         SugerirFormaPeloProfissional();
         Disparar(ConferirConflitosAsync);
         Disparar(ConferirElegibilidadeAsync);
@@ -515,11 +530,30 @@
     private void SugerirFormaPeloProfissional()
     {
         if (Edicao || _formaEscolhidaNaMao) return;
+        // nov/2026 — a pergunta virou OBRIGATÓRIA: o sistema avisa, mas não responde por quem
+        // marca. A nota fica sob o seletor e a mesma frase entra na pergunta do Salvar.
         var sugere = FormaDeAtendimentoNaTela.SugereParticular(_profissional, _paciente);
         _notaDoParticular = sugere ? FormaDeAtendimentoNaTela.PreMarcado(_profissional!, _paciente!) : null;
-        if (sugere == _particular) return;
-        _particular = sugere;
-        Disparar(ConferirElegibilidadeAsync);
+    }
+
+    /// <summary>
+    /// A PERGUNTA OBRIGATÓRIA (nov/2026): horário novo não se grava sem alguém dizer se é pelo
+    /// plano ou particular. Quem já clicou no seletor respondeu; senão o Salvar pergunta.
+    /// Devolve falso quando a pessoa desistiu — ou quando a resposta mudou o resumo da tela
+    /// (preço, avisos, trava): aí ela confere e confirma de novo.
+    /// </summary>
+    private async Task<bool> GarantirFormaRespondidaAsync(Paciente paciente)
+    {
+        if (Edicao || !FormaDeAtendimentoNaTela.PrecisaPerguntar(paciente, _formaEscolhidaNaMao)) return true;
+        var resposta = await Dialogos.EscolherAsync(FormaDeAtendimentoNaTela.TituloDaPergunta,
+            FormaDeAtendimentoNaTela.Pergunta(paciente, _profissional), FormaDeAtendimentoNaTela.Respostas(paciente));
+        if (resposta is not { } escolhida || Descartada) return false;
+        var particular = escolhida == FormaDeAtendimentoNaTela.RespostaParticular;
+        var mudou = particular != _particular;
+        TrocarParticular(particular);
+        if (!mudou) return true;
+        _mensagem = FormaDeAtendimentoNaTela.ConfiraDeNovo;
+        return false;
     }
 
     /// <summary>Convênio ↔ particular: muda o dinheiro (preço) e quais avisos do plano valem.</summary>
@@ -742,6 +776,9 @@
         }
         var paciente = _paciente!;
         var modalidade = _modalidade!;
+        // Marcou infertilidade e não disse a guia: recusa aqui, com a mesma frase do serviço.
+        if (PedidoListaEsperaId is null && GuiaDaInfertilidade is { Length: 0 }) { _mensagem = InfertilidadeNaTela.RecusaSemGuia; return; }
+        if (!await GarantirFormaRespondidaAsync(paciente)) return;
         AgendamentoNaTela.TentarMontarDataHora(_data, _hora, out var dataHora);
         var duracao = AgendamentoNaTela.DuracaoInformada(_duracao);
         var especialidade = EhConsulta ? _especialidade?.Codigo : null;
@@ -794,7 +831,9 @@
                     duracaoMinutos: duracao,
                     manterRecursos: false, encaixe: _encaixe,
                     avisosGuia: avisos, coletaPreventivo: EhConsulta && _preventivo,
-                    particular: _particular);
+                    particular: _particular,
+                    // Na edição o formulário SABE da marca: vazio limpa, código troca.
+                    infertilidadeGuiaDe: GuiaDaInfertilidade ?? string.Empty);
             }
             else if (PedidoListaEsperaId is { } pedidoId)
             {
@@ -818,7 +857,7 @@
                     profissionalId: _profissional?.Id, salaId: _sala?.Id,
                     duracaoMinutos: duracao, encaixe: _encaixe,
                     operador: Operador, coletaPreventivo: EhConsulta && _preventivo,
-                    particular: _particular);
+                    particular: _particular, infertilidadeGuiaDe: GuiaDaInfertilidade);
             }
 
             await AoConcluir.InvokeAsync(avisos);

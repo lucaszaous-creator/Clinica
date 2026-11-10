@@ -128,6 +128,14 @@ public sealed record LinhaAgendaDoDia
     /// <summary>A consulta já venceu (vermelho) — falso quando só está para vencer (âmbar).</summary>
     public bool ConsultaVencida { get; init; }
 
+    /// <summary>
+    /// "Infertilidade · guia Geriatria" (nov/2026) — o atendimento de infertilidade e a guia
+    /// interna em que ele é lançado; nulo quando não é. Selo PRÓPRIO, fora do teto de três da
+    /// fila: não é aviso que compete com os outros, é o que o horário É.
+    /// </summary>
+    public string? SeloDaInfertilidade { get; init; }
+    public string? DicaDaInfertilidade { get; init; }
+
     public bool TemSala => !string.IsNullOrWhiteSpace(Sala);
     public bool TemPacote => PacoteUsadas is not null && PacoteContratadas is not null;
 
@@ -194,6 +202,7 @@ public sealed record LinhaAgendaDoDia
             _ => null
         },
         AvisoDaConsulta,
+        DicaDaInfertilidade,
         EhRetornoDoSegundoCodigo ? "Legado: retorno do 2º código — guia não é atendimento, pode apagar" : null,
         string.IsNullOrWhiteSpace(Observacoes) ? null : $"Obs.: {Observacoes}",
         Lancamento
@@ -337,6 +346,9 @@ public static class AgendaDoDiaNaTela
                 pacote?.Usadas, pacote?.Contratadas, atraso, a.FimAtendimentoEm, consulta),
             AvisoDaConsulta = consulta?.AvisoRenovacao,
             ConsultaVencida = consulta is { Vencida: true },
+            // Fica também na linha cancelada: é a classificação do horário, e o relatório a conta.
+            SeloDaInfertilidade = InfertilidadeNaTela.Selo(a.InfertilidadeGuiaDe),
+            DicaDaInfertilidade = InfertilidadeNaTela.DicaDoSelo(a.InfertilidadeGuiaDe),
             PacoteUsadas = pacote?.Usadas,
             PacoteContratadas = pacote?.Contratadas,
             TemGuiaPendente = guia,

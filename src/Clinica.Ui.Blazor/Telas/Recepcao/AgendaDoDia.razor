@@ -150,9 +150,13 @@
                                             {
                                                 <span class="secundario rd-obs">Obs.: @l.Observacoes</span>
                                             }
-                                            @if (l.Confirmacao.Length > 0 || l.Selos.Count > 0)
+                                            @if (l.Confirmacao.Length > 0 || l.Selos.Count > 0 || l.SeloDaInfertilidade is not null)
                                             {
                                                 <span class="rd-selos">
+                                                    @if (l.SeloDaInfertilidade is { } seloInfertilidade)
+                                                    {
+                                                        <Selo Tom="info" Dica="@l.DicaDaInfertilidade">@seloInfertilidade</Selo>
+                                                    }
                                                     @if (l.Confirmacao.Length > 0)
                                                     {
                                                         <Selo Tom="@AgendaDoDiaNaTela.TomDaConfirmacao(l.Confirmacao)" Dica="A resposta da rodada de confirmação">@l.Confirmacao</Selo>

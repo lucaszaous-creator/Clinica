@@ -837,6 +837,16 @@ public class TraducaoNoNpgsqlTests
         fila.Should().Contain("\"TratadoEm\" IS NULL").And.Contain("\"Modelo\"");
     }
 
+    /// <summary>A leitura do intervalo por especialidade da cobertura do convênio (nov/2026).</summary>
+    [Fact]
+    public void Consultas_da_cobertura_do_convenio_traduzem()
+    {
+        using var db = Postgres();
+        var sql = new ClinicaRepositorio(db)
+            .ConsultaDaCoberturaDoPaciente(7, new DateTime(2026, 11, 1), new DateTime(2026, 12, 1)).ToQueryString();
+        sql.Should().Contain("\"Particular\"").And.Contain("\"EspecialidadeConsultaCodigo\"").And.Contain("\"EspecialidadeConsulta\"");
+    }
+
     /// <summary>
     /// A conciliação do PARTICULAR (set/2026): três subconsultas (códigos, lançamentos,
     /// consumos) e a projeção do TIPO do primeiro código. É o tipo de expressão em que o

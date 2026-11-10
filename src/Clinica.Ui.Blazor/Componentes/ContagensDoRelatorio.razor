@@ -1,0 +1,41 @@
+@*
+  Um quadro pequeno de contagens do relatório de atendimentos (nov/2026): por tipo de
+  atendimento e por guia interna da infertilidade. Só desenha — quem conta é o
+  AtendimentosPorProfissionalService (Application, com teste).
+*@
+@namespace Clinica.Ui.Blazor.Componentes
+
+<section class="contagens">
+    <h3>@Titulo</h3>
+    @if (!string.IsNullOrEmpty(Nota))
+    {
+        <span class="campo-dica">@Nota</span>
+    }
+    <table class="lista">
+        <thead>
+            <tr>
+                <th></th>
+                <th class="direita">Atendimentos</th>
+                <th class="direita">Particulares</th>
+                <th class="direita">Recebido</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var c in Itens)
+            {
+                <tr @key="c.Nome">
+                    <td><span class="principal">@c.Nome</span></td>
+                    <td class="direita numero">@c.Quantidade.ToString(Formato.PtBr)</td>
+                    <td class="direita numero">@c.Particulares.ToString(Formato.PtBr)</td>
+                    <td class="direita numero">@Formato.Dinheiro(c.Recebido)</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public string Titulo { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public IReadOnlyList<ContagemDoRelatorio> Itens { get; set; } = [];
+    [Parameter] public string? Nota { get; set; }
+}

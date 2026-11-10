@@ -257,6 +257,48 @@ public sealed class ParametrosService
         await _repo.SalvarAsync(ct);
     }
 
+    // ---- O que a clínica atende por convênio (nov/2026, docs/cobertura-do-convenio.md) ----
+
+    /// <summary>
+    /// A cobertura por convênio, pela chave do catálogo (<c>ConvenioCodigo</c>, ou o nome do
+    /// enum para os embutidos). Sem a chave não há restrição nenhuma — tudo como antes.
+    /// </summary>
+    public const string ChaveCoberturaDosConvenios = "CoberturaDosConveniosV1";
+
+    public async Task<IReadOnlyDictionary<string, CoberturaDoConvenio>> CoberturaDosConveniosAsync(CancellationToken ct = default)
+    {
+        var json = await _repo.ObterConfiguracaoAsync(ChaveCoberturaDosConvenios, ct);
+        if (string.IsNullOrWhiteSpace(json)) return new Dictionary<string, CoberturaDoConvenio>(StringComparer.OrdinalIgnoreCase);
+        var lido = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, CoberturaGravada>>(json) ?? [];
+        return lido.ToDictionary(
+            p => p.Key,
+            p => new CoberturaDoConvenio(p.Value.Modalidades ?? [], p.Value.Especialidades ?? [], Math.Max(0, p.Value.IntervaloDias)),
+            StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>A cobertura do convênio DESTE paciente, ou nulo quando a clínica não restringe o plano dele.</summary>
+    public async Task<CoberturaDoConvenio?> CoberturaDoPacienteAsync(Paciente paciente, CancellationToken ct = default)
+        => (await CoberturaDosConveniosAsync(ct)).TryGetValue(ChaveDoConvenio(paciente), out var c) && c.Restringe ? c : null;
+
+    public static string ChaveDoConvenio(Paciente paciente) => paciente.ConvenioCodigo ?? paciente.Convenio.ToString();
+
+    /// <summary>Grava (ou, quando ela não restringe nada, REMOVE) a cobertura de um convênio.</summary>
+    public async Task DefinirCoberturaDoConvenioAsync(string convenioCodigo, CoberturaDoConvenio cobertura, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(convenioCodigo)) throw new InvalidOperationException("Escolha o convênio.");
+        if (cobertura.IntervaloDias is < 0 or > 365) throw new InvalidOperationException("Informe um intervalo entre 0 e 365 dias.");
+        var todas = (await CoberturaDosConveniosAsync(ct)).ToDictionary(p => p.Key, p => p.Value, StringComparer.OrdinalIgnoreCase);
+        if (cobertura.Restringe) todas[convenioCodigo] = cobertura;
+        else todas.Remove(convenioCodigo);
+        var gravar = todas.ToDictionary(p => p.Key,
+            p => new CoberturaGravada(p.Value.ModalidadesNaoAtendidas.Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
+                p.Value.Especialidades.Distinct(StringComparer.OrdinalIgnoreCase).ToArray(), p.Value.IntervaloDias));
+        await _repo.SalvarConfiguracaoAsync(ChaveCoberturaDosConvenios, System.Text.Json.JsonSerializer.Serialize(gravar), ct);
+        await _repo.SalvarAsync(ct);
+    }
+
+    private sealed record CoberturaGravada(string[]? Modalidades, string[]? Especialidades, int IntervaloDias);
+
     // ---- Tela que o PACIENTE vê: REMOVIDA em out/2026 (decisão da direção) ----
     // A chave "TelaDoPacienteDispositivo" pode continuar gravada nas bases que a usaram:
     // ninguém mais a lê nem a grava, e apagá-la exigiria migration por nada. A coleta da

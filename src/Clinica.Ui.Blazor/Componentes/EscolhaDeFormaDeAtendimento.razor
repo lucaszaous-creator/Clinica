@@ -18,12 +18,16 @@
     <div class="forma-atendimento">
         <span class="forma-atendimento-rotulo" id="@_idRotulo">@FormaDeAtendimentoNaTela.Rotulo</span>
         <div class="segmentado" role="group" aria-labelledby="@_idRotulo">
-            <button type="button" aria-pressed="@(Particular ? "false" : "true")" disabled="@Desabilitado"
+            <button type="button" aria-pressed="@(!Respondida || Particular ? "false" : "true")" disabled="@Desabilitado"
                     @onclick="() => EscolherAsync(false)">@FormaDeAtendimentoNaTela.RotuloConvenio(Paciente!)</button>
-            <button type="button" aria-pressed="@(Particular ? "true" : "false")" disabled="@Desabilitado"
+            <button type="button" aria-pressed="@(Respondida && Particular ? "true" : "false")" disabled="@Desabilitado"
                     @onclick="() => EscolherAsync(true)">@FormaDeAtendimentoNaTela.RotuloParticular</button>
         </div>
-        @if (Particular)
+        @if (!Respondida)
+        {
+            <p class="forma-atendimento-nota forma-atendimento-falta">@FormaDeAtendimentoNaTela.FaltaResponder</p>
+        }
+        @if (Respondida && Particular)
         {
             <p class="forma-atendimento-nota">@FormaDeAtendimentoNaTela.Explicacao(Paciente!, true)</p>
         }
@@ -39,6 +43,12 @@
     [Parameter] public bool Particular { get; set; }
     [Parameter] public EventCallback<bool> ParticularChanged { get; set; }
     [Parameter] public bool Desabilitado { get; set; }
+    /// <summary>
+    /// Alguém JÁ respondeu nesta marcação (nov/2026 — a pergunta é obrigatória). Falso: nenhum
+    /// dos dois botões vem apertado e a dica diz que falta responder. Verdadeiro por padrão,
+    /// para o leitor que só mostra a escolha gravada.
+    /// </summary>
+    [Parameter] public bool Respondida { get; set; } = true;
     /// <summary>Por que a escolha veio assim (o profissional não atende o plano) — some quando a pessoa escolhe.</summary>
     [Parameter] public string? Nota { get; set; }
 
@@ -46,7 +56,8 @@
 
     private async Task EscolherAsync(bool particular)
     {
-        if (particular == Particular) return;
+        // Sem resposta ainda, clicar na opção que "já estava" É a resposta — não um clique vazio.
+        if (particular == Particular && Respondida) return;
         await ParticularChanged.InvokeAsync(particular);
     }
 }

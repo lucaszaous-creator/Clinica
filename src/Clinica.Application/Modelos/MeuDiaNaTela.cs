@@ -92,6 +92,11 @@ public sealed record LinhaMeuDia
     public bool ConsultaVencida => ConsultaARenovar is { Vencida: true };
     public string? AvisoDaConsulta => ConsultaARenovar?.AvisoRenovacao;
 
+    /// <summary>A guia interna do atendimento de infertilidade (nov/2026) — quem atende vê o que a recepção marcou.</summary>
+    public string? InfertilidadeGuiaDe { get; init; }
+    public string? SeloDaInfertilidade => InfertilidadeNaTela.Selo(InfertilidadeGuiaDe);
+    public string? DicaDaInfertilidade => InfertilidadeNaTela.DicaDoSelo(InfertilidadeGuiaDe);
+
     /// <summary>Em atendimento: a linha ganha o fundo do acento.</summary>
     public bool EmAtendimento => Etapa == EtapaFila.EmAtendimento;
 }
@@ -135,6 +140,7 @@ public static class MeuDiaNaTela
         EvolucaoEscrita = s.EvolucaoEscrita,
         Encaixe = s.Encaixe,
         ColetaPreventivo = s.ColetaPreventivo,
+        InfertilidadeGuiaDe = s.InfertilidadeGuiaDe,
         AtendimentoId = s.AtendimentoId,
         Observacoes = s.Observacoes ?? string.Empty,
         EhHoje = DateOnly.FromDateTime(s.DataHora) == hoje,

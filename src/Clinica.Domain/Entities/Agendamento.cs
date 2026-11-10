@@ -131,6 +131,23 @@ public class Agendamento
     /// </summary>
     public bool Particular { get; set; }
 
+    /// <summary>
+    /// ATENDIMENTO DE INFERTILIDADE — em qual GUIA INTERNA ele é lançado (nov/2026, pedido da
+    /// direção: "no agendamento, sinalizar na guia de quem vai passar — geriatria ou
+    /// psiquiatria —, para a gente saber para onde está lançando e isso ficar rastreável").
+    /// Guarda o código da especialidade escolhida; nulo = não é atendimento de infertilidade.
+    ///
+    /// ⚠️ É CLASSIFICAÇÃO INTERNA, para controle, relatório e separação de repasse — a direção
+    /// foi explícita: "isso não vai para o convênio". Por isso este campo NÃO entra em regra de
+    /// guia, código TISS, lote nem XML: quem atende continua sendo o <see cref="Profissional"/>
+    /// do horário, e nada do que o sistema emite para a operadora lê daqui. Quem um dia ligar
+    /// este campo à geração de guia desfaz a premissa em que ele foi aceito.
+    /// </summary>
+    public string? InfertilidadeGuiaDe { get; set; }
+
+    /// <summary>O horário é um atendimento de infertilidade (tem guia interna escolhida).</summary>
+    public bool EhInfertilidade => !string.IsNullOrWhiteSpace(InfertilidadeGuiaDe);
+
     public StatusAgendamento Status { get; set; } = StatusAgendamento.Agendado;
 
     public OrigemAgendamento Origem { get; set; } = OrigemAgendamento.Manual;
