@@ -13,13 +13,24 @@ namespace Clinica.Domain.Regras;
 /// explícita ("não permite, nem libera"). A saída de quem quer o atendimento é marcá-lo
 /// como PARTICULAR, que esta regra nunca alcança.
 /// </summary>
-/// <param name="SoConsulta">Pelo plano só se marca CONSULTA — nenhuma outra modalidade.</param>
+/// <param name="ModalidadesNaoAtendidas">
+/// Os códigos das modalidades que a clínica NÃO marca pelo plano (ex.: as de acupuntura). É
+/// lista do que SAI, e não do que fica: a direção tirou a acupuntura da Petrobras e o BSV
+/// continuou — "só consulta" teria levado o BSV junto. A variante do catálogo é alcançada
+/// pelo código dela OU pelo da modalidade de que deriva.
+/// </param>
 /// <param name="Especialidades">Os códigos das especialidades aceitas; vazio = qualquer uma.</param>
 /// <param name="IntervaloDias">Mínimo de dias entre duas consultas da MESMA especialidade; 0 = sem intervalo.</param>
-public sealed record CoberturaDoConvenio(bool SoConsulta, IReadOnlyList<string> Especialidades, int IntervaloDias)
+public sealed record CoberturaDoConvenio(
+    IReadOnlyList<string> ModalidadesNaoAtendidas, IReadOnlyList<string> Especialidades, int IntervaloDias)
 {
     /// <summary>Restringe alguma coisa? Cobertura que não restringe nada não se grava.</summary>
-    public bool Restringe => SoConsulta || Especialidades.Count > 0 || IntervaloDias > 0;
+    public bool Restringe => ModalidadesNaoAtendidas.Count > 0 || Especialidades.Count > 0 || IntervaloDias > 0;
+
+    /// <summary>A modalidade (pelo código do catálogo ou pela base de que deriva) saiu do plano?</summary>
+    public bool NaoAtende(string? modalidadeCodigo, ModalidadeAtendimento modalidadeBase)
+        => ModalidadesNaoAtendidas.Contains(modalidadeBase.ToString(), StringComparer.OrdinalIgnoreCase)
+           || (modalidadeCodigo is not null && ModalidadesNaoAtendidas.Contains(modalidadeCodigo, StringComparer.OrdinalIgnoreCase));
 
     public bool AceitaEspecialidade(string? codigo)
         => Especialidades.Count == 0
@@ -41,18 +52,18 @@ public static class CoberturaDoConvenioRegra
     /// só o intervalo é conferido, porque o dia mudou.
     /// </summary>
     public static string? Recusa(
-        CoberturaDoConvenio? cobertura, string plano, bool ehConsulta, string modalidadeNome,
+        CoberturaDoConvenio? cobertura, string plano, ModalidadeAtendimento modalidade, string? modalidadeCodigo,
         string? especialidadeCodigo, string especialidadeNome, DateOnly dia,
         IEnumerable<ConsultaDaCobertura> consultasPeloPlano, bool soIntervalo = false)
     {
         if (cobertura is null || !cobertura.Restringe) return null;
+        var ehConsulta = modalidade == ModalidadeAtendimento.Consulta;
 
         if (!soIntervalo)
         {
-            if (cobertura.SoConsulta && !ehConsulta)
-                return $"A clínica não atende {modalidadeNome} pelo {plano} — por esse plano, só consulta"
-                       + (cobertura.Especialidades.Count > 0 ? $" de {Lista(cobertura.Especialidades)}" : string.Empty)
-                       + ". Se o paciente quiser este atendimento, marque como PARTICULAR.";
+            if (cobertura.NaoAtende(modalidadeCodigo, modalidade))
+                return $"A clínica não atende {CatalogoModalidades.Nome(modalidadeCodigo, modalidade)} pelo {plano}. "
+                       + "Se o paciente quiser este atendimento, marque como PARTICULAR.";
 
             if (ehConsulta && !cobertura.AceitaEspecialidade(especialidadeCodigo))
                 return $"Pelo {plano} a clínica atende só consulta de {Lista(cobertura.Especialidades)}. "

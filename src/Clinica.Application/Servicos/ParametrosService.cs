@@ -272,7 +272,7 @@ public sealed class ParametrosService
         var lido = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, CoberturaGravada>>(json) ?? [];
         return lido.ToDictionary(
             p => p.Key,
-            p => new CoberturaDoConvenio(p.Value.SoConsulta, p.Value.Especialidades ?? [], Math.Max(0, p.Value.IntervaloDias)),
+            p => new CoberturaDoConvenio(p.Value.Modalidades ?? [], p.Value.Especialidades ?? [], Math.Max(0, p.Value.IntervaloDias)),
             StringComparer.OrdinalIgnoreCase);
     }
 
@@ -291,12 +291,13 @@ public sealed class ParametrosService
         if (cobertura.Restringe) todas[convenioCodigo] = cobertura;
         else todas.Remove(convenioCodigo);
         var gravar = todas.ToDictionary(p => p.Key,
-            p => new CoberturaGravada(p.Value.SoConsulta, p.Value.Especialidades.Distinct(StringComparer.OrdinalIgnoreCase).ToArray(), p.Value.IntervaloDias));
+            p => new CoberturaGravada(p.Value.ModalidadesNaoAtendidas.Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),
+                p.Value.Especialidades.Distinct(StringComparer.OrdinalIgnoreCase).ToArray(), p.Value.IntervaloDias));
         await _repo.SalvarConfiguracaoAsync(ChaveCoberturaDosConvenios, System.Text.Json.JsonSerializer.Serialize(gravar), ct);
         await _repo.SalvarAsync(ct);
     }
 
-    private sealed record CoberturaGravada(bool SoConsulta, string[]? Especialidades, int IntervaloDias);
+    private sealed record CoberturaGravada(string[]? Modalidades, string[]? Especialidades, int IntervaloDias);
 
     // ---- Tela que o PACIENTE vê: REMOVIDA em out/2026 (decisão da direção) ----
     // A chave "TelaDoPacienteDispositivo" pode continuar gravada nas bases que a usaram:

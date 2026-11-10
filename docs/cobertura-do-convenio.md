@@ -12,8 +12,9 @@ libera**; os que já estão marcados **ficam como estão**.
 Uma configuração por convênio — **Gerente Geral → Configurações → Operação → "O que a clínica
 atende por convênio"**:
 
-- **Só consulta** — acupuntura, eletro e BSV pelo plano são recusados;
-- **Especialidades atendidas** — consulta de outra especialidade pelo plano é recusada;
+- **Atendimentos que a clínica NÃO marca pelo plano** — a lista do que SAIU (na Petrobras, as
+  modalidades de acupuntura). O que não está marcado continua valendo: o **BSV fica**;
+- **Consultas: especialidades atendidas** — consulta de outra especialidade pelo plano é recusada;
 - **Intervalo por especialidade (dias)** — 7 = uma consulta por semana de CADA especialidade.
 
 A marcação fora da cobertura é **recusada com a frase que diz a saída** ("…marque como
@@ -22,7 +23,12 @@ balcão, encaixe avulso, série, lista de espera e a ponte do CRM (todas passam 
 `AgendaService`). Não há pedido de liberação.
 
 ⚠️ **A regra nasce desligada.** Para valer na Petrobras, o gerente abre a tela, escolhe
-Petrobras, liga "só consulta", marca Geriatria, Ginecologia e Psiquiatria, põe 7 dias e grava.
+Petrobras, marca as modalidades de acupuntura como "não marca", marca Geriatria, Ginecologia e
+Psiquiatria nas consultas, põe 7 dias e grava.
+
+> **Correção de 10/11/2026.** A primeira versão tinha uma chave "só consulta", tirada da frase
+> "agora Petrobras vai ser só consulta" do áudio — e ela levava o BSV junto. A direção corrigiu:
+> "não era para ser só acupuntura?". A chave virou a lista do que sai, que é o que o pedido dizia.
 
 ## O que a regra NÃO alcança (de propósito)
 
@@ -41,7 +47,7 @@ Petrobras, liga "só consulta", marca Geriatria, Ginecologia e Psiquiatria, põe
 
 | | A — configuração por convênio (feito) | B — regra fixa "Petrobras" no código | C — só aviso, sem recusa |
 |---|---|---|---|
-| 🧑‍💻 UX | a recusa diz o porquê e a saída; a direção muda sem esperar versão | igual para a recepção | a secretária continua podendo marcar o que não fatura |
+| 🧑‍💻 UX | a recusa diz o porquê e a saída; a direção escolhe o que sai e muda sem esperar versão | igual para a recepção | a secretária continua podendo marcar o que não fatura |
 | 🛠️ DX | uma regra pura (Domain) + uma chave de configuração; sem migration | menos peças, mas cada mudança de ideia é um release | menor |
 | 🤝 CX | serve ao próximo convênio que a clínica restringir | só à Petrobras | não resolve o "rolo no faturamento" |
 

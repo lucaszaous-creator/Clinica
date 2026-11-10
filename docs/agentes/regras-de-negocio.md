@@ -4837,7 +4837,8 @@ sexta). Leitor novo de agenda que queira o aviso passa por esse método. Detalhe
 ficou de fora: `docs/consulta-a-renovar-na-agenda.md`.
 
 - **COBERTURA DO CONVÊNIO — o que a clínica aceita MARCAR por um plano** (nov/2026, Petrobras:
-só consulta de geriatria, ginecologia e psiquiatria, uma por semana de cada): é decisão da
+sai a ACUPUNTURA — o BSV fica; consulta só de geriatria, ginecologia e psiquiatria, uma por
+semana de cada): a lista é do que SAI do plano, nunca "só consulta". É decisão da
 CLÍNICA, não regra de guia — mora em configuração (`ParametrosService`, chave
 `CoberturaDosConveniosV1`) e em `CoberturaDoConvenioRegra`, e é aplicada pela `AgendaService` em
 todas as portas de MARCAÇÃO. Sem liberação ("não permite, nem libera"); a saída é o particular,

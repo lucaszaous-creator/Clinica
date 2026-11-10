@@ -1,7 +1,7 @@
 @*
-  O QUE A CLÍNICA ATENDE POR CONVÊNIO (nov/2026 — pedido da direção sobre a Petrobras: "só
-  consulta de geriatria, ginecologia e psiquiatria, uma por semana de cada; não permite marcar
-  acupuntura, nem libera").
+  O QUE A CLÍNICA ATENDE POR CONVÊNIO (nov/2026 — pedido da direção sobre a Petrobras: sai a
+  ACUPUNTURA ("não permite marcar, nem libera"); consulta só de geriatria, ginecologia e
+  psiquiatria, uma por semana de cada. O BSV continua — por isso a lista é do que SAI.)
 
   A tela só escolhe e grava. Quem DECIDE o que a marcação recusa é a CoberturaDoConvenioRegra
   (Domain), aplicada pela AgendaService em todas as portas de marcação — com teste. A sessão
@@ -43,11 +43,22 @@
                 </Campo>
             </div>
 
-            <label class="alternar"><input type="checkbox" @bind="_soConsulta" /> Por este plano a clínica marca SÓ CONSULTA (acupuntura, eletro e BSV só como particular)</label>
+            <fieldset class="cobertura-especialidades">
+                <legend>Atendimentos que a clínica NÃO marca por este plano</legend>
+                <span class="campo-dica">Marque o que saiu do plano (ex.: as modalidades de acupuntura). O que ficar desmarcado continua sendo marcado normalmente — o BSV, por exemplo.</span>
+                <div class="cobertura-lista">
+                    @foreach (var m in _modalidades)
+                    {
+                        <label class="alternar">
+                            <input type="checkbox" checked="@_bloqueadas.Contains(m.Codigo)" @onchange="ev => Bloquear(m.Codigo, ev.Value is true)" /> @m.Nome
+                        </label>
+                    }
+                </div>
+            </fieldset>
 
             <fieldset class="cobertura-especialidades">
-                <legend>Especialidades atendidas pelo plano</legend>
-                <span class="campo-dica">Nenhuma marcada = qualquer especialidade.</span>
+                <legend>Consultas: especialidades atendidas pelo plano</legend>
+                <span class="campo-dica">Nenhuma marcada = consulta de qualquer especialidade.</span>
                 <div class="cobertura-lista">
                     @foreach (var e in _especialidades)
                     {
@@ -84,7 +95,8 @@
     private IReadOnlyList<Opcao> _especialidades = [];
     private Dictionary<string, CoberturaDoConvenio> _todas = new(StringComparer.OrdinalIgnoreCase);
     private string _convenio = string.Empty;
-    private bool _soConsulta;
+    private IReadOnlyList<Opcao> _modalidades = [];
+    private readonly HashSet<string> _bloqueadas = new(StringComparer.OrdinalIgnoreCase);
     private string _intervalo = "0";
     private readonly HashSet<string> _marcadas = new(StringComparer.OrdinalIgnoreCase);
 
@@ -108,6 +120,9 @@
                 .OrderBy(c => c.Nome, StringComparer.Create(CultureInfo.GetCultureInfo("pt-BR"), true)).ToList();
             _especialidades = CatalogoEspecialidades.Ativas.Select(e => new Opcao(e.Codigo, e.Nome))
                 .OrderBy(e => e.Nome, StringComparer.Create(CultureInfo.GetCultureInfo("pt-BR"), true)).ToList();
+            // A consulta não entra na lista: o que se restringe nela são as ESPECIALIDADES, abaixo.
+            _modalidades = CatalogoModalidades.Ativas.Where(m => m.Base != ModalidadeAtendimento.Consulta)
+                .Select(m => new Opcao(m.Codigo, m.Nome)).ToList();
             if (_convenios.Count == 0) _falhaAoAbrir = "Não há convênio ativo que fature para configurar.";
             else Mostrar(_convenios[0].Codigo);
         }
@@ -129,10 +144,16 @@
         _convenio = codigo;
         _mensagem = _erroIntervalo = null;
         _marcadas.Clear();
-        var c = _todas.TryGetValue(codigo, out var gravada) ? gravada : new CoberturaDoConvenio(false, [], 0);
-        _soConsulta = c.SoConsulta;
+        var c = _todas.TryGetValue(codigo, out var gravada) ? gravada : new CoberturaDoConvenio([], [], 0);
+        _bloqueadas.Clear();
+        foreach (var m in c.ModalidadesNaoAtendidas) _bloqueadas.Add(m);
         _intervalo = c.IntervaloDias.ToString(CultureInfo.InvariantCulture);
         foreach (var e in c.Especialidades) _marcadas.Add(e);
+    }
+
+    private void Bloquear(string codigo, bool marcada)
+    {
+        if (marcada) _bloqueadas.Add(codigo); else _bloqueadas.Remove(codigo);
     }
 
     private void Marcar(string codigo, bool marcada)
@@ -155,7 +176,7 @@
         _ocupado = true;
         try
         {
-            var cobertura = new CoberturaDoConvenio(_soConsulta, _marcadas.ToArray(), dias);
+            var cobertura = new CoberturaDoConvenio(_bloqueadas.ToArray(), _marcadas.ToArray(), dias);
             using var escopo = Escopos.CreateScope();
             await escopo.ServiceProvider.GetRequiredService<ParametrosService>()
                 .DefinirCoberturaDoConvenioAsync(_convenio, cobertura);

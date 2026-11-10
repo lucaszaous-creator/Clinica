@@ -125,8 +125,8 @@ public sealed class AgendaService
 
     // ==================== COBERTURA DO CONVÊNIO (nov/2026) ====================
     //
-    // O que a CLÍNICA aceita marcar por um plano (docs/cobertura-do-convenio.md): só consulta,
-    // de quais especialidades, com que intervalo por especialidade. Mesmas portas da trava de
+    // O que a CLÍNICA aceita marcar por um plano (docs/cobertura-do-convenio.md): quais
+    // modalidades saíram dele, quais especialidades de consulta, com que intervalo por especialidade. Mesmas portas da trava de
     // consulta, pela mesma razão — e, diferente dela, SEM liberação ("não permite, nem libera").
     // A sessão particular nunca passa por aqui.
     //
@@ -159,8 +159,7 @@ public sealed class AgendaService
                 .Where(c => c.AgendamentoId != ignorarAgendamentoId)
                 .ToList();
 
-        return CoberturaDoConvenioRegra.Recusa(cobertura, paciente.ConvenioNome, ehConsulta,
-            CatalogoModalidades.Nome(modalidadeCodigo, modalidade), especialidadeCodigo,
+        return CoberturaDoConvenioRegra.Recusa(cobertura, paciente.ConvenioNome, modalidade, modalidadeCodigo, especialidadeCodigo,
             CatalogoEspecialidades.Nome(especialidadeCodigo), dia, outras, soIntervalo);
     }
 

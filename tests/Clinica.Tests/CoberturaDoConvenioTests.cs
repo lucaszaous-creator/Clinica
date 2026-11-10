@@ -17,7 +17,8 @@ namespace Clinica.Tests;
 /// marcar acupuntura, nem libera; os que já estão marcados ficam como estão".
 ///
 /// O que estes testes prendem é cada frase do pedido — e o que NÃO pode acontecer: a regra
-/// alcançar outro convênio, alcançar a sessão particular ou prender quem já estava na agenda.
+/// alcançar outro convênio, alcançar a sessão particular, prender quem já estava na agenda — ou
+/// levar o BSV junto com a acupuntura.
 /// </summary>
 public class CoberturaDoConvenioTests : IDisposable
 {
@@ -28,7 +29,8 @@ public class CoberturaDoConvenioTests : IDisposable
     private readonly int _medica;
 
     private static readonly DateTime Segunda = new(2026, 11, 16, 14, 0, 0);
-    private static readonly CoberturaDoConvenio DaPetrobras = new(SoConsulta: true,
+    private static readonly CoberturaDoConvenio DaPetrobras = new(
+        [nameof(ModalidadeAtendimento.AcupunturaSimples), nameof(ModalidadeAtendimento.AcupunturaComEletro)],
         [nameof(Especialidade.Geriatria), nameof(Especialidade.Ginecologia), nameof(Especialidade.Psiquiatria)], IntervaloDias: 7);
 
     public CoberturaDoConvenioTests()
@@ -97,8 +99,22 @@ public class CoberturaDoConvenioTests : IDisposable
 
         var recusa = await FluentActions.Awaiting(() => AcupunturaAsync(p.Id, Segunda))
             .Should().ThrowAsync<CoberturaDoConvenioException>();
-        recusa.Which.Message.Should().Contain("Petrobras").And.Contain("só consulta").And.Contain("PARTICULAR");
+        recusa.Which.Message.Should().Contain("Petrobras").And.Contain("não atende").And.Contain("PARTICULAR");
         (await _db.Agendamentos.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task O_BSV_continua_sendo_marcado_pelo_plano_so_a_acupuntura_saiu()
+    {
+        // A direção: "não era para ser só acupuntura?" — era. "Só consulta" levaria o BSV junto.
+        await LigarAsync();
+        var p = await PacienteAsync();
+
+        (await _agenda.AgendarAsync(p.Id, Segunda, ModalidadeAtendimento.BsvApenas, null,
+            profissionalId: _medica, operador: "recepcao")).Id.Should().BeGreaterThan(0);
+        // A eletro é acupuntura: sai também.
+        await FluentActions.Awaiting(() => _agenda.AgendarAsync(p.Id, Segunda.AddHours(2), ModalidadeAtendimento.AcupunturaComEletro, null,
+            profissionalId: _medica, operador: "recepcao")).Should().ThrowAsync<CoberturaDoConvenioException>();
     }
 
     [Fact]
@@ -235,7 +251,7 @@ public class CoberturaDoConvenioTests : IDisposable
         await LigarAsync();
         (await _parametros.CoberturaDosConveniosAsync()).Should().ContainKey("petrobras", "a chave não distingue caixa");
 
-        await _parametros.DefinirCoberturaDoConvenioAsync(nameof(Convenio.Petrobras), new CoberturaDoConvenio(false, [], 0));
+        await _parametros.DefinirCoberturaDoConvenioAsync(nameof(Convenio.Petrobras), new CoberturaDoConvenio([], [], 0));
 
         (await _parametros.CoberturaDosConveniosAsync()).Should().BeEmpty();
         var p = await PacienteAsync();
