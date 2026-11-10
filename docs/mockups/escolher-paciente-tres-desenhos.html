@@ -1,0 +1,523 @@
+<title>Escolher paciente em três desenhos</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+/* ==================================================================================
+   Leiaute: uma coluna de leitura; cada modelo é uma JANELA do app em largura real,
+   uma embaixo da outra, e o comparativo UX · DX · CX fecha a página.
+   A moldura de leitura usa os tokens dos outros mockups da pasta. O que está DENTRO
+   das janelas usa os tokens reais do design system (tokens/colors.css): a janela é
+   sempre CLARA, como o app. Todos os pacientes são fictícios.
+   ================================================================================== */
+:root{
+  --pg:#EDEFF4; --sup:#FFFFFF; --sup-2:#F6F7FB;
+  --tinta:#101728; --tinta-2:#3A4258; --mudo:#5C6479;
+  --fio:#DCE0E9; --fio-forte:#C3C9D6;
+  --acento-pg:#123A9E; --acento-pg-suave:#EAF0FB;
+  --sombra:0 1px 2px rgba(16,23,40,.05), 0 8px 24px rgba(16,23,40,.06);
+
+  /* Design system da suíte: valores de tokens/colors.css. Não mudam com o tema. */
+  --azul-50:#EEF3FC; --azul-100:#D8E3F7; --azul-500:#3F62C9; --azul-600:#123A9E; --azul-700:#0A2E86;
+  --cinza-50:#F8FAFC; --cinza-100:#F1F5F9; --cinza-200:#E5E7EB; --cinza-300:#D1D5DB;
+  --cinza-500:#6B7280; --cinza-700:#374151; --cinza-900:#111827;
+  --verde-100:#DCFCE7; --verde-700:#15803D;
+  --laranja-100:#FFEDD5; --laranja-700:#C2410C;
+  --ciano-100:#E0F2FE; --ciano-700:#0369A1;
+  --branco:#FFFFFF;
+  --f-pg:"IBM Plex Sans",system-ui,sans-serif;
+  --f-app:"Segoe UI Variable Text","Segoe UI",Inter,system-ui,-apple-system,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --pg:#10141D; --sup:#171D28; --sup-2:#1D2431;
+    --tinta:#E7EAF1; --tinta-2:#C3CADA; --mudo:#98A1B4;
+    --fio:#2A3342; --fio-forte:#3A4557;
+    --acento-pg:#8FB0F5; --acento-pg-suave:#1B2740;
+    --sombra:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --pg:#10141D; --sup:#171D28; --sup-2:#1D2431;
+  --tinta:#E7EAF1; --tinta-2:#C3CADA; --mudo:#98A1B4;
+  --fio:#2A3342; --fio-forte:#3A4557;
+  --acento-pg:#8FB0F5; --acento-pg-suave:#1B2740;
+  --sombra:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+  color-scheme:dark;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+body{background:var(--pg);color:var(--tinta);font-family:var(--f-pg);font-size:15px;line-height:1.55}
+.folha{max-width:1180px;margin:0 auto;padding-block:40px 72px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));
+  display:flex;flex-direction:column;gap:40px}
+h1,h2,h3,p{margin:0}
+h1{font-size:30px;line-height:1.15;font-weight:700;letter-spacing:-.01em;text-wrap:balance}
+h2{font-size:21px;line-height:1.25;font-weight:600;text-wrap:balance}
+.olho{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--acento-pg)}
+.lide{color:var(--tinta-2);max-width:68ch}
+.topo{display:flex;flex-direction:column;gap:12px}
+
+/* --- o que incomoda hoje --- */
+.defeitos{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:1px;background:var(--fio);
+  border:1px solid var(--fio);border-radius:12px;overflow:hidden}
+.defeitos div{background:var(--sup);padding:16px 18px;display:flex;flex-direction:column;gap:4px}
+.defeitos strong{font-size:14px}
+.defeitos span{font-size:13.5px;color:var(--mudo)}
+
+/* --- troca de tela --- */
+.telas{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.telas > span{font-size:13px;color:var(--mudo);margin-right:4px}
+.telas button{font:inherit;font-size:13.5px;color:var(--tinta-2);background:var(--sup);border:1px solid var(--fio-forte);
+  border-radius:8px;padding:6px 12px;cursor:pointer}
+.telas button[aria-pressed="true"]{background:var(--acento-pg-suave);border-color:var(--acento-pg);color:var(--acento-pg);font-weight:600}
+.telas button:focus-visible,.janela button:focus-visible,.janela input:focus-visible{outline:2px solid var(--azul-500);outline-offset:2px}
+
+/* --- o bloco de cada modelo --- */
+.modelo{display:flex;flex-direction:column;gap:14px}
+.modelo-cab{display:flex;flex-direction:column;gap:6px}
+.modelo-cab p{color:var(--tinta-2);max-width:72ch}
+.recomendado{display:inline-block;margin-left:8px;font-size:11.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--sup);background:var(--acento-pg);border-radius:999px;padding:2px 10px;vertical-align:3px}
+.notas{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px 28px;font-size:13.5px;color:var(--mudo);padding:0;margin:0;list-style:none}
+.notas b{color:var(--tinta-2);font-weight:600}
+
+/* ================= A JANELA DO APP (sempre clara) ================= */
+.janela{background:var(--cinza-50);color:var(--cinza-900);font-family:var(--f-app);font-size:14px;line-height:1.4;
+  border:1px solid var(--fio-forte);border-radius:12px;box-shadow:var(--sombra);overflow:hidden}
+.janela button,.janela input{font:inherit;color:inherit}
+.j-corpo{padding:28px 32px 24px;display:flex;flex-direction:column;gap:16px}
+.j-sobre{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--azul-600)}
+.j-titulo{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+.j-titulo h3{font-size:24px;font-weight:700;line-height:1.2}
+.j-titulo p{color:var(--cinza-500);font-size:13px;margin-top:2px}
+.botao{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border-radius:8px;border:1px solid var(--cinza-300);
+  background:var(--branco);font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap}
+.botao:hover{background:var(--cinza-100)}
+.botao.primario{background:var(--azul-600);border-color:var(--azul-600);color:var(--branco)}
+.botao.primario:hover{background:var(--azul-700)}
+.campo{position:relative}
+.campo svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--cinza-500)}
+.campo input{width:100%;height:48px;border:1px solid var(--cinza-300);border-radius:10px;background:var(--branco);
+  padding:0 16px 0 42px;font-size:16px}
+.campo input::placeholder{color:var(--cinza-500)}
+.campo input:focus{outline:none;border-color:var(--azul-600);box-shadow:0 0 0 3px var(--azul-50)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{height:30px;padding:0 12px;border-radius:999px;border:1px solid var(--cinza-200);background:var(--branco);
+  font-size:13px;color:var(--cinza-700);cursor:pointer;white-space:nowrap}
+.chip:hover{border-color:var(--cinza-300);background:var(--cinza-100)}
+.chip[aria-pressed="true"]{background:var(--azul-50);border-color:var(--azul-100);color:var(--azul-600);font-weight:600}
+.chip i{font-style:normal;font-variant-numeric:tabular-nums;opacity:.75;margin-left:4px}
+.selo{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.selo::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.selo.chegou{background:var(--verde-100);color:var(--verde-700)}
+.selo.confirmou{background:var(--ciano-100);color:var(--ciano-700)}
+.selo.sem{background:var(--laranja-100);color:var(--laranja-700)}
+.selo.atendido{background:var(--cinza-100);color:var(--cinza-500)}
+.num{font-variant-numeric:tabular-nums}
+.vazio{padding:28px 8px;color:var(--cinza-500)}
+.vazio b{display:block;color:var(--cinza-900);font-size:15px;margin-bottom:2px}
+mark{background:var(--azul-100);color:inherit;border-radius:3px;padding:0 1px}
+.escolha{font-size:13px;color:var(--verde-700);font-weight:600}
+.escolha:empty{display:none}
+.rodape{font-size:12.5px;color:var(--cinza-500)}
+
+/* ---------- Modelo 1 · Linha do dia ---------- */
+.dia{display:flex;flex-direction:column;background:var(--branco);border:1px solid var(--cinza-200);border-radius:12px;overflow:hidden}
+.hora{display:grid;grid-template-columns:96px minmax(0,1fr);border-top:1px solid var(--cinza-200)}
+.hora:first-child{border-top:0}
+.hora-rotulo{padding:14px 0 0 20px;display:flex;flex-direction:column}
+.hora-rotulo b{font-size:18px;font-weight:700;letter-spacing:-.01em}
+.hora-rotulo small{font-size:12px;color:var(--cinza-500)}
+.hora.passou .hora-rotulo b{color:var(--cinza-500);font-weight:600}
+.hora-linhas{display:flex;flex-direction:column;min-width:0}
+.l1{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1.1fr) 118px 132px;align-items:center;gap:16px;
+  min-height:56px;padding:8px 20px 8px 12px;background:none;border:0;border-top:1px solid var(--cinza-100);text-align:left;cursor:pointer;width:100%}
+.hora-linhas .l1:first-child{border-top:0}
+.l1:hover,.l1:focus-visible{background:var(--azul-50)}
+.l1 > span{min-width:0;display:flex;flex-direction:column;align-items:flex-start}
+.l1 b{font-weight:600;font-size:14.5px;overflow-wrap:anywhere}
+.l1 small{font-size:12.5px;color:var(--cinza-500)}
+.l1 .ir{flex-direction:row;justify-content:flex-end;font-size:13px;font-weight:600;color:var(--azul-600);opacity:0;white-space:nowrap}
+.l1:hover .ir,.l1:focus-visible .ir{opacity:1}
+.agora{display:flex;align-items:center;gap:10px;padding:0 20px;height:26px;background:var(--azul-600);color:var(--branco);
+  font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.cedo{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:12px 20px;background:var(--cinza-50);
+  border:0;border-bottom:1px solid var(--cinza-200);font-size:13px;color:var(--cinza-700);cursor:pointer;text-align:left}
+.cedo:hover{background:var(--cinza-100)}
+.cedo span:last-child{color:var(--azul-600);font-weight:600}
+.dia.plano .l1{padding-left:20px}
+.dia.plano .l1:first-child{border-top:0}
+
+/* ---------- Modelo 2 · Lista e conferência ---------- */
+.dupla{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,4fr);background:var(--branco);border:1px solid var(--cinza-200);
+  border-radius:12px;overflow:hidden;min-height:430px}
+.d-lista{display:flex;flex-direction:column;border-right:1px solid var(--cinza-200);max-height:520px;overflow:auto}
+.l2{display:grid;grid-template-columns:52px minmax(0,1fr) auto;align-items:center;gap:12px;min-height:48px;padding:6px 16px;
+  background:none;border:0;border-bottom:1px solid var(--cinza-100);text-align:left;cursor:pointer;width:100%}
+.l2:hover{background:var(--cinza-50)}
+.l2[aria-selected="true"]{background:var(--azul-50);box-shadow:inset 3px 0 0 var(--azul-600)}
+.l2 .h{font-weight:700;font-size:13.5px;color:var(--cinza-700)}
+.l2 .n{min-width:0;display:flex;flex-direction:column}
+.l2 .n b{font-weight:600;overflow-wrap:anywhere}
+.l2 .n small{font-size:12px;color:var(--cinza-500)}
+.d-ficha{padding:24px 26px;display:flex;flex-direction:column;gap:18px;background:var(--cinza-50)}
+.d-ficha h4{margin:0;font-size:21px;font-weight:700;line-height:1.2;overflow-wrap:anywhere}
+.d-ficha .sub{color:var(--cinza-500);font-size:13px;margin-top:2px}
+.dados{display:grid;grid-template-columns:auto minmax(0,1fr);gap:9px 18px;margin:0;font-size:13.5px}
+.dados dt{color:var(--cinza-500)}
+.dados dd{margin:0;font-weight:600;overflow-wrap:anywhere}
+.alerta{font-size:13px;background:var(--laranja-100);color:var(--laranja-700);border-radius:8px;padding:10px 12px}
+.d-acoes{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto}
+
+/* ---------- Modelo 3 · Cartões da vez ---------- */
+.faixa{display:flex;align-items:baseline;gap:10px;margin-top:4px}
+.faixa b{font-size:15px}
+.faixa small{font-size:12.5px;color:var(--cinza-500)}
+.cartoes{display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:12px}
+.c3{display:flex;flex-direction:column;gap:10px;padding:14px 16px;background:var(--branco);border:1px solid var(--cinza-200);
+  border-radius:12px;text-align:left;cursor:pointer;min-width:0}
+.c3:hover,.c3:focus-visible{border-color:var(--azul-500);box-shadow:0 0 0 3px var(--azul-50)}
+.c3 .cima{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.c3 .h{font-size:20px;font-weight:700;letter-spacing:-.01em}
+.c3 .h.sem-hora{font-size:13px;font-weight:600;color:var(--cinza-500);letter-spacing:0}
+.c3 b{font-weight:600;font-size:15px;line-height:1.25;overflow-wrap:anywhere}
+.c3 small{font-size:12.5px;color:var(--cinza-500)}
+.c3 .baixo{margin-top:auto;border-top:1px solid var(--cinza-100);padding-top:9px;font-size:12.5px;color:var(--cinza-700)}
+.c3.passou{background:var(--cinza-50)}
+.c3.passou .h{color:var(--cinza-500)}
+
+/* ---------- comparativo ---------- */
+.rola{overflow-x:auto;border:1px solid var(--fio);border-radius:12px;background:var(--sup)}
+table{border-collapse:collapse;width:100%;min-width:780px;font-size:13.5px}
+th,td{text-align:left;vertical-align:top;padding:12px 16px;border-bottom:1px solid var(--fio)}
+tr:last-child td{border-bottom:0}
+thead th{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mudo);background:var(--sup-2)}
+tbody th{font-weight:600;width:150px}
+td{color:var(--tinta-2)}
+tr.sim th,tr.sim td{background:var(--acento-pg-suave)}
+.fecho{display:flex;flex-direction:column;gap:10px}
+.fecho p{color:var(--tinta-2);max-width:72ch}
+
+@media (max-width:820px){
+  h1{font-size:25px}
+  .j-corpo{padding:20px 16px}
+  .l1{grid-template-columns:minmax(0,1fr) auto;gap:10px;padding-right:14px}
+  .l1 .tipo,.l1 .ir{display:none}
+  .hora{grid-template-columns:68px minmax(0,1fr)}
+  .hora-rotulo{padding-left:14px}
+  .hora-rotulo small{display:none}
+  .dupla{grid-template-columns:minmax(0,1fr)}
+  .d-lista{border-right:0;border-bottom:1px solid var(--cinza-200);max-height:300px}
+}
+</style>
+
+<div class="folha">
+
+  <header class="topo">
+    <span class="olho">Recepção · Consultório · Prontuário</span>
+    <h1>Escolher paciente em três desenhos</h1>
+    <p class="lide">As cinco telas das fotos usam o mesmo componente. Trocar o desenho dele troca as cinco de uma vez. Abaixo, o que incomoda no desenho atual e três alternativas que funcionam: digite, clique nos recortes e escolha um paciente. Todos os nomes são fictícios, e o relógio do exemplo está parado às 10:40.</p>
+  </header>
+
+  <section class="defeitos" aria-label="O que incomoda no desenho atual">
+    <div><strong>Metade da tela vazia</strong><span>Uma coluna de 760 px no meio de um monitor de 1600. O nome é cortado com reticências ao lado de um espaço em branco enorme.</span></div>
+    <div><strong>Caixa com rolagem própria</strong><span>39 pacientes aparecem 8 por vez, numa caixa com barra de rolagem dentro da página.</span></div>
+    <div><strong>A hora fica escondida</strong><span>É o dado que organiza o dia e está na última coluna, em cinza. Às 15h a lista ainda começa nas 09:00.</span></div>
+    <div><strong>Bolinhas que não dizem nada</strong><span>Oito círculos azuis iguais com iniciais. Ocupam o lugar mais nobre da linha sem ajudar a achar ninguém.</span></div>
+    <div><strong>Dois títulos para a mesma coisa</strong><span>"Pacientes" em cima e "Quem você procura?" embaixo. Nomes em maiúsculas e minúsculas misturados.</span></div>
+  </section>
+
+  <div class="telas" role="group" aria-label="Ver os modelos como a tela">
+    <span>Ver como a tela:</span>
+    <button type="button" data-tela="marcar" aria-pressed="true">Marcar horário</button>
+    <button type="button" data-tela="pacientes" aria-pressed="false">Pacientes</button>
+    <button type="button" data-tela="documento" aria-pressed="false">Documentos</button>
+    <button type="button" data-tela="enfermagem" aria-pressed="false">Enfermagem</button>
+    <button type="button" data-tela="prontuario" aria-pressed="false">Prontuário</button>
+  </div>
+
+  <section class="modelo" id="modelo-1">
+    <div class="modelo-cab">
+      <span class="olho">Modelo 1</span>
+      <h2>Linha do dia <span class="recomendado">Recomendado</span></h2>
+      <p>O dia agrupado por horário, na largura toda, começando por quem está chegando agora. Quem já foi atendido fica recolhido numa linha. Ao digitar, a linha do dia dá lugar ao resultado da busca no cadastro inteiro.</p>
+    </div>
+    <div class="janela" data-m="1"></div>
+    <ul class="notas">
+      <li><b>Sem caixa de rolagem.</b> A página rola, a lista não.</li>
+      <li><b>A hora vira a âncora.</b> É a primeira coisa que o olho encontra.</li>
+      <li><b>Situação à vista.</b> Chegou, confirmou ou sem resposta, sem abrir a agenda.</li>
+      <li><b>Um clique escolhe.</b> Igual a hoje: ↑ ↓ e Enter continuam valendo.</li>
+    </ul>
+  </section>
+
+  <section class="modelo" id="modelo-2">
+    <div class="modelo-cab">
+      <span class="olho">Modelo 2</span>
+      <h2>Lista e conferência</h2>
+      <p>Lista compacta à esquerda e, à direita, os dados de quem está marcado para conferir antes de confirmar: nascimento, CPF, convênio, horário de hoje e o aviso quando outra ficha usa o mesmo telefone.</p>
+    </div>
+    <div class="janela" data-m="2"></div>
+    <ul class="notas">
+      <li><b>Feito para homônimos.</b> A conferência acontece antes do clique que escolhe.</li>
+      <li><b>Só dado cadastral.</b> Nada de prontuário no painel, em nenhuma das cinco telas.</li>
+      <li><b>Um clique a mais.</b> Marca na lista, confirma no botão (ou Enter).</li>
+      <li><b>Pede largura.</b> Abaixo de 1100 px o painel desce para baixo da lista.</li>
+    </ul>
+  </section>
+
+  <section class="modelo" id="modelo-3">
+    <div class="modelo-cab">
+      <span class="olho">Modelo 3</span>
+      <h2>Cartões da vez</h2>
+      <p>Cada paciente é um cartão com a hora em destaque. Quem está na vez aparece primeiro, o resto do dia vem depois e os já atendidos ficam no fim, apagados.</p>
+    </div>
+    <div class="janela" data-m="3"></div>
+    <ul class="notas">
+      <li><b>O mais vistoso.</b> Lê-se de longe, bom para o monitor do balcão.</li>
+      <li><b>Cabe menos.</b> Uns 12 por tela: 39 pacientes são três telas de rolagem.</li>
+      <li><b>Pior para nomes parecidos.</b> Comparar em grade é mais lento que em coluna.</li>
+      <li><b>Fraco na busca.</b> Resultado de busca em cartões desperdiça espaço.</li>
+    </ul>
+  </section>
+
+  <section class="fecho">
+    <span class="olho">Comparação</span>
+    <h2>UX · DX · CX das quatro opções</h2>
+    <div class="rola">
+      <table>
+        <thead><tr><th>Opção</th><th>UX · quem usa</th><th>DX · quem mantém</th><th>CX · a clínica</th></tr></thead>
+        <tbody>
+          <tr><th>Como está</th><td>Um clique escolhe e o teclado funciona, mas a tela usa metade da largura, corta nomes e esconde a hora.</td><td>Nenhum trabalho.</td><td>Passa a impressão de tela inacabada. Foi o que motivou este pedido.</td></tr>
+          <tr class="sim"><th>1 · Linha do dia</th><td>Mesmo número de cliques. Acha-se pela hora ou pelo nome. Situação do paciente sem trocar de tela. Funciona de 1024 px ao monitor largo.</td><td>Muda o desenho de um componente e o CSS dele. A leitura "com horário hoje" passa a trazer situação e profissional, que a agenda já guarda.</td><td>Risco baixo: mesma busca, mesmas regras, mesmo teclado. Uma mudança visível nas cinco telas no mesmo release.</td></tr>
+          <tr><th>2 · Lista e conferência</th><td>Um clique a mais por paciente. Em troca, confere identidade antes de escolher, o que evita abrir a ficha errada.</td><td>Componente novo (painel) e uma leitura a mais por paciente marcado. Precisa de cuidado para não mostrar dado clínico a quem só tem acesso ao cadastro.</td><td>O mais seguro contra troca de paciente. O clique extra pesa no balcão cheio, 40 vezes por dia.</td></tr>
+          <tr><th>3 · Cartões da vez</th><td>Bonito e legível de longe. Mais rolagem e comparação de nomes mais lenta. Busca fica pior.</td><td>Dois desenhos para manter: cartões para o dia e lista para a busca.</td><td>Impressiona na demonstração. No uso diário com 39 pacientes, cansa.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><strong>Recomendação: o Modelo 1 nas cinco telas.</strong> Ele resolve os cinco incômodos sem custar um clique nem uma tela nova, e é o único que serve igual ao notebook de 1024 px e ao monitor largo.</p>
+    <p>O painel de conferência do Modelo 2 pode entrar depois, só na tela Pacientes, se a troca de ficha entre homônimos for um problema real no balcão.</p>
+    <p><strong>O que não foi feito:</strong> nada mudou no app. Isto é só o desenho. A situação (chegou, confirmou) existe na agenda, mas a leitura de hoje ainda não a entrega a este componente; isso entra junto com a implementação do modelo escolhido.</p>
+  </section>
+
+</div>
+
+<script>
+(function(){
+  var HOJE = new Date(2026, 10, 10), AGORA = "10:40";
+  var TELAS = {
+    marcar:{sobre:"Recepção · Agenda", pergunta:"Quem vai ser marcado?", verbo:"Marcar", novo:"Cadastrar paciente", extras:[]},
+    pacientes:{sobre:"Recepção · Pacientes", pergunta:"Quem você procura?", verbo:"Abrir ficha", novo:"Novo paciente",
+      extras:[["incompleto","Cadastro incompleto"],["semConvenio","Sem convênio definido"],["aniversario","Aniversário nesta semana"]]},
+    documento:{sobre:"Recepção · Documentos", pergunta:"Para quem é o documento?", verbo:"Escolher", extras:[]},
+    enfermagem:{sobre:"Consultório · Enfermagem", pergunta:"Quem vai ser atendido?", verbo:"Atender", extras:[]},
+    prontuario:{sobre:"Prontuário · Por paciente", pergunta:"De quem é o prontuário?", verbo:"Abrir prontuário", extras:[["tratamento","Em tratamento"]]}
+  };
+  var ROTULO = {chegou:"Chegou", confirmou:"Confirmou", sem:"Sem resposta", atendido:"Atendido"};
+  // nome, nascimento, cpf, telefone, convênio, hora, tipo, profissional, situação, última vinda, marcas
+  var P = [
+    ["Marlene Tavares Coutinho","1948-03-22","417.220.918-07","(22) 99871-4402","Unimed","08:00","Consulta","Dra. Helena Prado","atendido","há 28 dias","t"],
+    ["Otávio Brandão Reis","1990-07-09","502.118.640-31","(22) 99960-1178","Particular","08:00","Sessão de acupuntura","Dr. Rui Salgado","atendido","há 7 dias","t"],
+    ["Cecília Antunes Figueira","1995-01-30","318.774.205-66","(22) 99214-8830","Bradesco Saúde","08:30","Consulta","Dra. Helena Prado","atendido","primeira vez",""],
+    ["Rogério Paixão Lemos","1982-11-14","640.905.137-20","(22) 99733-2051","Cassi","09:00","Sessão de acupuntura","Dr. Rui Salgado","atendido","há 7 dias","ta"],
+    ["Dalva Quintanilha Moura","1961-05-03","229.431.870-94","(22) 99402-6617","Unimed","09:00","Infusão","Enf. Sônia Leal","atendido","há 14 dias","t"],
+    ["Heitor Sampaio Neves","1978-09-18","731.560.482-15","(22) 99185-7340","Particular","09:30","Consulta","Dra. Helena Prado","chegou","há 3 meses",""],
+    ["Ivone Barcellos Pinto","1978-02-11","084.612.957-48","(22) 99913-5526","Petrobras","10:30","Sessão de acupuntura","Dr. Rui Salgado","chegou","há 7 dias","t"],
+    ["Caio Barcellos Pinto","2012-08-25","196.340.728-52","(22) 99913-5526","Petrobras","10:30","Consulta","Dra. Helena Prado","chegou","há 2 meses",""],
+    ["Lourdes Feitosa Arantes","1955-12-01","455.872.016-39","(22) 99627-9084","Unimed","11:00","Infusão","Enf. Sônia Leal","confirmou","há 14 dias","t"],
+    ["Mauro Tenório Diniz","1969-04-27","902.146.385-70","(22) 99358-4412","Convênio a definir","11:00","Consulta","Dra. Helena Prado","confirmou","primeira vez","s"],
+    ["Ágata Monteiro Sá","1999-10-06","613.278.940-03","","Particular","11:00","Sessão de acupuntura","Dr. Rui Salgado","sem","há 21 dias","ti"],
+    ["Benedito Aragão Cunha","1944-06-19","377.019.264-81","(22) 99540-2296","Cassi","11:30","Consulta","Dra. Helena Prado","confirmou","há 40 dias","a"],
+    ["Yasmin Correia Dantas","2001-03-15","548.693.102-27","(22) 99876-0153","Bradesco Saúde","14:00","Sessão de acupuntura","Dr. Rui Salgado","confirmou","há 7 dias","t"],
+    ["Valdir Nogueira Bastos","1973-01-08","260.457.839-64","(22) 99102-7745","Particular","14:00","Consulta","Dra. Helena Prado","sem","há 5 meses",""],
+    ["Noêmia Seixas Rangel","1958-08-30","829.305.471-12","(22) 99468-3390","Unimed","15:30","Infusão","Enf. Sônia Leal","confirmou","há 14 dias","t"],
+    ["Túlio Vasconcelos Maia","1987-12-22","145.780.326-95","(22) 99731-6608","Petrobras","16:00","Sessão de acupuntura","Dr. Rui Salgado","confirmou","há 7 dias","t"],
+    ["Marlene Tavares Coelho","1971-09-05","690.214.853-40","(22) 99255-1907","Cassi","","","","","há 2 meses",""],
+    ["Aurora Pimentel Lacerda","1966-02-17","473.861.209-58","(24) 99814-5523","Convênio a definir","","","","","há 1 ano","s"],
+    ["Fabrício Leitão Ornelas","1992-11-11","358.927.614-06","","Particular","","","","","há 6 meses","ia"],
+    ["Glória Macedo Trindade","1950-07-28","716.043.592-83","(22) 99680-4471","Unimed","","","","","há 20 dias","t"],
+    ["Ícaro Bezerra Falcão","2004-05-13","201.598.467-30","(22) 99347-8826","Bradesco Saúde","","","","","há 9 meses",""],
+    ["Otávia Brandão Reis","1988-04-02","584.136.970-21","(22) 99960-2284","Convênio a definir","","","","","nunca veio","si"],
+    ["Samuel Guedes Portela","1979-10-24","930.672.148-57","(22) 99519-3062","Cassi","","","","","há 35 dias","t"],
+    ["Zélia Fontoura Brito","1963-06-07","067.845.231-99","(21) 99720-6148","Particular","","","","","há 3 meses",""]
+  ].map(function(r, i){
+    var n = new Date(r[1] + "T12:00:00"), idade = HOJE.getFullYear() - n.getFullYear();
+    if (HOJE < new Date(HOJE.getFullYear(), n.getMonth(), n.getDate())) idade--;
+    return {id:i, nome:r[0], idade:idade, nasc:r[1].split("-").reverse().join("/"), cpf:r[2], tel:r[3], conv:r[4], hora:r[5], tipo:r[6],
+      prof:r[7], sit:r[8], ultima:r[9], tratamento:r[10].indexOf("t")>=0, semConvenio:r[10].indexOf("s")>=0,
+      incompleto:r[10].indexOf("i")>=0, aniversario:r[10].indexOf("a")>=0};
+  });
+
+  var S = {tela:"marcar", m:{1:{q:"",chip:"hoje",cedo:false}, 2:{q:"",chip:"hoje",sel:6}, 3:{q:"",chip:"hoje"}}};
+
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+  function norm(s){ return s.normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase(); }
+  function digitos(s){ return s.replace(/\D/g,""); }
+  function casa(p, q){
+    var t = norm(q.trim()), d = digitos(q);
+    if (!t) return true;
+    if (norm(p.nome).indexOf(t) >= 0) return true;
+    return d.length >= 3 && (digitos(p.cpf).indexOf(d) >= 0 || digitos(p.tel).indexOf(d) >= 0);
+  }
+  function realce(nome, q){
+    var t = norm(q.trim()), i = t ? norm(nome).indexOf(t) : -1;
+    if (i < 0) return esc(nome);
+    return esc(nome.slice(0,i)) + "<mark>" + esc(nome.slice(i,i+t.length)) + "</mark>" + esc(nome.slice(i+t.length));
+  }
+  function porNome(a,b){ return a.nome.localeCompare(b.nome,"pt-BR"); }
+  function porHora(a,b){ return a.hora.localeCompare(b.hora) || porNome(a,b); }
+  function lista(st){
+    if (st.q.trim()) return P.filter(function(p){ return casa(p, st.q); }).sort(porNome);
+    if (st.chip === "hoje") return P.filter(function(p){ return p.hora; }).sort(porHora);
+    if (st.chip === "todos") return P.slice().sort(porNome);
+    return P.filter(function(p){ return p[st.chip]; }).sort(porNome);
+  }
+  function modoDia(st){ return !st.q.trim() && st.chip === "hoje"; }
+  function conta(chave){ return P.filter(function(p){ return chave === "hoje" ? p.hora : p[chave]; }).length; }
+  function selo(p){ return p.sit ? '<span class="selo ' + p.sit + '">' + ROTULO[p.sit] + '</span>' : ""; }
+  function meta(p){ return p.idade + " anos · " + esc(p.conv); }
+  function vazio(st){
+    return '<div class="vazio"><b>Nenhum paciente com "' + esc(st.q.trim()) + '"</b>Confira a grafia ou busque pelo CPF. Se a pessoa for nova, cadastre.</div>';
+  }
+
+  function casca(m){
+    var t = TELAS[S.tela], st = S.m[m];
+    var chips = [["hoje","Com horário hoje"],["todos","Todos os pacientes"]].concat(t.extras).map(function(c){
+      var n = c[0] === "todos" ? "" : "<i>· " + conta(c[0]) + "</i>";
+      return '<button type="button" class="chip" data-chip="' + c[0] + '" aria-pressed="' + (!st.q.trim() && st.chip === c[0]) + '">' + c[1] + n + '</button>';
+    }).join("");
+    return '<div class="j-corpo">' +
+      '<div class="j-titulo"><div><div class="j-sobre">' + t.sobre + '</div><h3>' + t.pergunta + '</h3></div>' +
+        (t.novo ? '<button type="button" class="botao" data-novo>+ ' + t.novo + '</button>' : '') + '</div>' +
+      '<div class="campo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>' +
+        '<input id="busca-' + m + '" type="text" placeholder="Nome, CPF ou telefone" autocomplete="off" maxlength="80" aria-label="Buscar paciente por nome, CPF ou telefone"></div>' +
+      '<div class="chips" role="group" aria-label="O que mostrar">' + chips + '</div>' +
+      '<div class="resultado"></div><div class="escolha" role="status"></div></div>';
+  }
+
+  /* ---- Modelo 1 ---- */
+  function linha1(p, st, comHora){
+    var direita = comHora && p.hora ? '<span class="tipo"><b class="num">Hoje às ' + p.hora + '</b><small>' + esc(p.tipo) + '</small></span>'
+      : '<span class="tipo"><b>' + esc(p.tipo || p.conv) + '</b><small>' + esc(p.prof || ("Última vinda: " + p.ultima)) + '</small></span>';
+    return '<button type="button" class="l1" data-id="' + p.id + '"><span><b>' + realce(p.nome, st.q) + '</b><small>' + meta(p) +
+      ' · CPF final ' + p.cpf.slice(-6) + '</small></span>' + direita + '<span>' + selo(p) + '</span>' +
+      '<span class="ir">' + TELAS[S.tela].verbo + ' →</span></button>';
+  }
+  function corpo1(st){
+    var L = lista(st);
+    if (!L.length) return vazio(st);
+    if (!modoDia(st))
+      return '<div class="dia plano">' + L.map(function(p){ return linha1(p, st, true); }).join("") + '</div>' +
+        '<p class="rodape">' + L.length + (L.length === 1 ? " paciente" : " pacientes") + (st.q.trim() ? " no cadastro inteiro" : "") + '</p>';
+    var cedo = L.filter(function(p){ return p.sit === "atendido"; }), resto = L.filter(function(p){ return p.sit !== "atendido"; });
+    var h = '<div class="dia"><button type="button" class="cedo" data-cedo><span>Mais cedo · ' + cedo.length + ' já atendidos</span><span>' +
+      (st.cedo ? "Recolher" : "Mostrar") + '</span></button>';
+    var grupos = function(itens, passou){
+      var out = "", horas = [];
+      itens.forEach(function(p){ if (horas.indexOf(p.hora) < 0) horas.push(p.hora); });
+      horas.forEach(function(hr){
+        var g = itens.filter(function(p){ return p.hora === hr; });
+        if (!passou && !marcouAgora && hr > AGORA){ out += '<div class="agora">Agora · ' + AGORA + '</div>'; marcouAgora = true; }
+        out += '<div class="hora' + (passou ? " passou" : "") + '"><div class="hora-rotulo"><b class="num">' + hr + '</b><small>' + g.length +
+          (g.length === 1 ? " paciente" : " pacientes") + '</small></div><div class="hora-linhas">' +
+          g.map(function(p){ return linha1(p, st, false); }).join("") + '</div></div>';
+      });
+      return out;
+    };
+    var marcouAgora = false;
+    if (st.cedo) h += grupos(cedo, true);
+    return h + grupos(resto, false) + '</div>';
+  }
+
+  /* ---- Modelo 2 ---- */
+  function corpo2(st){
+    var L = lista(st);
+    if (!L.length) return vazio(st);
+    if (!L.some(function(p){ return p.id === st.sel; })) st.sel = (L.filter(function(p){ return p.sit !== "atendido"; })[0] || L[0]).id;
+    var p = P[st.sel], t = TELAS[S.tela];
+    var mesmo = p.tel ? P.filter(function(o){ return o.id !== p.id && o.tel === p.tel; }) : [];
+    var linhas = L.map(function(o){
+      return '<button type="button" class="l2" role="option" data-id="' + o.id + '" aria-selected="' + (o.id === p.id) + '"><span class="h num">' +
+        (o.hora || "—") + '</span><span class="n"><b>' + realce(o.nome, st.q) + '</b><small>' + meta(o) + '</small></span>' + selo(o) + '</button>';
+    }).join("");
+    return '<div class="dupla"><div class="d-lista" role="listbox" aria-label="Pacientes">' + linhas + '</div>' +
+      '<div class="d-ficha"><div><h4>' + esc(p.nome) + '</h4><div class="sub">' + p.idade + ' anos · nascimento ' + p.nasc + '</div></div>' +
+      '<dl class="dados"><dt>CPF</dt><dd class="num">' + p.cpf + '</dd><dt>Telefone</dt><dd class="num">' + (p.tel || "Sem telefone no cadastro") +
+      '</dd><dt>Convênio</dt><dd>' + esc(p.conv) + '</dd><dt>Hoje</dt><dd>' + (p.hora ? p.hora + " · " + esc(p.tipo) + " com " + esc(p.prof) : "Sem horário hoje") +
+      '</dd><dt>Última vinda</dt><dd>' + p.ultima + '</dd></dl>' +
+      (mesmo.length ? '<div class="alerta">Outra ficha usa este telefone: <strong>' + esc(mesmo[0].nome) + '</strong>, ' + mesmo[0].idade + ' anos. Confira o nascimento.</div>' : '') +
+      '<div class="d-acoes"><button type="button" class="botao primario" data-confirma="' + p.id + '">' + t.verbo + ': ' + esc(p.nome.split(" ")[0]) +
+      '</button><button type="button" class="botao" data-ficha>Ver cadastro</button></div></div></div>';
+  }
+
+  /* ---- Modelo 3 ---- */
+  function cartao(p, st){
+    return '<button type="button" class="c3' + (p.sit === "atendido" ? " passou" : "") + '" data-id="' + p.id + '"><span class="cima"><span class="h num' +
+      (p.hora ? "" : " sem-hora") + '">' + (p.hora || "Sem horário hoje") + '</span>' + selo(p) + '</span><span><b>' + realce(p.nome, st.q) +
+      '</b><br><small>' + meta(p) + '</small></span><span class="baixo">' + esc(p.tipo ? p.tipo + " · " + p.prof : "Última vinda: " + p.ultima) + '</span></button>';
+  }
+  function corpo3(st){
+    var L = lista(st);
+    if (!L.length) return vazio(st);
+    var grade = function(itens){ return '<div class="cartoes">' + itens.map(function(p){ return cartao(p, st); }).join("") + '</div>'; };
+    if (!modoDia(st)) return grade(L);
+    var vez = L.filter(function(p){ return p.sit !== "atendido" && p.hora <= "11:30"; });
+    var depois = L.filter(function(p){ return p.sit !== "atendido" && p.hora > "11:30"; });
+    var cedo = L.filter(function(p){ return p.sit === "atendido"; });
+    return '<div class="faixa"><b>Agora e a seguir</b><small>até 11:30 · ' + vez.length + ' pacientes</small></div>' + grade(vez) +
+      '<div class="faixa"><b>Mais tarde</b><small>' + depois.length + ' pacientes</small></div>' + grade(depois) +
+      '<div class="faixa"><b>Já atendidos</b><small>' + cedo.length + ' pacientes</small></div>' + grade(cedo);
+  }
+
+  var CORPO = {1:corpo1, 2:corpo2, 3:corpo3};
+  function pintar(m){
+    var j = document.querySelector('.janela[data-m="' + m + '"]');
+    j.querySelector(".resultado").innerHTML = CORPO[m](S.m[m]);
+    j.querySelectorAll(".chip").forEach(function(c){
+      c.setAttribute("aria-pressed", String(!S.m[m].q.trim() && S.m[m].chip === c.dataset.chip));
+    });
+  }
+  function montar(m){
+    var j = document.querySelector('.janela[data-m="' + m + '"]');
+    j.innerHTML = casca(m);
+    j.querySelector("input").value = S.m[m].q;
+    pintar(m);
+  }
+  function dizer(j, texto){ j.querySelector(".escolha").textContent = texto; }
+
+  document.querySelectorAll(".janela").forEach(function(j){
+    var m = j.dataset.m, st = S.m[m];
+    j.addEventListener("input", function(e){
+      if (e.target.tagName !== "INPUT") return;
+      st.q = e.target.value; dizer(j, ""); pintar(m);
+    });
+    j.addEventListener("keydown", function(e){
+      if (e.target.tagName === "INPUT" && e.key === "Escape"){ e.target.value = ""; st.q = ""; pintar(m); }
+    });
+    j.addEventListener("click", function(e){
+      var b = e.target.closest("button"); if (!b) return;
+      var t = TELAS[S.tela];
+      if (b.dataset.chip){ st.chip = b.dataset.chip; st.q = ""; j.querySelector("input").value = ""; dizer(j, ""); pintar(m); }
+      else if ("cedo" in b.dataset){ st.cedo = !st.cedo; pintar(m); }
+      else if ("novo" in b.dataset) dizer(j, "Aqui abre o cadastro de paciente, como hoje.");
+      else if ("ficha" in b.dataset) dizer(j, "Aqui abre o cadastro para conferir, sem sair da busca.");
+      else if (b.dataset.confirma) dizer(j, t.verbo + ": " + P[b.dataset.confirma].nome + ". A tela segue daqui.");
+      else if (b.dataset.id && m === "2"){ st.sel = +b.dataset.id; dizer(j, ""); pintar(m); }
+      else if (b.dataset.id) dizer(j, t.verbo + ": " + P[b.dataset.id].nome + ". A tela segue daqui.");
+    });
+    montar(m);
+  });
+
+  document.querySelector(".telas").addEventListener("click", function(e){
+    var b = e.target.closest("button[data-tela]"); if (!b) return;
+    S.tela = b.dataset.tela;
+    document.querySelectorAll(".telas button").forEach(function(x){ x.setAttribute("aria-pressed", String(x === b)); });
+    [1,2,3].forEach(function(m){
+      var st = S.m[m];
+      if (st.chip !== "hoje" && st.chip !== "todos") st.chip = "hoje";
+      montar(m);
+    });
+  });
+})();
+</script>
