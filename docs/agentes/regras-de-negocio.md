@@ -6,7 +6,7 @@ mora o código. Mexer numa área? Leia antes o tópico dela — vários registra
 teste pega. Lição nova de uma área entra aqui, no tópico dela; regra que vale para TODA mudança
 continua no `CLAUDE.md`.
 
-## Índice (191 tópicos, na ordem do arquivo)
+## Índice (192 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -201,6 +201,7 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
 - O TELEFONE DA FICHA VAI AO CRM SEM O 0 DO INTERURBANO
 - O "RETORNO SUGERIDO" SAIU DO SISTEMA — e o dado gravado fica
 - SUL AMÉRICA: ACUPUNTURA + ELETRO NO MESMO DIA, E O INTERVALO ENTRE AUTORIZAÇÕES
+- CONSULTA VENCIDA / A RENOVAR NA AGENDA — o selo e quando ele se cala
 
 ---
 
@@ -4826,3 +4827,10 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   auditoria `ConveniosJuntados`, num SaveChanges só. Recusa: mesmo convênio, embutido saindo (junte o
   outro nele), "a definir" de qualquer lado, destino desativado. Grava NA HORA, então a tela só abre
   o formulário sem alteração pendente. Testes: `JuntarConveniosTests`.
+
+- **CONSULTA VENCIDA / A RENOVAR NA AGENDA — o selo e quando ele se cala** (nov/2026): o selo da Agenda do dia, da grade, da janela do horário e o contador do Início leem
+`ConsultaService.ARenovarNosHorariosAsync` — nunca recalcule na tela. Ele só fala no horário
+EM ABERTO, que vai pelo CONVÊNIO e que NÃO é a própria consulta; quem nunca emitiu consulta
+não leva selo; a referência é o DIA DO HORÁRIO (na semana, em dia na segunda e vencida na
+sexta). Leitor novo de agenda que queira o aviso passa por esse método. Detalhes e o que
+ficou de fora: `docs/consulta-a-renovar-na-agenda.md`.

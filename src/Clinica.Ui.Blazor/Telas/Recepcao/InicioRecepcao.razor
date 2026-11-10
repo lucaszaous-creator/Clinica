@@ -227,6 +227,7 @@
     private const string ChaveAgendaDoDia = "fila";
     private const string ChaveConfirmacoes = "agenda-confirmacoes";
     private const string ChaveRecall = "retorno-pacientes";
+    private const string ChaveConsultas = "consultas";
 
     [Inject] private IServiceProvider Servicos { get; set; } = default!;
     [Inject] private ILeituraParalela Paralela { get; set; } = default!;
@@ -331,6 +332,11 @@
             var lerAniversarios = Depois(lerDoDia, d => Paralela.LerAsync<RelacionamentoService, IReadOnlyList<Aniversariante>?>(
                     async s => await s.AniversariantesAsync(hoje, InicioRecepcaoTela.JanelaAniversarioDias, d.Select(a => a.PacienteId).ToHashSet())),
                 "aniversariantes", (IReadOnlyList<Aniversariante>?)null);
+            // A consulta do convênio vencida ou a renovar de quem vem HOJE (nov/2026) — a mesma
+            // leitura do selo da Agenda do dia, para os dois números nunca discordarem.
+            var lerConsultas = Depois(lerDoDia, d => Paralela.LerAsync<ConsultaService, IReadOnlyDictionary<int, StatusConsultaPaciente>?>(
+                    async s => await s.ARenovarNosHorariosAsync(d)),
+                "consultas a renovar do dia", (IReadOnlyDictionary<int, StatusConsultaPaciente>?)null);
             var lerPendencias = Depois(lerResumo, r => Paralela.LerAsync<PainelRecepcaoService, IReadOnlyList<PendenciaCodigo>?>(
                     async s => await s.PendenciasDosPacientesAsync(hoje, r.PacientesDoDia)),
                 "guias pendentes do dia", (IReadOnlyList<PendenciaCodigo>?)null);
@@ -367,6 +373,7 @@
             var amanha = await lerAmanha;
             var acompanhamento = await lerAcompanhamento;
             var aniversarios = await lerAniversarios;
+            var consultas = await lerConsultas;
 
             if (geracao != _geracao || Descartada) return;
 
@@ -375,7 +382,8 @@
             var confirmar = amanha is null ? null
                 : InicioDoBalcao.ConfirmarAmanha(amanha.Select(c => RodadaDeConfirmacao.Classificar(c.Status, c.EnviadoEm, c.Comentario)).ToList());
             var recall = acompanhamento is null ? (int?)null : InicioRecepcaoTela.RecallDeHoje(acompanhamento, hoje);
-            _balcao = InicioRecepcaoTela.ItensDoBalcao(_guias?.Count, confirmar, recall)
+            _balcao = InicioRecepcaoTela.ItensDoBalcao(_guias?.Count, confirmar, recall,
+                    InicioRecepcaoTela.ConsultasARenovarHoje(consultas))
                 .Where(i => Destino(i.Chave) is not { } chave || Balcao.DestinoExiste(chave))
                 .ToList();
 
@@ -429,6 +437,7 @@
     {
         "confirmar" => ChaveConfirmacoes,
         "recall" => ChaveRecall,
+        "consultas" => ChaveConsultas,
         _ => null
     };
 
@@ -437,6 +446,7 @@
         "guias" => "documento",
         "confirmar" => "check",
         "recall" => "pessoas",
+        "consultas" => "calendario",
         _ => "info"
     };
 
@@ -459,6 +469,9 @@
     private async Task AbrirItemAsync(ItemDoBalcao item)
     {
         if (Destino(item.Chave) is not { } destino) { _guiasAbertas = true; return; }
+        // As Consultas abrem já em "Precisa renovar": o número do contador é um recorte dela.
+        if (item.Chave == "consultas")
+            Servicos.GetService<PedidoDasConsultas>()?.Definir(ConsultasNaTela.SituacaoPrecisaRenovar);
         if (!await Host.NavegarAsync(destino))
         {
             Notificacoes.Info($"{item.Titulo}: esta tela não está disponível para o seu acesso neste aplicativo.");

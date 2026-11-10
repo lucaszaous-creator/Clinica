@@ -21,22 +21,22 @@ public sealed class InicioEPedidosDaRecepcaoTelaTests
     {
         var itens = InicioRecepcaoTela.ItensDoBalcao(guias: null, confirmarAmanha: null, recall: 3);
 
-        Assert.Equal(["guias", "confirmar", "recall"], itens.Select(i => i.Chave));
+        Assert.Equal(["guias", "consultas", "confirmar", "recall"], itens.Select(i => i.Chave));
         Assert.Equal("—", itens[0].Valor);
         Assert.Equal("não foi possível conferir", itens[0].Detalhe);
         Assert.True(itens[0].NaoVerificado);
-        Assert.Equal("—", itens[1].Valor);
-        Assert.Equal("não foi possível conferir", itens[1].Detalhe);
-        Assert.Equal("3", itens[2].Valor);
-        Assert.Equal("contatos combinados para hoje", itens[2].Detalhe);
-        Assert.False(itens[2].NaoVerificado);
+        Assert.Equal("—", itens[2].Valor);
+        Assert.Equal("não foi possível conferir", itens[2].Detalhe);
+        Assert.Equal("3", itens[3].Valor);
+        Assert.Equal("contatos combinados para hoje", itens[3].Detalhe);
+        Assert.False(itens[3].NaoVerificado);
     }
 
     [Fact]
     public void Confirmar_amanha_sem_rodada_usa_a_frase_da_regra_e_nao_inventa_zero()
     {
         var semRodada = InicioDoBalcao.ConfirmarAmanha([]);
-        var item = InicioRecepcaoTela.ItensDoBalcao(1, semRodada, 1)[1];
+        var item = InicioRecepcaoTela.ItensDoBalcao(1, semRodada, 1).Single(i => i.Chave == "confirmar");
 
         Assert.Equal("—", item.Valor);
         Assert.Equal("rodada de amanhã ainda não gerada", item.Detalhe);

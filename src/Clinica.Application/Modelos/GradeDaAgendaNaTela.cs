@@ -79,6 +79,21 @@ public sealed record CartaoDaGrade
     /// atendido) e a ficha tem convênio que fatura — com a ficha particular não há o que trocar.
     /// </summary>
     public bool PodeTrocarFormaDeAtendimento { get; init; }
+
+    /// <summary>
+    /// A consulta do convênio que este horário cobra renovar (nov/2026) — nula quando não há
+    /// o que renovar, o horário é particular, já foi atendido ou é a própria consulta.
+    /// </summary>
+    public StatusConsultaPaciente? ConsultaARenovar { get; init; }
+
+    /// <summary>"Consulta vencida" · "Consulta a renovar" — o selo do cartão.</summary>
+    public string? SeloDaConsulta => ConsultaARenovar?.SeloRenovacao;
+
+    /// <summary>Vencida é vermelho (a sessão não fatura); a renovar é âmbar.</summary>
+    public bool ConsultaVencida => ConsultaARenovar is { Vencida: true };
+
+    /// <summary>A frase com a data — a dica do selo e a linha da janela do horário.</summary>
+    public string? AvisoDaConsulta => ConsultaARenovar?.AvisoRenovacao;
     public required bool EhRetornoDoSegundoCodigo { get; init; }
     public required bool VeioDaListaEspera { get; init; }
     public string? Observacoes { get; init; }
@@ -217,7 +232,15 @@ public sealed record LeituraDaGrade(
     IReadOnlyList<Sala> Salas,
     IReadOnlyList<BloqueioAgenda> Bloqueios,
     bool BloqueiosVerificados,
-    IReadOnlyDictionary<int, RespostaDeConfirmacao> Confirmacoes);
+    IReadOnlyDictionary<int, RespostaDeConfirmacao> Confirmacoes)
+{
+    /// <summary>
+    /// A consulta do convênio que cada horário cobra renovar, pela chave do AGENDAMENTO
+    /// (nov/2026) — a mesma leitura da Agenda do dia (<c>ConsultaService.ARenovarNosHorariosAsync</c>).
+    /// </summary>
+    public IReadOnlyDictionary<int, StatusConsultaPaciente> Consultas { get; init; }
+        = new Dictionary<int, StatusConsultaPaciente>();
+}
 
 /// <summary>Os filtros da tela que mudam a montagem.</summary>
 public sealed record FiltroDaGrade(
@@ -290,8 +313,9 @@ public static class GradeDaAgendaNaTela
 
     /// <summary>O cartão de um horário — a MESMA montagem da grade e da janela do horário.</summary>
     public static CartaoDaGrade Cartao(Agendamento a, IReadOnlyDictionary<int, RespostaDeConfirmacao> confirmacoes,
-        int? profissionalDaColuna = null) => new()
+        int? profissionalDaColuna = null, IReadOnlyDictionary<int, StatusConsultaPaciente>? consultas = null) => new()
     {
+        ConsultaARenovar = consultas is not null && consultas.TryGetValue(a.Id, out var consulta) ? consulta : null,
         AgendamentoId = a.Id,
         PacienteId = a.PacienteId,
         ProfissionalId = profissionalDaColuna ?? a.ProfissionalId,
@@ -352,7 +376,7 @@ public static class GradeDaAgendaNaTela
             semSalas = salas.Count == 0;
             colunas = [];
             foreach (var s in salas)
-                colunas.Add(Coluna(null, s.Nome, f.Dia, doDia.Where(a => a.SalaId == s.Id), l.Confirmacoes, salaId: s.Id));
+                colunas.Add(Coluna(null, s.Nome, f.Dia, doDia.Where(a => a.SalaId == s.Id), l.Confirmacoes, l.Consultas, salaId: s.Id));
 
             // Sala DESATIVADA com horário marcado ganha coluna, marcada como inativa: o horário
             // TEM sala, e sumir com ele faria a grade desenhar menos do que o cabeçalho conta.
@@ -360,11 +384,11 @@ public static class GradeDaAgendaNaTela
             foreach (var grupo in doDia.Where(a => a.SalaId is int id && !ativas.Contains(id) && !(f.SalaId is { } fs && id != fs))
                          .GroupBy(a => a.SalaId!.Value).OrderBy(g => g.First().Sala?.Nome))
                 colunas.Add(Coluna(null, $"{grupo.First().Sala?.Nome ?? "Sala removida"} (inativa)",
-                    f.Dia, grupo, l.Confirmacoes, salaId: grupo.Key));
+                    f.Dia, grupo, l.Confirmacoes, l.Consultas, salaId: grupo.Key));
 
             // "Sem sala" é o caso NORMAL nesta clínica, não resíduo — some só quando não há nenhum.
             var semSala = doDia.Where(a => a.SalaId is null).ToList();
-            if (semSala.Count > 0) colunas.Add(Coluna(null, "Sem sala", f.Dia, semSala, l.Confirmacoes));
+            if (semSala.Count > 0) colunas.Add(Coluna(null, "Sem sala", f.Dia, semSala, l.Confirmacoes, l.Consultas));
 
             resumo = $"{doDia.Count(a => a.OcupaAgenda)} horário(s) no dia · {colunas.Count} coluna(s)";
         }
@@ -374,7 +398,7 @@ public static class GradeDaAgendaNaTela
             var visiveis = meu is not null ? l.Profissionais.Where(p => p.Id == meu).ToList() : l.Profissionais.ToList();
             colunas = [];
             foreach (var p in visiveis)
-                colunas.Add(Coluna(p.Id, p.Rotulo, f.Dia, horarios.Where(a => a.ProfissionalId == p.Id), l.Confirmacoes, profissional: p));
+                colunas.Add(Coluna(p.Id, p.Rotulo, f.Dia, horarios.Where(a => a.ProfissionalId == p.Id), l.Confirmacoes, l.Consultas, profissional: p));
 
             // Profissional DESATIVADO com horário marcado ganha coluna "(inativo)" — não cai em
             // "Sem profissional": o horário TEM dono, e atribuí-lo a ninguém esconderia
@@ -386,13 +410,13 @@ public static class GradeDaAgendaNaTela
                              .GroupBy(a => a.ProfissionalId!.Value).OrderBy(g => g.First().Profissional?.Rotulo))
                     colunas.Add(Coluna(grupo.Key,
                         $"{grupo.First().Profissional?.Rotulo ?? "Profissional removido"} (inativo)",
-                        f.Dia, grupo, l.Confirmacoes));
+                        f.Dia, grupo, l.Confirmacoes, l.Consultas));
             }
 
             // "Sem profissional" só aparece quando existe (resíduo da agenda antiga e dos encaixes).
             var orfaos = horarios.Where(a => a.ProfissionalId is null).ToList();
             if (orfaos.Count > 0 && meu is null)
-                colunas.Add(Coluna(null, "Sem profissional", f.Dia, orfaos, l.Confirmacoes));
+                colunas.Add(Coluna(null, "Sem profissional", f.Dia, orfaos, l.Confirmacoes, l.Consultas));
 
             var ocupando = meu is null
                 ? horarios.Count(a => a.OcupaAgenda)
@@ -429,7 +453,7 @@ public static class GradeDaAgendaNaTela
             // A coluna do dia não tem dono — exceto no recorte de UM profissional: aí todo
             // cartão é dele, e amarrá-la é o que faz as FÉRIAS e a JORNADA dele pintarem os vãos.
             var dono = soMeu ? l.Profissionais.FirstOrDefault(p => p.Id == meu) : null;
-            colunas.Add(Coluna(dono?.Id, $"{Dias[i]} {quando:dd'/'MM}", quando, recorte, l.Confirmacoes,
+            colunas.Add(Coluna(dono?.Id, $"{Dias[i]} {quando:dd'/'MM}", quando, recorte, l.Confirmacoes, l.Consultas,
                 profissional: dono,
                 fechamentos: FechamentosDaAgenda.Descrever(l.Bloqueios, quando.ToDateTime(TimeOnly.MinValue), dono?.Id)));
         }
@@ -440,6 +464,7 @@ public static class GradeDaAgendaNaTela
     private static ColunaDaGrade Coluna(
         int? profissionalId, string nome, DateOnly data, IEnumerable<Agendamento> agendamentos,
         IReadOnlyDictionary<int, RespostaDeConfirmacao> confirmacoes,
+        IReadOnlyDictionary<int, StatusConsultaPaciente> consultas,
         int? salaId = null, Profissional? profissional = null, string fechamentos = "")
     {
         var lista = agendamentos.OrderBy(a => a.DataHora).ToList();
@@ -452,7 +477,7 @@ public static class GradeDaAgendaNaTela
             Nome = nome,
             Data = data,
             Resumo = $"{lista.Count(a => a.OcupaAgenda)} horário(s)",
-            Horarios = lista.Select(a => Cartao(a, confirmacoes, profissionalId)).ToList()
+            Horarios = lista.Select(a => Cartao(a, confirmacoes, profissionalId, consultas)).ToList()
         };
     }
 

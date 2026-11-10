@@ -102,6 +102,18 @@ public sealed class SementeAgendaDoDia : ISemente
             Origem = $"AGD:{a.Id}", Referencia = DateOnly.FromDateTime(hoje), EnviadoEm = hoje.AddDays(-1).AddHours(17),
             EnviadoPor = "recepcao", Comentario = comentario
         });
+        // A consulta do convênio (nov/2026): a da Marta venceu, a do Felipe vence em dois dias
+        // e a do Otto está em dia — o selo só fala nos dois primeiros.
+        void ConsultaDoConvenio(Paciente p, int venceEmDias) => db.Add(new Consulta
+        {
+            PacienteId = p.Id, Convenio = p.Convenio, ValidadeDias = 22,
+            DataEmissao = DateOnly.FromDateTime(hoje).AddDays(venceEmDias - 22),
+            DataVencimento = DateOnly.FromDateTime(hoje).AddDays(venceEmDias)
+        });
+        ConsultaDoConvenio(marta, -6);
+        ConsultaDoConvenio(felipe, 2);
+        ConsultaDoConvenio(otto, 15);
+
         Confirmacao(aMarta, StatusContato.Respondido);
         // Pediu pelo WhatsApp para cancelar: a linha mostra "Aceitar cancelamento" e "Paciente manteve o horário".
         Confirmacao(aIvo, StatusContato.Respondido, Clinica.Application.Modelos.RodadaDeConfirmacao.RespostaCancelar);
