@@ -65,12 +65,29 @@ builder.Services.AddTelasBlazor();
 builder.Services.AddScoped<IAssinaturaNaTela, AssinaturaForaDaGestao>();
 
 builder.Services.AddSingleton(CatalogoDaGestao.Embutido());
+// Convênios, modalidades e especialidades em memória: nos apps quem carrega é a abertura; aqui,
+// este serviço — na subida e de novo a cada poucos minutos (o processo vive semanas).
+builder.Services.AddHostedService<CatalogosDaGestao>();
 builder.Services.AddScoped<SessaoDaConexao>();
 builder.Services.AddScoped<NavegacaoDaGestao>();
 builder.Services.AddScoped<IHostDaTela, HostDaTelaWeb>();
 builder.Services.AddScoped<IPostoDoConsultorio, PostoDaGestao>();
 builder.Services.AddScoped<IJanelasDaAgenda, JanelasDaAgendaDaGestao>();
 builder.Services.AddScoped<IMarcacaoDeHorario, MarcacaoDaGestao>();
+// As pontes que faltavam (nov/2026): sem elas valia o "indisponível" da prévia — a aba Marcar
+// abria vazia, "ver na agenda" não abria o dia e a 2ª via do documento dizia "é do aplicativo".
+builder.Services.AddScoped<PedidosDaGestao>();
+builder.Services.AddScoped<MarcacaoComPedido>();
+builder.Services.AddScoped<IJanelasDoAtendimento, JanelasDoAtendimentoDaGestao>();
+builder.Services.AddScoped<IAgendaDaVisaoGeral, AgendaDaVisaoGeralDaGestao>();
+builder.Services.AddScoped<IBalcaoDaRecepcao, BalcaoDaGestao>();
+builder.Services.AddScoped<IJanelasDoAtendimentoClinico, JanelasDoAtendimentoClinicoDaGestao>();
+builder.Services.AddScoped<IJanelasDosExames, JanelasDosExamesDaGestao>();
+builder.Services.AddScoped<IJanelasDosProntuarios, JanelasDosProntuariosDaGestao>();
+builder.Services.AddScoped<IDocumentosDaRecepcao, DocumentosDaGestao>();
+// O aviso instantâneo do banco (a grade e o chat relêem quando outra máquina grava).
+builder.Services.AddScoped<IAvisosDoBanco, AvisosDoBancoDaGestao>();
+builder.Services.AddHostedService<EscutaDoBancoDaGestao>();
 builder.Services.AddScoped<CircuitHandler, AtividadeComSessao>();
 
 // O MESMO anel de chaves da API do portal (abre o cookie do aparelho). A gestão só LÊ: nunca

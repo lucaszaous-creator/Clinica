@@ -15,7 +15,9 @@ namespace Clinica.Gestao.Web.Hospedagem;
 /// em pasta) e abrir a ficha num app — responde com a frase de que está no aplicativo do computador,
 /// em vez de um botão que não faz nada.
 /// </summary>
-public sealed partial class HostDaTelaWeb(IJSRuntime js, Notificacoes notificacoes, NavegacaoDaGestao navegacao) : IHostDaTela
+public sealed partial class HostDaTelaWeb(
+    IJSRuntime js, Notificacoes notificacoes, NavegacaoDaGestao navegacao, IServiceScopeFactory escopos,
+    PedidoDaTelaDoPaciente pedidoDaTela, PedidoDaFichaDoBalcao pedidoDaFicha) : IHostDaTela
 {
     /// <summary>Teto do arquivo que SOBE (OFX, CSV/ZIP de importação). Acima disso, a tela pede outro.</summary>
     public const long TetoDoEnvio = 25 * 1024 * 1024;
@@ -70,7 +72,28 @@ public sealed partial class HostDaTelaWeb(IJSRuntime js, Notificacoes notificaco
         catch (JSException) { return false; }
     }
 
-    public Task<bool> AbrirFichaDoPacienteAsync(int pacienteId) => Task.FromResult(false);
+    /// <summary>
+    /// A ficha do paciente, como no app: a tela do paciente para quem alcança o prontuário; a ficha
+    /// do balcão (a administrativa) para quem não alcança. Falso só quando nenhuma das duas existe
+    /// para este acesso — e quem chamou diz isso.
+    /// </summary>
+    public async Task<bool> AbrirFichaDoPacienteAsync(int pacienteId)
+    {
+        var telaDoPaciente = navegacao.Conhece(ChavesDaGestao.TelaDoPaciente);
+        if (!telaDoPaciente && !navegacao.Conhece(PedidoDaFichaDoBalcao.Chave)) return false;
+        Clinica.Domain.Entities.Paciente? paciente;
+        using (var escopo = escopos.CreateScope())
+            paciente = await escopo.ServiceProvider.GetRequiredService<Clinica.Application.Servicos.PacienteService>().ObterAsync(pacienteId);
+        if (paciente is null) return false;
+        if (telaDoPaciente)
+        {
+            pedidoDaTela.Definir(new PacienteNoPosto(paciente.Id, paciente.Nome, null, null, null),
+                Clinica.Application.Modelos.TelaDoPacienteNaTela.FichaDoPaciente);
+            return navegacao.Navegar(ChavesDaGestao.TelaDoPaciente);
+        }
+        pedidoDaFicha.Definir(paciente.Id, paciente.Nome);
+        return navegacao.Navegar(PedidoDaFichaDoBalcao.Chave);
+    }
 
     // "Onde salvar?" na web é o download: o caminho é só o NOME, e gravar é baixar.
     public Task<string?> PerguntarOndeSalvarAsync(string nomeSugerido, string filtro, string extensao)
