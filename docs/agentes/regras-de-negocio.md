@@ -6,7 +6,7 @@ mora o código. Mexer numa área? Leia antes o tópico dela — vários registra
 teste pega. Lição nova de uma área entra aqui, no tópico dela; regra que vale para TODA mudança
 continua no `CLAUDE.md`.
 
-## Índice (192 tópicos, na ordem do arquivo)
+## Índice (193 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -202,6 +202,7 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
 - O "RETORNO SUGERIDO" SAIU DO SISTEMA — e o dado gravado fica
 - SUL AMÉRICA: ACUPUNTURA + ELETRO NO MESMO DIA, E O INTERVALO ENTRE AUTORIZAÇÕES
 - CONSULTA VENCIDA / A RENOVAR NA AGENDA — o selo e quando ele se cala
+- COBERTURA DO CONVÊNIO — o que a clínica aceita MARCAR por um plano
 
 ---
 
@@ -4834,3 +4835,13 @@ EM ABERTO, que vai pelo CONVÊNIO e que NÃO é a própria consulta; quem nunca 
 não leva selo; a referência é o DIA DO HORÁRIO (na semana, em dia na segunda e vencida na
 sexta). Leitor novo de agenda que queira o aviso passa por esse método. Detalhes e o que
 ficou de fora: `docs/consulta-a-renovar-na-agenda.md`.
+
+- **COBERTURA DO CONVÊNIO — o que a clínica aceita MARCAR por um plano** (nov/2026, Petrobras:
+só consulta de geriatria, ginecologia e psiquiatria, uma por semana de cada): é decisão da
+CLÍNICA, não regra de guia — mora em configuração (`ParametrosService`, chave
+`CoberturaDosConveniosV1`) e em `CoberturaDoConvenioRegra`, e é aplicada pela `AgendaService` em
+todas as portas de MARCAÇÃO. Sem liberação ("não permite, nem libera"); a saída é o particular,
+que a regra nunca alcança. Quem já estava na agenda fica como está (concluir e lançar sobre
+horário existente não conferem). O convênio com intervalo próprio sai da trava geral de
+consulta. Porta nova de marcação passa por `GarantirCoberturaDoConvenioAsync`, ao lado da trava.
+Detalhes: `docs/cobertura-do-convenio.md`.

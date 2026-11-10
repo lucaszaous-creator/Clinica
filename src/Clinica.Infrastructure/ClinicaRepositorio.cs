@@ -564,6 +564,26 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .OrderBy(a => a.DataHora)
             .Select(a => new ConsultaParaTrava(a.Id, a.DataHora, a.Atendimento!.Numero, a.Status == StatusAgendamento.Realizado));
 
+    public async Task<IReadOnlyList<ConsultaDaCobertura>> ConsultasPeloConvenioComEspecialidadeAsync(
+        int pacienteId, DateTime de, DateTime ate, CancellationToken ct = default)
+        => (await ConsultaDaCoberturaDoPaciente(pacienteId, de, ate).ToListAsync(ct))
+            // O código do catálogo, ou o enum das consultas antigas — resolvido em memória.
+            .Select(c => new ConsultaDaCobertura(c.Id, c.DataHora, c.Codigo ?? c.Enum?.ToString()))
+            .ToList();
+
+    /// <summary>As COLUNAS, nunca as derivadas: está em `TraducaoNoNpgsqlTests`.</summary>
+    internal IQueryable<ConsultaDaCoberturaLida> ConsultaDaCoberturaDoPaciente(int pacienteId, DateTime de, DateTime ate)
+        => _db.Agendamentos.AsNoTracking()
+            .Where(a => a.PacienteId == pacienteId
+                        && a.ModalidadePrevista == ModalidadeAtendimento.Consulta
+                        && !a.Particular
+                        && (a.Status == StatusAgendamento.Agendado || a.Status == StatusAgendamento.Realizado)
+                        && a.DataHora >= de && a.DataHora < ate)
+            .OrderBy(a => a.DataHora)
+            .Select(a => new ConsultaDaCoberturaLida(a.Id, a.DataHora, a.EspecialidadeConsultaCodigo, a.EspecialidadeConsulta));
+
+    internal sealed record ConsultaDaCoberturaLida(int Id, DateTime DataHora, string? Codigo, Especialidade? Enum);
+
     public Task<bool> ExisteLiberacaoDeTravaAsync(int pacienteId, DateOnly dia, CancellationToken ct = default)
     {
         var inicio = dia.ToDateTime(TimeOnly.MinValue);

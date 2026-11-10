@@ -174,6 +174,14 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<Clinica.Domain.Regras.ConsultaParaTrava>> ConsultasPeloConvenioDoPacienteAsync(
         int pacienteId, DateTime de, DateTime ate, CancellationToken ct = default);
 
+    /// <summary>
+    /// As consultas pelo convênio (marcadas ou atendidas, nunca as particulares) do paciente
+    /// na janela, com a ESPECIALIDADE de cada uma — o intervalo por especialidade da
+    /// cobertura do convênio (nov/2026).
+    /// </summary>
+    Task<IReadOnlyList<Clinica.Domain.Regras.ConsultaDaCobertura>> ConsultasPeloConvenioComEspecialidadeAsync(
+        int pacienteId, DateTime de, DateTime ate, CancellationToken ct = default);
+
     /// <summary>Há liberação da gerência, já aprovada, para uma consulta deste paciente neste dia?</summary>
     Task<bool> ExisteLiberacaoDeTravaAsync(int pacienteId, DateOnly dia, CancellationToken ct = default);
 

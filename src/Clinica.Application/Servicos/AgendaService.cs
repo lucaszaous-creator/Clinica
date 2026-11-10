@@ -96,6 +96,11 @@ public sealed class AgendaService
         // Ficha particular ou "a definir": não há convênio cujo prazo conferir.
         if (paciente is null || SessaoParticular.PelaFicha(paciente)) return null;
 
+        // O convênio com INTERVALO PRÓPRIO na cobertura (nov/2026 — Petrobras: uma consulta por
+        // semana de cada especialidade) é regido por ele: o prazo geral, que conta QUALQUER
+        // consulta, barraria a ginecologia por causa da geriatria da mesma semana.
+        if (await _parametros.CoberturaDoPacienteAsync(paciente, ct) is { IntervaloDias: > 0 }) return null;
+
         var prazo = paciente.Convenio == Convenio.Personalizado
             ? CatalogoConvenios.ValidadeConsultaDias(paciente.ConvenioCodigo)
             : (await _parametros.ObterAsync(ct)).ValidadeConsultaDias(paciente.Convenio);
@@ -116,6 +121,56 @@ public sealed class AgendaService
         // primeira mandaria marcar em cima do prazo da segunda.
         var solta = DateOnly.FromDateTime(outras.Max(c => c.DataHora)).AddDays(dias);
         return new TravaAcesa(paciente.ConvenioNome, dias, consulta.DataHora, consulta.AtendimentoNumero, solta, consulta.Atendida);
+    }
+
+    // ==================== COBERTURA DO CONVÊNIO (nov/2026) ====================
+    //
+    // O que a CLÍNICA aceita marcar por um plano (docs/cobertura-do-convenio.md): só consulta,
+    // de quais especialidades, com que intervalo por especialidade. Mesmas portas da trava de
+    // consulta, pela mesma razão — e, diferente dela, SEM liberação ("não permite, nem libera").
+    // A sessão particular nunca passa por aqui.
+    //
+    // ⚠️ "Os que já estão marcados ficam como estão": concluir, confirmar presença e lançar
+    // sobre um horário que existe não conferem; remarcar sem trocar modalidade, especialidade
+    // nem forma de atendimento só confere o INTERVALO (o dia mudou).
+
+    /// <summary>
+    /// A frase com que a cobertura do convênio recusa esta marcação, ou nulo. É a MESMA resposta
+    /// que a gravação usa — a tela pode perguntar antes do Salvar.
+    /// </summary>
+    public async Task<string?> RecusaDaCoberturaAsync(
+        int pacienteId, DateTime dataHora, ModalidadeAtendimento modalidade, string? modalidadeCodigo,
+        string? especialidadeCodigo, bool particular, int? ignorarAgendamentoId = null,
+        bool soIntervalo = false, CancellationToken ct = default)
+    {
+        if (particular || _parametros is null) return null;
+        var paciente = await _repo.ObterPacienteAsync(pacienteId, ct);
+        // Ficha particular ou "a definir": não há plano cuja cobertura conferir.
+        if (paciente is null || SessaoParticular.PelaFicha(paciente)) return null;
+        if (await _parametros.CoberturaDoPacienteAsync(paciente, ct) is not { } cobertura) return null;
+
+        var ehConsulta = modalidade == ModalidadeAtendimento.Consulta;
+        var dia = DateOnly.FromDateTime(dataHora);
+        IReadOnlyList<ConsultaDaCobertura> outras = [];
+        if (ehConsulta && cobertura.IntervaloDias > 0)
+            outras = (await _repo.ConsultasPeloConvenioComEspecialidadeAsync(
+                    pacienteId, dia.AddDays(-cobertura.IntervaloDias).ToDateTime(TimeOnly.MinValue),
+                    dia.AddDays(cobertura.IntervaloDias + 1).ToDateTime(TimeOnly.MinValue), ct))
+                .Where(c => c.AgendamentoId != ignorarAgendamentoId)
+                .ToList();
+
+        return CoberturaDoConvenioRegra.Recusa(cobertura, paciente.ConvenioNome, ehConsulta,
+            CatalogoModalidades.Nome(modalidadeCodigo, modalidade), especialidadeCodigo,
+            CatalogoEspecialidades.Nome(especialidadeCodigo), dia, outras, soIntervalo);
+    }
+
+    private async Task GarantirCoberturaDoConvenioAsync(
+        int pacienteId, DateTime dataHora, ModalidadeAtendimento modalidade, string? modalidadeCodigo,
+        string? especialidadeCodigo, bool particular, int? ignorarAgendamentoId, bool soIntervalo, CancellationToken ct)
+    {
+        if (await RecusaDaCoberturaAsync(pacienteId, dataHora, modalidade, modalidadeCodigo, especialidadeCodigo,
+                particular, ignorarAgendamentoId, soIntervalo, ct) is { } recusa)
+            throw new CoberturaDoConvenioException(recusa);
     }
 
     private async Task GarantirSemTravaDeConsultaAsync(
@@ -196,6 +251,8 @@ public sealed class AgendaService
                 + "de ninguém — nem no \"Meu dia\" de quem atende — e fica de fora do repasse.");
 
         await GarantirHorarioPermitidoAsync(dataHora, duracaoMinutos, profissionalId, salaId, pacienteId, null, ct);
+        await GarantirCoberturaDoConvenioAsync(pacienteId, dataHora, modalidade, modalidadeCodigo,
+            especialidadeConsultaCodigo ?? especialidadeConsulta?.ToString(), particular, null, soIntervalo: false, ct);
         await GarantirSemTravaDeConsultaAsync(pacienteId, dataHora, modalidade, particular, null, ct);
 
         var ehConsulta = modalidade == ModalidadeAtendimento.Consulta;
@@ -332,6 +389,26 @@ public sealed class AgendaService
         if (dataHora != ag.DataHora || novoProfissional != ag.ProfissionalId || novaSala != ag.SalaId
             || novaDuracao != ag.DuracaoMinutos || !ag.OcupaAgenda)
             await GarantirHorarioPermitidoAsync(dataHora, novaDuracao, novoProfissional, novaSala, ag.PacienteId, ag.Id, ct);
+
+        // A COBERTURA DO CONVÊNIO (nov/2026): o horário que já existia "fica como está" — só
+        // confere por inteiro quando PASSA a ser outra coisa pelo plano (trocou modalidade ou
+        // especialidade, voltou do particular, voltou de um cancelamento). Mudar só o dia
+        // confere o intervalo por especialidade.
+        if (!novoParticular)
+        {
+            var codigoModalidade = modalidadeCodigo ?? ag.ModalidadeCodigo;
+            var codigoEspecialidade = !ehConsulta ? null
+                : modalidadeCodigo is null && especialidadeConsultaCodigo is null
+                    ? ag.EspecialidadeConsultaCodigo ?? ag.EspecialidadeConsulta?.ToString()
+                    : especialidadeConsultaCodigo;
+            var virouOutraCoisa = particularAnterior || !ag.OcupaAgenda || modalidade != ag.ModalidadePrevista
+                || !string.Equals(codigoModalidade, ag.ModalidadeCodigo, StringComparison.OrdinalIgnoreCase)
+                || (ehConsulta && !string.Equals(codigoEspecialidade,
+                    ag.EspecialidadeConsultaCodigo ?? ag.EspecialidadeConsulta?.ToString(), StringComparison.OrdinalIgnoreCase));
+            if (virouOutraCoisa || dataHora.Date != ag.DataHora.Date)
+                await GarantirCoberturaDoConvenioAsync(ag.PacienteId, dataHora, modalidade, codigoModalidade,
+                    codigoEspecialidade, false, ag.Id, soIntervalo: !virouOutraCoisa, ct);
+        }
 
         // A TRAVA DE CONSULTA (nov/2026) é conferida quando o horário passa a disputá-la: virou
         // consulta pelo convênio, mudou de DIA, ou voltou de um cancelamento. Corrigir sala,
@@ -490,6 +567,13 @@ public sealed class AgendaService
 
         if (ag.Particular == particular && (ag.Atendimento?.Particular ?? particular) == particular)
             return [];
+
+        // Voltar do particular ao PLANO é passar a marcar por ele: a cobertura confere (nov/2026).
+        if (!particular)
+            await GarantirCoberturaDoConvenioAsync(ag.PacienteId, ag.DataHora, ag.ModalidadePrevista, ag.ModalidadeCodigo,
+                ag.ModalidadePrevista == ModalidadeAtendimento.Consulta
+                    ? ag.EspecialidadeConsultaCodigo ?? ag.EspecialidadeConsulta?.ToString() : null,
+                false, ag.Id, soIntervalo: false, ct);
 
         ag.Particular = particular;
         var avisos = await _atendimentos.AjustarAoRemarcarAsync(
@@ -1437,7 +1521,9 @@ public sealed class AgendaService
             especialidadeConsultaCodigo, ct))
             especialidadeConsultaCodigo = "Psicologia";
 
-        // O encaixe avulso também é uma consulta NOVA pelo convênio: a trava vale (nov/2026).
+        // O encaixe avulso também é marcação NOVA pelo convênio: a cobertura e a trava valem (nov/2026).
+        await GarantirCoberturaDoConvenioAsync(pacienteId, dataHora, modalidade, modalidadeCodigo,
+            especialidadeConsultaCodigo, particular, null, soIntervalo: false, ct);
         await GarantirSemTravaDeConsultaAsync(pacienteId, dataHora, modalidade, particular, null, ct);
 
         var agora = DateTime.Now;
