@@ -2,6 +2,7 @@ using System.Net;
 using Clinica.Application.Tablet;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
+using Clinica.Gestao.Web.Hospedagem;
 using Clinica.Infrastructure;
 using Clinica.Infrastructure.Tablet;
 using Microsoft.AspNetCore.DataProtection;
@@ -26,6 +27,7 @@ public sealed class PortaDaGestaoTests : IAsyncLifetime
     private SqliteConnection _conn = null!;
     private WebApplicationFactory<Program> _fabrica = null!;
     private IDataProtector _protetor = null!;
+    private bool _catalogosRegistrados;
 
     public async Task InitializeAsync()
     {
@@ -51,6 +53,11 @@ public sealed class PortaDaGestaoTests : IAsyncLifetime
                                                || d.ServiceType == typeof(ClinicaDbContext)).ToList())
                     s.Remove(d);
                 s.AddDbContext<ClinicaDbContext>(o => o.UseSqlite(_conn));
+                // A releitura periódica dos catálogos fica fora: ela usaria a MESMA conexão SQLite em
+                // outra thread, no meio dos testes. O registro é conferido; a carga, chamada à mão.
+                var catalogos = s.Where(d => d.ImplementationType == typeof(CatalogosDaGestao)).ToList();
+                _catalogosRegistrados = catalogos.Count == 1 && catalogos[0].ServiceType == typeof(Microsoft.Extensions.Hosting.IHostedService);
+                foreach (var d in catalogos) s.Remove(d);
             });
         });
         using var escopo = _fabrica.Services.CreateScope();
@@ -99,6 +106,43 @@ public sealed class PortaDaGestaoTests : IAsyncLifetime
     }
 
     private HttpClient Cliente() => _fabrica.CreateClient(new() { AllowAutoRedirect = false, BaseAddress = new Uri("https://localhost") });
+
+    /// <summary>
+    /// O defeito de nov/2026: o portal não carregava os catálogos em memória, e o Lançar/Marcar
+    /// respondia "Nenhuma modalidade ativa que este profissional atenda" ao escolher quem atende.
+    /// </summary>
+    [Fact]
+    public async Task O_portal_carrega_os_catalogos_que_as_telas_leem()
+    {
+        Assert.True(_catalogosRegistrados, "Program.cs deixou de registrar CatalogosDaGestao como serviço de fundo.");
+        using (var escopo = _fabrica.Services.CreateScope())
+        {
+            var db = escopo.ServiceProvider.GetRequiredService<ClinicaDbContext>();
+            db.Modalidades.Add(new ModalidadeCadastro { Codigo = "VarianteDoPortal", Nome = "Variante do portal", Base = ModalidadeAtendimento.BsvApenas, Ativo = true });
+            await db.SaveChangesAsync();
+        }
+        Clinica.Domain.Regras.CatalogoModalidades.Atualizar([]);
+        Clinica.Domain.Regras.CatalogoEspecialidades.Atualizar([]);
+
+        var catalogos = new CatalogosDaGestao(_fabrica.Services, Microsoft.Extensions.Logging.Abstractions.NullLogger<CatalogosDaGestao>.Instance);
+        Assert.True(await catalogos.RecarregarAsync());
+
+        var profissional = new Profissional { Nome = "Quem atende" };
+        var linhas = Clinica.Application.Modelos.AtendimentoDoBalcaoNaTela.Modalidades(
+            Clinica.Domain.Regras.CatalogoModalidades.Ativas, Clinica.Domain.Regras.CatalogoEspecialidades.Ativas, profissional);
+        Assert.Contains(linhas, m => m.Codigo == "VarianteDoPortal");
+        foreach (var embutida in Enum.GetValues<ModalidadeAtendimento>())
+            Assert.Contains(linhas, m => m.Codigo == embutida.ToString());
+    }
+
+    /// <summary>Banco fora do ar não derruba o portal: a carga responde falso e tenta de novo depois.</summary>
+    [Fact]
+    public async Task Catalogo_que_nao_pode_ser_lido_nao_derruba_o_portal()
+    {
+        var sc = new ServiceCollection();
+        var catalogos = new CatalogosDaGestao(sc.BuildServiceProvider(), Microsoft.Extensions.Logging.Abstractions.NullLogger<CatalogosDaGestao>.Instance);
+        Assert.False(await catalogos.RecarregarAsync());
+    }
 
     [Fact]
     public async Task Sem_sessao_volta_ao_login_do_portal()

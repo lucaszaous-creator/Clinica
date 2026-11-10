@@ -106,6 +106,27 @@ do servidor. Rejeitados com a razão no relatório: força bruta do TOTP em para
 concorrência), troca do cookie pendente, enumeração de usuários, aparelho confiável após troca de
 senha, XSS pelo SVG do QR.
 
+## Catálogos em memória (correção de 10/11/2026)
+
+As telas leem `CatalogoModalidades`, `CatalogoEspecialidades` e `CatalogoConvenios` de forma
+síncrona, de um cache em memória. Nos apps quem o enche é a abertura (`AberturaDoBanco`); o portal
+não passa por ela e subiu **sem carga nenhuma**: no Lançar/Marcar, ao escolher quem atende, a
+lista de tipos de atendimento sumia com "Nenhuma modalidade ativa que este profissional atenda"
+(a habilitação é conferida contra o catálogo, e o catálogo estava vazio), enquanto o app mostrava
+tudo. O cadastro da clínica estava certo; o defeito era do processo do portal.
+
+`Hospedagem/CatalogosDaGestao.cs` carrega os três catálogos **antes** da primeira conexão e os
+relê a cada 2 minutos (5 s enquanto o banco não responde) — este processo vive semanas, e o que a
+clínica muda em Configurações num app precisa chegar aqui sem reinício.
+
+- 🧑‍💻 **UX** — o portal mostra os mesmos tipos de atendimento, especialidades e nomes de convênio
+  do app; mudança feita num app aparece no portal em até 2 minutos.
+- 🛠️ **DX** — uma peça (`CatalogosDaGestao`), que chama a MESMA `RecarregarCatalogosAsync` dos
+  apps. Processo novo que hospede as telas e não passe pela abertura precisa do equivalente.
+  Teste: `PortaDaGestaoTests.O_portal_carrega_os_catalogos_que_as_telas_leem`.
+- 🤝 **CX** — três leituras pequenas a cada 2 minutos; banco fora do ar na subida não derruba o
+  portal (tenta de novo). Não muda nada nos cinco apps.
+
 ## UX · DX · CX
 
 - 🧑‍💻 **UX** — Um login para todos; cada um cai no que faz. A gerente tem as telas que já conhece,

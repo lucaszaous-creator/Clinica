@@ -65,6 +65,9 @@ builder.Services.AddTelasBlazor();
 builder.Services.AddScoped<IAssinaturaNaTela, AssinaturaForaDaGestao>();
 
 builder.Services.AddSingleton(CatalogoDaGestao.Embutido());
+// Convênios, modalidades e especialidades em memória: nos apps quem carrega é a abertura; aqui,
+// este serviço — na subida e de novo a cada poucos minutos (o processo vive semanas).
+builder.Services.AddHostedService<CatalogosDaGestao>();
 builder.Services.AddScoped<SessaoDaConexao>();
 builder.Services.AddScoped<NavegacaoDaGestao>();
 builder.Services.AddScoped<IHostDaTela, HostDaTelaWeb>();
