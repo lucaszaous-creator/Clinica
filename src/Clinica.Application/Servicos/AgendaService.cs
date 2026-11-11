@@ -107,8 +107,8 @@ public sealed class AgendaService
         if (paciente is null || SessaoParticular.PelaFicha(paciente)) return null;
 
         // O convênio com INTERVALO PRÓPRIO na cobertura (nov/2026 — Petrobras: uma consulta por
-        // semana de cada especialidade) é regido por ele: o prazo geral, que conta QUALQUER
-        // consulta, barraria a ginecologia por causa da geriatria da mesma semana.
+        // semana de cada especialidade) é regido por ele: o prazo geral (30 dias com o mesmo médico
+        // na mesma especialidade) barraria a consulta da semana seguinte, que a cobertura aceita.
         if (await _parametros.CoberturaDoPacienteAsync(paciente, ct) is { IntervaloDias: > 0 }) return null;
 
         var prazo = paciente.Convenio == Convenio.Personalizado

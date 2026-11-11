@@ -40,8 +40,11 @@ public sealed record TravaAcesa(
 /// portas de marcação, e quem a atravessa é a liberação da gerência.
 ///
 /// O que ficou decidido com a direção:
-/// - vale para QUALQUER consulta do paciente pelo convênio — outra especialidade ou outro
-///   médico não zeram o prazo;
+/// - vale só para a MESMA especialidade com o MESMO médico (correção de 10/11/2026, depois do
+///   primeiro dia de uso) — outra especialidade, ou a mesma com outro médico, marca
+///   normalmente. A versão original comparava qualquer consulta do paciente; o filtro é de
+///   quem aplica (<c>AgendaService.TravaDeConsultaAsync</c>), <see cref="TravaDeConsulta.Conferir"/>
+///   só mede a distância entre as consultas que recebe;
 /// - é só de CONSULTA: acupuntura, eletro e BSV não entram (a Sul América ADIA a guia delas,
 ///   decisão anterior, que continua);
 /// - a consulta PARTICULAR não acende nem sofre a trava — não há guia para o convênio recusar.

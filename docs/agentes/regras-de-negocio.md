@@ -435,8 +435,14 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   Amil/Petrobras 30, personalizados no cadastro). Com a chave `TravaDeConsulta` ligada
   (Configurações; **desligada por padrão**), o `AgendaService` RECUSA marcar outra consulta pelo
   convênio dentro do prazo (`TravaDeConsultaException`, com a `TravaAcesa` para a tela desenhar a
-  box). Qualquer consulta do paciente conta (especialidade e médico não zeram); só consulta;
+  box). **Só a MESMA especialidade com o MESMO médico disputa o prazo** (correção de 10/11/2026,
+  que revogou o "qualquer consulta conta" do primeiro dia: outra especialidade, ou a mesma com
+  outro médico, marca normalmente; sem os dois escolhidos a box não acende); só consulta;
   particular não acende nem sofre.
+  ⚠️ **O N serve a DUAS regras** — esta trava e o aviso de consulta a renovar. A Sul América
+  está cadastrada com 15 dias e a clínica confirmou (nov/2026) que ela EXIGE a consulta em dia
+  para as sessões, então o selo "consulta vencida" dela é verdadeiro. Convênio que tiver
+  intervalo entre consultas SEM exigir renovação pede um campo separado — hoje não existe.
   ⚠️ **A trava é da MARCAÇÃO**: `AgendarAsync`, `LancarAvulsoAsync` e o `RemarcarAsync` quando o
   horário passa a disputá-la (virou consulta pelo convênio, mudou de DIA, voltou de cancelado).
   Concluir, confirmar presença e lançar sobre o horário que já existe NÃO conferem — senão a
