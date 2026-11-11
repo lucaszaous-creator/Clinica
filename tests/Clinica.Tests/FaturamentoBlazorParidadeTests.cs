@@ -96,7 +96,11 @@ public sealed class FaturamentoBlazorParidadeTests : IClassFixture<BancoDasTelas
         var tela = Abrir(ctx, typeof(Clinica.Ui.Blazor.Telas.PendenciasFaturamento));
         var abertasAntes = Contar(c => c.Status == StatusCodigo.Aberto);
 
-        Clicar(tela, "Dar baixa");
+        // Uma guia de convênio que baixa só com o número: a primeira da lista é da Saúde Petrobras,
+        // e desde nov/2026 toda guia dela abre a guia ANS (caso próprio, logo abaixo).
+        var linha = tela.FindAll("tr").First(tr => tr.TextContent.Contains("Unimed")
+                                                   && tr.QuerySelectorAll("button").Any(b => b.TextContent.Trim() == "Dar baixa"));
+        Clicar(tela, linha.QuerySelectorAll("button").First(b => b.TextContent.Trim() == "Dar baixa"));
         var campo = tela.Find("input.numero-guia");
         campo.Input("7654321");
         Assentar(tela);
