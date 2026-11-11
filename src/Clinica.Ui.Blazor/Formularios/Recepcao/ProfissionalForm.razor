@@ -19,6 +19,18 @@
   mostra o resumo, abre o editor por cima e DEVOLVE intacto o que leu (dias, horas e as faixas
   por dia) — quem não edita, PRESERVA; senão salvar o telefone apagaria o horário. Depois que o
   editor grava, o que este formulário guarda é relido, para não devolver o horário de antes.
+
+  O REGISTRO PARA GUIAS DE CONVÊNIO (nov/2026, decisão da direção pela própria tela do portal da
+  operadora: conselho, número, UF e CBO são dados do PROFISSIONAL). Quatro campos opcionais, nos
+  códigos do padrão ANS — a lista mostra a SIGLA ou o nome e grava o CÓDIGO. É daqui que a guia
+  de consulta da baixa sai preenchida (GuiaAnsNaBaixaService).
+  - O "Conselho e registro" em texto livre CONTINUA: é o que sai escrito nos documentos
+    clínicos. Este formulário nunca o reescreve a partir dos campos novos, nem o contrário.
+  - Com o texto livre preenchido e conselho, número e UF em branco, o formulário PROPÕE o que
+    leu dele — num aviso com botão. Não preenche sozinho: campo que aparece preenchido sem
+    ninguém ter digitado é campo que ninguém confere.
+  - O que decide (o que é válido, o que se propõe) mora em RegistroDoProfissionalParaGuias
+    (Application, com teste); o serviço recusa de novo ao gravar.
 *@
 @inject IServiceScopeFactory Escopos
 
@@ -56,6 +68,43 @@
                     </Campo>
                 </div>
             </div>
+
+            <section class="secao-form eq-registro-guias" aria-label="Registro para guias de convênio (padrão ANS)" data-registro-guias>
+                <h3>Registro para guias de convênio (padrão ANS)</h3>
+                <p class="campo-dica">O que a operadora pede do profissional executante na guia. Opcional — preencha para quem atende convênio, e a guia da baixa já vem pronta. O "Conselho e registro" acima continua sendo o que sai nos documentos.</p>
+                @if (Proposta is { } proposta)
+                {
+                    <Aviso Tom="info" Texto="@RegistroDoProfissionalParaGuias.FraseDaProposta(proposta, _registro)">
+                        <button type="button" class="botao mini" data-usar-proposta @onclick="UsarProposta">Usar estes valores</button>
+                    </Aviso>
+                }
+                <div class="campos tres">
+                    <Campo Rotulo="Conselho" Erro="@ErroDoRegistro(nameof(Profissional.ConselhoProfissional))">
+                        <select id="pf-ConselhoProfissional" class="campo" value="@_conselho" @onchange="e => _conselho = Texto(e)">
+                            <option value="">(não informado)</option>
+                            @foreach (var v in DominiosTiss.ConselhoProfissional) { <option value="@v.Codigo">@v.Termo</option> }
+                        </select>
+                    </Campo>
+                    <Campo Rotulo="Número no conselho" Erro="@ErroDoRegistro(nameof(Profissional.NumeroConselho))"
+                           Dica="Só letras e números, como no portal da operadora.">
+                        <input id="pf-NumeroConselho" class="campo" maxlength="20" autocomplete="off"
+                               value="@_numeroConselho" @oninput="e => _numeroConselho = Texto(e)" />
+                    </Campo>
+                    <Campo Rotulo="UF do conselho" Erro="@ErroDoRegistro(nameof(Profissional.UfConselho))">
+                        <select id="pf-UfConselho" class="campo" value="@_ufConselho" @onchange="e => _ufConselho = Texto(e)">
+                            <option value="">(não informada)</option>
+                            @foreach (var v in RegistroDoProfissionalParaGuias.UfsPorSigla) { <option value="@v.Codigo">@v.Termo</option> }
+                        </select>
+                    </Campo>
+                    <Campo Rotulo="CBO (ocupação)" Classe="largo" Erro="@ErroDoRegistro(nameof(Profissional.Cbos))"
+                           Dica="Em ordem alfabética: com a lista aberta, digite o começo do nome para chegar nele.">
+                        <select id="pf-Cbos" class="campo" value="@_cbos" @onchange="e => _cbos = Texto(e)">
+                            <option value="">(não informado)</option>
+                            @foreach (var v in RegistroDoProfissionalParaGuias.CbosPorNome) { <option value="@v.Codigo">@RegistroDoProfissionalParaGuias.RotuloDoCbo(v)</option> }
+                        </select>
+                    </Campo>
+                </div>
+            </section>
 
             <div class="secao-form">
                 <div class="eq-titulo-linha">
@@ -194,6 +243,9 @@
 
     private string? _nome, _nomeCurto, _registro, _cpf, _especialidade, _telefone, _email, _cor, _observacoes;
     private string? _duracao, _limitePreventivo, _ordem = "0";
+    // O registro para guias: nunca nulo aqui. Vazio = "sem valor", e é vazio (não nulo) que vai
+    // ao serviço quando a pessoa apaga o campo — nulo lá quer dizer "não mexa".
+    private string _conselho = string.Empty, _numeroConselho = string.Empty, _ufConselho = string.Empty, _cbos = string.Empty;
     private bool _ativo = true, _trava;
     private IReadOnlyList<(string Codigo, string Nome, bool GeraGuia, bool Ativo)> _catalogoDeConvenios = [];
     private readonly HashSet<string> _naoAtende = new(StringComparer.OrdinalIgnoreCase);
@@ -262,6 +314,10 @@
                 _registro = p.RegistroConselho;
                 _cpf = string.IsNullOrWhiteSpace(p.Cpf) ? null : Cpf.Formatar(p.Cpf);
                 _especialidade = p.EspecialidadeCodigo;
+                _conselho = p.ConselhoProfissional ?? string.Empty;
+                _numeroConselho = p.NumeroConselho ?? string.Empty;
+                _ufConselho = p.UfConselho ?? string.Empty;
+                _cbos = p.Cbos ?? string.Empty;
                 _telefone = p.Telefone;
                 _email = p.Email;
                 _cor = p.Cor;
@@ -364,6 +420,29 @@
         _alterouHabilitacoes = true;
     }
 
+    // ---- registro para guias de convênio ----
+
+    private static string Texto(ChangeEventArgs e) => e.Value?.ToString() ?? string.Empty;
+
+    /// <summary>A crítica do que está nos quatro campos AGORA (a cada tecla) — a mesma que o serviço aplica ao gravar.</summary>
+    private IReadOnlyDictionary<string, string> ErrosDoRegistro
+        => RegistroDoProfissionalParaGuias.Criticar(_conselho, _numeroConselho, _ufConselho, _cbos);
+
+    private string? ErroDoRegistro(string campo) => ErrosDoRegistro.TryGetValue(campo, out var frase) ? frase : null;
+
+    /// <summary>O que o texto livre deixa propor — nulo quando já há algo nos campos ou nada se lê.</summary>
+    private RegistroParaGuias? Proposta
+        => RegistroDoProfissionalParaGuias.PropostaDoTextoLivre(_registro, _conselho, _numeroConselho, _ufConselho);
+
+    /// <summary>A pessoa ACEITOU a proposta: os campos lidos entram na tela. Gravar continua sendo o Salvar.</summary>
+    private void UsarProposta()
+    {
+        if (Proposta is not { } p) return;
+        _conselho = p.Conselho ?? string.Empty;
+        _numeroConselho = p.Numero ?? string.Empty;
+        _ufConselho = p.Uf ?? string.Empty;
+    }
+
     /// <summary>O aviso do CPF ao sair do campo — a recusa de verdade é do serviço.</summary>
     private void ConferirCpf()
         => _erroCpf = string.IsNullOrWhiteSpace(_cpf) || Cpf.Valido(_cpf)
@@ -406,6 +485,11 @@
             limitePreventivo = limite;
         }
         if (!int.TryParse(_ordem?.Trim(), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var ordem)) ordem = 0;
+        if (ErrosDoRegistro.Values.FirstOrDefault() is { } erroDoRegistro)
+        {
+            _mensagem = $"Registro para guias de convênio: {erroDoRegistro}";
+            return;
+        }
 
         try
         {
@@ -417,6 +501,11 @@
                 Nome = _nome!,
                 NomeCurto = _nomeCurto,
                 RegistroConselho = _registro,
+                // Vazio (e não nulo) quando o campo está em branco: nulo é "não sei" e preservaria o antigo.
+                ConselhoProfissional = _conselho,
+                NumeroConselho = _numeroConselho,
+                UfConselho = _ufConselho,
+                Cbos = _cbos,
                 Cpf = _cpf,
                 EspecialidadeCodigo = _especialidade,
                 HabilitacoesAtendimentoJson = TelaDaEquipe.HabilitacoesParaGravar(

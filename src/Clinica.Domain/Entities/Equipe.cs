@@ -26,6 +26,30 @@ public class Profissional
     /// <summary>Conselho e número de registro, como vai nos documentos (ex.: "CRM-SP 123456").</summary>
     public string? RegistroConselho { get; set; }
 
+    // ---- O registro para as guias de convênio (padrão ANS/TISS, nov/2026) ----
+    //
+    // Os QUATRO campos que a guia de consulta pede do profissional executante, nos CÓDIGOS do
+    // padrão (<c>DominiosTiss</c>) — decisão da direção, pela própria tela do portal da
+    // operadora: conselho, número, UF e CBO são dados do PROFISSIONAL, não de cada guia.
+    // O <see cref="RegistroConselho"/> acima continua existindo e mandando nos documentos
+    // clínicos ("CRM-RJ 52.1234", como a pessoa quer vê-lo escrito); estes aqui são o mesmo
+    // fato em forma de TABELA, que é como a operadora o recebe. Um não substitui o outro.
+    //
+    // Todos opcionais: quem não atende convênio não precisa deles, e exigi-los travaria o
+    // cadastro da equipe por causa de uma guia que nem todo profissional gera.
+
+    /// <summary>Conselho profissional, pelo código do padrão TISS (ex.: "06" = CRM).</summary>
+    public string? ConselhoProfissional { get; set; }
+
+    /// <summary>Número no conselho, como a operadora o recebe: sem ponto nem traço, até 15.</summary>
+    public string? NumeroConselho { get; set; }
+
+    /// <summary>UF do conselho, pelo código IBGE do padrão TISS (ex.: "33" = RJ).</summary>
+    public string? UfConselho { get; set; }
+
+    /// <summary>CBO (ocupação) pelo código do padrão TISS (ex.: "225105").</summary>
+    public string? Cbos { get; set; }
+
     /// <summary>
     /// CPF, só dígitos. Existe para AMARRAR o certificado digital à pessoa (parcela 42): o
     /// e-CPF ICP-Brasil carrega o CPF do titular numa extensão do próprio certificado, e é

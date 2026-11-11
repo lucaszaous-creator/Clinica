@@ -57,6 +57,13 @@ public sealed class EquipeService
         if (dados.AtendeDas is { } das && dados.AtendeAte is { } ate && ate <= das)
             throw new InvalidOperationException("O fim do horário de atendimento precisa ser depois do início.");
 
+        // O registro para guias de convênio (nov/2026): recusa ANTES de tocar na entidade, e só o
+        // que a operadora recusaria (código fora da tabela, número com símbolo ou comprido demais).
+        // Em branco passa — os quatro campos são opcionais e não seguram o cadastro de ninguém.
+        if (RegistroDoProfissionalParaGuias.Criticar(dados.ConselhoProfissional, dados.NumeroConselho, dados.UfConselho, dados.Cbos)
+                .Values.FirstOrDefault() is { } criticaDoRegistro)
+            throw new InvalidOperationException(criticaDoRegistro);
+
         var cpf = await CriticarCpfAsync(dados, ct);
 
         Profissional destino;
@@ -74,6 +81,16 @@ public sealed class EquipeService
         destino.Nome = dados.Nome.Trim();
         destino.NomeCurto = Limpar(dados.NomeCurto);
         destino.RegistroConselho = Limpar(dados.RegistroConselho);
+        // O registro para guias de convênio, nos códigos do padrão TISS. NULO = "o chamador não
+        // sabe" e fica o que estava — a mesma convenção dos convênios não atendidos, logo abaixo:
+        // quem não edita, PRESERVA (a tela de Acessos, a importação e todo teste que monta um
+        // Profissional sem estes campos passam nulo). Vazio = a pessoa apagou o campo na tela.
+        // ⚠️ O RegistroConselho em texto livre, acima, NÃO é derivado destes nem os deriva: ele é
+        // o que sai escrito nos documentos clínicos, e continua sendo de quem o digitou.
+        if (dados.ConselhoProfissional is not null) destino.ConselhoProfissional = Limpar(dados.ConselhoProfissional);
+        if (dados.NumeroConselho is not null) destino.NumeroConselho = RegistroDoProfissionalParaGuias.LimparNumero(dados.NumeroConselho);
+        if (dados.UfConselho is not null) destino.UfConselho = Limpar(dados.UfConselho);
+        if (dados.Cbos is not null) destino.Cbos = Limpar(dados.Cbos);
 
         // O CPF: a coluna existe desde a parcela 42 e este é o PRIMEIRO gravador dela.
         // Até aqui ela tinha três leitores — as duas assinaturas e o login por certificado —

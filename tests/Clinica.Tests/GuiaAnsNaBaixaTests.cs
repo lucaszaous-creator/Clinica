@@ -566,13 +566,15 @@ public class GuiaAnsNaBaixaTests : IDisposable
         d.ConselhoProfissional.Should().Be("06");
         d.NumeroConselho.Should().Be("123456");
         d.UfConselho.Should().Be("33");
-        d.Cbos.Should().BeEmpty();                       // o cadastro da equipe não tem CBO
+        d.Cbos.Should().BeEmpty();                       // o texto livre nunca dá o CBO
         d.CodigoProcedimento.Should().Be("10101012");
         d.ValorProcedimento.Should().Be(139m);
         d.TipoConsulta.Should().Be("1");
         // Só falta o CBO — e é a única coisa que a validação acusa.
         GuiaAnsNaBaixa.Validar(d).Keys.Should().BeEquivalentTo(nameof(DadosGuiaConsultaAns.Cbos));
-        proposta.Avisos.Should().ContainSingle().Which.Should().Contain("Primeira guia deste profissional");
+        // Um aviso só, e ele diz de onde veio, o que falta e ONDE cadastrar de vez.
+        proposta.Avisos.Should().ContainSingle().Which.Should()
+            .Contain("registro em texto").And.Contain("informe CBO").And.Contain(RegistroDoProfissionalParaGuias.OndeCadastrar);
     }
 
     [Fact]
@@ -607,7 +609,100 @@ public class GuiaAnsNaBaixaTests : IDisposable
         d.TipoConsulta.Should().Be("2");
         d.DataAtendimento.Should().Be(depois);
         proposta.Avisos.Should().Contain(a => a.Contains("seguimento") && a.Contains(Dia.ToString("dd/MM/yyyy")));
-        proposta.Avisos.Should().NotContain(a => a.Contains("Primeira guia"));
+        // Sem cadastro, a fonte é a última guia conferida — e o aviso continua mandando cadastrar.
+        proposta.Avisos.Should().Contain(a => a.Contains("última guia conferida") && a.Contains(RegistroDoProfissionalParaGuias.OndeCadastrar));
+    }
+
+    /// <summary>
+    /// AS TRÊS FONTES do executante, de ponta a ponta no banco (nov/2026): com o registro para
+    /// guias no CADASTRO do profissional, ele vence a última guia conferida (que dizia outra
+    /// coisa) e o texto livre — e a guia vem sem aviso sobre o executante.
+    /// </summary>
+    [Fact]
+    public async Task Cadastro_do_profissional_vence_a_ultima_guia_e_o_texto_livre_e_some_o_aviso()
+    {
+        var medica = new Profissional { Nome = "Dra. Ana de Teste", RegistroConselho = "CRM-RJ 123456" };
+        _db.Profissionais.Add(medica);
+        var (paciente, primeira) = await LancarAsync(Convenio.Petrobras);
+        await AgendarAsync(paciente, medica, primeira, Dia);
+        // A primeira guia foi conferida com os dados de GuiaCompleta(): CRM 123456 RJ, CBO 225133.
+        await _faturamento.DarBaixaAsync(primeira.Id, Dia.AddDays(1), "PB123", "secretaria", null, guiaAns: GuiaCompleta());
+
+        // Depois disso a clínica cadastra o registro para guias — com OUTRO número e OUTRO CBO.
+        await new EquipeService(_repo).SalvarProfissionalAsync(new Profissional
+        {
+            Id = medica.Id, Nome = medica.Nome, RegistroConselho = medica.RegistroConselho,
+            ConselhoProfissional = "06", NumeroConselho = "52.9999", UfConselho = "35", Cbos = "225105"
+        });
+        var segunda = await SegundaConsultaAsync(paciente, medica, Dia.AddDays(7));
+        _db.ChangeTracker.Clear();
+
+        var proposta = await Proposta().PrepararAsync(segunda.Id);
+
+        var d = proposta.Dados!;
+        (d.ConselhoProfissional, d.NumeroConselho, d.UfConselho, d.Cbos).Should().Be(("06", "529999", "35", "225105"));
+        proposta.Avisos.Should().NotContain(a => a.Contains("cadastro de") || a.Contains("última guia conferida") || a.Contains("registro em texto"));
+    }
+
+    /// <summary>
+    /// A MISTURA: o cadastro tem o CBO e não tem o número (nem conselho, nem UF). O CBO é o do
+    /// cadastro; o resto vem da última guia conferida — e o aviso diz o que falta cadastrar.
+    /// </summary>
+    [Fact]
+    public async Task Cadastro_com_CBO_e_sem_numero_fica_com_o_CBO_dele_e_busca_o_resto_na_ultima_guia()
+    {
+        var medica = new Profissional { Nome = "Dra. Ana de Teste", RegistroConselho = "texto que não se lê", Cbos = "225105" };
+        _db.Profissionais.Add(medica);
+        var (paciente, primeira) = await LancarAsync(Convenio.Petrobras);
+        await AgendarAsync(paciente, medica, primeira, Dia);
+        await _faturamento.DarBaixaAsync(primeira.Id, Dia.AddDays(1), "PB123", "secretaria", null, guiaAns: GuiaCompleta());
+        var segunda = await SegundaConsultaAsync(paciente, medica, Dia.AddDays(7));
+        _db.ChangeTracker.Clear();
+
+        var proposta = await Proposta().PrepararAsync(segunda.Id);
+
+        var d = proposta.Dados!;
+        // GuiaCompleta() gravou o CBO 225133 na primeira guia: ele NÃO passa por cima do cadastro.
+        (d.ConselhoProfissional, d.NumeroConselho, d.UfConselho, d.Cbos).Should().Be(("06", "123456", "33", "225105"));
+        proposta.Avisos.Should().Contain(a => a.Contains("está sem conselho, número e UF para guias")
+                                              && a.Contains("vieram da última guia conferida"));
+    }
+
+    /// <summary>Cadastro só com o número, sem guia anterior: conselho e UF saem do texto livre, e o CBO fica a informar.</summary>
+    [Fact]
+    public async Task Cadastro_so_com_o_numero_completa_com_o_texto_livre_e_pede_o_CBO()
+    {
+        var medica = new Profissional { Nome = "Dra. Ana de Teste", RegistroConselho = "CRM-RJ 123456", NumeroConselho = "987654" };
+        _db.Profissionais.Add(medica);
+        var (paciente, codigo) = await LancarAsync(Convenio.Petrobras);
+        await AgendarAsync(paciente, medica, codigo, Dia);
+        _db.ChangeTracker.Clear();
+
+        var proposta = await Proposta().PrepararAsync(codigo.Id);
+
+        var d = proposta.Dados!;
+        // O número é o do CADASTRO (987654), não o que está escrito no texto livre (123456).
+        (d.ConselhoProfissional, d.NumeroConselho, d.UfConselho, d.Cbos).Should().Be(("06", "987654", "33", string.Empty));
+        proposta.Avisos.Should().Contain(a => a.Contains("conselho e UF foram lidos do registro em texto") && a.Contains("informe CBO"));
+        GuiaAnsNaBaixa.Validar(d).Keys.Should().Contain(nameof(DadosGuiaConsultaAns.Cbos));
+    }
+
+    private async Task AgendarAsync(Paciente paciente, Profissional medica, CodigoFaturamento codigo, DateOnly dia)
+    {
+        _db.Agendamentos.Add(new Agendamento
+        {
+            PacienteId = paciente.Id, DataHora = dia.ToDateTime(new TimeOnly(9, 0)), ModalidadePrevista = ModalidadeAtendimento.Consulta,
+            ProfissionalId = medica.Id, AtendimentoId = codigo.AtendimentoId, Status = StatusAgendamento.Realizado
+        });
+        await _db.SaveChangesAsync();
+    }
+
+    private async Task<CodigoFaturamento> SegundaConsultaAsync(Paciente paciente, Profissional medica, DateOnly dia)
+    {
+        var codigo = (await new AtendimentoService(_repo).LancarAsync(paciente.Id, dia, ModalidadeAtendimento.Consulta))
+            .Atendimento.Codigos.OrderBy(c => c.Ordem).First();
+        await AgendarAsync(paciente, medica, codigo, dia);
+        return codigo;
     }
 
     [Fact]

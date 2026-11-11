@@ -603,6 +603,12 @@ public class ClinicaDbContext : DbContext
             e.Property(p => p.NomeCurto).HasMaxLength(40);
             e.Property(p => p.ConveniosNaoAtendidos).HasMaxLength(1000);
             e.Property(p => p.RegistroConselho).HasMaxLength(40);
+            // O registro para as guias de convênio (nov/2026): CÓDIGOS do padrão TISS, com o teto
+            // do XSD 4.01.00 — conselho e UF têm 2, o CBO 6, o número no conselho até 15.
+            e.Property(p => p.ConselhoProfissional).HasMaxLength(2);
+            e.Property(p => p.NumeroConselho).HasMaxLength(15);
+            e.Property(p => p.UfConselho).HasMaxLength(2);
+            e.Property(p => p.Cbos).HasMaxLength(6);
             // Só dígitos — é comparado com o CPF extraído do e-CPF ICP-Brasil (parcela 42).
             e.Property(p => p.Cpf).HasMaxLength(11);
             // Índice NÃO ÚNICO de propósito (parcela 45): a entrada por certificado procura

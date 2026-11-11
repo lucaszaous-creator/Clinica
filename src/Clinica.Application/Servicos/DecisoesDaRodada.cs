@@ -19,7 +19,16 @@ public sealed class LinhaDaRodada
     /// <summary>Preenchida (e sem número) = registrar como não conformidade.</summary>
     public string? Justificativa { get; set; }
 
-    public bool SemDecisao => string.IsNullOrWhiteSpace(NumeroGuia) && string.IsNullOrWhiteSpace(Justificativa);
+    /// <summary>
+    /// A guia recebeu baixa pelo FORMULÁRIO DE BAIXA aberto de dentro do lote ou da rodada do
+    /// painel (o botão "Abrir a guia" das linhas <see cref="PedeGuiaAns"/>, nov/2026). A linha
+    /// continua na lista, marcada, para a pessoa ver o que já fez — e sai de toda conta: não é
+    /// mais pendência sem decisão, e a justificativa que ela tinha NÃO é regravada (anotar "por
+    /// que ainda não foi baixada" numa guia que acabou de ser baixada seria uma frase falsa).
+    /// </summary>
+    public bool BaixadaNoFormulario { get; set; }
+
+    public bool SemDecisao => !BaixadaNoFormulario && string.IsNullOrWhiteSpace(NumeroGuia) && string.IsNullOrWhiteSpace(Justificativa);
 
     /// <summary>
     /// A baixa desta guia pede a conferência da guia ANS (guias da Saúde Petrobras, nov/2026),
@@ -58,7 +67,12 @@ public sealed class LinhaDaRodada
 /// </summary>
 public static class DecisoesDaRodada
 {
-    public static IReadOnlyList<LinhaDaRodada> Montar(IEnumerable<PendenciaCodigo> itens)
+    /// <param name="abreAGuia">
+    /// Verdadeiro nas telas que têm o botão "Abrir a guia" na própria linha (o lote e a rodada do
+    /// PAINEL, em Blazor): a linha da Saúde Petrobras deixa de mandar a pessoa sair dali. Falso na
+    /// janela bloqueante da abertura do app, que não tem o botão e continua dizendo onde resolver.
+    /// </param>
+    public static IReadOnlyList<LinhaDaRodada> Montar(IEnumerable<PendenciaCodigo> itens, bool abreAGuia = false)
         => itens.Select(i => new LinhaDaRodada
         {
             CodigoId = i.CodigoId,
@@ -76,7 +90,9 @@ public static class DecisoesDaRodada
                 : $"{CatalogoConvenios.Nome(i.ConvenioCodigo, i.Convenio)} · vence hoje")
                 // A linha diz ONDE resolver: o campo do número daqui não serve para ela.
                 + (GuiaAnsNaBaixa.Exige(i.Tipo, i.ConvenioCodigo, i.Convenio)
-                    ? " · baixa só pelo \"Dar baixa\" do painel (guia ANS) — aqui, justifique por que ainda não foi baixada"
+                    ? abreAGuia
+                        ? " · a baixa pede a conferência da guia ANS"
+                        : " · baixa só pelo \"Dar baixa\" do painel (guia ANS) — aqui, justifique por que ainda não foi baixada"
                     : string.Empty)
         }).ToList();
 
@@ -87,7 +103,7 @@ public static class DecisoesDaRodada
     /// </summary>
     public static string? ImpedimentoDaGuiaAns(IReadOnlyList<LinhaDaRodada> linhas, string verbo)
     {
-        var fora = linhas.Where(l => l.BaixaForaDoFormulario).ToList();
+        var fora = linhas.Where(l => l.BaixaForaDoFormulario && !l.BaixadaNoFormulario).ToList();
         return fora.Count == 0
             ? null
             : $"{fora.Count} guia(s) da Saúde Petrobras pedem a conferência da guia ANS e não podem ser "
@@ -150,7 +166,8 @@ public static class DecisoesDaRodada
         FaturamentoService faturamento, RodadaPendenciasService rodada, CancellationToken ct = default)
     {
         var falhas = new List<string>();
-        foreach (var l in linhas)
+        // A linha já baixada pelo formulário (botão "Abrir a guia") não tem mais nada a aplicar.
+        foreach (var l in linhas.Where(l => !l.BaixadaNoFormulario))
         {
             try
             {
@@ -183,6 +200,16 @@ public static class DecisoesDaRodada
         }
         return falhas;
     }
+
+    /// <summary>
+    /// A recusa do botão "Abrir a guia" (nula = pode abrir). É a SEGUNDA barreira — o botão já
+    /// nasce apagado para quem não tem o bit —, e devolve frase em vez de lançar: exceção solta
+    /// num evento derruba o circuito da tela.
+    /// </summary>
+    public static string? RecusaDeAbrirAGuia()
+        => SessaoUsuario.Atual.Pode(Permissao.BaixarGuia)
+            ? null
+            : "Seu acesso não permite dar baixa na guia. Fale com a direção da clínica.";
 
     /// <summary>A frase de quem tem falhas (nula = tudo aplicado).</summary>
     public static string? ResumoDasFalhas(IReadOnlyList<string> falhas) => falhas.Count == 0

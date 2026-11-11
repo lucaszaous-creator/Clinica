@@ -26,7 +26,7 @@ Os campos já vêm preenchidos com o que o sistema sabe:
 | Registro ANS | Cadastro do convênio (ou Configurações do faturamento) | Em branco, com aviso |
 | Código na operadora, nome do contratado, CNES | Configurações do faturamento (CNPJ só com dígitos; CNES 9999999 quando não há) | Em branco, com aviso |
 | Profissional executante | O profissional do horário do atendimento | Em branco, com aviso |
-| Conselho, número, UF, CBO | A última guia conferida do mesmo profissional; na primeira vez, o registro escrito no cadastro da equipe ("CRM-RJ 123456") — o CBO é escolhido uma vez | Em branco |
+| Conselho, número, UF, CBO | Campo a campo, nesta ordem: 1º o **cadastro do profissional** ("Registro para guias de convênio"); 2º a última guia conferida dele; 3º o registro escrito em texto livre ("CRM-RJ 123456"), que nunca dá o CBO | Em branco, com aviso que diz onde cadastrar |
 | Acidente, regime, tabela | Padrões da Petrobras: 9 Não acidentes, 01 Ambulatorial, 22 TUSS | — |
 | Tipo de consulta | 1 Primeira; 2 Seguimento quando há consulta anterior pelo convênio (com a data no aviso) | — |
 | Código do procedimento | Códigos TUSS de Configurações do faturamento | Em branco, com aviso |
@@ -54,8 +54,9 @@ A baixa tem três caminhos até `FaturamentoService.DarBaixaAsync`. Só um tem f
 | Porta | Consulta da Petrobras |
 |---|---|
 | Dar baixa (painel de pendências) | Abre a guia ANS |
-| Baixa em lote | A linha diz "baixa só pelo Dar baixa do painel (guia ANS)". Com número digitado nela, o lote **não é processado** e diz quais linhas limpar — nenhuma baixa é feita |
-| Rodar pendências (painel e a janela bloqueante da abertura) | O número digitado nessa linha é recusado antes de gravar. **A decisão dela é a justificativa** (decisão da direção: "avisa sobre a pendência Petrobras com justificativa"): a rodada bloqueante continua cobrando, a linha diz onde a baixa é dada, e a justificativa é gravada como **anotação da pendência** — não como não conformidade —, então a guia continua no painel. A justificativa já anotada volta preenchida na rodada seguinte, e confirmá-la sem mudar não regrava nada |
+| Baixa em lote | A linha não tem campo de número: tem o botão **Abrir a guia**, que abre este mesmo formulário por cima do lote. Baixada ali, a linha fica marcada "Baixa registrada" e o que estava digitado nas outras linhas continua |
+| Rodar pendências — painel | O botão **Abrir a guia** no lugar do número; a justificativa continua ao lado. Baixada pela guia, a linha fica marcada e sai da conta; fechar a rodada sem concluir não aplica o que ficou digitado |
+| Rodar pendências — janela bloqueante da abertura (WPF) | O número digitado nessa linha é recusado antes de gravar. **A decisão dela é a justificativa** (decisão da direção: "avisa sobre a pendência Petrobras com justificativa"): a rodada bloqueante continua cobrando, a linha diz onde a baixa é dada, e a justificativa é gravada como **anotação da pendência** — não como não conformidade —, então a guia continua no painel. A justificativa já anotada volta preenchida na rodada seguinte, e confirmá-la sem mudar não regrava nada |
 | Rede final | Se algo escapar, o serviço recusa a guia com a frase que diz onde resolver, e as outras linhas seguem |
 
 ## As opções consideradas
@@ -126,7 +127,8 @@ Onde os dados moram:
 ## O que falta (em ordem)
 
 1. **Teste interno pela clínica** com guias reais, comparando campo a campo com o portal.
-2. Conselho, número, UF e CBO no **cadastro da equipe** (hoje vêm da última guia do profissional).
+2. ~~Conselho, número, UF e CBO no cadastro da equipe~~ — feito (seção "Cadastro do profissional e
+   Abrir a guia", abaixo). Falta a clínica **preencher** o cadastro de quem atende convênio.
 3. Conferir com a clínica o **código e a tabela do BSV** usados no portal, e cadastrá-los em
    Configurações do faturamento para o formulário já abrir preenchido.
 4. Envio por web service (`tissLoteGuias`), depois de uma guia de teste aceita.
@@ -140,3 +142,77 @@ Onde os dados moram:
 - A suíte contra o Postgres não rodou; a migration foi gerada pelo `dotnet ef` e só cria tabela.
 - A janela WPF da rodada não foi compilada (Windows); ela não foi editada.
 - Se os valores que a clínica escolhe no portal coincidem sempre com os padrões propostos.
+
+## Cadastro do profissional e "Abrir a guia" (11/11/2026, segunda entrega)
+
+**Decisão da direção, pela própria tela do portal:** conselho, número, UF e CBO são dados do
+**profissional**, não de cada guia. E o pedido de testar tudo de uma vez: o lote e a rodada do
+painel deixam de mandar a pessoa sair dali para dar baixa numa guia da Saúde Petrobras.
+
+### O que mudou
+
+- **Profissionais e salas → editar o profissional** ganhou a seção **Registro para guias de convênio
+  (padrão ANS)**: Conselho e UF em lista (a tela mostra a sigla — CRM, RJ — e grava o código do
+  padrão — 06, 33), Número em texto e CBO em lista por ordem de nome. Os quatro são **opcionais**.
+- O **"Conselho e registro" em texto livre continua**: é o que sai escrito nos documentos clínicos.
+  Nenhum dos dois é derivado do outro.
+- Com o texto livre preenchido e os campos novos em branco, o formulário **propõe** o que leu
+  ("Li de CRM-RJ 77.2468: conselho CRM, número 772468 e UF RJ") com o botão **Usar estes valores**.
+  Não preenche sozinho, e só grava no Salvar.
+- A guia da baixa busca o executante **campo a campo**: cadastro → última guia conferida → texto
+  livre. Com o cadastro completo não há aviso; faltando algo, o aviso diz o que falta, de onde veio
+  o substituto e onde cadastrar de vez.
+- **Baixa em lote** e **Rodar pendências** (do painel): a linha da Saúde Petrobras tem o botão
+  **Abrir a guia**. A janela bloqueante da abertura do app não mudou.
+
+### Opções comparadas
+
+| | A — campos no profissional + botão na linha (feito) | B — só a última guia como memória (como estava) | C — derivar tudo do texto livre |
+|---|---|---|---|
+| 🧑‍💻 UX | cadastra uma vez; a guia abre pronta; lote e rodada resolvem a Petrobras sem sair | a primeira guia de cada profissional é digitada; quem erra ali repete o erro nas seguintes | nada a cadastrar, mas o CBO nunca vem e "CREFITO-2 12345-F" se lê errado |
+| 🛠️ DX | 4 colunas aditivas, uma regra pura com teste, o mesmo `BaixaGuiaForm` reaproveitado | nenhuma peça nova | um parser que cresce a cada formato de conselho |
+| 🤝 CX | o dado fica onde a direção disse que ele mora, e é auditável na ficha | o dado mora espalhado nas guias | guia errada na operadora por causa de um texto que ninguém digitou para isso |
+
+### 🧑‍💻 UX
+
+- Quatro campos, uma seção, nenhum obrigatório: o cadastro de quem não atende convênio não muda.
+- A proposta é uma frase com um botão, e some depois de aceita. Campo que aparecesse preenchido sem
+  ninguém digitar seria campo que ninguém confere.
+- O número é criticado a cada tecla ("só letras e números"); ponto e traço são aceitos na digitação
+  e saem ao gravar, que é como a operadora o recebe.
+- No lote e na rodada o botão ocupa o lugar do campo de número, na mesma coluna. A guia abre por
+  cima; ao confirmar, a linha vira "Baixa registrada" e o que estava digitado nas outras linhas
+  fica. O painel de trás relê na hora, então fechar depois é só fechar.
+- O CBO é uma lista de 169 itens em ordem de nome (lista simples, como no formulário da guia): com
+  ela aberta, digitar o começo do nome chega no item. A casa não tem lista com busca para domínios.
+
+### 🛠️ DX
+
+- `Profissional.ConselhoProfissional`, `NumeroConselho`, `UfConselho`, `Cbos` (códigos do
+  `DominiosTiss`, com o teto do XSD no `ClinicaDbContext`). **A migration é uma só, gerada na
+  integração** — esta entrega não tem migration.
+- `RegistroDoProfissionalParaGuias` (Application, puro): o que é válido, a proposta do texto livre,
+  as listas ordenadas e `ParaAGuia`, que decide a fonte de cada campo e escreve o aviso.
+- `EquipeService.SalvarProfissionalAsync`: **nulo = "não sei", preserva; vazio = apaga** — a mesma
+  convenção dos convênios não atendidos. A tela de Acessos e todo chamador que não conhece os
+  campos continuam sem apagá-los.
+- `LinhaDaRodada.BaixadaNoFormulario` tira a linha de toda conta (`SemDecisao`, `AplicarAsync`,
+  `ImpedimentoDaGuiaAns`); `DecisoesDaRodada.Montar(itens, abreAGuia: true)` só muda a frase da
+  linha nas telas que têm o botão. A janela WPF chama `Montar(itens)` e fica como estava.
+- Testes: `RegistroParaGuiasTests` (regra e serviço), `GuiaAnsNaBaixaTests` (as três fontes e a
+  mistura, no banco) e `RegistroParaGuiasBlazorTests` (formulário, lote, rodada e a recusa do botão).
+
+### 🤝 CX
+
+- A clínica precisa **preencher o cadastro** de quem atende convênio: sem ele a guia continua
+  funcionando pelas fontes antigas, com o aviso apontando para a tela.
+- Nenhum profissional é bloqueado, nenhuma guia já conferida muda, e nada é enviado à operadora.
+- Risco em produção: quatro colunas novas anuláveis; o faturamento em produção não as lê.
+
+### O que não foi verificado nesta entrega
+
+- Teclado (Tab, Ctrl+S com a guia aberta por cima do lote) e o app WPF de verdade.
+- A suíte contra o Postgres (a migration ainda não existe; os testes rodaram em SQLite).
+- `GuiaAnsNaBaixa.LerRegistroConselho` lê "CREFITO-2 12345-F" com o número "2" (a região) — é o
+  comportamento fixado no teste dele. A proposta mostra o que leu e a pessoa corrige antes de
+  aceitar; o leitor não foi alterado nesta entrega.
