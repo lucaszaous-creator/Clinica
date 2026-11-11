@@ -371,28 +371,82 @@ public class GuiaAnsNaBaixaTests : IDisposable
         ]);
 
         linhas[0].PedeGuiaAns.Should().BeTrue();
-        linhas[0].Situacao.Should().Contain("Dar baixa").And.Contain("guia ANS");
+        linhas[0].Situacao.Should().Contain("Dar baixa").And.Contain("guia ANS").And.Contain("justifique");
         linhas[1].PedeGuiaAns.Should().BeFalse();
         linhas[2].PedeGuiaAns.Should().BeFalse();
         linhas[2].Situacao.Should().NotContain("guia ANS");
     }
 
     [Fact]
-    public void Rodada_bloqueante_nao_cobra_decisao_da_guia_que_so_se_resolve_no_formulario()
+    public void Rodada_bloqueante_cobra_a_JUSTIFICATIVA_da_consulta_Petrobras_e_diz_onde_dar_a_baixa()
     {
         var linhas = DecisoesDaRodada.Montar([
             Pendencia(1, Convenio.Petrobras, TipoCodigo.Consulta),
             Pendencia(3, Convenio.Amil, TipoCodigo.Consulta)
         ]);
-
-        // A da Amil sem decisão continua travando…
-        DecisoesDaRodada.ImpedimentoParaConcluir(linhas, bloqueante: true).Should().Contain("decida todas as guias");
-        // …e, decidida ela, a da Petrobras em branco NÃO tranca o app.
         linhas[1].NumeroGuia = "7654321";
+
+        // A da Petrobras em branco trava, e a frase diz o que escrever e onde a baixa é dada.
+        DecisoesDaRodada.ImpedimentoParaConcluir(linhas, bloqueante: true)
+            .Should().Contain("decida todas as guias").And.Contain("Saúde Petrobras").And.Contain("justificativa").And.Contain("Dar baixa");
+        // Justificada, a rodada conclui — sempre há saída, sem número e sem não conformidade falsa.
+        linhas[0].Justificativa = "aguardando o portal da operadora";
         DecisoesDaRodada.ImpedimentoParaConcluir(linhas, bloqueante: true).Should().BeNull();
-        // Justificar a da Petrobras como não conformidade continua permitido.
-        linhas[0].Justificativa = "portal fora do ar";
-        DecisoesDaRodada.ImpedimentoParaConcluir(linhas, bloqueante: true).Should().BeNull();
+        // Fora do modo bloqueante, linha em branco continua sendo "ainda não decidi".
+        linhas[0].Justificativa = null;
+        DecisoesDaRodada.ImpedimentoParaConcluir(linhas, bloqueante: false).Should().BeNull();
+    }
+
+    [Fact]
+    public void A_justificativa_ja_anotada_volta_preenchida_so_na_consulta_Petrobras()
+    {
+        var linhas = DecisoesDaRodada.Montar([
+            Pendencia(1, Convenio.Petrobras, TipoCodigo.Consulta) with { ObservacaoPendencia = "aguardando o portal" },
+            Pendencia(3, Convenio.Amil, TipoCodigo.Consulta) with { ObservacaoPendencia = "paciente vai mandar o QR" }
+        ]);
+
+        linhas[0].Justificativa.Should().Be("aguardando o portal");
+        linhas[0].Situacao.Should().Contain("justifique");
+        // Nas outras, justificativa na rodada É não conformidade: anotação antiga não pode virar uma.
+        linhas[1].Justificativa.Should().BeNull();
+        DecisoesDaRodada.ImpedimentoParaConcluir(linhas, bloqueante: true).Should().Contain("decida todas as guias");
+    }
+
+    [Fact]
+    public async Task Justificativa_da_consulta_Petrobras_vira_ANOTACAO_e_a_guia_continua_pendente_no_painel()
+    {
+        var (_, petrobras) = await LancarAsync(Convenio.Petrobras);
+        var (_, amil) = await LancarAsync(Convenio.Amil);
+        var rodada = new RodadaPendenciasService(_repo, new PendenciaService(_repo), new ParametrosService(_repo));
+        var linhas = new List<LinhaDaRodada>
+        {
+            new() { CodigoId = petrobras.Id, Descricao = "petrobras", Situacao = "", PedeGuiaAns = true, Justificativa = " aguardando o portal " },
+            new() { CodigoId = amil.Id, Descricao = "amil", Situacao = "", Justificativa = "paciente não autorizou" }
+        };
+
+        var falhas = await DecisoesDaRodada.AplicarAsync(linhas, Dia.AddDays(1), _faturamento, rodada);
+
+        falhas.Should().BeEmpty();
+        _db.ChangeTracker.Clear();
+        var daPetrobras = await _db.Codigos.AsNoTracking().FirstAsync(c => c.Id == petrobras.Id);
+        daPetrobras.Status.Should().Be(StatusCodigo.Aberto);                  // continua no painel
+        daPetrobras.ObservacaoPendencia.Should().Be("aguardando o portal");
+        daPetrobras.NaoConformidadeJustificativa.Should().BeNull();
+        (await _db.Auditoria.AsNoTracking().AnyAsync(a => a.Acao == "ObservacaoPendencia" && a.CodigoId == petrobras.Id)).Should().BeTrue();
+        // A dos outros convênios não mudou: justificativa na rodada é não conformidade.
+        (await _db.Codigos.AsNoTracking().FirstAsync(c => c.Id == amil.Id)).Status.Should().Be(StatusCodigo.NaoConformidade);
+
+        // Confirmar a MESMA justificativa na rodada seguinte não regrava a anotação nem a data dela.
+        var anotadoEm = daPetrobras.ObservacaoPendenciaEm;
+        var deNovo = new List<LinhaDaRodada>
+        {
+            new() { CodigoId = petrobras.Id, Descricao = "petrobras", Situacao = "", PedeGuiaAns = true,
+                    Justificativa = "aguardando o portal", JustificativaJaAnotada = "aguardando o portal" }
+        };
+        (await DecisoesDaRodada.AplicarAsync(deNovo, Dia.AddDays(2), _faturamento, rodada)).Should().BeEmpty();
+        _db.ChangeTracker.Clear();
+        (await _db.Codigos.AsNoTracking().FirstAsync(c => c.Id == petrobras.Id)).ObservacaoPendenciaEm.Should().Be(anotadoEm);
+        (await _db.Auditoria.AsNoTracking().CountAsync(a => a.Acao == "ObservacaoPendencia" && a.CodigoId == petrobras.Id)).Should().Be(1);
     }
 
     [Theory]

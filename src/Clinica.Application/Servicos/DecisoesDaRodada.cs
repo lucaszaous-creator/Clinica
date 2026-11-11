@@ -23,12 +23,21 @@ public sealed class LinhaDaRodada
 
     /// <summary>
     /// A baixa desta guia pede a conferência da guia ANS (consulta da Saúde Petrobras, nov/2026),
-    /// e isso só existe no formulário de baixa — uma guia por vez. Aqui (lote e rodada) ela pode
-    /// ser justificada como não conformidade, mas NÃO baixada: o número digitado é recusado antes
-    /// de gravar, e a rodada bloqueante não a cobra, para não trancar o app por uma guia que só
-    /// se resolve noutra tela.
+    /// e isso só existe no formulário de baixa — uma guia por vez. Aqui (lote e rodada) ela NÃO é
+    /// baixada: o número digitado é recusado antes de gravar. Na rodada, a decisão dela é a
+    /// JUSTIFICATIVA (decisão da direção, 11/11/2026: "avisa sobre a pendência Petrobras com
+    /// justificativa") — e essa justificativa é gravada como ANOTAÇÃO da pendência, não como não
+    /// conformidade: a guia continua no painel, à espera da baixa pelo formulário. Marcá-la como
+    /// não conformidade a tiraria do painel, que é justamente onde ela se resolve.
     /// </summary>
     public bool PedeGuiaAns { get; init; }
+
+    /// <summary>
+    /// A anotação que a guia já tinha quando a rodada abriu (só nas linhas <see cref="PedeGuiaAns"/>).
+    /// Confirmar a MESMA justificativa não regrava nada: a data do "anotado em" tem de continuar
+    /// dizendo desde quando o motivo vale, e não a última vez que alguém clicou em Concluir.
+    /// </summary>
+    public string? JustificativaJaAnotada { get; init; }
 
     /// <summary>Há número digitado numa linha que só pode ser baixada pelo formulário de baixa.</summary>
     public bool BaixaForaDoFormulario => PedeGuiaAns && !string.IsNullOrWhiteSpace(NumeroGuia);
@@ -57,12 +66,18 @@ public static class DecisoesDaRodada
             Descricao = $"{i.PacienteNome} — {RotulosEnum.De(i.Tipo)} ({RotulosEnum.De(i.Ordem)})",
             Formato = CatalogoConvenios.FormatoDoNumeroDaGuia(i.ConvenioCodigo ?? i.Convenio.ToString()),
             PedeGuiaAns = GuiaAnsNaBaixa.Exige(i.Tipo, i.ConvenioCodigo, i.Convenio),
+            // A justificativa já anotada volta preenchida: a rodada bloqueante relista a guia a cada
+            // abertura enquanto a baixa não for dada, e ninguém deve redigitar o mesmo motivo todo dia.
+            Justificativa = GuiaAnsNaBaixa.Exige(i.Tipo, i.ConvenioCodigo, i.Convenio) ? i.ObservacaoPendencia : null,
+            JustificativaJaAnotada = GuiaAnsNaBaixa.Exige(i.Tipo, i.ConvenioCodigo, i.Convenio) ? i.ObservacaoPendencia : null,
             // Nome do CATÁLOGO, nunca o enum (parcela 50).
             Situacao = (i.DiasEmAtraso > 0
                 ? $"{CatalogoConvenios.Nome(i.ConvenioCodigo, i.Convenio)} · atrasada há {i.DiasEmAtraso} dia(s)"
                 : $"{CatalogoConvenios.Nome(i.ConvenioCodigo, i.Convenio)} · vence hoje")
                 // A linha diz ONDE resolver: o campo do número daqui não serve para ela.
-                + (GuiaAnsNaBaixa.Exige(i.Tipo, i.ConvenioCodigo, i.Convenio) ? " · baixa só pelo \"Dar baixa\" do painel (guia ANS)" : string.Empty)
+                + (GuiaAnsNaBaixa.Exige(i.Tipo, i.ConvenioCodigo, i.Convenio)
+                    ? " · baixa só pelo \"Dar baixa\" do painel (guia ANS) — aqui, justifique por que ainda não foi baixada"
+                    : string.Empty)
         }).ToList();
 
     /// <summary>
@@ -104,14 +119,18 @@ public static class DecisoesDaRodada
     /// </summary>
     public static string? ImpedimentoParaConcluir(IReadOnlyList<LinhaDaRodada> linhas, bool bloqueante)
     {
-        // A guia que pede a guia ANS não entra na cobrança: aqui ela só poderia ser justificada, e
-        // obrigar a justificar o que se resolve com uma baixa noutra tela fabricaria não conformidade.
-        if (bloqueante && linhas.Any(l => l.SemDecisao && !l.PedeGuiaAns))
-            return "Enquanto a rodada estiver vencida, decida todas as guias: informe o número da guia " +
-                   "(baixa) ou uma justificativa (não conformidade).";
-
+        // O número numa guia que pede a guia ANS vem ANTES da cobrança de decisão: senão a pessoa
+        // leria "decida todas", digitaria o número ali e só então descobriria que ele não serve.
         if (ImpedimentoDaGuiaAns(linhas, "nada foi gravado") is { } guiaAns)
             return guiaAns;
+
+        if (bloqueante && linhas.Any(l => l.SemDecisao))
+            return "Enquanto a rodada estiver vencida, decida todas as guias: informe o número da guia " +
+                   "(baixa) ou uma justificativa (não conformidade)."
+                   + (linhas.Any(l => l.SemDecisao && l.PedeGuiaAns)
+                       ? "\n\nNas consultas da Saúde Petrobras, escreva a justificativa: a baixa delas é pelo botão "
+                         + "\"Dar baixa\" do painel, e a guia continua lá depois desta rodada."
+                       : string.Empty);
 
         var recusadas = linhas.Where(l => l.CriticaDoNumero is not null).ToList();
         if (recusadas.Count > 0)
@@ -140,6 +159,15 @@ public static class DecisoesDaRodada
                     SessaoUsuario.Atual.Exigir(Permissao.BaixarGuia, "dar baixa na guia");
                     await faturamento.DarBaixaAsync(l.CodigoId, dataBaixa, l.NumeroGuia!.Trim(),
                         SessaoUsuario.Atual.Operador, "baixa na rodada de pendências", ct);
+                }
+                else if (!string.IsNullOrWhiteSpace(l.Justificativa) && l.PedeGuiaAns)
+                {
+                    // Consulta da Saúde Petrobras: a justificativa vira ANOTAÇÃO da pendência (a mesma do
+                    // botão "Anotar" do painel, com a mesma permissão) e a guia continua pendente.
+                    if (string.Equals(l.Justificativa!.Trim(), l.JustificativaJaAnotada?.Trim(), StringComparison.Ordinal))
+                        continue;
+                    SessaoUsuario.Atual.Exigir(Permissao.VerFaturamento, "anotar a pendência");
+                    await faturamento.RegistrarObservacaoPendenciaAsync(l.CodigoId, l.Justificativa!.Trim(), SessaoUsuario.Atual.Operador, ct);
                 }
                 else if (!string.IsNullOrWhiteSpace(l.Justificativa))
                 {

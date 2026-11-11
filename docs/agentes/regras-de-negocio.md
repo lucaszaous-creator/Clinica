@@ -2219,8 +2219,9 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   da baixa. Quem decide é `GuiaAnsNaBaixa.Exige` — consulta (comum ou de especialidade) da família
   Petrobras, nunca particular, nunca BSV (que é SP/SADT). A recusa mora em `FaturamentoService.DarBaixaAsync`,
   o caminho único. ⚠️ **Recusa nova no serviço chega às portas em massa**: o lote e a rodada não têm
-  formulário por guia, então conferem ANTES de gravar (`DecisoesDaRodada.ImpedimentoDaGuiaAns`) e a rodada
-  BLOQUEANTE não cobra decisão dessa linha — cobrar o que só se resolve noutra tela trancaria o app. As
+  formulário por guia, então conferem ANTES de gravar (`DecisoesDaRodada.ImpedimentoDaGuiaAns`). Na rodada
+  (inclusive a BLOQUEANTE) a decisão dessa linha é a JUSTIFICATIVA, gravada como anotação da pendência e
+  não como não conformidade — a NC tiraria a guia do painel, que é onde a baixa dela se resolve. As
   sementes da prévia que dão baixa em consulta Petrobras passam a guia (`GuiaAnsDaPrevia`); sem isso a
   suíte de telas inteira reprova na montagem do banco. Domínios do padrão em `DominiosTiss`, conferidos
   contra o XSD por teste: UF é código IBGE ("33"), conselho tem zero ("06"), valor tem ponto ("139.00").

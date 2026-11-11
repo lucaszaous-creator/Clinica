@@ -188,7 +188,8 @@
                                     <input id="ga-ValorProcedimento" class="campo numero-guia" maxlength="12" inputmode="decimal" autocomplete="off" placeholder="0,00"
                                            value="@_guia.ValorTexto" @oninput="e => _guia.ValorTexto = Texto(e)" />
                                 </Campo>
-                                <Campo Rotulo="23 - Observação / justificativa" Classe="largo" Erro="@Erro(nameof(DadosGuiaConsultaAns.Observacao))">
+                                <Campo Rotulo="23 - Observação / justificativa" Classe="largo" Erro="@Erro(nameof(DadosGuiaConsultaAns.Observacao))"
+                                       Dica="Só o que a operadora pede aqui. Não escreva diagnóstico nem dado do prontuário.">
                                     <textarea id="ga-Observacao" class="campo fat-texto" rows="2" maxlength="500"
                                               value="@_guia.Observacao" @oninput="e => _guia.Observacao = Texto(e)"></textarea>
                                 </Campo>

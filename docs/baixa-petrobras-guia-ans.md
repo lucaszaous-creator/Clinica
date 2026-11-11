@@ -52,7 +52,7 @@ A baixa tem três caminhos até `FaturamentoService.DarBaixaAsync`. Só um tem f
 |---|---|
 | Dar baixa (painel de pendências) | Abre a guia ANS |
 | Baixa em lote | A linha diz "baixa só pelo Dar baixa do painel (guia ANS)". Com número digitado nela, o lote **não é processado** e diz quais linhas limpar — nenhuma baixa é feita |
-| Rodar pendências (painel e a janela bloqueante da abertura) | Igual ao lote. A rodada **bloqueante não cobra decisão** dessa linha: ela só se resolve noutra tela, e cobrá-la trancaria o app. Justificar como não conformidade continua permitido |
+| Rodar pendências (painel e a janela bloqueante da abertura) | O número digitado nessa linha é recusado antes de gravar. **A decisão dela é a justificativa** (decisão da direção: "avisa sobre a pendência Petrobras com justificativa"): a rodada bloqueante continua cobrando, a linha diz onde a baixa é dada, e a justificativa é gravada como **anotação da pendência** — não como não conformidade —, então a guia continua no painel. A justificativa já anotada volta preenchida na rodada seguinte, e confirmá-la sem mudar não regrava nada |
 | Rede final | Se algo escapar, o serviço recusa a guia com a frase que diz onde resolver, e as outras linhas seguem |
 
 ## As opções consideradas
@@ -110,8 +110,9 @@ Onde os dados moram:
 - **O que muda amanhã de manhã:** a baixa de consulta da Petrobras ganha a guia; a baixa em lote e
   a rodada deixam de aceitar número nessas guias. Os outros convênios não mudam em nada.
 - **Risco em produção:** a recusa nova chega às telas de baixa (é o objetivo). A rodada bloqueante
-  foi tratada para não trancar o app. A janela WPF da rodada não foi alterada: o texto novo vem
-  da Application, que ela já lê.
+  tem sempre saída (a justificativa) e não fabrica não conformidade. A janela WPF da rodada não
+  foi alterada: o texto novo e a justificativa preenchida vêm da Application, que ela já lê —
+  **mas ela não foi aberta para conferir que mostra a justificativa preenchida**.
 - **Dado pessoal:** a guia gravada repete dados que o sistema já tem (carteira, nome, data) e
   acrescenta dados do profissional (conselho, CBO) e o valor da guia. Não leva dado clínico (nem
   CID, nem evolução). Nada sai do banco da clínica nesta etapa.
