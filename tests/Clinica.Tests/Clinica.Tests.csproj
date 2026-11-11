@@ -43,6 +43,8 @@
     <ProjectReference Include="..\..\src\Clinica.Infrastructure\Clinica.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Clinica.Ui.Blazor\Clinica.Ui.Blazor.csproj" />
     <ProjectReference Include="..\..\src\Clinica.Crm.Bridge\Clinica.Crm.Bridge.csproj" />
+    <!-- O conector do web service TISS: os testes rodam a volta inteira dele com rede de mentira. -->
+    <ProjectReference Include="..\..\src\Clinica.Tiss.Conector\Clinica.Tiss.Conector.csproj" />
   </ItemGroup>
 
   <ItemGroup>

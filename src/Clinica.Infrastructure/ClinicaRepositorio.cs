@@ -4000,6 +4000,76 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         ReservadoEm = e.ReservadoEm, SubmetidoEm = e.SubmetidoEm, Versao = e.Versao
     };
 
+    // ---- Fila do web service TISS ----
+
+    public async Task AdicionarTransacaoTissAsync(TransacaoTiss transacao, CancellationToken ct = default)
+        => await _db.TransacoesTiss.AddAsync(transacao, ct);
+
+    public Task<TransacaoTiss?> ObterTransacaoTissAsync(int id, CancellationToken ct = default)
+        => _db.TransacoesTiss.FirstOrDefaultAsync(t => t.Id == id, ct);
+
+    public async Task<IReadOnlyList<TransacaoTiss>> TransacoesTissReservaveisAsync(
+        DateTime agora, DateTime reservaVencidaAntes, int limite, CancellationToken ct = default)
+        => await ConsultaTransacoesTissReservaveis(agora, reservaVencidaAntes, limite).ToListAsync(ct);
+
+    /// <summary>A consulta da fila, exposta para <c>TraducaoNoNpgsqlTests</c> conferir a tradução.</summary>
+    public IQueryable<TransacaoTiss> ConsultaTransacoesTissReservaveis(DateTime agora, DateTime reservaVencidaAntes, int limite)
+        => _db.TransacoesTiss.AsNoTracking()
+            .Where(t => (t.Estado == EstadoTransacaoTiss.Pendente
+                         && (t.ProximaTentativaEm == null || t.ProximaTentativaEm <= agora))
+                        || (t.Estado == EstadoTransacaoTiss.EmEnvio
+                            && (t.ReservadaEm == null || t.ReservadaEm < reservaVencidaAntes)))
+            .OrderBy(t => t.PedidoEm).ThenBy(t => t.Id)
+            .Take(limite)
+            .Select(ResumoDaTransacaoTiss);
+
+    public async Task<bool> ReservarTransacaoTissAsync(
+        int id, int versaoVista, string consumidor, DateTime agora, CancellationToken ct = default)
+        // Um UPDATE só, com a versão no WHERE: o banco decide quem chegou primeiro. Ler, mudar e
+        // salvar pelo rastreamento deixaria uma janela entre a leitura e a gravação.
+        => await _db.TransacoesTiss
+            .Where(t => t.Id == id && t.Versao == versaoVista
+                        && (t.Estado == EstadoTransacaoTiss.Pendente || t.Estado == EstadoTransacaoTiss.EmEnvio))
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(t => t.Estado, EstadoTransacaoTiss.EmEnvio)
+                .SetProperty(t => t.Consumidor, consumidor)
+                .SetProperty(t => t.ReservadaEm, agora)
+                .SetProperty(t => t.Tentativas, t => t.Tentativas + 1)
+                .SetProperty(t => t.Versao, t => t.Versao + 1), ct) == 1;
+
+    public Task RecarregarTransacaoTissAsync(TransacaoTiss transacao, CancellationToken ct = default)
+        => _db.Entry(transacao).ReloadAsync(ct);
+
+    public async Task<IReadOnlyList<TransacaoTiss>> TransacoesTissDaGuiaAsync(int codigoId, CancellationToken ct = default)
+        => await _db.TransacoesTiss.AsNoTracking()
+            .Where(t => t.CodigoId == codigoId)
+            .OrderByDescending(t => t.PedidoEm).ThenByDescending(t => t.Id)
+            .Select(ResumoDaTransacaoTiss)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<TransacaoTiss>> TransacoesTissRecentesAsync(
+        string? convenioCodigo, int limite, CancellationToken ct = default)
+        => await _db.TransacoesTiss.AsNoTracking()
+            .Where(t => convenioCodigo == null || t.ConvenioCodigo == convenioCodigo)
+            .OrderByDescending(t => t.PedidoEm).ThenByDescending(t => t.Id)
+            .Take(limite)
+            .Select(ResumoDaTransacaoTiss)
+            .ToListAsync(ct);
+
+    /// <summary>
+    /// A linha da fila sem os XML. ⚠️ EXPRESSÃO, e não método: um método no <c>Select</c> seria
+    /// avaliado no cliente e o EF traria os XML para jogá-los fora (a lição do <c>ResumoDoEnvio</c>).
+    /// </summary>
+    private static readonly System.Linq.Expressions.Expression<Func<TransacaoTiss, TransacaoTiss>> ResumoDaTransacaoTiss = t => new TransacaoTiss
+    {
+        Id = t.Id, Tipo = t.Tipo, ConvenioCodigo = t.ConvenioCodigo, CodigoId = t.CodigoId, PacienteId = t.PacienteId,
+        Estado = t.Estado, Tentativas = t.Tentativas, PedidoPor = t.PedidoPor, PedidoEm = t.PedidoEm,
+        ProcessadaEm = t.ProcessadaEm, NumeroCarteira = t.NumeroCarteira, ValidadeCarteira = t.ValidadeCarteira,
+        NumeroGuiaPrestador = t.NumeroGuiaPrestador, Protocolo = t.Protocolo, NumeroGuiaOperadora = t.NumeroGuiaOperadora,
+        Resultado = t.Resultado, Erro = t.Erro, Consumidor = t.Consumidor, ReservadaEm = t.ReservadaEm,
+        EnvioIniciadoEm = t.EnvioIniciadoEm, ProximaTentativaEm = t.ProximaTentativaEm, Versao = t.Versao
+    };
+
     // Aqui a ordem é a oposta da fila: é HISTÓRICO, e histórico se lê do mais novo para
     // o mais velho. O corte vai no SQL, como manda a convenção do projeto.
     public async Task<IReadOnlyList<ContatoCampanha>> ContatosDoPacienteAsync(

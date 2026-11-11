@@ -932,4 +932,14 @@ public class TraducaoNoNpgsqlTests
             .And.Contain("\"EnviadoPor\"").And.Contain("ORDER BY");
         sql.Should().NotContain("FotoMiniatura");
     }
+
+    [Fact]
+    public void Fila_do_web_service_TISS_traduz_sem_os_xml()
+    {
+        using var db = Postgres();
+        var agora = new DateTime(2026, 11, 12, 9, 0, 0);
+        var sql = new ClinicaRepositorio(db).ConsultaTransacoesTissReservaveis(agora, agora.AddMinutes(-5), 10).ToQueryString();
+        sql.Should().Contain("\"TransacoesTiss\"").And.Contain("\"ProximaTentativaEm\"").And.Contain("ORDER BY").And.Contain("LIMIT");
+        sql.Should().NotContain("XmlEnviado").And.NotContain("XmlRecebido");
+    }
 }

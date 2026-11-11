@@ -1904,6 +1904,48 @@ public interface IClinicaRepositorio
     Task<EnvioPacienteCrm?> EnvioPacienteCrmEmAbertoAsync(
         int documentoClinicoId, string canal, DateTime agora, CancellationToken ct = default);
 
+    // ---- Fila do web service TISS (nov/2026 — quem executa é o conector no servidor) ----
+
+    /// <summary>Acrescenta a transação (grava no próximo <see cref="SalvarAsync"/>, junto da trilha).</summary>
+    Task AdicionarTransacaoTissAsync(TransacaoTiss transacao, CancellationToken ct = default);
+
+    /// <summary>A transação INTEIRA, com os XML, RASTREADA — para carimbar o envio e gravar o resultado.</summary>
+    Task<TransacaoTiss?> ObterTransacaoTissAsync(int id, CancellationToken ct = default);
+
+    /// <summary>
+    /// As transações que um conector pode reservar em <paramref name="agora"/>: as pendentes cuja
+    /// espera já passou e as reservadas antes de <paramref name="reservaVencidaAntes"/> (o conector
+    /// que as pegou morreu no meio). Da mais antiga para a mais nova, até <paramref name="limite"/>.
+    /// ⚠️ SEM os XML (projeção): a pergunta se repete a cada poucos segundos.
+    /// </summary>
+    Task<IReadOnlyList<TransacaoTiss>> TransacoesTissReservaveisAsync(
+        DateTime agora, DateTime reservaVencidaAntes, int limite, CancellationToken ct = default);
+
+    /// <summary>
+    /// Reserva a transação para <paramref name="consumidor"/> SE ela ainda estiver na versão
+    /// <paramref name="versaoVista"/> — um único UPDATE condicional, direto no banco. Devolve falso
+    /// quando outro conector chegou antes: é isto que impede dois processos de pegar a mesma linha.
+    /// Não usa o rastreamento: quem reservou relê com <see cref="ObterTransacaoTissAsync"/>.
+    /// </summary>
+    Task<bool> ReservarTransacaoTissAsync(
+        int id, int versaoVista, string consumidor, DateTime agora, CancellationToken ct = default);
+
+    /// <summary>
+    /// Relê do banco uma transação já rastreada neste escopo. Necessário depois de
+    /// <see cref="ReservarTransacaoTissAsync"/>, que grava sem passar pelo rastreamento.
+    /// </summary>
+    Task RecarregarTransacaoTissAsync(TransacaoTiss transacao, CancellationToken ct = default);
+
+    /// <summary>As transações de uma guia, da mais nova para a mais velha, sem os XML.</summary>
+    Task<IReadOnlyList<TransacaoTiss>> TransacoesTissDaGuiaAsync(int codigoId, CancellationToken ct = default);
+
+    /// <summary>
+    /// As últimas transações (de um convênio, ou de todos quando <paramref name="convenioCodigo"/>
+    /// é nulo), da mais nova para a mais velha, sem os XML — para a tela acompanhar.
+    /// </summary>
+    Task<IReadOnlyList<TransacaoTiss>> TransacoesTissRecentesAsync(
+        string? convenioCodigo, int limite, CancellationToken ct = default);
+
     Task<IReadOnlyList<ContatoCampanha>> ContatosDoPacienteAsync(
         int pacienteId, int limite = 20, CancellationToken ct = default);
 
