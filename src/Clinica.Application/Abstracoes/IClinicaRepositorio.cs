@@ -1909,7 +1909,7 @@ public interface IClinicaRepositorio
     /// <summary>Acrescenta a transação (grava no próximo <see cref="SalvarAsync"/>, junto da trilha).</summary>
     Task AdicionarTransacaoTissAsync(TransacaoTiss transacao, CancellationToken ct = default);
 
-    /// <summary>A transação INTEIRA, com os XML, RASTREADA — para carimbar o envio e gravar o resultado.</summary>
+    /// <summary>A transação INTEIRA, com os XML e as guias do lote, RASTREADA — para carimbar o envio e gravar o resultado.</summary>
     Task<TransacaoTiss?> ObterTransacaoTissAsync(int id, CancellationToken ct = default);
 
     /// <summary>
@@ -1936,7 +1936,26 @@ public interface IClinicaRepositorio
     /// </summary>
     Task RecarregarTransacaoTissAsync(TransacaoTiss transacao, CancellationToken ct = default);
 
-    /// <summary>As transações de uma guia, da mais nova para a mais velha, sem os XML.</summary>
+    /// <summary>
+    /// As guias pedidas para um envio, com o paciente (para o convênio) e a guia ANS conferida,
+    /// SEM rastreamento: é só para conferir se cada uma pode entrar no lote.
+    /// </summary>
+    Task<IReadOnlyList<CodigoFaturamento>> CodigosParaEnvioTissAsync(IReadOnlyCollection<int> codigoIds, CancellationToken ct = default);
+
+    /// <summary>
+    /// Os itens de envio destas guias, com a transação de cada um (sem os XML), do mais novo para o
+    /// mais velho. É a trava contra duplicidade (uma guia num envio que não falhou não entra em
+    /// outro) e a conta de quantas vezes cada guia já foi enviada.
+    /// </summary>
+    Task<IReadOnlyList<TransacaoTissGuia>> ItensDeEnvioTissDasGuiasAsync(IReadOnlyCollection<int> codigoIds, CancellationToken ct = default);
+
+    /// <summary>
+    /// As guias de um lote que a operadora RECEBEU e que ainda não têm baixa no sistema — o que
+    /// a baixa em lote tem a fazer depois de um envio.
+    /// </summary>
+    Task<IReadOnlyList<GuiaTissRecebidaSemBaixa>> GuiasTissRecebidasSemBaixaAsync(int transacaoId, CancellationToken ct = default);
+
+    /// <summary>As transações de uma guia — as dela e os lotes em que ela entrou —, da mais nova para a mais velha, sem os XML.</summary>
     Task<IReadOnlyList<TransacaoTiss>> TransacoesTissDaGuiaAsync(int codigoId, CancellationToken ct = default);
 
     /// <summary>

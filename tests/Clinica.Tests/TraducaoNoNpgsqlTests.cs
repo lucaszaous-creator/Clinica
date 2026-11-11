@@ -942,4 +942,19 @@ public class TraducaoNoNpgsqlTests
         sql.Should().Contain("\"TransacoesTiss\"").And.Contain("\"ProximaTentativaEm\"").And.Contain("ORDER BY").And.Contain("LIMIT");
         sql.Should().NotContain("XmlEnviado").And.NotContain("XmlRecebido");
     }
+
+    [Fact]
+    public void Consultas_do_envio_em_lote_TISS_traduzem_no_postgres()
+    {
+        using var db = Postgres();
+        var repo = new ClinicaRepositorio(db);
+
+        var daGuia = repo.ConsultaTransacoesTissDaGuia(7).ToQueryString();
+        var itens = repo.ConsultaItensDeEnvioTissDasGuias([7, 8]).ToQueryString();
+        var aBaixar = repo.ConsultaGuiasTissRecebidasSemBaixa(3).ToQueryString();
+
+        daGuia.Should().Contain("EXISTS").And.Contain("\"TransacoesTissGuias\"").And.NotContain("XmlEnviado");
+        itens.Should().Contain("\"TransacoesTissGuias\"").And.Contain("JOIN").And.NotContain("XmlRecebido");
+        aBaixar.Should().Contain("\"Codigos\"").And.Contain("\"DataBaixa\" IS NULL").And.Contain("\"Protocolo\"").And.Contain("ORDER BY");
+    }
 }

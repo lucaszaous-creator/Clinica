@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Clinica.Application.Abstracoes;
+using Clinica.Application.Modelos;
 using Clinica.Domain.Entities;
 
 namespace Clinica.Application.Servicos;
@@ -17,6 +18,12 @@ public sealed record ConclusaoTransacaoTiss
 
     /// <summary>A resposta da operadora, como veio.</summary>
     public string? XmlRecebido { get; init; }
+
+    /// <summary>
+    /// O que a operadora disse de cada guia do lote (envio e status). Vazio = ela respondeu pelo
+    /// lote sem detalhar as guias: no envio com protocolo, todas contam como recebidas.
+    /// </summary>
+    public IReadOnlyList<ResultadoDaGuiaTiss> Guias { get; init; } = [];
 }
 
 /// <summary>As constantes da fila: quantas vezes se tenta, quanto se espera e quando uma reserva vence.</summary>
@@ -81,8 +88,10 @@ public static class FilaTiss
 /// <list type="bullet">
 /// <item><b>Quem pede é quem fez login.</b> Todo pedido leva o operador e grava a trilha no
 /// mesmo salvamento.</item>
-/// <item><b>Uma guia não entra duas vezes.</b> Pedido de envio para guia que já tem envio na
-/// fila, em andamento ou concluído com protocolo é recusado com a frase do motivo.</item>
+/// <item><b>O envio é um LOTE</b> de 1 a 100 guias do mesmo convênio e do mesmo tipo, todas com a
+/// guia ANS conferida e sem baixa. O resultado da operadora volta POR GUIA.</item>
+/// <item><b>Uma guia não entra duas vezes.</b> Guia que está num envio na fila, em andamento ou
+/// já recebido pela operadora é recusada, com a frase na linha dela.</item>
 /// <item><b>Dois conectores não pegam a mesma linha.</b> A reserva é um UPDATE condicional
 /// pela versão (<c>ReservarTransacaoTissAsync</c>).</item>
 /// <item><b>Envio de guia nunca é reenviado sozinho.</b> Depois que a mensagem começou a sair
@@ -126,27 +135,75 @@ public sealed class FilaTissService
     }
 
     /// <summary>
-    /// Pede o envio de UMA guia à operadora. É este pedido, feito por quem está logado, que
-    /// autoriza o envio daquela guia — o conector não envia nada que não tenha passado por aqui.
+    /// Confere um pedido de envio SEM gravar nada: o que impede o lote e o que impede cada guia.
+    /// É a mesma conta que <see cref="EnfileirarEnvioAsync"/> faz — a tela a usa para avisar na
+    /// linha, antes do clique; o serviço, para recusar.
     /// </summary>
-    public async Task<TransacaoTiss> EnfileirarEnvioGuiaAsync(
-        string convenioCodigo, int codigoId, int? pacienteId, string operador, CancellationToken ct = default)
+    public async Task<ConferenciaDeEnvioTiss> ConferirEnvioAsync(
+        string convenioCodigo, IReadOnlyList<int> codigoIds, CancellationToken ct = default)
+        => (await MontarLoteAsync(convenioCodigo, codigoIds, ct)).Conferencia;
+
+    /// <summary>
+    /// Pede o envio de um LOTE de guias à operadora (de 1 a 100, do mesmo convênio e do mesmo
+    /// tipo). É este pedido, feito por quem está logado, que autoriza o envio DAQUELAS guias — o
+    /// conector não envia nada que não tenha passado por aqui. Qualquer guia recusada recusa o
+    /// pedido inteiro (<see cref="EnvioTissRecusadoException"/>, com a frase de cada linha): lote
+    /// enviado pela metade sem a pessoa saber é pior que lote não enviado.
+    /// </summary>
+    public async Task<TransacaoTiss> EnfileirarEnvioAsync(
+        string convenioCodigo, IReadOnlyList<int> codigoIds, string operador, CancellationToken ct = default)
     {
-        foreach (var anterior in await _repo.TransacoesTissDaGuiaAsync(codigoId, ct))
-        {
-            if (anterior.Tipo != TipoTransacaoTiss.EnvioGuia) continue;
-            if (anterior.Estado is EstadoTransacaoTiss.Pendente or EstadoTransacaoTiss.EmEnvio)
-                throw new InvalidOperationException("Esta guia já tem um envio à operadora na fila. Acompanhe o que já foi pedido.");
-            if (anterior.Estado == EstadoTransacaoTiss.Concluida && !string.IsNullOrWhiteSpace(anterior.Protocolo))
-                throw new InvalidOperationException(
-                    $"Esta guia já foi enviada à operadora (protocolo {anterior.Protocolo}). Para enviar de novo, cancele a guia na operadora antes.");
-        }
+        var quem = Operador(operador);
+        var lote = await MontarLoteAsync(convenioCodigo, codigoIds, ct);
+        if (!lote.Conferencia.PodeEnviar)
+            throw new EnvioTissRecusadoException(lote.Conferencia);
+
+        var unica = lote.Guias.Count == 1 ? lote.Guias[0] : null;
         return await EnfileirarAsync(new TransacaoTiss
         {
             Tipo = TipoTransacaoTiss.EnvioGuia,
-            CodigoId = codigoId,
-            PacienteId = pacienteId
-        }, convenioCodigo, operador, "PedidoEnvioGuiaTiss", "Envio da guia à operadora autorizado", ct);
+            // Com uma guia só, a transação aponta para ela e para o paciente (a trilha diz de quem é).
+            CodigoId = unica?.Codigo.Id,
+            PacienteId = unica?.Codigo.Atendimento?.PacienteId,
+            Guias = lote.Guias.Select(g => new TransacaoTissGuia
+            {
+                CodigoId = g.Codigo.Id, NumeroGuiaPrestador = g.NumeroGuiaPrestador, Situacao = SituacaoGuiaTiss.Pendente
+            }).ToList()
+        }, convenioCodigo, quem, "PedidoEnvioGuiaTiss",
+            lote.Guias.Count == 1 ? "Envio da guia à operadora autorizado" : $"Envio de {lote.Guias.Count} guias à operadora autorizado", ct);
+    }
+
+    /// <summary>Uma guia só: é o lote com um item.</summary>
+    public Task<TransacaoTiss> EnfileirarEnvioGuiaAsync(
+        string convenioCodigo, int codigoId, string operador, CancellationToken ct = default)
+        => EnfileirarEnvioAsync(convenioCodigo, [codigoId], operador, ct);
+
+    /// <summary>
+    /// As guias de um lote que a operadora RECEBEU e ainda não têm baixa: o que a baixa em lote
+    /// tem a fazer. Guia glosada, falha ou sem resposta NÃO aparece — a baixa dela pede gente.
+    /// </summary>
+    public Task<IReadOnlyList<GuiaTissRecebidaSemBaixa>> GuiasRecebidasSemBaixaAsync(int transacaoId, CancellationToken ct = default)
+        => _repo.GuiasTissRecebidasSemBaixaAsync(transacaoId, ct);
+
+    /// <summary>
+    /// Pede a situação do protocolo de um ENVIO já concluído. A resposta atualiza as MESMAS
+    /// guias daquele lote (uma guia que estava sem resposta passa a recebida ou glosada).
+    /// </summary>
+    public async Task<TransacaoTiss> EnfileirarStatusDoEnvioAsync(int transacaoDeEnvioId, string operador, CancellationToken ct = default)
+    {
+        var envio = await _repo.ObterTransacaoTissAsync(transacaoDeEnvioId, ct);
+        if (envio is null || envio.Tipo != TipoTransacaoTiss.EnvioGuia)
+            throw new InvalidOperationException("Envio à operadora não encontrado.");
+        if (string.IsNullOrWhiteSpace(envio.Protocolo))
+            throw new InvalidOperationException("Este envio ainda não tem protocolo da operadora: não há o que consultar.");
+        return await EnfileirarAsync(new TransacaoTiss
+        {
+            Tipo = TipoTransacaoTiss.StatusProtocolo,
+            Protocolo = envio.Protocolo,
+            CodigoId = envio.CodigoId,
+            PacienteId = envio.PacienteId,
+            TransacaoDeEnvioId = envio.Id
+        }, envio.ConvenioCodigo, operador, "PedidoStatusProtocoloTiss", $"Consulta do protocolo {envio.Protocolo}", ct);
     }
 
     /// <summary>Pede a situação de um protocolo que a operadora já devolveu.</summary>
@@ -194,6 +251,7 @@ public sealed class FilaTissService
 
         Encerrar(t, EstadoTransacaoTiss.Cancelada, _agora());
         t.Resultado = Cortar($"Cancelada por {quem} antes de ir à operadora.", TransacaoTissLimites.Resultado);
+        GuiasSemEnvio(t, "O envio foi cancelado antes de ir à operadora.");
         await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
         {
             Operador = quem, Acao = "CancelamentoPedidoTiss",
@@ -204,7 +262,7 @@ public sealed class FilaTissService
 
     // ==================== A tela acompanha ====================
 
-    /// <summary>A transação, sem os XML. Nulo se não existe.</summary>
+    /// <summary>A transação com as guias do lote, sem os XML. Nulo se não existe.</summary>
     public async Task<TransacaoTiss?> ObterAsync(int id, CancellationToken ct = default)
     {
         var t = await _repo.ObterTransacaoTissAsync(id, ct);
@@ -257,6 +315,7 @@ public sealed class FilaTissService
                     Encerrar(t, EstadoTransacaoTiss.Falhou, agora);
                     t.Erro = FilaTiss.FraseEnvioInterrompido;
                     t.Resultado = "Envio interrompido: confira no portal da operadora.";
+                    GuiasSemEnvio(t, FilaTiss.FraseEnvioInterrompido);
                     await _repo.SalvarAsync(ct);
                     break; // relê a fila
                 }
@@ -267,6 +326,7 @@ public sealed class FilaTissService
                     Encerrar(t, EstadoTransacaoTiss.Falhou, agora);
                     t.Erro = $"Abandonada depois de {FilaTiss.MaximoDeTentativas} tentativas sem desfecho.";
                     t.Resultado = "Não foi possível falar com a operadora.";
+                    GuiasSemEnvio(t, t.Erro);
                     await _repo.SalvarAsync(ct);
                     break;
                 }
@@ -302,6 +362,16 @@ public sealed class FilaTissService
         if (!string.IsNullOrWhiteSpace(conclusao.Protocolo)) t.Protocolo = Cortar(conclusao.Protocolo.Trim(), 20);
         if (!string.IsNullOrWhiteSpace(conclusao.NumeroGuiaOperadora)) t.NumeroGuiaOperadora = Cortar(conclusao.NumeroGuiaOperadora.Trim(), 20);
         t.XmlRecebido = FilaTiss.SemSenha(conclusao.XmlRecebido);
+
+        if (t.Tipo == TipoTransacaoTiss.EnvioGuia)
+            AplicarPorGuia(t, conclusao.Guias, agora, semDetalheContaComoRecebida: !string.IsNullOrWhiteSpace(t.Protocolo));
+        else if (t.Tipo == TipoTransacaoTiss.StatusProtocolo && t.TransacaoDeEnvioId is { } envioId && conclusao.Guias.Count > 0
+                 && await _repo.ObterTransacaoTissAsync(envioId, ct) is { } envio)
+        {
+            // A consulta de status atualiza as MESMAS guias do lote consultado.
+            AplicarPorGuia(envio, conclusao.Guias, agora, semDetalheContaComoRecebida: false);
+            envio.Versao++;
+        }
 
         if (t.EscreveNaOperadora)
             // O que mudou algo na operadora deixa rastro próprio, no mesmo salvamento.
@@ -351,6 +421,8 @@ public sealed class FilaTissService
             t.Resultado = Cortar(t.EscreveNaOperadora && mensagemSaiu
                 ? "Falhou: confira no portal da operadora antes de pedir de novo."
                 : "Falhou: " + t.Erro, TransacaoTissLimites.Resultado);
+            // O lote falhou inteiro: cada guia dele fica marcada, com o mesmo motivo na linha.
+            GuiasSemEnvio(t, t.Erro);
         }
         await _repo.SalvarAsync(ct);
         return t.Estado;
@@ -367,10 +439,158 @@ public sealed class FilaTissService
             throw new InvalidOperationException("A mensagem já saiu para a operadora: a transação não pode mais ser recusada.");
         Encerrar(t, EstadoTransacaoTiss.Cancelada, _agora());
         t.Resultado = Cortar(motivo, TransacaoTissLimites.Resultado);
+        GuiasSemEnvio(t, motivo);
         await _repo.SalvarAsync(ct);
     }
 
     // ==================== peças ====================
+
+    private sealed record GuiaDoLote(CodigoFaturamento Codigo, string NumeroGuiaPrestador);
+
+    /// <summary>
+    /// Lê as guias pedidas e diz, uma a uma, se podem ir. É a ÚNICA conta: a conferência da tela
+    /// e a recusa do serviço saem daqui.
+    /// </summary>
+    private async Task<(ConferenciaDeEnvioTiss Conferencia, IReadOnlyList<GuiaDoLote> Guias)> MontarLoteAsync(
+        string convenioCodigo, IReadOnlyList<int>? codigoIds, CancellationToken ct)
+    {
+        var convenio = (convenioCodigo ?? string.Empty).Trim();
+        if (convenio.Length is 0 or > 40)
+            return (new ConferenciaDeEnvioTiss { Impedimento = "Informe o convênio do envio." }, []);
+        if (codigoIds is null || codigoIds.Count == 0)
+            return (new ConferenciaDeEnvioTiss { Impedimento = "Escolha ao menos uma guia para enviar à operadora." }, []);
+        if (codigoIds.Count > TransacaoTissLimites.GuiasPorLote)
+            return (new ConferenciaDeEnvioTiss
+            {
+                Impedimento = $"Um lote leva até {TransacaoTissLimites.GuiasPorLote} guias e este tem {codigoIds.Count}: divida o envio."
+            }, []);
+
+        var distintas = codigoIds.Distinct().ToList();
+        var recusas = new Dictionary<int, string>();
+        foreach (var repetida in codigoIds.GroupBy(id => id).Where(g => g.Count() > 1))
+            recusas[repetida.Key] = "Esta guia aparece mais de uma vez na lista.";
+
+        var codigos = (await _repo.CodigosParaEnvioTissAsync(distintas, ct)).ToDictionary(c => c.Id);
+        var anteriores = (await _repo.ItensDeEnvioTissDasGuiasAsync(distintas, ct))
+            .Where(i => i.CodigoId is not null).ToLookup(i => i.CodigoId!.Value);
+
+        // O lote leva UM tipo de guia (consulta OU procedimento): vale o da primeira guia que existe.
+        var primeira = distintas.Select(id => codigos.GetValueOrDefault(id)).FirstOrDefault(c => c is not null);
+        var loteDeConsulta = primeira is not null && TissExportService.EhConsulta(primeira.Tipo);
+
+        var guias = new List<GuiaDoLote>();
+        foreach (var id in distintas)
+        {
+            if (recusas.ContainsKey(id)) continue;
+            if (!codigos.TryGetValue(id, out var codigo))
+            {
+                recusas[id] = "Guia não encontrada: pode ter sido estornada noutra máquina. Atualize a lista.";
+                continue;
+            }
+            var paciente = codigo.Atendimento?.Paciente;
+            var convenioDaGuia = paciente is null ? null : paciente.ConvenioCodigo ?? paciente.Convenio.ToString();
+            var emOutroEnvio = anteriores[id].FirstOrDefault(i => PrendeAGuia(i));
+
+            var recusa =
+                codigo.Baixado ? "Esta guia já tem baixa: não é enviada de novo."
+                : !string.Equals(convenioDaGuia, convenio, StringComparison.OrdinalIgnoreCase)
+                    ? $"Esta guia é de outro convênio ({convenioDaGuia ?? "não identificado"}): um envio leva guias de um convênio só."
+                : codigo.GuiaAns is null ? "Confira a guia no padrão ANS antes de enviar: esta ainda não foi conferida."
+                : TissExportService.EhConsulta(codigo.Tipo) != loteDeConsulta
+                    ? "Um envio leva um só tipo de guia: separe as guias de consulta das de procedimento (SP/SADT)."
+                : emOutroEnvio is not null ? FraseDeOutroEnvio(emOutroEnvio)
+                : null;
+            if (recusa is not null)
+            {
+                recusas[id] = recusa;
+                continue;
+            }
+            // O número muda a cada envio da mesma guia (C12, C12R2, C12R3…): a operadora nunca vê
+            // o mesmo número duas vezes, e a resposta acha a guia de volta por ele.
+            guias.Add(new GuiaDoLote(codigo, NumeroDoPrestador(id, anteriores[id].Count() + 1)));
+        }
+        return (new ConferenciaDeEnvioTiss { PorGuia = recusas }, guias);
+    }
+
+    /// <summary>
+    /// O item de um envio anterior ainda "prende" a guia? Sim enquanto o envio está na fila ou em
+    /// andamento, e depois dele concluído se a guia foi recebida ou ainda não teve resposta. Envio
+    /// que falhou ou foi cancelado, e guia glosada ou que falhou, soltam: aí reenviar é decisão
+    /// de quem está logado, depois de conferir.
+    /// </summary>
+    private static bool PrendeAGuia(TransacaoTissGuia item) => item.Transacao?.Estado switch
+    {
+        EstadoTransacaoTiss.Pendente or EstadoTransacaoTiss.EmEnvio => true,
+        EstadoTransacaoTiss.Concluida => item.Situacao is SituacaoGuiaTiss.Recebida or SituacaoGuiaTiss.Pendente,
+        _ => false
+    };
+
+    private static string FraseDeOutroEnvio(TransacaoTissGuia item) => item.Transacao?.Estado switch
+    {
+        EstadoTransacaoTiss.Concluida when item.Situacao == SituacaoGuiaTiss.Recebida =>
+            $"Esta guia já foi recebida pela operadora (protocolo {item.Transacao.Protocolo ?? "não informado"}). Falta dar baixa, não enviar de novo.",
+        EstadoTransacaoTiss.Concluida =>
+            $"Esta guia está num envio já protocolado ({item.Transacao.Protocolo ?? "sem número"}) e ainda sem resposta da operadora: consulte o protocolo antes de enviar de novo.",
+        _ => "Esta guia já está num envio à operadora, na fila ou em andamento. Acompanhe o que já foi pedido."
+    };
+
+    /// <summary>
+    /// O número da guia no prestador: "C" + o número da guia no sistema e, do segundo envio em
+    /// diante, "R" + a vez. É a MESMA convenção de <c>NumeroGuiaPrestadorTiss.Gerar</c> (frente das
+    /// mensagens): na integração, esta linha passa a chamar aquela classe.
+    /// </summary>
+    public static string NumeroDoPrestador(int codigoId, int vez)
+        => vez <= 1 ? $"C{codigoId}" : $"C{codigoId}R{vez}";
+
+    /// <summary>
+    /// Grava o que a operadora disse de cada guia. A guia é achada pelo número que a clínica mandou.
+    /// Guia que a resposta não cita fica como estava, com o aviso na linha — nunca vira "recebida"
+    /// por omissão quando a operadora detalhou as outras.
+    /// </summary>
+    private static void AplicarPorGuia(TransacaoTiss envio, IReadOnlyList<ResultadoDaGuiaTiss> resultados, DateTime agora,
+        bool semDetalheContaComoRecebida)
+    {
+        if (resultados.Count == 0)
+        {
+            if (!semDetalheContaComoRecebida) return;
+            foreach (var item in envio.Guias.Where(g => g.Situacao == SituacaoGuiaTiss.Pendente))
+            {
+                item.Situacao = SituacaoGuiaTiss.Recebida;
+                item.Motivo = null;
+                item.AtualizadaEm = agora;
+            }
+            return;
+        }
+
+        foreach (var item in envio.Guias)
+        {
+            var resultado = resultados.FirstOrDefault(r =>
+                string.Equals(r.NumeroGuiaPrestador?.Trim(), item.NumeroGuiaPrestador, StringComparison.OrdinalIgnoreCase));
+            if (resultado is null)
+            {
+                if (item.Situacao == SituacaoGuiaTiss.Pendente)
+                    item.Motivo = "A operadora não citou esta guia na resposta. Consulte o protocolo antes de dar baixa.";
+                continue;
+            }
+            item.Situacao = resultado.Situacao;
+            item.Motivo = Cortar(string.IsNullOrWhiteSpace(resultado.Motivo) ? null : resultado.Motivo.Trim(), TransacaoTissLimites.MotivoDaGuia);
+            if (!string.IsNullOrWhiteSpace(resultado.NumeroGuiaOperadora))
+                item.NumeroGuiaOperadora = Cortar(resultado.NumeroGuiaOperadora.Trim(), 20);
+            item.AtualizadaEm = agora;
+        }
+    }
+
+    /// <summary>O lote não foi (ou não se sabe se foi): cada guia ainda sem resposta fica marcada como falha, com o motivo.</summary>
+    private void GuiasSemEnvio(TransacaoTiss t, string? motivo)
+    {
+        var agora = _agora();
+        foreach (var item in t.Guias.Where(g => g.Situacao == SituacaoGuiaTiss.Pendente))
+        {
+            item.Situacao = SituacaoGuiaTiss.Falhou;
+            item.Motivo = Cortar(motivo, TransacaoTissLimites.MotivoDaGuia);
+            item.AtualizadaEm = agora;
+        }
+    }
 
     private async Task<TransacaoTiss> EnfileirarAsync(
         TransacaoTiss t, string convenioCodigo, string operador, string acao, string detalhe, CancellationToken ct)
@@ -439,6 +659,13 @@ public sealed class FilaTissService
         ProcessadaEm = t.ProcessadaEm, NumeroCarteira = t.NumeroCarteira, ValidadeCarteira = t.ValidadeCarteira,
         NumeroGuiaPrestador = t.NumeroGuiaPrestador, Protocolo = t.Protocolo, NumeroGuiaOperadora = t.NumeroGuiaOperadora,
         Resultado = t.Resultado, Erro = t.Erro, Consumidor = t.Consumidor, ReservadaEm = t.ReservadaEm,
-        EnvioIniciadoEm = t.EnvioIniciadoEm, ProximaTentativaEm = t.ProximaTentativaEm, Versao = t.Versao
+        EnvioIniciadoEm = t.EnvioIniciadoEm, ProximaTentativaEm = t.ProximaTentativaEm, Versao = t.Versao,
+        TransacaoDeEnvioId = t.TransacaoDeEnvioId,
+        // As guias do lote vão junto: é por elas que a tela mostra o resultado por linha.
+        Guias = t.Guias.OrderBy(g => g.Id).Select(g => new TransacaoTissGuia
+        {
+            Id = g.Id, TransacaoId = g.TransacaoId, CodigoId = g.CodigoId, NumeroGuiaPrestador = g.NumeroGuiaPrestador,
+            NumeroGuiaOperadora = g.NumeroGuiaOperadora, Situacao = g.Situacao, Motivo = g.Motivo, AtualizadaEm = g.AtualizadaEm
+        }).ToList()
     };
 }

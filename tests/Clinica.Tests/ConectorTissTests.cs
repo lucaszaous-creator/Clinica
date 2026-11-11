@@ -339,7 +339,7 @@ public sealed class ConectorTissTests : IDisposable
     {
         var (paciente, guia) = await _b.GuiaAsync();
         return tipo == TipoTransacaoTiss.EnvioGuia
-            ? await _b.Fila().EnfileirarEnvioGuiaAsync(TissBancoDeTeste.Petrobras, guia.Id, paciente.Id, TissBancoDeTeste.Operador)
+            ? await _b.Fila().EnfileirarEnvioGuiaAsync(TissBancoDeTeste.Petrobras, guia.Id, TissBancoDeTeste.Operador)
             : await _b.Fila().EnfileirarCancelamentoGuiaAsync(TissBancoDeTeste.Petrobras, guia.Id, "G123", "987654", TissBancoDeTeste.Operador);
     }
 
@@ -385,6 +385,43 @@ public sealed class ConectorTissTests : IDisposable
         var guia = await _b.NovoContexto().Codigos.AsNoTracking().SingleAsync();
         guia.Status.Should().Be(Clinica.Domain.StatusCodigo.Aberto, "ligar o protocolo à baixa é da tela, não do conector");
         guia.NumeroGuiaReal.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Lote_pelo_conector_grava_o_resultado_por_guia_e_deixa_pronta_a_lista_da_baixa()
+    {
+        await ProntoParaElegibilidadeAsync();
+        await _b.Credenciais().DefinirEnvioAsync(TissBancoDeTeste.Petrobras, true, TissBancoDeTeste.Operador);
+        var ids = await _b.GuiasAsync(3);
+        var pedido = await _b.Fila().EnfileirarEnvioAsync(TissBancoDeTeste.Petrobras, ids, TissBancoDeTeste.Operador);
+        _rede.Responder(HttpStatusCode.OK, "<recebido/>");
+
+        await Conector(envioNoServidor: true, new ProcessadorDeMentira(TipoTransacaoTiss.EnvioGuia, Md5)).ProcessarProximaAsync();
+
+        var t = await _b.NovoContexto().TransacoesTiss.AsNoTracking().Include(x => x.Guias).SingleAsync(x => x.Id == pedido.Id);
+        t.Estado.Should().Be(EstadoTransacaoTiss.Concluida);
+        t.Guias.OrderBy(g => g.Id).Select(g => g.Situacao).Should().Equal(SituacaoGuiaTiss.Recebida, SituacaoGuiaTiss.Glosada, SituacaoGuiaTiss.Glosada);
+        var aBaixar = await _b.Fila(new ClinicaRepositorio(_b.NovoContexto())).GuiasRecebidasSemBaixaAsync(pedido.Id);
+        aBaixar.Should().ContainSingle().Which.Should().BeEquivalentTo(new { CodigoId = ids[0], NumeroGuiaOperadora = "OP123", Protocolo = "987654" });
+        _rede.Idas.Should().HaveCount(1, "um lote é UMA ida à operadora");
+        (await _b.NovoContexto().Codigos.AsNoTracking().CountAsync(c => c.DataBaixa != null)).Should().Be(0, "o conector não dá baixa");
+    }
+
+    [Fact]
+    public async Task Lote_com_o_envio_desligado_e_recusado_e_cada_guia_fica_marcada_como_nao_enviada()
+    {
+        await ProntoParaElegibilidadeAsync();
+        var ids = await _b.GuiasAsync(2);
+        var pedido = await _b.Fila().EnfileirarEnvioAsync(TissBancoDeTeste.Petrobras, ids, TissBancoDeTeste.Operador);
+
+        await Conector(envioNoServidor: true).ProcessarProximaAsync();
+
+        var t = await _b.NovoContexto().TransacoesTiss.AsNoTracking().Include(x => x.Guias).SingleAsync(x => x.Id == pedido.Id);
+        t.Estado.Should().Be(EstadoTransacaoTiss.Cancelada);
+        t.Guias.Should().OnlyContain(g => g.Situacao == SituacaoGuiaTiss.Falhou && g.Motivo!.Contains("desligado"));
+        _rede.Idas.Should().BeEmpty();
+        // Nada saiu: as guias ficam livres para um novo pedido.
+        (await _b.Fila().ConferirEnvioAsync(TissBancoDeTeste.Petrobras, ids)).PodeEnviar.Should().BeTrue();
     }
 
     // ---------- a senha nunca vaza ----------
@@ -585,7 +622,11 @@ public sealed class ConectorTissTests : IDisposable
 
         public DesfechoTiss Ler(TransacaoTiss transacao, string xmlDaResposta) => DesfechoTiss.Concluir(new ConclusaoTransacaoTiss
         {
-            Resultado = "Recebida pela operadora.", Protocolo = "987654", NumeroGuiaOperadora = "OP123", XmlRecebido = xmlDaResposta
+            Resultado = "Recebida pela operadora.", Protocolo = "987654", NumeroGuiaOperadora = "OP123", XmlRecebido = xmlDaResposta,
+            // O que a operadora diz de cada guia do lote: a primeira recebida, as demais com glosa.
+            Guias = transacao.Guias.OrderBy(g => g.Id).Select((g, i) => i == 0
+                ? new Clinica.Application.Modelos.ResultadoDaGuiaTiss(g.NumeroGuiaPrestador, "OP123", SituacaoGuiaTiss.Recebida)
+                : new Clinica.Application.Modelos.ResultadoDaGuiaTiss(g.NumeroGuiaPrestador, null, SituacaoGuiaTiss.Glosada, "1001 - carteira inválida")).ToList()
         });
     }
 

@@ -13,8 +13,14 @@ namespace Clinica.Tiss.Conector;
 /// TODO(tiss-b-mensagens): trocar cada classe abaixo por um processador de verdade, no molde do
 /// <see cref="ProcessadorDeElegibilidade"/>:
 ///   PrepararAsync → credencial + DadosDoConvenio.LerAsync(…, Tipo, …) + TissLoteGuiasWs.MontarEnvelope(PedidoLoteGuiasTiss)
-///   Ler           → TissLoteGuiasWs.LerResposta(xml): Recebido == true → DesfechoTiss.Concluir com
-///                   Protocolo e NumeroGuiaOperadora da guia; senão DesfechoTiss.Falhar(Falha).
+///   Ler           → TissLoteGuiasWs.LerResposta(xml): Recebido == true → DesfechoTiss.Concluir com o
+///                   Protocolo e, em ConclusaoTransacaoTiss.Guias, UM ResultadoDaGuiaTiss por guia da
+///                   resposta (NumeroGuiaPrestador, NumeroGuiaOperadora, Recebida ou Glosada + a glosa);
+///                   senão DesfechoTiss.Falhar(Falha).
+/// O envio é um LOTE: transacao.Guias traz de 1 a 100 itens, cada um com o NumeroGuiaPrestador que
+/// tem de ir na guia daquele item — é por esse número que a fila casa a resposta com a guia.
+/// A consulta de status devolve a mesma lista em Guias, e a fila atualiza os itens do envio
+/// consultado (TransacaoDeEnvioId).
 /// O executor já carimba o envio antes da rede, guarda o XML sem a senha e aplica as duas
 /// chaves de envio: o processador novo não precisa repetir nada disso.
 /// </summary>

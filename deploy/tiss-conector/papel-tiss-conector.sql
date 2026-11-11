@@ -37,6 +37,8 @@ BEGIN
   FOREACH g SLICE 1 IN ARRAY ARRAY[
       -- A fila: quem PÕE o pedido é o app (a tela); o conector reserva e grava o desfecho.
       ['TransacoesTiss','SELECT, UPDATE'],
+      -- As guias de cada lote enviado: o conector grava o resultado da operadora POR GUIA.
+      ['TransacoesTissGuias','SELECT, UPDATE'],
       -- A configuração: dados da clínica (CNPJ, registro ANS), a credencial cifrada, o endereço
       -- do web service e a chave de envio por convênio. Só leitura: quem muda é o comando de
       -- quem opera, com outro usuário do banco (docs/tiss-conector.md §4).

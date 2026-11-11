@@ -65,11 +65,11 @@ public sealed class FilaTissServiceTests : IDisposable
     {
         var (paciente, guia) = await _b.GuiaAsync();
         var fila = _b.Fila();
-        await fila.EnfileirarEnvioGuiaAsync(TissBancoDeTeste.Petrobras, guia.Id, paciente.Id, TissBancoDeTeste.Operador);
+        await fila.EnfileirarEnvioGuiaAsync(TissBancoDeTeste.Petrobras, guia.Id, TissBancoDeTeste.Operador);
 
-        var deNovo = () => fila.EnfileirarEnvioGuiaAsync(TissBancoDeTeste.Petrobras, guia.Id, paciente.Id, TissBancoDeTeste.Operador);
+        var deNovo = () => fila.EnfileirarEnvioGuiaAsync(TissBancoDeTeste.Petrobras, guia.Id, TissBancoDeTeste.Operador);
 
-        (await deNovo.Should().ThrowAsync<InvalidOperationException>()).WithMessage("*já tem um envio*");
+        (await deNovo.Should().ThrowAsync<InvalidOperationException>()).WithMessage("*já está num envio*");
         (await _b.Db.TransacoesTiss.CountAsync()).Should().Be(1);
     }
 
@@ -78,12 +78,12 @@ public sealed class FilaTissServiceTests : IDisposable
     {
         var (paciente, guia) = await _b.GuiaAsync();
         var fila = _b.Fila();
-        var t = await fila.EnfileirarEnvioGuiaAsync(TissBancoDeTeste.Petrobras, guia.Id, paciente.Id, TissBancoDeTeste.Operador);
+        var t = await fila.EnfileirarEnvioGuiaAsync(TissBancoDeTeste.Petrobras, guia.Id, TissBancoDeTeste.Operador);
         await fila.ReservarProximaAsync(C1);
         await fila.MarcarEnvioIniciadoAsync(t.Id, "<a/>");
         await fila.ConcluirAsync(t.Id, new ConclusaoTransacaoTiss { Resultado = "Recebida.", Protocolo = "987654" });
 
-        var deNovo = () => fila.EnfileirarEnvioGuiaAsync(TissBancoDeTeste.Petrobras, guia.Id, paciente.Id, TissBancoDeTeste.Operador);
+        var deNovo = () => fila.EnfileirarEnvioGuiaAsync(TissBancoDeTeste.Petrobras, guia.Id, TissBancoDeTeste.Operador);
 
         (await deNovo.Should().ThrowAsync<InvalidOperationException>()).WithMessage("*987654*");
     }
@@ -94,12 +94,12 @@ public sealed class FilaTissServiceTests : IDisposable
         // Reenviar é decisão de GENTE, depois de conferir no portal — nunca do conector.
         var (paciente, guia) = await _b.GuiaAsync();
         var fila = _b.Fila();
-        var t = await fila.EnfileirarEnvioGuiaAsync(TissBancoDeTeste.Petrobras, guia.Id, paciente.Id, TissBancoDeTeste.Operador);
+        var t = await fila.EnfileirarEnvioGuiaAsync(TissBancoDeTeste.Petrobras, guia.Id, TissBancoDeTeste.Operador);
         await fila.ReservarProximaAsync(C1);
         await fila.MarcarEnvioIniciadoAsync(t.Id, "<a/>");
         await fila.FalharAsync(t.Id, "sem resposta da operadora", podeTentarDeNovo: true);
 
-        var outro = await fila.EnfileirarEnvioGuiaAsync(TissBancoDeTeste.Petrobras, guia.Id, paciente.Id, TissBancoDeTeste.Operador);
+        var outro = await fila.EnfileirarEnvioGuiaAsync(TissBancoDeTeste.Petrobras, guia.Id, TissBancoDeTeste.Operador);
 
         outro.Id.Should().NotBe(t.Id);
         (await fila.DaGuiaAsync(guia.Id)).Select(x => x.Id).Should().Equal(outro.Id, t.Id);
@@ -221,7 +221,7 @@ public sealed class FilaTissServiceTests : IDisposable
         var (paciente, guia) = await _b.GuiaAsync();
         var fila = _b.Fila();
         var t = tipo == TipoTransacaoTiss.EnvioGuia
-            ? await fila.EnfileirarEnvioGuiaAsync(TissBancoDeTeste.Petrobras, guia.Id, paciente.Id, TissBancoDeTeste.Operador)
+            ? await fila.EnfileirarEnvioGuiaAsync(TissBancoDeTeste.Petrobras, guia.Id, TissBancoDeTeste.Operador)
             : await fila.EnfileirarCancelamentoGuiaAsync(TissBancoDeTeste.Petrobras, guia.Id, "G123", "987654", TissBancoDeTeste.Operador);
         await fila.ReservarProximaAsync(C1);
         await fila.MarcarEnvioIniciadoAsync(t.Id, "<a/>");
@@ -244,7 +244,7 @@ public sealed class FilaTissServiceTests : IDisposable
         // Nada chegou à operadora (o banco caiu no preparo): repetir não duplica guia.
         var (paciente, guia) = await _b.GuiaAsync();
         var fila = _b.Fila();
-        var t = await fila.EnfileirarEnvioGuiaAsync(TissBancoDeTeste.Petrobras, guia.Id, paciente.Id, TissBancoDeTeste.Operador);
+        var t = await fila.EnfileirarEnvioGuiaAsync(TissBancoDeTeste.Petrobras, guia.Id, TissBancoDeTeste.Operador);
         await fila.ReservarProximaAsync(C1);
 
         (await fila.FalharAsync(t.Id, "Falha inesperada no conector", podeTentarDeNovo: true)).Should().Be(EstadoTransacaoTiss.Pendente);
@@ -256,7 +256,7 @@ public sealed class FilaTissServiceTests : IDisposable
         // O conector morreu DEPOIS de mandar: ninguém sabe se a operadora recebeu.
         var (paciente, guia) = await _b.GuiaAsync();
         var fila = _b.Fila();
-        var presa = await fila.EnfileirarEnvioGuiaAsync(TissBancoDeTeste.Petrobras, guia.Id, paciente.Id, TissBancoDeTeste.Operador);
+        var presa = await fila.EnfileirarEnvioGuiaAsync(TissBancoDeTeste.Petrobras, guia.Id, TissBancoDeTeste.Operador);
         await fila.ReservarProximaAsync(C1);
         await fila.MarcarEnvioIniciadoAsync(presa.Id, "<a/>");
         _b.Agora = _b.Agora.AddSeconds(1);
@@ -296,7 +296,7 @@ public sealed class FilaTissServiceTests : IDisposable
     {
         var (paciente, guia) = await _b.GuiaAsync();
         var fila = _b.Fila();
-        var t = await fila.EnfileirarEnvioGuiaAsync(TissBancoDeTeste.Petrobras, guia.Id, paciente.Id, TissBancoDeTeste.Operador);
+        var t = await fila.EnfileirarEnvioGuiaAsync(TissBancoDeTeste.Petrobras, guia.Id, TissBancoDeTeste.Operador);
         await fila.ReservarProximaAsync(C1);
         await fila.MarcarEnvioIniciadoAsync(t.Id, "<a/>");
         _b.Agora = _b.Agora.AddSeconds(3);
@@ -338,7 +338,7 @@ public sealed class FilaTissServiceTests : IDisposable
     {
         var (paciente, guia) = await _b.GuiaAsync();
         var fila = _b.Fila();
-        var t = await fila.EnfileirarEnvioGuiaAsync(TissBancoDeTeste.Petrobras, guia.Id, paciente.Id, TissBancoDeTeste.Operador);
+        var t = await fila.EnfileirarEnvioGuiaAsync(TissBancoDeTeste.Petrobras, guia.Id, TissBancoDeTeste.Operador);
         await fila.ReservarProximaAsync(C1);
         await fila.RecusarAsync(t.Id, "O envio pelo web service está desligado.");
         var recusada = (await fila.ObterAsync(t.Id))!;
@@ -346,7 +346,7 @@ public sealed class FilaTissServiceTests : IDisposable
         recusada.Resultado.Should().Contain("desligado");
         recusada.EnvioIniciadoEm.Should().BeNull();
 
-        var outra = await fila.EnfileirarEnvioGuiaAsync(TissBancoDeTeste.Petrobras, guia.Id, paciente.Id, TissBancoDeTeste.Operador);
+        var outra = await fila.EnfileirarEnvioGuiaAsync(TissBancoDeTeste.Petrobras, guia.Id, TissBancoDeTeste.Operador);
         await fila.ReservarProximaAsync(C1);
         await fila.MarcarEnvioIniciadoAsync(outra.Id, "<a/>");
         var recusarTarde = () => fila.RecusarAsync(outra.Id, "tarde demais");
@@ -407,7 +407,7 @@ public sealed class FilaTissServiceTests : IDisposable
     {
         var (paciente, guia) = await _b.GuiaAsync();
         var fila = _b.Fila();
-        var envio = await fila.EnfileirarEnvioGuiaAsync(TissBancoDeTeste.Petrobras, guia.Id, paciente.Id, TissBancoDeTeste.Operador);
+        var envio = await fila.EnfileirarEnvioGuiaAsync(TissBancoDeTeste.Petrobras, guia.Id, TissBancoDeTeste.Operador);
         await fila.ReservarProximaAsync(C1);
         await fila.MarcarEnvioIniciadoAsync(envio.Id, "<enviado/>");
         await fila.ConcluirAsync(envio.Id, new ConclusaoTransacaoTiss { Resultado = "Recebida.", Protocolo = "1", XmlRecebido = "<recebido/>" });

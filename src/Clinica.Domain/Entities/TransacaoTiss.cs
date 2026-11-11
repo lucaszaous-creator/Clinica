@@ -6,7 +6,7 @@ public enum TipoTransacaoTiss
     /// <summary>Perguntar se a carteira está ativa (<c>tissVerificaElegibilidade</c>). Só lê.</summary>
     Elegibilidade,
 
-    /// <summary>Enviar UMA guia à operadora (<c>tissLoteGuias</c>). Escreve na operadora.</summary>
+    /// <summary>Enviar um LOTE de guias à operadora, de 1 a 100 (<c>tissLoteGuias</c>). Escreve na operadora.</summary>
     EnvioGuia,
 
     /// <summary>Perguntar a situação de um protocolo já recebido (<c>tissSolicitacaoStatusProtocolo</c>). Só lê.</summary>
@@ -66,8 +66,25 @@ public class TransacaoTiss
     /// <summary>Código do convênio no catálogo (o mesmo de <c>Paciente.ConvenioCodigo</c>, ou o nome da família embutida).</summary>
     public string ConvenioCodigo { get; set; } = string.Empty;
 
-    /// <summary>A guia a que a transação se refere, quando há uma.</summary>
+    /// <summary>
+    /// A guia a que a transação se refere, quando é UMA: no cancelamento, na consulta de status
+    /// pedida por uma guia e no envio de lote com um item só. O envio de várias guias deixa
+    /// este campo nulo — as guias estão em <see cref="Guias"/>.
+    /// </summary>
     public int? CodigoId { get; set; }
+
+    /// <summary>
+    /// As guias do LOTE, no envio (de 1 a 100, um só tipo de guia — o limite do padrão TISS).
+    /// Vazia nos outros tipos. O resultado da operadora volta POR GUIA e é gravado aqui.
+    /// </summary>
+    public List<TransacaoTissGuia> Guias { get; set; } = new();
+
+    /// <summary>
+    /// Na consulta de status: a transação de ENVIO cujo protocolo está sendo consultado. É por
+    /// ela que a resposta do status atualiza as mesmas guias do lote. Nulo quando a consulta foi
+    /// pedida só pelo número do protocolo.
+    /// </summary>
+    public int? TransacaoDeEnvioId { get; set; }
 
     /// <summary>O paciente a que a transação se refere, quando há um.</summary>
     public int? PacienteId { get; set; }
@@ -145,9 +162,61 @@ public class TransacaoTiss
     public bool Encerrada => Estado is EstadoTransacaoTiss.Concluida or EstadoTransacaoTiss.Falhou or EstadoTransacaoTiss.Cancelada;
 }
 
+/// <summary>Em que pé está UMA guia do lote, depois da resposta da operadora.</summary>
+public enum SituacaoGuiaTiss
+{
+    /// <summary>Ainda sem resposta da operadora sobre esta guia.</summary>
+    Pendente,
+
+    /// <summary>A operadora recebeu a guia. É a única situação em que a baixa pode seguir.</summary>
+    Recebida,
+
+    /// <summary>A operadora respondeu com glosa nesta guia: não é para dar baixa sem alguém olhar.</summary>
+    Glosada,
+
+    /// <summary>O envio não se completou (ou a operadora recusou o lote): a guia não foi recebida, ou não se sabe.</summary>
+    Falhou
+}
+
+/// <summary>
+/// Uma guia dentro de um lote enviado à operadora (nov/2026).
+///
+/// A operadora pode receber o lote e glosar UMA guia: por isso o resultado mora aqui, por
+/// guia, e não só na transação. É também esta linha que impede a mesma guia de entrar em dois
+/// envios: enquanto houver um item dela num envio que não falhou, outro pedido é recusado.
+/// </summary>
+public class TransacaoTissGuia
+{
+    public int Id { get; set; }
+
+    public int TransacaoId { get; set; }
+    public TransacaoTiss? Transacao { get; set; }
+
+    /// <summary>A guia do sistema. Nulo só se a guia deixar de existir: o rastro do envio fica.</summary>
+    public int? CodigoId { get; set; }
+
+    /// <summary>O número que a clínica MANDOU para esta guia: é a chave para achar a guia na resposta.</summary>
+    public string NumeroGuiaPrestador { get; set; } = string.Empty;
+
+    /// <summary>O número da guia na operadora, quando ela o devolve (é opcional no padrão).</summary>
+    public string? NumeroGuiaOperadora { get; set; }
+
+    public SituacaoGuiaTiss Situacao { get; set; } = SituacaoGuiaTiss.Pendente;
+
+    /// <summary>A glosa ou o motivo da falha desta guia, para a tela mostrar na linha dela.</summary>
+    public string? Motivo { get; set; }
+
+    /// <summary>Quando a situação mudou pela última vez.</summary>
+    public DateTime? AtualizadaEm { get; set; }
+}
+
 /// <summary>Os tetos de texto da transação: o mapeamento do banco e o serviço cortam pelo MESMO número.</summary>
 public static class TransacaoTissLimites
 {
     public const int Resultado = 300;
     public const int Erro = 1000;
+    public const int MotivoDaGuia = 500;
+
+    /// <summary>O máximo de guias num lote, pelo padrão TISS.</summary>
+    public const int GuiasPorLote = 100;
 }

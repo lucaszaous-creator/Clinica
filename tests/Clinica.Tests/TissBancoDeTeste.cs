@@ -47,10 +47,14 @@ public sealed class TissBancoDeTeste : IDisposable
 
     public CredenciaisTissService Credenciais(ClinicaRepositorio? repo = null) => new(repo ?? Repo, Protecao);
 
-    /// <summary>Um paciente fictício da Petrobras com uma guia de consulta em aberto.</summary>
-    public async Task<(Paciente Paciente, CodigoFaturamento Guia)> GuiaAsync()
+    /// <summary>
+    /// Um paciente fictício com uma guia em aberto. Por padrão é da Petrobras, de consulta e com
+    /// a guia ANS já conferida — o que um envio pede; cada parâmetro tira uma dessas condições.
+    /// </summary>
+    public async Task<(Paciente Paciente, CodigoFaturamento Guia)> GuiaAsync(
+        bool conferida = true, Convenio convenio = Convenio.Petrobras, TipoCodigo tipo = TipoCodigo.Consulta)
     {
-        var paciente = new Paciente { Nome = "Paciente de Teste", Convenio = Convenio.Petrobras, Carteirinha = CarteiraFicticia };
+        var paciente = new Paciente { Nome = "Paciente de Teste", Convenio = convenio, Carteirinha = CarteiraFicticia };
         Db.Pacientes.Add(paciente);
         await Db.SaveChangesAsync();
         var atendimento = new Atendimento { PacienteId = paciente.Id, Data = DateOnly.FromDateTime(Agora), Modalidade = ModalidadeAtendimento.Consulta };
@@ -58,12 +62,30 @@ public sealed class TissBancoDeTeste : IDisposable
         await Db.SaveChangesAsync();
         var guia = new CodigoFaturamento
         {
-            AtendimentoId = atendimento.Id, Tipo = TipoCodigo.Consulta, Ordem = OrdemCodigo.Primeiro,
+            AtendimentoId = atendimento.Id, Tipo = tipo, Ordem = OrdemCodigo.Primeiro,
             DataPrevistaFaturamento = DateOnly.FromDateTime(Agora)
         };
+        if (conferida)
+            guia.GuiaAns = new GuiaTissConsulta
+            {
+                RegistroAns = "422631", NumeroCarteira = CarteiraFicticia, NomeBeneficiario = paciente.Nome,
+                CodigoPrestadorNaOperadora = "00000000000191", Cnes = "9999999", NomeProfissional = "Profissional de Teste",
+                ConselhoProfissional = "06", NumeroConselho = "000000", UfConselho = "33", Cbos = "225133",
+                IndicacaoAcidente = "9", RegimeAtendimento = "01", DataAtendimento = DateOnly.FromDateTime(Agora),
+                CodigoTabela = "22", TipoConsulta = "1", CodigoProcedimento = "10101012", ValorProcedimento = 139m,
+                ConferidaPor = Operador, ConferidaEm = Agora
+            };
         Db.Codigos.Add(guia);
         await Db.SaveChangesAsync();
         return (paciente, guia);
+    }
+
+    /// <summary>Várias guias conferidas da Petrobras, cada uma de um paciente fictício.</summary>
+    public async Task<List<int>> GuiasAsync(int quantas)
+    {
+        var ids = new List<int>();
+        for (var i = 0; i < quantas; i++) ids.Add((await GuiaAsync()).Guia.Id);
+        return ids;
     }
 
     /// <summary>Os dados da clínica que toda mensagem leva (CNPJ e registro ANS fictícios).</summary>

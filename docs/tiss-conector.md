@@ -18,7 +18,8 @@ autorizar aquela guia específica.**
 | O que funciona hoje? | **Elegibilidade**, de ponta a ponta. |
 | O que ainda NÃO funciona? | Envio de guia, consulta de protocolo e cancelamento: a fila, as chaves e as regras estão prontas e testadas, mas os três processadores respondem "ainda não foi ligado" até as mensagens deles (outra frente) serem ligadas. **Nenhuma guia sai por este serviço hoje.** |
 | O que precisa estar ligado para uma guia sair? | **Duas chaves**, as duas desligadas por padrão: `TISS_ENVIO_HABILITADO=true` no servidor **e** o envio ligado para o convênio. |
-| Uma guia pode ir duas vezes? | O sistema não reenvia sozinho, nunca. Ver "A regra que não se negocia". |
+| O envio é de uma guia ou de várias? | De um **lote** de 1 a 100 guias (uma guia só é o lote com um item). A operadora responde **por guia**, e a baixa em lote só alcança o que ela recebeu. Ver "Envio em lote e baixa em lote". |
+| Uma guia pode ir duas vezes? | O sistema não reenvia sozinho, nunca — nem o lote, nem guia alguma dele. Ver "A regra que não se negocia". |
 | Onde fica a senha da operadora? | Só o MD5 dela, cifrado, na configuração do banco. A chave que abre fica numa variável de ambiente no servidor, fora do banco. Ninguém lê a senha de volta. |
 | Depende de quê para entrar em produção? | Da migration da tabela (gerada na integração), da instalação deste roteiro e da **decisão LGPD** (fim do documento). |
 
@@ -44,11 +45,11 @@ para diagnóstico: a ferramenta `tools/TissPetrobras`, que não grava nada.
   Petrobras. Nada foi enviado à operadora.", "Falhou: confira no portal da operadora antes de pedir
   de novo.". Três estados finais que não se confundem: **Concluída** (a operadora respondeu o que
   se perguntou), **Falhou** (alguém precisa olhar) e **Cancelada** (nada saiu).
-- 🛠️ **DX** — Peças novas: 1 entidade (`TransacaoTiss`), 2 serviços (`FilaTissService`,
-  `CredenciaisTissService`), 7 métodos de repositório, 1 projeto (`Clinica.Tiss.Conector`) e a
+- 🛠️ **DX** — Peças novas: 2 entidades (`TransacaoTiss` e as guias do lote, `TransacaoTissGuia`),
+  2 serviços (`FilaTissService`, `CredenciaisTissService`), 10 métodos de repositório, 1 projeto (`Clinica.Tiss.Conector`) e a
   pasta `deploy/tiss-conector/`. A ordem que importa (reservar → conferir as chaves → preparar →
   **carimbar o envio** → rede → gravar) mora num lugar só, o `ExecutorDeTransacoesTiss`; um
-  processador novo só monta a mensagem e lê a resposta. 74 testes na família, sem rede real.
+  processador novo só monta a mensagem e lê a resposta. Mais de 100 testes na família, sem rede real.
 - 🤝 **CX** — Risco em produção hoje: baixo. O serviço não escuta em porta, o usuário dele no banco
   lê quatro tabelas e grava em duas, e o envio de guias está atrás de duas chaves desligadas. O
   que muda no dia de quem atende: nada, até uma tela usar a fila. O que a clínica passa a ter de
@@ -95,13 +96,72 @@ arriscar a mesma guia duas vezes (glosa 1308, "guia já apresentada"). Por isso:
    `Concluida` ou `Falhou`. Não importa o que o processador peça, a fila não a devolve;
 3. se o conector morrer depois de carimbar, a transação é encerrada como `Falhou` com a frase
    "Confira no portal da operadora antes de pedir um novo envio" — e **não** é entregue a outro conector;
-4. pedir de novo é ato de **gente**: um pedido novo, com operador e trilha. A fila recusa o
-   pedido se a guia já tem envio em andamento ou já tem protocolo.
+4. pedir de novo é ato de **gente**: um pedido novo, com operador e trilha. A fila recusa a
+   guia que está num envio na fila, em andamento, ou já recebida pela operadora;
+5. a regra vale para o **lote inteiro e para cada guia dele**: lote que falhou marca todas as
+   guias como "falhou" e nenhuma volta sozinha; guia glosada só é reenviada por um pedido novo,
+   e sai com **outro número** (`C12`, depois `C12R2`), para a operadora nunca ver o mesmo número
+   duas vezes.
 
 Elegibilidade e consulta de protocolo só perguntam: tentam de novo até 3 vezes (espera de 1 min,
 depois 5 min) **quando a operadora não respondeu**. Quando ela respondeu "não" (login recusado,
 mensagem fora do padrão), não há nova tentativa: repetir não muda a resposta, e login recusado
 repetido pode bloquear o acesso da clínica.
+
+### Envio em lote e baixa em lote
+
+Pedido do dono: "se for envio em lote precisamos nos certificar da baixa em lote também".
+
+**O pedido.** `EnfileirarEnvioAsync(convênio, lista de guias, operador)` cria UMA transação com um
+item por guia (`TransacaoTissGuia`). Antes de entrar na fila, cada guia é conferida, e a recusa
+vem **por guia**, com a frase que a tela mostra na linha dela:
+
+| Recusa | Frase |
+|---|---|
+| Lista vazia | "Escolha ao menos uma guia para enviar à operadora." (do lote) |
+| Mais de 100 | "Um lote leva até 100 guias e este tem N: divida o envio." (do lote) |
+| Guia sem a guia ANS conferida | "Confira a guia no padrão ANS antes de enviar: esta ainda não foi conferida." |
+| Guia já baixada | "Esta guia já tem baixa: não é enviada de novo." |
+| Guia de outro convênio | "Esta guia é de outro convênio (X): um envio leva guias de um convênio só." |
+| Tipo de guia diferente | "Um envio leva um só tipo de guia: separe as guias de consulta das de procedimento (SP/SADT)." |
+| Guia já em outro envio | "…já está num envio à operadora, na fila ou em andamento." / "…já foi recebida pela operadora (protocolo N). Falta dar baixa, não enviar de novo." / "…num envio já protocolado e ainda sem resposta: consulte o protocolo…" |
+| Repetida na lista / não encontrada | frase própria de cada uma |
+
+**Uma guia recusada recusa o pedido inteiro** (`EnvioTissRecusadoException`, com a conferência
+dentro). Lote enviado pela metade sem a pessoa saber é pior que lote não enviado: a tela mostra
+as frases, a pessoa tira as linhas e pede de novo. Para avisar **antes** do clique, a tela chama
+`ConferirEnvioAsync`, que é a mesma conta sem gravar nada.
+
+**O resultado.** A operadora pode receber o lote e glosar uma guia. Por isso `ConcluirAsync`
+grava o protocolo na transação e, em cada item, a situação daquela guia:
+
+| Situação do item | Quer dizer | A baixa segue? |
+|---|---|---|
+| `Recebida` | A operadora recebeu esta guia. | **Sim** |
+| `Glosada` | Ela respondeu com glosa nesta guia (o motivo fica na linha). | Não: alguém precisa olhar. |
+| `Pendente` | Ainda sem resposta sobre esta guia (a operadora não a citou). | Não: consulte o protocolo. |
+| `Falhou` | O lote não foi, ou não se sabe se foi. | Não. |
+
+Duas regras de cautela: guia que a resposta **não cita** não vira "recebida" por omissão quando
+a operadora detalhou as outras; e resposta **sem protocolo e sem detalhe** não marca guia nenhuma
+como recebida. Só quando há protocolo e a operadora não detalha guia alguma é que o lote inteiro
+conta como recebido.
+
+**A consulta de status** (`EnfileirarStatusDoEnvioAsync(idDoEnvio, operador)`) atualiza os
+**mesmos itens** do lote consultado: uma guia que estava sem resposta passa a recebida ou glosada.
+
+**A baixa em lote.** O conector não dá baixa (não tem sessão de ninguém). O que fica pronto é a
+leitura `GuiasRecebidasSemBaixaAsync(idDoEnvio)`: as guias `Recebida` que ainda não têm baixa,
+cada uma com o número devolvido pela operadora (quando ela devolve), o número que a clínica mandou
+e o protocolo do lote. O que a integração liga em cima disso:
+
+1. a tela do lote acompanha a transação e mostra o resultado por linha;
+2. um botão "Dar baixa nas recebidas" percorre `GuiasRecebidasSemBaixaAsync` e chama a mesma
+   `DarBaixaAsync` de sempre, com o operador logado: o número é o da operadora ou, se ela não
+   devolveu, o número do prestador, com o protocolo na observação;
+3. como a leitura só traz o que **ainda não tem baixa**, clicar duas vezes não baixa duas vezes,
+   e uma baixa que falhou no meio não se perde: a guia continua na lista;
+4. glosada, pendente e falha ficam fora, à vista, com o motivo — a baixa delas pede gente.
 
 ### A credencial
 
@@ -124,18 +184,22 @@ Assinaturas públicas:
 ```csharp
 // FilaTissService — a tela pede e acompanha
 Task<TransacaoTiss>  EnfileirarElegibilidadeAsync(string convenioCodigo, string numeroCarteira, DateOnly? validadeCarteira, int? pacienteId, string operador, CancellationToken ct = default)
-Task<TransacaoTiss>  EnfileirarEnvioGuiaAsync(string convenioCodigo, int codigoId, int? pacienteId, string operador, CancellationToken ct = default)
+Task<ConferenciaDeEnvioTiss> ConferirEnvioAsync(string convenioCodigo, IReadOnlyList<int> codigoIds, CancellationToken ct = default)   // não grava: a recusa por guia, para a tela
+Task<TransacaoTiss>  EnfileirarEnvioAsync(string convenioCodigo, IReadOnlyList<int> codigoIds, string operador, CancellationToken ct = default) // 1 a 100; lança EnvioTissRecusadoException (.Conferencia.PorGuia)
+Task<TransacaoTiss>  EnfileirarEnvioGuiaAsync(string convenioCodigo, int codigoId, string operador, CancellationToken ct = default)             // o lote com um item
+Task<TransacaoTiss>  EnfileirarStatusDoEnvioAsync(int transacaoDeEnvioId, string operador, CancellationToken ct = default)                      // a resposta atualiza os itens do envio
+Task<IReadOnlyList<GuiaTissRecebidaSemBaixa>> GuiasRecebidasSemBaixaAsync(int transacaoId, CancellationToken ct = default)                      // (ItemId, CodigoId, NumeroGuiaPrestador, NumeroGuiaOperadora?, Protocolo?)
 Task<TransacaoTiss>  EnfileirarStatusProtocoloAsync(string convenioCodigo, string protocolo, int? codigoId, string operador, CancellationToken ct = default)
 Task<TransacaoTiss>  EnfileirarCancelamentoGuiaAsync(string convenioCodigo, int codigoId, string numeroGuiaPrestador, string? protocolo, string operador, CancellationToken ct = default)
 Task<bool>           CancelarAsync(int id, string operador, CancellationToken ct = default)          // só enquanto Pendente
-Task<TransacaoTiss?> ObterAsync(int id, CancellationToken ct = default)                              // sem os XML
+Task<TransacaoTiss?> ObterAsync(int id, CancellationToken ct = default)                              // sem os XML, COM as guias do lote (.Guias)
 Task<IReadOnlyList<TransacaoTiss>> DaGuiaAsync(int codigoId, CancellationToken ct = default)
 Task<IReadOnlyList<TransacaoTiss>> RecentesAsync(string? convenioCodigo = null, int limite = 50, CancellationToken ct = default)
 
 // FilaTissService — o conector executa
 Task<TransacaoTiss?> ReservarProximaAsync(string consumidor, CancellationToken ct = default)
 Task                 MarcarEnvioIniciadoAsync(int id, string? xmlEnviado, CancellationToken ct = default)
-Task                 ConcluirAsync(int id, ConclusaoTransacaoTiss conclusao, CancellationToken ct = default)
+Task                 ConcluirAsync(int id, ConclusaoTransacaoTiss conclusao, CancellationToken ct = default)   // conclusao.Guias = um ResultadoDaGuiaTiss por guia
 Task<EstadoTransacaoTiss> FalharAsync(int id, string erro, bool podeTentarDeNovo, string? xmlRecebido = null, CancellationToken ct = default)
 Task                 RecusarAsync(int id, string motivo, CancellationToken ct = default)
 
@@ -156,6 +220,9 @@ Task<IReadOnlyList<TransacaoTiss>> TransacoesTissReservaveisAsync(DateTime agora
 Task<bool> ReservarTransacaoTissAsync(int id, int versaoVista, string consumidor, DateTime agora, CancellationToken ct = default)
 Task RecarregarTransacaoTissAsync(TransacaoTiss transacao, CancellationToken ct = default)
 Task<IReadOnlyList<TransacaoTiss>> TransacoesTissDaGuiaAsync(int codigoId, CancellationToken ct = default)
+Task<IReadOnlyList<CodigoFaturamento>> CodigosParaEnvioTissAsync(IReadOnlyCollection<int> codigoIds, CancellationToken ct = default)
+Task<IReadOnlyList<TransacaoTissGuia>> ItensDeEnvioTissDasGuiasAsync(IReadOnlyCollection<int> codigoIds, CancellationToken ct = default)
+Task<IReadOnlyList<GuiaTissRecebidaSemBaixa>> GuiasTissRecebidasSemBaixaAsync(int transacaoId, CancellationToken ct = default)
 Task<IReadOnlyList<TransacaoTiss>> TransacoesTissRecentesAsync(string? convenioCodigo, int limite, CancellationToken ct = default)
 ```
 
@@ -163,25 +230,27 @@ Pendências de quem integra:
 
 1. **A migration.** Esta branch não tem migration, de propósito (uma só, na integração). Enquanto
    ela não existir, `MontagemDoSistemaTests` reprova por "modelo com mudança pendente": é esperado.
-   A tabela é `TransacoesTiss`; o mapeamento está em `ClinicaDbContext`.
+   As tabelas são `TransacoesTiss` e `TransacoesTissGuias`; o mapeamento está em `ClinicaDbContext`.
 2. **Os três processadores.** `ProcessadoresAindaNaoLigados.cs` tem o `TODO(tiss-b-mensagens)` com
-   o que trocar. Cada um vira: credencial + `DadosDoConvenio.LerAsync(…)` + `MontarEnvelope` no
+   o que trocar. O número de cada guia no lote é `transacao.Guias[i].NumeroGuiaPrestador`
+   (`FilaTissService.NumeroDoPrestador`, a mesma convenção de `NumeroGuiaPrestadorTiss.Gerar` da
+   outra frente: na integração, uma chama a outra). Cada um vira: credencial + `DadosDoConvenio.LerAsync(…)` + `MontarEnvelope` no
    preparo, e `LerResposta` na leitura. O executor já faz o resto.
 3. **O papel de banco** (`papel-tiss-conector.sql`) tem, no fim, as linhas comentadas de leitura
    da guia. O envio de guia precisa delas; concedê-las é decisão.
 4. **Permissão de tela.** `FilaTissService` exige o operador, mas não confere permissão: quem
    decide quem pode pedir envio é a tela (as duas barreiras), como nas outras.
 
-### Como eu ligaria a transação à baixa (não está feito aqui)
+### Como eu ligaria a transação à baixa de UMA guia (não está feito aqui; o lote está em "Envio em lote e baixa em lote")
 
 O conector **não** chama `DarBaixaAsync`: baixa é ato de quem está logado, e o conector não tem
 sessão. O caminho que proponho:
 
 1. no formulário de baixa da guia Petrobras, o botão "Enviar à operadora" chama
-   `EnfileirarEnvioGuiaAsync` (é o ato que autoriza aquela guia) e a tela passa a acompanhar a
+   `EnfileirarEnvioGuiaAsync` (é o ato que autoriza aquela guia; a guia ANS precisa estar conferida) e a tela passa a acompanhar a
    transação com `ObterAsync`;
-2. quando ela chega a `Concluida` com `Protocolo`, o formulário **preenche** o campo "Número da
-   guia" com `NumeroGuiaOperadora` (quando a operadora o devolve) e mostra o protocolo; a pessoa
+2. quando ela chega a `Concluida` e o item da guia está `Recebida`, o formulário **preenche** o campo
+   "Número da guia" com o `NumeroGuiaOperadora` do item (quando a operadora o devolve) e mostra o protocolo; a pessoa
    confere e clica em "Confirmar baixa" — a mesma `DarBaixaAsync` de sempre, com o operador dela;
 3. se a pessoa fechou o formulário antes, a guia continua pendente e o painel mostra "enviada,
    protocolo X: falta dar baixa" (`DaGuiaAsync` responde isso). É o aviso que pede ação;
