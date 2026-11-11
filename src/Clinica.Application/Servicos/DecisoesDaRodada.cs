@@ -21,6 +21,18 @@ public sealed class LinhaDaRodada
 
     public bool SemDecisao => string.IsNullOrWhiteSpace(NumeroGuia) && string.IsNullOrWhiteSpace(Justificativa);
 
+    /// <summary>
+    /// A baixa desta guia pede a conferência da guia ANS (consulta da Saúde Petrobras, nov/2026),
+    /// e isso só existe no formulário de baixa — uma guia por vez. Aqui (lote e rodada) ela pode
+    /// ser justificada como não conformidade, mas NÃO baixada: o número digitado é recusado antes
+    /// de gravar, e a rodada bloqueante não a cobra, para não trancar o app por uma guia que só
+    /// se resolve noutra tela.
+    /// </summary>
+    public bool PedeGuiaAns { get; init; }
+
+    /// <summary>Há número digitado numa linha que só pode ser baixada pelo formulário de baixa.</summary>
+    public bool BaixaForaDoFormulario => PedeGuiaAns && !string.IsNullOrWhiteSpace(NumeroGuia);
+
     /// <summary>A crítica do número contra o formato DESTE convênio (nula = serve).</summary>
     public string? CriticaDoNumero => RegraNumeroGuia.Criticar(NumeroGuia, Formato);
 }
@@ -44,11 +56,30 @@ public static class DecisoesDaRodada
             // Rótulo central, nunca o enum cru (parcela 41).
             Descricao = $"{i.PacienteNome} — {RotulosEnum.De(i.Tipo)} ({RotulosEnum.De(i.Ordem)})",
             Formato = CatalogoConvenios.FormatoDoNumeroDaGuia(i.ConvenioCodigo ?? i.Convenio.ToString()),
+            PedeGuiaAns = GuiaAnsNaBaixa.Exige(i.Tipo, i.ConvenioCodigo, i.Convenio),
             // Nome do CATÁLOGO, nunca o enum (parcela 50).
-            Situacao = i.DiasEmAtraso > 0
+            Situacao = (i.DiasEmAtraso > 0
                 ? $"{CatalogoConvenios.Nome(i.ConvenioCodigo, i.Convenio)} · atrasada há {i.DiasEmAtraso} dia(s)"
-                : $"{CatalogoConvenios.Nome(i.ConvenioCodigo, i.Convenio)} · vence hoje"
+                : $"{CatalogoConvenios.Nome(i.ConvenioCodigo, i.Convenio)} · vence hoje")
+                // A linha diz ONDE resolver: o campo do número daqui não serve para ela.
+                + (GuiaAnsNaBaixa.Exige(i.Tipo, i.ConvenioCodigo, i.Convenio) ? " · baixa só pelo \"Dar baixa\" do painel (guia ANS)" : string.Empty)
         }).ToList();
+
+    /// <summary>
+    /// A recusa das linhas com número digitado que só podem ser baixadas pelo formulário de baixa
+    /// (nula = nenhuma). Dita ANTES de processar, pelo mesmo motivo da crítica do formato: no meio
+    /// da rodada ela deixaria parte decidida.
+    /// </summary>
+    public static string? ImpedimentoDaGuiaAns(IReadOnlyList<LinhaDaRodada> linhas, string verbo)
+    {
+        var fora = linhas.Where(l => l.BaixaForaDoFormulario).ToList();
+        return fora.Count == 0
+            ? null
+            : $"{fora.Count} guia(s) de consulta da Saúde Petrobras pedem a conferência da guia ANS e não podem ser "
+              + "baixadas por aqui. Apague o número dessas linhas e dê baixa em cada uma pelo botão \"Dar baixa\" do "
+              + $"painel de pendências — {verbo}.\n\n"
+              + string.Join("\n", fora.Select(l => $"• {l.Descricao}"));
+    }
 
     public static string Resumo(int quantidade, RodadaPendenciasStatus status, bool bloqueante)
     {
@@ -73,9 +104,14 @@ public static class DecisoesDaRodada
     /// </summary>
     public static string? ImpedimentoParaConcluir(IReadOnlyList<LinhaDaRodada> linhas, bool bloqueante)
     {
-        if (bloqueante && linhas.Any(l => l.SemDecisao))
+        // A guia que pede a guia ANS não entra na cobrança: aqui ela só poderia ser justificada, e
+        // obrigar a justificar o que se resolve com uma baixa noutra tela fabricaria não conformidade.
+        if (bloqueante && linhas.Any(l => l.SemDecisao && !l.PedeGuiaAns))
             return "Enquanto a rodada estiver vencida, decida todas as guias: informe o número da guia " +
                    "(baixa) ou uma justificativa (não conformidade).";
+
+        if (ImpedimentoDaGuiaAns(linhas, "nada foi gravado") is { } guiaAns)
+            return guiaAns;
 
         var recusadas = linhas.Where(l => l.CriticaDoNumero is not null).ToList();
         if (recusadas.Count > 0)

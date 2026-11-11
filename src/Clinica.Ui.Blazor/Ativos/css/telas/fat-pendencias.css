@@ -64,6 +64,16 @@
 .fat-baixa-guia .guia-resumo .principal{color:var(--info-texto)}
 .fat-baixa-guia .aviso{margin-bottom:var(--space-3)}
 .numero-guia{font-variant-numeric:tabular-nums;letter-spacing:.02em}
+/* A guia ANS dentro da baixa (consulta da Saúde Petrobras): quatro blocos, como no portal da
+   operadora. Espaço só de token, na grade de 8: 24 entre blocos, 16 entre campos (o da .campos). */
+.fat-guia-ans{display:flex;flex-direction:column;gap:var(--space-6);margin-bottom:var(--space-4)}
+.fat-guia-ans .aviso{margin-bottom:0}
+.fat-guia-ans .aviso span{white-space:pre-line}
+.fat-guia-ans .campos.tres .dois{grid-column:span 2}
+.fat-guia-ans .campo-bloco .marcar{min-height:var(--space-8)}
+.fat-guia-ans-baixa{margin:0;padding-top:var(--space-4);border-top:1px solid var(--borda);font-size:var(--text-small-size);
+  font-weight:700;text-transform:uppercase;letter-spacing:var(--text-secao-tracking);color:var(--texto-secundario)}
+@media (max-width:640px){.fat-guia-ans .campos.tres .dois{grid-column:auto}}
 .campo.invalido{border-color:var(--erro)}
 .fat-lote,.fat-rodada{max-height:420px;overflow:auto;margin-top:var(--space-3);border:1px solid var(--borda);border-radius:var(--radius-control)}
 .fat-lote table.lista td,.fat-rodada table.lista td{vertical-align:top}

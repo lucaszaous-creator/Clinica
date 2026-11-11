@@ -252,6 +252,10 @@ public static class PainelPendenciasFaturamento
     /// </summary>
     public static string? ImpedimentoDoLote(IReadOnlyList<LinhaDaRodada> linhas)
     {
+        // Consulta da Saúde Petrobras não se baixa em lote: pede a guia ANS, uma por vez (nov/2026).
+        if (DecisoesDaRodada.ImpedimentoDaGuiaAns(linhas, "nenhuma baixa foi feita") is { } guiaAns)
+            return guiaAns;
+
         var recusadas = linhas.Where(l => l.CriticaDoNumero is not null).ToList();
         return recusadas.Count == 0
             ? null

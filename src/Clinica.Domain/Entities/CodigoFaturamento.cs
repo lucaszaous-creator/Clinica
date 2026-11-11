@@ -44,6 +44,12 @@ public class CodigoFaturamento
     /// <summary>Número/código real da guia gerada no sistema do convênio.</summary>
     public string? NumeroGuiaReal { get; set; }
 
+    /// <summary>
+    /// A guia de consulta no padrão ANS conferida na baixa (nov/2026) — só existe nas guias cujo
+    /// convênio pede a conferência (hoje, as consultas da Saúde Petrobras). Nula nas demais.
+    /// </summary>
+    public GuiaTissConsulta? GuiaAns { get; set; }
+
     public string? UsuarioBaixa { get; set; }
     public string? ObservacaoBaixa { get; set; }
 

@@ -377,12 +377,15 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task<IReadOnlyList<LoteTiss>> LotesTissAsync(CancellationToken ct = default)
         => await _db.LotesTiss
             .Include(l => l.Codigos).ThenInclude(c => c.Atendimento!).ThenInclude(a => a.Paciente!)
+            // O XML do lote usa a guia ANS conferida na baixa, quando ela existe.
+            .Include(l => l.Codigos).ThenInclude(c => c.GuiaAns)
             .OrderByDescending(l => l.Numero)
             .ToListAsync(ct);
 
     public Task<LoteTiss?> ObterLoteTissAsync(int loteId, CancellationToken ct = default)
         => _db.LotesTiss
             .Include(l => l.Codigos).ThenInclude(c => c.Atendimento!).ThenInclude(a => a.Paciente!)
+            .Include(l => l.Codigos).ThenInclude(c => c.GuiaAns)
             .FirstOrDefaultAsync(l => l.Id == loteId, ct);
 
     public async Task<IReadOnlyList<CodigoFaturamento>> CodigosBaixadosSemLoteAsync(DateOnly inicio, DateOnly fim, CancellationToken ct = default)
@@ -421,7 +424,16 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public Task<CodigoFaturamento?> ObterCodigoAsync(int codigoId, CancellationToken ct = default)
         => _db.Codigos
             .Include(c => c.Atendimento!).ThenInclude(a => a.Paciente!)
+            // A guia ANS conferida na baixa (1:1): quem dá baixa de novo depois de um estorno
+            // precisa SUBSTITUIR a que existe, e só substitui o que foi carregado.
+            .Include(c => c.GuiaAns)
             .FirstOrDefaultAsync(c => c.Id == codigoId, ct);
+
+    public Task<GuiaTissConsulta?> UltimaGuiaAnsDoProfissionalAsync(string nomeProfissional, CancellationToken ct = default)
+        => _db.GuiasTissConsulta.AsNoTracking()
+            .Where(g => g.NomeProfissional == nomeProfissional)
+            .OrderByDescending(g => g.ConferidaEm)
+            .FirstOrDefaultAsync(ct);
 
     public async Task AdicionarAtendimentoAsync(Atendimento atendimento, CancellationToken ct = default)
         => await _db.Atendimentos.AddAsync(atendimento, ct);

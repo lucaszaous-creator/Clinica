@@ -12,9 +12,15 @@ public sealed class FaturamentoService
 
     public FaturamentoService(IClinicaRepositorio repo) => _repo = repo;
 
+    /// <param name="guiaAns">
+    /// A guia de consulta no padrão ANS conferida no formulário de baixa. OBRIGATÓRIA quando a
+    /// guia a exige (<see cref="GuiaAnsNaBaixa.Exige(CodigoFaturamento)"/>: consulta da Saúde
+    /// Petrobras) e ignorada nas demais. Fica por último, depois do <paramref name="ct"/>, para
+    /// não mudar a chamada de nenhuma porta que já existia.
+    /// </param>
     public async Task DarBaixaAsync(
         int codigoId, DateOnly dataBaixa, string? numeroGuia, string? usuario, string? observacao,
-        CancellationToken ct = default)
+        CancellationToken ct = default, DadosGuiaConsultaAns? guiaAns = null)
     {
         var codigo = await _repo.ObterCodigoAsync(codigoId, ct)
             ?? throw new InvalidOperationException($"Código {codigoId} não encontrado.");
@@ -25,13 +31,28 @@ public sealed class FaturamentoService
         if (RegraNumeroGuia.Criticar(numeroGuia, FormatoDaGuia(codigo)) is { } critica)
             throw new InvalidOperationException(critica);
 
+        // A guia ANS (nov/2026) segue a mesma lógica: a exigência mora no caminho ÚNICO. A tela de
+        // baixa traz a guia conferida; o lote e a rodada não têm formulário por guia, e a recusa
+        // daqui é a rede para o que escapar das conferências deles (que avisam ANTES de gravar).
+        var exigeGuiaAns = GuiaAnsNaBaixa.Exige(codigo);
+        if (exigeGuiaAns)
+        {
+            if (guiaAns is null)
+                throw new InvalidOperationException(GuiaAnsNaBaixa.RecusaSemGuia);
+            var erros = GuiaAnsNaBaixa.Validar(guiaAns);
+            if (erros.Count > 0)
+                throw new InvalidOperationException("A guia ANS não pode ser gravada: " + string.Join(" ", erros.Values));
+            GuiaAnsNaBaixa.Aplicar(codigo, guiaAns, usuario, DateTime.Now);
+        }
+
         codigo.DarBaixa(dataBaixa, numeroGuia, usuario, observacao);
         await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
         {
             Operador = string.IsNullOrWhiteSpace(usuario) ? "?" : usuario,
             Acao = "BaixaGuia",
             Detalhe = $"Baixa em {dataBaixa:dd/MM/yyyy}" +
-                      (string.IsNullOrWhiteSpace(numeroGuia) ? "" : $", guia {numeroGuia}"),
+                      (string.IsNullOrWhiteSpace(numeroGuia) ? "" : $", guia {numeroGuia}") +
+                      (exigeGuiaAns ? ", guia ANS de consulta conferida" : ""),
             CodigoId = codigo.Id,
             PacienteId = codigo.Atendimento?.PacienteId
         }, ct);

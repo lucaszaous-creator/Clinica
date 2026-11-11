@@ -1,6 +1,7 @@
 using AngleSharp.Dom;
 using Bunit;
 using Clinica.Application;
+using Clinica.Application.Servicos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Clinica.Infrastructure;
@@ -104,6 +105,108 @@ public sealed class FaturamentoBlazorParidadeTests : IClassFixture<BancoDasTelas
 
         Assert.Equal(1, Contar(c => c.NumeroGuiaReal == "7654321" && c.Status == StatusCodigo.Baixado));
         Assert.Equal(abertasAntes - 1, Contar(c => c.Status == StatusCodigo.Aberto));
+    }
+
+    /// <summary>
+    /// A baixa de CONSULTA da Saúde Petrobras (nov/2026): o formulário abre com a guia ANS — os
+    /// campos da "Guia de Consulta" do portal —, já com o que o sistema sabe; incompleta, não
+    /// grava nada e diz por quê; completa, grava a baixa E a guia conferida.
+    /// </summary>
+    [Fact]
+    public void Baixa_de_consulta_Petrobras_abre_a_guia_ANS_e_so_grava_com_ela_completa()
+    {
+        var marca = $"Petro{Guid.NewGuid():N}"[..12];
+        int codigoId;
+        using (var db = Db())
+        {
+            var repo = new ClinicaRepositorio(db);
+            var paciente = new Paciente
+            {
+                Nome = $"Zenaide Guiateste {marca}", Convenio = Convenio.Petrobras, ConvenioCodigo = "Petrobras",
+                Carteirinha = "010203040506", Sexo = Sexo.Feminino
+            };
+            var medica = new Profissional { Nome = $"Dra. Guia {marca}", RegistroConselho = "CRM-RJ 654321" };
+            db.AddRange(paciente, medica);
+            db.SaveChanges();
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+            var lancado = new AtendimentoService(repo).LancarAsync(paciente.Id, hoje, ModalidadeAtendimento.Consulta).GetAwaiter().GetResult();
+            codigoId = lancado.Atendimento.Codigos.OrderBy(c => c.Ordem).First().Id;
+            db.Add(new Agendamento
+            {
+                PacienteId = paciente.Id, DataHora = DateTime.Today.AddHours(8), ModalidadePrevista = ModalidadeAtendimento.Consulta,
+                ProfissionalId = medica.Id, AtendimentoId = lancado.Atendimento.Id, Status = StatusAgendamento.Realizado
+            });
+            db.SaveChanges();
+        }
+
+        using var ctx = Contexto(new HostGravador());
+        var tela = Abrir(ctx, typeof(Clinica.Ui.Blazor.Telas.PendenciasFaturamento));
+        var linha = tela.FindAll("tr").First(tr => tr.TextContent.Contains(marca));
+        Clicar(tela, linha.QuerySelectorAll("button").First(b => b.TextContent.Trim() == "Dar baixa"));
+        Esperar(() => tela.FindAll("[data-guia-ans]").Count > 0);
+
+        // Abre com os blocos do portal e com o que o sistema sabe já preenchido.
+        Assert.Contains("Dados do profissional executante", tela.Markup);
+        Assert.Equal("010203040506", tela.Find("#ga-NumeroCarteira").GetAttribute("value"));
+        Assert.Equal($"Dra. Guia {marca}", tela.Find("#ga-NomeProfissional").GetAttribute("value"));
+        Assert.Equal("654321", tela.Find("#ga-NumeroConselho").GetAttribute("value"));
+        Assert.Equal("9", tela.Find("#ga-IndicacaoAcidente").GetAttribute("value"));
+        Assert.Equal("01", tela.Find("#ga-RegimeAtendimento").GetAttribute("value"));
+
+        // Sem CBO a guia está incompleta: o botão nasce apagado, e o clique (que o bUnit faz
+        // mesmo assim) recusa com a frase — nada é gravado, e nada estoura.
+        tela.Find("input.numero-guia[placeholder='Copie do portal da operadora']").Input("PB778899");
+        Assentar(tela);
+        var confirmar = tela.FindAll(".modal-rodape button.primario").Last();
+        Assert.True(confirmar.HasAttribute("disabled"));
+        Clicar(tela, confirmar);
+        Assert.Contains("Complete a guia ANS antes de dar baixa", tela.Markup);
+        Assert.Equal(0, Contar(c => c.Id == codigoId && c.Status == StatusCodigo.Baixado));
+
+        // Completa a guia (tudo explícito, para o teste não depender do que a semente cadastrou).
+        void Texto(string campo, string valor) { tela.Find($"#ga-{campo}").Input(valor); Assentar(tela); }
+        void Escolher(string campo, string valor) { tela.Find($"#ga-{campo}").Change(valor); Assentar(tela); }
+        Texto("RegistroAns", "422631");
+        Texto("CodigoPrestadorNaOperadora", "12345678000190");
+        Texto("Cnes", "9999999");
+        Escolher("ConselhoProfissional", "06");
+        Escolher("UfConselho", "33");
+        Escolher("Cbos", "225105");
+        Escolher("TipoConsulta", "1");
+        Escolher("CodigoTabela", "22");
+        Texto("CodigoProcedimento", "10101012");
+        Texto("ValorProcedimento", "139,00");
+        Assert.DoesNotContain("campo-erro", tela.Find("[data-guia-ans]").InnerHtml);
+
+        Clicar(tela, tela.FindAll(".modal-rodape button.primario").Last());
+        ConfirmarDialogos(tela);
+        Esperar(() => Contar(c => c.Id == codigoId && c.Status == StatusCodigo.Baixado) == 1);
+
+        using var conferir = Db();
+        var guia = conferir.GuiasTissConsulta.AsNoTracking().Single(g => g.CodigoId == codigoId);
+        Assert.Equal("225105", guia.Cbos);
+        Assert.Equal("33", guia.UfConselho);
+        Assert.Equal("06", guia.ConselhoProfissional);
+        Assert.Equal(139.00m, guia.ValorProcedimento);
+        Assert.Equal("010203040506", guia.NumeroCarteira);
+        Assert.Equal(_banco.Gerente.Login, guia.ConferidaPor);
+        Assert.Equal("PB778899", conferir.Codigos.AsNoTracking().Single(c => c.Id == codigoId).NumeroGuiaReal);
+    }
+
+    /// <summary>A baixa dos OUTROS convênios não ganhou campo nenhum: continua número, data e observação.</summary>
+    [Fact]
+    public void Baixa_dos_outros_convenios_nao_mostra_a_guia_ANS()
+    {
+        using var ctx = Contexto(new HostGravador());
+        var tela = Abrir(ctx, typeof(Clinica.Ui.Blazor.Telas.PendenciasFaturamento));
+        var linha = tela.FindAll("tr").First(tr => tr.TextContent.Contains("Adriana Lopes Machado")
+                                                   && tr.QuerySelectorAll("button").Any(b => b.TextContent.Trim() == "Dar baixa"));
+
+        Clicar(tela, linha.QuerySelectorAll("button").First(b => b.TextContent.Trim() == "Dar baixa"));
+        Esperar(() => tela.FindAll("input.numero-guia").Count > 0);
+
+        Assert.Empty(tela.FindAll("[data-guia-ans]"));
+        Assert.Single(tela.FindAll("input.numero-guia"));
     }
 
     [Fact]

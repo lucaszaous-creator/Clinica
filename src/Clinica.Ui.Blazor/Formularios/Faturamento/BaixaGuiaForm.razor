@@ -15,6 +15,14 @@
   - a observação da pendência ("por que estava pendente") aparece antes da baixa;
   - se esta baixa concluiu a fatura, oferece a capa de conclusão em PDF — e a capa NUNCA
     impede a baixa: ela já foi gravada.
+
+  A GUIA ANS (nov/2026, pedido da direção): toda baixa de CONSULTA da Saúde Petrobras abre com
+  os campos da "Guia de Consulta" do portal da operadora, na mesma ordem e com a mesma numeração,
+  já preenchidos com o que o sistema sabe. A pessoa confere contra o portal e só digita a exceção.
+  - quem decide se a guia pede isso, o que vem preenchido e o que é válido é a Application
+    (GuiaAnsNaBaixaService / GuiaAnsNaBaixa / GuiaAnsEmEdicao); aqui só se desenha;
+  - nada aqui ENVIA a guia à operadora: a baixa continua sendo o registro do número que o portal
+    gerou. O texto da tela não promete envio.
 *@
 @inject IServiceScopeFactory Escopos
 @inject Dialogos Dialogos
@@ -22,7 +30,8 @@
 @inject Notificacoes Notificacoes
 
 <Modal Titulo="@(_paciente is null ? "Dar baixa" : $"Dar baixa — {_paciente}")"
-       Subtitulo="Confirme a guia no sistema do convênio antes de dar baixa." Largura="grande" AoFechar="AoFechar">
+       Subtitulo="@(_guia is null ? "Confirme a guia no sistema do convênio antes de dar baixa." : "Confira a guia de consulta com a do portal da operadora e informe o número que ele gerou.")"
+       Largura="@(_guia is null ? "grande" : "largo")" AoFechar="AoFechar">
     <ChildContent>
         @if (_falhou)
         {
@@ -43,6 +52,151 @@
                 @if (_observacaoPendencia is not null)
                 {
                     <Aviso Tom="atencao" Texto="@($"Por que estava pendente: {_observacaoPendencia}")" />
+                }
+                @if (_guia is not null)
+                {
+                    <div class="fat-guia-ans" data-guia-ans>
+                        @* Um aviso só, com uma linha por ponto: três caixas empilhadas empurravam a guia
+                           para fora da primeira dobra em 1366×768. *@
+                        <Aviso Tom="info" Texto="@AvisoDaGuia" />
+
+                        <section class="secao-form" aria-label="Dados do beneficiário">
+                            <h3>Dados do beneficiário</h3>
+                            <div class="campos tres">
+                                <Campo Rotulo="1 - Registro ANS" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.RegistroAns))">
+                                    <input id="ga-RegistroAns" class="campo numero-guia" maxlength="6" inputmode="numeric" autocomplete="off"
+                                           value="@_guia.RegistroAns" @oninput="e => _guia.RegistroAns = Texto(e)" />
+                                </Campo>
+                                <Campo Rotulo="4 - Número da carteira" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.NumeroCarteira))">
+                                    <input id="ga-NumeroCarteira" class="campo numero-guia" maxlength="20" autocomplete="off"
+                                           value="@_guia.NumeroCarteira" @oninput="e => _guia.NumeroCarteira = Texto(e)" />
+                                </Campo>
+                                <Campo Rotulo="5 - Validade da carteira" Dica="Da ficha do paciente.">
+                                    <input class="campo" disabled value="@(_guia.ValidadeCarteira is { } v ? Formato.Data(v) : "Sem validade na ficha")" />
+                                </Campo>
+                                <Campo Rotulo="7 - Nome" Classe="dois" Dica="Da ficha do paciente.">
+                                    <input class="campo" disabled value="@_guia.NomeBeneficiario" />
+                                </Campo>
+                                <Campo Rotulo="6 - Atendimento a RN">
+                                    <label class="marcar"><input type="checkbox" checked="@_guia.AtendimentoRn"
+                                           @onchange="e => _guia.AtendimentoRn = e.Value is true" /> Recém-nascido atendido na carteira do responsável</label>
+                                </Campo>
+                                <Campo Rotulo="26 - Nome social" Classe="largo" Erro="@Erro(nameof(DadosGuiaConsultaAns.NomeSocial))">
+                                    <input id="ga-NomeSocial" class="campo" maxlength="70" autocomplete="off"
+                                           value="@_guia.NomeSocial" @oninput="e => _guia.NomeSocial = Texto(e)" />
+                                </Campo>
+                            </div>
+                        </section>
+
+                        <section class="secao-form" aria-label="Dados do contratado">
+                            <h3>Dados do contratado</h3>
+                            <div class="campos tres">
+                                <Campo Rotulo="9 - Código na operadora (CNPJ)" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.CodigoPrestadorNaOperadora))">
+                                    <input id="ga-CodigoPrestadorNaOperadora" class="campo numero-guia" maxlength="14" autocomplete="off"
+                                           value="@_guia.CodigoPrestadorNaOperadora" @oninput="e => _guia.CodigoPrestadorNaOperadora = Texto(e)" />
+                                </Campo>
+                                <Campo Rotulo="10 - Nome do contratado" Dica="De Configurações do faturamento.">
+                                    <input class="campo" disabled value="@_guia.NomeContratado" />
+                                </Campo>
+                                <Campo Rotulo="11 - Código CNES" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.Cnes))">
+                                    <input id="ga-Cnes" class="campo numero-guia" maxlength="7" inputmode="numeric" autocomplete="off"
+                                           value="@_guia.Cnes" @oninput="e => _guia.Cnes = Texto(e)" />
+                                </Campo>
+                            </div>
+                        </section>
+
+                        <section class="secao-form" aria-label="Dados do profissional executante">
+                            <h3>Dados do profissional executante</h3>
+                            <div class="campos tres">
+                                <Campo Rotulo="12 - Nome do profissional executante" Obrigatorio="true" Classe="largo" Erro="@Erro(nameof(DadosGuiaConsultaAns.NomeProfissional))">
+                                    <input id="ga-NomeProfissional" class="campo" maxlength="70" autocomplete="off"
+                                           value="@_guia.NomeProfissional" @oninput="e => _guia.NomeProfissional = Texto(e)" />
+                                </Campo>
+                                <Campo Rotulo="13 - Conselho profissional" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.ConselhoProfissional))">
+                                    <select id="ga-ConselhoProfissional" class="campo" value="@_guia.ConselhoProfissional" @onchange="e => _guia.ConselhoProfissional = Texto(e)">
+                                        <option value="">Selecione</option>
+                                        @foreach (var v in DominiosTiss.ConselhoProfissional) { <option value="@v.Codigo">@v.Rotulo</option> }
+                                    </select>
+                                </Campo>
+                                <Campo Rotulo="14 - Número no conselho" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.NumeroConselho))">
+                                    <input id="ga-NumeroConselho" class="campo numero-guia" maxlength="15" autocomplete="off"
+                                           value="@_guia.NumeroConselho" @oninput="e => _guia.NumeroConselho = Texto(e)" />
+                                </Campo>
+                                <Campo Rotulo="15 - UF" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.UfConselho))">
+                                    <select id="ga-UfConselho" class="campo" value="@_guia.UfConselho" @onchange="e => _guia.UfConselho = Texto(e)">
+                                        <option value="">Selecione</option>
+                                        @foreach (var v in DominiosTiss.Uf) { <option value="@v.Codigo">@v.Termo</option> }
+                                    </select>
+                                </Campo>
+                                <Campo Rotulo="16 - Código CBO" Obrigatorio="true" Classe="largo" Erro="@Erro(nameof(DadosGuiaConsultaAns.Cbos))">
+                                    <select id="ga-Cbos" class="campo" value="@_guia.Cbos" @onchange="e => _guia.Cbos = Texto(e)">
+                                        <option value="">Selecione</option>
+                                        @foreach (var v in DominiosTiss.Cbos) { <option value="@v.Codigo">@v.Rotulo</option> }
+                                    </select>
+                                </Campo>
+                            </div>
+                        </section>
+
+                        <section class="secao-form" aria-label="Dados do atendimento e do procedimento realizado">
+                            <h3>Dados do atendimento / procedimento realizado</h3>
+                            <div class="campos tres">
+                                <Campo Rotulo="17 - Indicação de acidente" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.IndicacaoAcidente))">
+                                    <select id="ga-IndicacaoAcidente" class="campo" value="@_guia.IndicacaoAcidente" @onchange="e => _guia.IndicacaoAcidente = Texto(e)">
+                                        <option value="">Selecione</option>
+                                        @foreach (var v in DominiosTiss.IndicacaoAcidente) { <option value="@v.Codigo">@v.Rotulo</option> }
+                                    </select>
+                                </Campo>
+                                <Campo Rotulo="27 - Indicador de cobertura especial" Erro="@Erro(nameof(DadosGuiaConsultaAns.CoberturaEspecial))">
+                                    <select id="ga-CoberturaEspecial" class="campo" value="@(_guia.CoberturaEspecial ?? string.Empty)" @onchange="e => _guia.CoberturaEspecial = TextoOuNulo(e)">
+                                        <option value="">Não se aplica</option>
+                                        @foreach (var v in DominiosTiss.CoberturaEspecial) { <option value="@v.Codigo">@v.Rotulo</option> }
+                                    </select>
+                                </Campo>
+                                <Campo Rotulo="28 - Regime de atendimento" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.RegimeAtendimento))">
+                                    <select id="ga-RegimeAtendimento" class="campo" value="@_guia.RegimeAtendimento" @onchange="e => _guia.RegimeAtendimento = Texto(e)">
+                                        <option value="">Selecione</option>
+                                        @foreach (var v in DominiosTiss.RegimeAtendimento) { <option value="@v.Codigo">@v.Rotulo</option> }
+                                    </select>
+                                </Campo>
+                                <Campo Rotulo="29 - Saúde ocupacional" Erro="@Erro(nameof(DadosGuiaConsultaAns.SaudeOcupacional))">
+                                    <select id="ga-SaudeOcupacional" class="campo" value="@(_guia.SaudeOcupacional ?? string.Empty)" @onchange="e => _guia.SaudeOcupacional = TextoOuNulo(e)">
+                                        <option value="">Não se aplica</option>
+                                        @foreach (var v in DominiosTiss.SaudeOcupacional) { <option value="@v.Codigo">@v.Rotulo</option> }
+                                    </select>
+                                </Campo>
+                                <Campo Rotulo="18 - Data do atendimento" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.DataAtendimento))">
+                                    <input type="date" id="ga-DataAtendimento" class="campo" value="@_guia.DataAtendimento.ToString("yyyy-MM-dd")"
+                                           @onchange="e => _guia.DataAtendimento = DateOnly.TryParse(e.Value?.ToString(), out var d) ? d : _guia.DataAtendimento" />
+                                </Campo>
+                                <Campo Rotulo="20 - Tipo de consulta" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.TipoConsulta))">
+                                    <select id="ga-TipoConsulta" class="campo" value="@_guia.TipoConsulta" @onchange="e => _guia.TipoConsulta = Texto(e)">
+                                        <option value="">Selecione</option>
+                                        @foreach (var v in DominiosTiss.TipoConsulta) { <option value="@v.Codigo">@v.Rotulo</option> }
+                                    </select>
+                                </Campo>
+                                <Campo Rotulo="19 - Tabela" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.CodigoTabela))">
+                                    <select id="ga-CodigoTabela" class="campo" value="@_guia.CodigoTabela" @onchange="e => _guia.CodigoTabela = Texto(e)">
+                                        <option value="">Selecione</option>
+                                        @foreach (var v in DominiosTiss.Tabela) { <option value="@v.Codigo">@v.Rotulo</option> }
+                                    </select>
+                                </Campo>
+                                <Campo Rotulo="21 - Código do procedimento" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.CodigoProcedimento))">
+                                    <input id="ga-CodigoProcedimento" class="campo numero-guia" maxlength="10" inputmode="numeric" autocomplete="off"
+                                           value="@_guia.CodigoProcedimento" @oninput="e => _guia.CodigoProcedimento = Texto(e)" />
+                                </Campo>
+                                <Campo Rotulo="22 - Valor do procedimento (R$)" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.ValorProcedimento))">
+                                    <input id="ga-ValorProcedimento" class="campo numero-guia" maxlength="12" inputmode="decimal" autocomplete="off" placeholder="0,00"
+                                           value="@_guia.ValorTexto" @oninput="e => _guia.ValorTexto = Texto(e)" />
+                                </Campo>
+                                <Campo Rotulo="23 - Observação / justificativa" Classe="largo" Erro="@Erro(nameof(DadosGuiaConsultaAns.Observacao))">
+                                    <textarea id="ga-Observacao" class="campo fat-texto" rows="2" maxlength="500"
+                                              value="@_guia.Observacao" @oninput="e => _guia.Observacao = Texto(e)"></textarea>
+                                </Campo>
+                            </div>
+                        </section>
+
+                        <h3 class="fat-guia-ans-baixa">Baixa no sistema</h3>
+                    </div>
                 }
                 <div class="campos">
                     <Campo Rotulo="Número da guia gerada (sistema do convênio)" Obrigatorio="true" Classe="largo"
@@ -65,7 +219,7 @@
     <Rodape>
         <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
         <button type="button" class="botao primario" @onclick="ConfirmarAsync" disabled="@(!PodeConfirmar)"
-                title="@(!PodeBaixar ? "Seu acesso não permite dar baixa na guia." : !NumeroServe ? "Informe um número de guia no formato deste convênio." : "Confirmar a baixa (Ctrl+S)")">
+                title="@(!PodeBaixar ? "Seu acesso não permite dar baixa na guia." : !GuiaServe ? "Complete os campos da guia ANS marcados em vermelho." : !NumeroServe ? "Informe um número de guia no formato deste convênio." : "Confirmar a baixa (Ctrl+S)")">
             <Icone Nome="check" />@(_ocupado ? "Gravando…" : "Confirmar baixa")
         </button>
     </Rodape>
@@ -90,6 +244,18 @@
     private bool _falhou;
     private string? _erroLeitura;
 
+    /// <summary>A guia ANS em conferência — nula quando esta guia não a pede (baixa comum).</summary>
+    private GuiaAnsEmEdicao? _guia;
+    private IReadOnlyList<string> _avisosDaGuia = [];
+
+    /// <summary>O que merece conferência nesta guia, numa caixa só (nulo = nada a dizer, e a caixa não aparece).</summary>
+    private string? AvisoDaGuia => _avisosDaGuia.Count switch
+    {
+        0 => null,
+        1 => _avisosDaGuia[0],
+        _ => "Confira antes de confirmar:\n" + string.Join("\n", _avisosDaGuia.Select(a => "• " + a))
+    };
+
     private static bool PodeBaixar => SessaoUsuario.Atual.Pode(Permissao.BaixarGuia);
 
     /// <summary>A crítica do que está DIGITADO AGORA — nula enquanto o número serve. A MESMA regra do domínio.</summary>
@@ -98,7 +264,18 @@
     /// <summary>Falso também com o campo VAZIO: a forma aceita o branco, a baixa não.</summary>
     private bool NumeroServe => !string.IsNullOrWhiteSpace(_numero) && Critica is null;
 
-    private bool PodeConfirmar => _codigo is not null && PodeBaixar && NumeroServe && !_ocupado;
+    /// <summary>O que falta na guia ANS agora (vazio quando não há guia ANS ou ela está completa).</summary>
+    private IReadOnlyDictionary<string, string> ErrosDaGuia => _guia?.Erros() ?? SemErros;
+    private static readonly IReadOnlyDictionary<string, string> SemErros = new Dictionary<string, string>();
+
+    private bool GuiaServe => ErrosDaGuia.Count == 0;
+
+    private string? Erro(string campo) => ErrosDaGuia.TryGetValue(campo, out var frase) ? frase : null;
+
+    private static string Texto(ChangeEventArgs e) => e.Value?.ToString() ?? string.Empty;
+    private static string? TextoOuNulo(ChangeEventArgs e) => string.IsNullOrWhiteSpace(e.Value?.ToString()) ? null : e.Value!.ToString();
+
+    private bool PodeConfirmar => _codigo is not null && PodeBaixar && GuiaServe && NumeroServe && !_ocupado;
 
     protected override Task OnInitializedAsync() => CarregarAsync();
 
@@ -127,6 +304,11 @@
             _observacaoPendencia = codigo.ObservacaoPendencia is { } obs && codigo.ObservacaoPendenciaEm is { } quando
                 ? $"{obs} (anotado em {Formato.DataHora(quando)})"
                 : codigo.ObservacaoPendencia;
+            // A guia ANS: a Application diz se esta guia a pede e já a traz preenchida. Lida ANTES de
+            // publicar o código, para o formulário não piscar da baixa comum para a baixa com guia.
+            var proposta = await escopo.ServiceProvider.GetRequiredService<GuiaAnsNaBaixaService>().PrepararAsync(CodigoId);
+            _guia = proposta.Exige && proposta.Dados is not null ? GuiaAnsEmEdicao.De(proposta.Dados) : null;
+            _avisosDaGuia = proposta.Avisos;
             _codigo = codigo;
         }
         catch (Exception ex)
@@ -144,6 +326,7 @@
         if (_ocupado || _codigo is null) return;
         _mensagem = null;
         if (!PodeBaixar) { _mensagem = "Seu acesso não permite dar baixa na guia. Fale com a direção da clínica."; return; }
+        if (!GuiaServe) { _mensagem = $"Complete a guia ANS antes de dar baixa: faltam {ErrosDaGuia.Count} campo(s), marcados em vermelho."; return; }
         if (string.IsNullOrWhiteSpace(_numero)) { _mensagem = "Informe o número da guia gerada no sistema do convênio."; return; }
         if (Critica is { } critica) { _mensagem = critica; return; }
 
@@ -159,7 +342,8 @@
             using var escopo = Escopos.CreateScope();
             await escopo.ServiceProvider.GetRequiredService<FaturamentoService>().DarBaixaAsync(
                 CodigoId, _data, numero, SessaoUsuario.Atual.Operador,
-                string.IsNullOrWhiteSpace(_observacao) ? null : _observacao.Trim());
+                string.IsNullOrWhiteSpace(_observacao) ? null : _observacao.Trim(),
+                guiaAns: _guia?.ParaDados());
         }
         catch (Exception ex)
         {

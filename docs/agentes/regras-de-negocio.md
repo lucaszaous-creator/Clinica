@@ -2213,6 +2213,18 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   elegível e **não avaliado** (login, hash, schema, rede); falha nunca vira "não elegível". O hash
   do web service é em ISO-8859-1; o do lote (`TissExportService`) segue em UTF-8 e não foi mexido.
   Não há homologação no manual da operadora: toda chamada é produção. `docs/tiss-webservice-petrobras.md`.
+- **Baixa de CONSULTA da Saúde Petrobras pede a guia ANS (nov/2026, pedido da direção)**: o formulário de
+  baixa abre com os campos da "Guia de Consulta" do portal da operadora, na mesma ordem e numeração, já
+  preenchidos; a guia conferida é gravada em `GuiasTissConsulta` (1:1 com a guia) no mesmo `SaveChanges`
+  da baixa. Quem decide é `GuiaAnsNaBaixa.Exige` — consulta (comum ou de especialidade) da família
+  Petrobras, nunca particular, nunca BSV (que é SP/SADT). A recusa mora em `FaturamentoService.DarBaixaAsync`,
+  o caminho único. ⚠️ **Recusa nova no serviço chega às portas em massa**: o lote e a rodada não têm
+  formulário por guia, então conferem ANTES de gravar (`DecisoesDaRodada.ImpedimentoDaGuiaAns`) e a rodada
+  BLOQUEANTE não cobra decisão dessa linha — cobrar o que só se resolve noutra tela trancaria o app. As
+  sementes da prévia que dão baixa em consulta Petrobras passam a guia (`GuiaAnsDaPrevia`); sem isso a
+  suíte de telas inteira reprova na montagem do banco. Domínios do padrão em `DominiosTiss`, conferidos
+  contra o XSD por teste: UF é código IBGE ("33"), conselho tem zero ("06"), valor tem ponto ("139.00").
+  A baixa NÃO envia nada à operadora e nenhum texto diz que envia. `docs/baixa-petrobras-guia-ans.md`.
 - `PrevencaoGlosaService` (radar de glosas) roda na exportação do lote: carteirinha vencida,
   duplicidade e taxa histórica por padrão (convênio+tipo). `TissRetornoImport.Ler` importa o
   demonstrativo XML da operadora e pré-preenche as decisões do retorno (casadas pelo nº real

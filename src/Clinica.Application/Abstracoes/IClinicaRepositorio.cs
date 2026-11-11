@@ -58,6 +58,13 @@ public interface IClinicaRepositorio
 
     Task<CodigoFaturamento?> ObterCodigoAsync(int codigoId, CancellationToken ct = default);
 
+    /// <summary>
+    /// A guia de consulta ANS mais recente conferida para este profissional executante (pelo nome
+    /// gravado na guia) — de onde a baixa seguinte propõe conselho, número, UF e CBO, enquanto o
+    /// cadastro da equipe não tem esses campos separados. Sem rastreio: é só leitura.
+    /// </summary>
+    Task<GuiaTissConsulta?> UltimaGuiaAnsDoProfissionalAsync(string nomeProfissional, CancellationToken ct = default);
+
     Task AdicionarAtendimentoAsync(Atendimento atendimento, CancellationToken ct = default);
 
     /// <summary>Atendimento com paciente e códigos carregados (para gerar a capa de faturamento).</summary>

@@ -46,6 +46,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<AutorizacaoSessoes> Autorizacoes => Set<AutorizacaoSessoes>();
     public DbSet<Atendimento> Atendimentos => Set<Atendimento>();
     public DbSet<CodigoFaturamento> Codigos => Set<CodigoFaturamento>();
+    public DbSet<GuiaTissConsulta> GuiasTissConsulta => Set<GuiaTissConsulta>();
     public DbSet<Agendamento> Agendamentos => Set<Agendamento>();
     public DbSet<ParametroConvenio> Parametros => Set<ParametroConvenio>();
     public DbSet<ConfiguracaoGlobal> Configuracoes => Set<ConfiguracaoGlobal>();
@@ -364,6 +365,47 @@ public class ClinicaDbContext : DbContext
             e.HasOne(c => c.Lote).WithMany(l => l.Codigos).HasForeignKey(c => c.LoteTissId)
                 .OnDelete(DeleteBehavior.SetNull);
             e.HasIndex(c => c.LoteTissId);
+        });
+
+        // A guia de consulta no padrão ANS conferida na baixa (nov/2026): tabela própria, uma por
+        // guia, para que as ~20 colunas que só a Saúde Petrobras usa não entrem em toda leitura de
+        // pendências. Os domínios do TISS vão pelo CÓDIGO do padrão, com o teto do XSD.
+        b.Entity<GuiaTissConsulta>(e =>
+        {
+            e.ToTable("GuiasTissConsulta");
+            e.HasKey(g => g.CodigoId);
+            e.Property(g => g.CodigoId).ValueGeneratedNever();
+            e.Property(g => g.RegistroAns).HasMaxLength(6);
+            e.Property(g => g.NumeroCarteira).HasMaxLength(20);
+            e.Property(g => g.NomeSocial).HasMaxLength(70);
+            e.Property(g => g.NomeBeneficiario).HasMaxLength(200);
+            e.Property(g => g.CodigoPrestadorNaOperadora).HasMaxLength(14);
+            e.Property(g => g.NomeContratado).HasMaxLength(200);
+            e.Property(g => g.Cnes).HasMaxLength(7);
+            e.Property(g => g.NomeProfissional).HasMaxLength(70);
+            e.Property(g => g.ConselhoProfissional).HasMaxLength(2);
+            e.Property(g => g.NumeroConselho).HasMaxLength(15);
+            e.Property(g => g.UfConselho).HasMaxLength(2);
+            e.Property(g => g.Cbos).HasMaxLength(6);
+            e.Property(g => g.IndicacaoAcidente).HasMaxLength(1);
+            e.Property(g => g.CoberturaEspecial).HasMaxLength(2);
+            e.Property(g => g.RegimeAtendimento).HasMaxLength(2);
+            e.Property(g => g.SaudeOcupacional).HasMaxLength(2);
+            e.Property(g => g.CodigoTabela).HasMaxLength(2);
+            e.Property(g => g.TipoConsulta).HasMaxLength(1);
+            e.Property(g => g.CodigoProcedimento).HasMaxLength(10);
+            // st_decimal8-2 do padrão: 8 dígitos no total, 2 decimais.
+            e.Property(g => g.ValorProcedimento).HasPrecision(8, 2);
+            e.Property(g => g.Observacao).HasMaxLength(500);
+            e.Property(g => g.ConferidaPor).HasMaxLength(80);
+            e.Property(g => g.ConferidaEm).HasColumnType("timestamp without time zone");
+            // A guia do sistema não se apaga (só é estornada); a cascata existe para a exclusão de
+            // atendimento lançado por engano, que já leva as guias dele.
+            e.HasOne(g => g.Codigo).WithOne(c => c.GuiaAns)
+                .HasForeignKey<GuiaTissConsulta>(g => g.CodigoId)
+                .OnDelete(DeleteBehavior.Cascade);
+            // "A última guia deste profissional" pré-preenche conselho, UF e CBO da próxima.
+            e.HasIndex(g => new { g.NomeProfissional, g.ConferidaEm });
         });
 
         b.Entity<LoteTiss>(e =>
