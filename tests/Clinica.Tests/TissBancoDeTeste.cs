@@ -22,7 +22,8 @@ public sealed class TissBancoDeTeste : IDisposable
     private readonly SqliteConnection _conn = new("DataSource=:memory:");
     private readonly List<ClinicaDbContext> _contextos = [];
 
-    public DateTime Agora = new(2026, 11, 12, 9, 0, 0);
+    // Uma data já passada: a guia ANS recusa data de atendimento futura, e o relógio da regra é o de verdade.
+    public DateTime Agora = new(2026, 11, 10, 9, 0, 0);
     public ClinicaDbContext Db { get; }
     public ClinicaRepositorio Repo { get; }
     public ProtecaoSegredoGlobal Protecao { get; } = new(Convert.ToBase64String(Enumerable.Range(1, 32).Select(i => (byte)i).ToArray()));
@@ -79,6 +80,16 @@ public sealed class TissBancoDeTeste : IDisposable
         await Db.SaveChangesAsync();
         return (paciente, guia);
     }
+
+    /// <summary>Os campos de uma guia de consulta válida no padrão, como o formulário os conferiria (tudo fictício).</summary>
+    public DadosGuiaConsultaAns DadosDaGuia(string? cbos = "225133") => new()
+    {
+        RegistroAns = "422631", NumeroCarteira = CarteiraFicticia, NomeBeneficiario = "Paciente de Teste",
+        CodigoPrestadorNaOperadora = "00000000000191", Cnes = "9999999", NomeProfissional = "Profissional de Teste",
+        ConselhoProfissional = "06", NumeroConselho = "000000", UfConselho = "33", Cbos = cbos ?? string.Empty,
+        IndicacaoAcidente = "9", RegimeAtendimento = "01", DataAtendimento = DateOnly.FromDateTime(Agora),
+        CodigoTabela = "22", TipoConsulta = "1", CodigoProcedimento = "10101012", ValorProcedimento = 139m
+    };
 
     /// <summary>Várias guias conferidas da Petrobras, cada uma de um paciente fictício.</summary>
     public async Task<List<int>> GuiasAsync(int quantas)

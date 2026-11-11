@@ -15,13 +15,13 @@ autorizar aquela guia específica.**
 |---|---|
 | O que é? | `src/Clinica.Tiss.Conector`: um serviço Linux (systemd) na VPS 1, ao lado do banco. Não escuta em porta nenhuma; só faz conexões de saída (banco local e HTTPS da operadora). |
 | Como a tela fala com ele? | Pela tabela `TransacoesTiss`. A tela chama `FilaTissService` (grava o pedido); o conector reserva, processa e grava o desfecho; a tela relê. |
-| O que funciona hoje? | **Elegibilidade**, de ponta a ponta. |
-| O que ainda NÃO funciona? | Envio de guia, consulta de protocolo e cancelamento: a fila, as chaves e as regras estão prontas e testadas, mas os três processadores respondem "ainda não foi ligado" até as mensagens deles (outra frente) serem ligadas. **Nenhuma guia sai por este serviço hoje.** |
+| O que funciona hoje? | Com rede de mentira, de ponta a ponta: **elegibilidade, envio de lote, situação do protocolo e cancelamento**, mais a conferência da guia sem baixa e a baixa em lote das recebidas. Na operadora de verdade, **só a elegibilidade foi provada**. |
+| O que ainda NÃO está provado? | Que a operadora aceita o lote, devolve o protocolo na hora, devolve o número da guia dela e aceita cancelamento por este canal. Nada disso foi enviado a ela; ver "O que não foi verificado" e `docs/tiss-webservice-petrobras.md`. Faltam também as telas e a migration (integração). |
 | O que precisa estar ligado para uma guia sair? | **Duas chaves**, as duas desligadas por padrão: `TISS_ENVIO_HABILITADO=true` no servidor **e** o envio ligado para o convênio. |
 | O envio é de uma guia ou de várias? | De um **lote** de 1 a 100 guias (uma guia só é o lote com um item). A operadora responde **por guia**, e a baixa em lote só alcança o que ela recebeu. Ver "Envio em lote e baixa em lote". |
 | Uma guia pode ir duas vezes? | O sistema não reenvia sozinho, nunca — nem o lote, nem guia alguma dele. Ver "A regra que não se negocia". |
 | Onde fica a senha da operadora? | Só o MD5 dela, cifrado, na configuração do banco. A chave que abre fica numa variável de ambiente no servidor, fora do banco. Ninguém lê a senha de volta. |
-| Depende de quê para entrar em produção? | Da migration da tabela (gerada na integração), da instalação deste roteiro e da **decisão LGPD** (fim do documento). |
+| Depende de quê para entrar em produção? | Da migration das tabelas e das telas (integração), da instalação deste roteiro, da **decisão LGPD** (fim do documento) e de um primeiro envio de UMA guia acompanhado no portal. |
 
 ## UX · DX · CX
 
@@ -50,11 +50,92 @@ para diagnóstico: a ferramenta `tools/TissPetrobras`, que não grava nada.
   pasta `deploy/tiss-conector/`. A ordem que importa (reservar → conferir as chaves → preparar →
   **carimbar o envio** → rede → gravar) mora num lugar só, o `ExecutorDeTransacoesTiss`; um
   processador novo só monta a mensagem e lê a resposta. Mais de 100 testes na família, sem rede real.
-- 🤝 **CX** — Risco em produção hoje: baixo. O serviço não escuta em porta, o usuário dele no banco
-  lê quatro tabelas e grava em duas, e o envio de guias está atrás de duas chaves desligadas. O
+- 🤝 **CX** — Risco em produção hoje: baixo. O serviço não escuta em porta, o usuário dele no banco lê seis tabelas (sem a ficha do paciente) e grava em três, e o envio de guias está atrás de duas chaves desligadas. O
   que muda no dia de quem atende: nada, até uma tela usar a fila. O que a clínica passa a ter de
   cuidar: uma senha de operadora cadastrada no servidor (e trocada quando a do portal mudar) e a
   cópia da chave de cifra fora do servidor.
+
+## As três frentes ligadas (nov/2026): o que mudou
+
+A fila e o conector (este documento), as mensagens do padrão (`docs/tiss-webservice-petrobras.md`,
+"Lote, situação do protocolo e cancelamento") e a guia conferida na baixa foram ligadas. O que isso
+acrescentou:
+
+| O que | Onde | Em uma frase |
+|---|---|---|
+| Os três processadores falam com a operadora | `ProcessadoresDeGuia.cs` | Envio de lote, situação do protocolo e cancelamento montam a mensagem do padrão e leem a resposta. |
+| Um número de guia só | `FilaTissService.NumeroDoPrestador` → `NumeroGuiaPrestadorTiss.Gerar` | "C12", depois "C12R2": a fila reserva o número que a mensagem sabe ler de volta. |
+| Um transporte só | `TissWebserviceCliente.EnviarAsync` | O conector usa o mesmo da ferramenta de diagnóstico; o `TransporteTissHttp` saiu. |
+| Endereços da Saúde Petrobras | `CredenciaisTissService.EnderecoAsync` / `EnderecoPadrao` | Os quatro endereços do manual são o padrão do convênio: ligar o envio não exige digitar URL. Continua podendo ser trocado. |
+| Conferir sem baixar | `FaturamentoService.ConferirGuiaAnsAsync` | Grava a guia ANS conferida para ela poder ser ENVIADA antes da baixa. `DarBaixaAsync` não mudou. |
+| Baixa das recebidas | `BaixaDasGuiasEnviadasService.BaixarRecebidasAsync` | Dá baixa, com quem está logado, em cada guia que a operadora recebeu. |
+| Leituras para as telas | `FilaTissService.ProntasParaEnvioAsync`, `SelosDeEnvioAsync`, `EnviosRecentesAsync` | A lista de onde se monta o lote, o selo da linha e os envios com as guias. |
+
+### Como a resposta da operadora vira desfecho
+
+As decisões são as das mensagens; o conector só as aplica:
+
+| A operadora… | Envio de lote | Situação do protocolo | Cancelamento |
+|---|---|---|---|
+| fez o que se pediu | `Concluida`, protocolo + resultado por guia | `Concluida`; atualiza as guias do envio | `Concluida`; a guia sai da baixa e fica livre |
+| respondeu que NÃO (`mensagemErro`, "não cancelado") | `Falhou`; guias livres para um pedido novo | `Falhou` | `Falhou`; a guia continua recebida |
+| não deixou saber (falha de login/schema, erro SOAP, página de erro, "em processamento") | `Falhou` + "confira no portal"; **nunca** reenvio | `Falhou`, sem repetir | `Falhou` + "confira no portal"; **nunca** repetido |
+| não respondeu (rede) | `Falhou` + "confira no portal"; **nunca** reenvio | volta à fila (até 3 vezes) | `Falhou` + "confira no portal" |
+
+⚠️ O padrão **não traz situação por guia** na consulta de protocolo: cada guia volta com números,
+valores e glosas. Guia citada sem glosa conta como recebida; com glosa, glosada.
+
+### O caminho de uma guia, do balcão à baixa
+
+1. **Conferir** (`ConferirGuiaAnsAsync`): a guia ANS é gravada, sem baixa. Só guia que pede a
+   conferência (Saúde Petrobras) e que ainda não tem baixa. Reconferir substitui.
+2. **Montar o lote** (`ProntasParaEnvioAsync` → `EnfileirarEnvioAsync`): é o ato que autoriza
+   aquelas guias. A recusa vem por linha.
+3. **O conector envia.** Antes de qualquer coisa sair ele confere de novo se cada guia ainda
+   existe, ainda está sem baixa e ainda está conferida; uma guia fora recusa o lote inteiro.
+4. **A operadora responde por guia.** O selo de cada linha (`SelosDeEnvioAsync`) diz: na fila,
+   enviada, recebida, glosada (com o motivo), falhou (com o motivo) ou cancelada.
+5. **Dar baixa nas recebidas** (`BaixarRecebidasAsync`): quem clica é quem assina a baixa.
+6. **Consultar o protocolo** (`EnfileirarStatusDoEnvioAsync`) atualiza as mesmas guias; uma
+   glosada que a operadora acata passa a recebida e entra na próxima baixa.
+
+### A baixa das recebidas, com as regras que ela herda
+
+- O número da baixa é o que a operadora devolveu; se ela não devolve, o número que a clínica
+  mandou ("C12"), e a observação diz isso e o protocolo.
+- É a **mesma** `DarBaixaAsync`. Por isso a **regra do formato do número por convênio**
+  (`RegraNumeroGuia`) vale aqui: a Petrobras está cadastrada como "letras e números, sem
+  pontuação", e um número devolvido com hífen ou barra é **recusado naquela linha**, com a frase
+  da regra. A guia continua pendente e continua na lista; resolve-se dando baixa nela pela tela,
+  com o número conferido no portal — ou, se a operadora de fato numera com pontuação, ajustando o
+  formato do convênio em Configurações. **Não se sabe ainda que formato ela devolve.**
+- Falha numa guia não aborta as outras; a lista volta com a frase de cada uma.
+- Chamar duas vezes não baixa duas vezes: a leitura só traz o que ainda não tem baixa.
+- Guia baixada à mão no meio do caminho simplesmente não aparece mais.
+
+### UX · DX · CX desta ligação
+
+Opções para "quando a guia ANS é gravada", já que o envio precisa dela antes da baixa:
+
+| | 🧑‍💻 UX | 🛠️ DX | 🤝 CX |
+|---|---|---|---|
+| **(A) Conferir como ato próprio, sem baixa** ✅ | A pessoa confere a guia uma vez; o envio e a baixa a reaproveitam. A baixa manual continua igual. | Um método novo no caminho único da baixa, sem mudar `DarBaixaAsync`; a baixa das enviadas reapresenta a guia gravada. | O que vai à operadora foi conferido por alguém, com nome e hora na trilha. |
+| (B) Enviar o que o sistema montar sozinho, sem conferência | Nenhum passo a mais. | Menos código. | Contraria o pedido da direção (toda guia Petrobras passa pela conferência) e manda à operadora dado que ninguém viu. |
+| (C) Dar baixa primeiro e enviar depois | Fluxo de hoje, com um passo a mais no fim. | Nada novo na baixa. | A baixa afirmaria "efetivada no convênio" antes de a operadora ter recebido: garantia aparente. |
+
+- 🧑‍💻 **UX** — Nenhuma tela muda nesta entrega. O que as telas vão poder mostrar ficou pronto e com
+  a frase certa: a recusa por linha ao montar o lote, o selo por guia ("Recebida pela operadora,
+  protocolo 987654321", "Glosada: 1001 - …", "Falhou: …", "Não enviada: O envio … está
+  desligado"), e o resumo da baixa ("1 guia(s) baixada(s); 1 NÃO: [12] Este convênio usa letras
+  e números na guia, sem pontuação…").
+- 🛠️ **DX** — Saíram duas duplicatas (o transporte e a convenção do número). Um processador é
+  agora "abrir a credencial + montar o envelope + ler a resposta"; a ordem que protege contra
+  duplicidade continua num lugar só. Os testes de ponta a ponta usam respostas conferidas no XSD
+  oficial e conferem no mesmo XSD o XML que sai.
+- 🤝 **CX** — O conector passou a ler a guia e a conferência dela (carteira e nome do beneficiário
+  estão ali), e **não** a ficha do paciente nem o atendimento. O envio continua atrás das duas
+  chaves desligadas. O que a clínica ganha quando ligar: a guia digitada uma vez, o número e o
+  protocolo voltando sozinhos, e a glosa aparecendo na linha no mesmo dia.
 
 ## Como funciona
 
@@ -231,34 +312,63 @@ Pendências de quem integra:
 1. **A migration.** Esta branch não tem migration, de propósito (uma só, na integração). Enquanto
    ela não existir, `MontagemDoSistemaTests` reprova por "modelo com mudança pendente": é esperado.
    As tabelas são `TransacoesTiss` e `TransacoesTissGuias`; o mapeamento está em `ClinicaDbContext`.
-2. **Os três processadores.** `ProcessadoresAindaNaoLigados.cs` tem o `TODO(tiss-b-mensagens)` com
-   o que trocar. O número de cada guia no lote é `transacao.Guias[i].NumeroGuiaPrestador`
-   (`FilaTissService.NumeroDoPrestador`, a mesma convenção de `NumeroGuiaPrestadorTiss.Gerar` da
-   outra frente: na integração, uma chama a outra). Cada um vira: credencial + `DadosDoConvenio.LerAsync(…)` + `MontarEnvelope` no
-   preparo, e `LerResposta` na leitura. O executor já faz o resto.
-3. **O papel de banco** (`papel-tiss-conector.sql`) tem, no fim, as linhas comentadas de leitura
-   da guia. O envio de guia precisa delas; concedê-las é decisão.
+2. **As telas.** Nenhuma tela foi tocada; a tabela acima diz o que cada uma chama.
+3. **O papel de banco** (`papel-tiss-conector.sql`) agora dá leitura de `Codigos` e `GuiasTissConsulta`
+   (o lote precisa) e de `TransacoesTissGuias`; continua sem a ficha do paciente.
 4. **Permissão de tela.** `FilaTissService` exige o operador, mas não confere permissão: quem
    decide quem pode pedir envio é a tela (as duas barreiras), como nas outras.
 
-### Como eu ligaria a transação à baixa de UMA guia (não está feito aqui; o lote está em "Envio em lote e baixa em lote")
+### Como ligar as telas (o motor está pronto; as telas, não)
 
 O conector **não** chama `DarBaixaAsync`: baixa é ato de quem está logado, e o conector não tem
-sessão. O caminho que proponho:
+sessão. O que cada tela chama:
 
-1. no formulário de baixa da guia Petrobras, o botão "Enviar à operadora" chama
-   `EnfileirarEnvioGuiaAsync` (é o ato que autoriza aquela guia; a guia ANS precisa estar conferida) e a tela passa a acompanhar a
-   transação com `ObterAsync`;
-2. quando ela chega a `Concluida` e o item da guia está `Recebida`, o formulário **preenche** o campo
-   "Número da guia" com o `NumeroGuiaOperadora` do item (quando a operadora o devolve) e mostra o protocolo; a pessoa
-   confere e clica em "Confirmar baixa" — a mesma `DarBaixaAsync` de sempre, com o operador dela;
-3. se a pessoa fechou o formulário antes, a guia continua pendente e o painel mostra "enviada,
-   protocolo X: falta dar baixa" (`DaGuiaAsync` responde isso). É o aviso que pede ação;
-4. `Falhou` depois de a mensagem sair mostra a frase que manda conferir no portal, e a baixa
-   manual (número copiado do portal) continua funcionando como hoje.
+| Tela | Chamada | O que mostra |
+|---|---|---|
+| Formulário da guia ANS, botão "Conferir e guardar" | `FaturamentoService.ConferirGuiaAnsAsync(codigoId, dados, operador)` | A recusa de validação, campo a campo, como na baixa |
+| "Montar envio" | `FilaTissService.ProntasParaEnvioAsync(convenio)` e, a cada marcação, `ConferirEnvioAsync` | A lista e a frase de recusa na linha |
+| "Enviar à operadora" | `FilaTissService.EnfileirarEnvioAsync(convenio, ids, operador)` | `EnvioTissRecusadoException.Conferencia.PorGuia` se algo mudou |
+| Painel de pendências, selo da linha | `FilaTissService.SelosDeEnvioAsync(ids)` | `SeloDeEnvioTiss.Texto` (a frase já vem pronta) |
+| "Envios" | `FilaTissService.EnviosRecentesAsync(convenio)` / `ObterAsync(id)` | O lote e as guias, com situação e motivo |
+| "Dar baixa nas recebidas" | `BaixaDasGuiasEnviadasService.BaixarRecebidasAsync(transacaoId, data, operador)` | `BaixaDasGuiasEnviadas.Resumo` e as falhas por linha |
+| "Consultar protocolo" | `FilaTissService.EnfileirarStatusDoEnvioAsync(transacaoId, operador)` | O selo muda sozinho |
+| "Cancelar na operadora" | `FilaTissService.EnfileirarCancelamentoGuiaAsync(convenio, codigoId, numeroGuiaPrestador, protocolo, operador)` | Selo "Cancelada" quando o recibo confirmar |
 
-Baixa automática sem ninguém conferir fica para depois de a clínica ver o envio funcionar algumas
-semanas — e seria decisão da direção, com o operador de quem pediu o envio.
+Assinaturas novas desta ligação:
+
+```csharp
+// FaturamentoService
+Task ConferirGuiaAnsAsync(int codigoId, DadosGuiaConsultaAns guia, string? operador, CancellationToken ct = default)
+
+// GuiaAnsNaBaixa (era privado em GuiaAnsNaBaixaService)
+static DadosGuiaConsultaAns DaGuia(GuiaTissConsulta g)
+
+// BaixaDasGuiasEnviadasService(IClinicaRepositorio, FilaTissService, FaturamentoService)
+Task<BaixaDasGuiasEnviadas> BaixarRecebidasAsync(int transacaoId, DateOnly dataBaixa, string operador, CancellationToken ct = default)
+static string NumeroDaBaixa(GuiaTissRecebidaSemBaixa guia)   static string Observacao(GuiaTissRecebidaSemBaixa guia)
+// BaixaDasGuiasEnviadas { IReadOnlyList<BaixaDeGuiaEnviada> Guias; int Baixadas; Falhas; string Resumo }
+// BaixaDeGuiaEnviada(int CodigoId, string NumeroUsado, string? Falha) { bool Baixada }
+
+// FilaTissService — leituras para as telas
+Task<IReadOnlyList<GuiaProntaParaEnvioTiss>> ProntasParaEnvioAsync(string convenioCodigo, int limite = 200, CancellationToken ct = default)
+Task<IReadOnlyDictionary<int, SeloDeEnvioTiss>> SelosDeEnvioAsync(IReadOnlyCollection<int> codigoIds, CancellationToken ct = default)
+Task<IReadOnlyList<TransacaoTiss>> EnviosRecentesAsync(string? convenioCodigo = null, int limite = 30, CancellationToken ct = default)
+// GuiaProntaParaEnvioTiss(CodigoId, PacienteId, PacienteNome, DataAtendimento, Tipo, CodigoProcedimento, ValorProcedimento, ConferidaPor, ConferidaEm)
+// SeloDeEnvioTiss(EstadoDoEnvioDaGuia Estado, string Texto, string? Protocolo, int? TransacaoId) + static Do(TransacaoTissGuia?)
+// EstadoDoEnvioDaGuia { NaoEnviada, NaFila, Enviada, Recebida, Glosada, Falhou, Cancelada }
+
+// CredenciaisTissService
+static Uri? EnderecoPadrao(Convenio familia, TipoTransacaoTiss tipo)
+
+// IClinicaRepositorio (+4)
+void DescartarAlteracoesPendentes()
+Task<IReadOnlyList<CodigoFaturamento>> GuiasConferidasParaEnvioTissAsync(IReadOnlyCollection<int> codigoIds, CancellationToken ct = default)
+Task<IReadOnlyList<GuiaProntaParaEnvioTiss>> GuiasTissProntasParaEnvioAsync(string convenioCodigo, int limite, CancellationToken ct = default)
+Task<IReadOnlyList<TransacaoTiss>> EnviosTissRecentesComGuiasAsync(string? convenioCodigo, int limite, CancellationToken ct = default)
+```
+
+Baixa automática, sem ninguém clicar, fica para depois de a clínica ver o envio funcionar algumas
+semanas — e seria decisão da direção.
 
 ## Instalação na VPS (passo a passo, para quem opera)
 
@@ -357,16 +467,17 @@ São **duas chaves**, e uma guia só sai com as duas ligadas:
 | Do servidor | `/etc/clinica-tiss-conector/conector.env` | `TISS_ENVIO_HABILITADO=true` e `systemctl restart clinica-tiss-conector` |
 | Do convênio | configuração no banco | `comando.sh envio Petrobras ligar --operador 'Seu Nome'` (ou `desligar`); vale na próxima transação, sem reiniciar |
 
-Para o envio falar com a operadora também é preciso o endereço:
-`comando.sh endereco Petrobras envio https://… --operador 'Seu Nome'` (idem `status` e
-`cancelamento`; a elegibilidade da Saúde Petrobras já tem o endereço do manual dela).
+A Saúde Petrobras **não precisa de endereço cadastrado**: os quatro do manual dela já são o
+padrão. Para outra operadora, ou para trocar: `comando.sh endereco CONVENIO envio https://…
+--operador 'Seu Nome'` (idem `elegibilidade`, `status` e `cancelamento`).
 
 **Desligar na pressa:** `comando.sh envio Petrobras desligar --operador 'Seu Nome'`. Transação de
 envio que já estava na fila é recusada com a frase "O envio pelo web service está desligado para
 Petrobras. Nada foi enviado à operadora." A que já estava no meio da ida termina normalmente.
 
-⚠️ Hoje, mesmo com as duas chaves ligadas, o envio responde "ainda não foi ligado nesta versão do
-conector" — ver "O que ainda não funciona".
+⚠️ **Com as duas chaves ligadas, o lote SAI para a operadora, em produção** (o manual dela não tem
+homologação). Antes de ligar: a decisão LGPD registrada, e o primeiro envio com UMA guia, com
+alguém olhando o portal para conferir se ela chegou e com que número.
 
 ### O que olhar no log
 
@@ -434,9 +545,19 @@ Dito sem enfeite:
   operadora), e resposta a incidente específica para a credencial da operadora — se ela vazar, o
   passo é trocar a senha no portal e girar a credencial aqui.
 
-## O que ainda não funciona e o que não foi verificado
+## O que não foi verificado
 
-- **Envio de guia, status de protocolo e cancelamento** não falam com a operadora (ver acima).
+- **Envio de lote, situação do protocolo e cancelamento nunca foram enviados à operadora.** O que
+  está provado é que a mensagem é válida no XSD 4.01.00 e que as respostas previstas pelo XSD
+  são lidas certo. Se a Saúde Petrobras aceita o lote por este canal, se devolve o protocolo na
+  hora, se devolve o número da guia dela (e em que formato), se aceita número de guia com letra
+  ("C12") e número de lote escolhido pela clínica, e o que faz no cancelamento: **não se sabe**.
+  A lista completa está em `docs/tiss-webservice-petrobras.md`.
+- **A versão.** As mensagens são 4.01.00, a do manual do web service dela e a da elegibilidade
+  que funcionou. Há registro de que ela exige 4.03.00 no faturamento pelo portal; qual vale no
+  web service de lote só o primeiro envio dirá.
+- **O número do lote** ("9" + o número da transação, 12 dígitos) é escolha nossa para não colidir
+  com os lotes em arquivo; não foi conferido com a operadora.
 - **Nenhuma chamada real** foi feita por este código: todos os testes usam rede de mentira. A
   elegibilidade real foi provada pela ferramenta `tools/TissPetrobras`, que usa as mesmas mensagens,
   mas não este transporte.

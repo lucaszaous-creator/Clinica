@@ -957,4 +957,18 @@ public class TraducaoNoNpgsqlTests
         itens.Should().Contain("\"TransacoesTissGuias\"").And.Contain("JOIN").And.NotContain("XmlRecebido");
         aBaixar.Should().Contain("\"Codigos\"").And.Contain("\"DataBaixa\" IS NULL").And.Contain("\"Protocolo\"").And.Contain("ORDER BY");
     }
+
+    [Theory]
+    [InlineData("Petrobras")]            // embutido: casa também pela família, com o código nulo
+    [InlineData("OperadoraCadastrada")]  // cadastrado pela clínica: só pelo código
+    public void Guias_prontas_para_envio_TISS_traduzem_no_postgres(string convenio)
+    {
+        using var db = Postgres();
+
+        var sql = new ClinicaRepositorio(db).ConsultaGuiasTissProntasParaEnvio(convenio, 50).ToQueryString();
+
+        sql.Should().Contain("\"GuiasTissConsulta\"").And.Contain("\"Pacientes\"").And.Contain("NOT EXISTS")
+            .And.Contain("\"TransacoesTissGuias\"").And.Contain("\"DataBaixa\" IS NULL").And.Contain("LIMIT");
+        sql.Should().NotContain("FotoMiniatura");
+    }
 }

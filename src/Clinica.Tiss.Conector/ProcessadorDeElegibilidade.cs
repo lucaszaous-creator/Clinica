@@ -50,8 +50,9 @@ public sealed class ProcessadorDeElegibilidade(
         }
     }
 
-    public DesfechoTiss Ler(TransacaoTiss transacao, string xmlDaResposta)
+    public DesfechoTiss Ler(TransacaoTiss transacao, RespostaBrutaTissWs bruta)
     {
+        var xmlDaResposta = bruta.Corpo!;
         var resposta = TissElegibilidadeWs.LerResposta(xmlDaResposta);
         if (resposta.Elegivel is null)
             // Login recusado, hash, schema ou glosa da mensagem: a operadora não avaliou a carteira.
@@ -77,9 +78,6 @@ public sealed record DadosDoConvenio(string? RegistroAns, string? CodigoPrestado
         var prestador = await parametros.ObterPrestadorAsync(ct);
         var cadastro = (await repo.ConveniosAsync(ct))
             .FirstOrDefault(c => string.Equals(c.Codigo, convenioCodigo, StringComparison.OrdinalIgnoreCase));
-        var familia = cadastro?.Familia
-                      ?? (Enum.TryParse<Convenio>(convenioCodigo, ignoreCase: true, out var embutida) ? embutida : Convenio.Personalizado);
-
         // O registro ANS é o do convênio; em branco, o da clínica (a mesma ordem da guia na baixa).
         var registro = Limpo(cadastro?.RegistroAnsOperadora) ?? Limpo(prestador.RegistroAnsOperadora);
         if (registro is null || registro.Length != 6 || !registro.All(char.IsAsciiDigit))
@@ -90,10 +88,8 @@ public sealed record DadosDoConvenio(string? RegistroAns, string? CodigoPrestado
         if (cnpj.Length != 14)
             return new(null, null, null, "O CNPJ da clínica não está cadastrado (14 dígitos). Confira os dados do prestador.");
 
+        // O cadastrado ou, para a Saúde Petrobras, o do manual da operadora (CredenciaisTissService.EnderecoPadrao).
         var endereco = await credenciais.EnderecoAsync(convenioCodigo, tipo, ct);
-        // O único endereço que o código conhece sozinho: a elegibilidade da Saúde Petrobras, do manual dela.
-        if (endereco is null && tipo == TipoTransacaoTiss.Elegibilidade && familia == Convenio.Petrobras)
-            endereco = TissWebserviceCliente.ElegibilidadeSaudePetrobras;
         if (endereco is null)
             return new(null, null, null, $"O endereço do web service de {tipo} para {convenioCodigo} não está cadastrado.");
 
@@ -106,6 +102,40 @@ public sealed record DadosDoConvenio(string? RegistroAns, string? CodigoPrestado
     /// </summary>
     public static string Sequencial(TransacaoTiss transacao)
         => $"{transacao.Id % 1_000_000_000:D9}{transacao.Tentativas % 1000:D3}";
+
+    /// <summary>
+    /// O número do lote (até 12 caracteres, só dígitos): "9" + o número da transação em onze
+    /// posições. Cada transação de envio é UM lote e nunca é reenviada, então o número não se
+    /// repete; o "9" na frente o afasta dos números dos lotes gerados em arquivo (1, 2, 3…).
+    /// </summary>
+    public static string NumeroDoLote(TransacaoTiss transacao) => $"9{transacao.Id % 100_000_000_000L:D11}";
+
+    /// <summary>Quem assina a mensagem: a clínica na operadora, com o login do convênio.</summary>
+    public RemetenteTissWs Remetente(CredencialTiss credencial) => new()
+    {
+        RegistroAnsOperadora = RegistroAns!,
+        CodigoPrestadorNaOperadora = CodigoPrestador!,
+        Login = credencial.Login,
+        SenhaMd5 = credencial.SenhaMd5
+    };
+
+    /// <summary>
+    /// O que os processadores fazem igual antes de montar a mensagem: abrir a credencial e ler os
+    /// dados do convênio. Devolve a recusa pronta quando falta alguma coisa.
+    /// </summary>
+    public static async Task<(RemetenteTissWs? Remetente, Uri? Endereco, string? SenhaMd5, PreparoTiss? Recusa)> AbrirAsync(
+        IClinicaRepositorio repo, ParametrosService parametros, CredenciaisTissService credenciais,
+        TransacaoTiss transacao, CancellationToken ct)
+    {
+        var credencial = await credenciais.AbrirParaEnvioAsync(transacao.ConvenioCodigo, ct);
+        if (credencial is null)
+            return (null, null, null, PreparoTiss.Recusar(
+                $"Não há login do web service cadastrado para {transacao.ConvenioCodigo}. Cadastre a credencial no servidor do conector."));
+        var destino = await LerAsync(repo, parametros, credenciais, transacao.ConvenioCodigo, transacao.Tipo, ct);
+        return destino.Pendencia is { } pendencia
+            ? (null, null, null, PreparoTiss.Recusar(pendencia))
+            : (destino.Remetente(credencial), destino.Endereco, credencial.SenhaMd5, null);
+    }
 
     private static string? Limpo(string? texto) => string.IsNullOrWhiteSpace(texto) ? null : texto.Trim();
 }

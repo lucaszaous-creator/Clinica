@@ -175,7 +175,10 @@ public enum SituacaoGuiaTiss
     Glosada,
 
     /// <summary>O envio não se completou (ou a operadora recusou o lote): a guia não foi recebida, ou não se sabe.</summary>
-    Falhou
+    Falhou,
+
+    /// <summary>A guia foi recebida e depois CANCELADA na operadora, a pedido da clínica. Não é para dar baixa.</summary>
+    Cancelada
 }
 
 /// <summary>

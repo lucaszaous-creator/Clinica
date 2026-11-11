@@ -184,17 +184,48 @@ public sealed class CredenciaisTissServiceTests : IDisposable
     [Fact]
     public async Task O_endereco_do_web_service_so_aceita_https_e_e_por_tipo()
     {
+        const string amil = "Amil";
         var credenciais = _b.Credenciais();
-        (await credenciais.EnderecoAsync(TissBancoDeTeste.Petrobras, TipoTransacaoTiss.EnvioGuia)).Should().BeNull();
+        (await credenciais.EnderecoAsync(amil, TipoTransacaoTiss.EnvioGuia)).Should().BeNull("só a Saúde Petrobras tem endereço conhecido pelo sistema");
 
-        var semHttps = () => credenciais.DefinirEnderecoAsync(TissBancoDeTeste.Petrobras, TipoTransacaoTiss.EnvioGuia, "http://exemplo.invalid/tiss", TissBancoDeTeste.Operador);
-        var comSenha = () => credenciais.DefinirEnderecoAsync(TissBancoDeTeste.Petrobras, TipoTransacaoTiss.EnvioGuia, "https://usuario:senha@exemplo.invalid/tiss", TissBancoDeTeste.Operador);
+        var semHttps = () => credenciais.DefinirEnderecoAsync(amil, TipoTransacaoTiss.EnvioGuia, "http://exemplo.invalid/tiss", TissBancoDeTeste.Operador);
+        var comSenha = () => credenciais.DefinirEnderecoAsync(amil, TipoTransacaoTiss.EnvioGuia, "https://usuario:senha@exemplo.invalid/tiss", TissBancoDeTeste.Operador);
         await semHttps.Should().ThrowAsync<InvalidOperationException>();
         await comSenha.Should().ThrowAsync<InvalidOperationException>();
 
-        await credenciais.DefinirEnderecoAsync(TissBancoDeTeste.Petrobras, TipoTransacaoTiss.EnvioGuia, "https://exemplo.invalid/tiss/lote", TissBancoDeTeste.Operador);
-        (await credenciais.EnderecoAsync(TissBancoDeTeste.Petrobras, TipoTransacaoTiss.EnvioGuia)).Should().Be(new Uri("https://exemplo.invalid/tiss/lote"));
-        (await credenciais.EnderecoAsync(TissBancoDeTeste.Petrobras, TipoTransacaoTiss.StatusProtocolo)).Should().BeNull();
+        await credenciais.DefinirEnderecoAsync(amil, TipoTransacaoTiss.EnvioGuia, "https://exemplo.invalid/tiss/lote", TissBancoDeTeste.Operador);
+        (await credenciais.EnderecoAsync(amil, TipoTransacaoTiss.EnvioGuia)).Should().Be(new Uri("https://exemplo.invalid/tiss/lote"));
+        (await credenciais.EnderecoAsync(amil, TipoTransacaoTiss.StatusProtocolo)).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task A_Saude_Petrobras_ja_tem_os_quatro_enderecos_do_manual_e_o_cadastrado_vence_o_padrao()
+    {
+        var credenciais = _b.Credenciais();
+
+        // Ligar o envio não exige digitar URL.
+        (await credenciais.EnderecoAsync(TissBancoDeTeste.Petrobras, TipoTransacaoTiss.Elegibilidade)).Should().Be(TissWebserviceCliente.ElegibilidadeSaudePetrobras);
+        (await credenciais.EnderecoAsync(TissBancoDeTeste.Petrobras, TipoTransacaoTiss.EnvioGuia)).Should().Be(TissWebserviceCliente.LoteGuiasSaudePetrobras);
+        (await credenciais.EnderecoAsync(TissBancoDeTeste.Petrobras, TipoTransacaoTiss.StatusProtocolo)).Should().Be(TissWebserviceCliente.StatusProtocoloSaudePetrobras);
+        (await credenciais.EnderecoAsync(TissBancoDeTeste.Petrobras, TipoTransacaoTiss.CancelamentoGuia)).Should().Be(TissWebserviceCliente.CancelaGuiaSaudePetrobras);
+        foreach (var tipo in Enum.GetValues<TipoTransacaoTiss>())
+            CredenciaisTissService.EnderecoPadrao(Clinica.Domain.Convenio.Petrobras, tipo)!.Scheme.Should().Be(Uri.UriSchemeHttps);
+
+        // E continua podendo ser trocado.
+        await credenciais.DefinirEnderecoAsync(TissBancoDeTeste.Petrobras, TipoTransacaoTiss.EnvioGuia, "https://exemplo.invalid/outro", TissBancoDeTeste.Operador);
+        (await credenciais.EnderecoAsync(TissBancoDeTeste.Petrobras, TipoTransacaoTiss.EnvioGuia)).Should().Be(new Uri("https://exemplo.invalid/outro"));
+    }
+
+    [Fact]
+    public async Task Convenio_cadastrado_pela_clinica_na_familia_Petrobras_herda_os_enderecos_dela()
+    {
+        // A família vem do CADASTRO do convênio no banco, não do catálogo em memória (o conector é outro processo).
+        _b.Db.Convenios.Add(new ConvenioCadastro { Codigo = "PetrobrasAposentados", Nome = "Petrobras Aposentados", Familia = Clinica.Domain.Convenio.Petrobras });
+        _b.Db.Convenios.Add(new ConvenioCadastro { Codigo = "OutraOperadora", Nome = "Outra Operadora", Familia = Clinica.Domain.Convenio.Personalizado });
+        await _b.Db.SaveChangesAsync();
+
+        (await _b.Credenciais().EnderecoAsync("PetrobrasAposentados", TipoTransacaoTiss.EnvioGuia)).Should().Be(TissWebserviceCliente.LoteGuiasSaudePetrobras);
+        (await _b.Credenciais().EnderecoAsync("OutraOperadora", TipoTransacaoTiss.EnvioGuia)).Should().BeNull();
     }
 
     [Fact]

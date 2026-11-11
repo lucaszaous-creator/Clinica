@@ -23,7 +23,8 @@ if (string.IsNullOrWhiteSpace(conexao))
 
 builder.Services.AddClinica(conexao);
 builder.Services.AddConectorTiss(OpcoesDoConector.DoAmbiente(builder.Configuration));
-builder.Services.AddHttpClient<ITransporteTiss, TransporteTissHttp>(http => http.Timeout = TimeSpan.FromSeconds(60));
+// O transporte é um só no sistema: o mesmo TissWebserviceCliente da ferramenta de diagnóstico.
+builder.Services.AddHttpClient<TissWebserviceCliente>(http => http.Timeout = TimeSpan.FromSeconds(60));
 
 // O SQL do EF em nível de informação imprimiria parâmetros de consulta no journal.
 builder.Logging.AddFilter("Microsoft.EntityFrameworkCore", LogLevel.Critical);

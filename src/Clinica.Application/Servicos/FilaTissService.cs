@@ -88,8 +88,8 @@ public static class FilaTiss
 /// <list type="bullet">
 /// <item><b>Quem pede é quem fez login.</b> Todo pedido leva o operador e grava a trilha no
 /// mesmo salvamento.</item>
-/// <item><b>O envio é um LOTE</b> de 1 a 100 guias do mesmo convênio e do mesmo tipo, todas com a
-/// guia ANS conferida e sem baixa. O resultado da operadora volta POR GUIA.</item>
+/// <item><b>O envio é um LOTE</b> de 1 a 100 guias do mesmo convênio, todas com a guia ANS
+/// conferida (que sai sempre como guia de consulta) e sem baixa. O resultado da operadora volta POR GUIA.</item>
 /// <item><b>Uma guia não entra duas vezes.</b> Guia que está num envio na fila, em andamento ou
 /// já recebido pela operadora é recusada, com a frase na linha dela.</item>
 /// <item><b>Dois conectores não pegam a mesma linha.</b> A reserva é um UPDATE condicional
@@ -144,8 +144,7 @@ public sealed class FilaTissService
         => (await MontarLoteAsync(convenioCodigo, codigoIds, ct)).Conferencia;
 
     /// <summary>
-    /// Pede o envio de um LOTE de guias à operadora (de 1 a 100, do mesmo convênio e do mesmo
-    /// tipo). É este pedido, feito por quem está logado, que autoriza o envio DAQUELAS guias — o
+    /// Pede o envio de um LOTE de guias à operadora (de 1 a 100, do mesmo convênio). É este pedido, feito por quem está logado, que autoriza o envio DAQUELAS guias — o
     /// conector não envia nada que não tenha passado por aqui. Qualquer guia recusada recusa o
     /// pedido inteiro (<see cref="EnvioTissRecusadoException"/>, com a frase de cada linha): lote
     /// enviado pela metade sem a pessoa saber é pior que lote não enviado.
@@ -278,6 +277,31 @@ public sealed class FilaTissService
         => _repo.TransacoesTissRecentesAsync(string.IsNullOrWhiteSpace(convenioCodigo) ? null : convenioCodigo.Trim(),
             Math.Clamp(limite, 1, 200), ct);
 
+    /// <summary>
+    /// As guias de um convênio que já foram CONFERIDAS e ainda não têm baixa nem estão num envio
+    /// que as prenda: é a lista de onde a tela monta o lote.
+    /// </summary>
+    public Task<IReadOnlyList<GuiaProntaParaEnvioTiss>> ProntasParaEnvioAsync(string convenioCodigo, int limite = 200, CancellationToken ct = default)
+        => _repo.GuiasTissProntasParaEnvioAsync((convenioCodigo ?? string.Empty).Trim(), Math.Clamp(limite, 1, 500), ct);
+
+    /// <summary>
+    /// O selo de envio de cada guia pedida, para a linha do painel. Guia que nunca entrou num envio
+    /// também vem, como "não enviada": a tela não precisa distinguir "sem resposta" de "sem linha".
+    /// </summary>
+    public async Task<IReadOnlyDictionary<int, SeloDeEnvioTiss>> SelosDeEnvioAsync(IReadOnlyCollection<int> codigoIds, CancellationToken ct = default)
+    {
+        var ids = codigoIds.Distinct().ToList();
+        // Do mais novo para o mais velho: o primeiro item de cada guia é o do último envio.
+        var ultimo = (await _repo.ItensDeEnvioTissDasGuiasAsync(ids, ct))
+            .Where(i => i.CodigoId is not null).GroupBy(i => i.CodigoId!.Value).ToDictionary(g => g.Key, g => g.First());
+        return ids.ToDictionary(id => id, id => SeloDeEnvioTiss.Do(ultimo.GetValueOrDefault(id)));
+    }
+
+    /// <summary>Os últimos ENVIOS (de um convênio, ou de todos), cada um com as guias do lote, sem os XML.</summary>
+    public Task<IReadOnlyList<TransacaoTiss>> EnviosRecentesAsync(string? convenioCodigo = null, int limite = 30, CancellationToken ct = default)
+        => _repo.EnviosTissRecentesComGuiasAsync(string.IsNullOrWhiteSpace(convenioCodigo) ? null : convenioCodigo.Trim(),
+            Math.Clamp(limite, 1, 100), ct);
+
     // ==================== O conector executa ====================
 
     /// <summary>
@@ -372,6 +396,9 @@ public sealed class FilaTissService
             AplicarPorGuia(envio, conclusao.Guias, agora, semDetalheContaComoRecebida: false);
             envio.Versao++;
         }
+
+        else if (t.Tipo == TipoTransacaoTiss.CancelamentoGuia && t.CodigoId is { } guiaCancelada)
+            await MarcarCanceladaNoEnvioAsync(guiaCancelada, t.NumeroGuiaPrestador, agora, ct);
 
         if (t.EscreveNaOperadora)
             // O que mudou algo na operadora deixa rastro próprio, no mesmo salvamento.
@@ -474,9 +501,9 @@ public sealed class FilaTissService
         var anteriores = (await _repo.ItensDeEnvioTissDasGuiasAsync(distintas, ct))
             .Where(i => i.CodigoId is not null).ToLookup(i => i.CodigoId!.Value);
 
-        // O lote leva UM tipo de guia (consulta OU procedimento): vale o da primeira guia que existe.
-        var primeira = distintas.Select(id => codigos.GetValueOrDefault(id)).FirstOrDefault(c => c is not null);
-        var loteDeConsulta = primeira is not null && TissExportService.EhConsulta(primeira.Tipo);
+        // "Um só tipo de guia por lote" (regra do padrão) está garantido pela conferência: toda guia
+        // conferida sai como GUIA DE CONSULTA (TissExportService.GuiaConsultaConferida), seja qual
+        // for o tipo no sistema — inclusive o BSV da Petrobras, que a clínica lança nessa tela.
 
         var guias = new List<GuiaDoLote>();
         foreach (var id in distintas)
@@ -496,8 +523,6 @@ public sealed class FilaTissService
                 : !string.Equals(convenioDaGuia, convenio, StringComparison.OrdinalIgnoreCase)
                     ? $"Esta guia é de outro convênio ({convenioDaGuia ?? "não identificado"}): um envio leva guias de um convênio só."
                 : codigo.GuiaAns is null ? "Confira a guia no padrão ANS antes de enviar: esta ainda não foi conferida."
-                : TissExportService.EhConsulta(codigo.Tipo) != loteDeConsulta
-                    ? "Um envio leva um só tipo de guia: separe as guias de consulta das de procedimento (SP/SADT)."
                 : emOutroEnvio is not null ? FraseDeOutroEnvio(emOutroEnvio)
                 : null;
             if (recusa is not null)
@@ -535,12 +560,10 @@ public sealed class FilaTissService
     };
 
     /// <summary>
-    /// O número da guia no prestador: "C" + o número da guia no sistema e, do segundo envio em
-    /// diante, "R" + a vez. É a MESMA convenção de <c>NumeroGuiaPrestadorTiss.Gerar</c> (frente das
-    /// mensagens): na integração, esta linha passa a chamar aquela classe.
+    /// O número da guia no prestador para o envio número <paramref name="vez"/> desta guia. Uma
+    /// convenção só no sistema: é <see cref="NumeroGuiaPrestadorTiss.Gerar"/> ("C12", depois "C12R2").
     /// </summary>
-    public static string NumeroDoPrestador(int codigoId, int vez)
-        => vez <= 1 ? $"C{codigoId}" : $"C{codigoId}R{vez}";
+    public static string NumeroDoPrestador(int codigoId, int vez) => NumeroGuiaPrestadorTiss.Gerar(codigoId, Math.Max(1, vez));
 
     /// <summary>
     /// Grava o que a operadora disse de cada guia. A guia é achada pelo número que a clínica mandou.
@@ -578,6 +601,23 @@ public sealed class FilaTissService
                 item.NumeroGuiaOperadora = Cortar(resultado.NumeroGuiaOperadora.Trim(), 20);
             item.AtualizadaEm = agora;
         }
+    }
+
+    /// <summary>
+    /// A operadora cancelou a guia: o item dela no envio deixa de ser "recebida" — sai da lista da
+    /// baixa e fica livre para um envio novo, pedido por gente.
+    /// </summary>
+    private async Task MarcarCanceladaNoEnvioAsync(int codigoId, string? numeroGuiaPrestador, DateTime agora, CancellationToken ct)
+    {
+        var item = (await _repo.ItensDeEnvioTissDasGuiasAsync([codigoId], ct))
+            .FirstOrDefault(i => string.Equals(i.NumeroGuiaPrestador, numeroGuiaPrestador?.Trim(), StringComparison.OrdinalIgnoreCase));
+        if (item is null || await _repo.ObterTransacaoTissAsync(item.TransacaoId, ct) is not { } envio) return;
+        var rastreado = envio.Guias.FirstOrDefault(g => g.Id == item.Id);
+        if (rastreado is null) return;
+        rastreado.Situacao = SituacaoGuiaTiss.Cancelada;
+        rastreado.Motivo = $"Cancelada na operadora em {agora:dd/MM/yyyy}.";
+        rastreado.AtualizadaEm = agora;
+        envio.Versao++;
     }
 
     /// <summary>O lote não foi (ou não se sabe se foi): cada guia ainda sem resposta fica marcada como falha, com o motivo.</summary>

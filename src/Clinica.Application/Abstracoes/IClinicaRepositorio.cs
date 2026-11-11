@@ -1906,6 +1906,13 @@ public interface IClinicaRepositorio
 
     // ---- Fila do web service TISS (nov/2026 — quem executa é o conector no servidor) ----
 
+    /// <summary>
+    /// Esquece o que este escopo tem rastreado e ainda não gravou. Para quem processa VÁRIOS itens
+    /// no mesmo escopo e não pode deixar a tentativa que falhou num item ir junto na gravação do
+    /// seguinte (a baixa das guias enviadas). Não desfaz nada que já foi salvo.
+    /// </summary>
+    void DescartarAlteracoesPendentes();
+
     /// <summary>Acrescenta a transação (grava no próximo <see cref="SalvarAsync"/>, junto da trilha).</summary>
     Task AdicionarTransacaoTissAsync(TransacaoTiss transacao, CancellationToken ct = default);
 
@@ -1943,6 +1950,13 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<CodigoFaturamento>> CodigosParaEnvioTissAsync(IReadOnlyCollection<int> codigoIds, CancellationToken ct = default);
 
     /// <summary>
+    /// As mesmas guias, só com a guia ANS conferida — SEM o atendimento e SEM o paciente. É o que o
+    /// conector lê para montar o lote: tudo o que vai à operadora já está na guia conferida, e o
+    /// serviço do servidor não precisa (nem tem permissão para) ler a ficha de ninguém.
+    /// </summary>
+    Task<IReadOnlyList<CodigoFaturamento>> GuiasConferidasParaEnvioTissAsync(IReadOnlyCollection<int> codigoIds, CancellationToken ct = default);
+
+    /// <summary>
     /// Os itens de envio destas guias, com a transação de cada um (sem os XML), do mais novo para o
     /// mais velho. É a trava contra duplicidade (uma guia num envio que não falhou não entra em
     /// outro) e a conta de quantas vezes cada guia já foi enviada.
@@ -1954,6 +1968,16 @@ public interface IClinicaRepositorio
     /// a baixa em lote tem a fazer depois de um envio.
     /// </summary>
     Task<IReadOnlyList<GuiaTissRecebidaSemBaixa>> GuiasTissRecebidasSemBaixaAsync(int transacaoId, CancellationToken ct = default);
+
+    /// <summary>
+    /// As guias de um convênio com a guia ANS conferida, sem baixa e fora de qualquer envio que as
+    /// prenda (na fila, em andamento, ou concluído com a guia recebida ou ainda sem resposta).
+    /// Da mais antiga para a mais nova, até <paramref name="limite"/>.
+    /// </summary>
+    Task<IReadOnlyList<GuiaProntaParaEnvioTiss>> GuiasTissProntasParaEnvioAsync(string convenioCodigo, int limite, CancellationToken ct = default);
+
+    /// <summary>Os últimos ENVIOS (de um convênio, ou de todos), cada um com as guias do lote, sem os XML.</summary>
+    Task<IReadOnlyList<TransacaoTiss>> EnviosTissRecentesComGuiasAsync(string? convenioCodigo, int limite, CancellationToken ct = default);
 
     /// <summary>As transações de uma guia — as dela e os lotes em que ela entrou —, da mais nova para a mais velha, sem os XML.</summary>
     Task<IReadOnlyList<TransacaoTiss>> TransacoesTissDaGuiaAsync(int codigoId, CancellationToken ct = default);

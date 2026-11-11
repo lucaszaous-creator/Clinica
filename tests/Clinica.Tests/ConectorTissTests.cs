@@ -36,14 +36,17 @@ public sealed class ConectorTissTests : IDisposable
     {
         var repo = new ClinicaRepositorio(_b.NovoContexto());
         var credenciais = _b.Credenciais(repo);
+        var parametros = new ParametrosService(repo, _b.Protecao);
         var processadores = new List<IProcessadorTransacaoTiss>
         {
-            new ProcessadorDeElegibilidade(repo, new ParametrosService(repo, _b.Protecao), credenciais, () => _b.Agora),
-            new ProcessadorDeEnvioDeGuia(), new ProcessadorDeStatusDeProtocolo(), new ProcessadorDeCancelamentoDeGuia()
+            new ProcessadorDeElegibilidade(repo, parametros, credenciais, () => _b.Agora),
+            new ProcessadorDeEnvioDeGuia(repo, parametros, credenciais, () => _b.Agora),
+            new ProcessadorDeStatusDeProtocolo(repo, parametros, credenciais, () => _b.Agora),
+            new ProcessadorDeCancelamentoDeGuia(repo, parametros, credenciais, () => _b.Agora)
         };
         if (processadorExtra is not null) processadores.Insert(0, processadorExtra);
         return new ExecutorDeTransacoesTiss(_b.Fila(repo), credenciais, processadores,
-            new TransporteTissHttp(new HttpClient(_rede)),
+            new TissWebserviceCliente(new HttpClient(_rede)),
             new OpcoesDoConector { EnvioHabilitado = envioNoServidor, Consumidor = "conector-de-teste" }, _log.Para<ExecutorDeTransacoesTiss>());
     }
 
@@ -308,33 +311,6 @@ public sealed class ConectorTissTests : IDisposable
         (await GravadaAsync(pedido.Id)).Estado.Should().Be(EstadoTransacaoTiss.Concluida);
     }
 
-    // ---------- o que ainda não foi ligado ----------
-
-    [Theory]
-    [InlineData(TipoTransacaoTiss.EnvioGuia)]
-    [InlineData(TipoTransacaoTiss.CancelamentoGuia)]
-    [InlineData(TipoTransacaoTiss.StatusProtocolo)]
-    public async Task Envio_status_e_cancelamento_respondem_ainda_nao_ligado_e_nada_sai(TipoTransacaoTiss tipo)
-    {
-        // TODO(tiss-b-mensagens): quando os processadores de verdade entrarem, este teste dá lugar
-        // aos de ponta a ponta de cada tipo. Até lá ele fixa que NADA sai para a operadora.
-        await ProntoParaElegibilidadeAsync();
-        await _b.Credenciais().DefinirEnvioAsync(TissBancoDeTeste.Petrobras, true, TissBancoDeTeste.Operador);
-        var pedido = tipo == TipoTransacaoTiss.StatusProtocolo
-            ? await _b.Fila().EnfileirarStatusProtocoloAsync(TissBancoDeTeste.Petrobras, "987654", null, TissBancoDeTeste.Operador)
-            : await PedirEscritaAsync(tipo);
-
-        await Conector(envioNoServidor: true).ProcessarProximaAsync();
-
-        var t = await GravadaAsync(pedido.Id);
-        t.Estado.Should().Be(EstadoTransacaoTiss.Falhou);
-        t.Erro.Should().Be(ProcessadorAindaNaoLigado.Frase(tipo)).And.Contain("ainda não foi ligado");
-        t.EnvioIniciadoEm.Should().BeNull();
-        _rede.Idas.Should().BeEmpty();
-        _b.Agora = _b.Agora.AddHours(1);
-        (await Conector(envioNoServidor: true).ProcessarProximaAsync()).Should().BeFalse("não volta para a fila");
-    }
-
     private async Task<TransacaoTiss> PedirEscritaAsync(TipoTransacaoTiss tipo)
     {
         var (paciente, guia) = await _b.GuiaAsync();
@@ -466,7 +442,9 @@ public sealed class ConectorTissTests : IDisposable
         await Conector().ProcessarProximaAsync();
 
         var t = await GravadaAsync(pedido.Id);
-        t.Erro.Should().Contain("sem resposta da operadora").And.NotContain(Md5);
+        // O transporte único guarda o texto do erro de rede (é o que diz a quem opera o que houve);
+        // a senha sai dele, sempre, antes de ir para a linha e para o log.
+        t.Erro.Should().Contain("sem resposta da operadora").And.Contain("********").And.NotContain(Md5);
         _log.Linhas.Should().OnlyContain(l => !l.Contains(Md5));
     }
 
@@ -489,15 +467,6 @@ public sealed class ConectorTissTests : IDisposable
     public void O_executor_troca_por_asteriscos_o_segredo_que_escapar_para_um_texto()
         => ExecutorDeTransacoesTiss.Ocultar($"erro com {Md5.ToUpperInvariant()} no meio", [Md5])
             .Should().Be("erro com ******** no meio");
-
-    [Fact]
-    public async Task O_transporte_recusa_endereco_que_nao_e_https()
-    {
-        var enviar = () => new TransporteTissHttp(new HttpClient(_rede)).EnviarAsync(new Uri("http://exemplo.invalid/tiss"), "<a/>", default);
-
-        await enviar.Should().ThrowAsync<InvalidOperationException>();
-        _rede.Idas.Should().BeEmpty();
-    }
 
     // ---------- os comandos de quem opera o servidor ----------
 
@@ -567,7 +536,7 @@ public sealed class ConectorTissTests : IDisposable
         servicos.AddScoped(sp => new ParametrosService(sp.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>(), _b.Protecao));
         servicos.AddScoped(sp => new CredenciaisTissService(sp.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>(), _b.Protecao));
         servicos.AddScoped(sp => new FilaTissService(sp.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>()));
-        servicos.AddSingleton<ITransporteTiss>(new TransporteTissHttp(new HttpClient(_rede)));
+        servicos.AddSingleton(new TissWebserviceCliente(new HttpClient(_rede)));
         servicos.AddLogging();
         servicos.AddConectorTiss(new OpcoesDoConector());
 
@@ -620,9 +589,9 @@ public sealed class ConectorTissTests : IDisposable
                 : Task.FromResult(PreparoTiss.Enviar(new Uri("https://exemplo.invalid/tiss/lote"),
                     $"<lote><senhaPrestador>{segredo}</senhaPrestador><guia>{transacao.CodigoId}</guia></lote>", segredo));
 
-        public DesfechoTiss Ler(TransacaoTiss transacao, string xmlDaResposta) => DesfechoTiss.Concluir(new ConclusaoTransacaoTiss
+        public DesfechoTiss Ler(TransacaoTiss transacao, RespostaBrutaTissWs resposta) => DesfechoTiss.Concluir(new ConclusaoTransacaoTiss
         {
-            Resultado = "Recebida pela operadora.", Protocolo = "987654", NumeroGuiaOperadora = "OP123", XmlRecebido = xmlDaResposta,
+            Resultado = "Recebida pela operadora.", Protocolo = "987654", NumeroGuiaOperadora = "OP123", XmlRecebido = resposta.Corpo,
             // O que a operadora diz de cada guia do lote: a primeira recebida, as demais com glosa.
             Guias = transacao.Guias.OrderBy(g => g.Id).Select((g, i) => i == 0
                 ? new Clinica.Application.Modelos.ResultadoDaGuiaTiss(g.NumeroGuiaPrestador, "OP123", SituacaoGuiaTiss.Recebida)

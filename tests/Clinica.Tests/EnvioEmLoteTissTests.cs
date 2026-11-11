@@ -133,16 +133,14 @@ public sealed class EnvioEmLoteTissTests : IDisposable
     }
 
     [Fact]
-    public async Task Guia_de_consulta_e_guia_de_procedimento_nao_vao_no_mesmo_lote()
+    public async Task Guia_de_BSV_conferida_vai_no_mesmo_lote_das_de_consulta()
     {
+        // Toda guia conferida sai como GUIA DE CONSULTA, seja qual for o tipo no sistema (o BSV da
+        // Petrobras é lançado no portal nessa mesma tela): o lote continua de um tipo só.
         var (_, consulta) = await _b.GuiaAsync();
         var (_, bsv) = await _b.GuiaAsync(tipo: TipoCodigo.Bsv);
 
-        var conferencia = await _b.Fila().ConferirEnvioAsync(P, [consulta.Id, bsv.Id]);
-
-        conferencia.PorGuia.Keys.Should().Equal(bsv.Id);
-        conferencia.PorGuia[bsv.Id].Should().Contain("um só tipo de guia");
-        (await _b.Fila().ConferirEnvioAsync(P, [bsv.Id])).PodeEnviar.Should().BeTrue("sozinhas, as de procedimento formam o lote delas");
+        (await _b.Fila().ConferirEnvioAsync(P, [consulta.Id, bsv.Id])).PodeEnviar.Should().BeTrue();
     }
 
     [Fact]
@@ -430,12 +428,19 @@ public sealed class EnvioEmLoteTissTests : IDisposable
     }
 
     [Theory]
-    [InlineData(12, 1, "C12")]
-    [InlineData(12, 2, "C12R2")]
-    [InlineData(int.MaxValue, 99, "C2147483647R99")]
-    public void O_numero_da_guia_no_prestador_muda_a_cada_envio_e_cabe_em_20_caracteres(int codigoId, int vez, string esperado)
+    [InlineData(12, 1)]
+    [InlineData(12, 2)]
+    [InlineData(1234, 15)]
+    [InlineData(int.MaxValue, 99)]
+    public void O_numero_da_guia_no_prestador_e_um_so_no_sistema(int codigoId, int vez)
     {
-        FilaTissService.NumeroDoPrestador(codigoId, vez).Should().Be(esperado);
-        esperado.Length.Should().BeLessOrEqualTo(20);
+        // A fila e as mensagens usam a MESMA conta: o número que a fila reserva é o que a mensagem
+        // sabe ler de volta.
+        var daFila = FilaTissService.NumeroDoPrestador(codigoId, vez);
+
+        daFila.Should().Be(NumeroGuiaPrestadorTiss.Gerar(codigoId, vez));
+        daFila.Length.Should().BeLessOrEqualTo(NumeroGuiaPrestadorTiss.TamanhoMaximo);
+        NumeroGuiaPrestadorTiss.TentarLer(daFila, out var id, out var reenvio).Should().BeTrue();
+        (id, reenvio).Should().Be((codigoId, vez));
     }
 }

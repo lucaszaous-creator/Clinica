@@ -4002,6 +4002,8 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
     // ---- Fila do web service TISS ----
 
+    public void DescartarAlteracoesPendentes() => _db.ChangeTracker.Clear();
+
     public async Task AdicionarTransacaoTissAsync(TransacaoTiss transacao, CancellationToken ct = default)
         => await _db.TransacoesTiss.AddAsync(transacao, ct);
 
@@ -4011,6 +4013,12 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task<IReadOnlyList<CodigoFaturamento>> CodigosParaEnvioTissAsync(IReadOnlyCollection<int> codigoIds, CancellationToken ct = default)
         => await _db.Codigos.AsNoTracking()
             .Include(c => c.Atendimento!).ThenInclude(a => a.Paciente!)
+            .Include(c => c.GuiaAns)
+            .Where(c => codigoIds.Contains(c.Id))
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<CodigoFaturamento>> GuiasConferidasParaEnvioTissAsync(IReadOnlyCollection<int> codigoIds, CancellationToken ct = default)
+        => await _db.Codigos.AsNoTracking()
             .Include(c => c.GuiaAns)
             .Where(c => codigoIds.Contains(c.Id))
             .ToListAsync(ct);
@@ -4076,6 +4084,51 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
                 .SetProperty(t => t.ReservadaEm, agora)
                 .SetProperty(t => t.Tentativas, t => t.Tentativas + 1)
                 .SetProperty(t => t.Versao, t => t.Versao + 1), ct) == 1;
+
+    public async Task<IReadOnlyList<GuiaProntaParaEnvioTiss>> GuiasTissProntasParaEnvioAsync(string convenioCodigo, int limite, CancellationToken ct = default)
+        => await ConsultaGuiasTissProntasParaEnvio(convenioCodigo, limite).ToListAsync(ct);
+
+    /// <summary>Exposta para <c>TraducaoNoNpgsqlTests</c>: navega da guia ao paciente e à guia ANS, e exclui quem está preso num envio.</summary>
+    public IQueryable<GuiaProntaParaEnvioTiss> ConsultaGuiasTissProntasParaEnvio(string convenioCodigo, int limite)
+    {
+        // Convênio embutido é gravado na ficha pela FAMÍLIA, com o código nulo (a convenção do catálogo).
+        var embutido = Enum.TryParse<Convenio>(convenioCodigo, ignoreCase: true, out var familia);
+        return _db.Codigos.AsNoTracking()
+            .Where(c => c.GuiaAns != null && c.DataBaixa == null && c.Status == StatusCodigo.Aberto
+                        && !c.Atendimento!.Particular
+                        && (c.Atendimento!.Paciente!.ConvenioCodigo == convenioCodigo
+                            || (embutido && c.Atendimento!.Paciente!.ConvenioCodigo == null && c.Atendimento!.Paciente!.Convenio == familia))
+                        && !_db.TransacoesTissGuias.Any(g => g.CodigoId == c.Id
+                            && (g.Transacao!.Estado == EstadoTransacaoTiss.Pendente || g.Transacao!.Estado == EstadoTransacaoTiss.EmEnvio
+                                || (g.Transacao!.Estado == EstadoTransacaoTiss.Concluida
+                                    && (g.Situacao == SituacaoGuiaTiss.Recebida || g.Situacao == SituacaoGuiaTiss.Pendente)))))
+            .OrderBy(c => c.Atendimento!.Data).ThenBy(c => c.Id)
+            .Take(limite)
+            .Select(c => new GuiaProntaParaEnvioTiss(c.Id, c.Atendimento!.PacienteId, c.Atendimento!.Paciente!.Nome, c.Atendimento!.Data,
+                c.Tipo, c.GuiaAns!.CodigoProcedimento, c.GuiaAns!.ValorProcedimento, c.GuiaAns!.ConferidaPor, c.GuiaAns!.ConferidaEm));
+    }
+
+    public async Task<IReadOnlyList<TransacaoTiss>> EnviosTissRecentesComGuiasAsync(string? convenioCodigo, int limite, CancellationToken ct = default)
+    {
+        var envios = await _db.TransacoesTiss.AsNoTracking()
+            .Where(t => t.Tipo == TipoTransacaoTiss.EnvioGuia && (convenioCodigo == null || t.ConvenioCodigo == convenioCodigo))
+            .OrderByDescending(t => t.PedidoEm).ThenByDescending(t => t.Id)
+            .Take(limite)
+            .Select(ResumoDaTransacaoTiss)
+            .ToListAsync(ct);
+        if (envios.Count == 0) return envios;
+
+        // As guias numa segunda ida, e não num Include: o resumo é projeção (sem os XML), e
+        // projeção com coleção dentro viraria uma consulta por envio.
+        var ids = envios.Select(e => e.Id).ToList();
+        var guias = await _db.TransacoesTissGuias.AsNoTracking()
+            .Where(g => ids.Contains(g.TransacaoId))
+            .OrderBy(g => g.Id)
+            .ToListAsync(ct);
+        foreach (var envio in envios)
+            envio.Guias = guias.Where(g => g.TransacaoId == envio.Id).ToList();
+        return envios;
+    }
 
     public Task RecarregarTransacaoTissAsync(TransacaoTiss transacao, CancellationToken ct = default)
         => _db.Entry(transacao).ReloadAsync(ct);

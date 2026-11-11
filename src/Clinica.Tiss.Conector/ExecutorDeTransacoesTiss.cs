@@ -22,7 +22,7 @@ namespace Clinica.Tiss.Conector;
 /// </summary>
 public sealed class ExecutorDeTransacoesTiss(
     FilaTissService fila, CredenciaisTissService credenciais, IEnumerable<IProcessadorTransacaoTiss> processadores,
-    ITransporteTiss transporte, OpcoesDoConector opcoes, ILogger<ExecutorDeTransacoesTiss> log)
+    TissWebserviceCliente transporte, OpcoesDoConector opcoes, ILogger<ExecutorDeTransacoesTiss> log)
 {
     public const string FraseEnvioDesligadoNoServidor =
         "O envio pelo web service está desligado neste servidor (TISS_ENVIO_HABILITADO). Nada foi enviado à operadora.";
@@ -76,14 +76,14 @@ public sealed class ExecutorDeTransacoesTiss(
             // A partir desta linha a mensagem pode ter chegado à operadora.
             await fila.MarcarEnvioIniciadoAsync(t.Id, preparo.Envelope, ct);
             var resposta = await transporte.EnviarAsync(preparo.Endereco, preparo.Envelope, ct);
-            if (!resposta.OperadoraRespondeu)
+            if (string.IsNullOrWhiteSpace(resposta.Corpo))
             {
                 // Rede: quem só pergunta tenta de novo; quem escreve, a fila não deixa repetir.
-                await FalharAsync(t, resposta.FalhaDeRede ?? "sem resposta da operadora", podeTentarDeNovo: true, null, segredos, ct);
+                await FalharAsync(t, resposta.Falha ?? "sem resposta da operadora", podeTentarDeNovo: true, null, segredos, ct);
                 return true;
             }
 
-            var desfecho = processador.Ler(t, resposta.Corpo!);
+            var desfecho = processador.Ler(t, resposta);
             if (desfecho.Conclusao is { } conclusao)
             {
                 await fila.ConcluirAsync(t.Id, conclusao with
@@ -95,9 +95,13 @@ public sealed class ExecutorDeTransacoesTiss(
             }
             else
             {
-                // A operadora RESPONDEU que não: repetir a mesma mensagem não muda a resposta, e
-                // login recusado repetido pode bloquear o acesso da clínica.
-                await FalharAsync(t, desfecho.Falha ?? "resposta não reconhecida", podeTentarDeNovo: false, resposta.Corpo, segredos, ct);
+                // Veio um corpo. Recusa clara ou resposta que não se entende, a mesma mensagem NÃO é
+                // repetida: não muda a resposta, e login recusado repetido pode bloquear o acesso da
+                // clínica. Quando não se sabe se a operadora fez o que se pediu e a transação ESCREVE
+                // nela, a frase manda conferir no portal antes de qualquer novo pedido.
+                var motivo = desfecho.Falha ?? "resposta não reconhecida";
+                if (desfecho.Incerto && t.EscreveNaOperadora) motivo += " " + FilaTiss.FraseSemNovaTentativa;
+                await FalharAsync(t, motivo, podeTentarDeNovo: false, resposta.Corpo, segredos, ct);
             }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)

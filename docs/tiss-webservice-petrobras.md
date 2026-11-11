@@ -95,6 +95,38 @@ diferentes em `RespostaElegibilidadeTiss.Resumo`, e o segundo nunca pode travar 
 - **Credencial:** hoje não é guardada em lugar nenhum do sistema. Antes de qualquer tela, é
   preciso decidir onde ela mora (cifrada, lida só no servidor) — não entra neste passo.
 
+## Lote, situação do protocolo e cancelamento (nov/2026)
+
+Três transações do padrão 4.01.00 ganharam o par "monta/lê" no molde da elegibilidade — só texto, sem rede, cada pedido validado no XSD oficial (`tissWebServicesV4_01_00.xsd`):
+
+- **`TissLoteGuiasWs`** (`ENVIO_LOTE_GUIAS`, serviço `tissLoteGuias`): embrulha em SOAP o `loteGuiasWS` — cabeçalho com `loginSenhaPrestador`, `loteGuias` (número do lote + guias) e o `hash` em ISO-8859-1. As guias entram prontas; a de consulta conferida na baixa sai de `TissExportService.GuiaConsultaConferida`. Recusa antes do envio o lote vazio, com mais de 100 guias, com tipos misturados ou com número de guia repetido. A resposta (`protocoloRecebimentoWS`) vira `Recebido` em três estados: `true` com o protocolo, `false` quando a operadora devolve `mensagemErro` no lugar do protocolo, `null` quando não se sabe (falha de login, schema, hash, rede, página de erro).
+- **`TissStatusProtocoloWs`** (`SOLIC_STATUS_PROTOCOLO`, serviço `tissSolicitacaoStatusProtocolo`): pergunta pelo número do protocolo e lê a situação do lote (1 Recebido … 9 Cancelado), os valores e as guias. **O padrão não traz situação por guia**: cada guia volta com os números, os valores processado/glosado/liberado e as glosas.
+- **`TissCancelaGuiaWs`** (`CANCELA_GUIA`, serviço `tissCancelaGuia`): cancela guias de faturamento (`tipoGuia` 2) ou o lote inteiro — nunca os dois no mesmo pedido. O recibo vira `Cancelado`: `true` só com tudo no status 1; `false` com alguma recusa (não cancelado, guia/lote/protocolo inexistente, `mensagemErro`); `null` enquanto estiver "em processamento" (4) ou sem resposta legível.
+
+**Onde volta o número da guia na operadora** (`numeroGuiaOperadora`, opcional no XSD nos dois lugares):
+- no envio: `recebimentoLote/protocoloRecebimento/detalheProtocolo/dadosGuiasProtocolo/dadosGuias`;
+- na situação: `situacaoProtocolo/situacaoDoProtocolo/lote/detalheLote/guiasTISS/guiasMedicas/guias`.
+
+Em código é `GuiaNoProtocoloTiss.NumeroGuiaOperadora`, `null` quando a operadora não manda. A chave garantida para casar resposta e guia é o `numeroGuiaPrestador`, gerado por `NumeroGuiaPrestadorTiss` ("C" + Id do código de faturamento; reenvio da mesma guia ganha sufixo, "C1234R2") e lido de volta por `TentarLer`.
+
+**Transporte:** `TissWebserviceCliente.EnviarAsync(endereço, envelope)` serve às três (e à elegibilidade): só HTTPS, bytes em ISO-8859-1, corpo lido também no HTTP 500. Devolve `RespostaBrutaTissWs`; quem interpreta é o `LerResposta` da transação.
+
+**O que NÃO está provado** (nada disto foi enviado à operadora; só a elegibilidade foi):
+- que a Saúde Petrobras aceita o lote pelo web service como aceita a elegibilidade, e que devolve o protocolo de forma síncrona;
+- que ela devolve `numeroGuiaOperadora` — no XSD é opcional;
+- que ela aceita `numeroGuiaPrestador` com letra ("C1234"); no portal é ela quem numera. Se exigir só dígitos, muda `NumeroGuiaPrestadorTiss`;
+- se o CNPJ vai em `codigoPrestadorNaOperadora` também no lote (na elegibilidade foi aceito assim);
+- o que ela faz com reenvio do mesmo número de guia ou de lote, e se o cancelamento responde na hora ou fica "em processamento";
+- que ela aceita o cancelamento por web service para guia já em análise;
+- o formato real das respostas: as dos testes foram escritas a partir do XSD (e validadas nele), não capturadas da operadora;
+- o demonstrativo de retorno: há só o endereço como constante, sem classe de mensagem.
+
+⚠️ Lote sem resposta (rede caiu depois do POST) fica `Recebido = null`: **pode ter chegado**. Não reenviar no automático; a consulta de situação pede o número do protocolo, que nesse caso não se tem — confirmar com a operadora.
+
+**Quem chama estas mensagens** é o conector no servidor (`src/Clinica.Tiss.Conector`), a partir da fila
+`TransacoesTiss`: ver `docs/tiss-conector.md`, "As três frentes ligadas". Lá estão o caminho de uma
+guia do balcão à baixa, as duas chaves que seguram o envio e a baixa em lote das guias recebidas.
+
 ## O que vem depois (nesta ordem)
 
 1. ~~Rodar a consulta com o login da clínica e um paciente Petrobras.~~ Feito em 11/11/2026: elegível.

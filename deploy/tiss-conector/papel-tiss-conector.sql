@@ -2,8 +2,9 @@
 --   sudo -u postgres psql -p 45432 -d clinica -v senha="'SENHA_FORTE'" -f papel-tiss-conector.sql
 -- Rodar de novo é seguro.
 --
--- Ele enxerga e grava o MÍNIMO: lê a fila, a configuração e o cadastro de convênios; grava o
--- desfecho na fila e a trilha. Não lê paciente, prontuário, agenda, financeiro nem usuários;
+-- Ele enxerga e grava o MÍNIMO: lê a fila, a configuração, o cadastro de convênios e a guia com
+-- a conferência dela; grava o desfecho na fila e a trilha. Não lê a ficha do paciente, o
+-- atendimento, prontuário, agenda, financeiro nem usuários;
 -- não apaga nada; não cria nem altera tabela; não é dono de nada. Diferente do papel da ponte
 -- do CRM, ele NÃO recebe leitura de tabela nova: o que não está na lista, ele não vê.
 --
@@ -12,9 +13,9 @@
 -- registrar "42501" (permissão negada) no log, falta uma linha aqui — e é para faltar mesmo,
 -- até alguém decidir que ele deve alcançar aquela tabela.
 --
--- O que muda quando o envio de guias for ligado ao conector (frente das mensagens de lote): ele
--- passará a LER a guia e quem ela descreve. As linhas estão no fim, comentadas, para a decisão
--- ser de quem integra, e não um privilégio que já nasceu concedido.
+-- Para ENVIAR o lote ele lê a guia e a conferência dela (Codigos e GuiasTissConsulta), e só:
+-- tudo o que vai à operadora já está na guia conferida. A ficha do paciente (Pacientes) e o
+-- atendimento (Atendimentos) continuam fora do alcance dele.
 DO $$ BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'tiss_conector') THEN
     CREATE ROLE tiss_conector LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
@@ -45,6 +46,9 @@ BEGIN
       ['Configuracoes','SELECT'],
       -- O cadastro do convênio: o registro ANS da operadora e a família da regra.
       ['Convenios','SELECT'],
+      -- A guia e a guia ANS conferida: o que o lote leva. A carteira e o nome do beneficiário que
+      -- estão na conferência são dado pessoal — é o mínimo que o envio precisa ler.
+      ['Codigos','SELECT'], ['GuiasTissConsulta','SELECT'],
       -- A trilha não se lê nem se edita daqui: só se acrescenta (envio e cancelamento concluídos).
       ['Auditoria','INSERT']] LOOP
     EXECUTE format('GRANT %s ON public.%I TO tiss_conector', g[2], g[1]);
@@ -59,10 +63,6 @@ DO $$ BEGIN
     GRANT USAGE ON SEQUENCE public."Auditoria_Id_seq" TO tiss_conector;
   END IF;
 END $$;
-
--- QUANDO O ENVIO DE GUIAS FOR LIGADO AO CONECTOR (decisão de quem integra — descomente então):
--- GRANT SELECT ON public."Codigos", public."GuiasTissConsulta", public."Atendimentos" TO tiss_conector;
--- GRANT SELECT ("Id", "Carteirinha", "ValidadeCarteirinha", "Convenio", "ConvenioCodigo") ON public."Pacientes" TO tiss_conector;
 
 -- E no pg_hba.conf, SÓ pelo socket local (acrescente antes das linhas hostssl):
 --   local   clinica   tiss_conector   scram-sha-256

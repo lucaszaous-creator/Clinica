@@ -60,6 +60,43 @@ public sealed class FaturamentoService
     }
 
     /// <summary>
+    /// CONFERE a guia ANS sem dar baixa (nov/2026): grava a guia de consulta conferida para que ela
+    /// possa ser ENVIADA à operadora pelo web service antes da baixa. A baixa continua sendo outro
+    /// ato, depois — e continua exigindo a guia conferida, que então já estará gravada.
+    ///
+    /// Só para guia que pede a guia ANS (<see cref="GuiaAnsNaBaixa.Exige(CodigoFaturamento)"/>) e
+    /// que ainda NÃO tem baixa: a de guia baixada só muda por estorno e nova baixa. Conferir de
+    /// novo substitui a conferência anterior. A trilha vai no mesmo salvamento.
+    /// </summary>
+    public async Task ConferirGuiaAnsAsync(int codigoId, DadosGuiaConsultaAns guia, string? operador, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(operador))
+            throw new InvalidOperationException("A conferência da guia ANS leva quem conferiu: faça login antes.");
+        var codigo = await _repo.ObterCodigoAsync(codigoId, ct)
+            ?? throw new InvalidOperationException($"Código {codigoId} não encontrado.");
+        if (codigo.Baixado)
+            throw new InvalidOperationException("Esta guia já tem baixa: a guia ANS dela não é conferida de novo. Para corrigir, estorne a baixa.");
+        if (codigo.Status != StatusCodigo.Aberto)
+            throw new InvalidOperationException("Só guia em aberto é conferida para envio.");
+        if (!GuiaAnsNaBaixa.Exige(codigo))
+            throw new InvalidOperationException("Esta guia não pede a conferência no padrão ANS.");
+        var erros = GuiaAnsNaBaixa.Validar(guia);
+        if (erros.Count > 0)
+            throw new InvalidOperationException("A guia ANS não pode ser gravada: " + string.Join(" ", erros.Values));
+
+        GuiaAnsNaBaixa.Aplicar(codigo, guia, operador, DateTime.Now);
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = operador.Trim(),
+            Acao = "GuiaAnsConferida",
+            Detalhe = "Guia ANS de consulta conferida, sem baixa",
+            CodigoId = codigo.Id,
+            PacienteId = codigo.Atendimento?.PacienteId
+        }, ct);
+        await _repo.SalvarAsync(ct);
+    }
+
+    /// <summary>
     /// Anota (ou atualiza/limpa) por que a guia ainda não foi baixada — a explicação fica
     /// visível na pendência para consulta futura. Não dá baixa: só registra a situação.
     /// </summary>

@@ -7,8 +7,9 @@ namespace Clinica.Tiss.Conector;
 /// O que o conector precisa saber de um tipo de transação TISS: montar a mensagem e ler a
 /// resposta. Um processador por <see cref="TipoTransacaoTiss"/>.
 ///
-/// O processador NÃO abre conexão e NÃO grava na fila: quem carimba o envio, vai à rede e grava
-/// o desfecho é o <see cref="ExecutorDeTransacoesTiss"/>, num lugar só. É assim que a regra
+/// O processador NÃO abre conexão e NÃO grava na fila: quem carimba o envio, vai à rede
+/// (<see cref="TissWebserviceCliente.EnviarAsync"/>, o transporte único) e grava o desfecho é o
+/// <see cref="ExecutorDeTransacoesTiss"/>, num lugar só. É assim que a regra
 /// "envio de guia nunca é reenviado sozinho" não depende de cada processador lembrar dela.
 /// </summary>
 public interface IProcessadorTransacaoTiss
@@ -18,8 +19,11 @@ public interface IProcessadorTransacaoTiss
     /// <summary>Monta a mensagem, ou diz por que ela não vai sair. Nada foi enviado ainda.</summary>
     Task<PreparoTiss> PrepararAsync(TransacaoTiss transacao, CancellationToken ct);
 
-    /// <summary>Lê a resposta da operadora. Nunca lança por conteúdo inesperado.</summary>
-    DesfechoTiss Ler(TransacaoTiss transacao, string xmlDaResposta);
+    /// <summary>
+    /// Lê o que voltou da operadora (o corpo e o status HTTP, sem interpretação). Só é chamado
+    /// quando houve corpo. Nunca lança por conteúdo inesperado.
+    /// </summary>
+    DesfechoTiss Ler(TransacaoTiss transacao, RespostaBrutaTissWs resposta);
 }
 
 /// <summary>O resultado do preparo: uma mensagem pronta, uma recusa (nada sai) ou uma falha.</summary>
@@ -63,23 +67,18 @@ public sealed class DesfechoTiss
 
     public static DesfechoTiss Concluir(ConclusaoTransacaoTiss conclusao) => new() { Conclusao = conclusao };
 
-    /// <summary>A operadora respondeu, mas não com o que se pediu (login recusado, glosa da mensagem…).</summary>
+    /// <summary>A operadora respondeu que NÃO (recusou o lote, não localizou o protocolo, glosou a mensagem).</summary>
     public static DesfechoTiss Falhar(string motivo) => new() { Falha = motivo };
-}
 
-/// <summary>A ida à operadora. Trocada por uma rede de mentira nos testes.</summary>
-public interface ITransporteTiss
-{
-    Task<RespostaDoTransporte> EnviarAsync(Uri endereco, string envelope, CancellationToken ct);
-}
+    /// <summary>
+    /// Veio um corpo, mas ele não diz se a operadora fez o que se pediu (falha de login ou de
+    /// schema, erro SOAP, página de erro, "em processamento"). Para quem ESCREVE na operadora isto
+    /// é "não se sabe": a frase manda conferir no portal, e nada é reenviado.
+    /// </summary>
+    public static DesfechoTiss NaoSeSabe(string motivo) => new() { Falha = motivo, Incerto = true };
 
-/// <summary>
-/// O que voltou da rede. <see cref="Corpo"/> nulo ou vazio = a operadora não respondeu (queda,
-/// prazo, HTTP de erro sem corpo), e <see cref="FalhaDeRede"/> diz o que houve.
-/// </summary>
-public sealed record RespostaDoTransporte(int? Status, string? Corpo, string? FalhaDeRede)
-{
-    public bool OperadoraRespondeu => !string.IsNullOrWhiteSpace(Corpo);
+    /// <summary>Verdadeiro quando não dá para afirmar nem que foi, nem que não foi.</summary>
+    public bool Incerto { get; private init; }
 }
 
 /// <summary>As chaves do conector, lidas do ambiente na partida (deploy/tiss-conector/conector.env.example).</summary>

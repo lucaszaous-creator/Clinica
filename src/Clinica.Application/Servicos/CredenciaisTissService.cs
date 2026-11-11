@@ -1,4 +1,5 @@
 using Clinica.Application.Abstracoes;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 
 namespace Clinica.Application.Servicos;
@@ -145,12 +146,38 @@ public sealed class CredenciaisTissService
     }
 
     /// <summary>
-    /// O endereço do web service deste tipo de transação para o convênio, ou nulo quando ninguém
-    /// o cadastrou. Só HTTPS é aceito ao gravar; o conector confere de novo antes de usar.
+    /// O endereço do web service deste tipo de transação para o convênio: o que foi cadastrado
+    /// ou, para convênio da família Saúde Petrobras, o do manual da operadora
+    /// (<see cref="EnderecoPadrao"/>) — ligar o envio não exige digitar URL. Nulo quando não há
+    /// nenhum dos dois. Só HTTPS é aceito ao gravar; quem envia confere de novo antes de usar.
     /// </summary>
     public async Task<Uri?> EnderecoAsync(string convenioCodigo, TipoTransacaoTiss tipo, CancellationToken ct = default)
         => Uri.TryCreate(await _repo.ObterConfiguracaoAsync(ChaveEndereco(convenioCodigo, tipo), ct), UriKind.Absolute, out var uri)
-           && uri.Scheme == Uri.UriSchemeHttps ? uri : null;
+           && uri.Scheme == Uri.UriSchemeHttps ? uri : await EnderecoPadraoAsync(convenioCodigo, tipo, ct);
+
+    /// <summary>
+    /// O endereço que o sistema conhece sozinho: os de produção da Saúde Petrobras (o manual dela
+    /// não traz homologação). Para as outras famílias, nulo — só vale o que for cadastrado.
+    /// </summary>
+    public static Uri? EnderecoPadrao(Convenio familia, TipoTransacaoTiss tipo) => familia != Convenio.Petrobras ? null : tipo switch
+    {
+        TipoTransacaoTiss.Elegibilidade => TissWebserviceCliente.ElegibilidadeSaudePetrobras,
+        TipoTransacaoTiss.EnvioGuia => TissWebserviceCliente.LoteGuiasSaudePetrobras,
+        TipoTransacaoTiss.StatusProtocolo => TissWebserviceCliente.StatusProtocoloSaudePetrobras,
+        TipoTransacaoTiss.CancelamentoGuia => TissWebserviceCliente.CancelaGuiaSaudePetrobras,
+        _ => null
+    };
+
+    private async Task<Uri?> EnderecoPadraoAsync(string convenioCodigo, TipoTransacaoTiss tipo, CancellationToken ct)
+    {
+        // A família vem do CADASTRO do convênio lido do banco, e não do catálogo em memória: o
+        // conector é outro processo, e o catálogo dele pode nunca ter sido carregado.
+        var cadastro = (await _repo.ConveniosAsync(ct))
+            .FirstOrDefault(c => string.Equals(c.Codigo, convenioCodigo.Trim(), StringComparison.OrdinalIgnoreCase));
+        var familia = cadastro?.Familia
+                      ?? (Enum.TryParse<Convenio>(convenioCodigo.Trim(), ignoreCase: true, out var embutida) ? embutida : Convenio.Personalizado);
+        return EnderecoPadrao(familia, tipo);
+    }
 
     /// <summary>Grava o endereço do web service (HTTPS) deste tipo de transação para o convênio, com trilha.</summary>
     public async Task DefinirEnderecoAsync(

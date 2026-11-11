@@ -57,7 +57,7 @@ public sealed record PropostaGuiaAns(bool Exige, DadosGuiaConsultaAns? Dados, IR
 /// Saúde Petrobras passa pela conferência dos campos que a operadora pede. Aqui mora o que decide
 /// — quem exige, o que é válido, como se grava —, puro e com teste; a tela só desenha.
 /// </summary>
-public static class GuiaAnsNaBaixa
+public static partial class GuiaAnsNaBaixa
 {
     // Os padrões da guia de consulta da Saúde Petrobras, como a clínica a preenche no portal.
     public const string AcidentePadrao = "9";       // Não acidentes
@@ -321,7 +321,17 @@ public sealed class GuiaAnsNaBaixaService(IClinicaRepositorio repo, ParametrosSe
         }, avisos);
     }
 
-    private static DadosGuiaConsultaAns DaGuia(GuiaTissConsulta g) => new()
+    private static DadosGuiaConsultaAns DaGuia(GuiaTissConsulta g) => GuiaAnsNaBaixa.DaGuia(g);
+}
+
+/// <summary>A leitura da guia ANS já gravada, de volta para os campos do formulário.</summary>
+public static partial class GuiaAnsNaBaixa
+{
+    /// <summary>
+    /// Os campos conferidos de uma guia ANS já gravada. É o que a baixa de uma guia ENVIADA usa:
+    /// a guia foi conferida antes do envio, e a baixa a reapresenta como está, sem ninguém redigitar.
+    /// </summary>
+    public static DadosGuiaConsultaAns DaGuia(GuiaTissConsulta g) => new()
     {
         RegistroAns = g.RegistroAns,
         NumeroCarteira = g.NumeroCarteira,
