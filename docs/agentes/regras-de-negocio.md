@@ -2209,6 +2209,25 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   `ClinicaRepositorio.SalvarAsync` traduz `DbUpdateConcurrencyException` em mensagem amigável.
 - XML TISS gerado passa por `TissValidador.Validar` (estrutura + hash do epílogo); XSD oficial
   é opcional (pasta `%APPDATA%\ClinicaFaturamento\tiss\schemas`).
+- **TELAS DO ENVIO À OPERADORA: cada estado tem um nome, e "não se sabe se chegou" não tem botão**
+  (nov/2026). As telas só PEDEM (a fila executa): "Conferir e deixar pronta para envio" no formulário
+  de baixa (`ConferirGuiaAnsAsync`, sem número e sem baixa), a aba "Envio pelo web service" de Guias
+  TISS (`EnvioAOperadoraPainel`), o selo na linha do painel, a credencial em Configurações → Convênios
+  → "Web service" e a elegibilidade ao lado da carteira. Tudo o que a tela AFIRMA mora em
+  `EnvioTissNaTela` (Application, com teste). ⚠️ **"Pronta" não é "enviada", "na fila" não é
+  "enviada", "enviada" não é "recebida"** — frases e cores diferentes, e o texto do botão diz isso.
+  ⚠️ **Envio que saiu e falhou é "NÃO SE SABE SE CHEGOU"** (`NaoSeSabeSeChegou`: escreve na
+  operadora + falhou + a mensagem saiu): vai em vermelho, manda conferir no portal e NÃO oferece
+  reenvio com um clique. ⚠️ **A fila DEVOLVE essa guia à lista das prontas** (pedir de novo é ato
+  de gente) — e foi a captura da prévia que mostrou o furo: marcada e enviada em dois cliques. Na
+  tela ela nasce TRAVADA (`EnvioTissNaTela.DaPronta`): caixa apagada, "marcar todas" a pula, o
+  envio recusa — até a pessoa declarar numa pergunta que conferiu no portal que ela não está lá. ⚠️ **Formulário com dois desfechos tem dois avisos para quem está atrás**:
+  o `BaixaGuiaForm` ganhou `AoConferir`, porque usar o `AoConcluir` faria o painel dizer "baixa
+  registrada" sobre uma guia que continua pendente. ⚠️ **Campo de senha não liga o valor de volta**:
+  só `@oninput`, e o campo é recriado (`@key`) depois de gravar — `value="@_senha"` escreveria a
+  senha no HTML a cada tecla. O selo do painel custa duas leituras por convênio com web service,
+  nunca uma por linha. Com o envio desligado para o convênio o formulário de baixa fica idêntico
+  ao de antes. `docs/tiss-telas-do-envio.md`.
 - **Web service TISS da Saúde Petrobras (nov/2026, primeiro passo)**: `TissElegibilidadeWs` monta e lê a
   verificação de elegibilidade (4.01.00) e `TissWebserviceCliente` a envia; quem chama é só a
   ferramenta `tools/TissPetrobras` — nenhuma tela. A resposta tem TRÊS estados: elegível, não

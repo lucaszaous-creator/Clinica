@@ -19,3 +19,50 @@
 /* As ações da linha não quebram: botão de duas linhas desalinha a fileira inteira. */
 .fat-tiss-lotes .botoes-linha{flex-wrap:nowrap}
 .fat-tiss-lotes .botoes-linha .botao{white-space:nowrap}
+
+/* ---------- Envio pelo web service (nov/2026) ---------- */
+/* As abas da tela ficam soltas entre o cabeçalho e os cartões. */
+.fat-tiss-abas{margin-bottom:var(--space-4)}
+.fat-envio .cartao-titulo{margin-bottom:var(--space-3)}
+.fat-envio-topo{display:flex;flex-wrap:wrap;align-items:flex-end;gap:var(--space-3)}
+.fat-envio-bloco{display:flex;flex-direction:column;gap:var(--space-3);margin-top:var(--space-6)}
+.fat-envio-bloco > h3{margin:0;font-size:var(--text-small-size);font-weight:700;text-transform:uppercase;
+  letter-spacing:var(--text-secao-tracking);color:var(--texto-secundario)}
+.fat-envio-bloco .campo-dica{display:flex;align-items:center;gap:var(--space-2);margin:0}
+.fat-envio-bloco .campo-dica .icone{flex:none;width:var(--space-4);height:var(--space-4)}
+.fat-envio-contagem{display:inline-grid;place-items:center;min-width:var(--space-6);padding:0 var(--space-2);margin-left:var(--space-1);
+  border-radius:var(--radius-pilula);background:var(--cinza-100);color:var(--texto-secundario)}
+/* A lista das prontas rola por dentro: cem guias não empurram os envios para fora da tela. */
+.fat-envio-rolagem{max-height:calc(var(--table-row-height) * 9);overflow:auto;border:1px solid var(--borda);border-radius:var(--radius-control)}
+.fat-envio-rolagem table.lista th{position:sticky;top:0;z-index:1}
+.fat-envio-rolagem td .campo-erro,.fat-envio-guias td .campo-erro{display:block;margin-top:var(--space-1);white-space:normal}
+.fat-envio-rolagem td .campo-dica{display:block;margin-top:var(--space-1)}
+.fat-envio-rolagem td .botao{margin-top:var(--space-2);white-space:nowrap}
+.fat-envio-acoes{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:var(--space-3)}
+.fat-envio-acoes .texto-secundario{margin-right:auto}
+/* Um envio = um bloco com borda: o cabeçalho diz o estado e o que cabe fazer; embaixo, guia a guia. */
+.fat-envio-lote{display:flex;flex-direction:column;gap:var(--space-2);padding:var(--space-4);border:1px solid var(--borda);
+  border-radius:var(--radius-control)}
+/* "Não se sabe se chegou": a borda acompanha o aviso — é o estado que ninguém pode passar batido. */
+.fat-envio-lote.incerto{border-color:var(--erro-texto)}
+.fat-envio-lote > header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3)}
+.fat-envio-lote-titulo{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--space-2)}
+.fat-envio-lote-titulo .secundario{margin-top:0}
+.fat-envio-lote .botoes-linha{flex-wrap:wrap}
+.fat-envio-lote .botoes-linha .botao{white-space:nowrap}
+.fat-envio-frase{margin:0;color:var(--texto-secundario);font-size:var(--text-small-size)}
+.fat-envio-lote .aviso{margin:0}
+.fat-envio-guias td{vertical-align:top}
+.fat-envio-selo{text-align:right}
+/* O selo de envio diz uma frase inteira (glosa com motivo): quebra a linha em vez de estourar a coluna. */
+.fat-envio-selo .selo{white-space:normal;text-align:left}
+/* Na linha do painel o selo é curto; a frase inteira (protocolo, motivo) vai embaixo, em até três linhas. */
+.fat-selo-envio{display:block;margin-top:var(--space-1)}
+.fat-selo-envio-detalhe{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+/* A consulta de elegibilidade, ao lado da carteira: o botão e, embaixo, o desfecho. */
+.elegibilidade{display:flex;flex-direction:column;align-items:flex-start;gap:var(--space-2)}
+.elegibilidade .aviso{margin:0;align-self:stretch}
+.elegibilidade .aviso > .botao{flex-shrink:0;white-space:nowrap}
+/* A credencial do web service: a linha da chave de envio e a situação da senha. */
+.fat-ws-chave{display:flex;flex-direction:column;gap:var(--space-2)}
+

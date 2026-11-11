@@ -72,6 +72,13 @@
                         }
                     </ul>
                 }
+                @* A pergunta feita à OPERADORA (nov/2026): só para convênio com web service e credencial
+                   gravada. O que está acima é a conferência do sistema; isto é o que a operadora responde. *@
+                @if (_convenioDoWebService is { } convenioDoWebService)
+                {
+                    <ElegibilidadeNaOperadora @key="PacienteId" ConvenioCodigo="@convenioDoWebService" Carteira="@_carteira" Validade="_validadeDaCarteira"
+                                              PacienteId="PacienteId" NomeDaFicha="@_nome" />
+                }
             </div>
             @if (Pode(Permissao.VerAgenda))
             {
@@ -301,6 +308,9 @@
     private int _geracao;
     private string _nome = string.Empty, _origem = "—", _validadeConsulta = "Consultando validade…";
     private string? _telefone, _convenioCodigo;
+    // A consulta à operadora: o convênio (só quando tem web service E credencial gravada), a carteira e a validade da ficha.
+    private string? _convenioDoWebService, _carteira;
+    private DateOnly? _validadeDaCarteira;
     private bool _recebendoDivida;
     private bool _usaConsulta;
     private List<FichaAdministrativaNaTela.Alerta>? _alertas;
@@ -346,8 +356,18 @@
             Bloco(g, "ficha — cadastro", async s =>
             {
                 var p = await s.GetRequiredService<PacienteService>().ObterAsync(id);
+                string? doWebService = null;
+                if (p is not null && EnvioTissNaTela.TemWebService(p.ConvenioCodigo, p.Convenio))
+                {
+                    var codigo = p.ConvenioCodigo ?? p.Convenio.ToString();
+                    var credencial = await s.GetRequiredService<CredenciaisTissService>().ParaATelaAsync(codigo);
+                    if (credencial is { Login: not null, TemSenha: true }) doWebService = codigo;
+                }
                 return () =>
                 {
+                    _convenioDoWebService = doWebService;
+                    _carteira = p?.Carteirinha;
+                    _validadeDaCarteira = p?.ValidadeCarteirinha;
                     if (p is null) return;
                     _nome = p.Nome;
                     _telefone = string.IsNullOrWhiteSpace(p.Telefone) ? null : p.Telefone;

@@ -23,6 +23,15 @@
     (GuiaAnsNaBaixaService / GuiaAnsNaBaixa / GuiaAnsEmEdicao); aqui só se desenha;
   - nada aqui ENVIA a guia à operadora: a baixa continua sendo o registro do número que o portal
     gerou. O texto da tela não promete envio.
+
+  PRONTA PARA ENVIO (nov/2026): com o envio pelo web service LIGADO para o convênio
+  (CredenciaisTissService.EnvioLigadoAsync), o rodapé ganha "Conferir e deixar pronta para envio":
+  grava a conferência (FaturamentoService.ConferirGuiaAnsAsync) SEM número e SEM baixa — a guia
+  continua pendente e passa a aparecer em Guias TISS → Envio pelo web service. "Pronta" não é
+  "enviada", e o botão e o texto dizem isso. Com o envio desligado nada muda neste formulário.
+  O "Confirmar baixa" continua igual: número copiado do portal.
+  A consulta de ELEGIBILIDADE fica ao lado da carteira quando o convênio tem credencial gravada
+  (componente ElegibilidadeNaOperadora): pede, acompanha e mostra — nunca altera a ficha.
 *@
 @inject IServiceScopeFactory Escopos
 @inject Dialogos Dialogos
@@ -86,6 +95,11 @@
                                            value="@_guia.NomeSocial" @oninput="e => _guia.NomeSocial = Texto(e)" />
                                 </Campo>
                             </div>
+                            @if (_temCredencial && _convenioCodigo is not null)
+                            {
+                                <ElegibilidadeNaOperadora ConvenioCodigo="@_convenioCodigo" Carteira="@_guia.NumeroCarteira" Validade="_guia.ValidadeCarteira"
+                                                          PacienteId="_codigo.Atendimento?.PacienteId" NomeDaFicha="@_guia.NomeBeneficiario" />
+                            }
                         </section>
 
                         <section class="secao-form" aria-label="Dados do contratado">
@@ -215,10 +229,22 @@
                 </div>
             </div>
         }
+        @if (_guia is not null && _envioLigado && _codigo is not null && !_falhou)
+        {
+            @* No corpo, e não no rodapé: três botões já ocupam a linha, e a frase empurrava o "Cancelar" para cima. *@
+            <p class="campo-dica" data-pronta-nao-e-enviada>Duas saídas: <b>Confirmar baixa</b>, com o número copiado do portal, ou <b>Conferir e deixar pronta para envio</b> — que grava a conferência sem baixa. Pronta para envio não é enviada: o envio é feito em Guias TISS → Envio pelo web service.</p>
+        }
         <Aviso Tom="erro" Texto="@_mensagem" />
     </ChildContent>
     <Rodape>
         <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        @if (_guia is not null && _envioLigado)
+        {
+            <button type="button" class="botao" data-conferir-para-envio @onclick="ConferirParaEnvioAsync" disabled="@(!PodeConferir)"
+                    title="@(!PodeBaixar ? "Seu acesso não permite conferir a guia." : !GuiaServe ? "Complete os campos da guia ANS marcados em vermelho." : "Grava a conferência, sem número e sem baixa: a guia fica pronta para o envio à operadora")">
+                <Icone Nome="enviar" />@(_ocupado ? "Gravando…" : "Conferir e deixar pronta para envio")
+            </button>
+        }
         <button type="button" class="botao primario" @onclick="ConfirmarAsync" disabled="@(!PodeConfirmar)"
                 title="@(!PodeBaixar ? "Seu acesso não permite dar baixa na guia." : !GuiaServe ? "Complete os campos da guia ANS marcados em vermelho." : !NumeroServe ? "Informe um número de guia no formato deste convênio." : "Confirmar a baixa (Ctrl+S)")">
             <Icone Nome="check" />@(_ocupado ? "Gravando…" : "Confirmar baixa")
@@ -230,8 +256,19 @@
     [Parameter, EditorRequired] public int CodigoId { get; set; }
     [Parameter] public EventCallback AoConcluir { get; set; }
     [Parameter] public EventCallback AoFechar { get; set; }
+    /// <summary>
+    /// A guia foi CONFERIDA e ficou pronta para envio — sem baixa. É outro desfecho, e não pode
+    /// usar o <see cref="AoConcluir"/>: quem está atrás diria "baixa registrada" sobre uma guia que
+    /// continua pendente. Sem ouvinte, o formulário apenas se fecha.
+    /// </summary>
+    [Parameter] public EventCallback AoConferir { get; set; }
 
     private CodigoFaturamento? _codigo;
+    private string? _convenioCodigo;
+    /// <summary>O envio pelo web service está ligado para o convênio desta guia.</summary>
+    private bool _envioLigado;
+    /// <summary>O convênio tem credencial gravada: a consulta de elegibilidade faz sentido.</summary>
+    private bool _temCredencial;
     private string? _paciente;
     private string? _convenio;
     private FormatoNumeroGuia _formato = FormatoNumeroGuia.SemValidacao;
@@ -278,6 +315,9 @@
 
     private bool PodeConfirmar => _codigo is not null && PodeBaixar && GuiaServe && NumeroServe && !_ocupado;
 
+    /// <summary>Conferir para envio não pede número: só a guia completa e o acesso de quem dá baixa.</summary>
+    private bool PodeConferir => _codigo is not null && _guia is not null && PodeBaixar && GuiaServe && !_ocupado;
+
     protected override Task OnInitializedAsync() => CarregarAsync();
 
     private async Task CarregarAsync()
@@ -310,6 +350,18 @@
             var proposta = await escopo.ServiceProvider.GetRequiredService<GuiaAnsNaBaixaService>().PrepararAsync(CodigoId);
             _guia = proposta.Exige && proposta.Dados is not null ? GuiaAnsEmEdicao.De(proposta.Dados) : null;
             _avisosDaGuia = proposta.Avisos;
+            // O envio pelo web service: só se pergunta para a guia que pede a guia ANS, e antes de
+            // publicar o código — o rodapé não pode ganhar um botão depois de desenhado.
+            _convenioCodigo = paciente is null ? null : paciente.ConvenioCodigo ?? paciente.Convenio.ToString();
+            _envioLigado = false;
+            _temCredencial = false;
+            if (_guia is not null && _convenioCodigo is not null)
+            {
+                var credenciais = escopo.ServiceProvider.GetRequiredService<CredenciaisTissService>();
+                _envioLigado = await credenciais.EnvioLigadoAsync(_convenioCodigo);
+                var credencial = await credenciais.ParaATelaAsync(_convenioCodigo);
+                _temCredencial = credencial is { Login: not null, TemSenha: true };
+            }
             _codigo = codigo;
         }
         catch (Exception ex)
@@ -357,6 +409,38 @@
         await OferecerCapaConclusaoAsync(atendimentoId);
         _ocupado = false;
         await AoConcluir.InvokeAsync();
+    }
+
+    /// <summary>
+    /// "Conferir e deixar pronta para envio": grava a guia ANS conferida, SEM número e SEM baixa.
+    /// A guia continua pendente; o envio é pedido depois, em Guias TISS, por quem monta o lote.
+    /// </summary>
+    private async Task ConferirParaEnvioAsync()
+    {
+        if (_ocupado || _codigo is null || _guia is null) return;
+        _mensagem = null;
+        if (!_envioLigado) { _mensagem = "O envio pelo web service está desligado para este convênio."; return; }
+        if (!PodeBaixar) { _mensagem = "Seu acesso não permite conferir a guia. Fale com a direção da clínica."; return; }
+        if (!GuiaServe) { _mensagem = $"Complete a guia ANS antes de conferir: faltam {ErrosDaGuia.Count} campo(s), marcados em vermelho."; return; }
+
+        _ocupado = true;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<FaturamentoService>().ConferirGuiaAnsAsync(
+                CodigoId, _guia.ParaDados(), SessaoUsuario.Atual.Operador);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — guia ANS não pôde ser conferida para envio", ex);
+            _mensagem = $"Não foi possível gravar a conferência: {ex.Message}";
+            _ocupado = false;
+            return;
+        }
+
+        _ocupado = false;
+        Notificacoes.Sucesso("Guia conferida: pronta para envio. A baixa continua pendente.");
+        await (AoConferir.HasDelegate ? AoConferir : AoFechar).InvokeAsync();
     }
 
     /// <summary>Se esta baixa concluiu a fatura, oferece a capa de conclusão para imprimir e arquivar.</summary>

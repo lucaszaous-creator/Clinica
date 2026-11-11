@@ -77,7 +77,8 @@
 
 @if (_guiaAberta is { } guiaAberta)
 {
-    <BaixaGuiaForm CodigoId="guiaAberta.CodigoId" AoFechar="() => _guiaAberta = null" AoConcluir="GuiaBaixada" />
+    <BaixaGuiaForm CodigoId="guiaAberta.CodigoId" AoFechar="() => _guiaAberta = null" AoConcluir="GuiaBaixada"
+                   AoConferir="GuiaConferida" />
 }
 
 @code {
@@ -109,6 +110,13 @@
     }
 
     /// <summary>O formulário de baixa gravou: a linha fica marcada e as outras, como estavam.</summary>
+    /// <summary>A guia foi só CONFERIDA para envio: continua pendente, e a linha fica como estava. O painel relê o selo.</summary>
+    private Task GuiaConferida()
+    {
+        _guiaAberta = null;
+        return AoBaixarPelaGuia.InvokeAsync();
+    }
+
     private Task GuiaBaixada()
     {
         if (_guiaAberta is { } l) l.BaixadaNoFormulario = true;

@@ -18,3 +18,5 @@
   border:1px solid var(--borda);border-radius:var(--radius-control);min-width:0}
 .fat-juntar-lado strong{overflow-wrap:anywhere}
 .fat-juntar-lado .rotulo{color:var(--texto-secundario);font-size:var(--text-small-size);text-transform:uppercase;letter-spacing:.04em}
+/* As ações da linha do convênio não quebram em duas linhas: "Web service" (nov/2026) é o rótulo mais longo. */
+.fat-cfg-linha .botoes-linha .botao{white-space:nowrap}

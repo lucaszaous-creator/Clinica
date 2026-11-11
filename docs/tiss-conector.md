@@ -320,6 +320,10 @@ Pendências de quem integra:
 
 ### Como ligar as telas (o motor está pronto; as telas, não)
 
+> **Feito em 11/11/2026:** as telas existem. O que cada uma faz, onde fica no menu e as opções
+> comparadas estão em [`tiss-telas-do-envio.md`](tiss-telas-do-envio.md). A tabela abaixo continua
+> valendo como o contrato entre a tela e o motor.
+
 O conector **não** chama `DarBaixaAsync`: baixa é ato de quem está logado, e o conector não tem
 sessão. O que cada tela chama:
 
