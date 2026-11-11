@@ -2207,6 +2207,12 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   `ClinicaRepositorio.SalvarAsync` traduz `DbUpdateConcurrencyException` em mensagem amigável.
 - XML TISS gerado passa por `TissValidador.Validar` (estrutura + hash do epílogo); XSD oficial
   é opcional (pasta `%APPDATA%\ClinicaFaturamento\tiss\schemas`).
+- **Web service TISS da Saúde Petrobras (nov/2026, primeiro passo)**: `TissElegibilidadeWs` monta e lê a
+  verificação de elegibilidade (4.01.00) e `TissWebserviceCliente` a envia; quem chama é só a
+  ferramenta `tools/TissPetrobras` — nenhuma tela. A resposta tem TRÊS estados: elegível, não
+  elegível e **não avaliado** (login, hash, schema, rede); falha nunca vira "não elegível". O hash
+  do web service é em ISO-8859-1; o do lote (`TissExportService`) segue em UTF-8 e não foi mexido.
+  Não há homologação no manual da operadora: toda chamada é produção. `docs/tiss-webservice-petrobras.md`.
 - `PrevencaoGlosaService` (radar de glosas) roda na exportação do lote: carteirinha vencida,
   duplicidade e taxa histórica por padrão (convênio+tipo). `TissRetornoImport.Ler` importa o
   demonstrativo XML da operadora e pré-preenche as decisões do retorno (casadas pelo nº real

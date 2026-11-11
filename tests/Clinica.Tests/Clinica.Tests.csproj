@@ -51,5 +51,8 @@
     <EmbeddedResource Include="tempos-dos-testes.json" LogicalName="tempos-dos-testes.json" />
     <None Include="../../deploy/tablet/migracao-a1.sql" Link="Implantacao/migracao-a1.sql" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../Clinica.Assinaturas.Tests/Fixtures/duas-assinaturas-anteriores.pdf" Link="Implantacao/documento-historico.pdf" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Os XSD oficiais do padrão TISS 4.01.00 (os mesmos que o web service da operadora publica):
+         a mensagem de elegibilidade é validada contra eles em TissElegibilidadeWsTests. -->
+    <None Include="Tiss/xsd-4.01.00/*.xsd" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
