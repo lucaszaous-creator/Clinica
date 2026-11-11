@@ -23,9 +23,15 @@ Conferido em 11/11/2026, sem credencial: os WSDL de 4.01.00 respondem; o caminho
 a falha do próprio padrão TISS: o serviço leu a mensagem e recusou o login. É bom sinal para o
 formato, mas **não prova** que hash e versão passam — não se sabe em que ordem ele confere.
 
-⚠️ **Em aberto:** um aviso da operadora diz que ela não aceita 4.01.00 desde 01/08/2026, e o web
-service publicado continua em 4.01.00. O teste com login de verdade é o que decide; até lá,
-nenhum texto do sistema afirma que a Petrobras aceita o envio.
+✅ **Resultado do teste (11/11/2026, 19:22):** com o login da clínica e a carteira de um paciente
+Petrobras, a operadora respondeu **elegível** e devolveu o nome do beneficiário. Uma consulta, em
+produção, pela ferramenta `tools/TissPetrobras`. Isso prova, para a **elegibilidade**: o login e a
+senha da conectividade valem no web service (senha em MD5 hexadecimal minúsculo), o código do
+prestador é o CNPJ só com dígitos, o hash em ISO-8859-1 é aceito e o serviço responde em 4.01.00.
+
+⚠️ **Continua em aberto:** a operadora avisou que não aceita 4.01.00 desde 01/08/2026. A
+elegibilidade em 4.01.00 passou; **o envio de lote de guias ainda não foi testado** e pode ter
+regra diferente. Nenhum texto do sistema afirma que a Petrobras aceita o envio de guias.
 
 ## As opções para o primeiro teste
 
@@ -91,9 +97,7 @@ diferentes em `RespostaElegibilidadeTiss.Resumo`, e o segundo nunca pode travar 
 
 ## O que vem depois (nesta ordem)
 
-1. Rodar a consulta com o login da clínica e um paciente Petrobras. Resultado esperado: elegível
-   ou não elegível. `VersaoInvalida` responde a dúvida da versão; `LoginInvalido` pede conferir
-   com o suporte de conectividade se o web service usa o mesmo usuário do portal.
+1. ~~Rodar a consulta com o login da clínica e um paciente Petrobras.~~ Feito em 11/11/2026: elegível.
 2. Completar a guia de consulta do XML com o que a tela do portal exige e o gerador não envia:
    profissional executante (conselho, número, UF, CBO), indicação de acidente, regime de
    atendimento, tipo de consulta e valor.
