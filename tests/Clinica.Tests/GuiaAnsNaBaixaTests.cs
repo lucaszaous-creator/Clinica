@@ -145,11 +145,11 @@ public class GuiaAnsNaBaixaTests : IDisposable
     [Theory]
     [InlineData(Convenio.Petrobras, TipoCodigo.Consulta, true)]
     [InlineData(Convenio.Petrobras, TipoCodigo.ConsultaEspecialidade, true)]
-    [InlineData(Convenio.Petrobras, TipoCodigo.Bsv, false)]            // procedimento: guia SP/SADT, outro formulário
+    [InlineData(Convenio.Petrobras, TipoCodigo.Bsv, true)]             // o BSV vai no portal pela MESMA tela de guia de consulta
     [InlineData(Convenio.Amil, TipoCodigo.Consulta, false)]
     [InlineData(Convenio.UnimedPadrao, TipoCodigo.Consulta, false)]
     [InlineData(Convenio.UnimedIntercambio, TipoCodigo.Acupuntura, false)]
-    public void Exige_so_na_consulta_da_familia_Petrobras(Convenio convenio, TipoCodigo tipo, bool esperado)
+    public void Exige_em_toda_guia_da_familia_Petrobras_e_em_nenhuma_das_outras(Convenio convenio, TipoCodigo tipo, bool esperado)
         => GuiaAnsNaBaixa.Exige(tipo, null, convenio).Should().Be(esperado);
 
     [Fact]
@@ -372,7 +372,7 @@ public class GuiaAnsNaBaixaTests : IDisposable
 
         linhas[0].PedeGuiaAns.Should().BeTrue();
         linhas[0].Situacao.Should().Contain("Dar baixa").And.Contain("guia ANS").And.Contain("justifique");
-        linhas[1].PedeGuiaAns.Should().BeFalse();
+        linhas[1].PedeGuiaAns.Should().BeTrue();      // o BSV também
         linhas[2].PedeGuiaAns.Should().BeFalse();
         linhas[2].Situacao.Should().NotContain("guia ANS");
     }
@@ -651,6 +651,32 @@ public class GuiaAnsNaBaixaTests : IDisposable
         guia.Descendants(Ans + "saudeOcupacional").Should().BeEmpty();          // opcional vazia é OMITIDA
         guia.Descendants(Ans + "cnpjContratado").Should().BeEmpty();            // uma identificação só
         guia.ToString().Should().NotContain("Paciente de Teste");               // o TISS 4 não leva o nome
+        ValidarNoXsd(doc).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task BSV_da_Petrobras_conferido_sai_como_guia_de_consulta_propria_e_o_lote_continua_valido_no_XSD()
+    {
+        // "BSV + acupuntura" na Petrobras gera o BSV e a consulta de especialidade: duas guias no portal.
+        var (_, primeiro) = await LancarAsync(Convenio.Petrobras, ModalidadeAtendimento.BsvComAcupuntura);
+        var codigos = await _db.Codigos.Where(c => c.AtendimentoId == primeiro.AtendimentoId).OrderBy(c => c.Id).ToListAsync();
+        codigos.Select(c => c.Tipo).Should().Contain(TipoCodigo.Bsv);
+        var n = 0;
+        foreach (var c in codigos.Where(c => c.DataPrevistaFaturamento <= Dia.AddDays(1)))
+            await _faturamento.DarBaixaAsync(c.Id, Dia.AddDays(1), $"PB{++n}", "secretaria", null,
+                guiaAns: GuiaCompleta() with { CodigoProcedimento = c.Tipo == TipoCodigo.Bsv ? "20104391" : "10101012" });
+        n.Should().BeGreaterThan(1);
+        _db.ChangeTracker.Clear();
+        var baixados = new List<CodigoFaturamento>();
+        foreach (var c in codigos) if (await _repo.ObterCodigoAsync(c.Id) is { Baixado: true } b) baixados.Add(b);
+
+        var doc = XDocument.Parse(new TissExportService().GerarLoteXml(baixados,
+            new DadosPrestador { CodigoNaOperadora = "12345678000190", RegistroAnsOperadora = "422631" }, "8"));
+
+        // Uma guia de CONSULTA por código conferido, nenhuma SP/SADT, e um procedimento em cada.
+        doc.Descendants(Ans + "guiaSP-SADT").Should().BeEmpty();
+        doc.Descendants(Ans + "guiaConsulta").Should().HaveCount(n);
+        doc.Descendants(Ans + "codigoProcedimento").Select(e => e.Value).Should().Contain("20104391").And.Contain("10101012");
         ValidarNoXsd(doc).Should().BeEmpty();
     }
 

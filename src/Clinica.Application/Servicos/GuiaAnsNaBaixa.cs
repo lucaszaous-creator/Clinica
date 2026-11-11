@@ -71,13 +71,14 @@ public static class GuiaAnsNaBaixa
     /// A recusa das portas que dão baixa SEM formulário por guia (lote e rodada). Diz onde resolver.
     /// </summary>
     public const string RecusaSemGuia =
-        "Guia de consulta da Saúde Petrobras: a baixa pede a conferência da guia ANS. "
+        "Guia da Saúde Petrobras: a baixa pede a conferência da guia ANS. "
         + "Use o botão \"Dar baixa\" desta guia no painel de pendências.";
 
     /// <summary>
-    /// Esta guia pede a guia ANS na baixa? Hoje: consulta (comum ou de especialidade) pelo convênio,
-    /// de paciente cujo convênio é da família Petrobras. Sessão particular não pede — não vai à
-    /// operadora. Procedimento (BSV) também não: é guia SP/SADT, outro formulário, ainda não feito.
+    /// Esta guia pede a guia ANS na baixa? Hoje: TODA guia pelo convênio de paciente da família
+    /// Petrobras — consulta, consulta de especialidade e também o BSV, que a clínica lança no
+    /// portal da operadora na MESMA tela "Guia de Consulta", mudando só o procedimento (decisão da
+    /// direção, 11/11/2026). Sessão particular não pede — não vai à operadora.
     /// ⚠️ O convênio é o ATUAL da ficha: a guia não guarda o convênio do dia do atendimento.
     /// </summary>
     public static bool Exige(CodigoFaturamento codigo)
@@ -87,10 +88,12 @@ public static class GuiaAnsNaBaixa
         return Exige(codigo.Tipo, paciente.ConvenioCodigo, paciente.Convenio);
     }
 
-    /// <summary>A mesma regra para quem só tem a linha da pendência (lote e rodada).</summary>
+    /// <summary>
+    /// A mesma regra para quem só tem a linha da pendência (lote e rodada). O tipo da guia fica na
+    /// assinatura porque é ele que decidirá quando outro convênio pedir a guia só em parte.
+    /// </summary>
     public static bool Exige(TipoCodigo tipo, string? convenioCodigo, Convenio convenio)
-        => TissExportService.EhConsulta(tipo)
-           && CatalogoConvenios.Familia(convenioCodigo ?? convenio.ToString()) == Convenio.Petrobras;
+        => CatalogoConvenios.Familia(convenioCodigo ?? convenio.ToString()) == Convenio.Petrobras;
 
     /// <summary>
     /// O que impede gravar a guia: campo → frase. Vazio = pode. São as exigências do XSD 4.01.00

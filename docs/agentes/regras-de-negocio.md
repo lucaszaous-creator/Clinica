@@ -2216,8 +2216,9 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
 - **Baixa de CONSULTA da Saúde Petrobras pede a guia ANS (nov/2026, pedido da direção)**: o formulário de
   baixa abre com os campos da "Guia de Consulta" do portal da operadora, na mesma ordem e numeração, já
   preenchidos; a guia conferida é gravada em `GuiasTissConsulta` (1:1 com a guia) no mesmo `SaveChanges`
-  da baixa. Quem decide é `GuiaAnsNaBaixa.Exige` — consulta (comum ou de especialidade) da família
-  Petrobras, nunca particular, nunca BSV (que é SP/SADT). A recusa mora em `FaturamentoService.DarBaixaAsync`,
+  da baixa. Quem decide é `GuiaAnsNaBaixa.Exige` — TODA guia da família Petrobras (consulta, consulta de
+  especialidade e BSV, que a clínica lança no portal na mesma tela de guia de consulta), nunca particular.
+  No XML do lote a guia conferida sai como guia de consulta, uma por código. A recusa mora em `FaturamentoService.DarBaixaAsync`,
   o caminho único. ⚠️ **Recusa nova no serviço chega às portas em massa**: o lote e a rodada não têm
   formulário por guia, então conferem ANTES de gravar (`DecisoesDaRodada.ImpedimentoDaGuiaAns`). Na rodada
   (inclusive a BLOQUEANTE) a decisão dessa linha é a JUSTIFICATIVA, gravada como anotação da pendência e

@@ -6,7 +6,7 @@ using Clinica.Domain.Entities;
 namespace PreviaBlazor.Sementes;
 
 /// <summary>
-/// A guia ANS que as sementes entregam ao dar baixa numa CONSULTA da Saúde Petrobras (nov/2026):
+/// A guia ANS que as sementes entregam ao dar baixa numa guia da Saúde Petrobras (nov/2026):
 /// desde que a baixa dela pede a conferência da guia, semente que desse baixa só com o número
 /// seria recusada pelo serviço — a mesma recusa que a clínica veria. Devolve nulo para as guias
 /// que não a pedem, e aí a baixa segue como sempre.

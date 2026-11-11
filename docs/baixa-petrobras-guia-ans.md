@@ -1,4 +1,4 @@
-# Baixa de consulta da Saúde Petrobras com a guia ANS
+# Baixa de guia da Saúde Petrobras com a guia ANS
 
 **Pedido da direção (11/11/2026):** "Toda baixa de guia Petrobras abre o formulário com as
 informações igual à que eu te enviei, as informações que a Petrobras solicita" — a tela "Guia de
@@ -6,8 +6,8 @@ Consulta" do Portal TISS da operadora. "Queremos a nossa guia padrão ANS." Depo
 
 ## O que mudou para quem dá baixa
 
-Ao clicar em **Dar baixa** numa **consulta** de paciente da Saúde Petrobras, o formulário de baixa
-abre com a guia de consulta no padrão ANS: os mesmos quatro blocos do portal, na mesma ordem e com
+Ao clicar em **Dar baixa** em **qualquer guia** de paciente da Saúde Petrobras — consulta, consulta
+de especialidade e BSV —, o formulário de baixa abre com a guia de consulta no padrão ANS: os mesmos quatro blocos do portal, na mesma ordem e com
 a mesma numeração de campo.
 
 | Bloco | Campos |
@@ -40,8 +40,11 @@ Nada é palpite: o que o sistema não sabe fica **em branco** e aparece num avis
 - **Não envia a guia à operadora.** A baixa continua sendo o registro do número que o Portal TISS
   gerou. Nenhum texto da tela diz "enviado". O envio pelo web service é passo posterior
   (`docs/tiss-webservice-petrobras.md`).
-- **Não vale para BSV.** O BSV da Petrobras é procedimento (guia SP/SADT), outro formulário, que
-  a operadora preenche noutra tela. A baixa do BSV continua como era.
+- **O BSV usa a mesma guia.** A direção informou (11/11/2026) que o BSV é lançado no portal na
+  mesma tela "Guia de Consulta": o que muda é o bloco do atendimento (tabela, código do
+  procedimento, valor). Por isso a baixa do BSV abre o mesmo formulário, com o código e o valor
+  do BSV vindos de Configurações do faturamento e da tabela de preços. No XML do lote, a guia
+  conferida sai como guia de consulta, uma por código — e não mais dentro de uma SP/SADT.
 - **Não vale para sessão particular** de paciente Petrobras: ela não vai à operadora.
 
 ## As outras portas de baixa
@@ -102,7 +105,7 @@ Onde os dados moram:
 - **Banco:** tabela nova `GuiasTissConsulta`, chave = a guia do sistema; migration
   `20261111193730_GuiaTissConsultaNaBaixa`, só `CreateTable` e `CreateIndex`.
 - **Estorno:** preserva a guia conferida; a baixa seguinte parte dela e a substitui.
-- **Para estender a outro convênio ou ao SP/SADT:** `GuiaAnsNaBaixa.Exige` é o único lugar que
+- **Para estender a outro convênio:** `GuiaAnsNaBaixa.Exige` é o único lugar que
   decide; as portas em massa leem `LinhaDaRodada.PedeGuiaAns`.
 
 ## 🤝 CX
@@ -124,7 +127,8 @@ Onde os dados moram:
 
 1. **Teste interno pela clínica** com guias reais, comparando campo a campo com o portal.
 2. Conselho, número, UF e CBO no **cadastro da equipe** (hoje vêm da última guia do profissional).
-3. Guia **SP/SADT** (BSV), quando a clínica mostrar a tela do portal.
+3. Conferir com a clínica o **código e a tabela do BSV** usados no portal, e cadastrá-los em
+   Configurações do faturamento para o formulário já abrir preenchido.
 4. Envio por web service (`tissLoteGuias`), depois de uma guia de teste aceita.
 
 ## O que não foi verificado

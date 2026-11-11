@@ -49,6 +49,7 @@ public sealed class TissExportService
             .Where(c => c.Baixado)
             .GroupBy(c => c.AtendimentoId)
             .SelectMany(g => SepararGuias(g))
+            .SelectMany(SepararConferidas)
             .Select((g, i) => CriarGuia(g, prestador, i + 1))
             .ToList();
 
@@ -134,11 +135,34 @@ public sealed class TissExportService
     }
 
     /// <summary>
+    /// A guia conferida na baixa (nov/2026) é UMA guia de consulta por código: a guia de consulta
+    /// do padrão leva um procedimento só, e foi assim que a pessoa a conferiu contra o portal —
+    /// inclusive o BSV da Saúde Petrobras, que a clínica lança lá como guia de consulta. Grupo sem
+    /// nenhuma guia conferida passa intacto, e o lote dos outros convênios não muda.
+    /// </summary>
+    private static IEnumerable<IReadOnlyList<CodigoFaturamento>> SepararConferidas(IReadOnlyList<CodigoFaturamento> grupo)
+    {
+        if (grupo.All(c => c.GuiaAns is null))
+        {
+            yield return grupo;
+            yield break;
+        }
+        foreach (var conferida in grupo.Where(c => c.GuiaAns is not null))
+            yield return [conferida];
+        var resto = grupo.Where(c => c.GuiaAns is null).ToList();
+        if (resto.Count > 0) yield return resto;
+    }
+
+    /// <summary>
     /// Consulta pura vira guia de consulta; qualquer procedimento (acupuntura, eletro, BSV,
     /// preventivo) vira guia SP/SADT, como as operadoras esperam no 4.01.
     /// </summary>
     private static XElement CriarGuia(IReadOnlyList<CodigoFaturamento> grupo, DadosPrestador prestador, int numeroGuia)
     {
+        // Conferida na baixa: sai como a guia de consulta que foi conferida, seja qual for o tipo.
+        if (grupo is [{ GuiaAns: { } ans } conferida])
+            return CriarGuiaConsultaConferida(conferida, ans, numeroGuia);
+
         var somenteConsulta = grupo.All(c => EhConsulta(c.Tipo));
         return somenteConsulta
             ? CriarGuiaConsulta(grupo, prestador, numeroGuia)
@@ -149,12 +173,9 @@ public sealed class TissExportService
     {
         var primeiro = grupo.First();
 
-        // Guia conferida na baixa (nov/2026, consultas da Saúde Petrobras): sai a guia de consulta
-        // COMPLETA do padrão, com o que a pessoa conferiu — e não o resumo abaixo, que é o que o
-        // sistema sabia montar sozinho e que o XSD 4.01.00 recusa (falta executante, acidente,
-        // regime e valor). As guias sem conferência continuam saindo como sempre saíram.
-        if (primeiro.GuiaAns is { } ans)
-            return CriarGuiaConsultaConferida(primeiro, ans, numeroGuia);
+        // Daqui para baixo é a guia SEM conferência: o resumo que o sistema sabia montar sozinho, e
+        // que o XSD 4.01.00 recusa (falta executante, acidente, regime e valor). A guia conferida na
+        // baixa (Saúde Petrobras, nov/2026) sai completa por CriarGuiaConsultaConferida, em CriarGuia.
 
         return new XElement(Ans + "guiaConsulta",
             new XElement(Ans + "cabecalhoConsulta",

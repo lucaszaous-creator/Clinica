@@ -22,7 +22,7 @@ public sealed class LinhaDaRodada
     public bool SemDecisao => string.IsNullOrWhiteSpace(NumeroGuia) && string.IsNullOrWhiteSpace(Justificativa);
 
     /// <summary>
-    /// A baixa desta guia pede a conferência da guia ANS (consulta da Saúde Petrobras, nov/2026),
+    /// A baixa desta guia pede a conferência da guia ANS (guias da Saúde Petrobras, nov/2026),
     /// e isso só existe no formulário de baixa — uma guia por vez. Aqui (lote e rodada) ela NÃO é
     /// baixada: o número digitado é recusado antes de gravar. Na rodada, a decisão dela é a
     /// JUSTIFICATIVA (decisão da direção, 11/11/2026: "avisa sobre a pendência Petrobras com
@@ -90,7 +90,7 @@ public static class DecisoesDaRodada
         var fora = linhas.Where(l => l.BaixaForaDoFormulario).ToList();
         return fora.Count == 0
             ? null
-            : $"{fora.Count} guia(s) de consulta da Saúde Petrobras pedem a conferência da guia ANS e não podem ser "
+            : $"{fora.Count} guia(s) da Saúde Petrobras pedem a conferência da guia ANS e não podem ser "
               + "baixadas por aqui. Apague o número dessas linhas e dê baixa em cada uma pelo botão \"Dar baixa\" do "
               + $"painel de pendências — {verbo}.\n\n"
               + string.Join("\n", fora.Select(l => $"• {l.Descricao}"));
@@ -128,7 +128,7 @@ public static class DecisoesDaRodada
             return "Enquanto a rodada estiver vencida, decida todas as guias: informe o número da guia " +
                    "(baixa) ou uma justificativa (não conformidade)."
                    + (linhas.Any(l => l.SemDecisao && l.PedeGuiaAns)
-                       ? "\n\nNas consultas da Saúde Petrobras, escreva a justificativa: a baixa delas é pelo botão "
+                       ? "\n\nNas guias da Saúde Petrobras, escreva a justificativa: a baixa delas é pelo botão "
                          + "\"Dar baixa\" do painel, e a guia continua lá depois desta rodada."
                        : string.Empty);
 
