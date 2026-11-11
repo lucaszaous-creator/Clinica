@@ -198,10 +198,30 @@ public sealed class TissExportService
     /// social e nome do contratado não saem: não existem na guia de consulta do padrão.
     /// </summary>
     private static XElement CriarGuiaConsultaConferida(CodigoFaturamento codigo, GuiaTissConsulta ans, int numeroGuia)
+        => CriarGuiaConsultaConferida(ans, codigo.NumeroGuiaReal ?? numeroGuia.ToString());
+
+    /// <summary>
+    /// A guia de consulta conferida na baixa, como elemento do padrão (<c>guiaConsulta</c>), com o
+    /// <c>numeroGuiaPrestador</c> que quem chama escolheu — é a porta do envio pelo web service
+    /// (<see cref="TissLoteGuiasWs"/>), onde o número tem de ser único por guia e não repetir
+    /// entre lotes (<see cref="NumeroGuiaPrestadorTiss"/>). O arquivo de lote (<see cref="GerarLoteXml"/>)
+    /// continua numerando como sempre numerou. Guia sem conferência é recusada: sem os dados
+    /// conferidos o XSD 4.01.00 a reprova, e a operadora também.
+    /// </summary>
+    public static XElement GuiaConsultaConferida(CodigoFaturamento codigo, string numeroGuiaPrestador)
+    {
+        if (codigo.GuiaAns is not { } ans)
+            throw new ArgumentException("Só a guia conferida na baixa (com a guia ANS gravada) sai pelo web service.");
+        if (string.IsNullOrWhiteSpace(numeroGuiaPrestador) || numeroGuiaPrestador.Length > NumeroGuiaPrestadorTiss.TamanhoMaximo)
+            throw new ArgumentException($"O número da guia no prestador é obrigatório e tem até {NumeroGuiaPrestadorTiss.TamanhoMaximo} caracteres.");
+        return CriarGuiaConsultaConferida(ans, numeroGuiaPrestador);
+    }
+
+    private static XElement CriarGuiaConsultaConferida(GuiaTissConsulta ans, string numeroGuiaPrestador)
         => new(Ans + "guiaConsulta",
             new XElement(Ans + "cabecalhoConsulta",
                 new XElement(Ans + "registroANS", ans.RegistroAns),
-                new XElement(Ans + "numeroGuiaPrestador", codigo.NumeroGuiaReal ?? numeroGuia.ToString())),
+                new XElement(Ans + "numeroGuiaPrestador", numeroGuiaPrestador)),
             new XElement(Ans + "dadosBeneficiario",
                 new XElement(Ans + "numeroCarteira", ans.NumeroCarteira),
                 new XElement(Ans + "atendimentoRN", ans.AtendimentoRn ? "S" : "N")),
