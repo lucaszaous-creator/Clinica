@@ -26,7 +26,9 @@ public sealed class FaturamentoService
             ?? throw new InvalidOperationException($"Código {codigoId} não encontrado.");
 
         // A crítica de formato mora AQUI, e não em cada tela, porque a baixa tem quatro
-        // portas (tela de baixa, baixa em lote, rodada de pendências e fila do Gerente).
+        // portas e três caminhos até este método: a tela de baixa (uma guia), a baixa em lote
+        // do painel e a rodada de pendências — esta com duas telas, o formulário do painel e
+        // a janela bloqueante da abertura do app. O Gerente dá baixa por essas mesmas telas.
         // Validar na tela cobriria uma; validar no caminho único cobre as quatro.
         if (RegraNumeroGuia.Criticar(numeroGuia, FormatoDaGuia(codigo)) is { } critica)
             throw new InvalidOperationException(critica);

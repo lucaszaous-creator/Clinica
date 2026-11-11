@@ -700,7 +700,9 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   lugar do zero** —, que passava batido, dava a guia por baixada e só aparecia no retorno da
   operadora, semanas depois, com boa parte do prazo de recurso já corrida. A regra mora no
   **DOMÍNIO** e é aplicada em `FaturamentoService.DarBaixaAsync`, não na tela, porque a baixa tem
-  **quatro portas** (tela de baixa, baixa em lote, rodada de pendências e fila do Gerente): validar
+  **quatro portas** e três caminhos até o serviço (tela de baixa; baixa em lote; rodada de pendências,
+  em duas telas — o formulário do painel e a janela bloqueante da abertura do app. A "fila do
+  Gerente" de antes não existe mais: ele dá baixa por essas mesmas telas): validar
   na tela cobre uma e deixa três passando, que é o defeito recorrente do projeto vestido de
   validação. A tela usa a MESMA regra para avisar ANTES do clique — a dica ao lado do campo é a
   metade que explica; o serviço é a que impede.
@@ -2227,6 +2229,22 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   suíte de telas inteira reprova na montagem do banco. Domínios do padrão em `DominiosTiss`, conferidos
   contra o XSD por teste: UF é código IBGE ("33"), conselho tem zero ("06"), valor tem ponto ("139.00").
   A baixa NÃO envia nada à operadora e nenhum texto diz que envia. `docs/baixa-petrobras-guia-ans.md`.
+- **CONSELHO, NÚMERO, UF E CBO SÃO DO PROFISSIONAL, e o texto livre do conselho continua** (nov/2026,
+  decisão da direção pela tela do portal). `Profissional` ganhou `ConselhoProfissional`, `NumeroConselho`,
+  `UfConselho` e `Cbos`, nos CÓDIGOS do `DominiosTiss` e todos opcionais; o `RegistroConselho` em texto
+  livre segue mandando nos documentos clínicos e nenhum dos dois é derivado do outro. A regra é
+  `RegistroDoProfissionalParaGuias` (Application, pura): a guia da baixa busca o executante CAMPO A
+  CAMPO — cadastro → última guia conferida → texto livre —, e fonte mais fraca nunca passa por cima
+  de fonte mais forte. ⚠️ **Campo novo num cadastro com cópia campo a campo nasce com "nulo = não
+  sei"**: o `EquipeService` só toca o campo quando o chamador o manda (vazio = apagar). Sem isso a
+  tela de Acessos, que regrava o profissional para corrigir o CPF, apagaria o CBO na primeira
+  correção — e nada quebraria. O formulário PROPÕE o que leu do texto livre e não preenche sozinho.
+  No lote e na rodada do PAINEL a linha da Saúde Petrobras tem o botão "Abrir a guia" (o mesmo
+  `BaixaGuiaForm`, por cima); `LinhaDaRodada.BaixadaNoFormulario` tira a linha de toda conta, e a
+  justificativa dela não é regravada depois da baixa. ⚠️ **Formulário aberto de dentro de outro avisa
+  quem está atrás NA HORA** (`AoBaixarPelaGuia` → o painel relê): concluir "ao fechar" faria o painel
+  dizer "rodada concluída" sobre linhas que a pessoa digitou e descartou. A janela WPF bloqueante
+  não tem o botão. A migration destes campos é gerada na integração, uma só.
 - `PrevencaoGlosaService` (radar de glosas) roda na exportação do lote: carteirinha vencida,
   duplicidade e taxa histórica por padrão (convênio+tipo). `TissRetornoImport.Ler` importa o
   demonstrativo XML da operadora e pré-preenche as decisões do retorno (casadas pelo nº real

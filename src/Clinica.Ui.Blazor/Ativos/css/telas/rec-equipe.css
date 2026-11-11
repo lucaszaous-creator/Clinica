@@ -91,3 +91,8 @@
 .eq-horario-resultado.erro{background:var(--erro-suave);color:var(--erro-texto)}
 .eq-horario-resumo{display:flex;align-items:center;gap:var(--space-2);margin:0;font-weight:600;font-variant-numeric:tabular-nums}
 @media (max-width:760px){ .eq-horario-dia{grid-template-columns:1fr} }
+
+/* O registro para guias de convênio (nov/2026): o botão da proposta ("Usar estes valores") não
+   encolhe nem quebra em três linhas ao lado da frase — a frase é que cede a largura. Só o
+   encolher é fixado: em tela estreita o botão continua descendo para baixo do texto (clinica.css). */
+.eq-registro-guias .aviso > .botao{flex-shrink:0;white-space:nowrap}

@@ -222,7 +222,7 @@ public static class GuiaAnsNaBaixa
 
 /// <summary>
 /// Monta a PROPOSTA da guia ANS para o formulário de baixa: lê o que o sistema sabe (ficha,
-/// atendimento, horário, equipe, dados do prestador, tabela de preços, guias anteriores) e
+/// atendimento, horário, cadastro da equipe, dados do prestador, tabela de preços, guias anteriores) e
 /// devolve os campos preenchidos. Só leitura — quem grava é o <see cref="FaturamentoService"/>.
 /// </summary>
 public sealed class GuiaAnsNaBaixaService(IClinicaRepositorio repo, ParametrosService parametros, PrecoConvenioService precos)
@@ -257,18 +257,16 @@ public sealed class GuiaAnsNaBaixaService(IClinicaRepositorio repo, ParametrosSe
             avisos.Add("O sistema não achou o profissional deste atendimento (horário sem profissional): informe o executante.");
         else
         {
-            // 1º a última guia conferida deste profissional — é o que alguém já conferiu contra o portal.
-            var ultima = await repo.UltimaGuiaAnsDoProfissionalAsync(nomeProfissional, ct);
-            if (ultima is not null)
-            {
-                (conselho, numeroConselho, uf, cbos) = (ultima.ConselhoProfissional, ultima.NumeroConselho, ultima.UfConselho, ultima.Cbos);
-            }
-            else
-            {
-                // 2º o registro em texto livre do cadastro da equipe; o CBO não existe no cadastro.
-                (conselho, numeroConselho, uf) = GuiaAnsNaBaixa.LerRegistroConselho(profissional.RegistroConselho);
-                avisos.Add("Primeira guia deste profissional: confira conselho, número e UF e escolha o CBO. Nas próximas, eles já vêm preenchidos.");
-            }
+            // As fontes, campo a campo e nesta ordem (RegistroDoProfissionalParaGuias.ParaAGuia):
+            // 1º o CADASTRO do profissional; 2º a última guia conferida dele; 3º o texto livre.
+            // A última guia só é lida quando o cadastro não deu os quatro — é uma consulta a menos
+            // em toda baixa de quem já está cadastrado, que passa a ser o caso comum.
+            var ultima = RegistroDoProfissionalParaGuias.Do(profissional).Completo
+                ? null
+                : await repo.UltimaGuiaAnsDoProfissionalAsync(nomeProfissional, ct);
+            var (proposto, avisoDoExecutante) = RegistroDoProfissionalParaGuias.ParaAGuia(profissional, ultima);
+            (conselho, numeroConselho, uf, cbos) = (proposto.Conselho, proposto.Numero, proposto.Uf, proposto.Cbos);
+            if (avisoDoExecutante is not null) avisos.Add(avisoDoExecutante);
         }
 
         // ---- tipo de consulta: proposta pelo histórico, decisão de quem confere ----

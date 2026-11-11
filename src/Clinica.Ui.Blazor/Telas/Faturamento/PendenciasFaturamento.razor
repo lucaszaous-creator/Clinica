@@ -340,7 +340,7 @@
 }
 @if (_lote is { } lote)
 {
-    <BaixaLoteForm Itens="lote" AoFechar="() => _lote = null" AoConcluir="LoteConcluidoAsync" />
+    <BaixaLoteForm Itens="lote" AoFechar="() => _lote = null" AoConcluir="LoteConcluidoAsync" AoBaixarPelaGuia="CarregarAsync" />
 }
 @if (_nc is { } nc)
 {
@@ -352,7 +352,7 @@
 }
 @if (_rodada)
 {
-    <RodadaPendenciasForm AoFechar="() => _rodada = false" AoConcluir="RodadaConcluidaAsync" />
+    <RodadaPendenciasForm AoFechar="() => _rodada = false" AoConcluir="RodadaConcluidaAsync" AoBaixarPelaGuia="CarregarAsync" />
 }
 
 @code {

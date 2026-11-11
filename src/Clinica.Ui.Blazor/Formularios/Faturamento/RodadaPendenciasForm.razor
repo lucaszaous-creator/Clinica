@@ -9,6 +9,13 @@
   A regra INTEIRA mora em DecisoesDaRodada (Application) — montar, o texto do topo, o que
   impede de concluir e a aplicação linha a linha —, a MESMA da janela bloqueante: duas cópias
   de "como se aplica a rodada" divergiriam na primeira correção.
+
+  A guia da Saúde Petrobras (LinhaDaRodada.PedeGuiaAns, nov/2026) não tem campo de número: no
+  lugar dele vai o botão "Abrir a guia", que abre o MESMO BaixaGuiaForm do painel por cima deste,
+  sem perder o que já foi digitado nas outras linhas. A justificativa dela continua ao lado (é a
+  anotação de "por que ainda não foi baixada"). Baixada, a linha fica na lista com o selo e sai
+  da conta, e o painel é avisado na hora (AoBaixarPelaGuia) para reler por trás. A janela WPF
+  bloqueante NÃO tem o botão — ela segue pedindo só a justificativa.
 *@
 @inject IServiceScopeFactory Escopos
 
@@ -46,16 +53,30 @@
                                     <span class="secundario">@l.Situacao</span>
                                 </td>
                                 <td>
-                                    <input class="campo numero-guia @(l.CriticaDoNumero is not null ? "invalido" : null)" value="@l.NumeroGuia" maxlength="40"
-                                           aria-label="@($"Número da guia — {l.Descricao}")" autocomplete="off" disabled="@(!PodeBaixar)"
-                                           title="@(PodeBaixar ? "Informe o número da guia para dar baixa" : "Seu acesso não permite dar baixa.")"
-                                           @oninput="e => l.NumeroGuia = e.Value?.ToString()" />
-                                    @if (l.CriticaDoNumero is { } critica) { <span class="campo-erro">@critica</span> }
+                                    @if (l.BaixadaNoFormulario)
+                                    {
+                                        <Selo Tom="sucesso">Baixa registrada</Selo>
+                                    }
+                                    else if (l.PedeGuiaAns)
+                                    {
+                                        <button type="button" class="botao mini" data-abrir-guia="@l.CodigoId" disabled="@(!PodeBaixar || _ocupado)"
+                                                aria-label="@($"Abrir a guia — {l.Descricao}")"
+                                                title="@(PodeBaixar ? "Conferir a guia ANS e dar baixa nesta guia" : "Seu acesso não permite dar baixa na guia.")"
+                                                @onclick="() => AbrirGuia(l)"><Icone Nome="abrir" />Abrir a guia</button>
+                                    }
+                                    else
+                                    {
+                                        <input class="campo numero-guia @(l.CriticaDoNumero is not null ? "invalido" : null)" value="@l.NumeroGuia" maxlength="40"
+                                               aria-label="@($"Número da guia — {l.Descricao}")" autocomplete="off" disabled="@(!PodeBaixar)"
+                                               title="@(PodeBaixar ? "Informe o número da guia para dar baixa" : "Seu acesso não permite dar baixa.")"
+                                               @oninput="e => l.NumeroGuia = e.Value?.ToString()" />
+                                        @if (l.CriticaDoNumero is { } critica) { <span class="campo-erro">@critica</span> }
+                                    }
                                 </td>
                                 <td>
                                     <textarea class="campo fat-texto" rows="1" maxlength="500" aria-label="@($"Justificativa — {l.Descricao}")"
-                                              disabled="@(!PodeMarcarNc || !string.IsNullOrWhiteSpace(l.NumeroGuia))"
-                                              title="@(!PodeMarcarNc ? "Seu acesso não permite registrar não conformidade." : !string.IsNullOrWhiteSpace(l.NumeroGuia) ? "Com número informado, a guia recebe baixa." : "Se não for baixar, justifique como não conformidade")"
+                                              disabled="@(l.BaixadaNoFormulario || !PodeJustificar(l) || !string.IsNullOrWhiteSpace(l.NumeroGuia))"
+                                              title="@DicaDaJustificativa(l)"
                                               value="@l.Justificativa" @oninput="e => l.Justificativa = e.Value?.ToString()"></textarea>
                                 </td>
                             </tr>
@@ -68,7 +89,7 @@
     </ChildContent>
     <Rodape>
         <span class="esquerda texto-secundario pequeno">Para cada guia: o nº da guia (baixa) OU uma justificativa (não conformidade). Em branco, a guia continua pendente.</span>
-        <button type="button" class="botao" @onclick="AoFechar">@(_linhas is { Count: 0 } ? "Fechar" : "Cancelar")</button>
+        <button type="button" class="botao" @onclick="AoFechar">@(_linhas is { Count: 0 } || HouveBaixaPelaGuia ? "Fechar" : "Cancelar")</button>
         @if (_linhas is { Count: > 0 })
         {
             <button type="button" class="botao primario" @onclick="ConcluirAsync" disabled="@(_ocupado || !DecisoesDaRodada.PodeDecidir())">
@@ -78,10 +99,17 @@
     </Rodape>
 </Modal>
 
+@if (_guiaAberta is { } guiaAberta)
+{
+    <BaixaGuiaForm CodigoId="guiaAberta.CodigoId" AoFechar="() => _guiaAberta = null" AoConcluir="GuiaBaixada" />
+}
+
 @code {
     /// <summary>Concluída: a frase das falhas (nula = tudo aplicado).</summary>
     [Parameter] public EventCallback<string?> AoConcluir { get; set; }
     [Parameter] public EventCallback AoFechar { get; set; }
+    /// <summary>Uma guia recebeu baixa pelo "Abrir a guia": quem está atrás relê as pendências.</summary>
+    [Parameter] public EventCallback AoBaixarPelaGuia { get; set; }
 
     private IReadOnlyList<LinhaDaRodada>? _linhas;
     private string? _resumo;
@@ -94,7 +122,40 @@
     private static bool PodeBaixar => SessaoUsuario.Atual.Pode(Permissao.BaixarGuia);
     private static bool PodeMarcarNc => SessaoUsuario.Atual.Pode(Permissao.MarcarNaoConformidade);
 
+    /// <summary>A linha cuja guia está aberta no formulário de baixa, por cima deste.</summary>
+    private LinhaDaRodada? _guiaAberta;
+
+    private bool HouveBaixaPelaGuia => _linhas?.Any(l => l.BaixadaNoFormulario) == true;
+
+    /// <summary>
+    /// Quem pode escrever a justificativa DESTA linha: na guia da Saúde Petrobras ela vira anotação
+    /// da pendência (o bit do "Anotar" do painel); nas demais, não conformidade.
+    /// </summary>
+    private static bool PodeJustificar(LinhaDaRodada l)
+        => l.PedeGuiaAns ? SessaoUsuario.Atual.Pode(Permissao.VerFaturamento) : PodeMarcarNc;
+
+    private static string DicaDaJustificativa(LinhaDaRodada l)
+        => l.BaixadaNoFormulario ? "A guia já recebeu baixa."
+            : !PodeJustificar(l) ? (l.PedeGuiaAns ? "Seu acesso não permite anotar a pendência." : "Seu acesso não permite registrar não conformidade.")
+            : !string.IsNullOrWhiteSpace(l.NumeroGuia) ? "Com número informado, a guia recebe baixa."
+            : l.PedeGuiaAns ? "Se não for baixar agora, anote por que ainda não foi baixada"
+            : "Se não for baixar, justifique como não conformidade";
+
     protected override Task OnInitializedAsync() => CarregarAsync();
+
+    private void AbrirGuia(LinhaDaRodada l)
+    {
+        _mensagem = DecisoesDaRodada.RecusaDeAbrirAGuia();
+        if (_mensagem is null && !_ocupado) _guiaAberta = l;
+    }
+
+    /// <summary>O formulário de baixa gravou: a linha fica marcada e as outras, como estavam.</summary>
+    private Task GuiaBaixada()
+    {
+        if (_guiaAberta is { } l) l.BaixadaNoFormulario = true;
+        _guiaAberta = null;
+        return AoBaixarPelaGuia.InvokeAsync();
+    }
 
     private async Task CarregarAsync()
     {
@@ -105,7 +166,7 @@
             using var escopo = Escopos.CreateScope();
             var status = await escopo.ServiceProvider.GetRequiredService<RodadaPendenciasService>().ObterStatusAsync(hoje);
             var itens = await escopo.ServiceProvider.GetRequiredService<PendenciaService>().CodigosPendentesAsync(hoje); // manual: todas as pendentes
-            _linhas = DecisoesDaRodada.Montar(itens);
+            _linhas = DecisoesDaRodada.Montar(itens, abreAGuia: true);
             _resumo = DecisoesDaRodada.Resumo(_linhas.Count, status, bloqueante: false);
         }
         catch (Exception ex)
