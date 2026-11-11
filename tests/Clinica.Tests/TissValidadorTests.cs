@@ -87,7 +87,8 @@ public class TissValidadorTests
         var guias = GuiasBaixadas();
         guias[0].RegistrarGlosa(new DateOnly(2026, 7, 20), "carteirinha inválida", "1801");
 
-        var xml = new TissExportService().GerarRecursoGlosaXml(guias, PrestadorCompleto(), "REC-1");
+        var xml = new TissExportService().GerarRecursoGlosaXml(guias, PrestadorCompleto(), "REC-1",
+            new TissExportService.LoteDoRecurso("7", "123456", "Unimed"));
 
         // Recurso não tem loteGuias; valem cabeçalho e hash.
         TissValidador.Validar(xml).Should().BeEmpty();

@@ -107,14 +107,15 @@ public class TissExportServiceTests
         recuperada.MarcarGlosaRecuperada();
 
         var xml = new TissExportService().GerarRecursoGlosaXml(
-            new[] { codigo, recuperada }, prestador, "202607200001");
+            new[] { codigo, recuperada }, prestador, "202607200001",
+            new TissExportService.LoteDoRecurso("7", "123456", "Unimed"));
         var doc = XDocument.Parse(xml);
 
         doc.Descendants(Ans + "identificacaoTransacao")
             .Single().Element(Ans + "tipoTransacao")!.Value.Should().Be("RECURSO_GLOSA");
-        doc.Descendants(Ans + "guiaRecurso").Should().HaveCount(1); // só a glosa em aberto
+        doc.Descendants(Ans + "recursoGuia").Should().HaveCount(1); // só a glosa em aberto
         doc.Descendants(Ans + "numeroGuiaOrigem").Single().Value.Should().Be("GUIA-123");
-        doc.Descendants(Ans + "codigoGlosaGuia").Single().Value.Should().Be("2006");
+        doc.Descendants(Ans + "codGlosaGuia").Single().Value.Should().Be("2006");
         doc.Descendants(Ans + "hash").Should().HaveCount(1);
     }
 }

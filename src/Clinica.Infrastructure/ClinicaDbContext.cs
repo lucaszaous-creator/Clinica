@@ -503,6 +503,7 @@ public class ClinicaDbContext : DbContext
             e.Property(p => p.NomeCurto).HasMaxLength(40);
             e.Property(p => p.ConveniosNaoAtendidos).HasMaxLength(1000);
             e.Property(p => p.RegistroConselho).HasMaxLength(40);
+            e.Property(p => p.CodigoCbo).HasMaxLength(6);
             // Só dígitos — é comparado com o CPF extraído do e-CPF ICP-Brasil (parcela 42).
             e.Property(p => p.Cpf).HasMaxLength(11);
             // Índice NÃO ÚNICO de propósito (parcela 45): a entrada por certificado procura

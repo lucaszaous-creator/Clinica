@@ -75,6 +75,13 @@ public sealed class EquipeService
         destino.NomeCurto = Limpar(dados.NomeCurto);
         destino.RegistroConselho = Limpar(dados.RegistroConselho);
 
+        // CBO (nov/2026): vai no lote TISS. Em branco é legítimo (o lote cai no da
+        // especialidade); preenchido, são os 6 dígitos — meio CBO reprovaria o lote inteiro.
+        var cbo = new string((dados.CodigoCbo ?? string.Empty).Where(char.IsDigit).ToArray());
+        if (cbo.Length is not (0 or 6))
+            throw new InvalidOperationException("O CBO tem 6 dígitos (ex.: 225105, médico acupunturista) — ou deixe em branco.");
+        destino.CodigoCbo = cbo.Length == 0 ? null : cbo;
+
         // O CPF: a coluna existe desde a parcela 42 e este é o PRIMEIRO gravador dela.
         // Até aqui ela tinha três leitores — as duas assinaturas e o login por certificado —
         // e nenhuma escrita em todo o código, o que fazia a assinatura ICP-Brasil recusar

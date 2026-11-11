@@ -22,24 +22,57 @@ public static class ExportacaoLoteTiss
     /// <summary>Quantos problemas de validação por lote entram no aviso.</summary>
     public const int ProblemasPorLote = 6;
 
-    /// <summary>As guias candidatas de UMA operadora — um lote, um XML.</summary>
+    /// <summary>As guias candidatas de UM lote — uma operadora, um tipo de guia, um XML.</summary>
     public sealed record GrupoDeOperadora(string ConvenioCodigo, string Nome, IReadOnlyList<CodigoFaturamento> Guias);
 
     /// <summary>
-    /// UM LOTE POR OPERADORA (parcela 60): o XML tem um destino só. Agrupa pela MESMA
-    /// resolução do serviço (<see cref="LoteTissService.ConvenioDaGuia"/>) e ordena pelo nome
-    /// do catálogo — o que a confirmação lista e a ordem em que os lotes nascem.
+    /// UM LOTE POR OPERADORA (parcela 60) E POR TIPO DE GUIA (nov/2026): o XML tem um destino
+    /// só, e o esquema da ANS aceita num lote UM tipo de guia — consulta OU SP/SADT — e no
+    /// máximo <see cref="TissExportService.GuiasPorLote"/> guias. Agrupa pela MESMA resolução
+    /// do serviço (<see cref="LoteTissService.ConvenioDaGuia"/>) e ordena pelo nome do catálogo.
+    ///
+    /// O nome do grupo só ganha sufixo quando a operadora se divide ("Unimed — consultas",
+    /// "Unimed — procedimentos (2 de 3)"): quem tem um tipo só e menos de cem guias vê o de sempre.
+    /// O atendimento nunca é partido entre dois lotes do mesmo tipo.
     /// </summary>
     public static IReadOnlyList<GrupoDeOperadora> Agrupar(IEnumerable<CodigoFaturamento> candidatas)
         => candidatas
             .GroupBy(LoteTissService.ConvenioDaGuia)
-            .Select(g => new GrupoDeOperadora(g.Key, CatalogoConvenios.Nome(g.Key), g.ToList()))
+            .Select(g => (Codigo: g.Key, Nome: CatalogoConvenios.Nome(g.Key), Guias: g.ToList()))
             .OrderBy(g => g.Nome, StringComparer.CurrentCulture)
+            .SelectMany(g => DividirPorTipo(g.Codigo, g.Nome, g.Guias))
+            .ToList();
+
+    private static IEnumerable<GrupoDeOperadora> DividirPorTipo(string codigo, string nome, List<CodigoFaturamento> guias)
+    {
+        var consultas = Partes(guias.Where(c => TissExportService.EhConsulta(c.Tipo)));
+        var procedimentos = Partes(guias.Where(c => !TissExportService.EhConsulta(c.Tipo)));
+        var doisTipos = consultas.Count > 0 && procedimentos.Count > 0;
+
+        foreach (var (partes, rotulo) in new[] { (consultas, "consultas"), (procedimentos, "procedimentos") })
+            for (var i = 0; i < partes.Count; i++)
+            {
+                var sufixo = (doisTipos, partes.Count > 1) switch
+                {
+                    (false, false) => string.Empty,
+                    (true, false) => $" — {rotulo}",
+                    (false, true) => $" ({i + 1} de {partes.Count})",
+                    (true, true) => $" — {rotulo} ({i + 1} de {partes.Count})"
+                };
+                yield return new GrupoDeOperadora(codigo, nome + sufixo, partes[i]);
+            }
+    }
+
+    /// <summary>Fatias de até cem GUIAS (uma guia = os códigos de um atendimento, do mesmo tipo).</summary>
+    private static List<IReadOnlyList<CodigoFaturamento>> Partes(IEnumerable<CodigoFaturamento> doTipo)
+        => doTipo.GroupBy(c => c.AtendimentoId)
+            .Chunk(TissExportService.GuiasPorLote)
+            .Select(fatia => (IReadOnlyList<CodigoFaturamento>)fatia.SelectMany(g => g).ToList())
             .ToList();
 
     /// <summary>A pergunta "Um lote por operadora" — só existe com duas ou mais.</summary>
     public static string ConfirmacaoDeOperadoras(IReadOnlyList<GrupoDeOperadora> grupos)
-        => "As guias do período são de " + grupos.Count + " operadoras — sai um lote (e um XML) para cada uma:\n\n• " +
+        => "As guias do período saem em " + grupos.Count + " lotes — um XML por operadora e por tipo de guia (o padrão TISS não mistura consulta com procedimento, nem passa de cem guias por lote):\n\n• " +
            string.Join("\n• ", grupos.Select(g => $"{g.Nome}: {g.Guias.Count} guia(s)")) +
            "\n\nGerar os lotes?";
 
@@ -54,7 +87,7 @@ public static class ExportacaoLoteTiss
     public static string ConfirmacaoDePendencias(IReadOnlyList<string> pendencias)
         => "O lote será gerado com pendências que a operadora pode rejeitar:\n\n• " +
            string.Join("\n• ", pendencias) +
-           "\n\nCorrija na tela Configurações (Clínica/prestador e Códigos TUSS) ou exporte mesmo assim.\n\nExportar mesmo assim?";
+           "\n\nOnde corrigir: dados da clínica e códigos TUSS em Configurações; conselho e CBO em Equipe; valores na tabela de preços do convênio.\n\nExportar mesmo assim?";
 
     /// <summary>Nome de operadora vira pedaço de nome de arquivo: sem caractere proibido, sem espaço.</summary>
     public static string NomeSeguroDeArquivo(string nome)
@@ -76,35 +109,23 @@ public static class ExportacaoLoteTiss
     /// <summary>O nome da 2ª via de um lote já criado.</summary>
     public static string NomeDaSegundaVia(int numeroLote) => $"TISS-Lote-{numeroLote:000000}.xml";
 
-    /// <summary>O XML como ele vai para o disco: UTF-8 sem BOM, como o WPF gravava.</summary>
-    public static byte[] Bytes(string xml) => new UTF8Encoding(encoderShouldEmitUTF8Identifier: false).GetBytes(xml);
+    /// <summary>O XML como ele vai para o disco: ISO-8859-1, a codificação do padrão TISS (a mesma do hash).</summary>
+    public static byte[] Bytes(string xml) => TissExportService.Bytes(xml);
 
-    /// <summary>A pasta onde o app guarda a cópia de cada lote e os .xsd da ANS (%APPDATA%\ClinicaFaturamento\tiss).</summary>
+    /// <summary>A pasta onde o app guarda a cópia de cada lote (%APPDATA%\ClinicaFaturamento\tiss).</summary>
     public static string PastaTiss() => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ClinicaFaturamento", "tiss");
 
     /// <summary>
-    /// Valida o XML gerado: sempre a validação estrutural; e contra o XSD oficial da ANS
-    /// quando houver um .xsd em <paramref name="pastaSchemas"/>. Falha de leitura do XSD não
-    /// derruba a exportação — vai para o log, e a estrutural continua valendo.
+    /// Valida o XML gerado: a validação estrutural (campos em branco, hash) e o ESQUEMA
+    /// OFICIAL da ANS, embutido — sempre, sem depender de arquivo na máquina (nov/2026).
     /// </summary>
-    public static IReadOnlyList<string> ValidarXml(string xml, string? pastaSchemas)
+    public static IReadOnlyList<string> ValidarXml(string xml)
     {
         var problemas = new List<string>(TissValidador.Validar(xml));
-        if (pastaSchemas is null) return problemas;
-        try
-        {
-            if (Directory.Exists(pastaSchemas))
-            {
-                var xsd = Directory.GetFiles(pastaSchemas, "*.xsd").OrderBy(f => f, StringComparer.Ordinal).FirstOrDefault();
-                if (xsd is not null)
-                    problemas.AddRange(TissValidador.ValidarComXsd(xml, xsd));
-            }
-        }
-        catch (Exception ex)
-        {
-            Diagnostico.Registrar("Validação XSD do lote TISS", ex);
-        }
+        // XML que nem abre já disse tudo: o esquema só repetiria a mesma falha.
+        if (problemas.Count == 1 && problemas[0].StartsWith("XML malformado", StringComparison.Ordinal)) return problemas;
+        problemas.AddRange(TissValidador.ValidarComXsdOficial(xml));
         return problemas;
     }
 

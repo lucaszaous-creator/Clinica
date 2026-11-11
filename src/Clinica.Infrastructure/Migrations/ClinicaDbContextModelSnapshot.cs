@@ -5924,6 +5924,10 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<bool>("Ativo")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("CodigoCbo")
+                        .HasMaxLength(6)
+                        .HasColumnType("character varying(6)");
+
                     b.Property<string>("ConveniosNaoAtendidos")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");

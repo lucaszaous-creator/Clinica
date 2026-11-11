@@ -1236,6 +1236,14 @@ public interface IClinicaRepositorio
     Task<Agendamento?> AgendamentoDoAtendimentoAsync(int atendimentoId, CancellationToken ct = default);
 
     /// <summary>
+    /// Quem atendeu cada atendimento, pelo horário da agenda que o originou — para o lote TISS,
+    /// que exige o profissional em toda guia (nov/2026). Uma ida ao banco para o lote inteiro;
+    /// atendimento sem horário com profissional fica de fora do dicionário.
+    /// </summary>
+    Task<IReadOnlyDictionary<int, Profissional>> ProfissionaisDosAtendimentosAsync(
+        IReadOnlyCollection<int> atendimentoIds, CancellationToken ct = default);
+
+    /// <summary>
     /// Os horários que este atendimento SUBSTITUIU (<c>AtendimentoSubstitutoId</c>) — quem
     /// estorna a sessão precisa reabri-los, porque a sessão que os encerrou deixou de
     /// existir. Rastreado: o chamador muta no mesmo commit.

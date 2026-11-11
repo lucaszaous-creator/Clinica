@@ -27,6 +27,13 @@ public class Profissional
     public string? RegistroConselho { get; set; }
 
     /// <summary>
+    /// CBO do profissional (6 dígitos) — vai no lote TISS, que exige o CBO de quem solicita e
+    /// de quem executa (nov/2026). Em branco, o lote usa o da especialidade principal
+    /// (<c>TabelasTiss.Cbos</c>); sem nenhum dos dois, sai "não informado" e a exportação avisa.
+    /// </summary>
+    public string? CodigoCbo { get; set; }
+
+    /// <summary>
     /// CPF, só dígitos. Existe para AMARRAR o certificado digital à pessoa (parcela 42): o
     /// e-CPF ICP-Brasil carrega o CPF do titular numa extensão do próprio certificado, e é
     /// comparando os dois que o sistema recusa alguém assinar uma prescrição com o

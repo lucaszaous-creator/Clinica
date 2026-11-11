@@ -118,6 +118,7 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
 - Quem assina a ação é quem fez login
 - Campanhas (parcela 5)
 - Indicadores (parcela 5)
+- O XML TISS VALIDA CONTRA O ESQUEMA OFICIAL DA ANS, que vai embutido
 - O lote TISS é POR OPERADORA, e a guarda de duplicidade era o que tornava o erro
 - A cópia que ficou para trás é onde a permissão vaza
 - Excluir paciente era a última porta que apagava prontuário
@@ -2211,8 +2212,18 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   tela mostra "—": 0% e "não medido" são coisas diferentes.
 - Concorrência otimista via `xmin` (só no Npgsql — testes rodam em SQLite e ficam de fora);
   `ClinicaRepositorio.SalvarAsync` traduz `DbUpdateConcurrencyException` em mensagem amigável.
-- XML TISS gerado passa por `TissValidador.Validar` (estrutura + hash do epílogo); XSD oficial
-  é opcional (pasta `%APPDATA%\ClinicaFaturamento\tiss\schemas`).
+- **O XML TISS VALIDA CONTRA O ESQUEMA OFICIAL DA ANS, que vai embutido** (nov/2026,
+  `docs/tiss-conformidade-xsd.md`): toda exportação passa por `ExportacaoLoteTiss.ValidarXml`
+  (estrutura + hash + `TissValidador.ValidarComXsdOficial`). Até aqui o esquema só era usado se
+  alguém o copiasse para uma pasta, e os três arquivos eram REPROVADOS com a suíte verde — os
+  testes conferiam o que o próprio gerador escrevia. ⚠️ **A ordem dos elementos em
+  `TissExportService` é a do esquema**: mexeu, rode `TissConformidadeXsdTests`. ⚠️ **Um lote é
+  de UM tipo de guia** (consulta OU SP/SADT) e de até 100 guias — quem divide é
+  `ExportacaoLoteTiss.Agrupar`. O profissional (conselho, número, UF, CBO) vem do horário da
+  agenda e o valor da tabela de preços do convênio (`ContextoTissService`); o que falta vira
+  pendência COM NOME antes de gerar e nunca é inventado. O recurso de glosa sai POR LOTE, com o
+  protocolo da operadora (`RecursoDeGlosaTiss`). Arquivo em ISO-8859-1, e o hash sobre esses
+  bytes. A guia em PDF ainda NÃO é o formulário oficial.
 - `PrevencaoGlosaService` (radar de glosas) roda na exportação do lote: carteirinha vencida,
   duplicidade e taxa histórica por padrão (convênio+tipo). `TissRetornoImport.Ler` importa o
   demonstrativo XML da operadora e pré-preenche as decisões do retorno (casadas pelo nº real

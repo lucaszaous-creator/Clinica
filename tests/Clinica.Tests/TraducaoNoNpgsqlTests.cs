@@ -837,6 +837,15 @@ public class TraducaoNoNpgsqlTests
         fila.Should().Contain("\"TratadoEm\" IS NULL").And.Contain("\"Modelo\"");
     }
 
+    /// <summary>Quem atendeu cada atendimento do lote TISS (nov/2026): `Contains` + navegação do profissional.</summary>
+    [Fact]
+    public void Profissionais_dos_atendimentos_do_lote_TISS_traduzem()
+    {
+        using var db = Postgres();
+        var sql = new ClinicaRepositorio(db).ProfissionalDoAtendimento(new[] { 7, 8 }).ToQueryString();
+        sql.Should().Contain("\"AtendimentoId\"").And.Contain("\"Profissionais\"").And.Contain("\"CodigoCbo\"");
+    }
+
     /// <summary>A leitura do intervalo por especialidade da cobertura do convênio (nov/2026).</summary>
     [Fact]
     public void Consultas_da_cobertura_do_convenio_traduzem()

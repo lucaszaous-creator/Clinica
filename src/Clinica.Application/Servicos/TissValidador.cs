@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
 using System.Xml;
 using System.Xml.Linq;
 using System.Xml.Schema;
@@ -10,7 +8,7 @@ namespace Clinica.Application.Servicos;
 /// Valida o XML TISS gerado ANTES de ele ir para a operadora: estrutura mínima,
 /// campos que as operadoras rejeitam em branco e conferência do hash do epílogo.
 /// Um lote rejeitado por erro estrutural é retrabalho de dias — melhor barrar aqui.
-/// Havendo o XSD oficial da ANS disponível, valida também contra o schema.
+/// <see cref="ValidarComXsdOficial"/> valida também contra o esquema oficial da ANS, embutido.
 /// </summary>
 public static class TissValidador
 {
@@ -96,25 +94,58 @@ public static class TissValidador
     }
 
     /// <summary>
-    /// Valida contra o XSD oficial da ANS, quando o arquivo estiver disponível na máquina
-    /// (o XSD não é distribuído com o app — baixe no portal da ANS e aponte o caminho).
+    /// Valida contra o ESQUEMA OFICIAL da ANS (TISS 4.01.00), que vai embutido na DLL
+    /// (<c>Recursos/Tiss/*.xsd</c>) — nov/2026. Antes disso o esquema só era usado se alguém o
+    /// copiasse para uma pasta da máquina, e na prática o lote nunca era conferido contra ele:
+    /// a validação estrutural aprovava guias que o esquema reprova.
+    /// Lista vazia = o arquivo é aceito pelo esquema.
     /// </summary>
-    public static IReadOnlyList<string> ValidarComXsd(string xml, string caminhoXsd)
+    public static IReadOnlyList<string> ValidarComXsdOficial(string xml)
     {
         var problemas = new List<string>();
         try
         {
-            var schemas = new XmlSchemaSet();
-            schemas.Add(Ans.NamespaceName, caminhoXsd);
-
             var doc = XDocument.Parse(xml);
-            doc.Validate(schemas, (_, e) => problemas.Add($"XSD: {e.Message}"));
+            doc.Validate(EsquemaOficial.Value, (_, e) => problemas.Add($"Esquema TISS: {e.Message}"));
         }
         catch (Exception ex)
         {
-            problemas.Add($"Não foi possível validar contra o XSD ({caminhoXsd}): {ex.Message}");
+            problemas.Add($"Não foi possível validar contra o esquema TISS: {ex.Message}");
         }
         return problemas;
+    }
+
+    private const string PrefixoDosEsquemas = "Clinica.Application.Recursos.Tiss.";
+    private const string EsquemaPrincipal = "tissV4_01_00.xsd";
+
+    // Compilar o esquema (seis arquivos, ~300 KB) custa algumas centenas de ms: uma vez por processo.
+    private static readonly Lazy<XmlSchemaSet> EsquemaOficial = new(() =>
+    {
+        var resolvedor = new EsquemasEmbutidos();
+        var schemas = new XmlSchemaSet { XmlResolver = resolvedor };
+        var uri = new Uri(EsquemasEmbutidos.Base, EsquemaPrincipal);
+        using var leitor = XmlReader.Create(
+            (Stream)resolvedor.GetEntity(uri, null, typeof(Stream))!,
+            new XmlReaderSettings { XmlResolver = resolvedor, DtdProcessing = DtdProcessing.Ignore }, uri.ToString());
+        schemas.Add(Ans.NamespaceName, leitor);
+        schemas.Compile();
+        return schemas;
+    });
+
+    /// <summary>Resolve os <c>include</c>/<c>import</c> do esquema nos recursos embutidos — nunca na rede nem no disco.</summary>
+    private sealed class EsquemasEmbutidos : XmlResolver
+    {
+        public static readonly Uri Base = new("tiss-embutido:///");
+
+        public override Uri ResolveUri(Uri? baseUri, string? relativeUri)
+            => new(Base, Path.GetFileName(relativeUri ?? string.Empty));
+
+        public override object? GetEntity(Uri absoluteUri, string? role, Type? ofObjectToReturn)
+        {
+            var nome = PrefixoDosEsquemas + Path.GetFileName(absoluteUri.AbsolutePath);
+            return typeof(TissValidador).Assembly.GetManifestResourceStream(nome)
+                ?? throw new FileNotFoundException($"Esquema TISS não embutido: {nome}");
+        }
     }
 
     private static void ExigirTexto(List<string> problemas, XElement? elemento, string rotulo)
@@ -124,19 +155,8 @@ public static class TissValidador
     }
 
     /// <summary>
-    /// Recalcula o hash como o TissExportService o calculou na geração: MD5 da concatenação
-    /// dos valores-texto da mensagem, na ordem do documento, ANTES do epílogo existir —
-    /// por isso os textos dentro de &lt;epilogo&gt; ficam de fora.
+    /// Recalcula o hash com a MESMA conta da geração (<see cref="TissExportService.CalcularHash"/>):
+    /// os textos de &lt;epilogo&gt; ficam de fora, e os bytes são ISO-8859-1.
     /// </summary>
-    private static string CalcularHashSemEpilogo(XElement mensagem)
-    {
-        var epilogo = mensagem.Element(Ans + "epilogo");
-        var sb = new StringBuilder();
-        foreach (var texto in mensagem.DescendantNodes().OfType<XText>())
-            if (epilogo is null || !texto.Ancestors().Contains(epilogo))
-                sb.Append(texto.Value);
-
-        var bytes = MD5.HashData(Encoding.UTF8.GetBytes(sb.ToString()));
-        return Convert.ToHexString(bytes).ToLowerInvariant();
-    }
+    private static string CalcularHashSemEpilogo(XElement mensagem) => TissExportService.CalcularHash(mensagem);
 }

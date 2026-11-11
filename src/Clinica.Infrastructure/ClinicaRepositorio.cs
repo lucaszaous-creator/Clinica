@@ -297,6 +297,8 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     {
         var query = _db.Codigos
             .Include(c => c.Atendimento!).ThenInclude(a => a.Paciente!)
+            // O lote: o recurso de glosa TISS é amarrado ao número e ao protocolo dele (nov/2026).
+            .Include(c => c.Lote)
             .Where(c => c.Glosa != StatusGlosa.SemGlosa);
         if (somenteEmAberto)
             query = query.Where(c => c.Glosa == StatusGlosa.Glosada || c.Glosa == StatusGlosa.Reapresentada);
@@ -2714,6 +2716,26 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         => _db.Agendamentos
             .OrderBy(a => a.Id)
             .FirstOrDefaultAsync(a => a.AtendimentoId == atendimentoId, ct);
+
+    public async Task<IReadOnlyDictionary<int, Profissional>> ProfissionaisDosAtendimentosAsync(
+        IReadOnlyCollection<int> atendimentoIds, CancellationToken ct = default)
+    {
+        if (atendimentoIds.Count == 0) return new Dictionary<int, Profissional>();
+        var pares = await ProfissionalDoAtendimento(atendimentoIds).ToListAsync(ct);
+        var resultado = new Dictionary<int, Profissional>();
+        // O mesmo atendimento pode ter dois horários (o substituído e o que valeu): o primeiro ganha.
+        foreach (var par in pares) resultado.TryAdd(par.AtendimentoId, par.Profissional);
+        return resultado;
+    }
+
+    /// <summary>As COLUNAS e a navegação do profissional: está em `TraducaoNoNpgsqlTests`.</summary>
+    internal IQueryable<ProfissionalDoAtendimentoLido> ProfissionalDoAtendimento(IReadOnlyCollection<int> atendimentoIds)
+        => _db.Agendamentos.AsNoTracking()
+            .Where(a => a.AtendimentoId != null && atendimentoIds.Contains(a.AtendimentoId.Value) && a.ProfissionalId != null)
+            .OrderBy(a => a.Id)
+            .Select(a => new ProfissionalDoAtendimentoLido(a.AtendimentoId!.Value, a.Profissional!));
+
+    internal sealed record ProfissionalDoAtendimentoLido(int AtendimentoId, Profissional Profissional);
 
     public async Task<IReadOnlyList<Agendamento>> AgendamentosSubstituidosPorAsync(
         int atendimentoId, CancellationToken ct = default)

@@ -257,7 +257,9 @@
 
             // Pré-validação: operadoras rejeitam lotes com dados obrigatórios em branco.
             var dados = await parametros.ObterPrestadorAsync();
-            var pendencias = tiss.ValidarPrestador(dados, candidatas.Select(c => c.Tipo));
+            // O que o XML exige e não mora na guia (nov/2026): quem atendeu e quanto vale.
+            var contexto = await servicos.GetRequiredService<ContextoTissService>().MontarAsync(candidatas);
+            var pendencias = tiss.ValidarPrestador(dados, candidatas.Select(c => c.Tipo)).Concat(contexto.Pendencias).ToList();
             if (pendencias.Count > 0 &&
                 !await Dialogos.ConfirmarAsync("Dados incompletos para o TISS", ExportacaoLoteTiss.ConfirmacaoDePendencias(pendencias), perigoso: true))
             {
@@ -288,10 +290,11 @@
             {
                 // O registro ANS é o DA OPERADORA quando o catálogo o tem; sem ele, o global.
                 var registro = CatalogoConvenios.RegistroAns(grupo.ConvenioCodigo) ?? dados.RegistroAnsOperadora;
-                var lote = await lotes.CriarAsync(_inicio, _fim, registro, Operador, convenioCodigo: grupo.ConvenioCodigo);
+                var lote = await lotes.CriarAsync(_inicio, _fim, registro, Operador, convenioCodigo: grupo.ConvenioCodigo,
+                    somenteCodigos: grupo.Guias.Select(c => c.Id).ToList());
                 if (lote is null) continue; // outra máquina exportou estas guias no meio-tempo
 
-                var xml = tiss.GerarLoteXml(lote.Codigos.ToList(), dados.ComRegistroAns(registro), lote.Numero.ToString());
+                var xml = tiss.GerarLoteXml(lote.Codigos.ToList(), dados.ComRegistroAns(registro), lote.Numero.ToString(), contexto);
                 var caminho = arquivoUnico ?? Path.Combine(pastaDestino!, ExportacaoLoteTiss.NomeDoArquivo(lote.Numero, _fim, grupo.Nome));
                 // Os lotes JÁ existem daqui para a frente: falha de gravar é de arquivo, não de
                 // lote — e a frase diz como pegar o arquivo de novo (o botão XML da linha).
@@ -303,7 +306,7 @@
                 if (OperatingSystem.IsWindows())
                     ExportacaoLoteTiss.ArquivarCopia(xml, lote.Numero, pastaTiss, DateTime.Now);
 
-                var problemas = ExportacaoLoteTiss.ValidarXml(xml, Path.Combine(pastaTiss, "schemas"));
+                var problemas = ExportacaoLoteTiss.ValidarXml(xml);
                 if (ExportacaoLoteTiss.ProblemasDoLote(lote.Numero, grupo.Nome, problemas) is { } aviso)
                     avisos.Add(aviso);
 
@@ -347,12 +350,13 @@
                 // Regenerar com o global reescreveria o destino de um lote por operadora (parcela 60).
                 if (!string.IsNullOrWhiteSpace(lote.RegistroAnsOperadora))
                     dados = dados.ComRegistroAns(lote.RegistroAnsOperadora);
+                var contexto = await escopo.ServiceProvider.GetRequiredService<ContextoTissService>().MontarAsync(lote.Codigos);
                 xml = escopo.ServiceProvider.GetRequiredService<TissExportService>()
-                    .GerarLoteXml(lote.Codigos.ToList(), dados, lote.Numero.ToString());
+                    .GerarLoteXml(lote.Codigos.ToList(), dados, lote.Numero.ToString(), contexto);
                 numero = lote.Numero;
             }
 
-            var problemas = ExportacaoLoteTiss.ValidarXml(xml, Path.Combine(ExportacaoLoteTiss.PastaTiss(), "schemas"));
+            var problemas = ExportacaoLoteTiss.ValidarXml(xml);
             var erro = await Host.SalvarEAbrirAsync(ExportacaoLoteTiss.Bytes(xml), ExportacaoLoteTiss.NomeDaSegundaVia(numero),
                 "Arquivo TISS (*.xml)|*.xml", ".xml");
             if (erro is not null) Notificacoes.Erro(erro);

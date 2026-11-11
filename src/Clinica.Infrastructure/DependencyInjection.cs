@@ -185,6 +185,7 @@ public static class DependencyInjection
         services.AddScoped<AcessoService>();
         services.AddScoped<PrevencaoGlosaService>();
         services.AddScoped<TissExportService>();
+        services.AddScoped<ContextoTissService>();
         services.AddScoped<LoteTissService>();
         services.AddScoped<GuiaTissPdfService>();
         services.AddScoped<CapaFaturamentoService>();

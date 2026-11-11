@@ -20,6 +20,8 @@
   <!-- Marca (logo SemDor): embarcada para desenhar no cabeçalho dos PDFs (capa, guia, fechamento). -->
   <ItemGroup>
     <EmbeddedResource Include="Recursos\Marca\*.png" />
+    <!-- Os esquemas oficiais do padrão TISS 4.01.00 (ANS): toda exportação valida contra eles. -->
+    <EmbeddedResource Include="Recursos\Tiss\*.xsd" />
     <EmbeddedResource Include="Recursos\Medicamentos\*.json" />
   </ItemGroup>
 

@@ -48,7 +48,7 @@ public class ExportacaoLoteTissTests
         var grupos = ExportacaoLoteTiss.Agrupar([Guia(1, Convenio.Amil, "Amil"), Guia(2, Convenio.Petrobras, "Petrobras"), Guia(3, Convenio.Petrobras, "Petrobras")]);
         var texto = ExportacaoLoteTiss.ConfirmacaoDeOperadoras(grupos);
 
-        texto.Should().StartWith("As guias do período são de 2 operadoras");
+        texto.Should().StartWith("As guias do período saem em 2 lotes");
         texto.Should().Contain($"{CatalogoConvenios.Nome("Petrobras")}: 2 guia(s)");
         texto.Should().Contain($"{CatalogoConvenios.Nome("Amil")}: 1 guia(s)");
     }
@@ -75,17 +75,16 @@ public class ExportacaoLoteTissTests
     }
 
     [Fact]
-    public void O_XML_vai_para_o_disco_em_UTF8_sem_BOM()
+    public void O_XML_vai_para_o_disco_em_ISO_8859_1()
     {
-        ExportacaoLoteTiss.Bytes("<a>ção</a>").Should().Equal(Encoding.UTF8.GetBytes("<a>ção</a>")); // sem os três bytes do BOM
+        // A codificação do padrão TISS (nov/2026): um byte por letra, e a mesma do hash do epílogo.
+        ExportacaoLoteTiss.Bytes("<a>ção</a>").Should().Equal(Encoding.Latin1.GetBytes("<a>ção</a>"));
     }
 
     [Fact]
-    public void Validacao_sem_pasta_de_schemas_faz_so_a_estrutural()
-    {
-        ExportacaoLoteTiss.ValidarXml("isto não é xml", null).Should().ContainSingle().Which.Should().StartWith("XML malformado");
-        ExportacaoLoteTiss.ValidarXml("isto não é xml", Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())).Should().ContainSingle();
-    }
+    public void XML_que_nem_abre_e_um_problema_so()
+        // O esquema oficial só repetiria a mesma falha (TissConformidadeXsdTests cobre o resto).
+        => ExportacaoLoteTiss.ValidarXml("isto não é xml").Should().ContainSingle().Which.Should().StartWith("XML malformado");
 
     [Fact]
     public void O_aviso_de_validacao_so_existe_quando_ha_problema_e_corta_em_seis()

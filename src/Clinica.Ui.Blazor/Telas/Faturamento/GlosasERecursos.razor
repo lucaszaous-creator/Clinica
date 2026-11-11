@@ -309,28 +309,62 @@
             return;
         }
 
+        // O padrão amarra o recurso a UM lote e ao protocolo da operadora: um arquivo por lote,
+        // e o que não tem como ser amarrado fica de fora com o motivo (nov/2026).
+        var plano = RecursoDeGlosaTiss.Planejar(emAberto);
+        if (plano.Recursos.Count == 0)
+        {
+            await Dialogos.AvisoAsync("Recurso de glosa", "Nenhuma glosa da lista pode entrar num recurso TISS:\n\n• " + string.Join("\n• ", plano.DeFora));
+            return;
+        }
+
         _gerando = true;
         try
         {
-            string xml;
+            // Só SALVA, como no WPF (decisão da direção, out/2026): o arquivo vai para o portal da
+            // operadora, e abri-lo sozinho não era pedido. A pergunta vem antes de gravar, e
+            // desistir dela é desistir — nada é gravado.
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+            string? arquivoUnico = null, pasta = null;
+            if (plano.Recursos.Count == 1)
+                arquivoUnico = await Host.PerguntarOndeSalvarAsync(
+                    RecursoDeGlosaTiss.NomeDoArquivo(plano.Recursos[0], hoje), "Arquivo TISS (*.xml)|*.xml", ".xml");
+            else
+                pasta = await Host.PerguntarPastaAsync("Onde gravar os recursos de glosa (um por lote)");
+            if (arquivoUnico is null && pasta is null) return;
+
+            var avisos = new List<string>(plano.DeFora);
+            var gravados = 0;
             using (var escopo = Escopo())
             {
                 var tiss = escopo.ServiceProvider.GetRequiredService<TissExportService>();
                 var dados = await escopo.ServiceProvider.GetRequiredService<ParametrosService>().ObterPrestadorAsync();
-                var numero = DateTime.Now.ToString("yyyyMMddHHmm", CultureInfo.InvariantCulture); // identificador do recurso
-                xml = tiss.GerarRecursoGlosaXml(emAberto, dados, numero);
+                var contextos = escopo.ServiceProvider.GetRequiredService<ContextoTissService>();
+                foreach (var recurso in plano.Recursos)
+                {
+                    var contexto = await contextos.MontarAsync(recurso.Glosas);
+                    var prestador = string.IsNullOrWhiteSpace(recurso.Lote.RegistroAnsOperadora)
+                        ? dados : dados.ComRegistroAns(recurso.Lote.RegistroAnsOperadora);
+                    var xml = tiss.GerarRecursoGlosaXml(recurso.Glosas, prestador,
+                        RecursoDeGlosaTiss.NumeroDoRecurso(recurso, DateTime.Now),
+                        new TissExportService.LoteDoRecurso(recurso.Lote.Numero.ToString(CultureInfo.InvariantCulture),
+                            recurso.Lote.ProtocoloOperadora, recurso.NomeOperadora),
+                        contexto, hoje);
+
+                    var caminho = arquivoUnico ?? System.IO.Path.Combine(pasta!, RecursoDeGlosaTiss.NomeDoArquivo(recurso, hoje));
+                    if (await Host.GravarArquivoAsync(caminho, ExportacaoLoteTiss.Bytes(xml)) is { } erro) { avisos.Add(erro); continue; }
+                    gravados += recurso.Glosas.Count;
+
+                    var problemas = ExportacaoLoteTiss.ValidarXml(xml);
+                    if (ExportacaoLoteTiss.ProblemasDoLote(recurso.Lote.Numero, recurso.NomeOperadora, problemas) is { } aviso)
+                        avisos.Add(aviso);
+                }
             }
 
-            // Só SALVA, como no WPF (decisão da direção, out/2026): o arquivo vai para o portal da
-            // operadora, e abri-lo sozinho não era pedido. A pergunta vem antes de gravar, e
-            // desistir dela é desistir — nada é gravado.
-            var caminho = await Host.PerguntarOndeSalvarAsync(
-                $"TISS-Recurso-Glosa-{DateTime.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}.xml",
-                "Arquivo TISS (*.xml)|*.xml", ".xml");
-            if (caminho is null) return;
-            var erro = await Host.GravarArquivoAsync(caminho, System.Text.Encoding.UTF8.GetBytes(xml));
-            if (erro is not null) Notificacoes.Erro(erro);
-            else Notificacoes.Sucesso($"Recurso de glosa com {emAberto.Count} guia(s) salvo em {caminho}.");
+            if (gravados > 0)
+                Notificacoes.Sucesso($"Recurso de glosa com {gravados} guia(s) salvo em {arquivoUnico ?? pasta}.");
+            if (avisos.Count > 0)
+                await Dialogos.AvisoAsync("Recurso de glosa", "Confira antes de enviar:\n\n• " + string.Join("\n\n• ", avisos));
         }
         catch (Exception ex)
         {

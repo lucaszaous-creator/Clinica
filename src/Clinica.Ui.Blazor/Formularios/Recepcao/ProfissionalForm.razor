@@ -50,6 +50,9 @@
                     <Campo Rotulo="Conselho e registro" Dica="Como vai nos documentos — ex.: CRM-RJ 52.1234, COREN-RJ 123456.">
                         <input class="campo" @bind="_registro" maxlength="40" />
                     </Campo>
+                    <Campo Rotulo="CBO" Dica="Para o lote TISS dos convênios: 6 dígitos (ex.: 225105, médico acupunturista). Em branco, vale o da especialidade principal.">
+                        <input class="campo" @bind="_cbo" maxlength="7" inputmode="numeric" placeholder="000000" />
+                    </Campo>
                     <Campo Rotulo="CPF" Erro="@_erroCpf"
                            Dica="Para assinar com certificado digital: o sistema compara este CPF com o de dentro do certificado — é o que impede alguém de assinar no lugar de outra pessoa. Em branco para quem não assina.">
                         <input class="campo" @bind="_cpf" @bind:after="ConferirCpf" maxlength="14" inputmode="numeric" placeholder="000.000.000-00" />
@@ -192,7 +195,7 @@
     [Parameter] public EventCallback AoConcluir { get; set; }
     [Parameter] public EventCallback AoFechar { get; set; }
 
-    private string? _nome, _nomeCurto, _registro, _cpf, _especialidade, _telefone, _email, _cor, _observacoes;
+    private string? _nome, _nomeCurto, _registro, _cbo, _cpf, _especialidade, _telefone, _email, _cor, _observacoes;
     private string? _duracao, _limitePreventivo, _ordem = "0";
     private bool _ativo = true, _trava;
     private IReadOnlyList<(string Codigo, string Nome, bool GeraGuia, bool Ativo)> _catalogoDeConvenios = [];
@@ -260,6 +263,7 @@
                 _nome = p.Nome;
                 _nomeCurto = p.NomeCurto;
                 _registro = p.RegistroConselho;
+                _cbo = p.CodigoCbo;
                 _cpf = string.IsNullOrWhiteSpace(p.Cpf) ? null : Cpf.Formatar(p.Cpf);
                 _especialidade = p.EspecialidadeCodigo;
                 _telefone = p.Telefone;
@@ -417,6 +421,7 @@
                 Nome = _nome!,
                 NomeCurto = _nomeCurto,
                 RegistroConselho = _registro,
+                CodigoCbo = _cbo,
                 Cpf = _cpf,
                 EspecialidadeCodigo = _especialidade,
                 HabilitacoesAtendimentoJson = TelaDaEquipe.HabilitacoesParaGravar(

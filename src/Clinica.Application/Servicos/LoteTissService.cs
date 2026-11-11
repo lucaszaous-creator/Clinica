@@ -51,11 +51,20 @@ public sealed class LoteTissService
     /// operadora única e para os testes do fluxo legado.
     /// </summary>
     public async Task<LoteTiss?> CriarAsync(DateOnly inicio, DateOnly fim, string? registroAnsOperadora,
-        string? operador = null, string? convenioCodigo = null, CancellationToken ct = default)
+        string? operador = null, string? convenioCodigo = null, CancellationToken ct = default,
+        IReadOnlyCollection<int>? somenteCodigos = null)
     {
         var codigos = await _repo.CodigosBaixadosSemLoteAsync(inicio, fim, ct);
         if (convenioCodigo is not null)
             codigos = codigos.Where(c => ConvenioDaGuia(c) == convenioCodigo).ToList();
+        // O lote de UM tipo de guia, até cem (nov/2026 — `ExportacaoLoteTiss.Agrupar`): a tela
+        // diz quais guias são deste lote. A releitura acima continua sendo a guarda: a guia que
+        // outra máquina exportou no meio-tempo já não está entre as candidatas.
+        if (somenteCodigos is not null)
+        {
+            var ids = somenteCodigos.ToHashSet();
+            codigos = codigos.Where(c => ids.Contains(c.Id)).ToList();
+        }
         if (codigos.Count == 0)
             return null;
 
