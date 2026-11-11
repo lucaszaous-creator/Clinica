@@ -182,6 +182,9 @@ public static class DependencyInjection
         // A fila tem duas portas: o desktop PÕE o pedido, a ponte do CRM o entrega.
         services.AddScoped<EnvioAoPacienteService>();
         services.AddScoped<FilaEnviosCrmService>();
+        // A fila do web service TISS (nov/2026): a tela pede, o conector no servidor executa.
+        services.AddScoped<FilaTissService>();
+        services.AddScoped<CredenciaisTissService>();
         services.AddScoped<TendenciaAtendimentosService>();
         services.AddScoped<AcessoService>();
         services.AddScoped<PrevencaoGlosaService>();

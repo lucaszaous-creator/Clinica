@@ -47,6 +47,8 @@ public class ClinicaDbContext : DbContext
     public DbSet<Atendimento> Atendimentos => Set<Atendimento>();
     public DbSet<CodigoFaturamento> Codigos => Set<CodigoFaturamento>();
     public DbSet<GuiaTissConsulta> GuiasTissConsulta => Set<GuiaTissConsulta>();
+    public DbSet<TransacaoTiss> TransacoesTiss => Set<TransacaoTiss>();
+    public DbSet<TransacaoTissGuia> TransacoesTissGuias => Set<TransacaoTissGuia>();
     public DbSet<Agendamento> Agendamentos => Set<Agendamento>();
     public DbSet<ParametroConvenio> Parametros => Set<ParametroConvenio>();
     public DbSet<ConfiguracaoGlobal> Configuracoes => Set<ConfiguracaoGlobal>();
@@ -370,6 +372,62 @@ public class ClinicaDbContext : DbContext
         // A guia de consulta no padrão ANS conferida na baixa (nov/2026): tabela própria, uma por
         // guia, para que as ~20 colunas que só a Saúde Petrobras usa não entrem em toda leitura de
         // pendências. Os domínios do TISS vão pelo CÓDIGO do padrão, com o teto do XSD.
+        // A fila do web service TISS (nov/2026): quem pede é a tela, quem fala com a operadora é o
+        // conector no servidor (src/Clinica.Tiss.Conector). Nenhuma chave estrangeira apaga em
+        // cascata: a guia e a ficha não somem por causa de uma transação, e a transação (que é o
+        // rastro do que foi dito à operadora) não some com elas — o vínculo só é solto.
+        b.Entity<TransacaoTiss>(e =>
+        {
+            e.ToTable("TransacoesTiss");
+            e.HasKey(t => t.Id);
+            e.Property(t => t.Tipo).HasConversion<string>().HasMaxLength(20);
+            e.Property(t => t.Estado).HasConversion<string>().HasMaxLength(12);
+            e.Property(t => t.ConvenioCodigo).IsRequired().HasMaxLength(40);
+            e.Property(t => t.PedidoPor).IsRequired().HasMaxLength(120);
+            e.Property(t => t.NumeroCarteira).HasMaxLength(20);
+            e.Property(t => t.NumeroGuiaPrestador).HasMaxLength(20);
+            e.Property(t => t.Protocolo).HasMaxLength(20);
+            e.Property(t => t.NumeroGuiaOperadora).HasMaxLength(20);
+            e.Property(t => t.Resultado).HasMaxLength(TransacaoTissLimites.Resultado);
+            e.Property(t => t.Erro).HasMaxLength(TransacaoTissLimites.Erro);
+            e.Property(t => t.Consumidor).HasMaxLength(80);
+            // XmlEnviado e XmlRecebido sem teto: uma resposta de lote não tem tamanho previsível.
+            e.Property(t => t.PedidoEm).HasColumnType("timestamp without time zone");
+            e.Property(t => t.ProcessadaEm).HasColumnType("timestamp without time zone");
+            e.Property(t => t.ReservadaEm).HasColumnType("timestamp without time zone");
+            e.Property(t => t.EnvioIniciadoEm).HasColumnType("timestamp without time zone");
+            e.Property(t => t.ProximaTentativaEm).HasColumnType("timestamp without time zone");
+            e.Property(t => t.Versao).IsConcurrencyToken();
+            e.Ignore(t => t.EscreveNaOperadora);
+            e.Ignore(t => t.Encerrada);
+            e.HasOne<CodigoFaturamento>().WithMany().HasForeignKey(t => t.CodigoId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne<Paciente>().WithMany().HasForeignKey(t => t.PacienteId).OnDelete(DeleteBehavior.SetNull);
+            // O conector pergunta "o que há para fazer?" a cada poucos segundos.
+            e.HasIndex(t => new { t.Estado, t.PedidoEm });
+            e.HasIndex(t => t.CodigoId);
+            // A consulta de status aponta para o envio que ela consulta; apagar um não apaga o outro.
+            e.HasOne<TransacaoTiss>().WithMany().HasForeignKey(t => t.TransacaoDeEnvioId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // As guias de um lote enviado: o resultado da operadora volta por guia.
+        b.Entity<TransacaoTissGuia>(e =>
+        {
+            e.ToTable("TransacoesTissGuias");
+            e.HasKey(g => g.Id);
+            e.Property(g => g.NumeroGuiaPrestador).IsRequired().HasMaxLength(20);
+            e.Property(g => g.NumeroGuiaOperadora).HasMaxLength(20);
+            e.Property(g => g.Situacao).HasConversion<string>().HasMaxLength(12);
+            e.Property(g => g.Motivo).HasMaxLength(TransacaoTissLimites.MotivoDaGuia);
+            e.Property(g => g.AtualizadaEm).HasColumnType("timestamp without time zone");
+            // O item é do lote: some com ele (e a transação nunca é apagada pelo sistema).
+            e.HasOne(g => g.Transacao).WithMany(t => t.Guias).HasForeignKey(g => g.TransacaoId).OnDelete(DeleteBehavior.Cascade);
+            // A guia não some por causa do envio, e o rastro do envio não some com a guia.
+            e.HasOne<CodigoFaturamento>().WithMany().HasForeignKey(g => g.CodigoId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(g => g.CodigoId);
+            // A mesma guia não aparece duas vezes no mesmo lote.
+            e.HasIndex(g => new { g.TransacaoId, g.NumeroGuiaPrestador }).IsUnique();
+        });
+
         b.Entity<GuiaTissConsulta>(e =>
         {
             e.ToTable("GuiasTissConsulta");

@@ -932,4 +932,29 @@ public class TraducaoNoNpgsqlTests
             .And.Contain("\"EnviadoPor\"").And.Contain("ORDER BY");
         sql.Should().NotContain("FotoMiniatura");
     }
+
+    [Fact]
+    public void Fila_do_web_service_TISS_traduz_sem_os_xml()
+    {
+        using var db = Postgres();
+        var agora = new DateTime(2026, 11, 12, 9, 0, 0);
+        var sql = new ClinicaRepositorio(db).ConsultaTransacoesTissReservaveis(agora, agora.AddMinutes(-5), 10).ToQueryString();
+        sql.Should().Contain("\"TransacoesTiss\"").And.Contain("\"ProximaTentativaEm\"").And.Contain("ORDER BY").And.Contain("LIMIT");
+        sql.Should().NotContain("XmlEnviado").And.NotContain("XmlRecebido");
+    }
+
+    [Fact]
+    public void Consultas_do_envio_em_lote_TISS_traduzem_no_postgres()
+    {
+        using var db = Postgres();
+        var repo = new ClinicaRepositorio(db);
+
+        var daGuia = repo.ConsultaTransacoesTissDaGuia(7).ToQueryString();
+        var itens = repo.ConsultaItensDeEnvioTissDasGuias([7, 8]).ToQueryString();
+        var aBaixar = repo.ConsultaGuiasTissRecebidasSemBaixa(3).ToQueryString();
+
+        daGuia.Should().Contain("EXISTS").And.Contain("\"TransacoesTissGuias\"").And.NotContain("XmlEnviado");
+        itens.Should().Contain("\"TransacoesTissGuias\"").And.Contain("JOIN").And.NotContain("XmlRecebido");
+        aBaixar.Should().Contain("\"Codigos\"").And.Contain("\"DataBaixa\" IS NULL").And.Contain("\"Protocolo\"").And.Contain("ORDER BY");
+    }
 }
