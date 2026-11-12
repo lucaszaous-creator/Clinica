@@ -40,6 +40,11 @@ public sealed class RegistroParaGuiasBlazorTests : IClassFixture<BancoDasTelas>,
         System.Globalization.CultureInfo.CurrentCulture = ptBr;
         System.Globalization.CultureInfo.CurrentUICulture = ptBr;
         new SessaoUsuario().Entrar(banco.Gerente);
+        // Estes testes são os da baixa MANUAL (número copiado do portal): o formulário de sempre, que é o
+        // que existe com o envio pelo web service DESLIGADO. A semente da prévia o liga para a Petrobras;
+        // aqui ele é desligado no banco desta classe. O fluxo com o envio ligado é do BaixaQueEnviaBlazorTests.
+        using var db = new ClinicaDbContext(new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(banco.Conexao).Options);
+        new CredenciaisTissService(new ClinicaRepositorio(db)).DefinirEnvioAsync("Petrobras", false, "teste").GetAwaiter().GetResult();
     }
 
     public void Dispose() => new SessaoUsuario().Entrar(new UsuarioSistema());

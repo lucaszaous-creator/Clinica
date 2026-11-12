@@ -118,3 +118,35 @@ textarea.campo.fat-texto{font:inherit}
   .fat-pendencias td.col-obs,.fat-pendencias .obs{max-width:96px}
   .fat-pendencias td.col-conv{min-width:120px}
 }
+
+/* ---------- A baixa que envia (nov/2026) ---------- */
+/* Os campos da guia num fieldset: é ele que os põe em só leitura enquanto o pedido anda. */
+.fat-guia-campos{border:0;margin:0;padding:0;min-width:0;display:flex;flex-direction:column;gap:var(--space-6)}
+.fat-guia-campos[disabled]{opacity:.72}
+/* O quadro do acompanhamento: os passos numa linha, o desfecho embaixo. A cor é a do desfecho. */
+/* Fica PRESO ao topo do formulário rolado: quem clica em enviar está no rodapé, e o acompanhamento
+   nascia lá em cima, fora da vista — o clique parecia não ter feito nada (visto na foto de 1024). */
+.fat-baixa-envio{display:flex;flex-direction:column;gap:var(--space-3);padding:var(--space-4);border:1px solid var(--borda);
+  border-radius:var(--radius-control);background:var(--acento-suave);position:sticky;top:0;z-index:1}
+.fat-baixa-envio.tom-sucesso{background:var(--sucesso-suave);border-color:var(--sucesso)}
+.fat-baixa-envio.tom-atencao{background:var(--aviso-suave);border-color:var(--aviso)}
+.fat-baixa-envio.tom-erro{background:var(--erro-suave);border-color:var(--erro)}
+.fat-baixa-passos{display:flex;flex-wrap:wrap;gap:var(--space-2) var(--space-6);margin:0;padding:0;list-style:none;
+  font-size:var(--text-small-size);color:var(--texto-secundario)}
+.fat-baixa-passos li{display:flex;align-items:center;gap:var(--space-2)}
+.fat-baixa-passos .marca{flex:none;width:var(--space-3);height:var(--space-3);border-radius:var(--radius-pilula);
+  border:2px solid var(--borda);background:var(--superficie)}
+.fat-baixa-passos .feito{color:var(--texto-primario)}
+.fat-baixa-passos .feito .marca{border-color:var(--sucesso);background:var(--sucesso)}
+.fat-baixa-passos .atual{color:var(--texto-primario);font-weight:600}
+/* O passo em curso pulsa — é o "processo carregando" que a pessoa espera ver. Quem pediu menos movimento não vê o pulso. */
+.fat-baixa-passos .atual .marca{border-color:var(--acento);background:var(--acento);animation:fat-baixa-pulso 1.2s ease-in-out infinite}
+.fat-baixa-passos .parou{color:var(--texto-primario);font-weight:600}
+.fat-baixa-passos .parou .marca{border-color:var(--aviso);background:var(--aviso)}
+@keyframes fat-baixa-pulso{0%,100%{opacity:1}50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.fat-baixa-passos .atual .marca{animation:none}}
+.fat-baixa-envio-titulo{margin:0;font-size:var(--text-h3-size);font-weight:600;color:var(--texto-primario)}
+.fat-baixa-envio-texto{margin:0;color:var(--texto-primario);line-height:1.5}
+.fat-baixa-envio .botoes-linha{flex-wrap:wrap;justify-content:flex-start}
+.fat-baixa-envio .botoes-linha:empty{display:none}
+.fat-baixa-envio .botoes-linha .botao{white-space:nowrap}

@@ -21,6 +21,8 @@ public sealed class EnvioTissNaTelaTests
         {
             Id = 7, Tipo = TipoTransacaoTiss.EnvioGuia, ConvenioCodigo = "Petrobras", Estado = estado, Protocolo = protocolo,
             EnvioIniciadoEm = saiu ? Agora : null, PedidoEm = Agora, PedidoPor = "secretaria",
+            // Como a fila grava o envio que saiu e ficou sem resposta: o erro termina com a marca da dúvida.
+            Erro = estado == EstadoTransacaoTiss.Falhou && saiu ? "tempo esgotado " + FilaTiss.FraseSemNovaTentativa : null,
             Guias = guias.Select((s, i) => new TransacaoTissGuia { Id = i + 1, CodigoId = 100 + i, NumeroGuiaPrestador = $"C{100 + i}", Situacao = s }).ToList()
         };
 
@@ -95,6 +97,19 @@ public sealed class EnvioTissNaTelaTests
     }
 
     // ==================== o lote ====================
+
+    /// <summary>A operadora respondeu recusando o lote: saiu e falhou, mas NÃO é dúvida — tem rótulo e ordem próprios.</summary>
+    [Fact]
+    public void Lote_que_a_operadora_recusou_com_resposta_clara_nao_e_duvida_nem_nao_enviado()
+    {
+        var recusado = Envio(EstadoTransacaoTiss.Falhou, saiu: true, protocolo: null, SituacaoGuiaTiss.Falhou);
+        recusado.Erro = "A operadora recusou o lote: 5028 - VERSAO DO PADRAO INVALIDA.";
+
+        var situacao = EnvioTissNaTela.DoEnvio(recusado);
+        situacao.Incerto.Should().BeFalse();
+        situacao.Rotulo.Should().Be("Recusado pela operadora");
+        situacao.Frase.Should().Contain("5028").And.Contain("corrija e envie de novo").And.NotContain("portal");
+    }
 
     /// <summary>
     /// O estado que não pode passar batido: a mensagem saiu e não há resposta em que confiar.

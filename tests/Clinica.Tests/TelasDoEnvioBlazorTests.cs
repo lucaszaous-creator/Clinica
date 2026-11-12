@@ -63,8 +63,8 @@ public sealed class TelasDoEnvioBlazorTests : IClassFixture<BancoDasTelas>, IDis
         var linha = tela.FindAll("tr").First(tr => tr.TextContent.Contains(marca));
         Clicar(tela, linha.QuerySelectorAll("button").First(b => b.TextContent.Trim() == "Dar baixa"));
         Esperar(() => tela.FindAll("[data-conferir-para-envio]").Count == 1);
-        // O texto diz a verdade: pronta não é enviada.
-        Assert.Contains("Pronta para envio não é enviada", tela.Find("[data-pronta-nao-e-enviada]").TextContent);
+        // O rótulo diz o que o botão faz: deixa para o lote — não envia.
+        Assert.Equal("Deixar para enviar em lote", tela.Find("[data-conferir-para-envio]").TextContent.Trim());
         CompletarGuia(tela);
 
         Clicar(tela, tela.Find("[data-conferir-para-envio]"));
@@ -344,7 +344,11 @@ public sealed class TelasDoEnvioBlazorTests : IClassFixture<BancoDasTelas>, IDis
             Esperar(() => painel.FindAll("[data-guia-ans]").Count > 0);
             // O formulário de baixa é o de sempre: só "Confirmar baixa".
             Assert.Empty(painel.FindAll("[data-conferir-para-envio]"));
-            Assert.DoesNotContain("Pronta para envio não é enviada", painel.Markup);
+            Assert.Empty(painel.FindAll("[data-enviar-e-baixar]"));
+            Assert.Empty(painel.FindAll("[data-baixa-manual]"));
+            // O número volta a ser pedido, obrigatório, e a ação é "Confirmar baixa".
+            Assert.Single(painel.FindAll("input.numero-guia[placeholder='Copie do portal da operadora']"));
+            Assert.Contains("Confirmar baixa", painel.FindAll(".modal-rodape").Last().TextContent);
             Assert.Equal(0, Contar(c => c.Id == codigoId && c.Status == StatusCodigo.Baixado));
         }
         finally { DefinirEnvio(true); }

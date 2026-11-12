@@ -18,6 +18,11 @@
     componente (liga ao montar, desliga ao sair da aba), a releitura é silenciosa e tem contador
     de geração — nada pisca e resposta velha não passa por cima de resposta nova.
   - Com o envio DESLIGADO para o convênio, as ações de envio somem e a tela diz onde ligar.
+  - A BAIXA DAS RECEBIDAS É AUTOMÁTICA para o envio pedido NESTA sessão da tela (nov/2026, pedido
+    da direção: "a baixa acontece junto"): quando a resposta chega com guias recebidas, a baixa
+    delas é registrada na hora, em nome de quem pediu o envio (é quem está logado aqui), sem novo
+    clique. O botão "Dar baixa nas recebidas" fica para o envio cuja resposta chegou com a tela
+    fechada — ou pedido por outra pessoa.
   - A fila devolve às PRONTAS a guia do envio que falhou (pedir de novo é ato de gente). Para esse
     ato não ser um clique distraído, a guia cujo último envio "não se sabe se chegou" nasce
     TRAVADA: só é marcável depois de a pessoa declarar, numa pergunta, que conferiu no portal que
@@ -248,6 +253,10 @@
     /// <summary>O que foi dito sobre um envio por uma ação desta sessão (consulta, baixa, cancelamento).</summary>
     private readonly Dictionary<int, (string Texto, string Tom)> _recados = [];
     private readonly Dictionary<int, BaixaDasGuiasEnviadas> _baixas = [];
+    /// <summary>Os envios pedidos NESTA sessão da tela, por quem está logado: são os que recebem a baixa sozinhos.</summary>
+    private readonly HashSet<int> _pedidosDaSessao = [];
+    /// <summary>Envios cuja baixa automática já foi tentada: uma vez só — o que falhar fica na linha, com o botão.</summary>
+    private readonly HashSet<int> _baixaAutomaticaTentada = [];
 
     private bool _carregou, _falhou, _ocupado, _descartado;
     private string? _erroLeitura, _mensagemDoEnvio;
@@ -360,6 +369,7 @@
                 if (!Acompanhando || _ocupado) continue;
                 await LerConsultasAsync();
                 await CarregarAsync(silencioso: true);
+                await BaixarOQueChegouAsync();
                 await InvokeAsync(StateHasChanged);
             }
         }
@@ -445,7 +455,8 @@
         try
         {
             using var escopo = Escopos.CreateScope();
-            _conferencia = await escopo.ServiceProvider.GetRequiredService<FilaTissService>().ConferirEnvioAsync(_convenio, _marcadas.ToList());
+            _conferencia = await escopo.ServiceProvider.GetRequiredService<FilaTissService>()
+                .ConferirEnvioAsync(_convenio, _marcadas.ToList(), conferidasNoPortal: _liberadas.ToList());
         }
         catch (Exception ex)
         {
@@ -488,9 +499,12 @@
             SessaoUsuario.Atual.Exigir(Permissao.GerenciarLotesTiss, "enviar guias à operadora");
             using var escopo = Escopos.CreateScope();
             var envio = await escopo.ServiceProvider.GetRequiredService<FilaTissService>()
-                .EnfileirarEnvioAsync(_convenio, _marcadas.ToList(), SessaoUsuario.Atual.Operador);
+                .EnfileirarEnvioAsync(_convenio, _marcadas.ToList(), SessaoUsuario.Atual.Operador,
+                    // A declaração de quem liberou a guia do envio em dúvida vai junto: é a fila que a exige e a audita.
+                    conferidasNoPortal: _liberadas.Where(_marcadas.Contains).ToList());
             _marcadas.Clear();
             _conferencia = null;
+            _pedidosDaSessao.Add(envio.Id);
             Notificacoes.Sucesso($"Pedido de envio de {envio.Guias.Count} guia(s) na fila. Ainda não foi à operadora: acompanhe em Envios recentes.");
         }
         catch (EnvioTissRecusadoException ex)
@@ -530,6 +544,20 @@
         }
     }
 
+    /// <summary>
+    /// A baixa SOZINHA: os envios pedidos nesta sessão cuja resposta chegou com guias recebidas.
+    /// Uma tentativa por envio; quem não tem o acesso de baixa não a dispara (o botão explica).
+    /// </summary>
+    private async Task BaixarOQueChegouAsync()
+    {
+        if (!PodeBaixar || _ocupado) return;
+        foreach (var envio in _envios.Where(e => _pedidosDaSessao.Contains(e.Id) && !_baixaAutomaticaTentada.Contains(e.Id) && RecebidasSemBaixa(e) > 0).ToList())
+        {
+            _baixaAutomaticaTentada.Add(envio.Id);
+            await ExecutarBaixaAsync(envio, automatica: true);
+        }
+    }
+
     private async Task BaixarRecebidasAsync(TransacaoTiss envio)
     {
         if (_ocupado) return;
@@ -539,7 +567,11 @@
                 $"Dar baixa, em seu nome e com a data de hoje, em {quantas} guia(s) que a operadora recebeu neste envio? As glosadas e as sem resposta ficam de fora.",
                 confirmar: "Dar baixa"))
             return;
+        await ExecutarBaixaAsync(envio, automatica: false);
+    }
 
+    private async Task ExecutarBaixaAsync(TransacaoTiss envio, bool automatica)
+    {
         _ocupado = true;
         try
         {
@@ -549,7 +581,9 @@
                 .BaixarRecebidasAsync(envio.Id, DateOnly.FromDateTime(DateTime.Today), SessaoUsuario.Atual.Operador);
             _baixas[envio.Id] = resultado;
             _recados[envio.Id] = resultado.Falhas.Count == 0
-                ? (resultado.Guias.Count == 0 ? resultado.Resumo : $"{resultado.Baixadas} guia(s) baixada(s).", resultado.Guias.Count == 0 ? "info" : "sucesso")
+                ? (resultado.Guias.Count == 0 ? resultado.Resumo
+                    : automatica ? $"A operadora recebeu e a baixa foi registrada sozinha: {resultado.Baixadas} guia(s), em seu nome."
+                    : $"{resultado.Baixadas} guia(s) baixada(s).", resultado.Guias.Count == 0 ? "info" : "sucesso")
                 : ($"{resultado.Baixadas} guia(s) baixada(s); {resultado.Falhas.Count} NÃO — o motivo está na linha de cada uma, e elas continuam pendentes.", "atencao");
         }
         catch (Exception ex)

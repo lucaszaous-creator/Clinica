@@ -8,8 +8,8 @@
   - Sem serviço de envio instalado o pedido fica parado na fila: passado o prazo a tela diz que
     o serviço não respondeu e deixa cancelar o pedido — ela não finge que está consultando.
   - O relógio é do componente: liga ao pedir, desliga ao terminar e ao sair da tela.
-  - O nome que a operadora devolve NÃO chega aqui: a fila guarda só a frase do resultado (o nome
-    fica no XML, no servidor). Por isso a conferência é a frase, e a ficha nunca é alterada.
+  - O nome que a operadora devolve vem na frase do resultado e é mostrado AO LADO do nome da
+    ficha, dizendo se conferem (EnvioTissNaTela.ConferenciaDoNome). A ficha nunca é alterada.
 *@
 @using Clinica.Application.Modelos
 @implements IDisposable
@@ -27,9 +27,14 @@
                 <button type="button" class="botao mini" data-cancelar-elegibilidade @onclick="DesistirAsync">Cancelar o pedido</button>
             }
         </Aviso>
-        @if (leitura.Terminou && !string.IsNullOrWhiteSpace(NomeDaFicha))
+        @if (leitura.Terminou && EnvioTissNaTela.ConferenciaDoNome(leitura.Texto, NomeDaFicha) is { } nome)
         {
-            <span class="campo-dica">Consulta da carteira @_carteiraConsultada, de @NomeDaFicha (nome da ficha). Confira o nome no portal da operadora: ele não é trazido para cá.</span>
+            @* O nome que a operadora devolveu, AO LADO do da ficha: conferência — a ficha nunca é alterada. *@
+            <span class="@(nome.Confere ? "campo-dica" : "campo-erro")" data-conferencia-do-nome>@nome.Texto</span>
+        }
+        else if (leitura.Terminou && !string.IsNullOrWhiteSpace(NomeDaFicha))
+        {
+            <span class="campo-dica">Consulta da carteira @_carteiraConsultada, de @NomeDaFicha (nome da ficha). A operadora não devolveu o nome nesta resposta.</span>
         }
     }
     else if (_erro is not null)

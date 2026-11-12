@@ -2228,6 +2228,30 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   senha no HTML a cada tecla. O selo do painel custa duas leituras por convênio com web service,
   nunca uma por linha. Com o envio desligado para o convênio o formulário de baixa fica idêntico
   ao de antes. `docs/tiss-telas-do-envio.md`.
+- **A BAIXA QUE ENVIA: o formulário não pede o que ainda não existe** (nov/2026, correção de fluxo
+  da direção: *"a guia só é gerada APÓS o envio"*). O formulário de baixa pedia o "número da guia
+  gerada" a quem ia ENVIAR — nada quebrava, e por isso nenhuma rede pegou: a pergunta que faltou foi
+  **"em que momento do processo real este dado passa a existir?"**. Com o envio ligado, a ação
+  principal é "Enviar para {convênio} e dar baixa": confere, enfileira UMA guia, o formulário
+  acompanha (2 s, relógio da view) e, recebida, registra a baixa sozinho com o número devolvido.
+  Tudo o que a tela afirma mora em `BaixaComEnvioNaTela` (com teste). ⚠️ **A baixa automática só
+  acontece na abertura que PEDIU o envio** — quem reabre vê "Registrar a baixa": abrir formulário
+  não grava, e a baixa leva o login de quem clicou (o conector nunca dá baixa). ⚠️ **Recebida sem
+  número da operadora NÃO é "guia gerada"**: a frase diz que a baixa ficou com o NOSSO número.
+  ⚠️ **Trava de reenvio em dúvida mora na FILA, não na tela** (`conferidasNoPortal` em
+  `EnfileirarEnvioAsync`, com auditoria): passaram a existir duas telas que pedem envio, e a trava
+  que morava só na aba não valia para o formulário. ⚠️ **"Saiu e falhou" NÃO é sinônimo de dúvida**:
+  o lote que a operadora RECUSOU com resposta clara também saiu e falhou, e não deixou nada lá. A
+  primeira guarda tratava os dois igual e travaria o reenvio legítimo — quem mostrou foram três
+  testes do motor na suíte longa, não os testes da tela. A dúvida é o erro que traz a
+  `FilaTiss.MarcaDeDuvida`; como a marca vem no FIM do texto, o corte no tamanho da coluna a
+  preserva (`CortarErro`) — senão um erro comprido transformaria dúvida em recusa clara, calado.
+  ⚠️ **Estado que nasce fora da vista não
+  aconteceu**: quem clica no rodapé de um formulário longo não vê um bloco que aparece no topo — o
+  acompanhamento é `position:sticky` (visto na foto de 1024, não em teste). ⚠️ **Teste de baixa
+  manual em banco com as sementes do envio precisa DESLIGAR o envio**: a semente `EnvioTiss` o
+  liga para a Petrobras, e o formulário muda de rosto. O nome devolvido na elegibilidade vai no
+  `Resultado` da transação (sem coluna) e a tela o compara com a ficha sem alterar a ficha.
 - **Web service TISS da Saúde Petrobras (nov/2026, primeiro passo)**: `TissElegibilidadeWs` monta e lê a
   verificação de elegibilidade (4.01.00) e `TissWebserviceCliente` a envia; quem chama é só a
   ferramenta `tools/TissPetrobras` — nenhuma tela. A resposta tem TRÊS estados: elegível, não

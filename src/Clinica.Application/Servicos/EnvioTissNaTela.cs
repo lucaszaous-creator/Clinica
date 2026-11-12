@@ -149,8 +149,7 @@ public static class EnvioTissNaTela
     /// jeito para "a operadora respondeu que não" e para "ninguém respondeu" — e a tela trata os
     /// dois com a mesma cautela, porque quem decide é quem conferir no portal.
     /// </summary>
-    public static bool NaoSeSabeSeChegou(TransacaoTiss envio)
-        => envio is { EscreveNaOperadora: true, Estado: EstadoTransacaoTiss.Falhou, EnvioIniciadoEm: not null };
+    public static bool NaoSeSabeSeChegou(TransacaoTiss envio) => FilaTiss.NaoSeSabeSeChegou(envio);
 
     /// <summary>
     /// A ressalva de uma guia que está na lista das PRONTAS mas já foi a um envio (nula = nunca foi,
@@ -203,6 +202,9 @@ public static class EnvioTissNaTela
             EstadoTransacaoTiss.Pendente => new("Na fila", "info", false, "Aguardando o serviço de envio. Ainda não foi à operadora."),
             EstadoTransacaoTiss.EmEnvio => new("Enviando", "info", false, "O serviço de envio está falando com a operadora."),
             EstadoTransacaoTiss.Cancelada => new("Não enviado", "neutro", false, envio.Resultado ?? "O envio foi cancelado antes de ir à operadora."),
+            // A mensagem saiu e a operadora RESPONDEU que não (sem a marca da dúvida): não é "não enviado".
+            EstadoTransacaoTiss.Falhou when envio.EnvioIniciadoEm is not null => new("Recusado pela operadora", "perigo", false,
+                $"{(envio.Erro ?? envio.Resultado ?? "A operadora não informou o motivo.").TrimEnd()} Nada ficou na operadora: corrija e envie de novo."),
             EstadoTransacaoTiss.Falhou => new("Não enviado", "perigo", false, envio.Erro ?? envio.Resultado ?? "O envio não se completou."),
             _ when glosadas > 0 => new("Recebido com glosa", "aviso", false,
                 $"Protocolo {protocolo ?? "não informado"}. {glosadas} guia(s) com glosa: veja o motivo na linha."),
@@ -291,6 +293,46 @@ public static class EnvioTissNaTela
         + "e a tela Guias TISS ganha o envio à operadora.";
 
     // ==================== a elegibilidade ====================
+
+    /// <summary>
+    /// Como o serviço de envio escreve, na frase do resultado, o nome que a operadora devolveu. A
+    /// tela o separa da frase por este rótulo para mostrá-lo ao lado do nome da FICHA — conferência,
+    /// nunca cópia para a ficha.
+    /// </summary>
+    public const string RotuloDoNomeNaOperadora = "Nome na operadora:";
+
+    /// <summary>O nome que a operadora devolveu, tirado da frase do resultado (nulo = ela não devolveu).</summary>
+    public static string? NomeNaOperadora(string? resultado)
+    {
+        if (string.IsNullOrWhiteSpace(resultado)) return null;
+        var i = resultado.IndexOf(RotuloDoNomeNaOperadora, StringComparison.Ordinal);
+        if (i < 0) return null;
+        var nome = resultado[(i + RotuloDoNomeNaOperadora.Length)..].Trim().TrimEnd('.').Trim();
+        return nome.Length == 0 ? null : nome;
+    }
+
+    /// <summary>
+    /// A linha de conferência do nome: o da operadora ao lado do da ficha, e se batem. A comparação
+    /// ignora maiúsculas, acentos e espaços a mais — a operadora costuma devolver tudo em maiúsculas
+    /// e sem acento, e isso não é divergência. Nulo = a operadora não devolveu nome.
+    /// </summary>
+    public static (string Texto, bool Confere)? ConferenciaDoNome(string? resultado, string? nomeDaFicha)
+    {
+        if (NomeNaOperadora(resultado) is not { } daOperadora) return null;
+        var ficha = (nomeDaFicha ?? string.Empty).Trim();
+        if (ficha.Length == 0) return ($"Na operadora: {daOperadora}.", false);
+        var confere = string.Equals(SemAcentos(daOperadora), SemAcentos(ficha), StringComparison.OrdinalIgnoreCase);
+        return confere
+            ? ($"Na operadora: {daOperadora} · na ficha: {ficha}. Os nomes conferem.", true)
+            : ($"Na operadora: {daOperadora} · na ficha: {ficha}. Os nomes são DIFERENTES: confira se é a carteira certa. A ficha não foi alterada.", false);
+    }
+
+    private static string SemAcentos(string texto)
+    {
+        var decomposto = texto.Normalize(System.Text.NormalizationForm.FormD);
+        var letras = decomposto.Where(c => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark);
+        return string.Join(' ', new string(letras.ToArray()).Split(' ', StringSplitOptions.RemoveEmptyEntries));
+    }
 
     /// <summary>
     /// A leitura de uma consulta de elegibilidade. TRÊS desfechos, e nenhum com a cara do outro:

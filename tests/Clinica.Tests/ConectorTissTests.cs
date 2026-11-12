@@ -101,13 +101,12 @@ public sealed class ConectorTissTests : IDisposable
 
         var t = await GravadaAsync(pedido.Id);
         t.Estado.Should().Be(EstadoTransacaoTiss.Concluida);
-        t.Resultado.Should().Be("Elegível. Validade da carteira: 31/12/2027.");
+        t.Resultado.Should().Be("Elegível. Validade da carteira: 31/12/2027. Nome na operadora: JOSÉ DE TESTE.");
         t.Tentativas.Should().Be(1);
         t.EnvioIniciadoEm.Should().NotBeNull();
         t.ProcessadaEm.Should().NotBeNull();
         t.Erro.Should().BeNull();
-        // O nome do beneficiário fica só na resposta guardada, não na frase da tela.
-        t.Resultado.Should().NotContain("JOSÉ");
+        // O nome devolvido vai na frase, para a tela mostrá-lo ao lado do nome da ficha (conferência).
         t.XmlRecebido.Should().Contain("JOSÉ DE TESTE");
 
         // O que saiu para a "operadora": o endereço do manual, por HTTPS, em ISO-8859-1, com o MD5.

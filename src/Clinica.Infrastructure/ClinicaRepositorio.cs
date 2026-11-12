@@ -4039,6 +4039,10 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
                 Transacao = new TransacaoTiss
                 {
                     Id = g.Transacao!.Id, Tipo = g.Transacao.Tipo, Estado = g.Transacao.Estado,
+                    // O carimbo de "a mensagem saiu" e o erro gravado: juntos separam o envio que falhou antes
+                    // de ir, a recusa clara da operadora e o envio em que NÃO SE SABE se ela recebeu
+                    // (a guarda do reenvio na fila — FilaTiss.NaoSeSabeSeChegou).
+                    EnvioIniciadoEm = g.Transacao.EnvioIniciadoEm, Erro = g.Transacao.Erro,
                     Protocolo = g.Transacao.Protocolo, ConvenioCodigo = g.Transacao.ConvenioCodigo
                 }
             });

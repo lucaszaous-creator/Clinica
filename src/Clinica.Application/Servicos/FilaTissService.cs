@@ -41,13 +41,54 @@ public static class FilaTiss
     /// <summary>A espera antes da próxima tentativa: 1 min, depois 5 min.</summary>
     public static TimeSpan Espera(int tentativasFeitas) => tentativasFeitas <= 1 ? TimeSpan.FromMinutes(1) : TimeSpan.FromMinutes(5);
 
+    /// <summary>
+    /// A MARCA DA DÚVIDA: a ordem com que terminam as duas frases abaixo. É por ela que se reconhece,
+    /// no erro gravado, o envio que saiu e ficou sem resposta em que confiar — e que se distingue
+    /// dele a RECUSA CLARA da operadora (ela respondeu que não: o erro traz o motivo, sem a marca).
+    /// </summary>
+    public const string MarcaDeDuvida = "Confira no portal da operadora antes de pedir um novo envio.";
+
     public const string FraseEnvioInterrompido =
-        "O envio foi interrompido depois de começar e não se sabe se a operadora recebeu. "
-        + "Confira no portal da operadora antes de pedir um novo envio.";
+        "O envio foi interrompido depois de começar e não se sabe se a operadora recebeu. " + MarcaDeDuvida;
 
     public const string FraseSemNovaTentativa =
-        "A mensagem chegou a sair para a operadora; ela não é reenviada sozinha. "
-        + "Confira no portal da operadora antes de pedir um novo envio.";
+        "A mensagem chegou a sair para a operadora; ela não é reenviada sozinha. " + MarcaDeDuvida;
+
+    /// <summary>
+    /// O erro no tamanho da coluna SEM perder a marca da dúvida: ela vem no fim do texto, e um corte
+    /// simples a levaria embora — a guia em dúvida passaria por recusa clara e voltaria a ser enviável.
+    /// </summary>
+    public static string CortarErro(string erro, int maximo)
+    {
+        if (erro.Length <= maximo) return erro;
+        if (!erro.Contains(MarcaDeDuvida, StringComparison.Ordinal)) return erro[..maximo];
+        var semMarca = erro.Replace(FraseSemNovaTentativa, string.Empty, StringComparison.Ordinal)
+            .Replace(FraseEnvioInterrompido, string.Empty, StringComparison.Ordinal)
+            .Replace(MarcaDeDuvida, string.Empty, StringComparison.Ordinal).TrimEnd();
+        var cabe = Math.Max(0, maximo - FraseSemNovaTentativa.Length - 1);
+        return (semMarca.Length <= cabe ? semMarca : semMarca[..cabe]) + " " + FraseSemNovaTentativa;
+    }
+
+    /// <summary>
+    /// A recusa do pedido novo de uma guia cujo último envio ficou em dúvida, quando quem pede não
+    /// declarou ter conferido no portal. Diz o que fazer nos dois casos.
+    /// </summary>
+    public const string RecusaSemConferenciaNoPortal =
+        "Não se sabe se o último envio desta guia chegou à operadora. Confira no portal antes de enviar de novo: "
+        + "se ela estiver lá, dê baixa com o número do portal; se não estiver, declare a conferência para liberar o novo envio.";
+
+    /// <summary>
+    /// NÃO SE SABE SE CHEGOU: a transação escreve na operadora, a mensagem saiu, ela terminou em
+    /// falha e o erro gravado traz a <see cref="MarcaDeDuvida"/>. É o estado em que reenviar pode
+    /// apresentar a mesma guia duas vezes — a fila o marca assim tanto para "ninguém respondeu"
+    /// quanto para "a resposta não deixa saber". A RECUSA CLARA (a operadora respondeu que não, com
+    /// o motivo) também é falha de mensagem que saiu, e NÃO é dúvida: nada ficou lá, e reenviar a
+    /// guia corrigida é o caminho. Um lugar só decide: a guarda do reenvio (aqui) e o destaque da
+    /// tela usam esta mesma pergunta. Quem a faz precisa ter lido o <see cref="TransacaoTiss.Erro"/>.
+    /// </summary>
+    public static bool NaoSeSabeSeChegou(TransacaoTiss? t)
+        => t is { EscreveNaOperadora: true, Estado: EstadoTransacaoTiss.Falhou, EnvioIniciadoEm: not null }
+           && t.Erro is { } erro && erro.Contains(MarcaDeDuvida, StringComparison.Ordinal);
 
     /// <summary>Tira a senha de qualquer XML TISS antes de ele ser guardado.</summary>
     public static string? SemSenha(string? xml)
@@ -139,9 +180,15 @@ public sealed class FilaTissService
     /// É a mesma conta que <see cref="EnfileirarEnvioAsync"/> faz — a tela a usa para avisar na
     /// linha, antes do clique; o serviço, para recusar.
     /// </summary>
+    /// <param name="conferidasNoPortal">
+    /// As guias que quem pede DECLARA ter conferido no portal da operadora e não ter achado lá.
+    /// Só importa para a guia cujo último envio ficou em dúvida (<see cref="FilaTiss.NaoSeSabeSeChegou"/>):
+    /// sem a declaração, ela é recusada.
+    /// </param>
     public async Task<ConferenciaDeEnvioTiss> ConferirEnvioAsync(
-        string convenioCodigo, IReadOnlyList<int> codigoIds, CancellationToken ct = default)
-        => (await MontarLoteAsync(convenioCodigo, codigoIds, ct)).Conferencia;
+        string convenioCodigo, IReadOnlyList<int> codigoIds, CancellationToken ct = default,
+        IReadOnlyCollection<int>? conferidasNoPortal = null)
+        => (await MontarLoteAsync(convenioCodigo, codigoIds, conferidasNoPortal, ct)).Conferencia;
 
     /// <summary>
     /// Pede o envio de um LOTE de guias à operadora (de 1 a 100, do mesmo convênio). É este pedido, feito por quem está logado, que autoriza o envio DAQUELAS guias — o
@@ -149,13 +196,28 @@ public sealed class FilaTissService
     /// pedido inteiro (<see cref="EnvioTissRecusadoException"/>, com a frase de cada linha): lote
     /// enviado pela metade sem a pessoa saber é pior que lote não enviado.
     /// </summary>
+    /// <param name="conferidasNoPortal">
+    /// As guias que <paramref name="operador"/> declara ter conferido no portal e não ter achado
+    /// lá. É o que libera o pedido novo de uma guia cujo último envio ficou em dúvida — e a
+    /// declaração fica na trilha de auditoria, com o nome de quem a fez, no mesmo ato do pedido.
+    /// </param>
     public async Task<TransacaoTiss> EnfileirarEnvioAsync(
-        string convenioCodigo, IReadOnlyList<int> codigoIds, string operador, CancellationToken ct = default)
+        string convenioCodigo, IReadOnlyList<int> codigoIds, string operador, CancellationToken ct = default,
+        IReadOnlyCollection<int>? conferidasNoPortal = null)
     {
         var quem = Operador(operador);
-        var lote = await MontarLoteAsync(convenioCodigo, codigoIds, ct);
+        var lote = await MontarLoteAsync(convenioCodigo, codigoIds, conferidasNoPortal, ct);
         if (!lote.Conferencia.PodeEnviar)
             throw new EnvioTissRecusadoException(lote.Conferencia);
+        // A declaração de quem liberou o reenvio: uma linha por guia, gravada junto com o pedido
+        // (o SaveChanges é o do EnfileirarAsync, logo abaixo — pedido sem a linha não existe).
+        foreach (var guia in lote.Guias.Where(g => g.LiberadaPorConferenciaNoPortal))
+            await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+            {
+                Operador = quem, Acao = "ReenvioTissAposConferenciaNoPortal",
+                Detalhe = "Declarou ter conferido no portal da operadora que a guia do envio anterior (sem resposta) não está lá; novo envio autorizado",
+                CodigoId = guia.Codigo.Id, PacienteId = guia.Codigo.Atendimento?.PacienteId
+            }, ct);
 
         var unica = lote.Guias.Count == 1 ? lote.Guias[0] : null;
         return await EnfileirarAsync(new TransacaoTiss
@@ -175,7 +237,7 @@ public sealed class FilaTissService
     /// <summary>Uma guia só: é o lote com um item.</summary>
     public Task<TransacaoTiss> EnfileirarEnvioGuiaAsync(
         string convenioCodigo, int codigoId, string operador, CancellationToken ct = default)
-        => EnfileirarEnvioAsync(convenioCodigo, [codigoId], operador, ct);
+        => EnfileirarEnvioAsync(convenioCodigo, [codigoId], operador, ct, null);
 
     /// <summary>
     /// As guias de um lote que a operadora RECEBEU e ainda não têm baixa: o que a baixa em lote
@@ -424,7 +486,7 @@ public sealed class FilaTissService
     {
         var t = await EmEnvioAsync(id, ct);
         var agora = _agora();
-        t.Erro = Cortar(string.IsNullOrWhiteSpace(erro) ? "Falha sem descrição." : erro.Trim(), TransacaoTissLimites.Erro);
+        t.Erro = FilaTiss.CortarErro(string.IsNullOrWhiteSpace(erro) ? "Falha sem descrição." : erro.Trim(), TransacaoTissLimites.Erro);
         if (xmlRecebido is not null) t.XmlRecebido = FilaTiss.SemSenha(xmlRecebido);
 
         var mensagemSaiu = t.EnvioIniciadoEm is not null;
@@ -444,7 +506,7 @@ public sealed class FilaTissService
         {
             Encerrar(t, EstadoTransacaoTiss.Falhou, agora);
             if (t.EscreveNaOperadora && mensagemSaiu && podeTentarDeNovo)
-                t.Erro = Cortar(t.Erro + " " + FilaTiss.FraseSemNovaTentativa, TransacaoTissLimites.Erro);
+                t.Erro = FilaTiss.CortarErro(t.Erro + " " + FilaTiss.FraseSemNovaTentativa, TransacaoTissLimites.Erro);
             t.Resultado = Cortar(t.EscreveNaOperadora && mensagemSaiu
                 ? "Falhou: confira no portal da operadora antes de pedir de novo."
                 : "Falhou: " + t.Erro, TransacaoTissLimites.Resultado);
@@ -472,14 +534,14 @@ public sealed class FilaTissService
 
     // ==================== peças ====================
 
-    private sealed record GuiaDoLote(CodigoFaturamento Codigo, string NumeroGuiaPrestador);
+    private sealed record GuiaDoLote(CodigoFaturamento Codigo, string NumeroGuiaPrestador, bool LiberadaPorConferenciaNoPortal = false);
 
     /// <summary>
     /// Lê as guias pedidas e diz, uma a uma, se podem ir. É a ÚNICA conta: a conferência da tela
     /// e a recusa do serviço saem daqui.
     /// </summary>
     private async Task<(ConferenciaDeEnvioTiss Conferencia, IReadOnlyList<GuiaDoLote> Guias)> MontarLoteAsync(
-        string convenioCodigo, IReadOnlyList<int>? codigoIds, CancellationToken ct)
+        string convenioCodigo, IReadOnlyList<int>? codigoIds, IReadOnlyCollection<int>? conferidasNoPortal, CancellationToken ct)
     {
         var convenio = (convenioCodigo ?? string.Empty).Trim();
         if (convenio.Length is 0 or > 40)
@@ -517,6 +579,12 @@ public sealed class FilaTissService
             var paciente = codigo.Atendimento?.Paciente;
             var convenioDaGuia = paciente is null ? null : paciente.ConvenioCodigo ?? paciente.Convenio.ToString();
             var emOutroEnvio = anteriores[id].FirstOrDefault(i => PrendeAGuia(i));
+            // O ÚLTIMO envio desta guia ficou em dúvida (a mensagem saiu e não houve resposta em que
+            // confiar)? Então o pedido novo só passa com a declaração de quem conferiu no portal.
+            // A guarda mora AQUI, e não só na tela: a fila tem mais de uma porta (a aba do envio,
+            // o formulário de baixa), e trava só de tela deixaria a outra passando.
+            var emDuvida = FilaTiss.NaoSeSabeSeChegou(anteriores[id].FirstOrDefault()?.Transacao);
+            var declarada = emDuvida && conferidasNoPortal is not null && conferidasNoPortal.Contains(id);
 
             var recusa =
                 codigo.Baixado ? "Esta guia já tem baixa: não é enviada de novo."
@@ -524,6 +592,7 @@ public sealed class FilaTissService
                     ? $"Esta guia é de outro convênio ({convenioDaGuia ?? "não identificado"}): um envio leva guias de um convênio só."
                 : codigo.GuiaAns is null ? "Confira a guia no padrão ANS antes de enviar: esta ainda não foi conferida."
                 : emOutroEnvio is not null ? FraseDeOutroEnvio(emOutroEnvio)
+                : emDuvida && !declarada ? FilaTiss.RecusaSemConferenciaNoPortal
                 : null;
             if (recusa is not null)
             {
@@ -532,7 +601,7 @@ public sealed class FilaTissService
             }
             // O número muda a cada envio da mesma guia (C12, C12R2, C12R3…): a operadora nunca vê
             // o mesmo número duas vezes, e a resposta acha a guia de volta por ele.
-            guias.Add(new GuiaDoLote(codigo, NumeroDoPrestador(id, anteriores[id].Count() + 1)));
+            guias.Add(new GuiaDoLote(codigo, NumeroDoPrestador(id, anteriores[id].Count() + 1), declarada));
         }
         return (new ConferenciaDeEnvioTiss { PorGuia = recusas }, guias);
     }

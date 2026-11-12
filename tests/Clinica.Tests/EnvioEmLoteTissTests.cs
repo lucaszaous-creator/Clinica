@@ -232,8 +232,12 @@ public sealed class EnvioEmLoteTissTests : IDisposable
         _b.Agora = _b.Agora.AddDays(1);
         (await _b.Fila().ReservarProximaAsync(C1)).Should().BeNull("nem o lote nem guia alguma dele volta para a fila");
         (await _b.Fila().GuiasRecebidasSemBaixaAsync(t.Id)).Should().BeEmpty("lote que falhou não autoriza baixa nenhuma");
-        // Reenviar é pedido novo, de gente — e aí as guias estão livres.
-        (await _b.Fila().ConferirEnvioAsync(P, ids)).PodeEnviar.Should().BeTrue();
+        // Reenviar é pedido novo, de gente — e, como não se sabe se a operadora recebeu, de gente que
+        // DECLARA ter conferido no portal (nov/2026): sem a declaração a fila recusa cada guia.
+        var semDeclarar = await _b.Fila().ConferirEnvioAsync(P, ids);
+        semDeclarar.PodeEnviar.Should().BeFalse();
+        semDeclarar.PorGuia.Keys.Should().BeEquivalentTo(ids);
+        (await _b.Fila().ConferirEnvioAsync(P, ids, conferidasNoPortal: ids)).PodeEnviar.Should().BeTrue();
     }
 
     [Fact]

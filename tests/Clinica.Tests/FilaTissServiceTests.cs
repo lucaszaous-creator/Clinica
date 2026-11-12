@@ -1,3 +1,4 @@
+using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Domain.Entities;
 using Clinica.Infrastructure;
@@ -88,21 +89,60 @@ public sealed class FilaTissServiceTests : IDisposable
         (await deNovo.Should().ThrowAsync<InvalidOperationException>()).WithMessage("*987654*");
     }
 
+    /// <summary>
+    /// Reenviar é decisão de GENTE, depois de conferir no portal — e a fila passou a EXIGIR essa
+    /// declaração (nov/2026): a guarda era só de tela, e a fila tem mais de uma porta. Sem a
+    /// declaração o pedido é recusado na guia; com ela, entra e fica na trilha com o nome de quem declarou.
+    /// </summary>
     [Fact]
-    public async Task Depois_de_um_envio_que_falhou_a_pessoa_pode_pedir_outro()
+    public async Task Depois_de_um_envio_em_duvida_o_pedido_novo_exige_a_declaracao_de_quem_conferiu_no_portal()
     {
-        // Reenviar é decisão de GENTE, depois de conferir no portal — nunca do conector.
-        var (paciente, guia) = await _b.GuiaAsync();
+        var (_, guia) = await _b.GuiaAsync();
         var fila = _b.Fila();
         var t = await fila.EnfileirarEnvioGuiaAsync(TissBancoDeTeste.Petrobras, guia.Id, TissBancoDeTeste.Operador);
         await fila.ReservarProximaAsync(C1);
-        await fila.MarcarEnvioIniciadoAsync(t.Id, "<a/>");
+        await fila.MarcarEnvioIniciadoAsync(t.Id, "<a/>");   // a mensagem SAIU
         await fila.FalharAsync(t.Id, "sem resposta da operadora", podeTentarDeNovo: true);
 
-        var outro = await fila.EnfileirarEnvioGuiaAsync(TissBancoDeTeste.Petrobras, guia.Id, TissBancoDeTeste.Operador);
+        // Sem a declaração: recusado, com a frase que diz o que fazer; nada entra na fila.
+        (await fila.ConferirEnvioAsync(TissBancoDeTeste.Petrobras, [guia.Id])).PorGuia[guia.Id]
+            .Should().Be(FilaTiss.RecusaSemConferenciaNoPortal);
+        var semDeclarar = () => fila.EnfileirarEnvioGuiaAsync(TissBancoDeTeste.Petrobras, guia.Id, TissBancoDeTeste.Operador);
+        (await semDeclarar.Should().ThrowAsync<EnvioTissRecusadoException>())
+            .Which.Conferencia.PorGuia[guia.Id].Should().Contain("Confira no portal antes de enviar de novo");
+        (await fila.DaGuiaAsync(guia.Id)).Should().ContainSingle();
+
+        // Com a declaração: a conferência passa, o pedido entra e a trilha guarda QUEM declarou.
+        (await fila.ConferirEnvioAsync(TissBancoDeTeste.Petrobras, [guia.Id], conferidasNoPortal: [guia.Id])).PodeEnviar.Should().BeTrue();
+        var outro = await fila.EnfileirarEnvioAsync(TissBancoDeTeste.Petrobras, [guia.Id], TissBancoDeTeste.Operador, conferidasNoPortal: [guia.Id]);
 
         outro.Id.Should().NotBe(t.Id);
         (await fila.DaGuiaAsync(guia.Id)).Select(x => x.Id).Should().Equal(outro.Id, t.Id);
+        var declaracao = _b.Db.Auditoria.AsNoTracking().Where(a => a.Acao == "ReenvioTissAposConferenciaNoPortal").ToList()
+            .Should().ContainSingle().Subject;
+        declaracao.Operador.Should().Be(TissBancoDeTeste.Operador);
+        declaracao.CodigoId.Should().Be(guia.Id);
+        declaracao.Detalhe.Should().Contain("conferido no portal");
+    }
+
+    /// <summary>
+    /// A guarda é só para a DÚVIDA. Envio que falhou antes de a mensagem sair não chegou à operadora:
+    /// pede-se de novo sem declarar nada — e declarar à toa não escreve linha na trilha.
+    /// </summary>
+    [Fact]
+    public async Task Envio_que_falhou_antes_de_sair_e_pedido_de_novo_sem_declaracao_e_a_declaracao_a_toa_nao_e_auditada()
+    {
+        var (_, guia) = await _b.GuiaAsync();
+        var fila = _b.Fila();
+        var t = await fila.EnfileirarEnvioGuiaAsync(TissBancoDeTeste.Petrobras, guia.Id, TissBancoDeTeste.Operador);
+        await fila.ReservarProximaAsync(C1);
+        await fila.FalharAsync(t.Id, "dados recusados antes do envio", podeTentarDeNovo: false); // nada saiu
+
+        (await fila.ConferirEnvioAsync(TissBancoDeTeste.Petrobras, [guia.Id])).PodeEnviar.Should().BeTrue();
+        var outro = await fila.EnfileirarEnvioAsync(TissBancoDeTeste.Petrobras, [guia.Id], TissBancoDeTeste.Operador, conferidasNoPortal: [guia.Id]);
+
+        outro.Id.Should().NotBe(t.Id);
+        _b.Db.Auditoria.AsNoTracking().Where(a => a.Acao == "ReenvioTissAposConferenciaNoPortal").Should().BeEmpty();
     }
 
     [Fact]

@@ -59,10 +59,15 @@ public sealed class ProcessadorDeElegibilidade(
             return DesfechoTiss.Falhar(resposta.Resumo);
 
         var validade = resposta.ValidadeCarteira is { } v ? $" Validade da carteira: {v:dd/MM/yyyy}." : string.Empty;
+        var nome = string.IsNullOrWhiteSpace(resposta.NomeBeneficiario) ? string.Empty
+            : $" {EnvioTissNaTela.RotuloDoNomeNaOperadora} {resposta.NomeBeneficiario.Trim()}.";
         return DesfechoTiss.Concluir(new ConclusaoTransacaoTiss
         {
-            // Sem o nome do beneficiário: ele fica só no XML recebido, para quem precisar conferir.
-            Resultado = resposta.Resumo + validade,
+            // O NOME que a operadora devolveu vai na frase (nov/2026, pedido da direção): a tela o
+            // mostra ao lado do nome da ficha, para CONFERÊNCIA — ninguém o copia para a ficha. É o
+            // nome da pessoa cuja carteira a clínica acabou de consultar, lido por quem pediu a
+            // consulta; continua fora do log e da auditoria, e o XML inteiro continua só no servidor.
+            Resultado = resposta.Resumo + validade + nome,
             XmlRecebido = xmlDaResposta
         });
     }

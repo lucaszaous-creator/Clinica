@@ -178,7 +178,15 @@ arriscar a mesma guia duas vezes (glosa 1308, "guia já apresentada"). Por isso:
 3. se o conector morrer depois de carimbar, a transação é encerrada como `Falhou` com a frase
    "Confira no portal da operadora antes de pedir um novo envio" — e **não** é entregue a outro conector;
 4. pedir de novo é ato de **gente**: um pedido novo, com operador e trilha. A fila recusa a
-   guia que está num envio na fila, em andamento, ou já recebida pela operadora;
+   guia que está num envio na fila, em andamento, ou já recebida pela operadora — e, desde a
+   correção de fluxo de 11/11/2026, recusa também a guia cujo último envio **saiu e falhou**
+   ("não se sabe se chegou"), salvo quando o pedido a declara em `conferidasNoPortal`: alguém
+   conferiu no portal que ela não está lá. A declaração é gravada na auditoria
+   (`ReenvioTissAposConferenciaNoPortal`, com o operador e a guia). Envio que
+   falhou ANTES de sair não pede declaração, e a **recusa clara** da operadora (ela respondeu que
+   não, com o motivo) também não: a dúvida se reconhece pela frase "Confira no portal da operadora
+   antes de pedir um novo envio" no erro gravado (`FilaTiss.MarcaDeDuvida`), que a fila preserva
+   mesmo quando corta um erro comprido (`FilaTiss.CortarErro`);
 5. a regra vale para o **lote inteiro e para cada guia dele**: lote que falhou marca todas as
    guias como "falhou" e nenhuma volta sozinha; guia glosada só é reenviada por um pedido novo,
    e sai com **outro número** (`C12`, depois `C12R2`), para a operadora nunca ver o mesmo número
@@ -542,7 +550,9 @@ Dito sem enfeite:
   o XML enviado (sem a senha) e a resposta da operadora, que traz o **nome do beneficiário**. É
   dado pessoal novo em repouso. Não há prazo de descarte definido nem rotina de limpeza — fica
   como pendência a decidir junto (guardar pelo prazo de recurso de glosa parece o mínimo útil).
-- **Quem vê.** A frase da tela (`Resultado`) não leva o nome. Os XML só saem do banco por
+- **Quem vê.** Desde 11/11/2026 a frase da tela (`Resultado`) da ELEGIBILIDADE leva o nome devolvido
+  ("Nome na operadora: X."), para a recepção conferir com a ficha — vê quem já vê a ficha do paciente.
+  O log continua sem nome. Os XML só saem do banco por
   `ObterTransacaoTissAsync`, que nenhuma tela usa hoje; quando uma tela os mostrar, isso pede
   permissão própria.
 - **O que não há:** contrato de tratamento de dados com a conectividade (a relação é com a
