@@ -23,11 +23,17 @@ namespace PreviaBlazor.Sementes;
 /// resposta); um em que <b>não se sabe se chegou</b>; um <b>cancelado antes de sair</b>; e um
 /// recebido e <b>já baixado</b>.</item>
 /// </list>
-/// Roda depois da semente da guia ANS (48), que cadastra o que a guia conferida precisa.
+/// Precisa da semente da guia ANS (48), que cadastra o que a guia conferida precisa — e roda POR
+/// ÚLTIMO, de propósito: ela cria doze pacientes, e várias sementes antigas escolhem paciente pela
+/// POSIÇÃO na lista inteira (Tendência e metas distribui sessões realizadas por todos, em ciclo;
+/// Repasses sorteia entre todos; Indicadores pula os doze primeiros). Com estes doze no meio da
+/// ordem (ela nasceu em 49), o ciclo se deslocou e as sessões caíram em quem estava na fila do
+/// Acompanhamento — "sessão realizada", fora da fila, e o teste do Relacionamento não achava a
+/// linha. Paciente novo de semente nova entra DEPOIS de quem conta pacientes.
 /// </summary>
 public sealed class SementeEnvioTiss : ISemente
 {
-    public int Ordem => 49;
+    public int Ordem => 100;
 
     private const string Petrobras = "Petrobras";
     private const string Conector = "previa-sem-conector";

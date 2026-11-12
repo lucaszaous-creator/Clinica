@@ -2252,6 +2252,17 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   manual em banco com as sementes do envio precisa DESLIGAR o envio**: a semente `EnvioTiss` o
   liga para a Petrobras, e o formulário muda de rosto. O nome devolvido na elegibilidade vai no
   `Resultado` da transação (sem coluna) e a tela o compara com a ficha sem alterar a ficha.
+- **SEMENTE NOVA QUE CRIA PACIENTE RODA DEPOIS DE QUEM CONTA PACIENTES** (nov/2026, o CI vermelho
+  do PR do envio TISS). Várias sementes da prévia escolhem paciente pela POSIÇÃO na lista inteira
+  (`TendenciaEMetas` distribui sessões realizadas por todos em ciclo; `RepassesResultado` sorteia;
+  `IndicadoresDaDirecao` pula os doze primeiros). A `SementeEnvioTiss` nasceu na ordem 49 criando
+  doze pacientes: o ciclo se deslocou, sessões "realizadas" caíram em quem estava na fila do
+  Acompanhamento (viraram "sessão realizada", fora da fila) e pacientes do envio ganharam sessões
+  antigas e entraram no recall. Nada quebrou na família de testes da mudança — quebrou
+  `RelacionamentoBlazorParidadeTests`, que só a suíte inteira roda. Ela passou para a ordem 100
+  (a última). ⚠️ **Semente é dado COMPARTILHADO entre a prévia e todos os testes de tela**: mexeu
+  em `Sementes/`, a rede é a suíte completa, não o `--filter` da família. Não é regra de produto: o
+  recall nasce de sessão realizada antiga, nunca do envio nem da baixa da guia.
 - **Web service TISS da Saúde Petrobras (nov/2026, primeiro passo)**: `TissElegibilidadeWs` monta e lê a
   verificação de elegibilidade (4.01.00) e `TissWebserviceCliente` a envia; quem chama é só a
   ferramenta `tools/TissPetrobras` — nenhuma tela. A resposta tem TRÊS estados: elegível, não
