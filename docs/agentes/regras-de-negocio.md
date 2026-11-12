@@ -700,7 +700,9 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   lugar do zero** —, que passava batido, dava a guia por baixada e só aparecia no retorno da
   operadora, semanas depois, com boa parte do prazo de recurso já corrida. A regra mora no
   **DOMÍNIO** e é aplicada em `FaturamentoService.DarBaixaAsync`, não na tela, porque a baixa tem
-  **quatro portas** (tela de baixa, baixa em lote, rodada de pendências e fila do Gerente): validar
+  **quatro portas** e três caminhos até o serviço (tela de baixa; baixa em lote; rodada de pendências,
+  em duas telas — o formulário do painel e a janela bloqueante da abertura do app. A "fila do
+  Gerente" de antes não existe mais: ele dá baixa por essas mesmas telas): validar
   na tela cobre uma e deixa três passando, que é o defeito recorrente do projeto vestido de
   validação. A tela usa a MESMA regra para avisar ANTES do clique — a dica ao lado do campo é a
   metade que explica; o serviço é a que impede.
@@ -2207,6 +2209,96 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   `ClinicaRepositorio.SalvarAsync` traduz `DbUpdateConcurrencyException` em mensagem amigável.
 - XML TISS gerado passa por `TissValidador.Validar` (estrutura + hash do epílogo); XSD oficial
   é opcional (pasta `%APPDATA%\ClinicaFaturamento\tiss\schemas`).
+- **TELAS DO ENVIO À OPERADORA: cada estado tem um nome, e "não se sabe se chegou" não tem botão**
+  (nov/2026). As telas só PEDEM (a fila executa): "Conferir e deixar pronta para envio" no formulário
+  de baixa (`ConferirGuiaAnsAsync`, sem número e sem baixa), a aba "Envio pelo web service" de Guias
+  TISS (`EnvioAOperadoraPainel`), o selo na linha do painel, a credencial em Configurações → Convênios
+  → "Web service" e a elegibilidade ao lado da carteira. Tudo o que a tela AFIRMA mora em
+  `EnvioTissNaTela` (Application, com teste). ⚠️ **"Pronta" não é "enviada", "na fila" não é
+  "enviada", "enviada" não é "recebida"** — frases e cores diferentes, e o texto do botão diz isso.
+  ⚠️ **Envio que saiu e falhou é "NÃO SE SABE SE CHEGOU"** (`NaoSeSabeSeChegou`: escreve na
+  operadora + falhou + a mensagem saiu): vai em vermelho, manda conferir no portal e NÃO oferece
+  reenvio com um clique. ⚠️ **A fila DEVOLVE essa guia à lista das prontas** (pedir de novo é ato
+  de gente) — e foi a captura da prévia que mostrou o furo: marcada e enviada em dois cliques. Na
+  tela ela nasce TRAVADA (`EnvioTissNaTela.DaPronta`): caixa apagada, "marcar todas" a pula, o
+  envio recusa — até a pessoa declarar numa pergunta que conferiu no portal que ela não está lá. ⚠️ **Formulário com dois desfechos tem dois avisos para quem está atrás**:
+  o `BaixaGuiaForm` ganhou `AoConferir`, porque usar o `AoConcluir` faria o painel dizer "baixa
+  registrada" sobre uma guia que continua pendente. ⚠️ **Campo de senha não liga o valor de volta**:
+  só `@oninput`, e o campo é recriado (`@key`) depois de gravar — `value="@_senha"` escreveria a
+  senha no HTML a cada tecla. O selo do painel custa duas leituras por convênio com web service,
+  nunca uma por linha. Com o envio desligado para o convênio o formulário de baixa fica idêntico
+  ao de antes. `docs/tiss-telas-do-envio.md`.
+- **A BAIXA QUE ENVIA: o formulário não pede o que ainda não existe** (nov/2026, correção de fluxo
+  da direção: *"a guia só é gerada APÓS o envio"*). O formulário de baixa pedia o "número da guia
+  gerada" a quem ia ENVIAR — nada quebrava, e por isso nenhuma rede pegou: a pergunta que faltou foi
+  **"em que momento do processo real este dado passa a existir?"**. Com o envio ligado, a ação
+  principal é "Enviar para {convênio} e dar baixa": confere, enfileira UMA guia, o formulário
+  acompanha (2 s, relógio da view) e, recebida, registra a baixa sozinho com o número devolvido.
+  Tudo o que a tela afirma mora em `BaixaComEnvioNaTela` (com teste). ⚠️ **A baixa automática só
+  acontece na abertura que PEDIU o envio** — quem reabre vê "Registrar a baixa": abrir formulário
+  não grava, e a baixa leva o login de quem clicou (o conector nunca dá baixa). ⚠️ **Recebida sem
+  número da operadora NÃO é "guia gerada"**: a frase diz que a baixa ficou com o NOSSO número.
+  ⚠️ **Trava de reenvio em dúvida mora na FILA, não na tela** (`conferidasNoPortal` em
+  `EnfileirarEnvioAsync`, com auditoria): passaram a existir duas telas que pedem envio, e a trava
+  que morava só na aba não valia para o formulário. ⚠️ **"Saiu e falhou" NÃO é sinônimo de dúvida**:
+  o lote que a operadora RECUSOU com resposta clara também saiu e falhou, e não deixou nada lá. A
+  primeira guarda tratava os dois igual e travaria o reenvio legítimo — quem mostrou foram três
+  testes do motor na suíte longa, não os testes da tela. A dúvida é o erro que traz a
+  `FilaTiss.MarcaDeDuvida`; como a marca vem no FIM do texto, o corte no tamanho da coluna a
+  preserva (`CortarErro`) — senão um erro comprido transformaria dúvida em recusa clara, calado.
+  ⚠️ **Estado que nasce fora da vista não
+  aconteceu**: quem clica no rodapé de um formulário longo não vê um bloco que aparece no topo — o
+  acompanhamento é `position:sticky` (visto na foto de 1024, não em teste). ⚠️ **Teste de baixa
+  manual em banco com as sementes do envio precisa DESLIGAR o envio**: a semente `EnvioTiss` o
+  liga para a Petrobras, e o formulário muda de rosto. O nome devolvido na elegibilidade vai no
+  `Resultado` da transação (sem coluna) e a tela o compara com a ficha sem alterar a ficha.
+- **SEMENTE NOVA QUE CRIA PACIENTE RODA DEPOIS DE QUEM CONTA PACIENTES** (nov/2026, o CI vermelho
+  do PR do envio TISS). Várias sementes da prévia escolhem paciente pela POSIÇÃO na lista inteira
+  (`TendenciaEMetas` distribui sessões realizadas por todos em ciclo; `RepassesResultado` sorteia;
+  `IndicadoresDaDirecao` pula os doze primeiros). A `SementeEnvioTiss` nasceu na ordem 49 criando
+  doze pacientes: o ciclo se deslocou, sessões "realizadas" caíram em quem estava na fila do
+  Acompanhamento (viraram "sessão realizada", fora da fila) e pacientes do envio ganharam sessões
+  antigas e entraram no recall. Nada quebrou na família de testes da mudança — quebrou
+  `RelacionamentoBlazorParidadeTests`, que só a suíte inteira roda. Ela passou para a ordem 100
+  (a última). ⚠️ **Semente é dado COMPARTILHADO entre a prévia e todos os testes de tela**: mexeu
+  em `Sementes/`, a rede é a suíte completa, não o `--filter` da família. Não é regra de produto: o
+  recall nasce de sessão realizada antiga, nunca do envio nem da baixa da guia.
+- **Web service TISS da Saúde Petrobras (nov/2026, primeiro passo)**: `TissElegibilidadeWs` monta e lê a
+  verificação de elegibilidade (4.01.00) e `TissWebserviceCliente` a envia; quem chama é só a
+  ferramenta `tools/TissPetrobras` — nenhuma tela. A resposta tem TRÊS estados: elegível, não
+  elegível e **não avaliado** (login, hash, schema, rede); falha nunca vira "não elegível". O hash
+  do web service é em ISO-8859-1; o do lote (`TissExportService`) segue em UTF-8 e não foi mexido.
+  Não há homologação no manual da operadora: toda chamada é produção. `docs/tiss-webservice-petrobras.md`.
+- **Baixa de CONSULTA da Saúde Petrobras pede a guia ANS (nov/2026, pedido da direção)**: o formulário de
+  baixa abre com os campos da "Guia de Consulta" do portal da operadora, na mesma ordem e numeração, já
+  preenchidos; a guia conferida é gravada em `GuiasTissConsulta` (1:1 com a guia) no mesmo `SaveChanges`
+  da baixa. Quem decide é `GuiaAnsNaBaixa.Exige` — TODA guia da família Petrobras (consulta, consulta de
+  especialidade e BSV, que a clínica lança no portal na mesma tela de guia de consulta), nunca particular.
+  No XML do lote a guia conferida sai como guia de consulta, uma por código. A recusa mora em `FaturamentoService.DarBaixaAsync`,
+  o caminho único. ⚠️ **Recusa nova no serviço chega às portas em massa**: o lote e a rodada não têm
+  formulário por guia, então conferem ANTES de gravar (`DecisoesDaRodada.ImpedimentoDaGuiaAns`). Na rodada
+  (inclusive a BLOQUEANTE) a decisão dessa linha é a JUSTIFICATIVA, gravada como anotação da pendência e
+  não como não conformidade — a NC tiraria a guia do painel, que é onde a baixa dela se resolve. As
+  sementes da prévia que dão baixa em consulta Petrobras passam a guia (`GuiaAnsDaPrevia`); sem isso a
+  suíte de telas inteira reprova na montagem do banco. Domínios do padrão em `DominiosTiss`, conferidos
+  contra o XSD por teste: UF é código IBGE ("33"), conselho tem zero ("06"), valor tem ponto ("139.00").
+  A baixa NÃO envia nada à operadora e nenhum texto diz que envia. `docs/baixa-petrobras-guia-ans.md`.
+- **CONSELHO, NÚMERO, UF E CBO SÃO DO PROFISSIONAL, e o texto livre do conselho continua** (nov/2026,
+  decisão da direção pela tela do portal). `Profissional` ganhou `ConselhoProfissional`, `NumeroConselho`,
+  `UfConselho` e `Cbos`, nos CÓDIGOS do `DominiosTiss` e todos opcionais; o `RegistroConselho` em texto
+  livre segue mandando nos documentos clínicos e nenhum dos dois é derivado do outro. A regra é
+  `RegistroDoProfissionalParaGuias` (Application, pura): a guia da baixa busca o executante CAMPO A
+  CAMPO — cadastro → última guia conferida → texto livre —, e fonte mais fraca nunca passa por cima
+  de fonte mais forte. ⚠️ **Campo novo num cadastro com cópia campo a campo nasce com "nulo = não
+  sei"**: o `EquipeService` só toca o campo quando o chamador o manda (vazio = apagar). Sem isso a
+  tela de Acessos, que regrava o profissional para corrigir o CPF, apagaria o CBO na primeira
+  correção — e nada quebraria. O formulário PROPÕE o que leu do texto livre e não preenche sozinho.
+  No lote e na rodada do PAINEL a linha da Saúde Petrobras tem o botão "Abrir a guia" (o mesmo
+  `BaixaGuiaForm`, por cima); `LinhaDaRodada.BaixadaNoFormulario` tira a linha de toda conta, e a
+  justificativa dela não é regravada depois da baixa. ⚠️ **Formulário aberto de dentro de outro avisa
+  quem está atrás NA HORA** (`AoBaixarPelaGuia` → o painel relê): concluir "ao fechar" faria o painel
+  dizer "rodada concluída" sobre linhas que a pessoa digitou e descartou. A janela WPF bloqueante
+  não tem o botão. A migration destes campos é gerada na integração, uma só.
 - `PrevencaoGlosaService` (radar de glosas) roda na exportação do lote: carteirinha vencida,
   duplicidade e taxa histórica por padrão (convênio+tipo). `TissRetornoImport.Ler` importa o
   demonstrativo XML da operadora e pré-preenche as decisões do retorno (casadas pelo nº real

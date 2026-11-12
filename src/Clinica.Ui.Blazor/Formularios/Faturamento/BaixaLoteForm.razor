@@ -9,6 +9,12 @@
     uma recusa NO MEIO deixaria as anteriores baixadas e a pessoa sem saber qual corrigir.
   - Depois, a falha é POR LINHA: uma guia recusada não aborta as seguintes nem passa calada.
   - A linha da rodada (LinhaDaRodada) serve aqui: descrição, formato e crítica são a mesma conta.
+  - A guia da Saúde Petrobras (LinhaDaRodada.PedeGuiaAns, nov/2026) não tem campo de número: a
+    baixa dela pede a conferência da guia ANS, que é uma por vez. No lugar do campo vai o botão
+    "Abrir a guia", que abre o MESMO BaixaGuiaForm do painel POR CIMA deste — o que já foi
+    digitado nas outras linhas fica onde estava. Baixada, a linha continua na lista com o selo.
+    O painel é avisado NA HORA (AoBaixarPelaGuia) e relê por trás: fechar o lote depois disso é
+    só fechar, e a guia já baixada não fica pendurada na lista de trás.
 *@
 @inject IServiceScopeFactory Escopos
 
@@ -32,11 +38,25 @@
                                 <span class="secundario">@l.Situacao</span>
                             </td>
                             <td>
-                                <input class="campo numero-guia @(l.CriticaDoNumero is not null ? "invalido" : null)" value="@l.NumeroGuia" maxlength="40"
-                                       aria-label="@($"Número da guia — {l.Descricao}")" autocomplete="off"
-                                       @oninput="e => l.NumeroGuia = e.Value?.ToString()" />
-                                @if (l.CriticaDoNumero is { } critica) { <span class="campo-erro">@critica</span> }
-                                else if (Dica(l) is { } dica) { <span class="campo-dica">@dica</span> }
+                                @if (l.BaixadaNoFormulario)
+                                {
+                                    <Selo Tom="sucesso">Baixa registrada</Selo>
+                                }
+                                else if (l.PedeGuiaAns)
+                                {
+                                    <button type="button" class="botao mini" data-abrir-guia="@l.CodigoId" disabled="@(!PodeBaixar || _ocupado)"
+                                            aria-label="@($"Abrir a guia — {l.Descricao}")"
+                                            title="@(PodeBaixar ? "Conferir a guia ANS e dar baixa nesta guia" : "Seu acesso não permite dar baixa na guia.")"
+                                            @onclick="() => AbrirGuia(l)"><Icone Nome="abrir" />Abrir a guia</button>
+                                }
+                                else
+                                {
+                                    <input class="campo numero-guia @(l.CriticaDoNumero is not null ? "invalido" : null)" value="@l.NumeroGuia" maxlength="40"
+                                           aria-label="@($"Número da guia — {l.Descricao}")" autocomplete="off"
+                                           @oninput="e => l.NumeroGuia = e.Value?.ToString()" />
+                                    @if (l.CriticaDoNumero is { } critica) { <span class="campo-erro">@critica</span> }
+                                    else if (Dica(l) is { } dica) { <span class="campo-dica">@dica</span> }
+                                }
                             </td>
                         </tr>
                     }
@@ -46,8 +66,8 @@
         <div class="fat-mensagem"><Aviso Tom="erro" Texto="@_mensagem" /></div>
     </ChildContent>
     <Rodape>
-        <span class="esquerda texto-secundario pequeno">@ComNumero de @_linhas.Count linha(s) com número</span>
-        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <span class="esquerda texto-secundario pequeno">@ComNumero de @_linhas.Count linha(s) com número@(Baixadas > 0 ? $" · {Baixadas} já baixada(s) pela guia" : null)</span>
+        <button type="button" class="botao" @onclick="AoFechar">@(Baixadas > 0 ? "Fechar" : "Cancelar")</button>
         <button type="button" class="botao primario" @onclick="ConfirmarAsync" disabled="@(_ocupado || !PodeBaixar)"
                 title="@(PodeBaixar ? null : "Seu acesso não permite dar baixa nas guias.")">
             <Icone Nome="check" />@(_ocupado ? "Gravando…" : "Confirmar baixas")
@@ -55,11 +75,19 @@
     </Rodape>
 </Modal>
 
+@if (_guiaAberta is { } guiaAberta)
+{
+    <BaixaGuiaForm CodigoId="guiaAberta.CodigoId" AoFechar="() => _guiaAberta = null" AoConcluir="GuiaBaixada"
+                   AoConferir="GuiaConferida" />
+}
+
 @code {
     [Parameter, EditorRequired] public IReadOnlyList<PendenciaCodigo> Itens { get; set; } = [];
     /// <summary>Concluído: o aviso do desfecho (falhas), ou nulo quando tudo saiu.</summary>
     [Parameter] public EventCallback<string?> AoConcluir { get; set; }
     [Parameter] public EventCallback AoFechar { get; set; }
+    /// <summary>Uma guia recebeu baixa pelo "Abrir a guia": quem está atrás relê as pendências.</summary>
+    [Parameter] public EventCallback AoBaixarPelaGuia { get; set; }
 
     private IReadOnlyList<LinhaDaRodada> _linhas = [];
     private DateOnly _data = DateOnly.FromDateTime(DateTime.Today);
@@ -68,8 +96,33 @@
 
     private static bool PodeBaixar => SessaoUsuario.Atual.Pode(Permissao.BaixarGuia);
     private int ComNumero => _linhas.Count(l => !string.IsNullOrWhiteSpace(l.NumeroGuia));
+    private int Baixadas => _linhas.Count(l => l.BaixadaNoFormulario);
 
-    protected override void OnInitialized() => _linhas = DecisoesDaRodada.Montar(Itens);
+    /// <summary>A linha cuja guia está aberta no formulário de baixa, por cima deste.</summary>
+    private LinhaDaRodada? _guiaAberta;
+
+    protected override void OnInitialized() => _linhas = DecisoesDaRodada.Montar(Itens, abreAGuia: true);
+
+    private void AbrirGuia(LinhaDaRodada l)
+    {
+        _mensagem = DecisoesDaRodada.RecusaDeAbrirAGuia();
+        if (_mensagem is null && !_ocupado) _guiaAberta = l;
+    }
+
+    /// <summary>O formulário de baixa gravou: a linha fica marcada e as outras, como estavam.</summary>
+    /// <summary>A guia foi só CONFERIDA para envio: continua pendente, e a linha fica como estava. O painel relê o selo.</summary>
+    private Task GuiaConferida()
+    {
+        _guiaAberta = null;
+        return AoBaixarPelaGuia.InvokeAsync();
+    }
+
+    private Task GuiaBaixada()
+    {
+        if (_guiaAberta is { } l) l.BaixadaNoFormulario = true;
+        _guiaAberta = null;
+        return AoBaixarPelaGuia.InvokeAsync();
+    }
 
     private static string? Dica(LinhaDaRodada l) => RegraNumeroGuia.Dica(l.Formato);
 
@@ -78,6 +131,7 @@
         if (_ocupado) return;
         _mensagem = null;
         if (!PodeBaixar) { _mensagem = "Seu acesso não permite dar baixa nas guias. Fale com a direção da clínica."; return; }
+        if (ComNumero == 0 && Baixadas > 0) { await AoConcluir.InvokeAsync(null); return; }
         if (ComNumero == 0) { _mensagem = "Nenhuma linha tem número de guia — informe ao menos um para dar baixa."; return; }
         if (PainelPendenciasFaturamento.ImpedimentoDoLote(_linhas) is { } impedimento) { _mensagem = impedimento; return; }
 

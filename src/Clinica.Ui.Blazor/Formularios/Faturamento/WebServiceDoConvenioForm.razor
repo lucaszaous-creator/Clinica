@@ -1,0 +1,232 @@
+@*
+  O WEB SERVICE DO CONVÊNIO (nov/2026): a credencial da operadora e a chave "envio pelo web
+  service", por convênio. Abre da linha do convênio em Configurações do faturamento.
+
+  Diferente do ConvenioForm (que edita a linha e espera o "Salvar configurações"), aqui cada
+  ato GRAVA NA HORA, pelo CredenciaisTissService: a credencial tem trilha própria e não pode
+  ficar "pendente" numa tela aberta. Por isso o formulário tem os seus botões.
+
+  - A SENHA NUNCA É MOSTRADA nem volta do servidor: a tela recebe só "há senha gravada". O
+    campo nasce vazio, é type=password, NÃO tem o valor ligado de volta (o que se digita vai do
+    navegador para cá e nunca é escrito na página) e é recriado vazio depois de gravar.
+    Em branco = não trocar.
+  - Login e senha são gravados JUNTOS pelo serviço: trocar o login pede a senha de novo
+    (EnvioTissNaTela.TrocaDeLoginPedeSenha).
+  - A credencial só é gravada onde a chave de proteção do servidor está configurada; fora dali
+    o serviço recusa com a frase que diz onde cadastrar, e a tela a mostra como veio.
+  - A chave de envio diz a verdade: ligar aqui não basta (chave do servidor + serviço instalado).
+  - As duas barreiras: ConfigurarFaturamento, a mesma permissão que edita o convênio.
+*@
+@inject IServiceScopeFactory Escopos
+@inject Dialogos Dialogos
+
+<Modal Titulo="@($"Web service — {Nome}")" Subtitulo="A credencial da operadora e a chave de envio deste convênio. Cada alteração aqui é gravada na hora e fica na trilha de auditoria."
+       Largura="medio" AoFechar="AoFechar">
+    <ChildContent>
+        @if (_falhou)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler o web service do convênio" Detalhe="@_erroLeitura" AoTentarDeNovo="CarregarAsync" />
+        }
+        else if (!_carregou)
+        {
+            <Esqueleto Altura="200" />
+        }
+        else
+        {
+            <section class="secao-form" aria-label="Credencial da operadora" data-credencial>
+                <h3>Credencial da operadora</h3>
+                <div class="campos">
+                    <Campo Rotulo="Login do web service" Erro="@Erro("Login")">
+                        <input id="ws-Login" class="campo" maxlength="20" autocomplete="off" disabled="@(!PodeConfigurar)"
+                               value="@_login" @oninput="e => _login = e.Value?.ToString()" />
+                    </Campo>
+                    <Campo Rotulo="@(_temSenha ? "Nova senha" : "Senha")" Erro="@Erro("Senha")" Dica="@EnvioTissNaTela.SituacaoDaSenha(_temSenha)">
+                        <input id="ws-Senha" type="password" class="campo" maxlength="100" autocomplete="new-password" disabled="@(!PodeConfigurar)"
+                               placeholder="@(_temSenha ? "Em branco = não trocar" : null)"
+                               @key="_versaoDaSenha" @oninput="e => _senha = e.Value?.ToString()" />
+                    </Campo>
+                </div>
+                <div class="botoes-linha">
+                    <button type="button" class="botao primario" data-gravar-credencial disabled="@(!PodeConfigurar || _ocupado)"
+                            title="@(PodeConfigurar ? null : "Seu acesso não permite alterar as configurações do faturamento.")"
+                            @onclick="GravarCredencialAsync"><Icone Nome="check" />@(_ocupado ? "Gravando…" : "Gravar credencial")</button>
+                    @if (_temSenha || _loginGravado is not null)
+                    {
+                        <button type="button" class="botao contorno-perigo" data-remover-credencial disabled="@(!PodeConfigurar || _ocupado)" @onclick="RemoverCredencialAsync">
+                            <Icone Nome="lixo" />Remover credencial</button>
+                    }
+                </div>
+                <Aviso Tom="@_tomDaCredencial" Texto="@_mensagemDaCredencial" />
+            </section>
+
+            <section class="secao-form" aria-label="Envio pelo web service" data-chave-envio>
+                <h3>Envio pelo web service</h3>
+                <div class="fat-ws-chave">
+                    <label class="alternar">
+                        <input id="ws-Envio" type="checkbox" checked="@_envioLigado" disabled="@(!PodeConfigurar || _ocupado)" @onchange="e => DefinirEnvioAsync(e.Value is true)" />
+                        @(_envioLigado ? "Ligado" : "Desligado")
+                    </label>
+                    <p class="campo-dica">@EnvioTissNaTela.AvisoDasDuasChaves</p>
+                </div>
+                <Aviso Tom="@_tomDoEnvio" Texto="@_mensagemDoEnvio" />
+            </section>
+
+            @if (!PodeConfigurar)
+            {
+                <Aviso Tom="info" Texto="Seu acesso permite ver a configuração, não alterá-la." />
+            }
+        }
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao primario" @onclick="AoFechar">Fechar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    /// <summary>O código do convênio no catálogo (já gravado: convênio novo ainda não salvo não abre este formulário).</summary>
+    [Parameter, EditorRequired] public string ConvenioCodigo { get; set; } = string.Empty;
+    [Parameter] public string Nome { get; set; } = string.Empty;
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private string? _login, _loginGravado, _senha;
+    /// <summary>Troca a cada leitura: o campo da senha é RECRIADO vazio, sem depender de apagar o que o navegador guardou.</summary>
+    private int _versaoDaSenha;
+    private bool _temSenha, _envioLigado;
+    private bool _carregou, _falhou, _ocupado;
+    private string? _erroLeitura, _mensagemDaCredencial, _mensagemDoEnvio;
+    private string _tomDaCredencial = "erro", _tomDoEnvio = "erro";
+    private IReadOnlyDictionary<string, string> _erros = new Dictionary<string, string>();
+
+    private static bool PodeConfigurar => SessaoUsuario.Atual.Pode(Permissao.ConfigurarFaturamento);
+    private const string SemAcesso = "Seu acesso não permite alterar as configurações do faturamento. Fale com a direção da clínica.";
+
+    private string? Erro(string campo) => _erros.TryGetValue(campo, out var frase) ? frase : null;
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    private async Task CarregarAsync()
+    {
+        _falhou = false;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var credenciais = escopo.ServiceProvider.GetRequiredService<CredenciaisTissService>();
+            var naTela = await credenciais.ParaATelaAsync(ConvenioCodigo);
+            _loginGravado = naTela.Login;
+            _login = naTela.Login;
+            _temSenha = naTela.TemSenha;
+            _envioLigado = await credenciais.EnvioLigadoAsync(ConvenioCodigo);
+            _senha = null;
+            _versaoDaSenha++;
+            _carregou = true;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — web service do convênio não pôde ser lido", ex);
+            _falhou = true;
+            _erroLeitura = ex.Message;
+        }
+    }
+
+    private async Task GravarCredencialAsync()
+    {
+        if (_ocupado) return;
+        _mensagemDaCredencial = null;
+        _tomDaCredencial = "erro";
+        if (!PodeConfigurar) { _mensagemDaCredencial = SemAcesso; return; }
+        _erros = EnvioTissNaTela.CriticarCredencial(_login, _senha, _temSenha);
+        if (_erros.Count > 0) return;
+        if (string.IsNullOrEmpty(_senha))
+        {
+            // Sem senha nova: ou nada mudou, ou o login mudou e o serviço precisa da senha junto.
+            if (EnvioTissNaTela.TrocaDeLoginPedeSenha(_loginGravado, _login, _senha))
+                _erros = new Dictionary<string, string> { ["Senha"] = "Para trocar o login, digite também a senha: os dois são gravados juntos." };
+            else { _tomDaCredencial = "info"; _mensagemDaCredencial = "Nada a gravar: o login é o mesmo e a senha não foi trocada."; }
+            return;
+        }
+
+        _ocupado = true;
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.ConfigurarFaturamento, "alterar a credencial do web service");
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<CredenciaisTissService>()
+                .SalvarAsync(ConvenioCodigo, _login!, _senha, SessaoUsuario.Atual.Operador);
+            // A senha sai da tela assim que é gravada: o campo volta vazio e nada dela fica na página.
+            _senha = null;
+            await CarregarAsync();
+            _tomDaCredencial = "sucesso";
+            _mensagemDaCredencial = "Credencial gravada. A senha não é mostrada nem pode ser lida de volta.";
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — credencial do web service não pôde ser gravada", ex);
+            _mensagemDaCredencial = ex.Message;
+        }
+        _ocupado = false;
+    }
+
+    private async Task RemoverCredencialAsync()
+    {
+        if (_ocupado) return;
+        _mensagemDaCredencial = null;
+        _tomDaCredencial = "erro";
+        if (!PodeConfigurar) { _mensagemDaCredencial = SemAcesso; return; }
+        if (!await Dialogos.ConfirmarAsync("Remover credencial",
+                $"Remover o login e a senha do web service de {Nome}? O serviço de envio passa a recusar os pedidos deste convênio até uma nova credencial ser gravada.",
+                confirmar: "Remover credencial", perigoso: true))
+            return;
+
+        _ocupado = true;
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.ConfigurarFaturamento, "remover a credencial do web service");
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<CredenciaisTissService>().RemoverAsync(ConvenioCodigo, SessaoUsuario.Atual.Operador);
+            await CarregarAsync();
+            _tomDaCredencial = "info";
+            _mensagemDaCredencial = "Credencial removida.";
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — credencial do web service não pôde ser removida", ex);
+            _mensagemDaCredencial = ex.Message;
+        }
+        _ocupado = false;
+    }
+
+    private async Task DefinirEnvioAsync(bool ligar)
+    {
+        if (_ocupado) return;
+        _mensagemDoEnvio = null;
+        _tomDoEnvio = "erro";
+        if (!PodeConfigurar) { _mensagemDoEnvio = SemAcesso; return; }
+        if (ligar && !await Dialogos.ConfirmarAsync("Ligar o envio pelo web service",
+                $"Ligar o envio pelo web service para {Nome}? As guias conferidas poderão ser ENVIADAS à operadora como cobrança, pela tela Guias TISS. "
+                + "O envio ainda depende da chave do servidor e do serviço de envio instalado.",
+                confirmar: "Ligar o envio"))
+        {
+            StateHasChanged(); // a caixa volta ao que está gravado
+            return;
+        }
+
+        _ocupado = true;
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.ConfigurarFaturamento, "ligar ou desligar o envio pelo web service");
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<CredenciaisTissService>().DefinirEnvioAsync(ConvenioCodigo, ligar, SessaoUsuario.Atual.Operador);
+            _envioLigado = ligar;
+            _tomDoEnvio = ligar ? "sucesso" : "info";
+            _mensagemDoEnvio = ligar
+                ? "Envio ligado para este convênio. Confira com quem opera o servidor se a chave de lá também está ligada."
+                : "Envio desligado para este convênio: nenhuma guia dele sai pelo web service.";
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — chave de envio pelo web service", ex);
+            _mensagemDoEnvio = ex.Message;
+        }
+        _ocupado = false;
+    }
+}

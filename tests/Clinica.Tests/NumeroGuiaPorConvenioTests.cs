@@ -65,8 +65,8 @@ public class NumeroGuiaPorConvenioTests : IDisposable
 
     /// <summary>
     /// Em branco passa em QUALQUER formato. Quem valida forma não decide obrigatoriedade:
-    /// "ainda não tenho o número" é resposta legítima na fila do Gerente, e é a tela de
-    /// baixa do faturamento que exige o preenchimento.
+    /// "ainda não tenho o número" é resposta legítima na baixa em lote e na rodada de
+    /// pendências, e é a tela de baixa do faturamento que exige o preenchimento.
     /// </summary>
     [Theory]
     [InlineData(null)]
@@ -162,8 +162,9 @@ public class NumeroGuiaPorConvenioTests : IDisposable
 
     /// <summary>
     /// A crítica mora no <c>FaturamentoService</c>, e não na tela, porque a baixa tem
-    /// QUATRO portas (tela de baixa, baixa em lote, rodada de pendências e fila do
-    /// Gerente). Este teste é o que garante que todas as quatro herdam a regra.
+    /// QUATRO portas (tela de baixa, baixa em lote e a rodada de pendências em duas telas:
+    /// o formulário do painel e a janela bloqueante da abertura). Este teste é o que garante
+    /// que todas as quatro herdam a regra.
     /// </summary>
     [Fact]
     public async Task Baixa_de_guia_da_Unimed_recusa_numero_com_letra()

@@ -377,12 +377,15 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task<IReadOnlyList<LoteTiss>> LotesTissAsync(CancellationToken ct = default)
         => await _db.LotesTiss
             .Include(l => l.Codigos).ThenInclude(c => c.Atendimento!).ThenInclude(a => a.Paciente!)
+            // O XML do lote usa a guia ANS conferida na baixa, quando ela existe.
+            .Include(l => l.Codigos).ThenInclude(c => c.GuiaAns)
             .OrderByDescending(l => l.Numero)
             .ToListAsync(ct);
 
     public Task<LoteTiss?> ObterLoteTissAsync(int loteId, CancellationToken ct = default)
         => _db.LotesTiss
             .Include(l => l.Codigos).ThenInclude(c => c.Atendimento!).ThenInclude(a => a.Paciente!)
+            .Include(l => l.Codigos).ThenInclude(c => c.GuiaAns)
             .FirstOrDefaultAsync(l => l.Id == loteId, ct);
 
     public async Task<IReadOnlyList<CodigoFaturamento>> CodigosBaixadosSemLoteAsync(DateOnly inicio, DateOnly fim, CancellationToken ct = default)
@@ -421,7 +424,16 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public Task<CodigoFaturamento?> ObterCodigoAsync(int codigoId, CancellationToken ct = default)
         => _db.Codigos
             .Include(c => c.Atendimento!).ThenInclude(a => a.Paciente!)
+            // A guia ANS conferida na baixa (1:1): quem dá baixa de novo depois de um estorno
+            // precisa SUBSTITUIR a que existe, e só substitui o que foi carregado.
+            .Include(c => c.GuiaAns)
             .FirstOrDefaultAsync(c => c.Id == codigoId, ct);
+
+    public Task<GuiaTissConsulta?> UltimaGuiaAnsDoProfissionalAsync(string nomeProfissional, CancellationToken ct = default)
+        => _db.GuiasTissConsulta.AsNoTracking()
+            .Where(g => g.NomeProfissional == nomeProfissional)
+            .OrderByDescending(g => g.ConferidaEm)
+            .FirstOrDefaultAsync(ct);
 
     public async Task AdicionarAtendimentoAsync(Atendimento atendimento, CancellationToken ct = default)
         => await _db.Atendimentos.AddAsync(atendimento, ct);
@@ -3986,6 +3998,177 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         CriadoEm = e.CriadoEm, ExpiraEm = e.ExpiraEm, AtualizadoEm = e.AtualizadoEm,
         NomeArquivo = e.NomeArquivo, Consumidor = e.Consumidor,
         ReservadoEm = e.ReservadoEm, SubmetidoEm = e.SubmetidoEm, Versao = e.Versao
+    };
+
+    // ---- Fila do web service TISS ----
+
+    public void DescartarAlteracoesPendentes() => _db.ChangeTracker.Clear();
+
+    public async Task AdicionarTransacaoTissAsync(TransacaoTiss transacao, CancellationToken ct = default)
+        => await _db.TransacoesTiss.AddAsync(transacao, ct);
+
+    public Task<TransacaoTiss?> ObterTransacaoTissAsync(int id, CancellationToken ct = default)
+        => _db.TransacoesTiss.Include(t => t.Guias).FirstOrDefaultAsync(t => t.Id == id, ct);
+
+    public async Task<IReadOnlyList<CodigoFaturamento>> CodigosParaEnvioTissAsync(IReadOnlyCollection<int> codigoIds, CancellationToken ct = default)
+        => await _db.Codigos.AsNoTracking()
+            .Include(c => c.Atendimento!).ThenInclude(a => a.Paciente!)
+            .Include(c => c.GuiaAns)
+            .Where(c => codigoIds.Contains(c.Id))
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<CodigoFaturamento>> GuiasConferidasParaEnvioTissAsync(IReadOnlyCollection<int> codigoIds, CancellationToken ct = default)
+        => await _db.Codigos.AsNoTracking()
+            .Include(c => c.GuiaAns)
+            .Where(c => codigoIds.Contains(c.Id))
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<TransacaoTissGuia>> ItensDeEnvioTissDasGuiasAsync(IReadOnlyCollection<int> codigoIds, CancellationToken ct = default)
+        => await ConsultaItensDeEnvioTissDasGuias(codigoIds).ToListAsync(ct);
+
+    /// <summary>Exposta para <c>TraducaoNoNpgsqlTests</c>: usa navegação (o item e a transação dele).</summary>
+    public IQueryable<TransacaoTissGuia> ConsultaItensDeEnvioTissDasGuias(IReadOnlyCollection<int> codigoIds)
+        => _db.TransacoesTissGuias.AsNoTracking()
+            .Where(g => g.CodigoId != null && codigoIds.Contains(g.CodigoId.Value))
+            .OrderByDescending(g => g.TransacaoId).ThenByDescending(g => g.Id)
+            // Só o que a conferência usa da transação: o estado e o protocolo, sem os XML.
+            .Select(g => new TransacaoTissGuia
+            {
+                Id = g.Id, TransacaoId = g.TransacaoId, CodigoId = g.CodigoId, NumeroGuiaPrestador = g.NumeroGuiaPrestador,
+                NumeroGuiaOperadora = g.NumeroGuiaOperadora, Situacao = g.Situacao, Motivo = g.Motivo, AtualizadaEm = g.AtualizadaEm,
+                Transacao = new TransacaoTiss
+                {
+                    Id = g.Transacao!.Id, Tipo = g.Transacao.Tipo, Estado = g.Transacao.Estado,
+                    // O carimbo de "a mensagem saiu" e o erro gravado: juntos separam o envio que falhou antes
+                    // de ir, a recusa clara da operadora e o envio em que NÃO SE SABE se ela recebeu
+                    // (a guarda do reenvio na fila — FilaTiss.NaoSeSabeSeChegou).
+                    EnvioIniciadoEm = g.Transacao.EnvioIniciadoEm, Erro = g.Transacao.Erro,
+                    Protocolo = g.Transacao.Protocolo, ConvenioCodigo = g.Transacao.ConvenioCodigo
+                }
+            });
+
+    public async Task<IReadOnlyList<GuiaTissRecebidaSemBaixa>> GuiasTissRecebidasSemBaixaAsync(int transacaoId, CancellationToken ct = default)
+        => await ConsultaGuiasTissRecebidasSemBaixa(transacaoId).ToListAsync(ct);
+
+    /// <summary>Exposta para <c>TraducaoNoNpgsqlTests</c>: junta o item do lote com a guia do sistema.</summary>
+    public IQueryable<GuiaTissRecebidaSemBaixa> ConsultaGuiasTissRecebidasSemBaixa(int transacaoId)
+        => from g in _db.TransacoesTissGuias.AsNoTracking()
+           join c in _db.Codigos.AsNoTracking() on g.CodigoId equals c.Id
+           where g.TransacaoId == transacaoId && g.Situacao == SituacaoGuiaTiss.Recebida
+                 // A COLUNA, nunca a propriedade derivada Baixado (o EF a recusa em runtime).
+                 && c.DataBaixa == null
+           orderby g.Id
+           select new GuiaTissRecebidaSemBaixa(g.Id, c.Id, g.NumeroGuiaPrestador, g.NumeroGuiaOperadora, g.Transacao!.Protocolo);
+
+    public async Task<IReadOnlyList<TransacaoTiss>> TransacoesTissReservaveisAsync(
+        DateTime agora, DateTime reservaVencidaAntes, int limite, CancellationToken ct = default)
+        => await ConsultaTransacoesTissReservaveis(agora, reservaVencidaAntes, limite).ToListAsync(ct);
+
+    /// <summary>A consulta da fila, exposta para <c>TraducaoNoNpgsqlTests</c> conferir a tradução.</summary>
+    public IQueryable<TransacaoTiss> ConsultaTransacoesTissReservaveis(DateTime agora, DateTime reservaVencidaAntes, int limite)
+        => _db.TransacoesTiss.AsNoTracking()
+            .Where(t => (t.Estado == EstadoTransacaoTiss.Pendente
+                         && (t.ProximaTentativaEm == null || t.ProximaTentativaEm <= agora))
+                        || (t.Estado == EstadoTransacaoTiss.EmEnvio
+                            && (t.ReservadaEm == null || t.ReservadaEm < reservaVencidaAntes)))
+            .OrderBy(t => t.PedidoEm).ThenBy(t => t.Id)
+            .Take(limite)
+            .Select(ResumoDaTransacaoTiss);
+
+    public async Task<bool> ReservarTransacaoTissAsync(
+        int id, int versaoVista, string consumidor, DateTime agora, CancellationToken ct = default)
+        // Um UPDATE só, com a versão no WHERE: o banco decide quem chegou primeiro. Ler, mudar e
+        // salvar pelo rastreamento deixaria uma janela entre a leitura e a gravação.
+        => await _db.TransacoesTiss
+            .Where(t => t.Id == id && t.Versao == versaoVista
+                        && (t.Estado == EstadoTransacaoTiss.Pendente || t.Estado == EstadoTransacaoTiss.EmEnvio))
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(t => t.Estado, EstadoTransacaoTiss.EmEnvio)
+                .SetProperty(t => t.Consumidor, consumidor)
+                .SetProperty(t => t.ReservadaEm, agora)
+                .SetProperty(t => t.Tentativas, t => t.Tentativas + 1)
+                .SetProperty(t => t.Versao, t => t.Versao + 1), ct) == 1;
+
+    public async Task<IReadOnlyList<GuiaProntaParaEnvioTiss>> GuiasTissProntasParaEnvioAsync(string convenioCodigo, int limite, CancellationToken ct = default)
+        => await ConsultaGuiasTissProntasParaEnvio(convenioCodigo, limite).ToListAsync(ct);
+
+    /// <summary>Exposta para <c>TraducaoNoNpgsqlTests</c>: navega da guia ao paciente e à guia ANS, e exclui quem está preso num envio.</summary>
+    public IQueryable<GuiaProntaParaEnvioTiss> ConsultaGuiasTissProntasParaEnvio(string convenioCodigo, int limite)
+    {
+        // Convênio embutido é gravado na ficha pela FAMÍLIA, com o código nulo (a convenção do catálogo).
+        var embutido = Enum.TryParse<Convenio>(convenioCodigo, ignoreCase: true, out var familia);
+        return _db.Codigos.AsNoTracking()
+            .Where(c => c.GuiaAns != null && c.DataBaixa == null && c.Status == StatusCodigo.Aberto
+                        && !c.Atendimento!.Particular
+                        && (c.Atendimento!.Paciente!.ConvenioCodigo == convenioCodigo
+                            || (embutido && c.Atendimento!.Paciente!.ConvenioCodigo == null && c.Atendimento!.Paciente!.Convenio == familia))
+                        && !_db.TransacoesTissGuias.Any(g => g.CodigoId == c.Id
+                            && (g.Transacao!.Estado == EstadoTransacaoTiss.Pendente || g.Transacao!.Estado == EstadoTransacaoTiss.EmEnvio
+                                || (g.Transacao!.Estado == EstadoTransacaoTiss.Concluida
+                                    && (g.Situacao == SituacaoGuiaTiss.Recebida || g.Situacao == SituacaoGuiaTiss.Pendente)))))
+            .OrderBy(c => c.Atendimento!.Data).ThenBy(c => c.Id)
+            .Take(limite)
+            .Select(c => new GuiaProntaParaEnvioTiss(c.Id, c.Atendimento!.PacienteId, c.Atendimento!.Paciente!.Nome, c.Atendimento!.Data,
+                c.Tipo, c.GuiaAns!.CodigoProcedimento, c.GuiaAns!.ValorProcedimento, c.GuiaAns!.ConferidaPor, c.GuiaAns!.ConferidaEm));
+    }
+
+    public async Task<IReadOnlyList<TransacaoTiss>> EnviosTissRecentesComGuiasAsync(string? convenioCodigo, int limite, CancellationToken ct = default)
+    {
+        var envios = await _db.TransacoesTiss.AsNoTracking()
+            .Where(t => t.Tipo == TipoTransacaoTiss.EnvioGuia && (convenioCodigo == null || t.ConvenioCodigo == convenioCodigo))
+            .OrderByDescending(t => t.PedidoEm).ThenByDescending(t => t.Id)
+            .Take(limite)
+            .Select(ResumoDaTransacaoTiss)
+            .ToListAsync(ct);
+        if (envios.Count == 0) return envios;
+
+        // As guias numa segunda ida, e não num Include: o resumo é projeção (sem os XML), e
+        // projeção com coleção dentro viraria uma consulta por envio.
+        var ids = envios.Select(e => e.Id).ToList();
+        var guias = await _db.TransacoesTissGuias.AsNoTracking()
+            .Where(g => ids.Contains(g.TransacaoId))
+            .OrderBy(g => g.Id)
+            .ToListAsync(ct);
+        foreach (var envio in envios)
+            envio.Guias = guias.Where(g => g.TransacaoId == envio.Id).ToList();
+        return envios;
+    }
+
+    public Task RecarregarTransacaoTissAsync(TransacaoTiss transacao, CancellationToken ct = default)
+        => _db.Entry(transacao).ReloadAsync(ct);
+
+    public async Task<IReadOnlyList<TransacaoTiss>> TransacoesTissDaGuiaAsync(int codigoId, CancellationToken ct = default)
+        => await ConsultaTransacoesTissDaGuia(codigoId).ToListAsync(ct);
+
+    /// <summary>Exposta para <c>TraducaoNoNpgsqlTests</c>: a guia pode estar na transação ou num item do lote.</summary>
+    public IQueryable<TransacaoTiss> ConsultaTransacoesTissDaGuia(int codigoId)
+        => _db.TransacoesTiss.AsNoTracking()
+            .Where(t => t.CodigoId == codigoId || t.Guias.Any(g => g.CodigoId == codigoId))
+            .OrderByDescending(t => t.PedidoEm).ThenByDescending(t => t.Id)
+            .Select(ResumoDaTransacaoTiss);
+
+    public async Task<IReadOnlyList<TransacaoTiss>> TransacoesTissRecentesAsync(
+        string? convenioCodigo, int limite, CancellationToken ct = default)
+        => await _db.TransacoesTiss.AsNoTracking()
+            .Where(t => convenioCodigo == null || t.ConvenioCodigo == convenioCodigo)
+            .OrderByDescending(t => t.PedidoEm).ThenByDescending(t => t.Id)
+            .Take(limite)
+            .Select(ResumoDaTransacaoTiss)
+            .ToListAsync(ct);
+
+    /// <summary>
+    /// A linha da fila sem os XML. ⚠️ EXPRESSÃO, e não método: um método no <c>Select</c> seria
+    /// avaliado no cliente e o EF traria os XML para jogá-los fora (a lição do <c>ResumoDoEnvio</c>).
+    /// </summary>
+    private static readonly System.Linq.Expressions.Expression<Func<TransacaoTiss, TransacaoTiss>> ResumoDaTransacaoTiss = t => new TransacaoTiss
+    {
+        Id = t.Id, Tipo = t.Tipo, ConvenioCodigo = t.ConvenioCodigo, CodigoId = t.CodigoId, PacienteId = t.PacienteId,
+        Estado = t.Estado, Tentativas = t.Tentativas, PedidoPor = t.PedidoPor, PedidoEm = t.PedidoEm,
+        ProcessadaEm = t.ProcessadaEm, NumeroCarteira = t.NumeroCarteira, ValidadeCarteira = t.ValidadeCarteira,
+        NumeroGuiaPrestador = t.NumeroGuiaPrestador, Protocolo = t.Protocolo, NumeroGuiaOperadora = t.NumeroGuiaOperadora,
+        Resultado = t.Resultado, Erro = t.Erro, Consumidor = t.Consumidor, ReservadaEm = t.ReservadaEm,
+        EnvioIniciadoEm = t.EnvioIniciadoEm, ProximaTentativaEm = t.ProximaTentativaEm, Versao = t.Versao,
+        TransacaoDeEnvioId = t.TransacaoDeEnvioId
     };
 
     // Aqui a ordem é a oposta da fila: é HISTÓRICO, e histórico se lê do mais novo para

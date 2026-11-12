@@ -1,0 +1,650 @@
+@*
+  ENVIO À OPERADORA PELO WEB SERVICE (nov/2026) — a aba de Guias TISS em que se monta o envio das
+  guias conferidas, se acompanha o que a operadora respondeu e se dá baixa nas recebidas.
+
+  O que esta tela FAZ é pedir: cada ação entra na fila (FilaTissService) e quem fala com a
+  operadora é o serviço de envio, no servidor. Por isso os estados são escritos como são:
+  "pronta para envio" não é "enviada", "na fila" não é "enviada", "enviada" não é "recebida" —
+  e "não se sabe se chegou" aparece em destaque e NUNCA oferece reenvio com um clique.
+
+  - Toda decisão (rótulo, cor, o que cabe em cada estado, a pergunta do envio) é da Application:
+    EnvioTissNaTela, com teste. Aqui só se desenha.
+  - A recusa vem POR LINHA: antes do clique (ConferirEnvioAsync, a cada marcação) e, se algo
+    mudou entre a conferência e o pedido, do próprio pedido (EnvioTissRecusadoException).
+  - As duas barreiras: os botões nascem apagados sem o acesso (GerenciarLotesTiss para enviar,
+    consultar e cancelar; BaixarGuia para a baixa) e o clique confere de novo, devolvendo frase —
+    exceção solta num evento derruba o circuito da tela.
+  - Acompanha sozinha enquanto houver pedido na fila ou em andamento: o relógio é DESTE
+    componente (liga ao montar, desliga ao sair da aba), a releitura é silenciosa e tem contador
+    de geração — nada pisca e resposta velha não passa por cima de resposta nova.
+  - Com o envio DESLIGADO para o convênio, as ações de envio somem e a tela diz onde ligar.
+  - A BAIXA DAS RECEBIDAS É AUTOMÁTICA para o envio pedido NESTA sessão da tela (nov/2026, pedido
+    da direção: "a baixa acontece junto"): quando a resposta chega com guias recebidas, a baixa
+    delas é registrada na hora, em nome de quem pediu o envio (é quem está logado aqui), sem novo
+    clique. O botão "Dar baixa nas recebidas" fica para o envio cuja resposta chegou com a tela
+    fechada — ou pedido por outra pessoa.
+  - A fila devolve às PRONTAS a guia do envio que falhou (pedir de novo é ato de gente). Para esse
+    ato não ser um clique distraído, a guia cujo último envio "não se sabe se chegou" nasce
+    TRAVADA: só é marcável depois de a pessoa declarar, numa pergunta, que conferiu no portal que
+    ela não está lá (EnvioTissNaTela.DaPronta). A liberação vale para esta sessão da tela.
+*@
+@using Clinica.Application.Modelos
+@implements IDisposable
+@inject IServiceScopeFactory Escopos
+@inject Dialogos Dialogos
+@inject Notificacoes Notificacoes
+
+<section class="cartao fat-envio" aria-label="Envio à operadora pelo web service" data-envio-operadora>
+    <div class="cartao-corpo">
+        <div class="cartao-titulo">
+            <div>
+                <h2>Envio à operadora pelo web service</h2>
+                <p>As guias conferidas ("prontas para envio") saem daqui para a operadora, em lotes de até @TransacaoTissLimites.GuiasPorLote. A resposta volta por guia, e a baixa das recebidas é dada com um clique. A baixa manual, com o número copiado do portal, continua no painel de pendências.</p>
+            </div>
+            <div class="fat-envio-topo">
+                @if (_convenios.Count > 1)
+                {
+                    <Campo Rotulo="Convênio">
+                        <select class="campo" value="@_convenio" @onchange="TrocarConvenioAsync" aria-label="Convênio do envio">
+                            @foreach (var c in _convenios) { <option value="@c.Codigo">@c.Nome</option> }
+                        </select>
+                    </Campo>
+                }
+                <button type="button" class="botao" title="Ler de novo as guias prontas e os envios" @onclick="() => CarregarAsync(silencioso: false)">
+                    <Icone Nome="atualizar" />Atualizar</button>
+            </div>
+        </div>
+
+        @if (_falhou)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler o envio à operadora" Detalhe="@_erroLeitura" AoTentarDeNovo="() => CarregarAsync(silencioso: false)" />
+        }
+        else if (!_carregou)
+        {
+            <Esqueleto Altura="220" />
+        }
+        else if (_convenios.Count == 0)
+        {
+            <EstadoVazio Titulo="Nenhum convênio com web service" Descricao="O envio pelo web service existe para os convênios da família Petrobras que estão ativos e geram guia. Cadastre o convênio em Configurações do faturamento." Icone="vazio" />
+        }
+        else
+        {
+            <Aviso Tom="info" Texto="@EnvioTissNaTela.AvisoDeEnvioDesligado(_ligado, NomeDoConvenio)" />
+
+            @if (_ligado)
+            {
+                <div class="fat-envio-bloco" data-prontas>
+                    <h3>Prontas para envio <span class="fat-envio-contagem">@_prontas.Count</span></h3>
+                    @if (_prontas.Count == 0)
+                    {
+                        <p class="campo-dica">Nenhuma guia conferida aguardando envio. Para deixar uma guia pronta: painel de pendências → Dar baixa → "Conferir e deixar pronta para envio".</p>
+                    }
+                    else
+                    {
+                        <div class="tabela-rolagem fat-envio-rolagem">
+                            <table class="lista">
+                                <thead>
+                                    <tr>
+                                        <th class="col-marca"><input type="checkbox" checked="@TodasMarcadas" aria-label="Marcar todas as guias prontas" @onchange="e => MarcarTodasAsync(e.Value is true)" /></th>
+                                        <th>Guia</th>
+                                        <th>Procedimento e valor</th>
+                                        <th>Conferida</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var g in _prontas)
+                                    {
+                                        var recusa = RecusaDaLinha(g.CodigoId);
+                                        var ressalva = _ressalvas.GetValueOrDefault(g.CodigoId);
+                                        var travada = Travada(g.CodigoId);
+                                        <tr @key="g.CodigoId" class="@(_marcadas.Contains(g.CodigoId) ? "marcada" : null)" data-pronta="@g.CodigoId">
+                                            <td class="col-marca">
+                                                <input type="checkbox" checked="@_marcadas.Contains(g.CodigoId)" disabled="@travada"
+                                                       aria-label="@($"Marcar para envio — {g.PacienteNome}")"
+                                                       title="@(travada ? "Confira no portal antes: veja o aviso desta linha." : null)"
+                                                       @onchange="e => MarcarAsync(g.CodigoId, e.Value is true)" />
+                                            </td>
+                                            <td>
+                                                <span class="principal">@g.PacienteNome</span>
+                                                <span class="secundario">@RotulosEnum.De(g.Tipo) · atendimento em @Formato.Data(g.DataAtendimento)</span>
+                                                @if (recusa is not null) { <span class="campo-erro" data-recusa="@g.CodigoId">@recusa</span> }
+                                                @if (ressalva is not null)
+                                                {
+                                                    <span class="@(ressalva.PedeConferenciaNoPortal ? "campo-erro" : "campo-dica")" data-ressalva="@g.CodigoId">@ressalva.Texto</span>
+                                                    @if (travada)
+                                                    {
+                                                        <button type="button" class="botao mini contorno-perigo" data-liberar="@g.CodigoId" disabled="@(!PodeGerenciar)"
+                                                                title="@(PodeGerenciar ? "Declara que você conferiu no portal e libera a guia para um novo envio" : "Seu acesso não permite enviar guias à operadora.")"
+                                                                @onclick="() => LiberarAsync(g)">Conferi no portal: não está lá</button>
+                                                    }
+                                                    else if (ressalva.PedeConferenciaNoPortal)
+                                                    {
+                                                        <span class="campo-dica">Liberada para novo envio por você, nesta sessão.</span>
+                                                    }
+                                                }
+                                            </td>
+                                            <td class="nao-quebra">
+                                                <span>@g.CodigoProcedimento</span>
+                                                <span class="secundario">@Formato.Dinheiro(g.ValorProcedimento)</span>
+                                            </td>
+                                            <td>
+                                                <span>@g.ConferidaPor</span>
+                                                <span class="secundario">@Formato.DataHora(g.ConferidaEm)</span>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="fat-envio-acoes">
+                            <span class="texto-secundario pequeno">@_marcadas.Count de @_prontas.Count marcada(s)</span>
+                            <button type="button" class="botao primario" data-enviar disabled="@(!PodeGerenciar || _ocupado)"
+                                    title="@(PodeGerenciar ? "Pede o envio das guias marcadas à operadora" : "Seu acesso não permite enviar guias à operadora.")"
+                                    @onclick="EnviarAsync"><Icone Nome="enviar" />@(_ocupado ? "Pedindo…" : "Enviar à operadora")</button>
+                        </div>
+                        <Aviso Tom="erro" Texto="@_mensagemDoEnvio" />
+                    }
+                </div>
+            }
+
+            <div class="fat-envio-bloco" data-envios>
+                <h3>Envios recentes <span class="fat-envio-contagem">@_envios.Count</span></h3>
+                @if (Acompanhando)
+                {
+                    <p class="campo-dica" role="status"><Icone Nome="relogio" /> Há pedido na fila ou em andamento: esta lista se atualiza sozinha.</p>
+                }
+                @if (_envios.Count == 0)
+                {
+                    <p class="campo-dica">Nenhum envio pedido para este convênio.</p>
+                }
+                @foreach (var envio in _envios)
+                {
+                    var situacao = EnvioTissNaTela.DoEnvio(envio);
+                    var paraBaixar = RecebidasSemBaixa(envio);
+                    <article class="fat-envio-lote @(situacao.Incerto ? "incerto" : null)" @key="envio.Id" data-envio="@envio.Id">
+                        <header>
+                            <div class="fat-envio-lote-titulo">
+                                <Selo Tom="@situacao.Tom">@situacao.Rotulo</Selo>
+                                <span class="principal">@envio.Guias.Count guia(s)@(string.IsNullOrWhiteSpace(envio.Protocolo) ? null : $" · protocolo {envio.Protocolo}")</span>
+                                <span class="secundario">pedido por @envio.PedidoPor em @Formato.DataHora(envio.PedidoEm)</span>
+                            </div>
+                            <div class="botoes-linha">
+                                @if (EnvioTissNaTela.PodeConsultarSituacao(envio))
+                                {
+                                    <button type="button" class="botao mini" data-consultar="@envio.Id" disabled="@(!PodeGerenciar || _consultas.ContainsKey(envio.Id))"
+                                            title="@(PodeGerenciar ? "Pergunta à operadora a situação deste protocolo" : "Seu acesso não permite consultar a operadora.")"
+                                            @onclick="() => ConsultarSituacaoAsync(envio)"><Icone Nome="busca" />@(_consultas.ContainsKey(envio.Id) ? "Consultando…" : "Consultar situação na operadora")</button>
+                                }
+                                @if (paraBaixar > 0)
+                                {
+                                    <button type="button" class="botao mini primario" data-baixar-recebidas="@envio.Id" disabled="@(!PodeBaixar || _ocupado)"
+                                            title="@(PodeBaixar ? "Dá baixa, em seu nome, nas guias que a operadora recebeu" : "Seu acesso não permite dar baixa nas guias.")"
+                                            @onclick="() => BaixarRecebidasAsync(envio)"><Icone Nome="check" />Dar baixa nas recebidas · @paraBaixar</button>
+                                }
+                                @if (EnvioTissNaTela.PodeCancelarPedido(envio))
+                                {
+                                    <button type="button" class="botao mini contorno-perigo" data-cancelar-pedido="@envio.Id" disabled="@(!PodeGerenciar)"
+                                            title="@(PodeGerenciar ? "Desiste do pedido enquanto ele ainda não saiu" : "Seu acesso não permite cancelar o pedido.")"
+                                            @onclick="() => CancelarPedidoAsync(envio)"><Icone Nome="cancelar" />Cancelar pedido</button>
+                                }
+                            </div>
+                        </header>
+                        @if (situacao.Incerto)
+                        {
+                            <Aviso Tom="erro" Texto="@situacao.Frase" />
+                        }
+                        else if (situacao.Frase is not null)
+                        {
+                            <p class="fat-envio-frase">@situacao.Frase</p>
+                        }
+                        @if (_recados.TryGetValue(envio.Id, out var recado))
+                        {
+                            <Aviso Tom="@recado.Tom" Texto="@recado.Texto" />
+                        }
+                        <table class="lista fat-envio-guias">
+                            <tbody>
+                                @foreach (var item in envio.Guias)
+                                {
+                                    var selo = SeloDoItem(envio, item);
+                                    var baixa = BaixaDoItem(envio.Id, item);
+                                    <tr @key="item.Id" data-item-da-guia="@item.CodigoId">
+                                        <td>
+                                            <span class="principal">@Descricao(item)</span>
+                                            <span class="secundario numero-guia">nº enviado @item.NumeroGuiaPrestador@(string.IsNullOrWhiteSpace(item.NumeroGuiaOperadora) ? null : $" · nº da operadora {item.NumeroGuiaOperadora}")</span>
+                                            @if (baixa?.Falha is { } falha) { <span class="campo-erro" data-falha-da-baixa="@item.CodigoId">Baixa não registrada: @falha</span> }
+                                        </td>
+                                        <td class="fat-envio-selo">
+                                            @if (NumeroDaBaixa(item) is { } numero)
+                                            {
+                                                <Selo Tom="sucesso" Dica="A baixa desta guia já está registrada no sistema">Baixa registrada · nº @numero</Selo>
+                                            }
+                                            else
+                                            {
+                                                <Selo Tom="@selo.Tom">@selo.Texto</Selo>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </article>
+                }
+            </div>
+        }
+    </div>
+</section>
+
+@code {
+    private IReadOnlyList<(string Codigo, string Nome)> _convenios = [];
+    private string _convenio = string.Empty;
+    private bool _ligado;
+    private IReadOnlyList<GuiaProntaParaEnvioTiss> _prontas = [];
+    private readonly HashSet<int> _marcadas = [];
+    /// <summary>A ressalva de cada guia pronta que já passou por um envio que não deu certo.</summary>
+    private IReadOnlyDictionary<int, RessalvaDaPronta> _ressalvas = new Dictionary<int, RessalvaDaPronta>();
+    /// <summary>As guias travadas que ESTA pessoa liberou, declarando que conferiu no portal.</summary>
+    private readonly HashSet<int> _liberadas = [];
+    private ConferenciaDeEnvioTiss? _conferencia;
+    private IReadOnlyList<TransacaoTiss> _envios = [];
+    /// <summary>As guias dos envios à vista (paciente, tipo, se já têm baixa) — lidas numa ida só.</summary>
+    private IReadOnlyDictionary<int, CodigoFaturamento> _guias = new Dictionary<int, CodigoFaturamento>();
+    /// <summary>Consultas de situação em andamento: envio → a transação da consulta.</summary>
+    private readonly Dictionary<int, int> _consultas = [];
+    /// <summary>O que foi dito sobre um envio por uma ação desta sessão (consulta, baixa, cancelamento).</summary>
+    private readonly Dictionary<int, (string Texto, string Tom)> _recados = [];
+    private readonly Dictionary<int, BaixaDasGuiasEnviadas> _baixas = [];
+    /// <summary>Os envios pedidos NESTA sessão da tela, por quem está logado: são os que recebem a baixa sozinhos.</summary>
+    private readonly HashSet<int> _pedidosDaSessao = [];
+    /// <summary>Envios cuja baixa automática já foi tentada: uma vez só — o que falhar fica na linha, com o botão.</summary>
+    private readonly HashSet<int> _baixaAutomaticaTentada = [];
+
+    private bool _carregou, _falhou, _ocupado, _descartado;
+    private string? _erroLeitura, _mensagemDoEnvio;
+    private int _geracao;
+    private CancellationTokenSource? _parar;
+
+    private static bool PodeGerenciar => SessaoUsuario.Atual.Pode(Permissao.GerenciarLotesTiss);
+    private static bool PodeBaixar => SessaoUsuario.Atual.Pode(Permissao.BaixarGuia);
+
+    private string NomeDoConvenio => _convenios.FirstOrDefault(c => c.Codigo == _convenio).Nome ?? _convenio;
+    private bool TodasMarcadas => _prontas.Any(g => !Travada(g.CodigoId)) && _prontas.Where(g => !Travada(g.CodigoId)).All(g => _marcadas.Contains(g.CodigoId));
+    private bool Acompanhando => EnvioTissNaTela.Acompanha(_envios) || _consultas.Count > 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CarregarAsync(silencioso: false);
+        _ = AcompanharAsync();
+    }
+
+    /// <summary>
+    /// Lê tudo o que a aba mostra. Silencioso = a releitura do relógio: não troca a tela por
+    /// "carregando" e, se falhar, deixa o que estava e registra — a lista não pisca nem some.
+    /// </summary>
+    private async Task CarregarAsync(bool silencioso)
+    {
+        var geracao = ++_geracao;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var sp = escopo.ServiceProvider;
+            var convenios = EnvioTissNaTela.ConveniosDoEnvio(await sp.GetRequiredService<ConvenioCatalogoService>().ListarAsync());
+            var convenio = convenios.Any(c => c.Codigo == _convenio) ? _convenio : convenios.FirstOrDefault().Codigo ?? string.Empty;
+
+            var ligado = false;
+            IReadOnlyList<GuiaProntaParaEnvioTiss> prontas = [];
+            IReadOnlyList<TransacaoTiss> envios = [];
+            IReadOnlyDictionary<int, RessalvaDaPronta> ressalvas = new Dictionary<int, RessalvaDaPronta>();
+            IReadOnlyDictionary<int, CodigoFaturamento> guias = new Dictionary<int, CodigoFaturamento>();
+            if (convenio.Length > 0)
+            {
+                var fila = sp.GetRequiredService<FilaTissService>();
+                ligado = await sp.GetRequiredService<CredenciaisTissService>().EnvioLigadoAsync(convenio);
+                if (ligado) prontas = await fila.ProntasParaEnvioAsync(convenio);
+                envios = await fila.EnviosRecentesAsync(convenio);
+                // O que já aconteceu com cada guia pronta: uma leitura para todas, cruzada com os envios lidos.
+                if (prontas.Count > 0)
+                {
+                    var selos = await fila.SelosDeEnvioAsync(prontas.Select(g => g.CodigoId).ToList());
+                    var porId = envios.ToDictionary(e => e.Id);
+                    ressalvas = prontas
+                        .Select(g => (g.CodigoId, Ressalva: EnvioTissNaTela.DaPronta(selos.GetValueOrDefault(g.CodigoId),
+                            selos.GetValueOrDefault(g.CodigoId)?.TransacaoId is { } id ? porId.GetValueOrDefault(id) : null)))
+                        .Where(x => x.Ressalva is not null)
+                        .ToDictionary(x => x.CodigoId, x => x.Ressalva!);
+                }
+                var ids = envios.SelectMany(e => e.Guias).Where(g => g.CodigoId is not null).Select(g => g.CodigoId!.Value).Distinct().ToList();
+                if (ids.Count > 0)
+                    guias = (await sp.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>().CodigosParaEnvioTissAsync(ids))
+                        .ToDictionary(c => c.Id);
+            }
+            if (geracao != _geracao || _descartado) return;
+
+            _convenios = convenios;
+            _convenio = convenio;
+            _ligado = ligado;
+            _prontas = prontas;
+            _ressalvas = ressalvas;
+            _envios = envios;
+            _guias = guias;
+            // Marcação só vale para o que continua na lista: guia que saiu (foi enviada, ganhou baixa) sai da conta.
+            _marcadas.RemoveWhere(id => prontas.All(g => g.CodigoId != id));
+            _liberadas.RemoveWhere(id => prontas.All(g => g.CodigoId != id));
+            _falhou = false;
+            _carregou = true;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao || _descartado) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — envio à operadora não pôde ser lido", ex);
+            if (silencioso && _carregou) return;
+            _falhou = true;
+            _erroLeitura = ex.Message;
+        }
+        if (_marcadas.Count > 0) await ConferirMarcadasAsync();
+    }
+
+    private async Task TrocarConvenioAsync(ChangeEventArgs e)
+    {
+        _convenio = e.Value?.ToString() ?? string.Empty;
+        _marcadas.Clear();
+        _conferencia = null;
+        _mensagemDoEnvio = null;
+        await CarregarAsync(silencioso: false);
+    }
+
+    // ==================== o relógio ====================
+
+    /// <summary>
+    /// Enquanto há pedido na fila ou em andamento, relê de tempos em tempos. Parado quando não há:
+    /// o relógio bate, olha e não vai ao banco.
+    /// </summary>
+    private async Task AcompanharAsync()
+    {
+        var parar = _parar = new CancellationTokenSource();
+        try
+        {
+            using var relogio = new PeriodicTimer(EnvioTissNaTela.RitmoDoAcompanhamento);
+            while (await relogio.WaitForNextTickAsync(parar.Token))
+            {
+                if (!Acompanhando || _ocupado) continue;
+                await LerConsultasAsync();
+                await CarregarAsync(silencioso: true);
+                await BaixarOQueChegouAsync();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    /// <summary>As consultas de situação pedidas nesta sessão: a que terminou vira recado no envio dela.</summary>
+    private async Task LerConsultasAsync()
+    {
+        if (_consultas.Count == 0) return;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var fila = escopo.ServiceProvider.GetRequiredService<FilaTissService>();
+            foreach (var (envioId, consultaId) in _consultas.ToList())
+            {
+                var t = await fila.ObterAsync(consultaId);
+                if (t is null || !t.Encerrada) continue;
+                _consultas.Remove(envioId);
+                _recados[envioId] = t.Estado == EstadoTransacaoTiss.Concluida
+                    ? ("Situação consultada na operadora: " + (t.Resultado ?? "sem novidade."), "info")
+                    : ("A consulta da situação não se completou: " + (t.Erro ?? t.Resultado ?? "sem resposta da operadora."), "atencao");
+            }
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — envio à operadora: consultas de situação não puderam ser relidas", ex);
+        }
+    }
+
+    // ==================== marcar e enviar ====================
+
+    /// <summary>A guia pede a conferência no portal e ninguém a liberou nesta sessão: não pode ser marcada.</summary>
+    private bool Travada(int codigoId)
+        => _ressalvas.TryGetValue(codigoId, out var r) && r.PedeConferenciaNoPortal && !_liberadas.Contains(codigoId);
+
+    /// <summary>
+    /// "Conferi no portal: não está lá" — a pessoa declara, numa pergunta, o que conferiu. Só então a
+    /// guia do envio em dúvida pode ser marcada de novo. Não envia nada: enviar continua sendo outro ato.
+    /// </summary>
+    private async Task LiberarAsync(GuiaProntaParaEnvioTiss guia)
+    {
+        _mensagemDoEnvio = null;
+        if (!PodeGerenciar) { _mensagemDoEnvio = "Seu acesso não permite enviar guias à operadora. Fale com a direção da clínica."; return; }
+        if (!await Dialogos.ConfirmarAsync("Liberar para novo envio", EnvioTissNaTela.PerguntaDaLiberacao(guia.PacienteNome),
+                confirmar: "Conferi: não está lá", perigoso: true))
+            return;
+        _liberadas.Add(guia.CodigoId);
+    }
+
+    private async Task MarcarAsync(int codigoId, bool marcada)
+    {
+        if (marcada && Travada(codigoId))
+        {
+            _mensagemDoEnvio = "Esta guia está num envio em que não se sabe se chegou: confira no portal e libere-a na própria linha antes de marcar.";
+            return;
+        }
+        if (marcada) _marcadas.Add(codigoId); else _marcadas.Remove(codigoId);
+        _mensagemDoEnvio = null;
+        await ConferirMarcadasAsync();
+    }
+
+    private async Task MarcarTodasAsync(bool marcar)
+    {
+        _marcadas.Clear();
+        // Marcar todas respeita o teto do lote: as primeiras 100, e a tela diz que sobraram.
+        // E NUNCA marca a guia travada: "marcar todas" não pode ser o atalho que pula a conferência no portal.
+        var marcaveis = _prontas.Where(g => !Travada(g.CodigoId)).ToList();
+        if (marcar) foreach (var g in marcaveis.Take(TransacaoTissLimites.GuiasPorLote)) _marcadas.Add(g.CodigoId);
+        _mensagemDoEnvio = !marcar ? null
+            : marcaveis.Count > TransacaoTissLimites.GuiasPorLote
+                ? $"Marcadas as primeiras {TransacaoTissLimites.GuiasPorLote} de {marcaveis.Count}: um envio leva até {TransacaoTissLimites.GuiasPorLote} guias."
+                : marcaveis.Count < _prontas.Count
+                    ? $"{_prontas.Count - marcaveis.Count} guia(s) ficaram de fora: pedem a conferência no portal antes de um novo envio."
+                    : null;
+        await ConferirMarcadasAsync();
+    }
+
+    /// <summary>A conferência ANTES do clique: a mesma conta do pedido, sem gravar nada.</summary>
+    private async Task ConferirMarcadasAsync()
+    {
+        if (_marcadas.Count == 0) { _conferencia = null; return; }
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            _conferencia = await escopo.ServiceProvider.GetRequiredService<FilaTissService>()
+                .ConferirEnvioAsync(_convenio, _marcadas.ToList(), conferidasNoPortal: _liberadas.ToList());
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — envio à operadora: conferência das marcadas", ex);
+            _conferencia = null;
+        }
+    }
+
+    private string? RecusaDaLinha(int codigoId)
+        => _marcadas.Contains(codigoId) && _conferencia is { } c && c.PorGuia.TryGetValue(codigoId, out var frase) ? frase : null;
+
+    private async Task EnviarAsync()
+    {
+        if (_ocupado) return;
+        _mensagemDoEnvio = null;
+        if (!PodeGerenciar) { _mensagemDoEnvio = "Seu acesso não permite enviar guias à operadora. Fale com a direção da clínica."; return; }
+        if (!_ligado) { _mensagemDoEnvio = EnvioTissNaTela.AvisoDeEnvioDesligado(false, NomeDoConvenio); return; }
+        if (_marcadas.Count == 0) { _mensagemDoEnvio = "Marque ao menos uma guia para enviar à operadora."; return; }
+        if (EnvioTissNaTela.ImpedimentoDaMarcacao(_marcadas.Count) is { } teto) { _mensagemDoEnvio = teto; return; }
+        if (_marcadas.Any(Travada))
+        {
+            _mensagemDoEnvio = "Há guia marcada de um envio em que não se sabe se chegou: confira no portal e libere-a na linha antes de enviar. Nada foi enviado.";
+            return;
+        }
+
+        await ConferirMarcadasAsync();
+        if (_conferencia is { PodeEnviar: false } conferencia)
+        {
+            _mensagemDoEnvio = conferencia.Impedimento
+                ?? $"{conferencia.PorGuia.Count} guia(s) marcada(s) não podem ir neste envio: veja o motivo na linha, desmarque e envie de novo. Nada foi enviado.";
+            return;
+        }
+
+        if (!await Dialogos.ConfirmarAsync("Enviar à operadora", EnvioTissNaTela.PerguntaDoEnvio(_marcadas.Count, NomeDoConvenio), confirmar: "Enviar à operadora"))
+            return;
+
+        _ocupado = true;
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.GerenciarLotesTiss, "enviar guias à operadora");
+            using var escopo = Escopos.CreateScope();
+            var envio = await escopo.ServiceProvider.GetRequiredService<FilaTissService>()
+                .EnfileirarEnvioAsync(_convenio, _marcadas.ToList(), SessaoUsuario.Atual.Operador,
+                    // A declaração de quem liberou a guia do envio em dúvida vai junto: é a fila que a exige e a audita.
+                    conferidasNoPortal: _liberadas.Where(_marcadas.Contains).ToList());
+            _marcadas.Clear();
+            _conferencia = null;
+            _pedidosDaSessao.Add(envio.Id);
+            Notificacoes.Sucesso($"Pedido de envio de {envio.Guias.Count} guia(s) na fila. Ainda não foi à operadora: acompanhe em Envios recentes.");
+        }
+        catch (EnvioTissRecusadoException ex)
+        {
+            // Algo mudou entre a conferência e o pedido: a recusa volta por linha, e nada entrou na fila.
+            _conferencia = ex.Conferencia;
+            _mensagemDoEnvio = ex.Conferencia.Impedimento
+                ?? $"{ex.Conferencia.PorGuia.Count} guia(s) não puderam ir neste envio: veja o motivo na linha. Nada foi enviado.";
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — pedido de envio à operadora", ex);
+            _mensagemDoEnvio = $"Não foi possível pedir o envio: {ex.Message}";
+        }
+        _ocupado = false;
+        await CarregarAsync(silencioso: true);
+    }
+
+    // ==================== o que cabe num envio ====================
+
+    private async Task ConsultarSituacaoAsync(TransacaoTiss envio)
+    {
+        if (!PodeGerenciar) { _recados[envio.Id] = ("Seu acesso não permite consultar a operadora. Fale com a direção da clínica.", "erro"); return; }
+        if (_consultas.ContainsKey(envio.Id)) return;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var consulta = await escopo.ServiceProvider.GetRequiredService<FilaTissService>()
+                .EnfileirarStatusDoEnvioAsync(envio.Id, SessaoUsuario.Atual.Operador);
+            _consultas[envio.Id] = consulta.Id;
+            _recados[envio.Id] = ("Consulta da situação na fila. A resposta atualiza as guias deste envio.", "info");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — consulta da situação do envio", ex);
+            _recados[envio.Id] = ($"Não foi possível pedir a consulta: {ex.Message}", "erro");
+        }
+    }
+
+    /// <summary>
+    /// A baixa SOZINHA: os envios pedidos nesta sessão cuja resposta chegou com guias recebidas.
+    /// Uma tentativa por envio; quem não tem o acesso de baixa não a dispara (o botão explica).
+    /// </summary>
+    private async Task BaixarOQueChegouAsync()
+    {
+        if (!PodeBaixar || _ocupado) return;
+        foreach (var envio in _envios.Where(e => _pedidosDaSessao.Contains(e.Id) && !_baixaAutomaticaTentada.Contains(e.Id) && RecebidasSemBaixa(e) > 0).ToList())
+        {
+            _baixaAutomaticaTentada.Add(envio.Id);
+            await ExecutarBaixaAsync(envio, automatica: true);
+        }
+    }
+
+    private async Task BaixarRecebidasAsync(TransacaoTiss envio)
+    {
+        if (_ocupado) return;
+        if (!PodeBaixar) { _recados[envio.Id] = ("Seu acesso não permite dar baixa nas guias. Fale com a direção da clínica.", "erro"); return; }
+        var quantas = RecebidasSemBaixa(envio);
+        if (!await Dialogos.ConfirmarAsync("Dar baixa nas recebidas",
+                $"Dar baixa, em seu nome e com a data de hoje, em {quantas} guia(s) que a operadora recebeu neste envio? As glosadas e as sem resposta ficam de fora.",
+                confirmar: "Dar baixa"))
+            return;
+        await ExecutarBaixaAsync(envio, automatica: false);
+    }
+
+    private async Task ExecutarBaixaAsync(TransacaoTiss envio, bool automatica)
+    {
+        _ocupado = true;
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.BaixarGuia, "dar baixa nas guias");
+            using var escopo = Escopos.CreateScope();
+            var resultado = await escopo.ServiceProvider.GetRequiredService<BaixaDasGuiasEnviadasService>()
+                .BaixarRecebidasAsync(envio.Id, DateOnly.FromDateTime(DateTime.Today), SessaoUsuario.Atual.Operador);
+            _baixas[envio.Id] = resultado;
+            _recados[envio.Id] = resultado.Falhas.Count == 0
+                ? (resultado.Guias.Count == 0 ? resultado.Resumo
+                    : automatica ? $"A operadora recebeu e a baixa foi registrada sozinha: {resultado.Baixadas} guia(s), em seu nome."
+                    : $"{resultado.Baixadas} guia(s) baixada(s).", resultado.Guias.Count == 0 ? "info" : "sucesso")
+                : ($"{resultado.Baixadas} guia(s) baixada(s); {resultado.Falhas.Count} NÃO — o motivo está na linha de cada uma, e elas continuam pendentes.", "atencao");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — baixa das guias recebidas", ex);
+            _recados[envio.Id] = ($"Não foi possível dar baixa: {ex.Message}", "erro");
+        }
+        _ocupado = false;
+        await CarregarAsync(silencioso: true);
+    }
+
+    private async Task CancelarPedidoAsync(TransacaoTiss envio)
+    {
+        if (!PodeGerenciar) { _recados[envio.Id] = ("Seu acesso não permite cancelar o pedido. Fale com a direção da clínica.", "erro"); return; }
+        if (!await Dialogos.ConfirmarAsync("Cancelar pedido", $"Cancelar o pedido de envio de {envio.Guias.Count} guia(s)? Ele ainda não saiu: as guias voltam a ficar prontas para envio.", confirmar: "Cancelar pedido", perigoso: true))
+            return;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var cancelou = await escopo.ServiceProvider.GetRequiredService<FilaTissService>().CancelarAsync(envio.Id, SessaoUsuario.Atual.Operador);
+            _recados[envio.Id] = cancelou
+                ? ("Pedido cancelado antes de ir à operadora.", "info")
+                : ("O pedido já tinha saído (ou já terminou): não há o que cancelar por aqui.", "atencao");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — cancelamento do pedido de envio", ex);
+            _recados[envio.Id] = ($"Não foi possível cancelar o pedido: {ex.Message}", "erro");
+        }
+        await CarregarAsync(silencioso: true);
+    }
+
+    // ==================== leituras para o desenho ====================
+
+    private string Descricao(TransacaoTissGuia item)
+        => EnvioTissNaTela.DescricaoDaGuia(item.CodigoId is { } id ? _guias.GetValueOrDefault(id) : null, item.NumeroGuiaPrestador);
+
+    /// <summary>O selo da guia DENTRO do envio: o que a fila afirma sobre este item.</summary>
+    private static (string Texto, string Tom) SeloDoItem(TransacaoTiss envio, TransacaoTissGuia item)
+    {
+        item.Transacao ??= envio; // a leitura traz o lote com as guias; o selo precisa do caminho de volta
+        var selo = SeloDeEnvioTiss.Do(item);
+        return (selo.Texto, EnvioTissNaTela.Tom(selo.Estado));
+    }
+
+    /// <summary>O número com que a guia já recebeu baixa (nulo = ainda sem baixa).</summary>
+    private string? NumeroDaBaixa(TransacaoTissGuia item)
+        => item.CodigoId is { } id && _guias.TryGetValue(id, out var c) && c.Baixado ? c.NumeroGuiaReal ?? "sem número" : null;
+
+    /// <summary>Quantas guias recebidas do envio ainda estão sem baixa: é o que o botão oferece.</summary>
+    private int RecebidasSemBaixa(TransacaoTiss envio)
+        => envio.Estado != EstadoTransacaoTiss.Concluida ? 0
+            : envio.Guias.Count(g => g.Situacao == SituacaoGuiaTiss.Recebida && NumeroDaBaixa(g) is null);
+
+    private BaixaDeGuiaEnviada? BaixaDoItem(int envioId, TransacaoTissGuia item)
+        => _baixas.TryGetValue(envioId, out var b) ? b.Guias.FirstOrDefault(g => g.CodigoId == item.CodigoId && !g.Baixada) : null;
+
+    public void Dispose()
+    {
+        _descartado = true;
+        _parar?.Cancel();
+        _parar?.Dispose();
+    }
+}

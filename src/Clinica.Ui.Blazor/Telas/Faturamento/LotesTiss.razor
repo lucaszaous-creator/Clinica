@@ -25,6 +25,20 @@
             <Icone Nome="atualizar" />Atualizar</button>
     </CabecalhoPagina>
 
+    @* DUAS ABAS, UMA TELA (nov/2026): "Guias TISS" já era a porta de "o que foi à operadora".
+       O envio pelo web service entra aqui como segunda aba, e não como item novo de menu — a
+       pergunta é a mesma (lote → envio → retorno), só muda o caminho. *@
+    <div class="abas fat-tiss-abas" role="tablist" aria-label="Como as guias vão à operadora">
+        <button type="button" role="tab" aria-selected="@(_aba == Aba.Arquivo ? "true" : "false")" @onclick="() => _aba = Aba.Arquivo">Lotes em arquivo (XML)</button>
+        <button type="button" role="tab" aria-selected="@(_aba == Aba.WebService ? "true" : "false")" data-aba-envio @onclick="() => _aba = Aba.WebService">Envio pelo web service</button>
+    </div>
+
+    @if (_aba == Aba.WebService)
+    {
+        <EnvioAOperadoraPainel />
+    }
+    else
+    {
     <section class="cartao fat-tiss-novo" aria-label="Novo lote">
         <div class="cartao-corpo">
             <div class="cartao-titulo">
@@ -130,6 +144,7 @@
             </div>
         }
     </section>
+    }
 </div>
 
 @if (_envio is { } envio)
@@ -142,6 +157,9 @@
 }
 
 @code {
+    private enum Aba { Arquivo, WebService }
+    private Aba _aba = Aba.Arquivo;
+
     /// <summary>Uma linha da tabela de lotes, com o que a tela mostra já resolvido.</summary>
     private sealed record LinhaLote(int Id, int Numero, string Operadora, DateOnly DataGeracao, StatusLoteTiss Status,
         int Guias, int Glosadas, DateOnly? DataEnvio, string? Protocolo, DateOnly? DataRetorno);

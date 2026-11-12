@@ -1,0 +1,153 @@
+@*
+  CONSULTAR A ELEGIBILIDADE NA OPERADORA (nov/2026): o botão ao lado da carteira. Ele só PEDE —
+  o pedido entra na fila (FilaTissService) e quem fala com a operadora é o serviço de envio, no
+  servidor. Este componente acompanha a transação e escreve o desfecho.
+
+  - TRÊS desfechos, cada um com a sua cor: elegível, não elegível (a operadora negou) e não foi
+    possível consultar (ninguém avaliou). A leitura é EnvioTissNaTela.DaElegibilidade, com teste.
+  - Sem serviço de envio instalado o pedido fica parado na fila: passado o prazo a tela diz que
+    o serviço não respondeu e deixa cancelar o pedido — ela não finge que está consultando.
+  - O relógio é do componente: liga ao pedir, desliga ao terminar e ao sair da tela.
+  - O nome que a operadora devolve vem na frase do resultado e é mostrado AO LADO do nome da
+    ficha, dizendo se conferem (EnvioTissNaTela.ConferenciaDoNome). A ficha nunca é alterada.
+*@
+@using Clinica.Application.Modelos
+@implements IDisposable
+@inject IServiceScopeFactory Escopos
+
+<div class="elegibilidade" data-elegibilidade>
+    <button type="button" class="botao mini" data-consultar-elegibilidade disabled="@(!Pode || _consultando || string.IsNullOrWhiteSpace(Carteira))"
+            title="@(!Pode ? "Seu acesso não permite consultar a operadora." : string.IsNullOrWhiteSpace(Carteira) ? "Informe o número da carteira para consultar." : "Pergunta à operadora se esta carteira está ativa")"
+            @onclick="ConsultarAsync"><Icone Nome="busca" />@(!_consultando ? "Consultar na operadora" : _leitura is { Tom: "atencao" } ? "Aguardando o serviço…" : "Consultando…")</button>
+    @if (_leitura is { } leitura)
+    {
+        <Aviso Tom="@leitura.Tom" Texto="@leitura.Texto">
+            @if (leitura.PodeDesistir && leitura.Tom == "atencao")
+            {
+                <button type="button" class="botao mini" data-cancelar-elegibilidade @onclick="DesistirAsync">Cancelar o pedido</button>
+            }
+        </Aviso>
+        @if (leitura.Terminou && EnvioTissNaTela.ConferenciaDoNome(leitura.Texto, NomeDaFicha) is { } nome)
+        {
+            @* O nome que a operadora devolveu, AO LADO do da ficha: conferência — a ficha nunca é alterada. *@
+            <span class="@(nome.Confere ? "campo-dica" : "campo-erro")" data-conferencia-do-nome>@nome.Texto</span>
+        }
+        else if (leitura.Terminou && !string.IsNullOrWhiteSpace(NomeDaFicha))
+        {
+            <span class="campo-dica">Consulta da carteira @_carteiraConsultada, de @NomeDaFicha (nome da ficha). A operadora não devolveu o nome nesta resposta.</span>
+        }
+    }
+    else if (_erro is not null)
+    {
+        <Aviso Tom="erro" Texto="@_erro" />
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string ConvenioCodigo { get; set; } = string.Empty;
+    [Parameter] public string? Carteira { get; set; }
+    [Parameter] public DateOnly? Validade { get; set; }
+    [Parameter] public int? PacienteId { get; set; }
+    /// <summary>O nome que está na ficha — só para a pessoa saber de quem é a consulta.</summary>
+    [Parameter] public string? NomeDaFicha { get; set; }
+
+    private int? _transacaoId;
+    private string? _carteiraConsultada;
+    private ElegibilidadeNaTela? _leitura;
+    private string? _erro;
+    private bool _consultando;
+    private CancellationTokenSource? _parar;
+
+    // Consultar a operadora é ato de quem fatura ou de quem atende no balcão com a ficha na mão.
+    private static bool Pode => SessaoUsuario.Atual.PodeAlgum(Permissao.BaixarGuia | Permissao.VerFaturamento | Permissao.EditarPaciente);
+
+    private async Task ConsultarAsync()
+    {
+        if (_consultando) return;
+        _erro = null;
+        _leitura = null;
+        if (!Pode) { _erro = "Seu acesso não permite consultar a operadora. Fale com a direção da clínica."; return; }
+        if (string.IsNullOrWhiteSpace(Carteira)) { _erro = "Informe o número da carteira para consultar."; return; }
+
+        _consultando = true;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var t = await escopo.ServiceProvider.GetRequiredService<FilaTissService>().EnfileirarElegibilidadeAsync(
+                ConvenioCodigo, Carteira.Replace(" ", string.Empty), Validade, PacienteId, SessaoUsuario.Atual.Operador);
+            _transacaoId = t.Id;
+            _carteiraConsultada = t.NumeroCarteira;
+            _leitura = EnvioTissNaTela.DaElegibilidade(t, HoraDaClinica.Agora());
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — pedido de elegibilidade não pôde ser feito", ex);
+            _erro = ex.Message;
+            _consultando = false;
+            return;
+        }
+        _ = AcompanharAsync(_transacaoId.Value);
+    }
+
+    /// <summary>Relê a transação até ela terminar (ou até a pessoa sair da tela).</summary>
+    private async Task AcompanharAsync(int id)
+    {
+        _parar?.Cancel();
+        var parar = _parar = new CancellationTokenSource();
+        try
+        {
+            using var relogio = new PeriodicTimer(EnvioTissNaTela.RitmoDoAcompanhamento);
+            while (await relogio.WaitForNextTickAsync(parar.Token))
+            {
+                if (_transacaoId != id) return;
+                await LerAsync(id);
+                if (_leitura is { Terminou: true }) break;
+            }
+        }
+        catch (OperationCanceledException) { }
+        finally
+        {
+            if (_transacaoId == id) { _consultando = false; await InvokeAsync(StateHasChanged); }
+        }
+    }
+
+    private async Task LerAsync(int id)
+    {
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var t = await escopo.ServiceProvider.GetRequiredService<FilaTissService>().ObterAsync(id);
+            if (t is null || _transacaoId != id) return;
+            _leitura = EnvioTissNaTela.DaElegibilidade(t, HoraDaClinica.Agora());
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            // Uma releitura que falha não muda o que a tela afirma: fica o último estado, e o log.
+            Clinica.Application.Diagnostico.Registrar("Blazor — elegibilidade: a transação não pôde ser relida", ex);
+        }
+    }
+
+    private async Task DesistirAsync()
+    {
+        if (_transacaoId is not { } id) return;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<FilaTissService>().CancelarAsync(id, SessaoUsuario.Atual.Operador);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — elegibilidade: o pedido não pôde ser cancelado", ex);
+            _erro = ex.Message;
+        }
+        await LerAsync(id);
+        if (_leitura is { Terminou: true }) { _parar?.Cancel(); _consultando = false; }
+    }
+
+    public void Dispose()
+    {
+        _parar?.Cancel();
+        _parar?.Dispose();
+    }
+}

@@ -44,6 +44,7 @@ public static class DependencyInjection
         services.AddScoped<AtendimentoService>();
         services.AddScoped<EstornoAtendimentoService>();
         services.AddScoped<FaturamentoService>();
+        services.AddScoped<GuiaAnsNaBaixaService>();
         services.AddScoped<PendenciaService>();
         services.AddScoped<RodadaPendenciasService>();
         services.AddScoped<RelatorioService>();
@@ -181,6 +182,11 @@ public static class DependencyInjection
         // A fila tem duas portas: o desktop PÕE o pedido, a ponte do CRM o entrega.
         services.AddScoped<EnvioAoPacienteService>();
         services.AddScoped<FilaEnviosCrmService>();
+        // A fila do web service TISS (nov/2026): a tela pede, o conector no servidor executa.
+        services.AddScoped<FilaTissService>();
+        services.AddScoped<CredenciaisTissService>();
+        // A baixa em lote das guias que a operadora recebeu: quem chama é a tela, com quem está logado.
+        services.AddScoped<BaixaDasGuiasEnviadasService>();
         services.AddScoped<TendenciaAtendimentosService>();
         services.AddScoped<AcessoService>();
         services.AddScoped<PrevencaoGlosaService>();

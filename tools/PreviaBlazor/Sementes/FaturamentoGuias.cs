@@ -46,7 +46,8 @@ public sealed class SementeFaturamentoGuias : ISemente
             var r = atendimentos.LancarAsync(p.Id, NoMes(diasAtras), m, operador: "Recepção (prévia)").GetAwaiter().GetResult();
             var codigos = r.Atendimento.Codigos.OrderBy(c => c.Ordem).ToList();
             foreach (var c in baixarTodos ? codigos : codigos.Take(1))
-                faturamento.DarBaixaAsync(c.Id, NoMes(Math.Max(0, diasAtras - 1)), (n++).ToString(), "Faturista (prévia)", null)
+                faturamento.DarBaixaAsync(c.Id, NoMes(Math.Max(0, diasAtras - 1)), (n++).ToString(), "Faturista (prévia)", null,
+                        guiaAns: GuiaAnsDaPrevia.Para(c, p, NoMes(diasAtras)))
                     .GetAwaiter().GetResult();
             db.ChangeTracker.Clear();
         }

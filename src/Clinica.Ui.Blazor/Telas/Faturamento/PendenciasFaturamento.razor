@@ -219,6 +219,12 @@
                                         @if (p.TipoDeAtendimento is { } tipo) { <Selo Tom="info" Dica="O tipo de atendimento a que esta guia se refere">@tipo</Selo> }
                                         @Copiavel(RotulosEnum.De(p.Tipo), null)
                                         <span class="secundario">@RotulosEnum.De(p.Ordem) · @PainelPendenciasFaturamento.ComoObter(p.FormaObtencao)</span>
+                                        @* O ENVIO À OPERADORA desta guia (nov/2026), só nos convênios com web service. *@
+                                        @if (_selosDeEnvio.TryGetValue(p.CodigoId, out var envio))
+                                        {
+                                            <span class="fat-selo-envio" data-selo-envio="@p.CodigoId"><Selo Tom="@envio.Tom" Dica="@(envio.Detalhe ?? "Envio à operadora pelo web service")">@envio.Rotulo</Selo></span>
+                                            @if (envio.Detalhe is not null) { <span class="secundario fat-selo-envio-detalhe" title="@envio.Detalhe">@envio.Detalhe</span> }
+                                        }
                                     </td>
                                     <td class="nao-quebra">
                                         @Copiavel(Formato.Data(p.DataPrevista), null)
@@ -336,11 +342,11 @@
 
 @if (_baixa is { } baixa)
 {
-    <BaixaGuiaForm @ref="_formBaixa" CodigoId="baixa.CodigoId" AoFechar="() => { _baixa = null; _formBaixa = null; }" AoConcluir="BaixouAsync" />
+    <BaixaGuiaForm @ref="_formBaixa" CodigoId="baixa.CodigoId" AoFechar="() => { _baixa = null; _formBaixa = null; }" AoConcluir="BaixouAsync" AoConferir="ConferiuAsync" />
 }
 @if (_lote is { } lote)
 {
-    <BaixaLoteForm Itens="lote" AoFechar="() => _lote = null" AoConcluir="LoteConcluidoAsync" />
+    <BaixaLoteForm Itens="lote" AoFechar="() => _lote = null" AoConcluir="LoteConcluidoAsync" AoBaixarPelaGuia="CarregarAsync" />
 }
 @if (_nc is { } nc)
 {
@@ -352,7 +358,7 @@
 }
 @if (_rodada)
 {
-    <RodadaPendenciasForm AoFechar="() => _rodada = false" AoConcluir="RodadaConcluidaAsync" />
+    <RodadaPendenciasForm AoFechar="() => _rodada = false" AoConcluir="RodadaConcluidaAsync" AoBaixarPelaGuia="CarregarAsync" />
 }
 
 @code {
@@ -379,6 +385,8 @@
     private int _geracao;
 
     // Formulários abertos (um de cada).
+    /// <summary>O selo de envio à operadora de cada linha de convênio com web service (texto e tom).</summary>
+    private IReadOnlyDictionary<int, SeloDaLinhaNaTela> _selosDeEnvio = new Dictionary<int, SeloDaLinhaNaTela>();
     private PendenciaCodigo? _baixa;
     private BaixaGuiaForm? _formBaixa;
     private IReadOnlyList<PendenciaCodigo>? _lote;
@@ -460,6 +468,30 @@
                 if (geracao != _geracao || Descartada) return;
             }
 
+            // Os selos de envio: uma leitura por convênio com web service (hoje, um), nunca por linha.
+            // Falha aqui não derruba o painel — a linha só fica sem o selo, e o log diz por quê.
+            IReadOnlyDictionary<int, SeloDaLinhaNaTela> selosDeEnvio = new Dictionary<int, SeloDaLinhaNaTela>();
+            try
+            {
+                var porConvenio = EnvioTissNaTela.GuiasComSeloPorConvenio(codigos);
+                if (porConvenio.Count > 0)
+                {
+                    var fila = escopo.ServiceProvider.GetRequiredService<FilaTissService>();
+                    var ids = porConvenio.Values.SelectMany(v => v).ToList();
+                    var selos = await fila.SelosDeEnvioAsync(ids);
+                    var prontas = new HashSet<int>();
+                    foreach (var convenio in porConvenio.Keys)
+                        foreach (var g in await fila.ProntasParaEnvioAsync(convenio, 500)) prontas.Add(g.CodigoId);
+                    selosDeEnvio = EnvioTissNaTela.SelosDasLinhas(ids, selos, prontas);
+                }
+            }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar("Blazor — painel: selos de envio à operadora", ex);
+            }
+            if (geracao != _geracao || Descartada) return;
+
+            _selosDeEnvio = selosDeEnvio;
             _todos = codigos.ToList();
             _consultas = consultas;
             _recursos = recursos;
@@ -529,6 +561,14 @@
         _baixa = null;
         _formBaixa = null;
         Notificacoes.Sucesso("Baixa registrada.");
+        await CarregarAsync();
+    }
+
+    /// <summary>A guia foi conferida para envio, sem baixa: fecha o formulário e relê (o selo da linha muda).</summary>
+    private async Task ConferiuAsync()
+    {
+        _baixa = null;
+        _formBaixa = null;
         await CarregarAsync();
     }
 

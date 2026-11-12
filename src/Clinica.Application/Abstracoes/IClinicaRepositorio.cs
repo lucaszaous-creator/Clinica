@@ -58,6 +58,13 @@ public interface IClinicaRepositorio
 
     Task<CodigoFaturamento?> ObterCodigoAsync(int codigoId, CancellationToken ct = default);
 
+    /// <summary>
+    /// A guia de consulta ANS mais recente conferida para este profissional executante (pelo nome
+    /// gravado na guia) — de onde a baixa seguinte propõe conselho, número, UF e CBO, enquanto o
+    /// cadastro da equipe não tem esses campos separados. Sem rastreio: é só leitura.
+    /// </summary>
+    Task<GuiaTissConsulta?> UltimaGuiaAnsDoProfissionalAsync(string nomeProfissional, CancellationToken ct = default);
+
     Task AdicionarAtendimentoAsync(Atendimento atendimento, CancellationToken ct = default);
 
     /// <summary>Atendimento com paciente e códigos carregados (para gerar a capa de faturamento).</summary>
@@ -1896,6 +1903,91 @@ public interface IClinicaRepositorio
     /// </summary>
     Task<EnvioPacienteCrm?> EnvioPacienteCrmEmAbertoAsync(
         int documentoClinicoId, string canal, DateTime agora, CancellationToken ct = default);
+
+    // ---- Fila do web service TISS (nov/2026 — quem executa é o conector no servidor) ----
+
+    /// <summary>
+    /// Esquece o que este escopo tem rastreado e ainda não gravou. Para quem processa VÁRIOS itens
+    /// no mesmo escopo e não pode deixar a tentativa que falhou num item ir junto na gravação do
+    /// seguinte (a baixa das guias enviadas). Não desfaz nada que já foi salvo.
+    /// </summary>
+    void DescartarAlteracoesPendentes();
+
+    /// <summary>Acrescenta a transação (grava no próximo <see cref="SalvarAsync"/>, junto da trilha).</summary>
+    Task AdicionarTransacaoTissAsync(TransacaoTiss transacao, CancellationToken ct = default);
+
+    /// <summary>A transação INTEIRA, com os XML e as guias do lote, RASTREADA — para carimbar o envio e gravar o resultado.</summary>
+    Task<TransacaoTiss?> ObterTransacaoTissAsync(int id, CancellationToken ct = default);
+
+    /// <summary>
+    /// As transações que um conector pode reservar em <paramref name="agora"/>: as pendentes cuja
+    /// espera já passou e as reservadas antes de <paramref name="reservaVencidaAntes"/> (o conector
+    /// que as pegou morreu no meio). Da mais antiga para a mais nova, até <paramref name="limite"/>.
+    /// ⚠️ SEM os XML (projeção): a pergunta se repete a cada poucos segundos.
+    /// </summary>
+    Task<IReadOnlyList<TransacaoTiss>> TransacoesTissReservaveisAsync(
+        DateTime agora, DateTime reservaVencidaAntes, int limite, CancellationToken ct = default);
+
+    /// <summary>
+    /// Reserva a transação para <paramref name="consumidor"/> SE ela ainda estiver na versão
+    /// <paramref name="versaoVista"/> — um único UPDATE condicional, direto no banco. Devolve falso
+    /// quando outro conector chegou antes: é isto que impede dois processos de pegar a mesma linha.
+    /// Não usa o rastreamento: quem reservou relê com <see cref="ObterTransacaoTissAsync"/>.
+    /// </summary>
+    Task<bool> ReservarTransacaoTissAsync(
+        int id, int versaoVista, string consumidor, DateTime agora, CancellationToken ct = default);
+
+    /// <summary>
+    /// Relê do banco uma transação já rastreada neste escopo. Necessário depois de
+    /// <see cref="ReservarTransacaoTissAsync"/>, que grava sem passar pelo rastreamento.
+    /// </summary>
+    Task RecarregarTransacaoTissAsync(TransacaoTiss transacao, CancellationToken ct = default);
+
+    /// <summary>
+    /// As guias pedidas para um envio, com o paciente (para o convênio) e a guia ANS conferida,
+    /// SEM rastreamento: é só para conferir se cada uma pode entrar no lote.
+    /// </summary>
+    Task<IReadOnlyList<CodigoFaturamento>> CodigosParaEnvioTissAsync(IReadOnlyCollection<int> codigoIds, CancellationToken ct = default);
+
+    /// <summary>
+    /// As mesmas guias, só com a guia ANS conferida — SEM o atendimento e SEM o paciente. É o que o
+    /// conector lê para montar o lote: tudo o que vai à operadora já está na guia conferida, e o
+    /// serviço do servidor não precisa (nem tem permissão para) ler a ficha de ninguém.
+    /// </summary>
+    Task<IReadOnlyList<CodigoFaturamento>> GuiasConferidasParaEnvioTissAsync(IReadOnlyCollection<int> codigoIds, CancellationToken ct = default);
+
+    /// <summary>
+    /// Os itens de envio destas guias, com a transação de cada um (sem os XML), do mais novo para o
+    /// mais velho. É a trava contra duplicidade (uma guia num envio que não falhou não entra em
+    /// outro) e a conta de quantas vezes cada guia já foi enviada.
+    /// </summary>
+    Task<IReadOnlyList<TransacaoTissGuia>> ItensDeEnvioTissDasGuiasAsync(IReadOnlyCollection<int> codigoIds, CancellationToken ct = default);
+
+    /// <summary>
+    /// As guias de um lote que a operadora RECEBEU e que ainda não têm baixa no sistema — o que
+    /// a baixa em lote tem a fazer depois de um envio.
+    /// </summary>
+    Task<IReadOnlyList<GuiaTissRecebidaSemBaixa>> GuiasTissRecebidasSemBaixaAsync(int transacaoId, CancellationToken ct = default);
+
+    /// <summary>
+    /// As guias de um convênio com a guia ANS conferida, sem baixa e fora de qualquer envio que as
+    /// prenda (na fila, em andamento, ou concluído com a guia recebida ou ainda sem resposta).
+    /// Da mais antiga para a mais nova, até <paramref name="limite"/>.
+    /// </summary>
+    Task<IReadOnlyList<GuiaProntaParaEnvioTiss>> GuiasTissProntasParaEnvioAsync(string convenioCodigo, int limite, CancellationToken ct = default);
+
+    /// <summary>Os últimos ENVIOS (de um convênio, ou de todos), cada um com as guias do lote, sem os XML.</summary>
+    Task<IReadOnlyList<TransacaoTiss>> EnviosTissRecentesComGuiasAsync(string? convenioCodigo, int limite, CancellationToken ct = default);
+
+    /// <summary>As transações de uma guia — as dela e os lotes em que ela entrou —, da mais nova para a mais velha, sem os XML.</summary>
+    Task<IReadOnlyList<TransacaoTiss>> TransacoesTissDaGuiaAsync(int codigoId, CancellationToken ct = default);
+
+    /// <summary>
+    /// As últimas transações (de um convênio, ou de todos quando <paramref name="convenioCodigo"/>
+    /// é nulo), da mais nova para a mais velha, sem os XML — para a tela acompanhar.
+    /// </summary>
+    Task<IReadOnlyList<TransacaoTiss>> TransacoesTissRecentesAsync(
+        string? convenioCodigo, int limite, CancellationToken ct = default);
 
     Task<IReadOnlyList<ContatoCampanha>> ContatosDoPacienteAsync(
         int pacienteId, int limite = 20, CancellationToken ct = default);
