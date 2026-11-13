@@ -2907,6 +2907,68 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .OrderByDescending(a => a.Data).ThenByDescending(a => a.Id)
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<Atendimento>> AtendimentosPorNumeroAsync(
+        string termo, int teto, CancellationToken ct = default)
+    {
+        var t = termo.Trim();
+        if (t.Length == 0) return [];
+        // `Contains` de string vira LIKE com o termo escapado; o `#12` de quem não tem número é o Id.
+        var id = int.TryParse(t, out var n) ? n : (int?)null;
+        return await _db.Atendimentos.AsNoTracking()
+            .Include(a => a.Codigos)
+            .Include(a => a.Paciente)
+            .Where(a => (a.Numero != null && a.Numero.Contains(t))
+                        || (a.Numero == null && id != null && a.Id == id)
+                        || a.Codigos.Any(c => c.NumeroGuiaReal != null && c.NumeroGuiaReal.Contains(t)))
+            .OrderByDescending(a => a.Data).ThenByDescending(a => a.Id)
+            .Take(teto)
+            .ToListAsync(ct);
+    }
+
+    public async Task<Clinica.Application.Formatacao.DadosDoDetalheDoAtendimento?> DadosDoDetalheDoAtendimentoAsync(
+        int atendimentoId, CancellationToken ct = default)
+    {
+        // ⚠️ SEQUENCIAL: é o mesmo DbContext. Seis idas curtas, todas por chave ou FK.
+        var atendimento = await _db.Atendimentos.AsNoTracking()
+            .Include(a => a.Paciente)
+            .Include(a => a.Codigos).ThenInclude(c => c.Lote)
+            .FirstOrDefaultAsync(a => a.Id == atendimentoId, ct);
+        if (atendimento is null) return null;
+
+        // O horário mais novo ganha, como na Conciliação: o remarcado deixa o antigo para trás.
+        var horario = await _db.Agendamentos.AsNoTracking()
+            .Include(g => g.Profissional).Include(g => g.Sala)
+            .Where(g => g.AtendimentoId == atendimentoId)
+            .OrderByDescending(g => g.Id)
+            .FirstOrDefaultAsync(ct);
+
+        // O dinheiro do particular aponta para a SESSÃO; o do convênio, para a GUIA.
+        var codigos = atendimento.Codigos.Select(c => c.Id).ToList();
+        var lancamentos = await _db.Lancamentos.AsNoTracking()
+            .Where(l => l.AtendimentoId == atendimentoId
+                        || (l.CodigoFaturamentoId != null && codigos.Contains(l.CodigoFaturamentoId.Value)))
+            .OrderBy(l => l.Data).ThenBy(l => l.Id)
+            .ToListAsync(ct);
+
+        var consumo = await _db.ConsumosPacote.AsNoTracking()
+            .Include(c => c.Pacote)
+            .FirstOrDefaultAsync(c => c.AtendimentoId == atendimentoId && c.CanceladoEm == null, ct);
+
+        var insumos = await _db.MovimentosEstoque.AsNoTracking()
+            .Include(m => m.Item)
+            .Where(m => m.AtendimentoId == atendimentoId)
+            .OrderBy(m => m.Id)
+            .ToListAsync(ct);
+
+        // SE existe, e mais nada: a ficha é do balcão e não lê prontuário.
+        var horarioId = horario?.Id;
+        var temEvolucao = horarioId is not null
+            && await _db.Evolucoes.AsNoTracking().AnyAsync(e => e.AgendamentoId == horarioId && e.CanceladaEm == null, ct);
+
+        return new Clinica.Application.Formatacao.DadosDoDetalheDoAtendimento(
+            atendimento, horario, lancamentos, consumo, insumos, temEvolucao);
+    }
+
     // ---- Taxas de cartao (parcela 9) ----
 
     public async Task<IReadOnlyList<TaxaCartao>> TaxasCartaoAsync(

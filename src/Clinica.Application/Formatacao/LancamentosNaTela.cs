@@ -35,6 +35,10 @@ public sealed record LinhaLancamentoBalcao
     /// efetivamente atendidos no período" — o nome não serve, dois pacientes podem ter o mesmo.
     /// </summary>
     public int PacienteId { get; init; }
+    /// <summary>Os números das guias do atendimento — é por eles que a busca acha "a guia 12345" (nov/2026).</summary>
+    public IReadOnlyList<string> NumerosDasGuias { get; init; } = [];
+    /// <summary>Só a busca por número traz estornado (o período os esconde): a linha diz, e o Estornar some.</summary>
+    public bool Estornado { get; init; }
 }
 
 /// <summary>
@@ -141,6 +145,9 @@ public static class LancamentosNaTela
         {
             AtendimentoId = atendimento.Id,
             PacienteId = atendimento.PacienteId,
+            NumerosDasGuias = atendimento.Codigos.Where(c => !string.IsNullOrWhiteSpace(c.NumeroGuiaReal))
+                .Select(c => c.NumeroGuiaReal!.Trim()).ToList(),
+            Estornado = atendimento.Estornado,
             Data = atendimento.Data,
             DataRotulo = atendimento.Data.ToString("dd/MM", PtBr),
             Paciente = paciente?.Nome ?? "—",
