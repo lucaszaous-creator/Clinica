@@ -1,3 +1,4 @@
+using Clinica.Application.Formatacao;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Domain;
@@ -255,6 +256,75 @@ public class CircuitoParticularTests : IDisposable
         PagamentoNaMarcacaoService.Formas.Should().NotContain(FormaPagamento.Convenio);
     }
 
+    // ==================== O detalhe do atendimento (nov/2026) ====================
+
+    [Fact]
+    public async Task O_detalhe_do_atendimento_junta_o_que_foi_feito_e_o_que_foi_cobrado()
+    {
+        var pacienteId = await ParticularAsync();
+        var agendamentoId = await AgendarAsync(pacienteId);
+        var registro = await _fechamento.RegistrarAtendimentoAsync(agendamentoId, "recepcao");
+        await _fechamento.ConcluirAsync(new DecisaoFechamento(agendamentoId)
+        {
+            GerarLancamento = true, Valor = 180m, Forma = FormaPagamento.Pix
+        }, "recepcao");
+        _db.ChangeTracker.Clear();
+
+        var dados = await _repo.DadosDoDetalheDoAtendimentoAsync(registro.Atendimento.Id);
+
+        dados!.Horario!.ProfissionalId.Should().Be(_profPadrao);
+        dados.Horario.Profissional.Should().NotBeNull("o detalhe diz QUEM atendeu");
+        dados.Lancamentos.Should().ContainSingle().Which.Valor.Should().Be(180m);
+        dados.TemEvolucao.Should().BeFalse();
+
+        var comValor = DetalheDoAtendimentoNaTela.Montar(dados, podeVerValores: true, Dia);
+        comValor.ResumoDaCobranca.Should().Contain("180,00");
+        comValor.OQueFoiFeito.Should().Contain(c => c.Rotulo == "Quem atendeu" && c.Valor.Contains("Padrão"));
+
+        // Sem VerFinanceiro: houve cobrança, e não quanto.
+        var semValor = DetalheDoAtendimentoNaTela.Montar(dados, podeVerValores: false, Dia);
+        semValor.ValoresOcultos.Should().BeTrue();
+        semValor.ResumoDaCobranca.Should().NotContain("180");
+        semValor.Cobrancas.Should().OnlyContain(c => c.Valor == DetalheDoAtendimentoNaTela.SemValor);
+
+        (await _repo.DadosDoDetalheDoAtendimentoAsync(999_999)).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Particular_sem_dinheiro_diz_isso_no_detalhe()
+    {
+        var atendimento = await RealizarAsync(await ParticularAsync());
+        _db.ChangeTracker.Clear();
+
+        var detalhe = DetalheDoAtendimentoNaTela.Montar(
+            (await _repo.DadosDoDetalheDoAtendimentoAsync(atendimento.Id))!, podeVerValores: true, Dia);
+
+        detalhe.ResumoDaCobranca.Should().StartWith("Sem dinheiro registrado");
+        detalhe.TomDaCobranca.Should().Be("aviso");
+        detalhe.Cobrancas.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task A_busca_por_numero_acha_o_atendimento_e_a_guia_em_qualquer_data()
+    {
+        var atendimento = await RealizarAsync(await ParticularAsync());
+        var codigo = _db.Codigos.First(c => c.AtendimentoId == atendimento.Id);
+        codigo.NumeroGuiaReal = "77001234";
+        await _db.SaveChangesAsync();
+        _db.ChangeTracker.Clear();
+
+        (await _repo.AtendimentosPorNumeroAsync(atendimento.Numero!, 50)).Should().ContainSingle(a => a.Id == atendimento.Id);
+        (await _repo.AtendimentosPorNumeroAsync("7700123", 50)).Should().ContainSingle(a => a.Id == atendimento.Id);
+        (await _repo.AtendimentosPorNumeroAsync("99999999", 50)).Should().BeEmpty();
+        (await _repo.AtendimentosPorNumeroAsync("  ", 50)).Should().BeEmpty();
+
+        // A linha carrega o número da guia: é o que o filtro do período usa sem ir ao banco.
+        var linha = LancamentosNaTela.Montar((await _repo.AtendimentosPorNumeroAsync("77001234", 50)).Single());
+        DetalheDoAtendimentoNaTela.Casa(linha, "7700").Should().BeTrue();
+        DetalheDoAtendimentoNaTela.Casa(linha, "MARIA").Should().BeTrue("o nome casa sem acento e sem caixa");
+        DetalheDoAtendimentoNaTela.Casa(linha, "joaquim").Should().BeFalse();
+    }
+
     // ==================== A venda do pacote move dinheiro ====================
 
     [Fact]
@@ -422,9 +492,32 @@ public class CircuitoParticularTests : IDisposable
 
         // E a Conciliação propõe o MESMO número para a mesma sessão.
         var pendente = (await _financeiro.SessoesParticularesSemReceitaAsync(Dia, Dia)).Single();
-        var proposto = await _precos.ProporAsync(
-            pendente.CodigoDaModalidade, pendente.Modalidade, pendente.CodigoDaEspecialidade, pendente.Data);
+        var proposto = await _precos.ProporAsync(pendente);
         proposto.Valor.Should().Be(180m);
+    }
+
+    /// <summary>
+    /// nov/2026, a clínica: "já temos os preços cadastrados" — e a aba Particulares dizia
+    /// "sem preço na tabela". O preço estava cadastrado POR PROFISSIONAL, e a Conciliação
+    /// perguntava sem dizer quem atendeu: só os preços gerais concorriam.
+    /// </summary>
+    [Fact]
+    public async Task A_conciliacao_propoe_o_preco_cadastrado_para_quem_atendeu()
+    {
+        var pacienteId = await ParticularAsync();
+        await _precos.SalvarAsync(new PrecoParticular
+        {
+            ModalidadeCodigo = nameof(ModalidadeAtendimento.AcupunturaComEletro),
+            ProfissionalId = _profPadrao, Valor = 250m
+        });
+
+        var agendamentoId = await AgendarAsync(pacienteId);
+        var registro = await _fechamento.RegistrarAtendimentoAsync(agendamentoId);
+        registro.Proposta.ValorSugerido.Should().Be(250m);
+
+        var pendente = (await _financeiro.SessoesParticularesSemReceitaAsync(Dia, Dia)).Single();
+        pendente.ProfissionalId.Should().Be(_profPadrao, "a sessão carrega quem atendeu, lido do horário");
+        (await _precos.ProporAsync(pendente)).Valor.Should().Be(250m, "o MESMO número do Finalizar");
     }
 
     [Fact]

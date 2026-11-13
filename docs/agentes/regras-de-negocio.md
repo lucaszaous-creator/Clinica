@@ -6,7 +6,7 @@ mora o código. Mexer numa área? Leia antes o tópico dela — vários registra
 teste pega. Lição nova de uma área entra aqui, no tópico dela; regra que vale para TODA mudança
 continua no `CLAUDE.md`.
 
-## Índice (195 tópicos, na ordem do arquivo)
+## Índice (196 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -16,6 +16,7 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
 - O CIRCUITO DO PARTICULAR — a Recepção é o centro, e o dinheiro de quem não tem
 - PARTICULAR POR HORÁRIO — a paciente tem plano, e quem atende não o aceita
 - RECEBER AO MARCAR — o particular paga no balcão quando marca, e é ali que o dinheiro entra
+- O DETALHE DO ATENDIMENTO E A BUSCA — o que foi feito, as guias e o que foi cobrado
 - TRAVA DE CONSULTA DO CONVÊNIO e a liberação da gerência pelo WhatsApp
 - ESTORNAR UM ATENDIMENTO
 - A BUSCA DE PACIENTE VIROU A TELA
@@ -468,6 +469,32 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   bloco (o segundo já tem a janela de fechamento); "manter como crédito" no cancelamento não
   existe como conceito — hoje é aviso; e a aba Particulares com médico e especialidade espera o
   PR do preço por profissional, que traz o `ProfissionalId` da sessão.
+- **O DETALHE DO ATENDIMENTO E A BUSCA — o que foi feito, as guias e o que foi cobrado**
+  (nov/2026; a recepção: *"encontramos o paciente e o nº do atendimento, mas precisaríamos saber
+  o que foi feito naquele atendimento, o que foi cobrado, guia e outras coisas"*). Tudo já
+  estava no banco e só aparecia na janela de ESTORNO, que é para desfazer. **Uma porta por
+  pergunta**: nada de tela nova — a aba Lançamentos ganhou o campo de busca e o botão **Abrir**
+  (`DetalheDoAtendimentoForm`, só leitura). O que ele afirma mora em
+  `DetalheDoAtendimentoNaTela` (Application, com teste); a leitura é UMA
+  (`DadosDoDetalheDoAtendimentoAsync`, seis idas em sequência).
+  ⚠️ **O dinheiro do atendimento tem DUAS chaves**: o do particular aponta para a SESSÃO
+  (`AtendimentoId`), o do convênio para a GUIA (`CodigoFaturamentoId`). Leitor que olha só a
+  primeira diz "nada cobrado" de toda sessão de convênio já paga.
+  ⚠️ **Duas fronteiras de LEITURA, que são decisão da direção**: (a) prontuário fica de fora —
+  o detalhe diz SE há evolução, nunca o conteúdo (a tela é do balcão; ponto 5 do compromisso), e
+  por não abrir prontuário não registra acesso; (b) valor só para `VerFinanceiro` — sem o bit
+  a pessoa lê "cobrança registrada", sem o número.
+  ⚠️ **A busca tem dois alcances e a tela diz qual está valendo**: NOME filtra o período já
+  carregado (sem isso "Maria" traria anos); texto que é só NÚMERO, com 3+ dígitos, vai ao banco
+  em QUALQUER data pelo nº do atendimento ou da guia (`AtendimentosPorNumeroAsync`, teto de 50,
+  estornados inclusive — a linha diz "ESTORNADO" e perde o botão de estornar). Ao banco só no
+  Enter/saída do campo, nunca a cada tecla.
+  ⚠️ Pego na FOTO, não em teste: o campo nasceu só na lista "Atendimentos", e a tela abre em
+  "Horários marcados" — quem chegava com o número na mão não via onde digitar. Agora fica à
+  vista nas duas e digitar leva para Atendimentos. E o nome `FichaDoAtendimentoNaTela` já era do
+  Consultório: **`grep` do nome antes de criar a classe** (o erro só aparece ao compilar a Ui).
+  **Fora, com o motivo**: "abrir a ficha do paciente" a partir do detalhe e a busca global da
+  moldura (apontaria para este mesmo painel) — ficam para quando forem pedidas.
 - **TRAVA DE CONSULTA DO CONVÊNIO e a liberação da gerência pelo WhatsApp** (nov/2026, pedido
   da gerência; decisão, opções e limites em `docs/trava-de-consulta.md`). O convênio paga uma
   consulta a cada N dias — o N é a **validade da consulta que já estava cadastrada** (Unimed 22,
@@ -508,7 +535,25 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   O pedido está SEMPRE na conversa com o sistema, no app, e a resposta lá vale igual.
   **No mesmo pedido**: (a) **preço por profissional** — `PrecoParticular.ProfissionalId`; o
   preço de quem atende ganha do geral (10 pontos > modalidade+especialidade) e o de OUTRO nunca
-  serve; a Conciliação não conhece o profissional e propõe o geral. (b) **convênios que o
+  serve. ⚠️ **A Conciliação nasceu sem saber quem atendeu e propunha só o geral** — a clínica
+  cadastrou os preços por profissional e a aba Particulares respondia "sem preço na tabela" em
+  todas as linhas (*"por que não foi contabilizado, uma vez que já temos os preços
+  cadastrados?"*). Agora `SessaoSemReceita.ProfissionalId` vem do HORÁRIO da sessão (o
+  atendimento não tem a coluna) e a tela pergunta por `PrecoParticularService.ProporAsync(sessao)`
+  — o MESMO número do Finalizar, com teste. **Especificidade nova numa regra de preço: releia
+  CADA leitor**; o que não passa o dado novo não quebra, só deixa de achar o preço.
+  ⚠️ **O que a clínica TINHA de fato era outro defeito, e o banco é que mostrou** (duas consultas
+  de leitura na VPS 1): (i) o único preço era "Acupuntura (apenas) · especialidade Acupuntura",
+  e **só a sessão de CONSULTA carrega especialidade** (`AgendaService` a limpa nas outras) — o
+  preço não casava com sessão nenhuma e nada avisava. Agora `PrecoParticularService.
+  AceitaEspecialidade` decide num lugar só: o Salvar recusa, o formulário fecha o campo, e a
+  linha já gravada assim vale como "qualquer especialidade" (no `Pontuar` e na lista). (ii) os
+  preços de consulta estavam no **Catálogo de pacotes** como "pacote de 1 sessão", com ZERO
+  pacotes vendidos: o catálogo só age quando alguém VENDE, e duas abas vizinhas falando de preço
+  do particular induziam a troca — o formulário do catálogo avisa (`PacotesNaTela.
+  AvisoDeUmaSessao`; aviso, não recusa: voucher de uma sessão existe). **Hipótese de causa se
+  confirma no DADO antes de virar correção** — a do profissional era plausível, tinha teste
+  verde e não era o que acontecia ali. (b) **convênios que o
   profissional NÃO atende** — `Profissional.ConveniosNaoAtendidos` (códigos separados por `;`;
   guarda-se a EXCEÇÃO, para convênio novo nascer atendido por todos). ⚠️ No
   `SalvarProfissionalAsync`, NULO preserva (a tela de Acessos regrava o profissional só para o

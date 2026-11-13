@@ -11,3 +11,16 @@
   white-space:nowrap;vertical-align:bottom}
 .rec-lancamentos td .selo{max-width:100%}
 .rec-lancamentos .rec-lanc-vista{margin:var(--space-4) var(--space-4) 0}
+.rec-lancamentos .rec-lanc-busca{flex:1 1 260px;min-width:220px}
+.rec-lancamentos .rec-lanc-acoes{display:inline-flex;gap:var(--space-2);justify-content:flex-end}
+/* A ficha do atendimento (modal — fica FORA de .rec-lancamentos). */
+.rec-atd-ficha{display:flex;flex-direction:column;gap:var(--space-4)}
+.rec-atd-ficha .pares dd{text-align:left;font-variant-numeric:normal;overflow-wrap:anywhere}
+.rec-atd-ficha .rec-atd-item{display:flex;flex-direction:column;gap:var(--space-1);padding:var(--space-2) 0;
+  border-top:1px solid var(--borda)}
+.rec-atd-ficha .rec-atd-item-topo{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2) var(--space-3)}
+.rec-atd-ficha .rec-atd-item-topo .principal{flex:1 1 220px;min-width:0}
+.rec-atd-ficha .rec-atd-item .secundario{color:var(--texto-secundario);font-size:var(--text-small-size)}
+.rec-atd-ficha .rec-atd-resumo{margin:0}
+.rec-atd-ficha .rec-atd-resumo .selo{white-space:normal;max-width:100%}
+.rec-atd-ficha .rec-atd-lista{margin:0;padding-left:var(--space-4)}

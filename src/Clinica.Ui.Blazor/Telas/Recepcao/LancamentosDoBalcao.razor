@@ -14,6 +14,12 @@
   não cria atendimento — e a tela, que só lia atendimentos, ficava vazia o dia inteiro enquanto
   a secretária trabalhava. A lista dos horários marcados no período (pelo CriadoEm, com quem
   marcou e o que aconteceu depois) é a outra metade da conferência, e abre primeiro.
+
+  A BUSCA e a FICHA DO ATENDIMENTO (nov/2026): a recepção achava o paciente e o nº do
+  atendimento e não tinha onde ver o que foi feito, as guias e o que foi cobrado. O campo
+  filtra o período por nome, nº do atendimento ou nº da guia; quando o texto é um NÚMERO, a
+  busca vai ao banco em QUALQUER data (quem tem o número na mão não sabe o dia). "Abrir" mostra
+  a ficha — DetalheDoAtendimentoForm, só leitura. As regras moram em DetalheDoAtendimentoNaTela.
 *@
 @namespace Clinica.Ui.Blazor.Telas
 @using Clinica.Application.Abstracoes
@@ -58,6 +64,13 @@
                     title="Os atendimentos finalizados no período, com as guias" @onclick="() => _vista = VistaAtendimentos">Atendimentos (@_carregadas.Count)</button>
         </div>
         <div class="filtros">
+            @* À vista nas DUAS listas: quem chega em "Horários marcados" com um número na mão não
+               tem de adivinhar que a busca mora na outra. Digitar leva para Atendimentos. *@
+            <Campo Rotulo="Buscar atendimento" Classe="rec-lanc-busca">
+                <input class="campo" type="search" value="@_busca" placeholder="Paciente, nº do atendimento ou nº da guia"
+                       aria-label="Buscar por paciente, número do atendimento ou número da guia" autocomplete="off" spellcheck="false"
+                       @oninput="e => Digitou(e.Value?.ToString())" @onchange="_ => BuscarPorNumeroAsync()" />
+            </Campo>
             <Campo Rotulo="Convênio">
                 <select class="campo" value="@_filtro.Convenio" @onchange="e => Filtrar(_filtro with { Convenio = e.Value?.ToString() })">
                     @foreach (var o in _convenios) { <option value="@o">@o</option> }
@@ -85,7 +98,11 @@
             {
                 <button type="button" class="botao fantasma" @onclick="() => Filtrar(FiltroInicial)">Limpar filtros</button>
             }
-            <span class="resumo-filtro">@(VendoMarcacoes ? LancamentosNaTela.ResumoMarcacoes(_linhasMarcacoes.Count, _marcacoes.Count) : LancamentosNaTela.ResumoComPacientes(_linhas, _carregadas.Count))</span>
+            @* Na busca por número a conta "N de M do período" não vale: quem diz o que há é a faixa acima da lista. *@
+            @if (VendoMarcacoes || _porNumero is null)
+            {
+                <span class="resumo-filtro">@(VendoMarcacoes ? LancamentosNaTela.ResumoMarcacoes(_linhasMarcacoes.Count, _marcacoes.Count) : LancamentosNaTela.ResumoComPacientes(_linhas, _carregadas.Count))</span>
+            }
             @if (!VendoMarcacoes)
             {
                 <button type="button" class="botao mini" @onclick="ExportarCsvAsync" disabled="@(_linhas.Count == 0)"
@@ -139,14 +156,20 @@
             </div>
             <div class="rodape-lista">O atendimento e as guias nascem quando o profissional finaliza a sessão — aí ela aparece em "Atendimentos".</div>
         }
+        else if (_falhaDaBusca is not null)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível buscar pelo número" Detalhe="@_falhaDaBusca" AoTentarDeNovo="BuscarPorNumeroAsync" />
+        }
         else if (_linhas.Count == 0)
         {
-            <EstadoVazio Titulo="@(_filtro.Ativo && _carregadas.Count > 0 ? "Nenhum atendimento bate com o filtro" : "Nenhum atendimento no período")"
-                         Descricao="@(_filtro.Ativo && _carregadas.Count > 0 ? "Limpe os filtros para ver o período inteiro." : "O atendimento nasce quando o profissional finaliza a sessão. O que foi só marcado está em Horários marcados.")"
-                         Icone="@(_filtro.Ativo && _carregadas.Count > 0 ? "filtro" : "vazio")" />
+            @if (_porNumero is not null) { <div class="rodape-lista">@_resumoDaBusca</div> }
+            <EstadoVazio Titulo="@(Recortando ? "Nenhum atendimento bate com a busca ou o filtro" : "Nenhum atendimento no período")"
+                         Descricao="@(Recortando ? "Limpe a busca e os filtros para ver o período inteiro. Busca por NÚMERO (do atendimento ou da guia) vale para qualquer data; por nome, só o período escolhido." : "O atendimento nasce quando o profissional finaliza a sessão. O que foi só marcado está em Horários marcados.")"
+                         Icone="@(Recortando ? "filtro" : "vazio")" />
         }
         else
         {
+            @if (_porNumero is not null) { <div class="rodape-lista">@_resumoDaBusca</div> }
             <div class="tabela-rolagem">
                 <table class="lista rec-lanc-lista">
                     <thead>
@@ -156,17 +179,17 @@
                             <th style="width:220px">Guias</th>
                             <th class="nao-quebra" style="width:130px">Atendimento</th>
                             <th style="width:200px">Convênio</th>
-                            <th class="direita" style="width:120px"><span class="rec-lanc-oculto">Ações</span></th>
+                            <th class="direita" style="width:190px"><span class="rec-lanc-oculto">Ações</span></th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var l in _linhas)
                         {
                             <tr @key="l.AtendimentoId" class="@(l.TemPendencia ? "rec-lanc-pendente" : null)">
-                                <td class="nao-quebra numero">@l.DataRotulo</td>
+                                <td class="nao-quebra numero">@(_porNumero is null ? l.DataRotulo : l.Data.ToString("dd/MM/yy"))</td>
                                 <td>
                                     <span class="principal">@l.Paciente</span>
-                                    <span class="secundario">@l.Modalidade · @l.Lancamento</span>
+                                    <span class="secundario">@l.Modalidade · @l.Lancamento@(l.Estornado ? " · ESTORNADO" : null)</span>
                                 </td>
                                 <td>
                                     <span>@l.Guias</span>
@@ -175,9 +198,16 @@
                                 <td class="nao-quebra numero">@l.Numero</td>
                                 <td><Selo Tom="neutro" Dica="@l.Convenio"><span class="rec-lanc-convenio">@l.Convenio</span></Selo></td>
                                 <td class="direita">
-                                    <button type="button" class="botao mini contorno-perigo" disabled="@(!PodeEstornar)"
-                                            title="@(PodeEstornar ? "Desfazer esta sessão lançada por engano" : "Seu acesso não permite estornar atendimentos.")"
-                                            @onclick="() => Estornar(l)">Estornar…</button>
+                                    <span class="rec-lanc-acoes">
+                                        <button type="button" class="botao mini" title="O que foi feito, as guias e o que foi cobrado neste atendimento"
+                                                @onclick="() => _abrindo = l">Abrir</button>
+                                        @if (!l.Estornado)
+                                        {
+                                            <button type="button" class="botao mini contorno-perigo" disabled="@(!PodeEstornar)"
+                                                    title="@(PodeEstornar ? "Desfazer esta sessão lançada por engano" : "Seu acesso não permite estornar atendimentos.")"
+                                                    @onclick="() => Estornar(l)">Estornar…</button>
+                                        }
+                                    </span>
                                 </td>
                             </tr>
                         }
@@ -188,6 +218,11 @@
         }
     </section>
 </div>
+
+@if (_abrindo is { } aberto)
+{
+    <DetalheDoAtendimentoForm AtendimentoId="aberto.AtendimentoId" AoFechar="() => _abrindo = null" />
+}
 
 @if (_estornando is { } e)
 {
@@ -217,6 +252,16 @@
     private string? _recusa;
     private int _geracao;
     private LinhaLancamentoBalcao? _estornando;
+    private LinhaLancamentoBalcao? _abrindo;
+    private string _busca = string.Empty;
+    /// <summary>Não nulo = a lista vem da busca por NÚMERO, em qualquer data, e não do período.</summary>
+    private List<LinhaLancamentoBalcao>? _porNumero;
+    private string? _resumoDaBusca;
+    private string? _falhaDaBusca;
+    private int _geracaoDaBusca;
+    private const int TetoDaBusca = 50;
+
+    private bool Recortando => _filtro.Ativo && _carregadas.Count > 0 || !string.IsNullOrWhiteSpace(_busca);
 
     private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
     private bool EhHoje => _de == Hoje && _ate == Hoje;
@@ -303,9 +348,58 @@
 
     private void Filtrar(FiltroLancamentos f) { _filtro = f; Aplicar(); }
 
+    /// <summary>
+    /// Cada tecla filtra o que JÁ está na tela (nome, nº do atendimento, nº da guia). Ao banco
+    /// só se vai no Enter/saída do campo, e só por número — ver <see cref="BuscarPorNumeroAsync"/>.
+    /// </summary>
+    private void Digitou(string? texto)
+    {
+        _busca = texto ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(_busca)) _vista = VistaAtendimentos;
+        if (!DetalheDoAtendimentoNaTela.EhBuscaPorNumero(_busca)) SairDaBuscaPorNumero();
+        Aplicar();
+    }
+
+    private void SairDaBuscaPorNumero()
+    {
+        _geracaoDaBusca++;
+        _porNumero = null;
+        _resumoDaBusca = _falhaDaBusca = null;
+    }
+
+    /// <summary>Número do atendimento ou da guia: procura em QUALQUER data. Contador de geração; publica depois do await.</summary>
+    private async Task BuscarPorNumeroAsync()
+    {
+        if (!DetalheDoAtendimentoNaTela.EhBuscaPorNumero(_busca)) return;
+        var geracao = ++_geracaoDaBusca;
+        var termo = DetalheDoAtendimentoNaTela.TermoDeNumero(_busca);
+        try
+        {
+            using var escopo = Escopo();
+            var achados = await escopo.ServiceProvider.GetRequiredService<IClinicaRepositorio>()
+                .AtendimentosPorNumeroAsync(termo, TetoDaBusca);
+            if (geracao != _geracaoDaBusca || Descartada) return;
+            _porNumero = achados.Select(LancamentosNaTela.Montar).ToList();
+            _resumoDaBusca = DetalheDoAtendimentoNaTela.ResumoDaBuscaPorNumero(termo, _porNumero.Count, TetoDaBusca);
+            _falhaDaBusca = null;
+            _vista = VistaAtendimentos;
+            Aplicar();
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracaoDaBusca) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — Lançamentos: busca por número falhou", ex);
+            _porNumero = null;
+            _falhaDaBusca = ex.Message;
+        }
+    }
+
     private void Aplicar()
     {
-        _linhas = _carregadas.Where(l => LancamentosNaTela.Passa(l, _filtro)).ToList();
+        // Busca por número: a lista é a do banco (qualquer data), e os filtros do PERÍODO não a recortam.
+        _linhas = _porNumero is not null
+            ? _porNumero.ToList()
+            : _carregadas.Where(l => LancamentosNaTela.Passa(l, _filtro) && DetalheDoAtendimentoNaTela.Casa(l, _busca)).ToList();
         _linhasMarcacoes = _marcacoes.Where(m => LancamentosNaTela.Passa(m, _filtro)).ToList();
     }
 

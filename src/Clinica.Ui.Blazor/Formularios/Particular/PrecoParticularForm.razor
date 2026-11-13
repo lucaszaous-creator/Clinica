@@ -35,7 +35,7 @@
         {
             <div class="campos">
                 <Campo Rotulo="Modalidade (o que foi feito)" Obrigatorio="true" Erro="@_erroModalidade" Classe="largo">
-                    <select class="campo" value="@(_modalidade ?? "")" @onchange="e => { _modalidade = Vazio(e); _erroModalidade = null; }">
+                    <select class="campo" value="@(_modalidade ?? "")" @onchange="e => { _modalidade = Vazio(e); _erroModalidade = null; _especialidade = PrecosParticularNaTela.EspecialidadeQueVale(_modalidade, _especialidade); }">
                         <option value="">Escolha a modalidade…</option>
                         @foreach (var m in _modalidades)
                         {
@@ -44,8 +44,8 @@
                     </select>
                 </Campo>
                 <Campo Rotulo="Especialidade atendida" Classe="largo"
-                       Dica="É o que diferencia a consulta de psiquiatria da de geriatria. Em branco, o preço vale para qualquer especialidade desta modalidade — o caso normal da acupuntura. Um preço com especialidade VENCE o genérico da modalidade.">
-                    <select class="campo" value="@(_especialidade ?? "")" @onchange="e => _especialidade = Vazio(e)">
+                       Dica="@(AbreEspecialidade ? PrecosParticularNaTela.DicaDaEspecialidade : PrecosParticularNaTela.DicaSemEspecialidade)">
+                    <select class="campo" value="@(_especialidade ?? "")" disabled="@(!AbreEspecialidade)" @onchange="e => _especialidade = Vazio(e)">
                         <option value="">(qualquer especialidade)</option>
                         @foreach (var s in _especialidades)
                         {
@@ -121,6 +121,9 @@
 
     private static bool PodeEditar => SessaoUsuario.Atual.PodeAlgum(PrecosParticularNaTela.QuemEdita);
 
+    /// <summary>Só a consulta tem especialidade — nas outras o campo fica fechado e em branco.</summary>
+    private bool AbreEspecialidade => PrecosParticularNaTela.AbreEspecialidade(_modalidade);
+
     private static string? Vazio(ChangeEventArgs e) => e.Value?.ToString() is { Length: > 0 } v ? v : null;
 
     protected override async Task OnInitializedAsync()
@@ -158,7 +161,9 @@
             if (existente is { } p)
             {
                 _modalidade = PrecosParticularNaTela.Casar(_modalidades, p.ModalidadeCodigo);
-                _especialidade = PrecosParticularNaTela.Casar(_especialidades, p.EspecialidadeCodigo);
+                // O preço antigo de acupuntura gravado COM especialidade abre em branco: é o que vale.
+                _especialidade = PrecosParticularNaTela.EspecialidadeQueVale(p.ModalidadeCodigo,
+                    PrecosParticularNaTela.Casar(_especialidades, p.EspecialidadeCodigo));
                 _valor = PrecosParticularNaTela.ParaCampo(p.Valor);
                 _vigenteDe = p.VigenteDe;
                 _vigenteAte = p.VigenteAte;
