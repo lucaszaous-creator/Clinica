@@ -70,12 +70,19 @@ public class PrecoConvenio
     /// </summary>
     private static readonly System.Globalization.CultureInfo Brasil = new("pt-BR");
 
-    /// <summary>Como o preço aparece escrito na tela e na procedência do lançamento.</summary>
+    /// <summary>
+    /// Como o preço aparece escrito na tela e na procedência do lançamento.
+    ///
+    /// ⚠️ O NOME do convênio e os RÓTULOS, nunca o código nem o nome do enum (nov/2026): a
+    /// operadora cadastrada pela clínica tem código gerado, e a Conciliação mostrava
+    /// "tabela: CVdb38f1f7 · Acupuntura" embaixo de uma guia da SulAmérica — a frase que existe
+    /// para a pessoa CONFERIR de onde veio o valor não dizia de quem ele era.
+    /// </summary>
     public string Descricao => string.Format(
         Brasil, "{0} · {1}{2} — {3:C}",
-        ConvenioCodigo,
-        Tipo,
-        Especialidade is { } e ? $" ({e})" : string.Empty,
+        Regras.CatalogoConvenios.NomeOuCodigo(ConvenioCodigo),
+        RotulosEnum.De(Tipo),
+        Especialidade is { } e ? $" ({RotulosEnum.De(e)})" : string.Empty,
         Valor);
 
     /// <summary>Vigência escrita, para a lista.</summary>
