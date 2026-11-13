@@ -428,7 +428,7 @@
             var novas = new List<LinhaParticular>();
             foreach (var s in sessoes)
             {
-                var proposto = await precos.ProporAsync(s.CodigoDaModalidade, s.Modalidade, s.CodigoDaEspecialidade, s.Data);
+                var proposto = await precos.ProporAsync(s);
                 if (geracao != _geracao || Descartada) return;
                 novas.Add(new LinhaParticular(s)
                 {

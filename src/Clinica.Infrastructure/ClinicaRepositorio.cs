@@ -3253,8 +3253,11 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             // Sessão de pacote já foi paga na compra do pacote.
             .Where(a => !_db.ConsumosPacote.Any(c => c.AtendimentoId == a.Id && c.CanceladoEm == null));
 
-    private static readonly System.Linq.Expressions.Expression<Func<Atendimento, SessaoSemReceita>>
-        ProjetarSessaoSemReceita = a => new SessaoSemReceita(
+    // De instância, e não `static`: o profissional mora no HORÁRIO (o atendimento não tem
+    // essa coluna), e a subconsulta precisa do contexto. O horário mais novo ganha — o
+    // remarcado deixa o antigo para trás.
+    private System.Linq.Expressions.Expression<Func<Atendimento, SessaoSemReceita>>
+        ProjetarSessaoSemReceita => a => new SessaoSemReceita(
             a.Id,
             a.PacienteId,
             a.Paciente!.Nome,
@@ -3266,7 +3269,9 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             a.Paciente.Convenio,
             a.Paciente.ConvenioCodigo,
             a.Codigos.OrderBy(c => c.Id).Select(c => c.Tipo).First(),
-            a.Particular);
+            a.Particular,
+            _db.Agendamentos.Where(g => g.AtendimentoId == a.Id)
+                .OrderByDescending(g => g.Id).Select(g => g.ProfissionalId).FirstOrDefault());
 
     // ---- Estoque ----
 

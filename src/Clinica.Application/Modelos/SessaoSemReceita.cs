@@ -33,7 +33,11 @@ public sealed record SessaoSemReceita(
     string? ConvenioCodigo,
     TipoCodigo Tipo,
     // A sessão foi MARCADA como particular (nov/2026) — a ficha pode ter convênio que fatura.
-    bool ParticularDaSessao)
+    bool ParticularDaSessao,
+    // QUEM ATENDEU (nov/2026), lido do horário da sessão. Sem ele a Conciliação só enxergava
+    // os preços GERAIS: a clínica cadastrou o preço por profissional e a linha dizia "sem
+    // preço na tabela". Nulo = sessão sem horário (lançamento avulso) ou horário sem dono.
+    int? ProfissionalId = null)
 {
     /// <summary>Código da modalidade como a tabela do particular o conhece (família quando não há código).</summary>
     public string CodigoDaModalidade => ModalidadeCodigo ?? Modalidade.ToString();

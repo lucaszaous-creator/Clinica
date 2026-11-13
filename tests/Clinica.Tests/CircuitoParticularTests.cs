@@ -375,9 +375,32 @@ public class CircuitoParticularTests : IDisposable
 
         // E a Conciliação propõe o MESMO número para a mesma sessão.
         var pendente = (await _financeiro.SessoesParticularesSemReceitaAsync(Dia, Dia)).Single();
-        var proposto = await _precos.ProporAsync(
-            pendente.CodigoDaModalidade, pendente.Modalidade, pendente.CodigoDaEspecialidade, pendente.Data);
+        var proposto = await _precos.ProporAsync(pendente);
         proposto.Valor.Should().Be(180m);
+    }
+
+    /// <summary>
+    /// nov/2026, a clínica: "já temos os preços cadastrados" — e a aba Particulares dizia
+    /// "sem preço na tabela". O preço estava cadastrado POR PROFISSIONAL, e a Conciliação
+    /// perguntava sem dizer quem atendeu: só os preços gerais concorriam.
+    /// </summary>
+    [Fact]
+    public async Task A_conciliacao_propoe_o_preco_cadastrado_para_quem_atendeu()
+    {
+        var pacienteId = await ParticularAsync();
+        await _precos.SalvarAsync(new PrecoParticular
+        {
+            ModalidadeCodigo = nameof(ModalidadeAtendimento.AcupunturaComEletro),
+            ProfissionalId = _profPadrao, Valor = 250m
+        });
+
+        var agendamentoId = await AgendarAsync(pacienteId);
+        var registro = await _fechamento.RegistrarAtendimentoAsync(agendamentoId);
+        registro.Proposta.ValorSugerido.Should().Be(250m);
+
+        var pendente = (await _financeiro.SessoesParticularesSemReceitaAsync(Dia, Dia)).Single();
+        pendente.ProfissionalId.Should().Be(_profPadrao, "a sessão carrega quem atendeu, lido do horário");
+        (await _precos.ProporAsync(pendente)).Valor.Should().Be(250m, "o MESMO número do Finalizar");
     }
 
     [Fact]
