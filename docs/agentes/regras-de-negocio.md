@@ -6,7 +6,7 @@ mora o código. Mexer numa área? Leia antes o tópico dela — vários registra
 teste pega. Lição nova de uma área entra aqui, no tópico dela; regra que vale para TODA mudança
 continua no `CLAUDE.md`.
 
-## Índice (195 tópicos, na ordem do arquivo)
+## Índice (196 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -15,6 +15,7 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
 - A AMARRA ENTRE O HORÁRIO E A SESSÃO, e a pergunta que ela produz
 - O CIRCUITO DO PARTICULAR — a Recepção é o centro, e o dinheiro de quem não tem
 - PARTICULAR POR HORÁRIO — a paciente tem plano, e quem atende não o aceita
+- RECEBER AO MARCAR — o particular paga no balcão quando marca, e é ali que o dinheiro entra
 - O DETALHE DO ATENDIMENTO E A BUSCA — o que foi feito, as guias e o que foi cobrado
 - TRAVA DE CONSULTA DO CONVÊNIO e a liberação da gerência pelo WhatsApp
 - ESTORNAR UM ATENDIMENTO
@@ -430,6 +431,44 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   frase do Finalizar, `CobrancaDaSessao`) e a cobrança continua no Finalizar/Conciliação.
   Receber antes de a sessão existir pede política da clínica (devolução, crédito, falta) — as
   opções e as quatro perguntas estão no documento.
+- **RECEBER AO MARCAR — o particular paga no balcão quando marca, e é ali que o dinheiro entra**
+  (nov/2026; a direção: *"o paciente chega no balcão, marca a consulta, a secretária passa o
+  valor e é cobrado ali na hora"*, depois de ver 7 sessões pagas paradas na aba Particulares da
+  Conciliação pedindo "recebido ou a receber"). O formulário de marcar MOSTRAVA o preço e não
+  tinha onde registrar o pagamento: o dinheiro só entrava dias depois, redigitado. Agora o
+  `AgendamentoForm` tem o bloco **"Recebido agora, no balcão"** (ligado por padrão em horário
+  NOVO de sessão particular sem pacote; valor da tabela, editável; a FORMA é obrigatória) e
+  grava pelo `PagamentoNaMarcacaoService`: entrada REALIZADA hoje, competência no dia da sessão.
+  ⚠️ **O dinheiro se prende ao HORÁRIO** (`LancamentoFinanceiro.AgendamentoId`, coluna aditiva):
+  ao marcar, o atendimento ainda não existe. O `AtendimentoId` é amarrado em
+  `AgendaService.ConfirmarNucleoAsync`, no MESMO commit em que o atendimento nasce — ao lado da
+  amarração das evoluções, e pela mesma razão. É por essa chave que Conciliação, repasse e
+  estorno o enxergam; **leitor novo de "esta sessão tem dinheiro?" continua olhando
+  `AtendimentoId`**, e só quem pergunta ANTES do atendimento usa `EntradasDoHorarioAsync`
+  (o Finalizar, para não cobrar duas vezes; o cancelamento, para avisar).
+  ⚠️ **A forma não se presume**: sem ela o cartão não gera taxa nem recebível e o extrato não
+  concilia. É a única coisa que o sistema não sabe sozinho — por isso é o único campo a mais.
+  ⚠️ **A conferência é ANTES de gravar o horário; o recebimento, DEPOIS.** Valor ou forma
+  faltando recusam o Salvar (e a frase dá a saída: desmarcar, para a marcação por telefone).
+  Caixa do dia fechado falha DEPOIS de o horário existir e vira AVISO — desfazer a marcação
+  porque o caixa recusou deixaria o paciente sem horário (a hierarquia do
+  `FechamentoSessaoService.ConcluirAsync`).
+  ⚠️ **Maquininha SEM taxa cadastrada NÃO impede receber aqui** (a direção: *"não impeça o
+  lançamento pela falta de taxa da maquininha cadastrada"*). O cartão entra pelo BRUTO, sem taxa
+  e sem previsão de recebimento, e a tela AVISA (`AvisoSemTaxa`) — sem data prevista ele não
+  aparece nos recebíveis de cartão até alguém cadastrar a taxa. É exceção DESTA porta
+  (`exigirTaxaCadastrada: false`): Finalizar, Pagamentos e venda de pacote continuam exigindo.
+  ⚠️ **Cancelar ou marcar falta num horário pago AVISA e não devolve** (`AvisoDeHorarioPago`):
+  devolver é decisão de quem está com o paciente e ato de quem mexe no Financeiro. Remarcar não
+  precisa de nada — o horário é a mesma linha.
+  ⚠️ Pego na FOTO e no teste que já existia: a frase do preço continuava dizendo "o pagamento é
+  registrado no Finalizar" em cima do campo de pagamento (`CobrancaDaSessao.Montar(recebeAqui:)`),
+  e dois testes do formulário marcavam paciente particular com um clique — eles passaram a
+  desmarcar o bloco, que é exatamente a marcação por telefone.
+  **Fora, com o motivo**: o chamado da lista de espera e o Marcar/Lançar do balcão não ganharam o
+  bloco (o segundo já tem a janela de fechamento); "manter como crédito" no cancelamento não
+  existe como conceito — hoje é aviso; e a aba Particulares com médico e especialidade espera o
+  PR do preço por profissional, que traz o `ProfissionalId` da sessão.
 - **O DETALHE DO ATENDIMENTO E A BUSCA — o que foi feito, as guias e o que foi cobrado**
   (nov/2026; a recepção: *"encontramos o paciente e o nº do atendimento, mas precisaríamos saber
   o que foi feito naquele atendimento, o que foi cobrado, guia e outras coisas"*). Tudo já

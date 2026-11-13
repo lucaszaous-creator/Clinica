@@ -139,6 +139,123 @@ public class CircuitoParticularTests : IDisposable
     private IReadOnlyList<LancamentoFinanceiro> LancamentosDoPacote(int pacoteId)
         => _db.Lancamentos.AsNoTracking().Where(l => l.PacotePacienteId == pacoteId).OrderBy(l => l.Id).ToList();
 
+    // ==================== Receber ao marcar (nov/2026) ====================
+    // "O paciente chega no balcão, marca a consulta, a secretária passa o valor e é cobrado ali."
+
+    private PagamentoNaMarcacaoService Marcacao() => new(_repo, _financeiro);
+
+    [Fact]
+    public async Task Pago_ao_marcar_entra_no_caixa_na_hora_e_a_sessao_nao_vai_para_a_conciliacao()
+    {
+        var pacienteId = await ParticularAsync();
+        var agendamentoId = await AgendarAsync(pacienteId);
+
+        var pago = await Marcacao().ReceberAsync(agendamentoId,
+            new PagamentoNaMarcacao(500m, FormaPagamento.Pix), "recepcao", hoje: Dia.AddDays(-3));
+
+        // Recebido HOJE (antes da sessão), competência no dia da sessão, preso ao HORÁRIO.
+        pago.Status.Should().Be(StatusLancamento.Realizado);
+        pago.DataPagamento.Should().Be(Dia.AddDays(-3));
+        pago.Data.Should().Be(Dia);
+        pago.AgendamentoId.Should().Be(agendamentoId);
+        pago.AtendimentoId.Should().BeNull("o atendimento ainda não nasceu");
+        pago.PacienteId.Should().Be(pacienteId);
+        (await Marcacao().PagoPeloHorarioAsync(agendamentoId)).Should().Be(500m);
+
+        // O profissional finaliza: o atendimento nasce e o pagamento passa a apontar para ele.
+        _db.ChangeTracker.Clear();
+        var registro = await _fechamento.RegistrarAtendimentoAsync(agendamentoId, "medica");
+        _db.ChangeTracker.Clear();
+
+        _db.Lancamentos.AsNoTracking().Single().AtendimentoId.Should().Be(registro.Atendimento.Id);
+        registro.Proposta.SugereLancamento.Should().BeFalse("perguntar de novo seria cobrar duas vezes");
+        registro.TemDecisao.Should().BeFalse("não há janela de fechamento para abrir");
+        (await _financeiro.SessoesParticularesSemReceitaAsync(Dia, Dia)).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Um_horario_se_paga_uma_vez_e_convenio_nao_paga_no_balcao()
+    {
+        var agendamentoId = await AgendarAsync(await ParticularAsync());
+        await Marcacao().ReceberAsync(agendamentoId, new PagamentoNaMarcacao(500m, FormaPagamento.Dinheiro));
+        _db.ChangeTracker.Clear();
+
+        var deNovo = () => Marcacao().ReceberAsync(agendamentoId, new PagamentoNaMarcacao(500m, FormaPagamento.Dinheiro));
+        (await deNovo.Should().ThrowAsync<InvalidOperationException>()).WithMessage("*já tem pagamento*");
+        _db.Lancamentos.Count().Should().Be(1);
+
+        var semForma = () => Marcacao().ReceberAsync(agendamentoId, new PagamentoNaMarcacao(0m, FormaPagamento.Pix));
+        await semForma.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    /// <summary>A direção: "não impeça o lançamento pela falta de taxa da maquininha cadastrada".</summary>
+    [Fact]
+    public async Task Cartao_sem_taxa_cadastrada_entra_pelo_bruto_e_avisa()
+    {
+        var agendamentoId = await AgendarAsync(await ParticularAsync());
+
+        var pago = await Marcacao().ReceberAsync(agendamentoId,
+            new PagamentoNaMarcacao(500m, FormaPagamento.CartaoCredito, "Stone", "Visa", 2), "recepcao");
+
+        pago.Status.Should().Be(StatusLancamento.Realizado);
+        pago.Valor.Should().Be(500m);
+        pago.ValorLiquido.Should().Be(500m, "sem taxa cadastrada não há o que descontar");
+        pago.Adquirente.Should().Be("Stone");
+        pago.Parcelas.Should().Be(2);
+        pago.PrevisaoRecebimento.Should().BeNull();
+        PagamentoNaMarcacaoService.AvisoSemTaxa(pago).Should().Contain("SEM taxa").And.Contain("Stone");
+
+        // PIX não tem maquininha: nada a avisar.
+        var outro = await AgendarAsync(await ParticularAsync("Joana"));
+        var pix = await Marcacao().ReceberAsync(outro, new PagamentoNaMarcacao(500m, FormaPagamento.Pix));
+        PagamentoNaMarcacaoService.AvisoSemTaxa(pix).Should().BeNull();
+
+        // As OUTRAS portas continuam exigindo a taxa — a exceção é só do pagamento ao marcar.
+        var exigindo = () => new TaxaService(_repo).CalcularPagamentoPacienteAsync(
+            500m, DateOnly.FromDateTime(DateTime.Today), FormaPagamento.CartaoCredito, "Stone", "Visa", 2);
+        await exigindo.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task Cancelar_ou_faltar_num_horario_pago_avisa_e_nao_devolve_sozinho()
+    {
+        var agendamentoId = await AgendarAsync(await ParticularAsync());
+        await Marcacao().ReceberAsync(agendamentoId, new PagamentoNaMarcacao(500m, FormaPagamento.Pix));
+        _db.ChangeTracker.Clear();
+
+        var avisos = await _agenda.CancelarAsync(agendamentoId, "recepcao");
+
+        avisos.Should().Contain(a => a.Contains("PAGO ao marcar") && a.Contains("500,00"));
+        _db.Lancamentos.AsNoTracking().Single().Status.Should().Be(StatusLancamento.Realizado, "devolver é decisão de gente");
+
+        // Horário sem pagamento cancela calado, como sempre.
+        var outro = await AgendarAsync(await ParticularAsync("Joana"));
+        (await _agenda.CancelarAsync(outro, "recepcao")).Should().NotContain(a => a.Contains("PAGO"));
+    }
+
+    [Fact]
+    public void O_bloco_de_pagamento_confere_o_que_foi_digitado_antes_de_marcar()
+    {
+        PagamentoNaMarcacaoService.Conferir("500,00", FormaPagamento.Pix, null, null, null, out var erro)
+            .Should().Be(new PagamentoNaMarcacao(500m, FormaPagamento.Pix));
+        erro.Should().BeNull();
+
+        PagamentoNaMarcacaoService.Conferir("", FormaPagamento.Pix, null, null, null, out erro).Should().BeNull();
+        erro.Should().Contain("valor");
+        PagamentoNaMarcacaoService.Conferir("500", null, null, null, null, out erro).Should().BeNull();
+        erro.Should().Contain("Escolha como o paciente pagou");
+        PagamentoNaMarcacaoService.Conferir("500", FormaPagamento.Convenio, null, null, null, out _).Should().BeNull();
+
+        // Cartão pede maquininha e bandeira; só o crédito parcela.
+        PagamentoNaMarcacaoService.Conferir("500", FormaPagamento.CartaoCredito, null, "Visa", "2", out erro).Should().BeNull();
+        erro.Should().Contain("maquininha");
+        PagamentoNaMarcacaoService.Conferir("500", FormaPagamento.CartaoCredito, " Stone ", "Visa", "3", out _)
+            .Should().Be(new PagamentoNaMarcacao(500m, FormaPagamento.CartaoCredito, "Stone", "Visa", 3));
+        PagamentoNaMarcacaoService.Conferir("500", FormaPagamento.CartaoDebito, "Stone", "Visa", "9", out _)!
+            .Parcelas.Should().Be(1, "débito não parcela, seja o que for que ficou no campo");
+        PagamentoNaMarcacaoService.Formas.Should().NotContain(FormaPagamento.Convenio);
+    }
+
     // ==================== O detalhe do atendimento (nov/2026) ====================
 
     [Fact]

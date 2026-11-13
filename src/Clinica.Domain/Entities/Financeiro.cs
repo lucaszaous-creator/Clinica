@@ -133,6 +133,16 @@ public class LancamentoFinanceiro
     public Atendimento? Atendimento { get; set; }
 
     /// <summary>
+    /// O HORÁRIO que este dinheiro pagou (nov/2026). O particular paga no balcão AO MARCAR —
+    /// e nesse momento o atendimento ainda não existe (ele nasce quando o profissional
+    /// finaliza). O pagamento se prende ao horário e ganha o <see cref="AtendimentoId"/> no
+    /// mesmo commit em que o atendimento nasce (<c>AgendaService.ConfirmarNucleoAsync</c>).
+    /// Remarcar não mexe aqui: o horário é a mesma linha, com outra data.
+    /// </summary>
+    public int? AgendamentoId { get; set; }
+    public Agendamento? Agendamento { get; set; }
+
+    /// <summary>
     /// Guia/código de faturamento que originou a receita. É o vínculo que permite
     /// conciliar: guia efetivada no convênio ↔ dinheiro recebido.
     /// </summary>

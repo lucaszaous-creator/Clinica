@@ -3595,6 +3595,9 @@ namespace Clinica.Infrastructure.Migrations
                         .HasMaxLength(60)
                         .HasColumnType("character varying(60)");
 
+                    b.Property<int?>("AgendamentoId")
+                        .HasColumnType("integer");
+
                     b.Property<decimal?>("AliquotaImposto")
                         .HasPrecision(6, 2)
                         .HasColumnType("numeric(6,2)");
@@ -3757,6 +3760,8 @@ namespace Clinica.Infrastructure.Migrations
                         .HasColumnName("xmin");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AgendamentoId");
 
                     b.HasIndex("AtendimentoId");
 
@@ -8268,6 +8273,11 @@ namespace Clinica.Infrastructure.Migrations
 
             modelBuilder.Entity("Clinica.Domain.Entities.LancamentoFinanceiro", b =>
                 {
+                    b.HasOne("Clinica.Domain.Entities.Agendamento", "Agendamento")
+                        .WithMany()
+                        .HasForeignKey("AgendamentoId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Clinica.Domain.Entities.Atendimento", "Atendimento")
                         .WithMany()
                         .HasForeignKey("AtendimentoId")
@@ -8297,6 +8307,8 @@ namespace Clinica.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("PacotePacienteId")
                         .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Agendamento");
 
                     b.Navigation("Atendimento");
 

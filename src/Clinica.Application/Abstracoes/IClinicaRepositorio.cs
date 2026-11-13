@@ -1448,6 +1448,13 @@ public interface IClinicaRepositorio
         int? codigoFaturamentoId, int? atendimentoId, CancellationToken ct = default);
 
     /// <summary>Entradas realizadas ligadas a uma lista de atendimentos (base do repasse).</summary>
+    /// <summary>
+    /// As entradas VIVAS (não canceladas) pagas AO MARCAR este horário (nov/2026). RASTREADAS:
+    /// quem chama amarra o atendimento recém-nascido no mesmo commit.
+    /// </summary>
+    Task<IReadOnlyList<LancamentoFinanceiro>> EntradasDoHorarioAsync(
+        int agendamentoId, CancellationToken ct = default);
+
     Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosDosAtendimentosAsync(
         IReadOnlyCollection<int> atendimentoIds, CancellationToken ct = default);
 

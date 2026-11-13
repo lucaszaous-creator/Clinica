@@ -125,7 +125,11 @@ public sealed class TaxaService
     /// <summary>Pagamento informado no balcão: não presume a maquininha, a bandeira ou o prazo.</summary>
     public async Task<DeducoesRecebimento> CalcularPagamentoPacienteAsync(decimal valor, DateOnly data,
         FormaPagamento forma, string? adquirente, string? bandeira, int parcelas = 1,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        // Falso = a maquininha SEM taxa cadastrada não impede o recebimento (o pagamento ao
+        // marcar, nov/2026 — decisão da direção): o cartão entra pelo BRUTO, sem taxa e sem
+        // previsão de recebimento, e quem recebe é avisado. As outras portas continuam exigindo.
+        bool exigirTaxaCadastrada = true)
     {
         if (!Enum.IsDefined(forma) || forma == FormaPagamento.Convenio)
             throw new InvalidOperationException("Informe como o paciente pagou a sessão.");
@@ -138,7 +142,7 @@ public sealed class TaxaService
         if (adquirente?.Trim().Length > 60 || bandeira?.Trim().Length > 40)
             throw new InvalidOperationException("Use até 60 caracteres na adquirente e 40 na bandeira.");
         var deducoes = await CalcularAsync(valor, data, forma, Limpar(adquirente), Limpar(bandeira), parcelas, ct: ct);
-        if (ModalidadeDe(forma) is not null && deducoes.PrevisaoRecebimento is null)
+        if (exigirTaxaCadastrada && ModalidadeDe(forma) is not null && deducoes.PrevisaoRecebimento is null)
             throw new InvalidOperationException("Cadastre no Financeiro a taxa e o prazo desta maquininha antes de receber no cartão.");
         return deducoes;
     }
