@@ -1,4 +1,5 @@
 using Clinica.Application.Abstracoes;
+using Clinica.Application.Modelos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Regras;
@@ -104,7 +105,7 @@ public sealed class PrecoParticularService
     ///
     /// O PROFISSIONAL (nov/2026) é a especificidade mais forte: o preço cadastrado para quem
     /// atende ganha de qualquer preço geral, e o preço de OUTRO profissional nunca serve. Sem
-    /// profissional informado (a Conciliação, que não o conhece), só concorrem os gerais.
+    /// profissional informado (sessão sem horário, lançamento avulso), só concorrem os gerais.
     /// </summary>
     public async Task<PrecoParticular?> ResolverAsync(
         string? modalidadeCodigo,
@@ -169,4 +170,13 @@ public sealed class PrecoParticularService
             ? PrecoProposto.Nenhum
             : new PrecoProposto(preco.Valor, $"tabela do particular: {preco.Descricao} ({preco.Vigencia})");
     }
+
+    /// <summary>
+    /// O preço de uma sessão PENDENTE da Conciliação — com quem atendeu, como o Finalizar
+    /// faz. A tela chamava a forma solta sem o profissional, e todo preço cadastrado por
+    /// profissional ficava invisível ali ("sem preço na tabela", nov/2026).
+    /// </summary>
+    public Task<PrecoProposto> ProporAsync(SessaoSemReceita sessao, CancellationToken ct = default)
+        => ProporAsync(sessao.CodigoDaModalidade, sessao.Modalidade, sessao.CodigoDaEspecialidade,
+            sessao.Data, ct, sessao.ProfissionalId);
 }

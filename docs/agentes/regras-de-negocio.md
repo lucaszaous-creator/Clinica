@@ -469,7 +469,13 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   O pedido está SEMPRE na conversa com o sistema, no app, e a resposta lá vale igual.
   **No mesmo pedido**: (a) **preço por profissional** — `PrecoParticular.ProfissionalId`; o
   preço de quem atende ganha do geral (10 pontos > modalidade+especialidade) e o de OUTRO nunca
-  serve; a Conciliação não conhece o profissional e propõe o geral. (b) **convênios que o
+  serve. ⚠️ **A Conciliação nasceu sem saber quem atendeu e propunha só o geral** — a clínica
+  cadastrou os preços por profissional e a aba Particulares respondia "sem preço na tabela" em
+  todas as linhas (*"por que não foi contabilizado, uma vez que já temos os preços
+  cadastrados?"*). Agora `SessaoSemReceita.ProfissionalId` vem do HORÁRIO da sessão (o
+  atendimento não tem a coluna) e a tela pergunta por `PrecoParticularService.ProporAsync(sessao)`
+  — o MESMO número do Finalizar, com teste. **Especificidade nova numa regra de preço: releia
+  CADA leitor**; o que não passa o dado novo não quebra, só deixa de achar o preço. (b) **convênios que o
   profissional NÃO atende** — `Profissional.ConveniosNaoAtendidos` (códigos separados por `;`;
   guarda-se a EXCEÇÃO, para convênio novo nascer atendido por todos). ⚠️ No
   `SalvarProfissionalAsync`, NULO preserva (a tela de Acessos regrava o profissional só para o
