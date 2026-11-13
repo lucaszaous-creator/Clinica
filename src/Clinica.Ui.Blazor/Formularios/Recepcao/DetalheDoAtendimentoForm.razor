@@ -1,0 +1,117 @@
+@*
+  A FICHA DO ATENDIMENTO (nov/2026) — abrir uma linha dos Lançamentos e ver o que foi feito,
+  as guias e o que foi cobrado. Tudo isso já estava no banco e só aparecia na janela de
+  ESTORNO, que é para desfazer; a recepção tinha o paciente e o nº do atendimento e não tinha
+  onde perguntar o resto.
+
+  SÓ LEITURA: não grava nada, então não tem as duas barreiras de gravação. As fronteiras que
+  ela tem são de LEITURA, e moram em DetalheDoAtendimentoNaTela (com teste):
+  - prontuário fica de fora: diz SE há evolução, nunca o conteúdo;
+  - valor só para quem tem VerFinanceiro.
+*@
+@namespace Clinica.Ui.Blazor.Formularios
+@using Clinica.Application.Abstracoes
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="@(_ficha is { } t ? $"Atendimento {t.Numero}" : "Atendimento")"
+       Subtitulo="@(_ficha is { } s ? $"{s.Paciente} · {s.Resumo}" : null)" Largura="grande" AoFechar="AoFechar">
+    <ChildContent>
+        @if (_ficha is null)
+        {
+            @if (_falha is not null) { <Aviso Tom="erro" Texto="@_falha" /> } else { <Esqueleto Altura="260" /> }
+        }
+        else
+        {
+            var f = _ficha;
+            <div class="rec-atd-ficha">
+                <Aviso Tom="atencao" Texto="@f.Estorno" />
+
+                <section class="secao-form">
+                    <h3>O que foi feito</h3>
+                    <dl class="pares">
+                        @foreach (var c in f.OQueFoiFeito)
+                        {
+                            <dt>@c.Rotulo</dt>
+                            <dd>@c.Valor</dd>
+                        }
+                    </dl>
+                </section>
+
+                <section class="secao-form">
+                    <h3>Guias</h3>
+                    @if (f.Guias.Count == 0)
+                    {
+                        <p class="campo-dica">Este atendimento não gerou guia.</p>
+                    }
+                    @foreach (var g in f.Guias)
+                    {
+                        <div class="rec-atd-item">
+                            <div class="rec-atd-item-topo">
+                                <span class="principal">@g.Titulo</span>
+                                <span class="numero">@g.Numero</span>
+                                <Selo Tom="@g.Tom">@g.Situacao</Selo>
+                            </div>
+                            @foreach (var d in g.Detalhes) { <span class="secundario">@d</span> }
+                        </div>
+                    }
+                </section>
+
+                <section class="secao-form">
+                    <h3>O que foi cobrado</h3>
+                    <p class="rec-atd-resumo"><Selo Tom="@f.TomDaCobranca">@f.ResumoDaCobranca</Selo></p>
+                    @foreach (var c in f.Cobrancas)
+                    {
+                        <div class="rec-atd-item">
+                            <div class="rec-atd-item-topo">
+                                <span class="principal">@c.Descricao</span>
+                                <span class="numero">@c.Valor</span>
+                                <Selo Tom="@c.Tom">@c.Situacao</Selo>
+                            </div>
+                            @if (!string.IsNullOrEmpty(c.Detalhe)) { <span class="secundario">@c.Detalhe</span> }
+                        </div>
+                    }
+                    @if (f.ValoresOcultos) { <p class="campo-dica">@DetalheDoAtendimentoNaTela.ValoresSoParaOFinanceiro</p> }
+                </section>
+
+                @if (f.Insumos.Count > 0)
+                {
+                    <section class="secao-form">
+                        <h3>Insumos baixados do estoque</h3>
+                        <ul class="rec-atd-lista">
+                            @foreach (var i in f.Insumos) { <li>@i</li> }
+                        </ul>
+                    </section>
+                }
+            </div>
+        }
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao primario" @onclick="AoFechar">Fechar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public int AtendimentoId { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private DetalheDoAtendimento? _ficha;
+    private string? _falha;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var dados = await escopo.ServiceProvider.GetRequiredService<IClinicaRepositorio>()
+                .DadosDoDetalheDoAtendimentoAsync(AtendimentoId);
+            if (dados is null) { _falha = "Atendimento não encontrado."; return; }
+            _ficha = DetalheDoAtendimentoNaTela.Montar(dados,
+                SessaoUsuario.Atual.Pode(Permissao.VerFinanceiro), DateOnly.FromDateTime(DateTime.Today));
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — ficha do atendimento não pôde ser lida", ex);
+            _falha = "Não foi possível ler este atendimento: " + ex.Message;
+        }
+    }
+}

@@ -881,6 +881,32 @@ public class TraducaoNoNpgsqlTests
             .And.Contain("\"AtendimentoId\"");
     }
 
+    /// <summary>A busca por número (do atendimento ou da guia) e o dinheiro do detalhe (sessão OU guia).</summary>
+    [Fact]
+    public void Busca_por_numero_e_dinheiro_do_detalhe_do_atendimento_traduzem()
+    {
+        using var db = Postgres();
+        var t = "2026-0004";
+        int? id = null;
+
+        var busca = db.Atendimentos.AsNoTracking()
+            .Include(a => a.Codigos).Include(a => a.Paciente)
+            .Where(a => (a.Numero != null && a.Numero.Contains(t))
+                        || (a.Numero == null && id != null && a.Id == id)
+                        || a.Codigos.Any(c => c.NumeroGuiaReal != null && c.NumeroGuiaReal.Contains(t)))
+            .OrderByDescending(a => a.Data).ThenByDescending(a => a.Id).Take(50)
+            .ToQueryString();
+        busca.Should().Contain("\"NumeroGuiaReal\"").And.Contain("LIMIT");
+
+        var codigos = new List<int> { 1, 2 };
+        var dinheiro = db.Lancamentos.AsNoTracking()
+            .Where(l => l.AtendimentoId == 7
+                        || (l.CodigoFaturamentoId != null && codigos.Contains(l.CodigoFaturamentoId.Value)))
+            .OrderBy(l => l.Data).ThenBy(l => l.Id)
+            .ToQueryString();
+        dinheiro.Should().Contain("\"CodigoFaturamentoId\"");
+    }
+
     /// <summary>Os lançamentos que pagam uma lista de pacotes — o `Contains` sobre a FK nova.</summary>
     [Fact]
     public void Lancamentos_dos_pacotes_traduzem()

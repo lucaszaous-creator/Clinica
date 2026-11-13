@@ -1524,6 +1524,22 @@ public interface IClinicaRepositorio
     /// pela agenda tinha de graça: o estorno SOLTA o horário, então o atendimento
     /// anulado sumia da lista sozinho. Sem este filtro ele voltaria a aparecer.
     /// </summary>
+    /// <summary>
+    /// Atendimentos cujo NÚMERO, ou o número de uma GUIA deles, contém o termo — em qualquer
+    /// data, estornados inclusive (nov/2026: quem tem o número na mão não sabe o dia). Do mais
+    /// recente para o mais antigo, até <paramref name="teto"/>.
+    /// </summary>
+    Task<IReadOnlyList<Atendimento>> AtendimentosPorNumeroAsync(
+        string termo, int teto, CancellationToken ct = default);
+
+    /// <summary>
+    /// Tudo o que há sobre UM atendimento, para a ficha dele: o horário com quem atendeu, o
+    /// dinheiro (ligado à sessão OU a uma guia dela, cancelado inclusive), o pacote debitado,
+    /// o insumo e SE há evolução (nunca o conteúdo). Leitura pura, sem rastreio.
+    /// </summary>
+    Task<Clinica.Application.Formatacao.DadosDoDetalheDoAtendimento?> DadosDoDetalheDoAtendimentoAsync(
+        int atendimentoId, CancellationToken ct = default);
+
     Task<IReadOnlyList<Atendimento>> AtendimentosNoPeriodoAsync(
         DateOnly inicio, DateOnly fim, CancellationToken ct = default);
 

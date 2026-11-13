@@ -6,7 +6,7 @@ mora o código. Mexer numa área? Leia antes o tópico dela — vários registra
 teste pega. Lição nova de uma área entra aqui, no tópico dela; regra que vale para TODA mudança
 continua no `CLAUDE.md`.
 
-## Índice (194 tópicos, na ordem do arquivo)
+## Índice (195 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -15,6 +15,7 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
 - A AMARRA ENTRE O HORÁRIO E A SESSÃO, e a pergunta que ela produz
 - O CIRCUITO DO PARTICULAR — a Recepção é o centro, e o dinheiro de quem não tem
 - PARTICULAR POR HORÁRIO — a paciente tem plano, e quem atende não o aceita
+- O DETALHE DO ATENDIMENTO E A BUSCA — o que foi feito, as guias e o que foi cobrado
 - TRAVA DE CONSULTA DO CONVÊNIO e a liberação da gerência pelo WhatsApp
 - ESTORNAR UM ATENDIMENTO
 - A BUSCA DE PACIENTE VIROU A TELA
@@ -429,6 +430,32 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   frase do Finalizar, `CobrancaDaSessao`) e a cobrança continua no Finalizar/Conciliação.
   Receber antes de a sessão existir pede política da clínica (devolução, crédito, falta) — as
   opções e as quatro perguntas estão no documento.
+- **O DETALHE DO ATENDIMENTO E A BUSCA — o que foi feito, as guias e o que foi cobrado**
+  (nov/2026; a recepção: *"encontramos o paciente e o nº do atendimento, mas precisaríamos saber
+  o que foi feito naquele atendimento, o que foi cobrado, guia e outras coisas"*). Tudo já
+  estava no banco e só aparecia na janela de ESTORNO, que é para desfazer. **Uma porta por
+  pergunta**: nada de tela nova — a aba Lançamentos ganhou o campo de busca e o botão **Abrir**
+  (`DetalheDoAtendimentoForm`, só leitura). O que ele afirma mora em
+  `DetalheDoAtendimentoNaTela` (Application, com teste); a leitura é UMA
+  (`DadosDoDetalheDoAtendimentoAsync`, seis idas em sequência).
+  ⚠️ **O dinheiro do atendimento tem DUAS chaves**: o do particular aponta para a SESSÃO
+  (`AtendimentoId`), o do convênio para a GUIA (`CodigoFaturamentoId`). Leitor que olha só a
+  primeira diz "nada cobrado" de toda sessão de convênio já paga.
+  ⚠️ **Duas fronteiras de LEITURA, que são decisão da direção**: (a) prontuário fica de fora —
+  o detalhe diz SE há evolução, nunca o conteúdo (a tela é do balcão; ponto 5 do compromisso), e
+  por não abrir prontuário não registra acesso; (b) valor só para `VerFinanceiro` — sem o bit
+  a pessoa lê "cobrança registrada", sem o número.
+  ⚠️ **A busca tem dois alcances e a tela diz qual está valendo**: NOME filtra o período já
+  carregado (sem isso "Maria" traria anos); texto que é só NÚMERO, com 3+ dígitos, vai ao banco
+  em QUALQUER data pelo nº do atendimento ou da guia (`AtendimentosPorNumeroAsync`, teto de 50,
+  estornados inclusive — a linha diz "ESTORNADO" e perde o botão de estornar). Ao banco só no
+  Enter/saída do campo, nunca a cada tecla.
+  ⚠️ Pego na FOTO, não em teste: o campo nasceu só na lista "Atendimentos", e a tela abre em
+  "Horários marcados" — quem chegava com o número na mão não via onde digitar. Agora fica à
+  vista nas duas e digitar leva para Atendimentos. E o nome `FichaDoAtendimentoNaTela` já era do
+  Consultório: **`grep` do nome antes de criar a classe** (o erro só aparece ao compilar a Ui).
+  **Fora, com o motivo**: "abrir a ficha do paciente" a partir do detalhe e a busca global da
+  moldura (apontaria para este mesmo painel) — ficam para quando forem pedidas.
 - **TRAVA DE CONSULTA DO CONVÊNIO e a liberação da gerência pelo WhatsApp** (nov/2026, pedido
   da gerência; decisão, opções e limites em `docs/trava-de-consulta.md`). O convênio paga uma
   consulta a cada N dias — o N é a **validade da consulta que já estava cadastrada** (Unimed 22,
