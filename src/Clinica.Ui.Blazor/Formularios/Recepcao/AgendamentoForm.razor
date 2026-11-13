@@ -966,9 +966,11 @@
                 try
                 {
                     using var escopoPagamento = Escopo();
-                    await escopoPagamento.ServiceProvider.GetRequiredService<PagamentoNaMarcacaoService>()
+                    var recebido = await escopoPagamento.ServiceProvider.GetRequiredService<PagamentoNaMarcacaoService>()
                         .ReceberAsync(horarioId, pagamento, Operador);
                     Notificacoes.Sucesso(PagamentoNaMarcacaoService.Recebido(pagamento.Valor, pagamento.Forma));
+                    // Sem taxa cadastrada o cartão entra mesmo assim — e isso é DITO, não calado.
+                    if (PagamentoNaMarcacaoService.AvisoSemTaxa(recebido) is { } semTaxa) avisos.Add(semTaxa);
                 }
                 catch (Exception ex)
                 {

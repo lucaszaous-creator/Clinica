@@ -64,7 +64,10 @@ public sealed class PagamentoNaMarcacaoService
 
         var dia = hoje ?? DateOnly.FromDateTime(DateTime.Today);
         var deducoes = await new TaxaService(_repo).CalcularPagamentoPacienteAsync(
-            pagamento.Valor, dia, pagamento.Forma, pagamento.Adquirente, pagamento.Bandeira, pagamento.Parcelas, ct);
+            pagamento.Valor, dia, pagamento.Forma, pagamento.Adquirente, pagamento.Bandeira, pagamento.Parcelas, ct,
+            // Maquininha sem taxa cadastrada NÃO impede receber (decisão da direção, nov/2026):
+            // o paciente já pagou. O cartão entra pelo bruto e a tela avisa — ver AvisoSemTaxa.
+            exigirTaxaCadastrada: false);
 
         var sessao = DateOnly.FromDateTime(ag.DataHora);
         return await _financeiro.LancarAsync(
@@ -143,6 +146,18 @@ public sealed class PagamentoNaMarcacaoService
         return new PagamentoNaMarcacao(v, f,
             EhCartao(f) ? adquirente!.Trim() : null, EhCartao(f) ? bandeira!.Trim() : null, n);
     }
+
+    /// <summary>
+    /// Cartão recebido SEM taxa cadastrada para a maquininha: o dinheiro entrou pelo valor cheio,
+    /// sem desconto de taxa e sem dia previsto para cair. Nulo quando não é o caso. A tela mostra;
+    /// calar aqui faria o Financeiro descobrir no extrato que o líquido não bate.
+    /// </summary>
+    public static string? AvisoSemTaxa(LancamentoFinanceiro l)
+        => EhCartao(l.FormaPagamento) && l.PrevisaoRecebimento is null
+            ? $"Pagamento no cartão registrado SEM taxa: a maquininha \"{l.Adquirente}\" ({l.Bandeira}) não tem taxa nem prazo "
+              + "cadastrados. O valor entrou cheio e sem data prevista de recebimento — cadastre a taxa em "
+              + "Financeiro → Taxas e impostos para os próximos."
+            : null;
 
     public static string Recebido(decimal valor, FormaPagamento forma)
         => $"Pagamento de {valor.ToString("C2", PtBr)} ({RotulosEnum.De(forma)}) registrado no caixa.";

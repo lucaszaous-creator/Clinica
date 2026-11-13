@@ -187,6 +187,34 @@ public class CircuitoParticularTests : IDisposable
         await semForma.Should().ThrowAsync<InvalidOperationException>();
     }
 
+    /// <summary>A direção: "não impeça o lançamento pela falta de taxa da maquininha cadastrada".</summary>
+    [Fact]
+    public async Task Cartao_sem_taxa_cadastrada_entra_pelo_bruto_e_avisa()
+    {
+        var agendamentoId = await AgendarAsync(await ParticularAsync());
+
+        var pago = await Marcacao().ReceberAsync(agendamentoId,
+            new PagamentoNaMarcacao(500m, FormaPagamento.CartaoCredito, "Stone", "Visa", 2), "recepcao");
+
+        pago.Status.Should().Be(StatusLancamento.Realizado);
+        pago.Valor.Should().Be(500m);
+        pago.ValorLiquido.Should().Be(500m, "sem taxa cadastrada não há o que descontar");
+        pago.Adquirente.Should().Be("Stone");
+        pago.Parcelas.Should().Be(2);
+        pago.PrevisaoRecebimento.Should().BeNull();
+        PagamentoNaMarcacaoService.AvisoSemTaxa(pago).Should().Contain("SEM taxa").And.Contain("Stone");
+
+        // PIX não tem maquininha: nada a avisar.
+        var outro = await AgendarAsync(await ParticularAsync("Joana"));
+        var pix = await Marcacao().ReceberAsync(outro, new PagamentoNaMarcacao(500m, FormaPagamento.Pix));
+        PagamentoNaMarcacaoService.AvisoSemTaxa(pix).Should().BeNull();
+
+        // As OUTRAS portas continuam exigindo a taxa — a exceção é só do pagamento ao marcar.
+        var exigindo = () => new TaxaService(_repo).CalcularPagamentoPacienteAsync(
+            500m, DateOnly.FromDateTime(DateTime.Today), FormaPagamento.CartaoCredito, "Stone", "Visa", 2);
+        await exigindo.Should().ThrowAsync<InvalidOperationException>();
+    }
+
     [Fact]
     public async Task Cancelar_ou_faltar_num_horario_pago_avisa_e_nao_devolve_sozinho()
     {

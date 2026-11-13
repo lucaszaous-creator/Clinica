@@ -449,9 +449,14 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   concilia. É a única coisa que o sistema não sabe sozinho — por isso é o único campo a mais.
   ⚠️ **A conferência é ANTES de gravar o horário; o recebimento, DEPOIS.** Valor ou forma
   faltando recusam o Salvar (e a frase dá a saída: desmarcar, para a marcação por telefone).
-  Caixa do dia fechado ou maquininha sem taxa falham DEPOIS de o horário existir e viram AVISO —
-  desfazer a marcação porque o caixa recusou deixaria o paciente sem horário (a hierarquia do
+  Caixa do dia fechado falha DEPOIS de o horário existir e vira AVISO — desfazer a marcação
+  porque o caixa recusou deixaria o paciente sem horário (a hierarquia do
   `FechamentoSessaoService.ConcluirAsync`).
+  ⚠️ **Maquininha SEM taxa cadastrada NÃO impede receber aqui** (a direção: *"não impeça o
+  lançamento pela falta de taxa da maquininha cadastrada"*). O cartão entra pelo BRUTO, sem taxa
+  e sem previsão de recebimento, e a tela AVISA (`AvisoSemTaxa`) — sem data prevista ele não
+  aparece nos recebíveis de cartão até alguém cadastrar a taxa. É exceção DESTA porta
+  (`exigirTaxaCadastrada: false`): Finalizar, Pagamentos e venda de pacote continuam exigindo.
   ⚠️ **Cancelar ou marcar falta num horário pago AVISA e não devolve** (`AvisoDeHorarioPago`):
   devolver é decisão de quem está com o paciente e ato de quem mexe no Financeiro. Remarcar não
   precisa de nada — o horário é a mesma linha.
