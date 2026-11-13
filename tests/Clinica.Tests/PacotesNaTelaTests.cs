@@ -27,6 +27,18 @@ public class PacotesNaTelaTests
 
     // ---------------------------------------------------------------- catálogo
 
+    /// <summary>nov/2026: preço de consulta cadastrado como "pacote de 1 sessão" — e nunca vendido.</summary>
+    [Fact]
+    public void Pacote_de_uma_sessao_avisa_que_preco_avulso_mora_noutra_aba()
+    {
+        PacotesNaTela.AvisoDeUmaSessao(TipoPacote.Sessoes, "1").Should().Contain("Preço da sessão");
+        PacotesNaTela.AvisoDeUmaSessao(TipoPacote.Sessoes, " 1 ").Should().NotBeNull();
+        PacotesNaTela.AvisoDeUmaSessao(TipoPacote.Sessoes, "10").Should().BeNull();
+        PacotesNaTela.AvisoDeUmaSessao(TipoPacote.Sessoes, null).Should().BeNull();
+        foreach (var outro in Enum.GetValues<TipoPacote>().Where(t => t != TipoPacote.Sessoes))
+            PacotesNaTela.AvisoDeUmaSessao(outro, "1").Should().BeNull("só o pacote de sessões se confunde com preço avulso");
+    }
+
     [Fact]
     public void Linha_do_catalogo_escreve_o_rotulo_do_tipo_e_o_valor_em_pt_BR_e_carrega_o_que_a_tela_nao_mostra()
     {

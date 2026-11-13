@@ -475,7 +475,19 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   cadastrados?"*). Agora `SessaoSemReceita.ProfissionalId` vem do HORÁRIO da sessão (o
   atendimento não tem a coluna) e a tela pergunta por `PrecoParticularService.ProporAsync(sessao)`
   — o MESMO número do Finalizar, com teste. **Especificidade nova numa regra de preço: releia
-  CADA leitor**; o que não passa o dado novo não quebra, só deixa de achar o preço. (b) **convênios que o
+  CADA leitor**; o que não passa o dado novo não quebra, só deixa de achar o preço.
+  ⚠️ **O que a clínica TINHA de fato era outro defeito, e o banco é que mostrou** (duas consultas
+  de leitura na VPS 1): (i) o único preço era "Acupuntura (apenas) · especialidade Acupuntura",
+  e **só a sessão de CONSULTA carrega especialidade** (`AgendaService` a limpa nas outras) — o
+  preço não casava com sessão nenhuma e nada avisava. Agora `PrecoParticularService.
+  AceitaEspecialidade` decide num lugar só: o Salvar recusa, o formulário fecha o campo, e a
+  linha já gravada assim vale como "qualquer especialidade" (no `Pontuar` e na lista). (ii) os
+  preços de consulta estavam no **Catálogo de pacotes** como "pacote de 1 sessão", com ZERO
+  pacotes vendidos: o catálogo só age quando alguém VENDE, e duas abas vizinhas falando de preço
+  do particular induziam a troca — o formulário do catálogo avisa (`PacotesNaTela.
+  AvisoDeUmaSessao`; aviso, não recusa: voucher de uma sessão existe). **Hipótese de causa se
+  confirma no DADO antes de virar correção** — a do profissional era plausível, tinha teste
+  verde e não era o que acontecia ali. (b) **convênios que o
   profissional NÃO atende** — `Profissional.ConveniosNaoAtendidos` (códigos separados por `;`;
   guarda-se a EXCEÇÃO, para convênio novo nascer atendido por todos). ⚠️ No
   `SalvarProfissionalAsync`, NULO preserva (a tela de Acessos regrava o profissional só para o

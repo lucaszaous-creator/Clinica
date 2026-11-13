@@ -61,6 +61,50 @@ public class PrecoParticularTests : IDisposable
             Valor = valor, VigenteDe = de, VigenteAte = ate, Ativo = ativo
         });
 
+    // nov/2026: a clínica cadastrou "Acupuntura (apenas) · especialidade Acupuntura · R$ 500" e a
+    // Conciliação seguiu dizendo "sem preço na tabela" — sessão de acupuntura não carrega especialidade.
+
+    [Fact]
+    public async Task Preco_fora_da_consulta_nao_aceita_especialidade()
+    {
+        var salvar = () => CriarAsync(AcupEletro, 500m, nameof(Especialidade.Psiquiatria));
+
+        (await salvar.Should().ThrowAsync<InvalidOperationException>())
+            .WithMessage("*CONSULTA*");
+        (await _precos.CatalogoAsync()).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Preco_antigo_de_acupuntura_gravado_com_especialidade_vale_para_a_sessao()
+    {
+        // Direto no banco: é a linha que JÁ existe na clínica, de antes da trava do Salvar.
+        _db.PrecosParticular.Add(new PrecoParticular
+        {
+            ModalidadeCodigo = AcupEletro, EspecialidadeCodigo = "Acupuntura", Valor = 500m, Ativo = true
+        });
+        await _db.SaveChangesAsync();
+
+        // A sessão de acupuntura chega SEM especialidade — e o preço tem de ser proposto.
+        (await _precos.ProporAsync(AcupEletro, ModalidadeAtendimento.AcupunturaComEletro, null, Hoje))
+            .Valor.Should().Be(500m);
+        // E a linha da tela diz o que vale, não o que ficou gravado.
+        PrecosParticularNaTela.LinhaDe((await _precos.CatalogoAsync()).Single(), Hoje)
+            .Especialidade.Should().Be(PrecosParticularNaTela.QualquerEspecialidade);
+    }
+
+    [Fact]
+    public void O_campo_especialidade_so_abre_na_consulta()
+    {
+        PrecosParticularNaTela.AbreEspecialidade(Consulta).Should().BeTrue();
+        PrecosParticularNaTela.AbreEspecialidade(AcupEletro).Should().BeFalse();
+        PrecosParticularNaTela.AbreEspecialidade("AcupDomiciliar").Should().BeFalse("a variante herda a família");
+        PrecosParticularNaTela.AbreEspecialidade(null).Should().BeFalse();
+
+        // Trocar a modalidade para uma que não é consulta LIMPA o que estava escolhido.
+        PrecosParticularNaTela.EspecialidadeQueVale(AcupEletro, "Psiquiatria").Should().BeNull();
+        PrecosParticularNaTela.EspecialidadeQueVale(Consulta, "Psiquiatria").Should().Be("Psiquiatria");
+    }
+
     [Fact]
     public async Task Sem_tabela_nao_se_inventa_valor()
     {
