@@ -61,8 +61,12 @@ public sealed record CobrancaDaSessao(string Frase, bool DebitaDePacote, bool Se
     /// </param>
     /// <param name="preco">A proposta da tabela do particular. <c>Nenhum</c> = não cadastrada.</param>
     /// <param name="pacote">O pacote que debitaria, ou nulo.</param>
+    /// <param name="recebeAqui">
+    /// A tela que mostra a frase RECEBE o pagamento ali mesmo (o formulário de marcar, nov/2026).
+    /// Sem isto ela diria "o pagamento é registrado no Finalizar" logo acima do campo de pagamento.
+    /// </param>
     public static CobrancaDaSessao Montar(
-        bool ehParticular, PrecoProposto preco, SaldoPacote? pacote)
+        bool ehParticular, PrecoProposto preco, SaldoPacote? pacote, bool recebeAqui = false)
     {
         if (!ehParticular) return Nenhuma;
 
@@ -76,8 +80,8 @@ public sealed record CobrancaDaSessao(string Frase, bool DebitaDePacote, bool Se
 
         if (preco.Houve)
             return new CobrancaDaSessao(
-                $"Particular — {preco.Valor.ToString("C", Brasil)} ({preco.Procedencia}). O pagamento é "
-                + "registrado no Finalizar da sessão.",
+                $"Particular — {preco.Valor.ToString("C", Brasil)} ({preco.Procedencia}). "
+                + (recebeAqui ? "Registre abaixo o pagamento feito no balcão." : "O pagamento é registrado no Finalizar da sessão."),
                 DebitaDePacote: false, SemPreco: false);
 
         // ⚠️ A frase aponta a porta do BALCÃO (set/2026): ela mandava a recepcionista ao
@@ -87,8 +91,8 @@ public sealed record CobrancaDaSessao(string Frase, bool DebitaDePacote, bool Se
         // particular".
         return new CobrancaDaSessao(
             "Particular — sem preço cadastrado para esta modalidade. Cadastre em "
-            + "\"Particular e pacotes → Preço da sessão\", ou combine o valor no Finalizar "
-            + "da sessão.",
+            + "\"Particular e pacotes → Preço da sessão\", "
+            + (recebeAqui ? "ou informe abaixo o valor combinado." : "ou combine o valor no Finalizar da sessão."),
             DebitaDePacote: false, SemPreco: true);
     }
 }

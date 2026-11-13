@@ -235,6 +235,12 @@ public sealed class FechamentoSessaoService
         var pacote = await PacoteADebitarAsync(ag.PacienteId, dia, ct);
         var (valor, procedencia, forma) = await ValorSugeridoAsync(ag.PacienteId, ct);
 
+        // PAGO AO MARCAR (nov/2026): o dinheiro desta sessão já está no caixa, preso ao horário.
+        // Perguntar de novo no Finalizar é cobrar duas vezes — a mesma razão do pacote.
+        var jaPago = false;
+        try { jaPago = (await _repo.EntradasDoHorarioAsync(ag.Id, ct)).Count > 0; }
+        catch (Exception ex) { Diagnostico.Registrar("Fechamento da sessão — pagamento na marcação não pôde ser lido", ex); }
+
         // Sem histórico, o particular ainda pode ter PREÇO: a tabela do particular por
         // especialidade atendida, cadastrada no Gerente (set/2026). O histórico vem
         // primeiro porque é o preço COMBINADO com esta pessoa; a tabela é o de lista.
@@ -258,7 +264,7 @@ public sealed class FechamentoSessaoService
             // porque já pagou antes. Paciente de convênio sem histórico nunca cai aqui:
             // o dinheiro dele entra pela conciliação da guia, e um lançamento marcado
             // por padrão viraria receita fantasma no caixa.
-            SugereLancamento: pacote is null && (ehParticular || valor is not null),
+            SugereLancamento: !jaPago && pacote is null && (ehParticular || valor is not null),
             Insumos: insumos,
             EhParticular: ehParticular);
     }

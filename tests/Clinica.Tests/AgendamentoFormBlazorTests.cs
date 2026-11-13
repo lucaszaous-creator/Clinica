@@ -59,6 +59,7 @@ public sealed class AgendamentoFormBlazorTests : IClassFixture<BancoDasTelas>, I
         Assert.True(Contem(form, "Novo horário"));
 
         EscolherPaciente(form, paciente.Nome);
+        MarcarSemReceber(form);
         Clicar(form, "Salvar horário");
         Esperar(() => concluido is not null);
 
@@ -67,6 +68,47 @@ public sealed class AgendamentoFormBlazorTests : IClassFixture<BancoDasTelas>, I
         Assert.Equal(quando, ag.DataHora);
         Assert.Equal(prof.Id, ag.ProfissionalId);
         Assert.Equal(_banco.Gerente.Login, ag.CriadoPor);
+        Assert.Empty(db.Lancamentos.Where(l => l.AgendamentoId == ag.Id));
+    }
+
+    /// <summary>
+    /// RECEBER AO MARCAR (nov/2026): o particular paga no balcão quando marca. O bloco nasce
+    /// ligado; sem a forma o Salvar recusa ANTES de gravar o horário (e diz a saída), e com ela
+    /// o horário e o dinheiro entram juntos, o dinheiro preso ao horário.
+    /// </summary>
+    [Fact]
+    public void Marcar_particular_recebe_no_balcao_e_sem_a_forma_nao_marca()
+    {
+        var (prof, paciente, _) = Semear("Pago");
+        var quando = DateTime.Today.AddDays(303).AddHours(11);
+        using var ctx = Contexto();
+        IReadOnlyList<string>? concluido = null;
+        var form = ctx.RenderComponent<AgendamentoForm>(p => p
+            .Add(x => x.Data, quando.Date).Add(x => x.Hora, "11:00")
+            .Add(x => x.ProfissionalPreferidoId, prof.Id)
+            .Add(x => x.AoConcluir, a => concluido = a));
+        Esperar(() => form.FindAll("#agf-profissional").Count > 0);
+        EscolherPaciente(form, paciente.Nome);
+        Esperar(() => form.FindAll("#agf-pag-forma").Count > 0);
+
+        Agir(form, f => f.Find("#agf-pag-valor"), e => e.InputAsync(new ChangeEventArgs { Value = "500,00" }));
+        Clicar(form, "Salvar horário");
+        Esperar(() => Contem(form, "Escolha como o paciente pagou"));
+        using (var antes = Db())
+            Assert.Empty(antes.Agendamentos.Where(a => a.PacienteId == paciente.Id));
+
+        Agir(form, f => f.Find("#agf-pag-forma"), e => e.ChangeAsync(new ChangeEventArgs { Value = nameof(FormaPagamento.Pix) }));
+        Clicar(form, "Salvar horário");
+        Esperar(() => concluido is not null);
+        Assert.Empty(concluido!);
+
+        using var db = Db();
+        var ag = db.Agendamentos.Single(a => a.PacienteId == paciente.Id);
+        var pago = db.Lancamentos.Single(l => l.AgendamentoId == ag.Id);
+        Assert.Equal(500m, pago.Valor);
+        Assert.Equal(FormaPagamento.Pix, pago.FormaPagamento);
+        Assert.Equal(StatusLancamento.Realizado, pago.Status);
+        Assert.Equal(DateOnly.FromDateTime(DateTime.Today), pago.DataPagamento);
     }
 
     [Fact]
@@ -133,6 +175,7 @@ public sealed class AgendamentoFormBlazorTests : IClassFixture<BancoDasTelas>, I
         Assert.NotEmpty(form.FindAll(".agf-traco.tom-aviso"));
         Assert.Contains(form.FindAll("button"), b => b.TextContent.Trim() == "Assumir encaixe");
 
+        MarcarSemReceber(form);
         Clicar(form, "Salvar horário");
         Esperar(() => concluido is not null);
 
@@ -267,6 +310,10 @@ public sealed class AgendamentoFormBlazorTests : IClassFixture<BancoDasTelas>, I
     }
 
     /// <summary>O TEXTO do formulário (o Markup codifica acento e travessão; o texto não).</summary>
+    /// <summary>A marcação por telefone: o paciente particular não paga agora (nov/2026).</summary>
+    private static void MarcarSemReceber(IRenderedFragment form)
+        => Agir(form, f => f.Find("#agf-receber"), e => e.ChangeAsync(new ChangeEventArgs { Value = false }));
+
     private static bool Contem(IRenderedFragment form, string texto)
         => form.FindAll(".modal").Any(m => m.TextContent.Contains(texto, StringComparison.Ordinal));
 

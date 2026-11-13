@@ -71,6 +71,62 @@
                 {
                     <p class="agf-cobranca"><Icone Nome="moeda" />@_cobranca</p>
                 }
+                @* ============ RECEBER AO MARCAR (nov/2026) ============
+                   O particular paga no balcão quando marca. O bloco só aparece quando o dinheiro É
+                   deste horário: sessão particular, sem pacote a debitar. Desmarcado (marcação por
+                   telefone), o horário segue como antes e a cobrança fica para o Finalizar. *@
+                @if (_pagoPeloHorario > 0m)
+                {
+                    <p class="agf-cobranca"><Icone Nome="ok" />@PagamentoNaMarcacaoService.JaPago(_pagoPeloHorario)</p>
+                }
+                else if (_ofereceReceber)
+                {
+                    <div class="agf-pagamento">
+                        <label class="alternar" title="@(PodeReceber ? null : "Seu acesso não permite registrar dinheiro no caixa.")">
+                            <input type="checkbox" id="agf-receber" checked="@_receberAgora" disabled="@(!PodeReceber)"
+                                   @onchange="e => { _receberAgora = e.Value is true; _receberDecidido = true; _mensagem = null; }" />
+                            Recebido agora, no balcão
+                        </label>
+                        @if (_receberAgora)
+                        {
+                            <div class="campos">
+                                <Campo Rotulo="Valor cobrado" Obrigatorio="true">
+                                    <input class="campo valor" id="agf-pag-valor" maxlength="12" inputmode="decimal" placeholder="0,00"
+                                           value="@_pagValor" @oninput="e => { _pagValor = e.Value?.ToString(); _valorDigitado = true; }" />
+                                </Campo>
+                                <Campo Rotulo="Como pagou" Obrigatorio="true">
+                                    <select class="campo" id="agf-pag-forma" value="@(_pagForma?.ToString() ?? string.Empty)"
+                                            @onchange="e => _pagForma = Enum.TryParse<FormaPagamento>(e.Value?.ToString(), out var f) ? f : null">
+                                        <option value="">Escolha…</option>
+                                        @foreach (var f in PagamentoNaMarcacaoService.Formas)
+                                        {
+                                            <option value="@f">@RotulosEnum.De(f)</option>
+                                        }
+                                    </select>
+                                </Campo>
+                                @if (PagamentoNaMarcacaoService.EhCartao(_pagForma))
+                                {
+                                    <Campo Rotulo="Maquininha / adquirente">
+                                        <input class="campo" maxlength="60" @bind="_pagAdquirente" @bind:event="oninput" />
+                                    </Campo>
+                                    <Campo Rotulo="Bandeira">
+                                        <input class="campo" maxlength="40" @bind="_pagBandeira" @bind:event="oninput" />
+                                    </Campo>
+                                    @if (_pagForma == FormaPagamento.CartaoCredito)
+                                    {
+                                        <Campo Rotulo="Parcelas">
+                                            <input class="campo" maxlength="2" inputmode="numeric" @bind="_pagParcelas" @bind:event="oninput" />
+                                        </Campo>
+                                    }
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="campo-dica">Sem o pagamento agora, a cobrança fica para quando a sessão for finalizada.</p>
+                        }
+                    </div>
+                }
 
                 @* ============ A trava de consulta do convênio (nov/2026) ============
                    O convênio aceita uma consulta a cada N dias. A box diz quando solta e oferece
@@ -283,6 +339,22 @@
     private string? _notaDoParticular;
     /// <summary>A frase do dinheiro quando a sessão é particular (preço de tabela ou pacote); vazia no convênio.</summary>
     private string _cobranca = string.Empty;
+
+    // ---- Receber ao marcar (nov/2026) ----
+    /// <summary>A sessão é particular e não há pacote a debitar: o dinheiro é deste horário.</summary>
+    private bool _ofereceReceber;
+    private bool _receberAgora;
+    /// <summary>A pessoa já mexeu no "Recebido agora": o padrão para de se impor a cada releitura do preço.</summary>
+    private bool _receberDecidido;
+    private string? _pagValor;
+    /// <summary>O valor foi digitado: trocar a modalidade não o sobrescreve com o da tabela.</summary>
+    private bool _valorDigitado;
+    private FormaPagamento? _pagForma;
+    private string? _pagAdquirente, _pagBandeira;
+    private string? _pagParcelas = "1";
+    /// <summary>Na edição: quanto este horário já pagou ao ser marcado (0 = nada).</summary>
+    private decimal _pagoPeloHorario;
+    private static bool PodeReceber => PodeAlgum(FechamentoSessaoNaTela.BitsDoCaixa);
 
     /// <summary>A trava de consulta do convênio está acesa para este paciente neste dia (a box decide; o Salvar apaga).</summary>
     private bool _travado;
@@ -705,6 +777,7 @@
             || !SessaoParticular.Eh(paciente, _particular) || (paciente.ConvenioADefinir && !_particular))
         {
             _cobranca = string.Empty;
+            _ofereceReceber = false;
             return;
         }
         var data = _data;
@@ -716,14 +789,27 @@
             var sp = escopo.ServiceProvider;
             var preco = await sp.GetRequiredService<PrecoParticularService>().ProporAsync(modalidade.Codigo, modalidade.Base, especialidade, data, profissionalId: profissionalId);
             var pacote = await sp.GetRequiredService<PacoteService>().ADebitarAsync(paciente.Id, data);
+            // Na edição: o que este horário já pagou. Lido aqui, no mesmo escopo, em sequência.
+            var pago = AgendamentoId is { } horario
+                ? await sp.GetRequiredService<PagamentoNaMarcacaoService>().PagoPeloHorarioAsync(horario) : 0m;
             if (g != _gCobranca || Descartada) return;
-            _cobranca = CobrancaDaSessao.Montar(true, preco, pacote).Frase;
+            // Com o bloco de pagamento à vista, a frase não pode mandar ao Finalizar.
+            _cobranca = CobrancaDaSessao.Montar(true, preco, pacote, recebeAqui: PodeReceber && pago == 0m).Frase;
+            _pagoPeloHorario = pago;
+            // Sessão de pacote já foi paga na compra: não se cobra de novo.
+            _ofereceReceber = pacote is null;
+            if (!_valorDigitado) _pagValor = preco.Houve ? PagamentoNaMarcacaoService.ParaCampo(preco.Valor) : null;
+            // O padrão da casa: quem marca no balcão, cobra no balcão. Na EDIÇÃO não se presume
+            // um pagamento novo — a pessoa marca se está recebendo agora.
+            if (!_receberDecidido) _receberAgora = !Edicao && PodeReceber;
         }
         catch (Exception ex)
         {
             if (g != _gCobranca) return;
             Clinica.Application.Diagnostico.Registrar("Blazor — preço do particular não pôde ser lido ao marcar", ex);
             _cobranca = string.Empty;
+            // Sem saber se há pacote ou pagamento, não se oferece cobrar: cobrar em dobro é pior que não cobrar aqui.
+            _ofereceReceber = false;
         }
     }
 
@@ -780,6 +866,15 @@
         // Marcou infertilidade e não disse a guia: recusa aqui, com a mesma frase do serviço.
         if (PedidoListaEsperaId is null && GuiaDaInfertilidade is { Length: 0 }) { _mensagem = InfertilidadeNaTela.RecusaSemGuia; return; }
         if (!await GarantirFormaRespondidaAsync(paciente)) return;
+        // RECEBER AO MARCAR: o que foi digitado é conferido ANTES de o horário ser gravado —
+        // recusar depois deixaria o horário marcado e a secretária sem saber se cobrou.
+        PagamentoNaMarcacao? pagamento = null;
+        if (_ofereceReceber && _receberAgora && _pagoPeloHorario == 0m)
+        {
+            if (!ExigirAlgum(FechamentoSessaoNaTela.BitsDoCaixa, "registrar o pagamento no caixa")) return;
+            pagamento = PagamentoNaMarcacaoService.Conferir(_pagValor, _pagForma, _pagAdquirente, _pagBandeira, _pagParcelas, out var erroDoPagamento);
+            if (pagamento is null) { _mensagem = erroDoPagamento; return; }
+        }
         AgendamentoNaTela.TentarMontarDataHora(_data, _hora, out var dataHora);
         var duracao = AgendamentoNaTela.DuracaoInformada(_duracao);
         var especialidade = EhConsulta ? _especialidade?.Codigo : null;
@@ -821,8 +916,10 @@
             var avisos = new List<string>();
             using var escopo = Escopo();
             var sp = escopo.ServiceProvider;
+            int horarioId;
             if (AgendamentoId is { } id)
             {
+                horarioId = id;
                 await sp.GetRequiredService<AgendaService>().RemarcarAsync(
                     id, dataHora, _observacoes,
                     modalidadeCodigo: modalidade.Codigo,
@@ -840,25 +937,44 @@
             {
                 // Chamado da lista: o serviço da lista cria o horário e fecha o pedido no mesmo
                 // caminho — e recebe a especialidade que este formulário EXIGE.
-                await sp.GetRequiredService<ListaEsperaService>().ChamarAsync(
+                horarioId = (await sp.GetRequiredService<ListaEsperaService>().ChamarAsync(
                     pedidoId, dataHora, modalidade.Base,
                     profissionalId: _profissional?.Id, salaId: _sala?.Id,
                     duracaoMinutos: duracao, encaixe: _encaixe,
                     modalidadeCodigo: modalidade.Codigo,
                     operador: Operador,
                     especialidadeConsultaCodigo: especialidade,
-                    particular: _particular);
+                    particular: _particular)).Id;
             }
             else
             {
-                await sp.GetRequiredService<AgendaService>().AgendarAsync(
+                horarioId = (await sp.GetRequiredService<AgendaService>().AgendarAsync(
                     paciente.Id, dataHora, modalidade.Base, _observacoes,
                     modalidadeCodigo: modalidade.Codigo,
                     especialidadeConsultaCodigo: especialidade,
                     profissionalId: _profissional?.Id, salaId: _sala?.Id,
                     duracaoMinutos: duracao, encaixe: _encaixe,
                     operador: Operador, coletaPreventivo: EhConsulta && _preventivo,
-                    particular: _particular, infertilidadeGuiaDe: GuiaDaInfertilidade);
+                    particular: _particular, infertilidadeGuiaDe: GuiaDaInfertilidade)).Id;
+            }
+
+            // O HORÁRIO JÁ ESTÁ GRAVADO. O pagamento tem gravação própria e, se falhar (dia de
+            // caixa fechado, taxa da maquininha sem cadastro), vira AVISO — desfazer a marcação
+            // porque o caixa recusou deixaria o paciente sem horário. A mesma hierarquia do Finalizar.
+            if (pagamento is not null)
+            {
+                try
+                {
+                    using var escopoPagamento = Escopo();
+                    await escopoPagamento.ServiceProvider.GetRequiredService<PagamentoNaMarcacaoService>()
+                        .ReceberAsync(horarioId, pagamento, Operador);
+                    Notificacoes.Sucesso(PagamentoNaMarcacaoService.Recebido(pagamento.Valor, pagamento.Forma));
+                }
+                catch (Exception ex)
+                {
+                    Clinica.Application.Diagnostico.Registrar("Blazor — pagamento na marcação não pôde ser registrado", ex);
+                    avisos.Add(PagamentoNaMarcacaoService.NaoRecebido(ex.Message));
+                }
             }
 
             await AoConcluir.InvokeAsync(avisos);

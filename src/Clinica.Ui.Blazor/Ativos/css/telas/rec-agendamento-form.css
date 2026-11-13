@@ -31,3 +31,7 @@
 .agf-cobranca{display:flex;align-items:flex-start;gap:var(--space-2);margin:0;padding:var(--space-3) var(--space-4);
   border-radius:var(--radius-control);background:var(--superficie-hover);line-height:1.45}
 .agf-cobranca svg{flex:none;margin-top:2px;color:var(--texto-secundario)}
+/* Receber ao marcar (nov/2026). */
+.agf-pagamento{display:flex;flex-direction:column;gap:var(--space-3);padding:var(--space-3) var(--space-4);
+  border:1px solid var(--borda);border-radius:var(--radius-card)}
+.agf-pagamento .campo-dica{margin:0}

@@ -3130,6 +3130,14 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .AnyAsync(l => (codigoFaturamentoId != null && l.CodigoFaturamentoId == codigoFaturamentoId)
                         || (atendimentoId != null && l.AtendimentoId == atendimentoId), ct);
 
+    public async Task<IReadOnlyList<LancamentoFinanceiro>> EntradasDoHorarioAsync(
+        int agendamentoId, CancellationToken ct = default)
+        => await _db.Lancamentos
+            .Where(l => l.AgendamentoId == agendamentoId
+                        && l.Tipo == TipoLancamento.Entrada && l.Status != StatusLancamento.Cancelado)
+            .OrderBy(l => l.Id)
+            .ToListAsync(ct);
+
     public async Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosDosAtendimentosAsync(
         IReadOnlyCollection<int> atendimentoIds, CancellationToken ct = default)
     {

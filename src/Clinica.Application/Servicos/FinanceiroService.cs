@@ -123,7 +123,9 @@ public sealed class FinanceiroService
         // "fica a receber", set/2026). Sem vencimento a inadimplência não a enxerga —
         // ela só conta o que VENCEU.
         DateOnly? dataVencimento = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        // O horário que este dinheiro pagou, quando ele entra AO MARCAR (nov/2026).
+        int? agendamentoId = null)
         => _repo.ExecutarGestaoAtomicaAsync(async () =>
     {
         if (string.IsNullOrWhiteSpace(descricao))
@@ -153,6 +155,7 @@ public sealed class FinanceiroService
             CategoriaFinanceiraId = categoriaId,
             PacienteId = pacienteId,
             AtendimentoId = atendimentoId,
+            AgendamentoId = agendamentoId,
             CodigoFaturamentoId = codigoFaturamentoId,
             Convenio = convenio,
             ConvenioCodigo = convenioCodigo,

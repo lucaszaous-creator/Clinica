@@ -1488,6 +1488,19 @@ public sealed class AgendaService
             else evolucao.Atendimento = atendimento; // a navegação: o Id ainda não existe
         }
 
+        // ===== O PAGAMENTO FEITO AO MARCAR GANHA O ATENDIMENTO (nov/2026) =====
+        // O particular paga no balcão quando marca; o dinheiro fica preso ao HORÁRIO
+        // (`LancamentoFinanceiro.AgendamentoId`) porque o atendimento ainda não existia. É aqui,
+        // no MESMO commit em que ele nasce, que o lançamento passa a apontar para a sessão —
+        // e é por essa chave que a Conciliação, o repasse e o estorno o enxergam. Sem isto a
+        // sessão paga na marcação cairia na aba Particulares como "sem dinheiro registrado".
+        foreach (var pago in await _repo.EntradasDoHorarioAsync(ag.Id, ct))
+        {
+            if (pago.AtendimentoId is not null) continue;
+            if (atendimento.Id != 0) pago.AtendimentoId = atendimento.Id;
+            else pago.Atendimento = atendimento;
+        }
+
         if (confirmarPresenca)
         {
             if (encerrarClinico && ag.FimAtendimentoEm is null)
@@ -1831,6 +1844,13 @@ public sealed class AgendaService
         // no-show viraria pendência eterna e, dez dias depois, rodada bloqueante por uma
         // guia que nunca vai a operadora nenhuma.
         var avisos = await _atendimentos.RefletirStatusDoHorarioAsync(ag, operador, ct);
+
+        // HORÁRIO PAGO AO MARCAR (nov/2026): o dinheiro NÃO é devolvido sozinho — devolver é
+        // decisão de quem está com o paciente, e ato de quem mexe no Financeiro. O que não pode
+        // é o cancelamento passar calado por cima de um pagamento.
+        var pago = (await _repo.EntradasDoHorarioAsync(ag.Id, ct)).Sum(l => l.Valor);
+        if (pago > 0m)
+            avisos = [.. avisos, PagamentoNaMarcacaoService.AvisoDeHorarioPago(pago, status)];
 
         // Falta e cancelamento são sessão não faturada: precisam de rastro de quem marcou.
         await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
