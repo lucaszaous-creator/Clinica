@@ -347,6 +347,13 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   releitura do diff. E o `[RelayCommand]` fica colado ao método: um helper inserido entre
   o atributo e o método foi o único erro que o `compilar-sombra` acusou nesta parcela —
   rede que roda antes do push é rede que pega antes do CI.
+  ⚠️ **A PROCEDÊNCIA DO PREÇO DE CONVÊNIO leva o NOME, não o código** (nov/2026, a clínica
+  mandou a tela: "tabela: CVdb38f1f7 · Acupuntura — R$ 91,41" embaixo de guias da SulAmérica).
+  `PrecoConvenio.Descricao` escrevia `ConvenioCodigo` cru, e a operadora cadastrada pela clínica
+  tem código GERADO; o tipo e a especialidade saíam com o nome do enum. Agora
+  `CatalogoConvenios.NomeOuCodigo` + `RotulosEnum`. ⚠️ `Nome(codigo)` NÃO serve para frase
+  gravada: código desconhecido vira "Unimed (Padrão)" — outra operadora, escrita com certeza.
+  O que já foi lançado guarda a frase antiga: a procedência é copiada no lançamento e não se reescreve.
   ⚠️ **O PREÇO DO PARTICULAR É OUTRA TABELA, com outra chave** (pedido da direção no
   mesmo dia: *"um cadastro de preço por tipo de especialidade atendida quando o paciente
   for particular"*). A primeira versão lia a tabela POR CONVÊNIO com o código "Particular"

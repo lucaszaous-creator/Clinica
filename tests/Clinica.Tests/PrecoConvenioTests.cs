@@ -1,6 +1,7 @@
 using Clinica.Application.Servicos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Regras;
 using Clinica.Infrastructure;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
@@ -231,6 +232,32 @@ public class PrecoConvenioTests : IDisposable
 
         return (await _financeiro.GuiasSemLancamentoAsync(Hoje, Hoje))
             .First(g => g.CodigoId == codigo.Id);
+    }
+
+    /// <summary>
+    /// nov/2026: a Conciliação mostrava "tabela: CVdb38f1f7 · Acupuntura" numa guia da SulAmérica.
+    /// Operadora cadastrada pela clínica tem código GERADO; a frase leva o NOME, e os rótulos
+    /// no lugar do nome do enum.
+    /// </summary>
+    [Fact]
+    public async Task A_procedencia_leva_o_nome_do_convenio_e_nao_o_codigo()
+    {
+        CatalogoConvenios.Atualizar(
+        [
+            new EntradaConvenio("CVdb38f1f7", "SULAMERICA", Convenio.Personalizado, true,
+                new ConfiguracaoRegraGenerica(), GeraGuia: true)
+        ]);
+        try
+        {
+            var p = await CriarAsync("CVdb38f1f7", TipoCodigo.ConsultaEspecialidade, 91.41m);
+
+            p.Descricao.Should().StartWith("SULAMERICA · ").And.Contain("91,41")
+                .And.NotContain("CVdb38f1f7").And.NotContain("ConsultaEspecialidade");
+        }
+        finally { CatalogoConvenios.Atualizar([]); }
+
+        // Código que o catálogo não conhece continua escrito como está — nunca vira outra operadora.
+        CatalogoConvenios.NomeOuCodigo("CVsumiu").Should().Be("CVsumiu");
     }
 
     [Fact]
