@@ -39,6 +39,19 @@ public static class FilaTiss
     public const int Lote = 10;
 
     /// <summary>A espera antes da próxima tentativa: 1 min, depois 5 min.</summary>
+    /// <summary>
+    /// A frase da elegibilidade que bateu o teto diário do convênio (docs/tiss-conector.md, "Limite de
+    /// chamadas"). Não é falha nem recusa da operadora: a transação fica <c>Pendente</c> e sai sozinha.
+    /// </summary>
+    public const string FraseLimiteDiario =
+        "Limite diário de consultas à operadora atingido; a consulta sai amanhã ou quando a direção aumentar o limite.";
+
+    /// <summary>De quanto em quanto tempo a consulta adiada pelo teto é conferida de novo (o teto pode ter subido).</summary>
+    public static readonly TimeSpan ReconferenciaDoLimite = TimeSpan.FromMinutes(15);
+
+    /// <summary>O dia da clínica que contém <paramref name="agora"/>: [00:00, 00:00 do dia seguinte).</summary>
+    public static (DateTime Desde, DateTime Ate) Dia(DateTime agora) => (agora.Date, agora.Date.AddDays(1));
+
     public static TimeSpan Espera(int tentativasFeitas) => tentativasFeitas <= 1 ? TimeSpan.FromMinutes(1) : TimeSpan.FromMinutes(5);
 
     /// <summary>
@@ -158,21 +171,33 @@ public sealed class FilaTissService
 
     // ==================== A tela pede ====================
 
-    /// <summary>Pede a conferência de uma carteira na operadora.</summary>
-    public Task<TransacaoTiss> EnfileirarElegibilidadeAsync(
+    /// <summary>
+    /// Pede a conferência de uma carteira na operadora. A mesma carteira no mesmo convênio NÃO vira um
+    /// pedido novo quando já há um na fila (pendente ou em envio) ou um concluído hoje: devolve esse,
+    /// e a tela mostra o resultado com a hora da consulta. <paramref name="consultarDeNovo"/> é o pedido
+    /// explícito ("consultar de novo"): passa por cima do concluído de hoje — nunca de um que ainda
+    /// está na fila — e conta no teto diário do convênio como qualquer consulta.
+    /// </summary>
+    public async Task<TransacaoTiss> EnfileirarElegibilidadeAsync(
         string convenioCodigo, string numeroCarteira, DateOnly? validadeCarteira, int? pacienteId, string operador,
-        CancellationToken ct = default)
+        bool consultarDeNovo = false, CancellationToken ct = default)
     {
         var carteira = (numeroCarteira ?? string.Empty).Trim();
         if (carteira.Length is 0 or > 20)
             throw new InvalidOperationException("Informe o número da carteira (até 20 caracteres) para conferir a elegibilidade.");
-        return EnfileirarAsync(new TransacaoTiss
+        Operador(operador);
+        var (desde, ate) = FilaTiss.Dia(_agora());
+        var convenio = (convenioCodigo ?? string.Empty).Trim();
+        if (await _repo.ElegibilidadeTissReaproveitavelAsync(convenio, carteira, desde, ate, ct) is { } jaFeita
+            && (!consultarDeNovo || jaFeita.Estado is EstadoTransacaoTiss.Pendente or EstadoTransacaoTiss.EmEnvio))
+            return jaFeita;
+        return await EnfileirarAsync(new TransacaoTiss
         {
             Tipo = TipoTransacaoTiss.Elegibilidade,
             NumeroCarteira = carteira,
             ValidadeCarteira = validadeCarteira,
             PacienteId = pacienteId
-        }, convenioCodigo, operador, "PedidoElegibilidadeTiss", "Pedido de elegibilidade pelo web service", ct);
+        }, convenio, operador, "PedidoElegibilidadeTiss", "Pedido de elegibilidade pelo web service", ct);
     }
 
     /// <summary>
@@ -473,6 +498,43 @@ public sealed class FilaTissService
                 PacienteId = t.PacienteId
             }, ct);
         await _repo.SalvarAsync(ct);
+    }
+
+    /// <summary>
+    /// O TETO DIÁRIO de elegibilidades do convênio (docs/tiss-conector.md, "Limite de chamadas"). Com a
+    /// transação reservada e ANTES de qualquer coisa sair: se as idas reais do dia (as de outras
+    /// transações mais as que esta já fez hoje) chegaram a <paramref name="limiteDiario"/>, ela volta a
+    /// <c>Pendente</c> com <see cref="FilaTiss.FraseLimiteDiario"/> e é conferida de novo em
+    /// <see cref="FilaTiss.ReconferenciaDoLimite"/> — não é falha nem recusa da operadora. A reserva
+    /// desfeita não conta como tentativa (nada saiu). Só elegibilidade: falso para os outros tipos.
+    /// </summary>
+    public async Task<bool> AdiarPorLimiteDiarioAsync(int id, int limiteDiario, CancellationToken ct = default)
+    {
+        var t = await EmEnvioAsync(id, ct);
+        if (t.Tipo != TipoTransacaoTiss.Elegibilidade) return false;
+        var agora = _agora();
+        var (desde, ate) = FilaTiss.Dia(agora);
+        var outras = await _repo.IdasDeElegibilidadeTissAsync(t.ConvenioCodigo, desde, ate, t.Id, ct);
+        // As que ESTA já fez hoje: a reserva de agora somou uma tentativa que ainda não saiu.
+        var proprias = t.EnvioIniciadoEm >= desde && t.EnvioIniciadoEm < ate ? Math.Max(0, t.Tentativas - 1) : 0;
+        if (outras + proprias < Math.Max(0, limiteDiario)) return false;
+
+        t.Estado = EstadoTransacaoTiss.Pendente;
+        t.Consumidor = null;
+        t.ReservadaEm = null;
+        t.Tentativas = Math.Max(0, t.Tentativas - 1);
+        t.ProximaTentativaEm = agora + FilaTiss.ReconferenciaDoLimite;
+        t.Resultado = FilaTiss.FraseLimiteDiario;
+        t.Versao++;
+        await _repo.SalvarAsync(ct);
+        return true;
+    }
+
+    /// <summary>As idas reais à operadora das elegibilidades do convênio hoje (o que o teto conta).</summary>
+    public Task<int> IdasDeElegibilidadeHojeAsync(string convenioCodigo, CancellationToken ct = default)
+    {
+        var (desde, ate) = FilaTiss.Dia(_agora());
+        return _repo.IdasDeElegibilidadeTissAsync((convenioCodigo ?? string.Empty).Trim(), desde, ate, null, ct);
     }
 
     /// <summary>

@@ -93,12 +93,35 @@ public sealed record OpcoesDoConector
     /// <summary>Segundos de espera quando a fila está vazia.</summary>
     public int IntervaloSegundos { get; init; } = 5;
 
+    /// <summary>
+    /// Segundos mínimos entre duas idas à MESMA operadora (<c>TISS_INTERVALO_MINIMO_SEGUNDOS</c>, 0 a 60;
+    /// padrão 3). Vale para toda transação. Ver <see cref="IntervaloEntreChamadasTiss"/>.
+    /// </summary>
+    public int IntervaloMinimoSegundos { get; init; } = PadraoIntervaloMinimo;
+
+    /// <summary>
+    /// Teto diário de idas reais à operadora para ELEGIBILIDADE, por convênio
+    /// (<c>TISS_LIMITE_DIARIO_ELEGIBILIDADE</c>, 0 a 100000; padrão 300). Batido o teto, a consulta fica
+    /// pendente com a frase do limite (<see cref="FilaTiss.FraseLimiteDiario"/>).
+    /// </summary>
+    public int LimiteDiarioElegibilidade { get; init; } = PadraoLimiteDiarioElegibilidade;
+
+    public const int PadraoIntervaloMinimo = 3;
+    public const int PadraoLimiteDiarioElegibilidade = 300;
+
     /// <summary>Como este conector se identifica na reserva.</summary>
     public string Consumidor { get; init; } = Environment.MachineName + ":" + Environment.ProcessId;
 
     public static OpcoesDoConector DoAmbiente(Microsoft.Extensions.Configuration.IConfiguration configuracao) => new()
     {
         EnvioHabilitado = string.Equals(configuracao["TISS_ENVIO_HABILITADO"], "true", StringComparison.OrdinalIgnoreCase),
-        IntervaloSegundos = int.TryParse(configuracao["TISS_CONECTOR_INTERVALO_SEGUNDOS"], out var s) ? Math.Clamp(s, 1, 300) : 5
+        IntervaloSegundos = Inteiro(configuracao["TISS_CONECTOR_INTERVALO_SEGUNDOS"], 5, 1, 300),
+        IntervaloMinimoSegundos = Inteiro(configuracao["TISS_INTERVALO_MINIMO_SEGUNDOS"], PadraoIntervaloMinimo, 0, 60),
+        LimiteDiarioElegibilidade = Inteiro(configuracao["TISS_LIMITE_DIARIO_ELEGIBILIDADE"], PadraoLimiteDiarioElegibilidade, 0, 100_000)
     };
+
+    /// <summary>Número do ambiente dentro da faixa; ausente ou ilegível, o padrão (nunca "sem limite").</summary>
+    private static int Inteiro(string? texto, int padrao, int minimo, int maximo)
+        => int.TryParse(texto, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var n)
+            ? Math.Clamp(n, minimo, maximo) : padrao;
 }

@@ -12,9 +12,13 @@ namespace Clinica.Tiss.Conector;
 /// <item>reservar (só um conector fica com a linha);</item>
 /// <item>se a transação ESCREVE na operadora, conferir as DUAS chaves de envio — a do servidor
 /// e a do convênio. Qualquer uma desligada: recusa com a frase, e nada sai;</item>
+/// <item>elegibilidade: conferir o TETO DIÁRIO do convênio — batido, a transação volta a pendente
+/// com a frase do limite, e nada sai (<see cref="FilaTissService.AdiarPorLimiteDiarioAsync"/>);</item>
 /// <item>preparar a mensagem (o processador do tipo);</item>
+/// <item>esperar o INTERVALO MÍNIMO desde a última ida à mesma operadora
+/// (<see cref="IntervaloEntreChamadasTiss"/>) — antes do carimbo, para nada sair duas vezes por ela;</item>
 /// <item>CARIMBAR o envio e guardar o XML sem a senha — antes da rede;</item>
-/// <item>ir à rede;</item>
+/// <item>ir à rede (e anotar o fim da ida, para o intervalo);</item>
 /// <item>ler a resposta e gravar: concluída, falhou ou (só quem apenas pergunta) de volta à fila.</item>
 /// </list>
 /// O log diz o número da transação, o tipo, o convênio e o desfecho. Nunca carteira, nome,
@@ -22,8 +26,12 @@ namespace Clinica.Tiss.Conector;
 /// </summary>
 public sealed class ExecutorDeTransacoesTiss(
     FilaTissService fila, CredenciaisTissService credenciais, IEnumerable<IProcessadorTransacaoTiss> processadores,
-    TissWebserviceCliente transporte, OpcoesDoConector opcoes, ILogger<ExecutorDeTransacoesTiss> log)
+    TissWebserviceCliente transporte, OpcoesDoConector opcoes, ILogger<ExecutorDeTransacoesTiss> log,
+    IntervaloEntreChamadasTiss? intervalo = null)
 {
+    /// <summary>Sem o intervalo registrado (testes que montam o executor à mão), nenhuma espera.</summary>
+    private readonly IntervaloEntreChamadasTiss _intervalo = intervalo ?? new IntervaloEntreChamadasTiss(TimeSpan.Zero);
+
     public const string FraseEnvioDesligadoNoServidor =
         "O envio pelo web service está desligado neste servidor (TISS_ENVIO_HABILITADO). Nada foi enviado à operadora.";
 
@@ -53,6 +61,14 @@ public sealed class ExecutorDeTransacoesTiss(
                 }
             }
 
+            if (t.Tipo == TipoTransacaoTiss.Elegibilidade
+                && await fila.AdiarPorLimiteDiarioAsync(t.Id, opcoes.LimiteDiarioElegibilidade, ct))
+            {
+                log.LogWarning("Transação TISS {Id} ({Tipo}, {Convenio}) adiada: teto diário de {Limite} consultas atingido. Fica Pendente.",
+                    t.Id, t.Tipo, t.ConvenioCodigo, opcoes.LimiteDiarioElegibilidade);
+                return true;
+            }
+
             var processador = processadores.FirstOrDefault(p => p.Tipo == t.Tipo);
             if (processador is null)
             {
@@ -73,9 +89,15 @@ public sealed class ExecutorDeTransacoesTiss(
                 return true;
             }
 
+            // O intervalo mínimo desde a última ida a esta operadora: a espera vem ANTES do carimbo.
+            var operadora = preparo.Endereco.Host;
+            await _intervalo.AguardarVezAsync(operadora, ct);
+
             // A partir desta linha a mensagem pode ter chegado à operadora.
             await fila.MarcarEnvioIniciadoAsync(t.Id, preparo.Envelope, ct);
-            var resposta = await transporte.EnviarAsync(preparo.Endereco, preparo.Envelope, ct);
+            RespostaBrutaTissWs resposta;
+            try { resposta = await transporte.EnviarAsync(preparo.Endereco, preparo.Envelope, ct); }
+            finally { _intervalo.RegistrarIda(operadora); }
             if (string.IsNullOrWhiteSpace(resposta.Corpo))
             {
                 // Rede: quem só pergunta tenta de novo; quem escreve, a fila não deixa repetir.

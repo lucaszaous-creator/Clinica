@@ -4231,6 +4231,30 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Select(ResumoDaTransacaoTiss)
             .ToListAsync(ct);
 
+    public async Task<int> IdasDeElegibilidadeTissAsync(string convenioCodigo, DateTime desde, DateTime ate, int? excetoId, CancellationToken ct = default)
+        => await ConsultaIdasDeElegibilidadeTiss(convenioCodigo, desde, ate, excetoId).SumAsync(t => t.Tentativas, ct);
+
+    /// <summary>Exposta para <c>TraducaoNoNpgsqlTests</c>: a soma das tentativas das elegibilidades que saíram no dia.</summary>
+    public IQueryable<TransacaoTiss> ConsultaIdasDeElegibilidadeTiss(string convenioCodigo, DateTime desde, DateTime ate, int? excetoId)
+        => _db.TransacoesTiss.AsNoTracking()
+            .Where(t => t.Tipo == TipoTransacaoTiss.Elegibilidade && t.ConvenioCodigo == convenioCodigo
+                        && t.EnvioIniciadoEm != null && t.EnvioIniciadoEm >= desde && t.EnvioIniciadoEm < ate
+                        && (excetoId == null || t.Id != excetoId));
+
+    public async Task<TransacaoTiss?> ElegibilidadeTissReaproveitavelAsync(
+        string convenioCodigo, string numeroCarteira, DateTime desde, DateTime ate, CancellationToken ct = default)
+        => await ConsultaElegibilidadeTissReaproveitavel(convenioCodigo, numeroCarteira, desde, ate).FirstOrDefaultAsync(ct);
+
+    /// <summary>Exposta para <c>TraducaoNoNpgsqlTests</c>: a mesma carteira, na fila ou concluída no dia, sem os XML.</summary>
+    public IQueryable<TransacaoTiss> ConsultaElegibilidadeTissReaproveitavel(string convenioCodigo, string numeroCarteira, DateTime desde, DateTime ate)
+        => _db.TransacoesTiss.AsNoTracking()
+            .Where(t => t.Tipo == TipoTransacaoTiss.Elegibilidade && t.ConvenioCodigo == convenioCodigo && t.NumeroCarteira == numeroCarteira
+                        && (t.Estado == EstadoTransacaoTiss.Pendente || t.Estado == EstadoTransacaoTiss.EmEnvio
+                            || (t.Estado == EstadoTransacaoTiss.Concluida && t.ProcessadaEm >= desde && t.ProcessadaEm < ate)))
+            .OrderByDescending(t => t.Id)
+            .Take(1)
+            .Select(ResumoDaTransacaoTiss);
+
     /// <summary>
     /// A linha da fila sem os XML. ⚠️ EXPRESSÃO, e não método: um método no <c>Select</c> seria
     /// avaliado no cliente e o EF traria os XML para jogá-los fora (a lição do <c>ResumoDoEnvio</c>).
