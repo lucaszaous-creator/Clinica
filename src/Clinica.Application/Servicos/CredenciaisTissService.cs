@@ -147,36 +147,82 @@ public sealed class CredenciaisTissService
 
     /// <summary>
     /// O endereço do web service deste tipo de transação para o convênio: o que foi cadastrado
-    /// ou, para convênio da família Saúde Petrobras, o do manual da operadora
-    /// (<see cref="EnderecoPadrao"/>) — ligar o envio não exige digitar URL. Nulo quando não há
-    /// nenhum dos dois. Só HTTPS é aceito ao gravar; quem envia confere de novo antes de usar.
+    /// ou, quando a família do convênio está no catálogo (<see cref="OperadorasTiss"/>), o de
+    /// produção da operadora — ligar o envio não exige digitar URL. Nulo quando não há nenhum dos
+    /// dois. Só HTTPS é aceito ao gravar; quem envia confere de novo antes de usar.
     /// </summary>
     public async Task<Uri?> EnderecoAsync(string convenioCodigo, TipoTransacaoTiss tipo, CancellationToken ct = default)
+        => await EnderecoCadastradoAsync(convenioCodigo, tipo, ct)
+           ?? OperadorasTiss.EnderecoPadrao(await FamiliaAsync(convenioCodigo, ct), tipo);
+
+    /// <summary>O endereço cadastrado para o convênio (nulo = vale o do catálogo).</summary>
+    public async Task<Uri?> EnderecoCadastradoAsync(string convenioCodigo, TipoTransacaoTiss tipo, CancellationToken ct = default)
         => Uri.TryCreate(await _repo.ObterConfiguracaoAsync(ChaveEndereco(convenioCodigo, tipo), ct), UriKind.Absolute, out var uri)
-           && uri.Scheme == Uri.UriSchemeHttps ? uri : await EnderecoPadraoAsync(convenioCodigo, tipo, ct);
+           && uri.Scheme == Uri.UriSchemeHttps ? uri : null;
+
+    /// <summary>O endereço de produção que o sistema conhece sozinho (<see cref="OperadorasTiss"/>).</summary>
+    public static Uri? EnderecoPadrao(Convenio familia, TipoTransacaoTiss tipo) => OperadorasTiss.EnderecoPadrao(familia, tipo);
 
     /// <summary>
-    /// O endereço que o sistema conhece sozinho: os de produção da Saúde Petrobras (o manual dela
-    /// não traz homologação). Para as outras famílias, nulo — só vale o que for cadastrado.
+    /// A operadora do convênio no catálogo (nulo = o sistema não conhece web service dela). A família
+    /// vem do CADASTRO do convênio lido do banco, e não do catálogo em memória: o conector é outro
+    /// processo, e o catálogo dele pode nunca ter sido carregado.
     /// </summary>
-    public static Uri? EnderecoPadrao(Convenio familia, TipoTransacaoTiss tipo) => familia != Convenio.Petrobras ? null : tipo switch
-    {
-        TipoTransacaoTiss.Elegibilidade => TissWebserviceCliente.ElegibilidadeSaudePetrobras,
-        TipoTransacaoTiss.EnvioGuia => TissWebserviceCliente.LoteGuiasSaudePetrobras,
-        TipoTransacaoTiss.StatusProtocolo => TissWebserviceCliente.StatusProtocoloSaudePetrobras,
-        TipoTransacaoTiss.CancelamentoGuia => TissWebserviceCliente.CancelaGuiaSaudePetrobras,
-        _ => null
-    };
+    public async Task<OperadoraTiss?> OperadoraAsync(string convenioCodigo, CancellationToken ct = default)
+        => OperadorasTiss.Da(await FamiliaAsync(convenioCodigo, ct));
 
-    private async Task<Uri?> EnderecoPadraoAsync(string convenioCodigo, TipoTransacaoTiss tipo, CancellationToken ct)
+    private async Task<Convenio> FamiliaAsync(string convenioCodigo, CancellationToken ct)
     {
-        // A família vem do CADASTRO do convênio lido do banco, e não do catálogo em memória: o
-        // conector é outro processo, e o catálogo dele pode nunca ter sido carregado.
+        var codigo = (convenioCodigo ?? string.Empty).Trim();
         var cadastro = (await _repo.ConveniosAsync(ct))
-            .FirstOrDefault(c => string.Equals(c.Codigo, convenioCodigo.Trim(), StringComparison.OrdinalIgnoreCase));
-        var familia = cadastro?.Familia
-                      ?? (Enum.TryParse<Convenio>(convenioCodigo.Trim(), ignoreCase: true, out var embutida) ? embutida : Convenio.Personalizado);
-        return EnderecoPadrao(familia, tipo);
+            .FirstOrDefault(c => string.Equals(c.Codigo, codigo, StringComparison.OrdinalIgnoreCase));
+        return cadastro?.Familia
+               ?? (Enum.TryParse<Convenio>(codigo, ignoreCase: true, out var embutida) ? embutida : Convenio.Personalizado);
+    }
+
+    // ==================== o código do prestador na operadora ====================
+
+    /// <summary>Valor gravado que quer dizer "o CNPJ da clínica".</summary>
+    public const string CodigoPeloCnpj = "cnpj";
+
+    /// <summary>Valor gravado que quer dizer "o login do web service".</summary>
+    public const string CodigoPeloLogin = "login";
+
+    public static string ChaveCodigoPrestador(string convenioCodigo) => Chave("TissCodigo:", convenioCodigo);
+
+    /// <summary>
+    /// A regra do código do prestador para o convênio: a cadastrada (<see cref="DefinirCodigoDoPrestadorAsync"/>)
+    /// ou a da operadora no catálogo. Sem nenhuma das duas, o CNPJ da clínica — como foi sempre.
+    /// O código literal, quando a regra é <see cref="CodigoDoPrestadorTiss.Cadastrado"/>, vem junto.
+    /// </summary>
+    public async Task<(CodigoDoPrestadorTiss Regra, string? Codigo)> CodigoDoPrestadorAsync(string convenioCodigo, CancellationToken ct = default)
+    {
+        var gravado = (await _repo.ObterConfiguracaoAsync(ChaveCodigoPrestador(convenioCodigo), ct))?.Trim();
+        if (string.Equals(gravado, CodigoPeloCnpj, StringComparison.OrdinalIgnoreCase)) return (CodigoDoPrestadorTiss.CnpjDaClinica, null);
+        if (string.Equals(gravado, CodigoPeloLogin, StringComparison.OrdinalIgnoreCase)) return (CodigoDoPrestadorTiss.LoginDoWebService, null);
+        if (!string.IsNullOrEmpty(gravado)) return (CodigoDoPrestadorTiss.Cadastrado, gravado);
+        return ((await OperadoraAsync(convenioCodigo, ct))?.CodigoDoPrestador ?? CodigoDoPrestadorTiss.CnpjDaClinica, null);
+    }
+
+    /// <summary>
+    /// Grava a regra do código do prestador para o convênio: <c>cnpj</c>, <c>login</c> ou o código
+    /// em si (1 a 14 caracteres, o tamanho de <c>codigoPrestadorNaOperadora</c> no padrão).
+    /// Vazio volta à regra da operadora no catálogo. O código vai para a trilha só como "alterado".
+    /// </summary>
+    public async Task DefinirCodigoDoPrestadorAsync(string convenioCodigo, string? valor, string operador, CancellationToken ct = default)
+    {
+        var quem = Operador(operador);
+        var texto = (valor ?? string.Empty).Trim();
+        if (texto.Length > 14)
+            throw new InvalidOperationException("O código do prestador na operadora tem até 14 caracteres (padrão TISS).");
+        await _repo.SalvarConfiguracaoAsync(ChaveCodigoPrestador(convenioCodigo), texto, ct);
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = quem, Acao = "CodigoPrestadorTissAlterado",
+            Detalhe = $"Código do prestador no web service alterado ({convenioCodigo.Trim()}): "
+                      + (texto.Length == 0 ? "regra da operadora" : texto.ToLowerInvariant() is CodigoPeloCnpj or CodigoPeloLogin ? texto.ToLowerInvariant() : "código cadastrado")
+        }, ct);
+        await _repo.SalvarAsync(ct);
     }
 
     /// <summary>Grava o endereço do web service (HTTPS) deste tipo de transação para o convênio, com trilha.</summary>

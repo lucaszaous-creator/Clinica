@@ -184,18 +184,18 @@ public sealed class CredenciaisTissServiceTests : IDisposable
     [Fact]
     public async Task O_endereco_do_web_service_so_aceita_https_e_e_por_tipo()
     {
-        const string amil = "Amil";
+        const string semCatalogo = "UnimedPadrao";
         var credenciais = _b.Credenciais();
-        (await credenciais.EnderecoAsync(amil, TipoTransacaoTiss.EnvioGuia)).Should().BeNull("só a Saúde Petrobras tem endereço conhecido pelo sistema");
+        (await credenciais.EnderecoAsync(semCatalogo, TipoTransacaoTiss.EnvioGuia)).Should().BeNull("a família dele não está no catálogo de operadoras com web service");
 
-        var semHttps = () => credenciais.DefinirEnderecoAsync(amil, TipoTransacaoTiss.EnvioGuia, "http://exemplo.invalid/tiss", TissBancoDeTeste.Operador);
-        var comSenha = () => credenciais.DefinirEnderecoAsync(amil, TipoTransacaoTiss.EnvioGuia, "https://usuario:senha@exemplo.invalid/tiss", TissBancoDeTeste.Operador);
+        var semHttps = () => credenciais.DefinirEnderecoAsync(semCatalogo, TipoTransacaoTiss.EnvioGuia, "http://exemplo.invalid/tiss", TissBancoDeTeste.Operador);
+        var comSenha = () => credenciais.DefinirEnderecoAsync(semCatalogo, TipoTransacaoTiss.EnvioGuia, "https://usuario:senha@exemplo.invalid/tiss", TissBancoDeTeste.Operador);
         await semHttps.Should().ThrowAsync<InvalidOperationException>();
         await comSenha.Should().ThrowAsync<InvalidOperationException>();
 
-        await credenciais.DefinirEnderecoAsync(amil, TipoTransacaoTiss.EnvioGuia, "https://exemplo.invalid/tiss/lote", TissBancoDeTeste.Operador);
-        (await credenciais.EnderecoAsync(amil, TipoTransacaoTiss.EnvioGuia)).Should().Be(new Uri("https://exemplo.invalid/tiss/lote"));
-        (await credenciais.EnderecoAsync(amil, TipoTransacaoTiss.StatusProtocolo)).Should().BeNull();
+        await credenciais.DefinirEnderecoAsync(semCatalogo, TipoTransacaoTiss.EnvioGuia, "https://exemplo.invalid/tiss/lote", TissBancoDeTeste.Operador);
+        (await credenciais.EnderecoAsync(semCatalogo, TipoTransacaoTiss.EnvioGuia)).Should().Be(new Uri("https://exemplo.invalid/tiss/lote"));
+        (await credenciais.EnderecoAsync(semCatalogo, TipoTransacaoTiss.StatusProtocolo)).Should().BeNull();
     }
 
     [Fact]

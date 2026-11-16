@@ -455,49 +455,73 @@ deploy/tiss-conector/publicar.sh        # gera tiss-conector-XXXXXXX/ e o .tar.g
 sha256sum tiss-conector-XXXXXXX.tar.gz  # anote, para conferir depois de copiar
 ```
 
-**2. O usuário do banco** — na VPS 1, como root, com o `papel-tiss-conector.sql` que veio na pasta
-publicada (`deploy/`):
+**2 a 4, de uma vez: `instalar.sh`** — na VPS 1, como root, de dentro da pasta `deploy/` do pacote
+publicado (nov/2026; é o roteiro que funcionou na primeira instalação, com as três correções abaixo):
 
 ```bash
-sudo -u postgres psql -p 45432 -d clinica -v senha="'SENHA_FORTE'" -f papel-tiss-conector.sql
+cd tiss-conector-XXXXXXX/deploy
+sudo bash instalar.sh Petrobras Amil      # os convênios cuja credencial você quer gravar agora
+# ou, conferindo o pacote:  ESPERADO_SHA256=… sudo -E bash instalar.sh Petrobras Amil
 ```
 
-No `pg_hba.conf`, **antes** das linhas `hostssl`: `local clinica tiss_conector scram-sha-256`.
-Depois, `systemctl reload postgresql`. O conector entra só pelo socket local, nunca por TCP.
+Ele confere o pacote e o banco, instala em `/opt/clinica-tiss-conector`, cria os dois usuários do
+banco com senha aleatória, escreve `conector.env` e `admin.env`, acrescenta as duas regras no
+`pg_hba.conf` (com cópia de segurança), sobe o serviço e pede o login e a senha de cada convênio
+listado. Pode rodar de novo: o que já está feito, ele mantém. **O envio de guias continua desligado.**
 
-**3. Os arquivos** — na VPS 1, como root:
+As três correções (nov/2026, achadas na primeira instalação):
+
+1. **Aspas na conexão.** `ConnectionStrings__Clinica="Host=…;Port=…;…"`. Sem aspas, o `;` cortava a
+   linha quando o `comando.sh` carregava o arquivo. O `comando.sh` agora lê `CHAVE=VALOR` linha a
+   linha, sem passar pelo shell, com ou sem aspas — como o systemd lê o `EnvironmentFile`.
+2. **Um usuário do banco para quem opera: `tiss_operacao`** (`papel-tiss-operacao.sql`). O `admin.env`
+   usava a senha do usuário dos apps, que alcança o banco inteiro; o novo só lê e grava
+   `Configuracoes` e acrescenta na `Auditoria`. Regra no `pg_hba.conf`:
+   `local clinica tiss_operacao scram-sha-256`.
+3. **O SQL entra pela entrada padrão**, não por `-f`: o usuário `postgres` não lê a pasta do conector.
+
+Os passos, se for fazer à mão:
+
+```bash
+# o usuário do serviço e o de quem opera (como root, na pasta deploy/ do pacote)
+sudo -u postgres psql -p 45432 -d clinica -v ON_ERROR_STOP=1 -v senha="'SENHA_FORTE_1'" < papel-tiss-conector.sql
+sudo -u postgres psql -p 45432 -d clinica -v ON_ERROR_STOP=1 -v senha="'SENHA_FORTE_2'" < papel-tiss-operacao.sql
+```
+
+No `pg_hba.conf`, **antes** da primeira regra ativa: `local clinica tiss_conector scram-sha-256` e
+`local clinica tiss_operacao scram-sha-256`. Depois, `systemctl reload postgresql`. Os dois entram
+só pelo socket local, nunca por TCP.
 
 ```bash
 useradd --system --home-dir /nonexistent --shell /usr/sbin/nologin --user-group clinica-tiss
 mkdir -p /opt/clinica-tiss-conector/releases /etc/clinica-tiss-conector
 chmod 700 /etc/clinica-tiss-conector
-# copie o .tar.gz, confira o sha256sum e:
 tar -xzf tiss-conector-XXXXXXX.tar.gz -C /opt/clinica-tiss-conector/releases
 ln -sfn /opt/clinica-tiss-conector/releases/tiss-conector-XXXXXXX /opt/clinica-tiss-conector/current
-
 cd /opt/clinica-tiss-conector/current/deploy
 install -m 600 conector.env.example /etc/clinica-tiss-conector/conector.env
 install -m 600 admin.env.example    /etc/clinica-tiss-conector/admin.env
 ```
 
-Edite os dois arquivos em `/etc/clinica-tiss-conector/`:
+Edite os dois arquivos em `/etc/clinica-tiss-conector/` (a conexão **entre aspas**):
 
-- `conector.env`: a senha do usuário `tiss_conector` e a `CLINICA_CREDENCIAIS_CHAVE`. Se os apps
-  e a ponte do CRM já usam essa chave, é **a mesma**. Se a clínica ainda não a tem, gere com
+- `conector.env`: a senha do `tiss_conector` e a `CLINICA_CREDENCIAIS_CHAVE`. Se os apps e a ponte
+  do CRM já usam essa chave, é **a mesma**. Se a clínica ainda não a tem, gere com
   `openssl rand -base64 32` e **guarde uma cópia fora do servidor**. Deixe `TISS_ENVIO_HABILITADO=false`.
-- `admin.env`: a conexão do usuário do banco que os apps usam. O serviço não lê este arquivo.
+- `admin.env`: a senha do `tiss_operacao`. O serviço não lê este arquivo.
 
-**4. Cadastrar a credencial da operadora** — a senha é digitada na hora e não fica em arquivo
-nem no histórico do terminal:
+**Cadastrar a credencial da operadora** — a senha é digitada na hora e não fica em arquivo nem no
+histórico do terminal:
 
 ```bash
-export TISS_WS_LOGIN='LOGIN_DA_CONECTIVIDADE'
+export TISS_WS_LOGIN='LOGIN_DO_PORTAL'
 /opt/clinica-tiss-conector/current/deploy/comando.sh credencial Petrobras --senha-na-entrada --operador 'Seu Nome'
 # (digite a senha e Enter; ela não aparece no retorno)
 unset TISS_WS_LOGIN
 ```
 
-`Petrobras` é o código do convênio no cadastro; `--operador` é quem está fazendo, e vai para a trilha.
+`Petrobras` é o código do convênio no cadastro (`Amil` para a Amil); `--operador` é quem está
+fazendo, e vai para a trilha.
 
 **5. Ligar o serviço:**
 
@@ -514,10 +538,83 @@ O que deve aparecer: `Conector TISS no ar. Envio de guias neste servidor: deslig
 ```bash
 /opt/clinica-tiss-conector/current/deploy/comando.sh situacao Petrobras
 # Petrobras: login cadastrado, senha cadastrada, envio desligado, hoje 0 de 300 consultas.
+#   operadora Saúde Petrobras, registro ANS 422631 no catálogo; código do prestador: o CNPJ da clínica;
+#   elegibilidade em https://webservices.crc.com.br/tiss/ws/40100/tissVerificaElegibilidade (padrão do catálogo).
 ```
 
 Depois, peça uma elegibilidade por uma tela (quando houver) e veja a linha passar de `Pendente`
 a `Concluida` no mesmo comando.
+
+## As operadoras do conector (nov/2026): Saúde Petrobras e Amil
+
+Quem decide "esta família de convênio tem web service" é **um catálogo só**, em
+`src/Clinica.Application/Servicos/OperadorasTiss.cs`. Operadora nova é uma linha nele; nenhum
+outro arquivo do conector, da fila ou das telas conhece nome de operadora.
+
+| | Saúde Petrobras | Amil |
+|---|---|---|
+| Registro ANS (público) | 422631 | 326305 |
+| `codigoPrestadorNaOperadora` | CNPJ da clínica | **login do web service** (o login do portal é o código do credenciado) |
+| Endereços padrão | `https://webservices.crc.com.br/tiss/ws/40100/…` | APIM: `https://api.servicos.grupoamil.com.br/api-tiss-…/v4.01.00` |
+| Padrão | TISS 4.01.00, SOAP, login e senha (MD5) no cabeçalho | o mesmo |
+| Elegibilidade | sim | **sim** |
+| Envio de guias nas telas | sim (a guia passa pela conferência ANS na baixa) | **não**: o endereço do lote está no catálogo, mas a guia da Amil ainda não passa pela conferência ANS, então não há guia pronta para enviar |
+
+Fonte da Amil: Portal do Credenciado Amil → Material de apoio → Manuais ("Manual de Utilização de
+Web Service para prestadores" e a tabela "Endereços web service Amil 4.01.00", com o L7 atual e o
+APIM novo). Os endereços L7 (`https://api.amil.com.br/operadora/tiss/<serviço>/soap/v40100`) e o
+"link único" que o manual manda pedir ao Núcleo TISS ficam de fora do código: se a Amil indicar
+um deles, ele é **cadastrado por cima do padrão**, sem novo deploy:
+
+```bash
+comando.sh endereco Amil todos https://ENDERECO_QUE_A_AMIL_INDICOU --operador 'Seu Nome'
+```
+
+**O que vence o quê**, por convênio:
+
+| Dado | 1º (cadastrado) | 2º (catálogo) | 3º |
+|---|---|---|---|
+| Endereço de cada serviço | `comando.sh endereco` | `OperadorasTiss` | — (sem endereço, nada sai) |
+| Registro ANS | cadastro do convênio (Configurações do faturamento) | `OperadorasTiss` | o da clínica (dados do prestador) |
+| Código do prestador | `comando.sh codigo CONVENIO cnpj\|login\|CODIGO` | regra da operadora no catálogo | CNPJ da clínica |
+
+O registro do catálogo vem **antes** do da clínica porque o da clínica é um só: com duas operadoras,
+ele mandaria a mensagem da Amil com o registro da Petrobras.
+
+**O código do prestador** (`codigoPrestadorNaOperadora`, até 14 caracteres no XSD 4.01.00) vai no
+cabeçalho e em `dadosPrestador`. O XSD não diz o que ele é — diz só o tamanho. Na Amil, o padrão é
+o login do portal; se o login tiver mais de 14 caracteres, o conector recusa antes de chamar a
+operadora e manda cadastrar o código (`comando.sh codigo Amil CODIGO --operador 'Seu Nome'`).
+`comando.sh codigo Amil padrao` volta à regra do catálogo. Nenhum código, CNPJ ou login real está no
+repositório: tudo entra pelo servidor, na instalação.
+
+**Na tela**: a consulta de elegibilidade aparece na ficha do paciente (aba "Convênio, contatos e
+LGPD") para paciente de convênio da família Amil **quando a credencial da Amil estiver gravada**.
+O formulário "Web service" do convênio, em Configurações do faturamento, passa a abrir na linha da
+Amil — só com a credencial e um aviso de que, por enquanto, ela serve para a elegibilidade.
+
+**O que a Amil pede no portal e o sistema ainda não faz** (registrado aqui para quando o envio de
+guias da Amil for ligado): faturamento aceito do 1º ao 5º dia útil, das 7h às 19h; atendimento
+confirmado pelo paciente com token, QR Code ou reconhecimento facial; cobrança que vence em 90 dias.
+Nenhuma dessas regras está no código. A janela do 1º ao 5º dia útil, quando entrar, é **aviso na
+tela, não bloqueio**.
+
+### Testar a elegibilidade da Amil na VPS (primeira vez)
+
+1. Publicar este commit (`deploy/tiss-conector/publicar.sh`) e instalar por cima (`sudo bash instalar.sh Amil`),
+   ou só gravar a credencial se o pacote já for este:
+   `export TISS_WS_LOGIN='LOGIN_DO_PORTAL_AMIL'; comando.sh credencial Amil --senha-na-entrada --operador 'Seu Nome'; unset TISS_WS_LOGIN`.
+2. `comando.sh situacao Amil` deve dizer: login e senha cadastrados, envio desligado, `operadora Amil,
+   registro ANS 326305 no catálogo`, `código do prestador: o login do web service` e a elegibilidade
+   no endereço `api-tiss-verifica-elegibilidade/v4.01.00 (padrão do catálogo)`.
+3. Se o cadastro do convênio Amil tiver um registro ANS diferente de 326305, ele vence: confira em
+   Configurações do faturamento.
+4. Peça a elegibilidade de UMA carteira conhecida pela ficha do paciente (ou pela baixa da guia) e
+   acompanhe: `journalctl -u clinica-tiss-conector -f` e `comando.sh situacao Amil`.
+5. Leitura do desfecho: "Elegível"/"Não elegível" é resposta da Amil; `LoginInvalido` pede conferir o
+   login e a senha do portal (não repita: pode bloquear o acesso); recusa por código do prestador ou
+   `RemetenteInvalido` pede `comando.sh codigo Amil cnpj` ou o código do credenciado; resposta que não
+   é XML, HTTP 404 ou 405 pede o "link único" do Núcleo TISS (`comando.sh endereco Amil todos …`).
 
 ## Operação
 
@@ -539,9 +636,10 @@ São **duas chaves**, e uma guia só sai com as duas ligadas:
 | Do servidor | `/etc/clinica-tiss-conector/conector.env` | `TISS_ENVIO_HABILITADO=true` e `systemctl restart clinica-tiss-conector` |
 | Do convênio | configuração no banco | `comando.sh envio Petrobras ligar --operador 'Seu Nome'` (ou `desligar`); vale na próxima transação, sem reiniciar |
 
-A Saúde Petrobras **não precisa de endereço cadastrado**: os quatro do manual dela já são o
-padrão. Para outra operadora, ou para trocar: `comando.sh endereco CONVENIO envio https://…
---operador 'Seu Nome'` (idem `elegibilidade`, `status` e `cancelamento`).
+As operadoras do catálogo (`OperadorasTiss`: Saúde Petrobras e Amil) **não precisam de endereço
+cadastrado**: os do manual de cada uma já são o padrão. Para trocar, ou para operadora fora do
+catálogo: `comando.sh endereco CONVENIO envio https://… --operador 'Seu Nome'` (idem
+`elegibilidade`, `status` e `cancelamento`; `todos` grava o mesmo endereço nos quatro).
 
 **Desligar na pressa:** `comando.sh envio Petrobras desligar --operador 'Seu Nome'`. Transação de
 envio que já estava na fila é recusada com a frase "O envio pelo web service está desligado para
@@ -566,7 +664,7 @@ journalctl -u clinica-tiss-conector -f
 | `… sem sucesso: … LoginInvalido … Fica Falhou.` | A operadora recusou o login. | Girar a credencial. **Não** fique repetindo: pode bloquear o acesso. |
 | `… Fica Falhou.` num envio | O envio não se completou. | Conferir **no portal da operadora** se a guia chegou, antes de pedir outro. |
 | `Conector TISS: a volta falhou (NpgsqlException). Falhas seguidas: N.` | O banco não respondeu. | Ver o Postgres; o conector volta sozinho. |
-| `42501` em qualquer lugar | Falta permissão no usuário do banco. | Rever `papel-tiss-conector.sql`. |
+| `42501` em qualquer lugar | Falta permissão no usuário do banco. | Rever `papel-tiss-conector.sql` (o serviço) ou `papel-tiss-operacao.sql` (o `comando.sh`). |
 
 O log traz o número da transação, o tipo, o convênio e o desfecho. **Nunca** carteira, nome,
 login ou senha — para saber de quem é a transação 12, olhe a tela, com o seu login.
@@ -582,7 +680,7 @@ login ou senha — para saber de quem é a transação 12, olhe a tela, com o se
   envio antigo que ficou `Pendente` **sai** quando o serviço voltar com as chaves ligadas. Se não
   for para sair, cancele-o pela tela antes de religar.
 - **Remover de vez:** pare o serviço, apague `/etc/clinica-tiss-conector` (a credencial some com a
-  chave) e rode `DROP ROLE tiss_conector` depois de `REVOKE`. A tabela `TransacoesTiss` fica: é o
+  chave) e rode `DROP ROLE tiss_conector` e `DROP ROLE tiss_operacao` depois de `REVOKE`. A tabela `TransacoesTiss` fica: é o
   registro do que foi dito à operadora.
 
 ## LGPD — a decisão que ainda falta (ponto 10 do compromisso)
@@ -595,7 +693,10 @@ Dito sem enfeite:
   portal da mesma operadora; o que muda é o caminho.
 - **Por onde passa.** O web service da Saúde Petrobras é operado por uma conectividade contratada
   pela operadora (o endereço é de terceiro). É a mesma empresa por trás do portal, pelo que o
-  endereço indica — **não foi confirmado com a operadora**.
+  endereço indica — **não foi confirmado com a operadora**. O da Amil é um domínio do próprio grupo
+  da operadora (`api.servicos.grupoamil.com.br`), publicado no portal do credenciado; onde ficam os
+  servidores dele também **não foi confirmado**. Na Amil, o que vai como código do prestador é o
+  login do portal (não o CNPJ).
 - **O que o compromisso exige.** O ponto 10 do `CLAUDE.md` diz que dado clínico novo em serviço
   externo é transferência a decidir, e que nenhuma integração nova manda dado para fora sem
   passar por essa decisão. **Essa decisão não está registrada.** A elegibilidade já foi feita uma
@@ -621,6 +722,16 @@ Dito sem enfeite:
   passo é trocar a senha no portal e girar a credencial aqui.
 
 ## O que não foi verificado
+
+- **A Amil nunca foi chamada** (nem o WSDL, por este código): o primeiro teste real é na VPS. Não se
+  sabe se o endereço APIM responde com o login e a senha do portal ou se exige o "link único"; se o
+  `soapAction` vazio é aceito (é o do WSDL da ANS e o que funciona na Petrobras); se o login vai bem
+  como `codigoPrestadorNaOperadora` ou se ela espera o CNPJ ou outro código; e se a resposta segue o
+  XSD como a da Petrobras. Os endereços de lote, protocolo e cancelamento estão no catálogo, mas o
+  `?wsdl` de lote e de protocolo responde 404 (informação da coordenação, 16/11/2026).
+- **O usuário `tiss_operacao`** foi descrito a partir do script que funcionou na VPS; o `instalar.sh`
+  e o `comando.sh` novos foram conferidos por sintaxe (`bash -n`) e a leitura do `.env` por um teste
+  de linha de comando, não executados numa VPS.
 
 - **Envio de lote, situação do protocolo e cancelamento nunca foram enviados à operadora.** O que
   está provado é que a mensagem é válida no XSD 4.01.00 e que as respostas previstas pelo XSD

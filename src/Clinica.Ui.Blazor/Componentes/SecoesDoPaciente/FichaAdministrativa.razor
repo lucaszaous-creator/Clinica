@@ -357,7 +357,7 @@
             {
                 var p = await s.GetRequiredService<PacienteService>().ObterAsync(id);
                 string? doWebService = null;
-                if (p is not null && EnvioTissNaTela.TemWebService(p.ConvenioCodigo, p.Convenio))
+                if (p is not null && EnvioTissNaTela.TemElegibilidade(p.ConvenioCodigo, p.Convenio))
                 {
                     var codigo = p.ConvenioCodigo ?? p.Convenio.ToString();
                     var credencial = await s.GetRequiredService<CredenciaisTissService>().ParaATelaAsync(codigo);

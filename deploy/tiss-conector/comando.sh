@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Roda um comando de operação do conector TISS na VPS (credencial, envio, endereco, situacao).
+# Roda um comando de operação do conector TISS na VPS (credencial, envio, endereco, codigo, situacao).
 # Uso (como root):   /opt/clinica-tiss-conector/current/deploy/comando.sh situacao Petrobras
 # Roteiro: docs/tiss-conector.md §4 e §5.
 #
 # Por que existe: o serviço roda com um usuário do banco que só LÊ a configuração. Mudar a
-# credencial ou a chave de envio pede outro usuário do banco, com escrita — o do arquivo
-# /etc/clinica-tiss-conector/admin.env, que só o root lê e que o serviço nunca carrega.
+# credencial, o endereço, o código do prestador ou a chave de envio pede outro usuário do banco,
+# com escrita só na configuração e na trilha (tiss_operacao, papel-tiss-operacao.sql) — o do
+# arquivo /etc/clinica-tiss-conector/admin.env, que só o root lê e que o serviço nunca carrega.
 set -euo pipefail
 
 dir=/etc/clinica-tiss-conector
@@ -15,17 +16,32 @@ bin=/opt/clinica-tiss-conector/current/Clinica.Tiss.Conector
 [ -r "$dir/conector.env" ] || { echo "Falta $dir/conector.env." >&2; exit 1; }
 [ $# -ge 1 ] || { "$bin" --help; exit 2; }
 
-set -a
-# shellcheck disable=SC1091
-. "$dir/conector.env"
+# Lê um arquivo CHAVE=VALOR sem passá-lo pelo shell (nov/2026): com ". arquivo", o ";" da cadeia
+# de conexão sem aspas cortava a linha e o resto virava comando. Aqui cada linha é exportada como
+# está, com ou sem aspas em volta do valor — o mesmo que o systemd faz com o EnvironmentFile.
+carregar() {
+  local linha chave valor
+  while IFS= read -r linha || [ -n "$linha" ]; do
+    linha="${linha%$'\r'}"
+    case "$linha" in ''|'#'*) continue ;; esac
+    chave="${linha%%=*}"
+    valor="${linha#*=}"
+    [ "$chave" != "$linha" ] || continue
+    case "$valor" in
+      \"*\") valor="${valor:1:${#valor}-2}" ;;
+      \'*\') valor="${valor:1:${#valor}-2}" ;;
+    esac
+    export "$chave=$valor"
+  done < "$1"
+}
+
+carregar "$dir/conector.env"
 case "$1" in
   situacao) ;;  # só leitura: o usuário do serviço basta
   *)
     [ -r "$dir/admin.env" ] || { echo "Falta $dir/admin.env (a conexão com escrita na configuração). Ver docs/tiss-conector.md §4." >&2; exit 1; }
-    # shellcheck disable=SC1091
-    . "$dir/admin.env"
+    carregar "$dir/admin.env"
     ;;
 esac
-set +a
 
 exec "$bin" "$@"

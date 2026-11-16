@@ -242,17 +242,18 @@ public sealed class ConectorTissTests : IDisposable
 
         var t = await GravadaAsync(pedido.Id);
         t.Estado.Should().Be(EstadoTransacaoTiss.Cancelada);
-        t.Resultado.Should().Contain("registro ANS");
+        // Sem dado nenhum da clínica, o registro ANS vem do catálogo (OperadorasTiss): o que falta é o CNPJ.
+        t.Resultado.Should().Contain("CNPJ da clínica");
         _rede.Idas.Should().BeEmpty();
     }
 
     [Fact]
     public async Task Convenio_sem_endereco_cadastrado_nao_vai_a_lugar_nenhum()
     {
-        // Só a elegibilidade da Petrobras tem endereço conhecido pelo código (o do manual dela).
+        // Família fora do catálogo de operadoras (OperadorasTiss): sem endereço cadastrado, nada sai.
         await _b.PrestadorAsync();
-        await _b.Credenciais().SalvarAsync("Amil", Login, Senha, TissBancoDeTeste.Operador);
-        var pedido = await _b.Fila().EnfileirarElegibilidadeAsync("Amil", TissBancoDeTeste.CarteiraFicticia, null, null, TissBancoDeTeste.Operador);
+        await _b.Credenciais().SalvarAsync("UnimedPadrao", Login, Senha, TissBancoDeTeste.Operador);
+        var pedido = await _b.Fila().EnfileirarElegibilidadeAsync("UnimedPadrao", TissBancoDeTeste.CarteiraFicticia, null, null, TissBancoDeTeste.Operador);
 
         await Conector().ProcessarProximaAsync();
 

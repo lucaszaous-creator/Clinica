@@ -11,26 +11,25 @@ namespace Clinica.Application.Servicos;
 /// </summary>
 public sealed class TissWebserviceCliente(HttpClient http)
 {
-    /// <summary>
-    /// Endereço de produção da verificação de elegibilidade da Saúde Petrobras (conectividade CRC),
-    /// do "Manual de Utilização Webservice TISS 4.01.00" da operadora. O manual não traz endereço
-    /// de homologação: toda chamada é em produção.
-    /// </summary>
-    public static readonly Uri ElegibilidadeSaudePetrobras = new("https://webservices.crc.com.br/tiss/ws/40100/tissVerificaElegibilidade");
+    // Os endereços e o registro da Saúde Petrobras moram no catálogo (OperadorasTiss, nov/2026).
+    // Os nomes abaixo continuam porque a ferramenta tools/TissPetrobras e os testes os usam.
+
+    /// <summary>Verificação de elegibilidade da Saúde Petrobras (<see cref="OperadorasTiss.SaudePetrobras"/>).</summary>
+    public static readonly Uri ElegibilidadeSaudePetrobras = OperadorasTiss.SaudePetrobras.Endereco(Clinica.Domain.Entities.TipoTransacaoTiss.Elegibilidade)!;
 
     /// <summary>Registro ANS da Saúde Petrobras (APS), o destino das mensagens.</summary>
     public const string RegistroAnsSaudePetrobras = "422631";
 
     private const string BaseSaudePetrobras = "https://webservices.crc.com.br/tiss/ws/40100/";
 
-    /// <summary>Envio de lote de guias da Saúde Petrobras (<see cref="TissLoteGuiasWs"/>). Só produção, como os demais.</summary>
-    public static readonly Uri LoteGuiasSaudePetrobras = new(BaseSaudePetrobras + "tissLoteGuias");
+    /// <summary>Envio de lote de guias da Saúde Petrobras (<see cref="TissLoteGuiasWs"/>).</summary>
+    public static readonly Uri LoteGuiasSaudePetrobras = OperadorasTiss.SaudePetrobras.Endereco(Clinica.Domain.Entities.TipoTransacaoTiss.EnvioGuia)!;
 
     /// <summary>Situação do protocolo de um lote da Saúde Petrobras (<see cref="TissStatusProtocoloWs"/>).</summary>
-    public static readonly Uri StatusProtocoloSaudePetrobras = new(BaseSaudePetrobras + "tissSolicitacaoStatusProtocolo");
+    public static readonly Uri StatusProtocoloSaudePetrobras = OperadorasTiss.SaudePetrobras.Endereco(Clinica.Domain.Entities.TipoTransacaoTiss.StatusProtocolo)!;
 
     /// <summary>Cancelamento de guia ou de lote da Saúde Petrobras (<see cref="TissCancelaGuiaWs"/>).</summary>
-    public static readonly Uri CancelaGuiaSaudePetrobras = new(BaseSaudePetrobras + "tissCancelaGuia");
+    public static readonly Uri CancelaGuiaSaudePetrobras = OperadorasTiss.SaudePetrobras.Endereco(Clinica.Domain.Entities.TipoTransacaoTiss.CancelamentoGuia)!;
 
     /// <summary>
     /// Demonstrativo de retorno (análise de conta e pagamento) da Saúde Petrobras. Só o endereço:

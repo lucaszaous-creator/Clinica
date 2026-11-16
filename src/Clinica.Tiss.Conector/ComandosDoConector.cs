@@ -22,10 +22,14 @@ public static class ComandosDoConector
               grava o login (TISS_WS_LOGIN) e a senha (TISS_WS_SENHA, ou a primeira linha da entrada)
           Clinica.Tiss.Conector credencial CONVENIO --remover --operador NOME
           Clinica.Tiss.Conector envio CONVENIO ligar|desligar --operador NOME
-          Clinica.Tiss.Conector endereco CONVENIO elegibilidade|envio|status|cancelamento https://… --operador NOME
+          Clinica.Tiss.Conector endereco CONVENIO elegibilidade|envio|status|cancelamento|todos https://… --operador NOME
+          Clinica.Tiss.Conector codigo CONVENIO cnpj|login|CODIGO|padrao --operador NOME
           Clinica.Tiss.Conector situacao [CONVENIO]
 
-        CONVENIO é o código do convênio no cadastro (ex.: Petrobras). NOME é quem está fazendo a mudança: vai para a trilha.
+        CONVENIO é o código do convênio no cadastro (ex.: Petrobras, Amil). NOME é quem está fazendo a mudança: vai para a trilha.
+        "todos" grava o mesmo endereço para os quatro serviços (o "link único" que a operadora fornece).
+        "codigo" escolhe o que vai em codigoPrestadorNaOperadora: o CNPJ da clínica, o login do web service,
+        um código de até 14 caracteres, ou "padrao" para voltar à regra da operadora (Petrobras: CNPJ; Amil: login).
         """;
 
     public static async Task<int> ExecutarAsync(string[] args, IServiceProvider servicos, TextWriter saida, TextWriter erro,
@@ -66,10 +70,31 @@ public static class ComandosDoConector
                                     + (ligar ? " Ele ainda depende de TISS_ENVIO_HABILITADO=true no ambiente do serviço." : ""));
                     return 0;
                 }
+                case "endereco" when args.Length >= 4 && args[2] == "todos":
+                    foreach (var cada in TiposComEndereco)
+                        await credenciais.DefinirEnderecoAsync(args[1], cada, args[3], Opcao(args, "--operador") ?? "", default);
+                    saida.WriteLine($"O mesmo endereço gravado para os {TiposComEndereco.Length} serviços de {args[1]}.");
+                    return 0;
                 case "endereco" when args.Length >= 4 && Tipo(args[2]) is { } tipo:
                     await credenciais.DefinirEnderecoAsync(args[1], tipo, args[3], Opcao(args, "--operador") ?? "", default);
                     saida.WriteLine($"Endereço de {tipo} gravado para {args[1]}.");
                     return 0;
+                case "codigo" when args.Length >= 3:
+                {
+                    var valor = args[2] == "padrao" ? string.Empty : args[2];
+                    await credenciais.DefinirCodigoDoPrestadorAsync(args[1], valor, Opcao(args, "--operador") ?? "", default);
+                    // Diz o que foi gravado sem reler o cadastro de convênios: o usuário do banco de
+                    // quem opera (tiss_operacao) só alcança a configuração e a trilha.
+                    var descricao = valor.Trim().ToLowerInvariant() switch
+                    {
+                        "" => "a regra da operadora (catálogo)",
+                        CredenciaisTissService.CodigoPeloCnpj => DescreverCodigo(CodigoDoPrestadorTiss.CnpjDaClinica),
+                        CredenciaisTissService.CodigoPeloLogin => DescreverCodigo(CodigoDoPrestadorTiss.LoginDoWebService),
+                        _ => DescreverCodigo(CodigoDoPrestadorTiss.Cadastrado)
+                    };
+                    saida.WriteLine($"Código do prestador de {args[1]}: {descricao}.");
+                    return 0;
+                }
                 case "situacao":
                 {
                     var fila = servicos.GetRequiredService<FilaTissService>();
@@ -82,6 +107,14 @@ public static class ComandosDoConector
                         saida.WriteLine($"{convenio}: login {(c.Login is null ? "não cadastrado" : "cadastrado")}, senha {(c.TemSenha ? "cadastrada" : "não cadastrada")}, "
                                         + $"envio {(await credenciais.EnvioLigadoAsync(convenio) ? "LIGADO" : "desligado")}, "
                                         + $"hoje {await fila.IdasDeElegibilidadeHojeAsync(convenio)} de {teto} consultas.");
+                        // De onde sai cada dado da mensagem — sem mostrar login, código nem senha.
+                        var operadora = await credenciais.OperadoraAsync(convenio);
+                        var (regra, _) = await credenciais.CodigoDoPrestadorAsync(convenio);
+                        var cadastrado = await credenciais.EnderecoCadastradoAsync(convenio, TipoTransacaoTiss.Elegibilidade);
+                        var endereco = await credenciais.EnderecoAsync(convenio, TipoTransacaoTiss.Elegibilidade);
+                        saida.WriteLine($"  operadora {(operadora is null ? "fora do catálogo (só vale o cadastrado)" : $"{operadora.Nome}, registro ANS {operadora.RegistroAns} no catálogo")}; "
+                                        + $"código do prestador: {DescreverCodigo(regra)}; "
+                                        + $"elegibilidade em {(endereco is null ? "nenhum endereço" : endereco.ToString())} ({(cadastrado is null ? "padrão do catálogo" : "cadastrado")}).");
                     }
                     // Só o que não identifica paciente: número, tipo, convênio, estado e tentativas.
                     foreach (var t in await fila.RecentesAsync(convenio, 20))
@@ -128,6 +161,16 @@ public static class ComandosDoConector
         var i = Array.IndexOf(args, nome);
         return i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
     }
+
+    private static readonly TipoTransacaoTiss[] TiposComEndereco =
+        [TipoTransacaoTiss.Elegibilidade, TipoTransacaoTiss.EnvioGuia, TipoTransacaoTiss.StatusProtocolo, TipoTransacaoTiss.CancelamentoGuia];
+
+    private static string DescreverCodigo(CodigoDoPrestadorTiss regra) => regra switch
+    {
+        CodigoDoPrestadorTiss.CnpjDaClinica => "o CNPJ da clínica",
+        CodigoDoPrestadorTiss.LoginDoWebService => "o login do web service",
+        _ => "o código cadastrado"
+    };
 
     private static TipoTransacaoTiss? Tipo(string texto) => texto switch
     {
