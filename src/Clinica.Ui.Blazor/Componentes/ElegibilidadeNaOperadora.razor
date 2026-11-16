@@ -74,7 +74,7 @@
         && string.Equals(_carteiraConsultada, Carteira?.Replace(" ", string.Empty), StringComparison.Ordinal);
 
     // Consultar a operadora é ato de quem fatura ou de quem atende no balcão com a ficha na mão.
-    private static bool Pode => SessaoUsuario.Atual.PodeAlgum(Permissao.BaixarGuia | Permissao.VerFaturamento | Permissao.EditarPaciente);
+    private static bool Pode => SessaoUsuario.Atual.PodeAlgum(EnvioTissNaTela.PermissoesDaElegibilidade);
 
     private async Task ConsultarAsync()
     {

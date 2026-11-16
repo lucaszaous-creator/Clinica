@@ -45,6 +45,14 @@
                 </span>
             }
         </span>
+        @* Consultar elegibilidade (nov/2026): discreto, ao lado das outras ações secundárias. Só aparece
+           quando há convênio com consulta automática (catálogo + credencial gravada). *@
+        @if (_temConsultaDeElegibilidade)
+        {
+            <button type="button" class="botao" data-consultar-elegibilidade-agenda disabled="@(!PodeConsultarElegibilidade)"
+                    title="@(PodeConsultarElegibilidade ? "Pergunta à operadora se a carteirinha está ativa" : "Seu acesso não permite consultar a operadora.")"
+                    @onclick="AbrirElegibilidade"><Icone Nome="busca" />Consultar elegibilidade</button>
+        }
         <button type="button" class="botao" disabled="@(!PodeEditar)" @onclick="AbrirHorarios"
                 title="@(PodeEditar ? "O horário de atendimento e a trava de cada profissional" : "Seu acesso não permite configurar horários.")"><Icone Nome="ajustes" />Horários e travas</button>
         <button type="button" class="botao primario" disabled="@(!PodeEditar)" @onclick="NovoHorarioAsync"
@@ -320,6 +328,10 @@
                      ProfissionalPreferidoId="marc.ProfissionalId" SalaPreferidaId="marc.SalaId" Duracao="@marc.Duracao" ModalidadeCodigo="@marc.Modalidade"
                      AoFechar="() => _marcando = null" AoConcluir="MarcouAsync" />
 }
+@if (_elegibilidadeAberta)
+{
+    <ElegibilidadeDaAgendaForm Dia="_dia" AoFechar="() => _elegibilidadeAberta = false" />
+}
 @if (_esperaAberta)
 {
     <ListaEsperaPainelForm SugestaoPara="_sugestaoPara" SugestaoProfissionalId="_sugestaoProfissional" Dia="_dia"
@@ -434,6 +446,7 @@
         ConsumirPedidoDeDia();
         await CarregarAsync();
         await AtualizarPedidosAsync();
+        await LerSeHaConsultaDeElegibilidadeAsync();
     }
 
     /// <summary>
@@ -929,6 +942,38 @@
     }
 
     private void AbrirEspera() => _esperaAberta = true;
+
+    // ==================== consultar elegibilidade ====================
+
+    private bool _elegibilidadeAberta, _temConsultaDeElegibilidade;
+
+    private static bool PodeConsultarElegibilidade => SessaoUsuario.Atual.PodeAlgum(EnvioTissNaTela.PermissoesDaElegibilidade);
+
+    private void AbrirElegibilidade()
+    {
+        // As duas barreiras: o botão nasce desabilitado e o clique confere de novo.
+        if (!ExigirAlgum(EnvioTissNaTela.PermissoesDaElegibilidade, "consultar a elegibilidade na operadora")) return;
+        _elegibilidadeAberta = true;
+    }
+
+    /// <summary>
+    /// O botão só existe quando há convênio com consulta automática. Uma leitura curta ao abrir a
+    /// tela; falha aqui só esconde o botão (e vai para o log) — nunca impede a agenda de abrir.
+    /// </summary>
+    private async Task LerSeHaConsultaDeElegibilidadeAsync()
+    {
+        try
+        {
+            using var escopo = Escopo();
+            var convenios = await escopo.ServiceProvider.GetRequiredService<ElegibilidadeNaAgendaService>().ConveniosComConsultaAsync();
+            _temConsultaDeElegibilidade = convenios.Count > 0;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — agenda: não foi possível saber se há consulta de elegibilidade", ex);
+            _temConsultaDeElegibilidade = false;
+        }
+    }
 
     private async Task FecharEsperaAsync()
     {

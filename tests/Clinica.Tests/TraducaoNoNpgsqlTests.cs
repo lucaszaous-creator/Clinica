@@ -987,6 +987,18 @@ public class TraducaoNoNpgsqlTests
     }
 
     [Fact]
+    public void Elegibilidades_do_dia_para_a_agenda_traduzem_numa_ida_sem_os_xml()
+    {
+        using var db = Postgres();
+        var dia = new DateTime(2026, 11, 17);
+
+        var sql = new ClinicaRepositorio(db).ConsultaElegibilidadesTissDoDia(dia, dia.AddDays(1)).ToQueryString();
+
+        sql.Should().Contain("\"TransacoesTiss\"").And.Contain("\"PedidoEm\"").And.Contain("\"ProcessadaEm\"").And.Contain("ORDER BY")
+            .And.NotContain("XmlEnviado").And.NotContain("XmlRecebido");
+    }
+
+    [Fact]
     public void Consultas_do_envio_em_lote_TISS_traduzem_no_postgres()
     {
         using var db = Postgres();

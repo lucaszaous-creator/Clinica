@@ -42,6 +42,12 @@ public sealed record ElegibilidadeNaTela(string Texto, string Tom, bool Terminou
 /// </summary>
 public static class EnvioTissNaTela
 {
+    /// <summary>
+    /// Quem pode PEDIR a consulta de elegibilidade: quem fatura ou quem atende no balcão com a ficha
+    /// na mão. Um lugar só — a ficha do paciente, a baixa e a agenda usam esta mesma lista.
+    /// </summary>
+    public const Permissao PermissoesDaElegibilidade = Permissao.BaixarGuia | Permissao.VerFaturamento | Permissao.EditarPaciente;
+
     /// <summary>De quanto em quanto tempo a tela relê enquanto há pedido na fila ou em andamento.</summary>
     public static readonly TimeSpan RitmoDoAcompanhamento = TimeSpan.FromSeconds(5);
 

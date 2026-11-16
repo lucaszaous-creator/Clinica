@@ -186,6 +186,8 @@ public static class DependencyInjection
         // A fila do web service TISS (nov/2026): a tela pede, o conector no servidor executa.
         services.AddScoped<FilaTissService>();
         services.AddScoped<CredenciaisTissService>();
+        // A consulta de elegibilidade a partir da agenda (nov/2026): a lista de quem dá para consultar.
+        services.AddScoped<ElegibilidadeNaAgendaService>();
         // A baixa em lote das guias que a operadora recebeu: quem chama é a tela, com quem está logado.
         services.AddScoped<BaixaDasGuiasEnviadasService>();
         services.AddScoped<TendenciaAtendimentosService>();

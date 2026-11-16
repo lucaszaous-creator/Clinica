@@ -2027,6 +2027,13 @@ public interface IClinicaRepositorio
     /// </summary>
     Task<TransacaoTiss?> ElegibilidadeTissReaproveitavelAsync(string convenioCodigo, string numeroCarteira, DateTime desde, DateTime ate, CancellationToken ct = default);
 
+    /// <summary>
+    /// As elegibilidades do DIA, de todos os convênios, sem os XML: as pedidas no intervalo que ainda
+    /// estão na fila e as que terminaram (concluídas, falhas ou canceladas) no intervalo. É o que a
+    /// agenda usa para marcar "consultado hoje" numa ida só ao banco — e não uma por paciente.
+    /// </summary>
+    Task<IReadOnlyList<TransacaoTiss>> ElegibilidadesTissDoDiaAsync(DateTime desde, DateTime ate, CancellationToken ct = default);
+
     Task<IReadOnlyList<ContatoCampanha>> ContatosDoPacienteAsync(
         int pacienteId, int limite = 20, CancellationToken ct = default);
 

@@ -593,6 +593,14 @@ LGPD") para paciente de convênio da família Amil **quando a credencial da Amil
 O formulário "Web service" do convênio, em Configurações do faturamento, passa a abrir na linha da
 Amil — só com a credencial e um aviso de que, por enquanto, ela serve para a elegibilidade.
 
+**Na agenda** (nov/2026): a Grade de horários (Recepção → Agenda) ganhou o botão discreto
+"Consultar elegibilidade", que só aparece quando há convênio com consulta automática (família do
+catálogo + credencial gravada). Ele abre um painel com os pacientes do dia mostrado na grade (convênio
+e carteirinha da ficha; quem não dá para consultar fica recolhido, com o motivo) e uma aba "Avulso"
+(carteirinha digitada, ou CPF — que só acha a ficha: o padrão 4.01.00 não tem CPF na
+`verificaElegibilidade`). Quem pede a consulta é o mesmo componente da ficha, sobre a mesma fila,
+com o intervalo, o teto diário e o resultado do dia. A lista e as frases: `ElegibilidadeNaAgendaService`.
+
 **O que a Amil pede no portal e o sistema ainda não faz** (registrado aqui para quando o envio de
 guias da Amil for ligado): faturamento aceito do 1º ao 5º dia útil, das 7h às 19h; atendimento
 confirmado pelo paciente com token, QR Code ou reconhecimento facial; cobrança que vence em 90 dias.
