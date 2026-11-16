@@ -4255,6 +4255,18 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Take(1)
             .Select(ResumoDaTransacaoTiss);
 
+    public async Task<IReadOnlyList<TransacaoTiss>> ElegibilidadesTissDoDiaAsync(DateTime desde, DateTime ate, CancellationToken ct = default)
+        => await ConsultaElegibilidadesTissDoDia(desde, ate).ToListAsync(ct);
+
+    /// <summary>Exposta para <c>TraducaoNoNpgsqlTests</c>: as elegibilidades do dia, as mais novas primeiro, sem os XML.</summary>
+    public IQueryable<TransacaoTiss> ConsultaElegibilidadesTissDoDia(DateTime desde, DateTime ate)
+        => _db.TransacoesTiss.AsNoTracking()
+            .Where(t => t.Tipo == TipoTransacaoTiss.Elegibilidade
+                        && (((t.Estado == EstadoTransacaoTiss.Pendente || t.Estado == EstadoTransacaoTiss.EmEnvio) && t.PedidoEm >= desde && t.PedidoEm < ate)
+                            || (t.ProcessadaEm >= desde && t.ProcessadaEm < ate)))
+            .OrderByDescending(t => t.Id)
+            .Select(ResumoDaTransacaoTiss);
+
     /// <summary>
     /// A linha da fila sem os XML. ⚠️ EXPRESSÃO, e não método: um método no <c>Select</c> seria
     /// avaliado no cliente e o EF traria os XML para jogá-los fora (a lição do <c>ResumoDoEnvio</c>).
