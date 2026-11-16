@@ -26,7 +26,9 @@ public sealed record RessalvaDaPronta(string Texto, bool PedeConferenciaNoPortal
 /// <param name="Tom">O tom do aviso: "info", "sucesso", "erro" ou "atencao".</param>
 /// <param name="Terminou">A consulta acabou: a tela para de acompanhar.</param>
 /// <param name="PodeDesistir">O pedido ainda está na fila e pode ser cancelado por quem pediu.</param>
-public sealed record ElegibilidadeNaTela(string Texto, string Tom, bool Terminou, bool PodeDesistir);
+/// <param name="ConsultadoEm">Quando a operadora respondeu ("consultado hoje às 14:02"): só na consulta concluída.</param>
+/// <param name="PodeConsultarDeNovo">A resposta está na tela e um pedido novo é ato explícito ("consultar de novo").</param>
+public sealed record ElegibilidadeNaTela(string Texto, string Tom, bool Terminou, bool PodeDesistir, string? ConsultadoEm = null, bool PodeConsultarDeNovo = false);
 
 /// <summary>
 /// As decisões das TELAS DO ENVIO à operadora (nov/2026): o que cada selo diz, com que cor, quais
@@ -346,22 +348,42 @@ public static class EnvioTissNaTela
         switch (consulta.Estado)
         {
             case EstadoTransacaoTiss.Concluida:
+            {
                 // A frase vem do padrão (TissElegibilidadeWs.Resumo): "Elegível." ou "Não elegível…".
+                var quando = QuandoFoiConsultado(consulta.ProcessadaEm, agora);
                 return resultado.StartsWith("Elegível", StringComparison.Ordinal)
-                    ? new(resultado, "sucesso", true, false)
-                    : new(resultado.Length == 0 ? "Não elegível (a operadora não informou o motivo)." : resultado, "erro", true, false);
+                    ? new(resultado, "sucesso", true, false, quando, true)
+                    : new(resultado.Length == 0 ? "Não elegível (a operadora não informou o motivo)." : resultado, "erro", true, false, quando, true);
+            }
             case EstadoTransacaoTiss.Falhou:
                 return new("Não foi possível consultar: " + Motivo(consulta.Erro ?? resultado, "a consulta não se completou."), "atencao", true, false);
             case EstadoTransacaoTiss.Cancelada:
                 return new("Não foi possível consultar: " + Motivo(resultado, "o pedido foi cancelado."), "atencao", true, false);
             case EstadoTransacaoTiss.EmEnvio:
                 return new("Consultando na operadora…", "info", false, false);
+            case EstadoTransacaoTiss.Pendente when resultado == FilaTiss.FraseLimiteDiario:
+                // O teto diário do convênio: não é falha nem "serviço fora do ar". A consulta sai sozinha;
+                // a tela para de acompanhar e deixa cancelar o pedido.
+                return new(FilaTiss.FraseLimiteDiario, "atencao", true, true);
             default:
                 return agora - consulta.PedidoEm >= EsperaDaElegibilidade
                     ? new("O serviço de envio não respondeu. O pedido continua na fila; você pode cancelá-lo e conferir no portal da operadora.",
                         "atencao", false, true)
                     : new("Consultando na operadora…", "info", false, true);
         }
+    }
+
+    /// <summary>"consultado hoje às 14:02", "consultado ontem às 17:40" ou "consultado em 10/11 às 09:15".</summary>
+    public static string? QuandoFoiConsultado(DateTime? processadaEm, DateTime agora)
+    {
+        if (processadaEm is not { } em) return null;
+        var hora = em.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture);
+        return (agora.Date - em.Date).Days switch
+        {
+            0 => $"consultado hoje às {hora}",
+            1 => $"consultado ontem às {hora}",
+            _ => $"consultado em {em.ToString("dd'/'MM", System.Globalization.CultureInfo.InvariantCulture)} às {hora}"
+        };
     }
 
     private static string Motivo(string? texto, string padrao)

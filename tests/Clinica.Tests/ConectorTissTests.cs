@@ -6,6 +6,7 @@ using Clinica.Infrastructure;
 using Clinica.Tiss.Conector;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Xunit;
@@ -32,7 +33,9 @@ public sealed class ConectorTissTests : IDisposable
 
     // ---------- montagem ----------
 
-    private ExecutorDeTransacoesTiss Conector(bool envioNoServidor = false, IProcessadorTransacaoTiss? processadorExtra = null)
+    private ExecutorDeTransacoesTiss Conector(bool envioNoServidor = false, IProcessadorTransacaoTiss? processadorExtra = null,
+        IntervaloEntreChamadasTiss? intervalo = null, int limiteDiario = OpcoesDoConector.PadraoLimiteDiarioElegibilidade,
+        IProcessadorTransacaoTiss? outroExtra = null)
     {
         var repo = new ClinicaRepositorio(_b.NovoContexto());
         var credenciais = _b.Credenciais(repo);
@@ -45,9 +48,11 @@ public sealed class ConectorTissTests : IDisposable
             new ProcessadorDeCancelamentoDeGuia(repo, parametros, credenciais, () => _b.Agora)
         };
         if (processadorExtra is not null) processadores.Insert(0, processadorExtra);
+        if (outroExtra is not null) processadores.Insert(0, outroExtra);
         return new ExecutorDeTransacoesTiss(_b.Fila(repo), credenciais, processadores,
             new TissWebserviceCliente(new HttpClient(_rede)),
-            new OpcoesDoConector { EnvioHabilitado = envioNoServidor, Consumidor = "conector-de-teste" }, _log.Para<ExecutorDeTransacoesTiss>());
+            new OpcoesDoConector { EnvioHabilitado = envioNoServidor, Consumidor = "conector-de-teste", LimiteDiarioElegibilidade = limiteDiario },
+            _log.Para<ExecutorDeTransacoesTiss>(), intervalo);
     }
 
     private async Task ProntoParaElegibilidadeAsync()
@@ -546,6 +551,152 @@ public sealed class ConectorTissTests : IDisposable
             .Should().BeEquivalentTo(Enum.GetValues<TipoTransacaoTiss>());
         escopo.ServiceProvider.GetRequiredService<ExecutorDeTransacoesTiss>().Should().NotBeNull();
         provedor.GetRequiredService<OpcoesDoConector>().EnvioHabilitado.Should().BeFalse("o envio nasce desligado no servidor");
+    }
+
+    // ---------- limite de chamadas (docs/tiss-conector.md, "Limite de chamadas") ----------
+
+    /// <summary>O relógio de mentira do intervalo: esperar AVANÇA o relógio e anota quanto se esperou.</summary>
+    private sealed class RelogioDoIntervalo
+    {
+        public DateTime Agora = new(2026, 11, 16, 12, 0, 0);
+        public List<TimeSpan> Esperas { get; } = [];
+        public IntervaloEntreChamadasTiss Intervalo(int segundos = 3) => new(TimeSpan.FromSeconds(segundos), () => Agora, (falta, _) =>
+        {
+            Esperas.Add(falta);
+            Agora += falta;
+            return Task.CompletedTask;
+        });
+    }
+
+    [Fact]
+    public async Task Duas_consultas_seguidas_a_mesma_operadora_esperam_o_intervalo_minimo_entre_as_idas()
+    {
+        await ProntoParaElegibilidadeAsync();
+        _rede.Responder(HttpStatusCode.OK, Recibo("S"));
+        _rede.Responder(HttpStatusCode.OK, Recibo("S"));
+        _rede.Responder(HttpStatusCode.OK, Recibo("S"));
+        var relogio = new RelogioDoIntervalo();
+        var intervalo = relogio.Intervalo();
+        await _b.Fila().EnfileirarElegibilidadeAsync(TissBancoDeTeste.Petrobras, "000000000001", null, null, TissBancoDeTeste.Operador);
+        await _b.Fila().EnfileirarElegibilidadeAsync(TissBancoDeTeste.Petrobras, "000000000002", null, null, TissBancoDeTeste.Operador);
+        await _b.Fila().EnfileirarElegibilidadeAsync(TissBancoDeTeste.Petrobras, "000000000003", null, null, TissBancoDeTeste.Operador);
+
+        await Conector(intervalo: intervalo).ProcessarProximaAsync();
+        relogio.Esperas.Should().BeEmpty("a primeira ida não espera");
+        relogio.Agora = relogio.Agora.AddSeconds(1);
+        await Conector(intervalo: intervalo).ProcessarProximaAsync();
+        relogio.Esperas.Should().Equal([TimeSpan.FromSeconds(2)], "3 s desde o fim da ida anterior, e 1 s já tinha passado");
+        relogio.Agora = relogio.Agora.AddSeconds(10);
+        await Conector(intervalo: intervalo).ProcessarProximaAsync();
+        relogio.Esperas.Should().HaveCount(1, "passado o intervalo, sai sem esperar");
+        _rede.Idas.Should().HaveCount(3);
+    }
+
+    [Fact]
+    public void O_intervalo_e_por_operadora_e_zero_desliga()
+    {
+        var relogio = new RelogioDoIntervalo();
+        var intervalo = relogio.Intervalo();
+        intervalo.RegistrarIda("webservices.crc.com.br");
+
+        intervalo.AguardarVezAsync("outra.operadora.invalid").Result.Should().Be(TimeSpan.Zero, "operadoras diferentes não esperam uma pela outra");
+        intervalo.AguardarVezAsync("WEBSERVICES.CRC.COM.BR").Result.Should().Be(TimeSpan.FromSeconds(3));
+
+        var desligado = relogio.Intervalo(0);
+        desligado.RegistrarIda("webservices.crc.com.br");
+        desligado.AguardarVezAsync("webservices.crc.com.br").Result.Should().Be(TimeSpan.Zero);
+    }
+
+    [Fact]
+    public async Task Envio_e_cancelamento_tambem_esperam_o_intervalo_e_o_envio_sem_resposta_continua_sem_reenvio()
+    {
+        await ProntoParaElegibilidadeAsync();
+        await _b.Credenciais().DefinirEnvioAsync(TissBancoDeTeste.Petrobras, true, TissBancoDeTeste.Operador);
+        var envio = await PedirEscritaAsync(TipoTransacaoTiss.EnvioGuia);
+        var cancelamento = await PedirEscritaAsync(TipoTransacaoTiss.CancelamentoGuia);
+        var relogio = new RelogioDoIntervalo();
+        var intervalo = relogio.Intervalo();
+        var mentiraEnvio = new ProcessadorDeMentira(TipoTransacaoTiss.EnvioGuia, Md5);
+        var mentiraCancelamento = new ProcessadorDeMentira(TipoTransacaoTiss.CancelamentoGuia, Md5);
+        _rede.Cair();
+        _rede.Responder(HttpStatusCode.OK, "<recebido/>");
+        _rede.Responder(HttpStatusCode.OK, "<recebido/>");
+
+        await Conector(true, mentiraEnvio, intervalo, outroExtra: mentiraCancelamento).ProcessarProximaAsync();
+        await Conector(true, mentiraEnvio, intervalo, outroExtra: mentiraCancelamento).ProcessarProximaAsync();
+        relogio.Esperas.Should().Equal([TimeSpan.FromSeconds(3)], "a segunda escrita na mesma operadora esperou o intervalo");
+
+        _b.Agora = _b.Agora.AddDays(1);
+        (await Conector(true, mentiraEnvio, intervalo, outroExtra: mentiraCancelamento).ProcessarProximaAsync()).Should().BeFalse();
+        _rede.Idas.Should().HaveCount(2, "uma ida do envio e uma do cancelamento: o envio sem resposta NUNCA volta sozinho");
+        var e = await GravadaAsync(envio.Id);
+        e.Estado.Should().Be(EstadoTransacaoTiss.Falhou);
+        e.Erro.Should().Contain("não é reenviada sozinha");
+        (await GravadaAsync(cancelamento.Id)).EnvioIniciadoEm.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task Teto_diario_batido_o_conector_nao_vai_a_rede_e_deixa_a_consulta_pendente_com_a_frase()
+    {
+        await ProntoParaElegibilidadeAsync();
+        _rede.Responder(HttpStatusCode.OK, Recibo("S"));
+        _rede.Responder(HttpStatusCode.OK, Recibo("S"));
+        await _b.Fila().EnfileirarElegibilidadeAsync(TissBancoDeTeste.Petrobras, "000000000001", null, null, TissBancoDeTeste.Operador);
+        var segunda = await _b.Fila().EnfileirarElegibilidadeAsync(TissBancoDeTeste.Petrobras, "000000000002", null, null, TissBancoDeTeste.Operador);
+
+        await Conector(limiteDiario: 1).ProcessarProximaAsync();
+        (await Conector(limiteDiario: 1).ProcessarProximaAsync()).Should().BeTrue();
+
+        _rede.Idas.Should().HaveCount(1, "batido o teto, nada sai");
+        var t = await GravadaAsync(segunda.Id);
+        t.Estado.Should().Be(EstadoTransacaoTiss.Pendente);
+        t.Resultado.Should().Be(FilaTiss.FraseLimiteDiario);
+        t.Tentativas.Should().Be(0);
+        _log.Linhas.Should().Contain(l => l.Contains("teto diário de 1 consultas atingido"));
+        (await Conector(limiteDiario: 1).ProcessarProximaAsync()).Should().BeFalse("adiada até a reconferência");
+
+        // No dia seguinte a consulta sai sozinha.
+        _b.Agora = _b.Agora.AddDays(1);
+        await Conector(limiteDiario: 1).ProcessarProximaAsync();
+        (await GravadaAsync(segunda.Id)).Estado.Should().Be(EstadoTransacaoTiss.Concluida);
+        _rede.Idas.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task O_comando_situacao_mostra_as_idas_reais_de_hoje_e_o_teto_do_servidor()
+    {
+        await ProntoParaElegibilidadeAsync();
+        _rede.Responder(HttpStatusCode.OK, Recibo("S"));
+        await PedirElegibilidadeAsync();
+        await Conector().ProcessarProximaAsync();
+        // A recusada antes da rede (o caso da VPS) não conta como consulta.
+        await _b.Credenciais().RemoverAsync(TissBancoDeTeste.Petrobras, TissBancoDeTeste.Operador);
+        await _b.Fila().EnfileirarElegibilidadeAsync(TissBancoDeTeste.Petrobras, "000000000009", null, null, TissBancoDeTeste.Operador);
+        await Conector().ProcessarProximaAsync();
+
+        var repo = new ClinicaRepositorio(_b.NovoContexto());
+        var servicos = new ServiceCollection().AddSingleton(_b.Credenciais(repo)).AddSingleton(_b.Fila(repo))
+            .AddSingleton(new OpcoesDoConector { LimiteDiarioElegibilidade = 50 }).BuildServiceProvider();
+        var (saida, erro) = (new StringWriter(), new StringWriter());
+        (await ComandosDoConector.ExecutarAsync(["situacao", TissBancoDeTeste.Petrobras], servicos, saida, erro)).Should().Be(0);
+
+        saida.ToString().Should().Contain("hoje 1 de 50 consultas.");
+    }
+
+    [Fact]
+    public void As_opcoes_do_limite_vem_do_ambiente_com_padrao_cauteloso_e_faixa()
+    {
+        static OpcoesDoConector Do(params (string Chave, string Valor)[] pares)
+            => OpcoesDoConector.DoAmbiente(new ConfigurationBuilder()
+                .AddInMemoryCollection(pares.Select(p => new KeyValuePair<string, string?>(p.Chave, p.Valor))).Build());
+
+        Do().Should().Match<OpcoesDoConector>(o => o.IntervaloMinimoSegundos == 3 && o.LimiteDiarioElegibilidade == 300);
+        Do(("TISS_INTERVALO_MINIMO_SEGUNDOS", "10"), ("TISS_LIMITE_DIARIO_ELEGIBILIDADE", "500"))
+            .Should().Match<OpcoesDoConector>(o => o.IntervaloMinimoSegundos == 10 && o.LimiteDiarioElegibilidade == 500);
+        Do(("TISS_INTERVALO_MINIMO_SEGUNDOS", "999"), ("TISS_LIMITE_DIARIO_ELEGIBILIDADE", "-5"))
+            .Should().Match<OpcoesDoConector>(o => o.IntervaloMinimoSegundos == 60 && o.LimiteDiarioElegibilidade == 0);
+        Do(("TISS_INTERVALO_MINIMO_SEGUNDOS", "três"), ("TISS_LIMITE_DIARIO_ELEGIBILIDADE", ""))
+            .Should().Match<OpcoesDoConector>(o => o.IntervaloMinimoSegundos == 3 && o.LimiteDiarioElegibilidade == 300, "ilegível nunca vira \"sem limite\"");
     }
 
     // ---------- as peças de mentira ----------

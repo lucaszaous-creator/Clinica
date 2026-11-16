@@ -13,6 +13,8 @@ public static class RegistroDoConector
     public static IServiceCollection AddConectorTiss(this IServiceCollection services, OpcoesDoConector opcoes)
     {
         services.AddSingleton(opcoes);
+        // UM por processo: a memória da última ida a cada operadora atravessa as voltas do laço.
+        services.AddSingleton(new IntervaloEntreChamadasTiss(TimeSpan.FromSeconds(opcoes.IntervaloMinimoSegundos)));
         services.AddScoped<IProcessadorTransacaoTiss>(sp => new ProcessadorDeElegibilidade(
             sp.GetRequiredService<IClinicaRepositorio>(), sp.GetRequiredService<ParametrosService>(),
             sp.GetRequiredService<CredenciaisTissService>(), HoraDaClinica.Agora));

@@ -2012,6 +2012,21 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<TransacaoTiss>> TransacoesTissRecentesAsync(
         string? convenioCodigo, int limite, CancellationToken ct = default);
 
+    /// <summary>
+    /// Quantas idas REAIS à operadora as elegibilidades do convênio fizeram entre <paramref name="desde"/>
+    /// e <paramref name="ate"/>: a soma das tentativas das transações cuja mensagem SAIU nesse intervalo
+    /// (<see cref="TransacaoTiss.EnvioIniciadoEm"/>). Transação recusada antes da rede não tem o carimbo e
+    /// não conta. <paramref name="excetoId"/> fica de fora (a que o conector acabou de reservar).
+    /// </summary>
+    Task<int> IdasDeElegibilidadeTissAsync(string convenioCodigo, DateTime desde, DateTime ate, int? excetoId, CancellationToken ct = default);
+
+    /// <summary>
+    /// A elegibilidade da carteira no convênio que dispensa um pedido novo: a que ainda está na fila
+    /// (pendente ou em envio) ou a concluída entre <paramref name="desde"/> e <paramref name="ate"/>. A mais nova,
+    /// sem os XML; nulo quando não há.
+    /// </summary>
+    Task<TransacaoTiss?> ElegibilidadeTissReaproveitavelAsync(string convenioCodigo, string numeroCarteira, DateTime desde, DateTime ate, CancellationToken ct = default);
+
     Task<IReadOnlyList<ContatoCampanha>> ContatosDoPacienteAsync(
         int pacienteId, int limite = 20, CancellationToken ct = default);
 

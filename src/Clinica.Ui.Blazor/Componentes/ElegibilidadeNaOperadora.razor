@@ -10,6 +10,10 @@
   - O relógio é do componente: liga ao pedir, desliga ao terminar e ao sair da tela.
   - O nome que a operadora devolve vem na frase do resultado e é mostrado AO LADO do nome da
     ficha, dizendo se conferem (EnvioTissNaTela.ConferenciaDoNome). A ficha nunca é alterada.
+  - LIMITE DE CHAMADAS (nov/2026): a mesma carteira já consultada HOJE não vai de novo à operadora;
+    a fila devolve a resposta de hoje e a tela diz "consultado hoje às HH:MM". Uma nova ida é o
+    botão "Consultar de novo", explícito, e conta no teto diário do convênio. Bater o teto deixa o
+    pedido na fila com a frase do limite (não é falha). docs/tiss-conector.md, "Limite de chamadas".
 *@
 @using Clinica.Application.Modelos
 @implements IDisposable
@@ -18,7 +22,7 @@
 <div class="elegibilidade" data-elegibilidade>
     <button type="button" class="botao mini" data-consultar-elegibilidade disabled="@(!Pode || _consultando || string.IsNullOrWhiteSpace(Carteira))"
             title="@(!Pode ? "Seu acesso não permite consultar a operadora." : string.IsNullOrWhiteSpace(Carteira) ? "Informe o número da carteira para consultar." : "Pergunta à operadora se esta carteira está ativa")"
-            @onclick="ConsultarAsync"><Icone Nome="busca" />@(!_consultando ? "Consultar na operadora" : _leitura is { Tom: "atencao" } ? "Aguardando o serviço…" : "Consultando…")</button>
+            @onclick="ConsultarAsync" data-consultar-de-novo="@(ConsultaDeNovo ? "true" : null)"><Icone Nome="busca" />@(_consultando ? (_leitura is { Tom: "atencao" } ? "Aguardando o serviço…" : "Consultando…") : ConsultaDeNovo ? "Consultar de novo" : "Consultar na operadora")</button>
     @if (_leitura is { } leitura)
     {
         <Aviso Tom="@leitura.Tom" Texto="@leitura.Texto">
@@ -27,6 +31,10 @@
                 <button type="button" class="botao mini" data-cancelar-elegibilidade @onclick="DesistirAsync">Cancelar o pedido</button>
             }
         </Aviso>
+        @if (leitura.ConsultadoEm is { } quando)
+        {
+            <span class="campo-dica" data-consultado-em>Resposta da operadora, @quando.</span>
+        }
         @if (leitura.Terminou && EnvioTissNaTela.ConferenciaDoNome(leitura.Texto, NomeDaFicha) is { } nome)
         {
             @* O nome que a operadora devolveu, AO LADO do da ficha: conferência — a ficha nunca é alterada. *@
@@ -58,6 +66,13 @@
     private bool _consultando;
     private CancellationTokenSource? _parar;
 
+    /// <summary>
+    /// A resposta desta carteira está na tela: o próximo clique é o pedido EXPLÍCITO de uma nova ida
+    /// à operadora (passa por cima da consulta de hoje e conta no teto do convênio).
+    /// </summary>
+    private bool ConsultaDeNovo => _leitura is { PodeConsultarDeNovo: true }
+        && string.Equals(_carteiraConsultada, Carteira?.Replace(" ", string.Empty), StringComparison.Ordinal);
+
     // Consultar a operadora é ato de quem fatura ou de quem atende no balcão com a ficha na mão.
     private static bool Pode => SessaoUsuario.Atual.PodeAlgum(Permissao.BaixarGuia | Permissao.VerFaturamento | Permissao.EditarPaciente);
 
@@ -65,16 +80,17 @@
     {
         if (_consultando) return;
         _erro = null;
-        _leitura = null;
         if (!Pode) { _erro = "Seu acesso não permite consultar a operadora. Fale com a direção da clínica."; return; }
         if (string.IsNullOrWhiteSpace(Carteira)) { _erro = "Informe o número da carteira para consultar."; return; }
 
+        var deNovo = ConsultaDeNovo;
+        _leitura = null;
         _consultando = true;
         try
         {
             using var escopo = Escopos.CreateScope();
             var t = await escopo.ServiceProvider.GetRequiredService<FilaTissService>().EnfileirarElegibilidadeAsync(
-                ConvenioCodigo, Carteira.Replace(" ", string.Empty), Validade, PacienteId, SessaoUsuario.Atual.Operador);
+                ConvenioCodigo, Carteira.Replace(" ", string.Empty), Validade, PacienteId, SessaoUsuario.Atual.Operador, consultarDeNovo: deNovo);
             _transacaoId = t.Id;
             _carteiraConsultada = t.NumeroCarteira;
             _leitura = EnvioTissNaTela.DaElegibilidade(t, HoraDaClinica.Agora());
@@ -86,6 +102,8 @@
             _consultando = false;
             return;
         }
+        // A resposta de hoje (ou o pedido parado pelo teto) já é o desfecho: nada a acompanhar.
+        if (_leitura is { Terminou: true }) { _consultando = false; return; }
         _ = AcompanharAsync(_transacaoId.Value);
     }
 

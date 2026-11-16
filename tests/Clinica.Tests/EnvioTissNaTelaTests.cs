@@ -255,9 +255,9 @@ public sealed class EnvioTissNaTelaTests
     public void Elegivel_nao_elegivel_e_nao_foi_possivel_consultar_sao_tres_coisas()
     {
         EnvioTissNaTela.DaElegibilidade(Consulta(EstadoTransacaoTiss.Concluida, "Elegível. Validade da carteira: 31/12/2027."), Agora)
-            .Should().Be(new ElegibilidadeNaTela("Elegível. Validade da carteira: 31/12/2027.", "sucesso", true, false));
+            .Should().Be(new ElegibilidadeNaTela("Elegível. Validade da carteira: 31/12/2027.", "sucesso", true, false, PodeConsultarDeNovo: true));
         EnvioTissNaTela.DaElegibilidade(Consulta(EstadoTransacaoTiss.Concluida, "Não elegível: 1002 - carteira cancelada"), Agora)
-            .Should().Be(new ElegibilidadeNaTela("Não elegível: 1002 - carteira cancelada", "erro", true, false));
+            .Should().Be(new ElegibilidadeNaTela("Não elegível: 1002 - carteira cancelada", "erro", true, false, PodeConsultarDeNovo: true));
 
         var falhou = EnvioTissNaTela.DaElegibilidade(Consulta(EstadoTransacaoTiss.Falhou, "Falhou: x", erro: "A operadora não avaliou a carteira: LoginInvalido"), Agora);
         falhou.Should().Be(new ElegibilidadeNaTela("Não foi possível consultar: A operadora não avaliou a carteira: LoginInvalido", "atencao", true, false));
@@ -265,6 +265,36 @@ public sealed class EnvioTissNaTelaTests
         var recusada = EnvioTissNaTela.DaElegibilidade(Consulta(EstadoTransacaoTiss.Cancelada, "Convênio sem credencial cadastrada."), Agora);
         recusada.Texto.Should().StartWith("Não foi possível consultar: Convênio sem credencial");
         recusada.Tom.Should().Be("atencao");
+    }
+
+    /// <summary>
+    /// Limite de chamadas: a resposta concluída diz QUANDO a operadora respondeu (a fila devolve a de
+    /// hoje para a mesma carteira) e o próximo clique é o pedido explícito de uma nova ida.
+    /// </summary>
+    [Fact]
+    public void Consulta_concluida_mostra_quando_foi_consultada_e_oferece_consultar_de_novo()
+    {
+        var hoje = Consulta(EstadoTransacaoTiss.Concluida, "Elegível. Validade da carteira: 31/12/2027.");
+        hoje.ProcessadaEm = Agora.Date.AddHours(8).AddMinutes(5);
+        var leitura = EnvioTissNaTela.DaElegibilidade(hoje, Agora);
+        leitura.ConsultadoEm.Should().Be("consultado hoje às 08:05");
+        leitura.PodeConsultarDeNovo.Should().BeTrue();
+
+        EnvioTissNaTela.QuandoFoiConsultado(Agora.Date.AddDays(-1).AddHours(17).AddMinutes(40), Agora).Should().Be("consultado ontem às 17:40");
+        EnvioTissNaTela.QuandoFoiConsultado(new DateTime(2026, 1, 3, 9, 15, 0), Agora).Should().Be("consultado em 03/01 às 09:15");
+        EnvioTissNaTela.QuandoFoiConsultado(null, Agora).Should().BeNull();
+
+        // Enquanto consulta, nem hora nem "consultar de novo": ainda não há resposta.
+        EnvioTissNaTela.DaElegibilidade(Consulta(EstadoTransacaoTiss.EmEnvio), Agora).PodeConsultarDeNovo.Should().BeFalse();
+    }
+
+    /// <summary>O teto diário não tem a cara de "serviço fora do ar" nem de falha: a frase do limite, e pode cancelar.</summary>
+    [Fact]
+    public void Consulta_parada_pelo_teto_diario_mostra_a_frase_do_limite_e_nao_o_servico_nao_respondeu()
+    {
+        var parada = EnvioTissNaTela.DaElegibilidade(Consulta(EstadoTransacaoTiss.Pendente, FilaTiss.FraseLimiteDiario, segundos: 600), Agora);
+        parada.Should().Be(new ElegibilidadeNaTela(FilaTiss.FraseLimiteDiario, "atencao", true, true));
+        parada.Texto.Should().NotContain("não respondeu");
     }
 
     /// <summary>Sem serviço de envio o pedido fica na fila: passado o prazo a tela diz, e deixa cancelar.</summary>

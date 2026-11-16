@@ -192,10 +192,70 @@ arriscar a mesma guia duas vezes (glosa 1308, "guia já apresentada"). Por isso:
    e sai com **outro número** (`C12`, depois `C12R2`), para a operadora nunca ver o mesmo número
    duas vezes.
 
-Elegibilidade e consulta de protocolo só perguntam: tentam de novo até 3 vezes (espera de 1 min,
+Elegibilidade e consulta de protocolo só perguntam (com o freio de "Limite de chamadas", abaixo): tentam de novo até 3 vezes (espera de 1 min,
 depois 5 min) **quando a operadora não respondeu**. Quando ela respondeu "não" (login recusado,
 mensagem fora do padrão), não há nova tentativa: repetir não muda a resposta, e login recusado
 repetido pode bloquear o acesso da clínica.
+
+### Limite de chamadas (nov/2026)
+
+Pedido do dono, logo depois da instalação na VPS: **um freio para a clínica não ser bloqueada pela
+operadora.** Até aqui não havia nenhum: o laço emendava a próxima transação assim que a anterior
+terminava, e a mesma carteira pedida duas vezes ia duas vezes à operadora. A Saúde Petrobras **não
+publica limite**; os números abaixo são escolha nossa, cautelosa, e mudam por variável de ambiente.
+
+| Freio | O que faz | Onde mora | Padrão (variável) |
+|---|---|---|---|
+| **Intervalo mínimo** | Entre o fim de uma ida e o começo da próxima à **mesma operadora** (reconhecida pelo servidor do web service), espera. Vale para toda transação: elegibilidade, envio, situação do protocolo e cancelamento. | `IntervaloEntreChamadasTiss`, chamado pelo `ExecutorDeTransacoesTiss` **antes do carimbo** | 3 s (`TISS_INTERVALO_MINIMO_SEGUNDOS`, 0 a 60; 0 desliga) |
+| **Teto diário de elegibilidade** | Por convênio, contado pelas **idas reais** do dia na hora da clínica. Batido o teto, a consulta volta a `Pendente` com a frase "Limite diário de consultas à operadora atingido; a consulta sai amanhã ou quando a direção aumentar o limite." Não é falha nem recusa da operadora, e a reserva desfeita não gasta tentativa. É conferida de novo a cada 15 min (o teto pode ter subido). | `FilaTissService.AdiarPorLimiteDiarioAsync`, chamado pelo executor antes de preparar a mensagem | 300 (`TISS_LIMITE_DIARIO_ELEGIBILIDADE`, 0 a 100000) |
+| **Mesma carteira no mesmo dia** | `EnfileirarElegibilidadeAsync` devolve a consulta que ainda está na fila, ou a **concluída hoje**, da mesma carteira no mesmo convênio, em vez de criar outra. A tela mostra a resposta com "consultado hoje às HH:MM". Uma nova ida só pelo botão **Consultar de novo** (`consultarDeNovo: true`), que conta no teto; nem ele duplica uma consulta que ainda está na fila. | `FilaTissService.EnfileirarElegibilidadeAsync` e `EnvioTissNaTela.DaElegibilidade` | — |
+
+**O que conta como "ida real".** Só a transação cuja mensagem **saiu** no dia: a que tem o carimbo
+`EnvioIniciadoEm`, posto imediatamente antes da rede. A soma é a das tentativas delas
+(`IClinicaRepositorio.IdasDeElegibilidadeTissAsync`). A transação recusada antes da rede (sem
+credencial, sem registro ANS, envio desligado) termina sem o carimbo e **não conta**, mesmo com
+`Tentativas = 1` — foi o caso real da VPS. Não houve migration: o carimbo já existia.
+
+**Ver o consumo.** `comando.sh situacao Petrobras` mostra, na linha do convênio, as idas reais de
+hoje e o teto deste servidor: `Petrobras: login cadastrado, senha cadastrada, envio desligado, hoje
+1 de 300 consultas.` A linha de partida no `journalctl` diz os dois números configurados, e cada
+consulta adiada aparece como `… adiada: teto diário de 300 consultas atingido. Fica Pendente.`
+
+**Subir o teto.** Mude `TISS_LIMITE_DIARIO_ELEGIBILIDADE` em `/etc/clinica-tiss-conector/conector.env` e
+`systemctl restart clinica-tiss-conector`. As consultas paradas saem na reconferência seguinte (até
+15 min), sem ninguém pedir de novo.
+
+**A regra do envio não mudou.** O intervalo acontece **antes** do carimbo e do primeiro byte; ele só
+atrasa uma ida, nunca a repete. Envio e cancelamento sem resposta continuam terminando em `Falhou`
+com "confira no portal", e o teto diário não vale para eles (só para elegibilidade).
+
+#### UX · DX · CX do limite
+
+Opções para "como frear":
+
+| | 🧑‍💻 UX | 🛠️ DX | 🤝 CX |
+|---|---|---|---|
+| **(A) Intervalo por operadora + teto diário de elegibilidade + reaproveitar a carteira do dia** ✅ | Quem pergunta duas vezes a mesma carteira tem a resposta na hora, com a hora da consulta. Em dia normal ninguém percebe os 3 s. Batido o teto, a frase diz o que acontece e quando. | Três peças pequenas, cada uma num lugar: o intervalo no conector (memória do processo), o teto e o reaproveitamento na Application, com teste. Sem migration. | A clínica deixa de bombardear a operadora com repetição; o risco de bloqueio cai sem tirar função de ninguém. Os números mudam no servidor, sem release dos apps. |
+| (B) Só o intervalo | Igual em dia normal; a mesma carteira continua indo várias vezes. | Uma peça só. | Não protege de um dia de muitas consultas repetidas, que é o padrão que mais parece abuso para a operadora. |
+| (C) Teto rígido também para envio de guia | O faturamento poderia parar no meio do mês por um número que ninguém mediu. | Mais uma regra no caminho do envio, o mais delicado do sistema. | Risco de atrasar faturamento; e envio já sai por ato explícito de alguém, em lote de até 100. |
+
+- 🧑‍💻 **UX** — Na tela da elegibilidade: a resposta reaproveitada aparece na hora com "Resposta da
+  operadora, consultado hoje às 14:02."; o botão vira **Consultar de novo**; o teto aparece como
+  aviso de atenção, com o pedido ainda cancelável. Nada pisca e nenhuma consulta some.
+- 🛠️ **DX** — Peças novas: `IntervaloEntreChamadasTiss` (conector), `AdiarPorLimiteDiarioAsync` e
+  `IdasDeElegibilidadeHojeAsync` (fila), dois métodos de repositório com teste de tradução, duas
+  variáveis no `conector.env`. O relógio do intervalo é injetável: os testes avançam o tempo sem
+  esperar. Testes em `LimiteDeChamadasTissTests`, `ConectorTissTests` e `EnvioTissNaTelaTests`.
+- 🤝 **CX** — Menos chance de a operadora bloquear o login da clínica (que pararia a elegibilidade
+  e, depois, o envio). Custo: nenhum. O que muda no dia: a carteira consultada de manhã não é
+  consultada de novo à tarde sem alguém pedir.
+
+**Limites honestos.** O intervalo é por processo e em memória: depois de um reinício a primeira ida
+sai sem esperar (um reinício leva mais que 3 s). A contagem soma as tentativas das transações que
+saíram no dia; uma consulta que saiu, ficou sem resposta e, numa segunda reserva, foi recusada
+antes da rede contaria uma tentativa a mais (erra para o lado cauteloso). Uma cadeia de novas
+tentativas que atravessa a meia-noite conta inteira no dia da última saída. Nada disso foi medido
+contra a operadora: **não sabemos o limite real dela**.
 
 ### Envio em lote e baixa em lote
 
@@ -447,13 +507,13 @@ systemctl daemon-reload && systemctl enable --now clinica-tiss-conector
 journalctl -u clinica-tiss-conector -n 20
 ```
 
-O que deve aparecer: `Conector TISS no ar. Envio de guias neste servidor: desligado. Intervalo: 5s.`
+O que deve aparecer: `Conector TISS no ar. Envio de guias neste servidor: desligado. Intervalo: 5s. Entre idas à mesma operadora: 3s. Teto diário de elegibilidade por convênio: 300.`
 
 **6. Conferir:**
 
 ```bash
 /opt/clinica-tiss-conector/current/deploy/comando.sh situacao Petrobras
-# Petrobras: login cadastrado, senha cadastrada, envio desligado.
+# Petrobras: login cadastrado, senha cadastrada, envio desligado, hoje 0 de 300 consultas.
 ```
 
 Depois, peça uma elegibilidade por uma tela (quando houver) e veja a linha passar de `Pendente`
@@ -501,6 +561,7 @@ journalctl -u clinica-tiss-conector -f
 |---|---|---|
 | `Transação TISS 12 (Elegibilidade, Petrobras) concluída.` | Tudo certo. | — |
 | `… recusada antes do envio: …` | Nada saiu: envio desligado, sem credencial ou sem endereço. | Ler o motivo; ele também está na tela. |
+| `… adiada: teto diário de 300 consultas atingido. Fica Pendente.` | O convênio bateu o teto de elegibilidade do dia. | Nada, se for esperado; para subir, ver "Limite de chamadas". |
 | `… sem sucesso: sem resposta da operadora (…) Fica Pendente.` | A operadora não respondeu; o sistema tenta de novo. | Nada, se for esporádico. |
 | `… sem sucesso: … LoginInvalido … Fica Falhou.` | A operadora recusou o login. | Girar a credencial. **Não** fique repetindo: pode bloquear o acesso. |
 | `… Fica Falhou.` num envio | O envio não se completou. | Conferir **no portal da operadora** se a guia chegou, antes de pedir outro. |

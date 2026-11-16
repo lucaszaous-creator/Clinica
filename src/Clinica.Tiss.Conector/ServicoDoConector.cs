@@ -6,7 +6,8 @@ namespace Clinica.Tiss.Conector;
 
 /// <summary>
 /// O laço do conector: enquanto houver transação, processa uma atrás da outra; fila vazia,
-/// espera alguns segundos. Cada volta abre o seu escopo (um <c>DbContext</c> por transação):
+/// espera alguns segundos. O freio contra bloqueio pela operadora (intervalo mínimo entre idas e
+/// teto diário de elegibilidade) mora no <see cref="ExecutorDeTransacoesTiss"/>, não aqui. Cada volta abre o seu escopo (um <c>DbContext</c> por transação):
 /// o que uma transação deixou rastreado não vaza para a seguinte.
 /// </summary>
 public sealed class ServicoDoConector(IServiceScopeFactory escopos, OpcoesDoConector opcoes, ILogger<ServicoDoConector> log)
@@ -14,8 +15,10 @@ public sealed class ServicoDoConector(IServiceScopeFactory escopos, OpcoesDoCone
 {
     protected override async Task ExecuteAsync(CancellationToken parar)
     {
-        log.LogInformation("Conector TISS no ar. Envio de guias neste servidor: {Envio}. Intervalo: {Segundos}s.",
-            opcoes.EnvioHabilitado ? "HABILITADO (ainda depende da chave de cada convênio)" : "desligado", opcoes.IntervaloSegundos);
+        log.LogInformation("Conector TISS no ar. Envio de guias neste servidor: {Envio}. Intervalo: {Segundos}s. "
+                           + "Entre idas à mesma operadora: {Minimo}s. Teto diário de elegibilidade por convênio: {Teto}.",
+            opcoes.EnvioHabilitado ? "HABILITADO (ainda depende da chave de cada convênio)" : "desligado", opcoes.IntervaloSegundos,
+            opcoes.IntervaloMinimoSegundos, opcoes.LimiteDiarioElegibilidade);
 
         var falhasSeguidas = 0;
         while (!parar.IsCancellationRequested)

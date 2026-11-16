@@ -77,8 +77,11 @@ public static class ComandosDoConector
                     if (convenio is not null)
                     {
                         var c = await credenciais.ParaATelaAsync(convenio);
+                        // As idas REAIS de hoje (o que o teto conta) e o teto deste servidor.
+                        var teto = servicos.GetService<OpcoesDoConector>()?.LimiteDiarioElegibilidade ?? OpcoesDoConector.PadraoLimiteDiarioElegibilidade;
                         saida.WriteLine($"{convenio}: login {(c.Login is null ? "não cadastrado" : "cadastrado")}, senha {(c.TemSenha ? "cadastrada" : "não cadastrada")}, "
-                                        + $"envio {(await credenciais.EnvioLigadoAsync(convenio) ? "LIGADO" : "desligado")}.");
+                                        + $"envio {(await credenciais.EnvioLigadoAsync(convenio) ? "LIGADO" : "desligado")}, "
+                                        + $"hoje {await fila.IdasDeElegibilidadeHojeAsync(convenio)} de {teto} consultas.");
                     }
                     // Só o que não identifica paciente: número, tipo, convênio, estado e tentativas.
                     foreach (var t in await fila.RecentesAsync(convenio, 20))

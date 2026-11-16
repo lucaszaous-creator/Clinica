@@ -972,6 +972,21 @@ public class TraducaoNoNpgsqlTests
     }
 
     [Fact]
+    public void Consultas_do_limite_de_chamadas_TISS_traduzem_sem_os_xml()
+    {
+        using var db = Postgres();
+        var repo = new ClinicaRepositorio(db);
+        var dia = new DateTime(2026, 11, 16);
+
+        var idas = repo.ConsultaIdasDeElegibilidadeTiss("Petrobras", dia, dia.AddDays(1), 7).Select(t => t.Tentativas).ToQueryString();
+        var reaproveitavel = repo.ConsultaElegibilidadeTissReaproveitavel("Petrobras", "000123456789", dia, dia.AddDays(1)).ToQueryString();
+
+        idas.Should().Contain("\"EnvioIniciadoEm\"").And.Contain("\"Tentativas\"").And.NotContain("XmlEnviado");
+        reaproveitavel.Should().Contain("\"NumeroCarteira\"").And.Contain("\"ProcessadaEm\"").And.Contain("LIMIT")
+            .And.NotContain("XmlEnviado").And.NotContain("XmlRecebido");
+    }
+
+    [Fact]
     public void Consultas_do_envio_em_lote_TISS_traduzem_no_postgres()
     {
         using var db = Postgres();
