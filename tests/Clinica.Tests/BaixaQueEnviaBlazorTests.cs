@@ -128,7 +128,7 @@ public sealed class BaixaQueEnviaBlazorTests : IClassFixture<BancoDasTelas>, IDi
         // Fechar devolve ao painel, e a guia baixada saiu das pendências.
         Clicar(tela, tela.Find("[data-fechar]"));
         ConfirmarDialogos(tela);
-        Esperar(() => tela.FindAll("[data-guia-ans]").Count == 0);
+        EsperarConfirmandoDialogos(tela, () => tela.FindAll("[data-guia-ans]").Count == 0);
         Esperar(() => !tela.FindAll("tr").Any(tr => tr.TextContent.Contains(marca)));
     }
 
@@ -238,7 +238,7 @@ public sealed class BaixaQueEnviaBlazorTests : IClassFixture<BancoDasTelas>, IDi
         Assentar(tela);
         Clicar(tela, tela.Find("[data-confirmar-baixa-manual]"));
         ConfirmarDialogos(tela);
-        Esperar(() => tela.FindAll("[data-guia-ans]").Count == 0);
+        EsperarConfirmandoDialogos(tela, () => tela.FindAll("[data-guia-ans]").Count == 0);
         using var db = Db();
         var codigo = db.Codigos.AsNoTracking().Single(c => c.Id == codigoId);
         Assert.Equal(StatusCodigo.Baixado, codigo.Status);
@@ -342,7 +342,7 @@ public sealed class BaixaQueEnviaBlazorTests : IClassFixture<BancoDasTelas>, IDi
         Assentar(tela);
         Clicar(tela, tela.Find("[data-confirmar-baixa-manual]"));
         ConfirmarDialogos(tela);
-        Esperar(() => tela.FindAll("[data-guia-ans]").Count == 0);
+        EsperarConfirmandoDialogos(tela, () => tela.FindAll("[data-guia-ans]").Count == 0);
 
         var codigo = CodigoDe(codigoId);
         Assert.Equal(StatusCodigo.Baixado, codigo.Status);
@@ -563,6 +563,30 @@ public sealed class BaixaQueEnviaBlazorTests : IClassFixture<BancoDasTelas>, IDi
             dialogo.Click();
             Assentar(tela);
         }
+    }
+
+    /// <summary>
+    /// Espera a condição confirmando o diálogo que aparecer NO CAMINHO. A baixa manual que conclui a
+    /// fatura do dia gera o PDF da capa e só DEPOIS pergunta "Fatura concluída! Gerar a capa…?": o PDF
+    /// pode levar mais que a janela de estabilidade do <see cref="Assentar"/>, e então o diálogo chega
+    /// depois de <see cref="ConfirmarDialogos"/> ter saído. Sem isto, o formulário fica aberto atrás
+    /// dele e a espera esgota — dependendo só da velocidade da máquina.
+    /// </summary>
+    private static void EsperarConfirmandoDialogos(IRenderedComponent<Raiz> tela, Func<bool> condicao)
+    {
+        var prazo = DateTime.UtcNow + Prazo;
+        while (DateTime.UtcNow < prazo)
+        {
+            if (condicao()) return;
+            if (tela.FindAll("[role=alertdialog] .modal-rodape button").LastOrDefault() is { } dialogo)
+            {
+                dialogo.Click();
+                Assentar(tela);
+                continue;
+            }
+            Thread.Sleep(50);
+        }
+        throw new TimeoutException("A condição não aconteceu a tempo.");
     }
 
     private static void Assentar(IRenderedComponent<Raiz> tela)
