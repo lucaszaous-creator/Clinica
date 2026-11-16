@@ -53,21 +53,43 @@ public static class EnvioTissNaTela
     public static readonly TimeSpan EsperaDaElegibilidade = TimeSpan.FromSeconds(60);
 
     /// <summary>
-    /// O convênio tem web service previsto? Hoje, a família Petrobras — a mesma pergunta que o
-    /// serviço de credenciais responde ao dar o endereço padrão. Um lugar só decide.
+    /// O convênio tem algum web service no catálogo (<see cref="OperadorasTiss"/>)? É o que abre a
+    /// credencial em Configurações do faturamento. Um lugar só decide: o catálogo.
     /// </summary>
-    public static bool TemWebService(Convenio familia)
-        => CredenciaisTissService.EnderecoPadrao(familia, TipoTransacaoTiss.EnvioGuia) is not null;
+    public static bool TemWebService(Convenio familia) => OperadorasTiss.TemWebService(familia);
 
     /// <summary>A mesma pergunta pelo código do catálogo (a ficha do paciente, a linha da pendência).</summary>
     public static bool TemWebService(string? convenioCodigo, Convenio familia)
         => TemWebService(CatalogoConvenios.Familia(convenioCodigo ?? familia.ToString()));
 
-    /// <summary>Os convênios do catálogo em que a tela de envio trabalha: ativos, que geram guia e têm web service.</summary>
+    /// <summary>O convênio tem a verificação de elegibilidade (a ficha do paciente mostra o botão)?</summary>
+    public static bool TemElegibilidade(string? convenioCodigo, Convenio familia)
+        => OperadorasTiss.TemElegibilidade(CatalogoConvenios.Familia(convenioCodigo ?? familia.ToString()));
+
+    /// <summary>
+    /// As telas oferecem o envio de guias deste convênio (selos, aba de envio, chave no formulário)?
+    /// Só quando a guia dele passa pela conferência ANS na baixa — ver <see cref="OperadoraTiss.EnvioDeGuiaNasTelas"/>.
+    /// </summary>
+    public static bool TemEnvioDeGuia(Convenio familia) => OperadorasTiss.TemEnvioDeGuia(familia);
+
+    /// <summary>A mesma pergunta pelo código do catálogo.</summary>
+    public static bool TemEnvioDeGuia(string? convenioCodigo, Convenio familia)
+        => TemEnvioDeGuia(CatalogoConvenios.Familia(convenioCodigo ?? familia.ToString()));
+
+    /// <summary>Os convênios do catálogo em que a tela de envio trabalha: ativos, que geram guia e têm o envio de guias nas telas.</summary>
     public static IReadOnlyList<(string Codigo, string Nome)> ConveniosDoEnvio(IEnumerable<ConvenioCadastro> catalogo)
-        => catalogo.Where(c => c.Ativo && c.GeraGuia && TemWebService(c.Familia))
+        => catalogo.Where(c => c.Ativo && c.GeraGuia && TemEnvioDeGuia(c.Familia))
             .OrderBy(c => c.Nome, StringComparer.Create(new System.Globalization.CultureInfo("pt-BR"), ignoreCase: true))
             .Select(c => (c.Codigo, c.Nome)).ToList();
+
+    /// <summary>
+    /// O aviso do formulário do web service para a operadora que só tem a elegibilidade nas telas
+    /// (nulo = o envio de guias está nas telas).
+    /// </summary>
+    public static string? AvisoDeSoElegibilidade(Convenio familia)
+        => TemEnvioDeGuia(familia) || !TemWebService(familia) ? null
+            : "Por enquanto este convênio usa o web service só para conferir a elegibilidade da carteira. O envio de guias "
+              + "fica para depois: a guia dele ainda não passa pela conferência no padrão ANS na baixa.";
 
     // ==================== a guia (selo da linha) ====================
 
@@ -123,12 +145,12 @@ public static class EnvioTissNaTela
         => string.IsNullOrWhiteSpace(frase) || string.Equals(frase.Trim(), rotulo, StringComparison.Ordinal) ? null : frase.Trim();
 
     /// <summary>
-    /// As pendências que têm selo de envio (as de convênio com web service), agrupadas pelo código
+    /// As pendências que têm selo de envio (as de convênio com o envio de guias nas telas), agrupadas pelo código
     /// do convênio: é o que a tela precisa para ler os selos e as prontas numa ida por convênio —
     /// e não uma por linha.
     /// </summary>
     public static IReadOnlyDictionary<string, IReadOnlyList<int>> GuiasComSeloPorConvenio(IEnumerable<PendenciaCodigo> pendencias)
-        => pendencias.Where(p => TemWebService(p.ConvenioCodigo, p.Convenio))
+        => pendencias.Where(p => TemEnvioDeGuia(p.ConvenioCodigo, p.Convenio))
             .GroupBy(p => p.ConvenioCodigo ?? p.Convenio.ToString(), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => (IReadOnlyList<int>)g.Select(p => p.CodigoId).Distinct().ToList(), StringComparer.OrdinalIgnoreCase);
 

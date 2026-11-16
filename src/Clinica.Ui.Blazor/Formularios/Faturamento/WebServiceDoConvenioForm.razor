@@ -16,6 +16,8 @@
     o serviço recusa com a frase que diz onde cadastrar, e a tela a mostra como veio.
   - A chave de envio diz a verdade: ligar aqui não basta (chave do servidor + serviço instalado).
   - As duas barreiras: ConfigurarFaturamento, a mesma permissão que edita o convênio.
+  - Operadora só com elegibilidade nas telas (OperadorasTiss, Amil em nov/2026): a chave de envio
+    não aparece, e um aviso diz por quê (EnvioTissNaTela.AvisoDeSoElegibilidade).
 *@
 @inject IServiceScopeFactory Escopos
 @inject Dialogos Dialogos
@@ -59,6 +61,14 @@
                 <Aviso Tom="@_tomDaCredencial" Texto="@_mensagemDaCredencial" />
             </section>
 
+            @if (EnvioTissNaTela.AvisoDeSoElegibilidade(Familia) is { } soElegibilidade)
+            {
+                @* A operadora com só a elegibilidade nas telas (Amil, nov/2026): a chave de envio não aparece,
+                   porque ligá-la não faria guia nenhuma sair — a guia dela não passa pela conferência ANS. *@
+                <Aviso Tom="info" Texto="@soElegibilidade" />
+            }
+            else
+            {
             <section class="secao-form" aria-label="Envio pelo web service" data-chave-envio>
                 <h3>Envio pelo web service</h3>
                 <div class="fat-ws-chave">
@@ -70,6 +80,7 @@
                 </div>
                 <Aviso Tom="@_tomDoEnvio" Texto="@_mensagemDoEnvio" />
             </section>
+            }
 
             @if (!PodeConfigurar)
             {
@@ -87,6 +98,9 @@
     [Parameter, EditorRequired] public string ConvenioCodigo { get; set; } = string.Empty;
     [Parameter] public string Nome { get; set; } = string.Empty;
     [Parameter] public EventCallback AoFechar { get; set; }
+
+    /// <summary>A família do convênio no catálogo: decide se a chave de envio de guias aparece.</summary>
+    private Convenio Familia => Clinica.Domain.Regras.CatalogoConvenios.Familia(ConvenioCodigo);
 
     private string? _login, _loginGravado, _senha;
     /// <summary>Troca a cada leitura: o campo da senha é RECRIADO vazio, sem depender de apagar o que o navegador guardou.</summary>

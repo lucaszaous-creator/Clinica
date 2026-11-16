@@ -29,11 +29,29 @@ public sealed class EnvioTissNaTelaTests
     // ==================== a linha do painel ====================
 
     [Fact]
-    public void So_convenio_com_web_service_tem_selo_e_a_familia_Petrobras_e_a_unica_hoje()
+    public void Quem_tem_web_service_sai_do_catalogo_de_operadoras_e_o_envio_de_guias_e_so_da_Petrobras()
     {
+        // A credencial (e a elegibilidade): as famílias do catálogo, Petrobras e Amil.
         EnvioTissNaTela.TemWebService(Convenio.Petrobras).Should().BeTrue();
-        foreach (var outra in Enum.GetValues<Convenio>().Where(c => c != Convenio.Petrobras))
-            EnvioTissNaTela.TemWebService(outra).Should().BeFalse($"{outra} não tem web service previsto");
+        EnvioTissNaTela.TemWebService(Convenio.Amil).Should().BeTrue();
+        foreach (var outra in Enum.GetValues<Convenio>().Where(c => c is not (Convenio.Petrobras or Convenio.Amil)))
+        {
+            EnvioTissNaTela.TemWebService(outra).Should().BeFalse($"{outra} não está no catálogo de operadoras");
+            EnvioTissNaTela.TemElegibilidade(outra.ToString(), outra).Should().BeFalse();
+        }
+        EnvioTissNaTela.TemElegibilidade("Amil", Convenio.Amil).Should().BeTrue();
+
+        // O envio de guias nas telas (selos, aba de envio, chave): só a Petrobras, porque só a guia dela
+        // passa pela conferência ANS na baixa. A Amil tem o endereço do lote, mas não aparece.
+        EnvioTissNaTela.TemEnvioDeGuia(Convenio.Petrobras).Should().BeTrue();
+        EnvioTissNaTela.TemEnvioDeGuia(Convenio.Amil).Should().BeFalse();
+        EnvioTissNaTela.ConveniosDoEnvio([
+            new ConvenioCadastro { Codigo = "Petrobras", Nome = "Petrobras", Familia = Convenio.Petrobras },
+            new ConvenioCadastro { Codigo = "Amil", Nome = "Amil", Familia = Convenio.Amil }
+        ]).Select(c => c.Codigo).Should().Equal("Petrobras");
+        EnvioTissNaTela.AvisoDeSoElegibilidade(Convenio.Amil).Should().Contain("só para conferir a elegibilidade");
+        EnvioTissNaTela.AvisoDeSoElegibilidade(Convenio.Petrobras).Should().BeNull();
+        EnvioTissNaTela.AvisoDeSoElegibilidade(Convenio.UnimedPadrao).Should().BeNull();
 
         EnvioTissNaTela.SeloDaLinha(false, null, pronta: true).Should().BeNull();
     }

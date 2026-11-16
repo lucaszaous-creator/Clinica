@@ -24,7 +24,7 @@ public sealed class ProcessadorDeElegibilidade(
         if (credencial is null)
             return PreparoTiss.Recusar($"Não há login do web service cadastrado para {transacao.ConvenioCodigo}. Cadastre a credencial no servidor do conector.");
 
-        var destino = await DadosDoConvenio.LerAsync(repo, parametros, credenciais, transacao.ConvenioCodigo, Tipo, ct);
+        var destino = await DadosDoConvenio.LerAsync(repo, parametros, credenciais, transacao.ConvenioCodigo, Tipo, credencial, ct);
         if (destino.Pendencia is { } pendencia)
             return PreparoTiss.Recusar(pendencia);
 
@@ -78,27 +78,49 @@ public sealed record DadosDoConvenio(string? RegistroAns, string? CodigoPrestado
 {
     public static async Task<DadosDoConvenio> LerAsync(
         IClinicaRepositorio repo, ParametrosService parametros, CredenciaisTissService credenciais,
-        string convenioCodigo, TipoTransacaoTiss tipo, CancellationToken ct)
+        string convenioCodigo, TipoTransacaoTiss tipo, CredencialTiss credencial, CancellationToken ct)
     {
         var prestador = await parametros.ObterPrestadorAsync(ct);
         var cadastro = (await repo.ConveniosAsync(ct))
             .FirstOrDefault(c => string.Equals(c.Codigo, convenioCodigo, StringComparison.OrdinalIgnoreCase));
-        // O registro ANS é o do convênio; em branco, o da clínica (a mesma ordem da guia na baixa).
-        var registro = Limpo(cadastro?.RegistroAnsOperadora) ?? Limpo(prestador.RegistroAnsOperadora);
+        var operadora = await credenciais.OperadoraAsync(convenioCodigo, ct);
+        // O registro ANS: o do cadastro do convênio; em branco, o da operadora no catálogo
+        // (OperadorasTiss); e só então o da clínica. O do catálogo vem antes do da clínica porque
+        // o da clínica é UM só — com duas operadoras, ele mandaria a mensagem da Amil para a Petrobras.
+        var registro = Limpo(cadastro?.RegistroAnsOperadora) ?? operadora?.RegistroAns ?? Limpo(prestador.RegistroAnsOperadora);
         if (registro is null || registro.Length != 6 || !registro.All(char.IsAsciiDigit))
             return new(null, null, null, $"O registro ANS de {convenioCodigo} não está cadastrado (6 dígitos). Confira o cadastro do convênio.");
 
-        // Decisão da direção (nov/2026): o contratado vai em codigoPrestadorNaOperadora com o CNPJ.
-        var cnpj = new string((prestador.Cnpj ?? string.Empty).Where(char.IsAsciiDigit).ToArray());
-        if (cnpj.Length != 14)
-            return new(null, null, null, "O CNPJ da clínica não está cadastrado (14 dígitos). Confira os dados do prestador.");
+        // O código do prestador na operadora: a regra do convênio (comando "codigo") ou a da
+        // operadora no catálogo — CNPJ na Saúde Petrobras, login na Amil.
+        var (regra, cadastrado) = await credenciais.CodigoDoPrestadorAsync(convenioCodigo, ct);
+        string codigo;
+        switch (regra)
+        {
+            case CodigoDoPrestadorTiss.LoginDoWebService:
+                codigo = credencial.Login.Trim();
+                if (codigo.Length is 0 or > 14)
+                    return new(null, null, null,
+                        $"O código do prestador de {convenioCodigo} é o login do web service, e ele tem mais de 14 caracteres (o limite do padrão). "
+                        + "Cadastre o código do credenciado no servidor do conector (comando codigo).");
+                break;
+            case CodigoDoPrestadorTiss.Cadastrado:
+                codigo = cadastrado!;
+                break;
+            default:
+                var cnpj = new string((prestador.Cnpj ?? string.Empty).Where(char.IsAsciiDigit).ToArray());
+                if (cnpj.Length != 14)
+                    return new(null, null, null, "O CNPJ da clínica não está cadastrado (14 dígitos). Confira os dados do prestador.");
+                codigo = cnpj;
+                break;
+        }
 
-        // O cadastrado ou, para a Saúde Petrobras, o do manual da operadora (CredenciaisTissService.EnderecoPadrao).
+        // O cadastrado ou o de produção da operadora no catálogo (CredenciaisTissService.EnderecoAsync).
         var endereco = await credenciais.EnderecoAsync(convenioCodigo, tipo, ct);
         if (endereco is null)
             return new(null, null, null, $"O endereço do web service de {tipo} para {convenioCodigo} não está cadastrado.");
 
-        return new(registro, cnpj, endereco, null);
+        return new(registro, codigo, endereco, null);
     }
 
     /// <summary>
@@ -136,7 +158,7 @@ public sealed record DadosDoConvenio(string? RegistroAns, string? CodigoPrestado
         if (credencial is null)
             return (null, null, null, PreparoTiss.Recusar(
                 $"Não há login do web service cadastrado para {transacao.ConvenioCodigo}. Cadastre a credencial no servidor do conector."));
-        var destino = await LerAsync(repo, parametros, credenciais, transacao.ConvenioCodigo, transacao.Tipo, ct);
+        var destino = await LerAsync(repo, parametros, credenciais, transacao.ConvenioCodigo, transacao.Tipo, credencial, ct);
         return destino.Pendencia is { } pendencia
             ? (null, null, null, PreparoTiss.Recusar(pendencia))
             : (destino.Remetente(credencial), destino.Endereco, credencial.SenhaMd5, null);

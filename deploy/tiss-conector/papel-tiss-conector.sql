@@ -1,5 +1,6 @@
--- O usuário do Postgres do conector TISS (docs/tiss-conector.md §2). Rode como postgres:
---   sudo -u postgres psql -p 45432 -d clinica -v senha="'SENHA_FORTE'" -f papel-tiss-conector.sql
+-- O usuário do Postgres do conector TISS (docs/tiss-conector.md §2). Rode como root, entregando o
+-- arquivo PELA ENTRADA (o usuário postgres não lê a pasta do conector, e "-f" falharia):
+--   sudo -u postgres psql -p 45432 -d clinica -v ON_ERROR_STOP=1 -v senha="'SENHA_FORTE'" < papel-tiss-conector.sql
 -- Rodar de novo é seguro.
 --
 -- Ele enxerga e grava o MÍNIMO: lê a fila, a configuração, o cadastro de convênios e a guia com

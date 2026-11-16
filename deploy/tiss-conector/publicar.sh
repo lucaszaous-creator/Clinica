@@ -24,7 +24,8 @@ dotnet publish src/Clinica.Tiss.Conector -c Release -r linux-x64 --self-containe
 # O que acompanha a instalação vai junto, para ninguém copiar arquivo de outra versão.
 mkdir -p "$saida/deploy"
 cp deploy/tiss-conector/clinica-tiss-conector.service deploy/tiss-conector/conector.env.example \
-   deploy/tiss-conector/papel-tiss-conector.sql deploy/tiss-conector/comando.sh \
+   deploy/tiss-conector/papel-tiss-conector.sql deploy/tiss-conector/papel-tiss-operacao.sql \
+   deploy/tiss-conector/comando.sh deploy/tiss-conector/instalar.sh \
    deploy/tiss-conector/admin.env.example "$saida/deploy/"
 echo "$commit" > "$saida/COMMIT"
 
