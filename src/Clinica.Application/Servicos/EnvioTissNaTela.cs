@@ -227,6 +227,8 @@ public static class EnvioTissNaTela
         var protocolo = string.IsNullOrWhiteSpace(envio.Protocolo) ? null : envio.Protocolo;
         return envio.Estado switch
         {
+            // Esperando a janela da operadora (o "quando" está na frase): não é atraso do serviço.
+            EstadoTransacaoTiss.Pendente when FilaTiss.Agendado(envio) => new("Agendado", "info", false, envio.Resultado),
             EstadoTransacaoTiss.Pendente when envio.Tentativas > 0
                 => new("Na fila", "info", false, envio.Resultado ?? "Na fila: o sistema vai tentar de novo."),
             EstadoTransacaoTiss.Pendente => new("Na fila", "info", false, "Aguardando o serviço de envio. Ainda não foi à operadora."),

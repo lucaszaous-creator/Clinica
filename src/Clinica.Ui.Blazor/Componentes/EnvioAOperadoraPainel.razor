@@ -108,7 +108,7 @@
                                                 <span class="principal">@g.PacienteNome</span>
                                                 <span class="secundario">@RotulosEnum.De(g.Tipo) · atendimento em @Formato.Data(g.DataAtendimento)</span>
                                                 @if (recusa is not null) { <span class="campo-erro" data-recusa="@g.CodigoId">@recusa</span> }
-                                                else if (AvisoDaLinha(g.CodigoId) is { } prazo) { <span class="campo-dica" data-aviso-de-prazo="@g.CodigoId">@prazo</span> }
+                                                else if (AvisoDaLinha(g.CodigoId) is { } prazo) { <span class="@(PrazoGrave(g.CodigoId) ? "campo-erro" : "campo-dica")" data-aviso-de-prazo="@g.CodigoId" data-prazo-grave="@(PrazoGrave(g.CodigoId) ? "true" : null)">@prazo</span> }
                                                 @if (ressalva is not null)
                                                 {
                                                     <span class="@(ressalva.PedeConferenciaNoPortal ? "campo-erro" : "campo-dica")" data-ressalva="@g.CodigoId">@ressalva.Texto</span>
@@ -478,6 +478,9 @@
     private string? AvisoDaLinha(int codigoId)
         => _marcadas.Contains(codigoId) && _conferencia is { } c && c.AvisosPorGuia.TryGetValue(codigoId, out var frase) ? frase : null;
 
+    /// <summary>A guia vence antes da próxima janela (ou já venceu): o aviso dela é vermelho.</summary>
+    private bool PrazoGrave(int codigoId) => _conferencia?.PrazoGrave.Contains(codigoId) == true;
+
     private string? RecusaDaLinha(int codigoId)
         => _marcadas.Contains(codigoId) && _conferencia is { } c && c.PorGuia.TryGetValue(codigoId, out var frase) ? frase : null;
 
@@ -518,9 +521,12 @@
             _conferencia = null;
             foreach (var envio in envios) _pedidosDaSessao.Add(envio.Id);
             var guias = envios.Sum(e => e.Guias.Count);
-            Notificacoes.Sucesso($"Pedido de envio de {guias} guia(s)"
-                + (envios.Count > 1 ? $" em {envios.Count} lotes" : string.Empty)
-                + " na fila. Ainda não foi à operadora: acompanhe em Envios recentes.");
+            // Fora da janela da operadora o pedido entra AGENDADO: a frase diz para quando.
+            Notificacoes.Sucesso(envios.FirstOrDefault(FilaTiss.Agendado) is { } agendado
+                ? $"Pedido de envio de {guias} guia(s) na fila. {agendado.Resultado}"
+                : $"Pedido de envio de {guias} guia(s)"
+                  + (envios.Count > 1 ? $" em {envios.Count} lotes" : string.Empty)
+                  + " na fila. Ainda não foi à operadora: acompanhe em Envios recentes.");
         }
         catch (EnvioTissRecusadoException ex)
         {

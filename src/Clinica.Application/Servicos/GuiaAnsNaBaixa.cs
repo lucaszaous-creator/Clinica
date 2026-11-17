@@ -59,7 +59,11 @@ public sealed record DadosGuiaConsultaAns
 /// <param name="Exige">Falso = baixa comum, como sempre foi.</param>
 /// <param name="Dados">Os campos propostos; nulo quando não exige.</param>
 /// <param name="Avisos">De onde veio (ou por que faltou) o que merece conferência.</param>
-public sealed record PropostaGuiaAns(bool Exige, DadosGuiaConsultaAns? Dados, IReadOnlyList<string> Avisos)
+/// <param name="AlertaDePrazo">
+/// O prazo de cobrança GRAVE (vermelho): a guia já venceu, ou vence antes da próxima janela de envio
+/// da operadora (<see cref="PrazosTiss.AvisoDaGuia"/>). Nulo = nada grave.
+/// </param>
+public sealed record PropostaGuiaAns(bool Exige, DadosGuiaConsultaAns? Dados, IReadOnlyList<string> Avisos, string? AlertaDePrazo = null)
 {
     public static readonly PropostaGuiaAns NaoExige = new(false, null, []);
 }
@@ -348,7 +352,11 @@ public sealed class GuiaAnsNaBaixaService(IClinicaRepositorio repo, ParametrosSe
         var convenioCodigo = paciente.ConvenioCodigo ?? paciente.Convenio.ToString();
         var operadora = OperadorasTiss.DoConvenio(paciente.ConvenioCodigo, paciente.Convenio);
         var modelo = operadora?.ModeloDaGuia ?? ModeloDaGuiaTiss.Consulta;
-        var avisos = new List<string>(PrazosTiss.DaGuia(operadora, atendimento.Data, HoraDaClinica.Agora()));
+        var agora = HoraDaClinica.Agora();
+        var prazo = PrazosTiss.AvisoDaGuia(operadora, atendimento.Data, agora);
+        var alertaDePrazo = prazo is { Grave: true } ? prazo.Value.Texto : null;
+        // O grave vai à parte (vermelho); o comum e a janela do mês, junto dos outros avisos.
+        var avisos = new List<string>(new[] { prazo is { Grave: false } ? prazo.Value.Texto : null, PrazosTiss.JanelaDeEnvio(operadora, agora) }.OfType<string>());
 
         // Leituras em FILA: é o mesmo DbContext, e ele não aceita duas operações ao mesmo tempo.
         var prestador = await parametros.ObterPrestadorAsync(ct);
@@ -360,7 +368,7 @@ public sealed class GuiaAnsNaBaixaService(IClinicaRepositorio repo, ParametrosSe
         if (codigo.GuiaAns is { } anterior)
         {
             avisos.Add($"Esta guia já tinha sido conferida por {anterior.ConferidaPor} em {anterior.ConferidaEm:dd/MM/yyyy}. Confira de novo antes de confirmar.");
-            return new PropostaGuiaAns(true, DaGuia(anterior), avisos);
+            return new PropostaGuiaAns(true, DaGuia(anterior), avisos, alertaDePrazo);
         }
 
         // ---- profissional executante ----
@@ -452,7 +460,7 @@ public sealed class GuiaAnsNaBaixaService(IClinicaRepositorio repo, ParametrosSe
                 ? (consulta ? DominiosTiss.TipoAtendimentoConsulta : "03") : null,
             CaraterAtendimento = modelo == ModeloDaGuiaTiss.SpSadt ? "1" : null,
             DescricaoProcedimento = modelo == ModeloDaGuiaTiss.SpSadt ? GuiaAnsNaBaixa.DescricaoProposta(codigo.Tipo) : null
-        }, avisos);
+        }, avisos, alertaDePrazo);
     }
 
     private static DadosGuiaConsultaAns DaGuia(GuiaTissConsulta g) => GuiaAnsNaBaixa.DaGuia(g);

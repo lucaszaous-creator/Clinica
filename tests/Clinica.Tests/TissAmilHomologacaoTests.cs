@@ -35,6 +35,9 @@ public sealed class TissAmilHomologacaoTests : IDisposable
     private readonly TissBancoDeTeste _b = new();
     private readonly Rede _rede = new();
 
+    // Dentro da janela de envio da Amil (3/11/2026 é o 2º dia útil do mês): o lote de teste chama.
+    public TissAmilHomologacaoTests() => _b.Agora = new DateTime(2026, 11, 3, 10, 0, 0);
+
     public void Dispose() => _b.Dispose();
 
     private async Task ProntoAsync(bool homologacao = true)
@@ -188,6 +191,24 @@ public sealed class TissAmilHomologacaoTests : IDisposable
         (await _b.NovoContexto().TransacoesTiss.CountAsync()).Should().Be(0);
     }
 
+    [Fact]
+    public async Task Fora_da_janela_o_testar_lote_avisa_antes_de_chamar_e_mesmo_assim_chama()
+    {
+        await ProntoAsync();
+        _b.Agora = new DateTime(2026, 11, 17, 10, 0, 0); // 13º dia útil: fora da janela
+        var (saida, erro) = (new StringWriter(), new StringWriter());
+
+        (await Executar(saida, erro, "testar-lote", Amil, "--exemplo", "--carteira", TissBancoDeTeste.CarteiraFicticia, "--operador", Op)).Should().Be(1);
+        _rede.Idas.Should().BeEmpty("já se sabe que a Amil recusaria (3091)");
+        erro.ToString().Should().Contain("1º ao 5º dia útil").And.Contain("próxima janela: 01/12 às 07:00").And.Contain("--mesmo-assim");
+
+        _rede.Responder(HttpStatusCode.OK, TissWsDeTeste.Resposta("protocoloRecebimentoWS", "PROTOCOLO_RECEBIMENTO",
+            "<ans:recebimentoLote><ans:mensagemErro><ans:codigoGlosa>3091</ans:codigoGlosa><ans:descricaoGlosa>COBRANCA FORA DO PRAZO</ans:descricaoGlosa></ans:mensagemErro></ans:recebimentoLote>"));
+        await Executar(saida, erro, "testar-lote", Amil, "--exemplo", "--carteira", TissBancoDeTeste.CarteiraFicticia, "--operador", Op, "--mesmo-assim");
+        _rede.Idas.Should().ContainSingle();
+        erro.ToString().Should().Contain("3091");
+    }
+
     // ==================== o lembrete depois do envio ====================
 
     [Fact]
@@ -240,6 +261,7 @@ public sealed class TissAmilHomologacaoTests : IDisposable
             .AddSingleton(_b.Credenciais(repo)).AddSingleton(_b.Fila(repo))
             .AddSingleton(new ParametrosService(repo, _b.Protecao))
             .AddSingleton(new TissWebserviceCliente(new HttpClient(_rede)))
+            .AddSingleton(new RelogioDoConector(() => _b.Agora))
             .BuildServiceProvider();
     }
 

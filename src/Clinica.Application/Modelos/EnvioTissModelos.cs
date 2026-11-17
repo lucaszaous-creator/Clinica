@@ -112,6 +112,12 @@ public sealed record ConferenciaDeEnvioTiss
     /// <summary>O aviso de prazo de cobrança de cada guia, pela guia (aviso, nunca recusa).</summary>
     public IReadOnlyDictionary<int, string> AvisosPorGuia { get; init; } = new Dictionary<int, string>();
 
+    /// <summary>
+    /// As guias cujo aviso de prazo é GRAVE (vermelho): já venceram, ou vencem antes da próxima janela
+    /// de envio da operadora (<see cref="Servicos.PrazosTiss.AvisoDaGuia"/>). Continua aviso: não recusa.
+    /// </summary>
+    public IReadOnlyCollection<int> PrazoGrave { get; init; } = [];
+
     /// <summary>Tudo numa frase só, para quem não mostra por linha.</summary>
     public string Resumo => Impedimento
         ?? (PorGuia.Count == 0 ? "O lote pode ser enviado."

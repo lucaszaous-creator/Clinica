@@ -35,6 +35,7 @@ public static class ComandosDoConector
           Clinica.Tiss.Conector testar-protocolo CONVENIO --protocolo N --operador NOME
               os testes só rodam com o convênio em HOMOLOGAÇÃO, fazem UMA ida e não gravam nada nas
               guias nem na fila (só uma linha na trilha). [--soap-action VALOR] muda o SOAPAction.
+              Fora da janela de envio da operadora, testar-lote avisa e não chama; --mesmo-assim chama.
 
         CONVENIO é o código do convênio no cadastro (ex.: Petrobras, Amil). NOME é quem está fazendo a mudança: vai para a trilha.
         "todos" grava o mesmo endereço para os quatro serviços (o "link único" que a operadora fornece).
@@ -156,7 +157,8 @@ public static class ComandosDoConector
                         if (!int.TryParse(parte, out var id)) { erro.WriteLine($"--guias: \"{parte}\" não é um número de guia."); return 2; }
                         ids.Add(id);
                     }
-                    return Imprimir(await Testes(servicos).LoteAsync(args[1], ids, exemplo, operador, Opcao(args, "--soap-action")), saida, erro);
+                    return Imprimir(await Testes(servicos).LoteAsync(args[1], ids, exemplo, operador, Opcao(args, "--soap-action"),
+                        mesmoAssim: args.Contains("--mesmo-assim")), saida, erro);
                 }
                 case "testar-protocolo" when args.Length >= 2:
                 {
@@ -233,7 +235,8 @@ public static class ComandosDoConector
 
     private static TestesNaHomologacao Testes(IServiceProvider servicos) => new(
         servicos.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>(), servicos.GetRequiredService<ParametrosService>(),
-        servicos.GetRequiredService<CredenciaisTissService>(), servicos.GetRequiredService<TissWebserviceCliente>(), HoraDaClinica.Agora);
+        servicos.GetRequiredService<CredenciaisTissService>(), servicos.GetRequiredService<TissWebserviceCliente>(),
+        servicos.GetService<RelogioDoConector>()?.Agora ?? HoraDaClinica.Agora);
 
     private static int Imprimir(ResultadoDoTesteTiss resultado, TextWriter saida, TextWriter erro)
     {

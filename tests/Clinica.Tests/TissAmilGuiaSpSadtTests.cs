@@ -225,13 +225,16 @@ public sealed class TissAmilGuiaSpSadtTests : IDisposable
 
         conferencia.PodeEnviar.Should().BeTrue("prazo é aviso, não bloqueio");
         conferencia.Avisos.Should().Contain(a => a.Contains("1º ao 5º dia útil"));
-        conferencia.AvisosPorGuia[guia.Id].Should().Contain("prazo de cobrança");
+        // Atendida em 20/08: vence em 18/11, ANTES da próxima janela (01/12) — aviso GRAVE (vermelho).
+        conferencia.AvisosPorGuia[guia.Id].Should().Contain("vence em 18/11/2026").And.Contain("ANTES da próxima janela");
+        conferencia.PrazoGrave.Should().Contain(guia.Id);
         (await _b.Fila().ConferirEnvioAsync(TissBancoDeTeste.Petrobras, [(await _b.GuiaAsync()).Guia.Id])).Avisos.Should().BeEmpty();
     }
 
     [Fact]
     public async Task O_lote_da_Amil_vai_em_SP_SADT_UTF_8_ao_endereco_APIM_e_nao_sai_com_o_envio_do_convenio_desligado()
     {
+        _b.Agora = new DateTime(2026, 11, 3, 10, 0, 0); // dentro da janela da Amil (2º dia útil)
         await _b.PrestadorAsync();
         await _b.Credenciais().SalvarAsync("Amil", Login, Senha, TissBancoDeTeste.Operador);
         var (_, guia) = await GuiaAmilNoBancoAsync(atendidoEm: DateOnly.FromDateTime(_b.Agora));

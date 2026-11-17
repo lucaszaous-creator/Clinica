@@ -105,6 +105,11 @@ public static class BaixaComEnvioNaTela
 
         switch (envio.Estado)
         {
+            // Agendado para a janela da operadora: esperar dias é o combinado, não "o serviço não respondeu".
+            case EstadoTransacaoTiss.Pendente when FilaTiss.Agendado(envio):
+                return new(FaseDaBaixaComEnvio.NaFila, Passos(1, convenioNome),
+                    "Agendado para a janela de envio", envio.Resultado,
+                    "info", null, Acompanha: false, CamposEditaveis: false, PodeCancelarPedido: true, PodeRegistrarBaixa: false, OfereceBaixaManual: false);
             case EstadoTransacaoTiss.Pendente when agora - esperandoDesde >= EsperaPeloServico:
                 return new(FaseDaBaixaComEnvio.ServicoSemResposta, Passos(1, convenioNome, parou: true),
                     "O serviço de envio não respondeu.",

@@ -39,6 +39,27 @@ public static class FilaTiss
     public static IReadOnlyList<IReadOnlyList<int>> DividirEmLotes(IReadOnlyList<int> codigoIds)
         => codigoIds.Chunk(TransacaoTissLimites.GuiasPorLote).Select(l => (IReadOnlyList<int>)l).ToList();
 
+    /// <summary>
+    /// A glosa que a Amil devolve ao lote fora da janela de envio (homologação, nov/2026: "COBRANÇA FORA
+    /// DO PRAZO ESTIPULADO NO CONTRATO - ENVIO DO FATURAMENTO SÓ PODE SER REALIZADO NOS DIAS 01; 02; 03;
+    /// 04; 05"). Só vira AGENDAMENTO para operadora com janela no catálogo; nas outras é recusa comum.
+    /// </summary>
+    public const string GlosaForaDaJanela = "3091";
+
+    /// <summary>Como começa a frase de um lote agendado para a janela (a tela o reconhece por ela).</summary>
+    public const string PrefixoAgendado = "Agendado para ";
+
+    public static string FraseAgendado(OperadoraTiss operadora, DateTime quando, string? porque = null)
+        => $"{PrefixoAgendado}{quando:dd/MM/yyyy 'às' HH:mm}: a {operadora.Nome} só aceita o envio do "
+           + $"{operadora.JanelaDeEnvio!.PrimeiroDiaUtil}º ao {operadora.JanelaDeEnvio.UltimoDiaUtil}º dia útil do mês, "
+           + $"das {operadora.JanelaDeEnvio.Abre:HH\\:mm} às {operadora.JanelaDeEnvio.Fecha:HH\\:mm}"
+           + (porque is null ? "." : $" ({porque}).")
+           + " Pode ser cancelado até lá.";
+
+    /// <summary>O lote está na fila esperando a janela da operadora (não é atraso do serviço).</summary>
+    public static bool Agendado(TransacaoTiss t)
+        => t.Estado == EstadoTransacaoTiss.Pendente && t.Resultado?.StartsWith(PrefixoAgendado, StringComparison.Ordinal) == true;
+
     /// <summary>Quantos lotes um envio de <paramref name="guias"/> guias vira.</summary>
     public static int Lotes(int guias) => guias <= 0 ? 0 : (guias + TransacaoTissLimites.GuiasPorLote - 1) / TransacaoTissLimites.GuiasPorLote;
 
@@ -260,7 +281,8 @@ public sealed class FilaTissService
             Impedimento = partes.Select(p => p.Impedimento).FirstOrDefault(i => i is not null),
             PorGuia = porGuia,
             Avisos = partes.SelectMany(p => p.Avisos).Distinct().ToList(),
-            AvisosPorGuia = partes.SelectMany(p => p.AvisosPorGuia).GroupBy(p => p.Key).ToDictionary(g => g.Key, g => g.First().Value)
+            AvisosPorGuia = partes.SelectMany(p => p.AvisosPorGuia).GroupBy(p => p.Key).ToDictionary(g => g.Key, g => g.First().Value),
+            PrazoGrave = partes.SelectMany(p => p.PrazoGrave).ToHashSet()
         };
     }
 
@@ -313,8 +335,15 @@ public sealed class FilaTissService
             }, ct);
 
         var unica = lote.Guias.Count == 1 ? lote.Guias[0] : null;
+        // A JANELA de envio da operadora (catálogo): fora dela, o lote entra AGENDADO para a próxima
+        // abertura, e o conector só o pega então (ProximaTentativaEm). Pode ser cancelado até lá.
+        var operadora = OperadorasTiss.Da(Clinica.Domain.Regras.CatalogoConvenios.Familia(convenioCodigo.Trim()));
+        DateTime? agendadoPara = operadora?.JanelaDeEnvio is { } janela && !PrazosTiss.DentroDaJanela(janela, _agora())
+            ? PrazosTiss.ProximaAbertura(janela, _agora()) : null;
         return await EnfileirarAsync(new TransacaoTiss
         {
+            ProximaTentativaEm = agendadoPara,
+            Resultado = agendadoPara is { } quando ? FilaTiss.FraseAgendado(operadora!, quando) : null,
             Tipo = TipoTransacaoTiss.EnvioGuia,
             // Com uma guia só, a transação aponta para ela e para o paciente (a trilha diz de quem é).
             CodigoId = unica?.Codigo.Id,
@@ -598,6 +627,37 @@ public sealed class FilaTissService
         return true;
     }
 
+    /// <summary>
+    /// O lote reservado volta para a fila AGENDADO para a janela de envio da operadora, SEM gastar
+    /// tentativa: fora da janela (<paramref name="recusaDaOperadora"/> nulo: só adia se estiver fora), ou
+    /// porque a operadora o recusou por prazo (glosa <see cref="FilaTiss.GlosaForaDaJanela"/>) — e aí vai
+    /// para a janela SEGUINTE, nunca a mesma, para não virar laço. A recusa 3091 é resposta clara de que o
+    /// lote não foi recebido: o carimbo de envio é limpo, e o lote pode sair de novo na janela.
+    /// Falso = está dentro da janela (ou a operadora não tem janela) e nada mudou.
+    /// </summary>
+    public async Task<bool> AgendarNaJanelaAsync(int id, OperadoraTiss? operadora, string? recusaDaOperadora = null, CancellationToken ct = default)
+    {
+        if (operadora?.JanelaDeEnvio is not { } janela) return false;
+        var agora = _agora();
+        if (recusaDaOperadora is null && PrazosTiss.DentroDaJanela(janela, agora)) return false;
+        var t = await EmEnvioAsync(id, ct);
+        if (t.Tipo != TipoTransacaoTiss.EnvioGuia) return false;
+        // Recusada DENTRO da janela: a próxima é a do mês seguinte (tentar de novo nesta seria laço).
+        var quando = PrazosTiss.ProximaAbertura(janela, agora,
+            depoisDaAtual: recusaDaOperadora is not null && PrazosTiss.DentroDaJanela(janela, agora));
+        t.Estado = EstadoTransacaoTiss.Pendente;
+        t.Consumidor = null;
+        t.ReservadaEm = null;
+        t.EnvioIniciadoEm = null;
+        t.Tentativas = Math.Max(0, t.Tentativas - 1);
+        t.ProximaTentativaEm = quando;
+        t.Resultado = Cortar(FilaTiss.FraseAgendado(operadora, quando,
+            recusaDaOperadora is null ? null : $"a {operadora.Nome} recusou fora do prazo: {recusaDaOperadora}"), TransacaoTissLimites.Resultado);
+        t.Versao++;
+        await _repo.SalvarAsync(ct);
+        return true;
+    }
+
     /// <summary>As idas reais à operadora das elegibilidades do convênio hoje (o que o teto conta).</summary>
     public Task<int> IdasDeElegibilidadeHojeAsync(string convenioCodigo, CancellationToken ct = default)
     {
@@ -699,6 +759,7 @@ public sealed class FilaTissService
         var operadora = OperadorasTiss.Da(Clinica.Domain.Regras.CatalogoConvenios.Familia(convenio));
         var avisos = new List<string>();
         var avisosPorGuia = new Dictionary<int, string>();
+        var graves = new HashSet<int>();
         if (PrazosTiss.JanelaDeEnvio(operadora, _agora()) is { } janela) avisos.Add(janela);
 
         var guias = new List<GuiaDoLote>();
@@ -737,10 +798,13 @@ public sealed class FilaTissService
             // o mesmo número duas vezes, e a resposta acha a guia de volta por ele.
             guias.Add(new GuiaDoLote(codigo, NumeroDoPrestador(id, anteriores[id].Count() + 1), declarada));
             var atendidoEm = codigo.GuiaAns?.DataAtendimento ?? codigo.Atendimento?.Data ?? default;
-            if (PrazosTiss.PrazoDeCobranca(operadora, atendidoEm, DateOnly.FromDateTime(_agora())) is { } prazo)
-                avisosPorGuia[id] = prazo;
+            if (PrazosTiss.AvisoDaGuia(operadora, atendidoEm, _agora()) is { } prazo)
+            {
+                avisosPorGuia[id] = prazo.Texto;
+                if (prazo.Grave) graves.Add(id);
+            }
         }
-        return (new ConferenciaDeEnvioTiss { PorGuia = recusas, Avisos = avisos, AvisosPorGuia = avisosPorGuia }, guias);
+        return (new ConferenciaDeEnvioTiss { PorGuia = recusas, Avisos = avisos, AvisosPorGuia = avisosPorGuia, PrazoGrave = graves }, guias);
     }
 
     /// <summary>

@@ -73,6 +73,15 @@ public sealed class ExecutorDeTransacoesTiss(
                 }
             }
 
+            // A JANELA de envio da operadora (catálogo): lote fora dela volta à fila agendado, sem
+            // gastar tentativa e sem sair nada (Amil: do 1º ao 5º dia útil, 7h–19h; recusa 3091).
+            if (t.Tipo == TipoTransacaoTiss.EnvioGuia
+                && await fila.AgendarNaJanelaAsync(t.Id, await credenciais.OperadoraAsync(t.ConvenioCodigo, ct), ct: ct))
+            {
+                log.LogInformation("Transação TISS {Id} ({Tipo}, {Convenio}) fora da janela de envio da operadora: agendada.", t.Id, t.Tipo, t.ConvenioCodigo);
+                return true;
+            }
+
             if (t.Tipo == TipoTransacaoTiss.Elegibilidade
                 && await fila.AdiarPorLimiteDiarioAsync(t.Id, opcoes.LimiteDiarioElegibilidade, ct))
             {
@@ -132,6 +141,13 @@ public sealed class ExecutorDeTransacoesTiss(
             }
 
             var desfecho = processador.Ler(t, resposta);
+            if (desfecho.RecusaForaDaJanela
+                && await fila.AgendarNaJanelaAsync(t.Id, await credenciais.OperadoraAsync(t.ConvenioCodigo, ct), Ocultar(desfecho.Falha ?? "", segredos), ct))
+            {
+                log.LogWarning("Transação TISS {Id} ({Tipo}, {Convenio}): a operadora recusou fora da janela de envio. Agendada para a próxima, sem gastar tentativa.",
+                    t.Id, t.Tipo, t.ConvenioCodigo);
+                return true;
+            }
             if (desfecho.Conclusao is { } conclusao)
             {
                 await fila.ConcluirAsync(t.Id, conclusao with

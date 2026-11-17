@@ -6,6 +6,9 @@ using Clinica.Domain.Regras;
 
 namespace Clinica.Tiss.Conector;
 
+/// <summary>O relógio dos comandos (a hora da clínica); o teste o troca para fixar o dia da janela.</summary>
+public sealed record RelogioDoConector(Func<DateTime> Agora);
+
 /// <summary>O que um teste na homologação devolve: deu para ir e voltar, e as linhas para o terminal.</summary>
 public sealed record ResultadoDoTesteTiss(bool Foi, IReadOnlyList<string> Linhas);
 
@@ -83,7 +86,7 @@ public sealed class TestesNaHomologacao(
     /// guia fictícia (<paramref name="exemplo"/>), no padrão da operadora para lote (Amil: 4.03.00).
     /// </summary>
     public async Task<ResultadoDoTesteTiss> LoteAsync(string convenio, IReadOnlyList<int> guias, GuiaDeExemploTiss? exemplo,
-        string operador, string? soapAction = null, CancellationToken ct = default)
+        string operador, string? soapAction = null, CancellationToken ct = default, bool mesmoAssim = false)
     {
         if ((guias.Count == 0) == (exemplo is null))
             return Recusado("Informe as guias (--guias ID[,ID…]) OU --exemplo --carteira N, um dos dois.");
@@ -91,6 +94,12 @@ public sealed class TestesNaHomologacao(
             return Recusado($"Um lote leva até {TransacaoTissLimites.GuiasPorLote} guias.");
         var (d, recusa) = await PrepararAsync(convenio, TipoTransacaoTiss.EnvioGuia, ct);
         if (d is null) return Recusado(recusa!);
+        // A janela vale também na homologação (nov/2026: a Amil recusou com 3091 fora do 1º ao 5º dia
+        // útil). Avisar antes de chamar economiza uma ida que já se sabe recusada.
+        if (d.Operadora.JanelaDeEnvio is { } janela && !PrazosTiss.DentroDaJanela(janela, agora()) && !mesmoAssim)
+            return Recusado($"A {d.Operadora.Nome} só aceita lote do {janela.PrimeiroDiaUtil}º ao {janela.UltimoDiaUtil}º dia útil do mês, "
+                            + $"das {janela.Abre:HH\\:mm} às {janela.Fecha:HH\\:mm}, também na homologação (recusa {FilaTiss.GlosaForaDaJanela}); "
+                            + $"próxima janela: {PrazosTiss.ProximaAbertura(janela, agora()):dd/MM 'às' HH:mm}. Para chamar assim mesmo: --mesmo-assim.");
 
         var carimbo = agora().ToString("HHmmss", CultureInfo.InvariantCulture);
         var elementos = new List<System.Xml.Linq.XElement>();
