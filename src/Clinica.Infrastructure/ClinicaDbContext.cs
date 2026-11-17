@@ -455,6 +455,14 @@ public class ClinicaDbContext : DbContext
             // st_decimal8-2 do padrão: 8 dígitos no total, 2 decimais.
             e.Property(g => g.ValorProcedimento).HasPrecision(8, 2);
             e.Property(g => g.Observacao).HasMaxLength(500);
+            // Guia SP/SADT (nov/2026, Amil): tamanhos do XSD 4.01.00. Nulos nas guias de consulta.
+            e.Property(g => g.ModeloGuia).HasMaxLength(10);
+            e.Property(g => g.Senha).HasMaxLength(20);
+            e.Property(g => g.CodigoValidacao).HasMaxLength(10);
+            e.Property(g => g.AusenciaCodigoValidacao).HasMaxLength(2);
+            e.Property(g => g.TipoAtendimento).HasMaxLength(2);
+            e.Property(g => g.CaraterAtendimento).HasMaxLength(1);
+            e.Property(g => g.DescricaoProcedimento).HasMaxLength(150);
             e.Property(g => g.ConferidaPor).HasMaxLength(80);
             e.Property(g => g.ConferidaEm).HasColumnType("timestamp without time zone");
             // A guia do sistema não se apaga (só é estornada); a cascata existe para a exclusão de

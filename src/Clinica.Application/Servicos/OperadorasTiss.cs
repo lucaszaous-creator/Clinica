@@ -38,22 +38,50 @@ public enum CodificacaoTissWs
     Utf8
 }
 
+/// <summary>Em que guia do padrão a operadora recebe a consulta e a sessão conferidas na baixa.</summary>
+public enum ModeloDaGuiaTiss
+{
+    /// <summary>Guia de consulta (<c>guiaConsulta</c>): Saúde Petrobras, inclusive o BSV.</summary>
+    Consulta,
+
+    /// <summary>
+    /// Guia SP/SADT (<c>guiaSP-SADT</c>), com senha de autorização e token: Amil. O Manual do
+    /// Credenciado (jul/2026) manda cobrar a consulta "exclusivamente em guias de SP/SADT", e o
+    /// faturamento do portal só tem SP/SADT, honorário individual e resumo de internação.
+    /// </summary>
+    SpSadt
+}
+
+/// <summary>
+/// A janela em que a operadora aceita o envio do faturamento: do <paramref name="PrimeiroDiaUtil"/>º
+/// ao <paramref name="UltimoDiaUtil"/>º dia útil do mês, das <paramref name="Abre"/> às
+/// <paramref name="Fecha"/>. Dia útil aqui é segunda a sexta: o sistema não tem calendário de feriados.
+/// </summary>
+public sealed record JanelaDeEnvioTiss(int PrimeiroDiaUtil, int UltimoDiaUtil, TimeOnly Abre, TimeOnly Fecha);
+
 /// <summary>Uma operadora com web service TISS que o sistema conhece sem ninguém digitar nada.</summary>
 /// <param name="Familia">A família do convênio no catálogo (o convênio cadastrado aponta para ela).</param>
 /// <param name="Nome">Como a operadora aparece nas frases.</param>
 /// <param name="RegistroAns">O registro ANS da operadora (dado público), o destino das mensagens.</param>
 /// <param name="CodigoDoPrestador">O que vai em <c>codigoPrestadorNaOperadora</c> quando o convênio não cadastrou outra regra.</param>
 /// <param name="EnvioDeGuiaNasTelas">
-/// As telas oferecem o envio de guias (selos, aba de envio, chave no formulário)? Só quando a guia
-/// dessa operadora passa pela conferência ANS na baixa (<see cref="GuiaAnsNaBaixa.Exige(CodigoFaturamento)"/>):
-/// sem ela não há guia pronta para enviar, e mostrar o envio seria prometer o que não acontece.
+/// As telas oferecem o envio de guias (selos, aba de envio, chave no formulário) E a baixa pede a
+/// conferência da guia ANS (<see cref="GuiaAnsNaBaixa.Exige(CodigoFaturamento)"/>)? As duas coisas
+/// andam juntas: sem a conferência não há guia pronta para enviar, e conferir sem poder enviar seria
+/// trabalho a mais na baixa sem nada sair.
 /// </param>
 /// <param name="Enderecos">Os endereços de produção, um por tipo de transação. O cadastrado no convênio vence.</param>
 /// <param name="Codificacao">Em que codificação a mensagem vai pela rede (ver <see cref="CodificacaoTissWs"/>).</param>
+/// <param name="ModeloDaGuia">A guia em que a consulta conferida vai à operadora (ver <see cref="ModeloDaGuiaTiss"/>).</param>
+/// <param name="PrazoDeCobrancaDias">Dias, a partir do atendimento, em que a operadora ainda aceita a guia (nulo = o sistema não sabe).</param>
+/// <param name="JanelaDeEnvio">Quando a operadora aceita o envio do faturamento (nulo = a qualquer hora).</param>
 public sealed record OperadoraTiss(
     Convenio Familia, string Nome, string RegistroAns, CodigoDoPrestadorTiss CodigoDoPrestador,
     bool EnvioDeGuiaNasTelas, IReadOnlyDictionary<TipoTransacaoTiss, Uri> Enderecos,
-    CodificacaoTissWs Codificacao = CodificacaoTissWs.Iso88591)
+    CodificacaoTissWs Codificacao = CodificacaoTissWs.Iso88591,
+    ModeloDaGuiaTiss ModeloDaGuia = ModeloDaGuiaTiss.Consulta,
+    int? PrazoDeCobrancaDias = null,
+    JanelaDeEnvioTiss? JanelaDeEnvio = null)
 {
     public Uri? Endereco(TipoTransacaoTiss tipo) => Enderecos.TryGetValue(tipo, out var uri) ? uri : null;
 }
@@ -86,8 +114,14 @@ public static class OperadorasTiss
     /// Amil, da tabela "Endereços web service Amil 4.01.00" do Portal do Credenciado (APIM, o
     /// endereço novo; nov/2026). O manual fala de um "link único" pedido ao Núcleo TISS: quando a
     /// clínica o tiver, ele é cadastrado por cima destes (comando <c>endereco … todos</c>).
-    /// O envio de guias tem endereço, mas não aparece nas telas: a guia da Amil ainda não passa
-    /// pela conferência ANS na baixa.
+    ///
+    /// O ENVIO DE GUIAS está pronto e DESLIGADO (nov/2026): a guia vai em SP/SADT, com senha e token
+    /// (<see cref="GuiaAnsNaBaixa"/>), pelo mesmo lote da Petrobras. <see cref="OperadoraTiss.EnvioDeGuiaNasTelas"/>
+    /// falso mantém a Amil fora das telas de envio E da conferência na baixa — ligar é trocar para
+    /// verdadeiro quando o Núcleo TISS responder (docs/tiss-conector.md, "Amil: o que falta saber"),
+    /// e depois ligar o envio do convênio no servidor (<c>comando.sh envio Amil ligar</c>).
+    /// Prazos do Manual de Faturamento Eletrônico e do portal: cobrança em até 90 dias do
+    /// atendimento; envio do 1º ao 5º dia útil, das 7h às 19h.
     /// </summary>
     public static readonly OperadoraTiss Amil = new(
         Convenio.Amil, "Amil", "326305", CodigoDoPrestadorTiss.LoginDoWebService, EnvioDeGuiaNasTelas: false,
@@ -98,7 +132,10 @@ public static class OperadorasTiss
             (TipoTransacaoTiss.StatusProtocolo, "api-tiss-solicitacao-status-protocolo/v4.01.00"),
             (TipoTransacaoTiss.CancelamentoGuia, "api-tiss-cancela-guia/v4.01.00")),
         // O APIM respondeu HTTP 415 à primeira elegibilidade real em ISO-8859-1 (nov/2026).
-        Codificacao: CodificacaoTissWs.Utf8);
+        Codificacao: CodificacaoTissWs.Utf8,
+        ModeloDaGuia: ModeloDaGuiaTiss.SpSadt,
+        PrazoDeCobrancaDias: 90,
+        JanelaDeEnvio: new JanelaDeEnvioTiss(1, 5, new TimeOnly(7, 0), new TimeOnly(19, 0)));
 
     /// <summary>Todas as operadoras com web service conhecidas.</summary>
     public static IReadOnlyList<OperadoraTiss> Todas { get; } = [SaudePetrobras, Amil];
@@ -108,6 +145,10 @@ public static class OperadorasTiss
 
     /// <summary>O endereço de produção que o sistema conhece para a família e o tipo (nulo = nenhum).</summary>
     public static Uri? EnderecoPadrao(Convenio familia, TipoTransacaoTiss tipo) => Da(familia)?.Endereco(tipo);
+
+    /// <summary>A operadora do convênio (código do cadastro ou família), ou nulo fora do catálogo.</summary>
+    public static OperadoraTiss? DoConvenio(string? convenioCodigo, Convenio familia)
+        => Da(Clinica.Domain.Regras.CatalogoConvenios.Familia(convenioCodigo ?? familia.ToString()));
 
     /// <summary>A codificação da mensagem para a operadora (fora do catálogo: a do padrão, ISO-8859-1).</summary>
     public static CodificacaoTissWs CodificacaoDe(OperadoraTiss? operadora) => operadora?.Codificacao ?? CodificacaoTissWs.Iso88591;

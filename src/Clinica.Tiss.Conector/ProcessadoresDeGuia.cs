@@ -6,7 +6,8 @@ using Clinica.Domain.Entities;
 namespace Clinica.Tiss.Conector;
 
 /// <summary>
-/// ENVIO DE LOTE (<c>tissLoteGuias</c>): uma guia de consulta por item da transação, cada uma com
+/// ENVIO DE LOTE (<c>tissLoteGuias</c>): uma guia conferida por item da transação (consulta na
+/// Petrobras, SP/SADT na Amil — <see cref="TissExportService.GuiaConferida"/>), cada uma com
 /// o número que a fila reservou para ela (<c>TransacaoTissGuia.NumeroGuiaPrestador</c>) — é por
 /// esse número que a resposta acha a guia de volta.
 ///
@@ -51,7 +52,7 @@ public sealed class ProcessadorDeEnvioDeGuia(
                 return PreparoTiss.Recusar($"A guia {item.NumeroGuiaPrestador} está sem a conferência no padrão ANS. Nada foi enviado: confira e monte o lote de novo.");
             try
             {
-                guias.Add(TissExportService.GuiaConsultaConferida(codigo, item.NumeroGuiaPrestador));
+                guias.Add(TissExportService.GuiaConferida(codigo, item.NumeroGuiaPrestador));
             }
             catch (ArgumentException ex)
             {

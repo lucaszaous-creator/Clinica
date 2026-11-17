@@ -638,9 +638,13 @@ public sealed class FilaTissService
         var anteriores = (await _repo.ItensDeEnvioTissDasGuiasAsync(distintas, ct))
             .Where(i => i.CodigoId is not null).ToLookup(i => i.CodigoId!.Value);
 
-        // "Um só tipo de guia por lote" (regra do padrão) está garantido pela conferência: toda guia
-        // conferida sai como GUIA DE CONSULTA (TissExportService.GuiaConsultaConferida), seja qual
-        // for o tipo no sistema — inclusive o BSV da Petrobras, que a clínica lança nessa tela.
+        // "Um só tipo de guia por lote" (regra do padrão) está garantido pela conferência: o lote é de
+        // UM convênio, e toda guia conferida sai no modelo da operadora dele (TissExportService.GuiaConferida):
+        // guia de consulta na Petrobras (inclusive o BSV), SP/SADT na Amil.
+        var operadora = OperadorasTiss.Da(Clinica.Domain.Regras.CatalogoConvenios.Familia(convenio));
+        var avisos = new List<string>();
+        var avisosPorGuia = new Dictionary<int, string>();
+        if (PrazosTiss.JanelaDeEnvio(operadora, _agora()) is { } janela) avisos.Add(janela);
 
         var guias = new List<GuiaDoLote>();
         foreach (var id in distintas)
@@ -677,8 +681,11 @@ public sealed class FilaTissService
             // O número muda a cada envio da mesma guia (C12, C12R2, C12R3…): a operadora nunca vê
             // o mesmo número duas vezes, e a resposta acha a guia de volta por ele.
             guias.Add(new GuiaDoLote(codigo, NumeroDoPrestador(id, anteriores[id].Count() + 1), declarada));
+            var atendidoEm = codigo.GuiaAns?.DataAtendimento ?? codigo.Atendimento?.Data ?? default;
+            if (PrazosTiss.PrazoDeCobranca(operadora, atendidoEm, DateOnly.FromDateTime(_agora())) is { } prazo)
+                avisosPorGuia[id] = prazo;
         }
-        return (new ConferenciaDeEnvioTiss { PorGuia = recusas }, guias);
+        return (new ConferenciaDeEnvioTiss { PorGuia = recusas, Avisos = avisos, AvisosPorGuia = avisosPorGuia }, guias);
     }
 
     /// <summary>

@@ -3169,6 +3169,14 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<bool>("AtendimentoRn")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("AusenciaCodigoValidacao")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<string>("CaraterAtendimento")
+                        .HasMaxLength(1)
+                        .HasColumnType("character varying(1)");
+
                     b.Property<string>("Cbos")
                         .IsRequired()
                         .HasMaxLength(6)
@@ -3198,6 +3206,10 @@ namespace Clinica.Infrastructure.Migrations
                         .HasMaxLength(2)
                         .HasColumnType("character varying(2)");
 
+                    b.Property<string>("CodigoValidacao")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
                     b.Property<DateTime>("ConferidaEm")
                         .HasColumnType("timestamp without time zone");
 
@@ -3214,10 +3226,21 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<DateOnly>("DataAtendimento")
                         .HasColumnType("date");
 
+                    b.Property<DateOnly?>("DataAutorizacao")
+                        .HasColumnType("date");
+
+                    b.Property<string>("DescricaoProcedimento")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
                     b.Property<string>("IndicacaoAcidente")
                         .IsRequired()
                         .HasMaxLength(1)
                         .HasColumnType("character varying(1)");
+
+                    b.Property<string>("ModeloGuia")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
 
                     b.Property<string>("NomeBeneficiario")
                         .IsRequired()
@@ -3265,6 +3288,14 @@ namespace Clinica.Infrastructure.Migrations
                         .HasMaxLength(2)
                         .HasColumnType("character varying(2)");
 
+                    b.Property<string>("Senha")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("TipoAtendimento")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
                     b.Property<string>("TipoConsulta")
                         .IsRequired()
                         .HasMaxLength(1)
@@ -3276,6 +3307,9 @@ namespace Clinica.Infrastructure.Migrations
                         .HasColumnType("character varying(2)");
 
                     b.Property<DateOnly?>("ValidadeCarteira")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("ValidadeSenha")
                         .HasColumnType("date");
 
                     b.Property<decimal>("ValorProcedimento")

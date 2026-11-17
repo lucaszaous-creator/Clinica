@@ -103,6 +103,15 @@ public sealed record ConferenciaDeEnvioTiss
 
     public bool PodeEnviar => Impedimento is null && PorGuia.Count == 0;
 
+    /// <summary>
+    /// O que NÃO impede o envio mas merece leitura (nov/2026): a janela de envio do mês
+    /// (<see cref="Servicos.PrazosTiss"/>). Aviso, nunca bloqueio.
+    /// </summary>
+    public IReadOnlyList<string> Avisos { get; init; } = [];
+
+    /// <summary>O aviso de prazo de cobrança de cada guia, pela guia (aviso, nunca recusa).</summary>
+    public IReadOnlyDictionary<int, string> AvisosPorGuia { get; init; } = new Dictionary<int, string>();
+
     /// <summary>Tudo numa frase só, para quem não mostra por linha.</summary>
     public string Resumo => Impedimento
         ?? (PorGuia.Count == 0 ? "O lote pode ser enviado."

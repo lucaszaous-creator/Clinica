@@ -108,6 +108,7 @@
                                                 <span class="principal">@g.PacienteNome</span>
                                                 <span class="secundario">@RotulosEnum.De(g.Tipo) · atendimento em @Formato.Data(g.DataAtendimento)</span>
                                                 @if (recusa is not null) { <span class="campo-erro" data-recusa="@g.CodigoId">@recusa</span> }
+                                                else if (AvisoDaLinha(g.CodigoId) is { } prazo) { <span class="campo-dica" data-aviso-de-prazo="@g.CodigoId">@prazo</span> }
                                                 @if (ressalva is not null)
                                                 {
                                                     <span class="@(ressalva.PedeConferenciaNoPortal ? "campo-erro" : "campo-dica")" data-ressalva="@g.CodigoId">@ressalva.Texto</span>
@@ -143,6 +144,11 @@
                                     @onclick="EnviarAsync"><Icone Nome="enviar" />@(_ocupado ? "Pedindo…" : "Enviar à operadora")</button>
                         </div>
                         <Aviso Tom="erro" Texto="@_mensagemDoEnvio" />
+                        @* Prazos da operadora (janela do mês, prazo de cobrança): aviso, nunca bloqueio — PrazosTiss. *@
+                        @if (_conferencia is { Avisos.Count: > 0 } comAvisos)
+                        {
+                            <Aviso Tom="atencao" Texto="@string.Join(" ", comAvisos.Avisos)" />
+                        }
                     }
                 </div>
             }
@@ -464,6 +470,10 @@
             _conferencia = null;
         }
     }
+
+    /// <summary>O prazo de cobrança da guia marcada, quando está perto do fim ou passou (aviso, não recusa).</summary>
+    private string? AvisoDaLinha(int codigoId)
+        => _marcadas.Contains(codigoId) && _conferencia is { } c && c.AvisosPorGuia.TryGetValue(codigoId, out var frase) ? frase : null;
 
     private string? RecusaDaLinha(int codigoId)
         => _marcadas.Contains(codigoId) && _conferencia is { } c && c.PorGuia.TryGetValue(codigoId, out var frase) ? frase : null;

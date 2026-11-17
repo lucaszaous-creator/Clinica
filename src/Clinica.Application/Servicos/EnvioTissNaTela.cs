@@ -345,16 +345,18 @@ public static class EnvioTissNaTela
     /// A linha de conferência do nome: o da operadora ao lado do da ficha, e se batem. A comparação
     /// ignora maiúsculas, acentos e espaços a mais — a operadora costuma devolver tudo em maiúsculas
     /// e sem acento, e isso não é divergência. Nulo = a operadora não devolveu nome.
+    /// <c>Diverge</c> é o único caso que a tela pinta de vermelho (nov/2026): sem ficha para comparar
+    /// (consulta avulsa pela carteirinha), o nome aparece NEUTRO — não há divergência a apontar.
     /// </summary>
-    public static (string Texto, bool Confere)? ConferenciaDoNome(string? resultado, string? nomeDaFicha)
+    public static (string Texto, bool Confere, bool Diverge)? ConferenciaDoNome(string? resultado, string? nomeDaFicha)
     {
         if (NomeNaOperadora(resultado) is not { } daOperadora) return null;
         var ficha = (nomeDaFicha ?? string.Empty).Trim();
-        if (ficha.Length == 0) return ($"Na operadora: {daOperadora}.", false);
+        if (ficha.Length == 0) return ($"Na operadora: {daOperadora}.", false, false);
         var confere = string.Equals(SemAcentos(daOperadora), SemAcentos(ficha), StringComparison.OrdinalIgnoreCase);
         return confere
-            ? ($"Na operadora: {daOperadora} · na ficha: {ficha}. Os nomes conferem.", true)
-            : ($"Na operadora: {daOperadora} · na ficha: {ficha}. Os nomes são DIFERENTES: confira se é a carteira certa. A ficha não foi alterada.", false);
+            ? ($"Na operadora: {daOperadora} · na ficha: {ficha}. Os nomes conferem.", true, false)
+            : ($"Na operadora: {daOperadora} · na ficha: {ficha}. Os nomes são DIFERENTES: confira se é a carteira certa. A ficha não foi alterada.", false, true);
     }
 
     private static string SemAcentos(string texto)

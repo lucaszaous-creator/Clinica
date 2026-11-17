@@ -156,10 +156,46 @@
                             }
                         </section>
 
+                        @if (_guia.EhSpSadt)
+                        {
+                            @* GUIA SP/SADT (nov/2026, Amil): a senha de autorização, a data dela e o TOKEN que o
+                               beneficiário confirmou no portal. Sem senha ou sem confirmação a guia é bloqueada
+                               na prévia da operadora; a frase de cada campo diz qual glosa evita. *@
+                            <section class="secao-form" aria-label="Autorização e confirmação do atendimento" data-guia-sp-sadt>
+                                <h3>Autorização e confirmação do atendimento</h3>
+                                <div class="campos tres">
+                                    <Campo Rotulo="Senha de autorização" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.Senha))">
+                                        <input id="ga-Senha" class="campo numero-guia" maxlength="20" autocomplete="off"
+                                               value="@_guia.Senha" @oninput="e => _guia.Senha = Texto(e)" />
+                                    </Campo>
+                                    <Campo Rotulo="Data da autorização" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.DataAutorizacao))">
+                                        <input type="date" id="ga-DataAutorizacao" class="campo" value="@(_guia.DataAutorizacao?.ToString("yyyy-MM-dd"))"
+                                               @onchange="e => _guia.DataAutorizacao = DateOnly.TryParse(e.Value?.ToString(), out var d) ? d : null" />
+                                    </Campo>
+                                    <Campo Rotulo="Validade da senha" Erro="@Erro(nameof(DadosGuiaConsultaAns.ValidadeSenha))">
+                                        <input type="date" id="ga-ValidadeSenha" class="campo" value="@(_guia.ValidadeSenha?.ToString("yyyy-MM-dd"))"
+                                               @onchange="e => _guia.ValidadeSenha = DateOnly.TryParse(e.Value?.ToString(), out var d) ? d : null" />
+                                    </Campo>
+                                    <Campo Rotulo="Token do beneficiário" Erro="@Erro(nameof(DadosGuiaConsultaAns.CodigoValidacao))"
+                                           Dica="Os 6 dígitos que o beneficiário confirmou no portal.">
+                                        <input id="ga-CodigoValidacao" class="campo numero-guia" maxlength="6" inputmode="numeric" autocomplete="off"
+                                               value="@_guia.CodigoValidacao" @oninput="e => _guia.CodigoValidacao = Texto(e)" />
+                                    </Campo>
+                                    <Campo Rotulo="Sem token: motivo" Classe="largo" Erro="@Erro(nameof(DadosGuiaConsultaAns.AusenciaCodigoValidacao))">
+                                        <select id="ga-AusenciaCodigoValidacao" class="campo" value="@(_guia.AusenciaCodigoValidacao ?? string.Empty)"
+                                                @onchange="e => _guia.AusenciaCodigoValidacao = TextoOuNulo(e)">
+                                            <option value="">Há token</option>
+                                            @foreach (var v in DominiosTiss.AusenciaCodigoValidacao) { <option value="@v.Codigo">@v.Rotulo</option> }
+                                        </select>
+                                    </Campo>
+                                </div>
+                            </section>
+                        }
+
                         <section class="secao-form" aria-label="Dados do contratado">
                             <h3>Dados do contratado</h3>
                             <div class="campos tres">
-                                <Campo Rotulo="9 - Código na operadora (CNPJ)" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.CodigoPrestadorNaOperadora))">
+                                <Campo Rotulo="9 - Código na operadora" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.CodigoPrestadorNaOperadora))">
                                     <input id="ga-CodigoPrestadorNaOperadora" class="campo numero-guia" maxlength="14" autocomplete="off"
                                            value="@_guia.CodigoPrestadorNaOperadora" @oninput="e => _guia.CodigoPrestadorNaOperadora = Texto(e)" />
                                 </Campo>
@@ -236,12 +272,30 @@
                                     <input type="date" id="ga-DataAtendimento" class="campo" value="@_guia.DataAtendimento.ToString("yyyy-MM-dd")"
                                            @onchange="e => _guia.DataAtendimento = DateOnly.TryParse(e.Value?.ToString(), out var d) ? d : _guia.DataAtendimento" />
                                 </Campo>
-                                <Campo Rotulo="20 - Tipo de consulta" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.TipoConsulta))">
-                                    <select id="ga-TipoConsulta" class="campo" value="@_guia.TipoConsulta" @onchange="e => _guia.TipoConsulta = Texto(e)">
-                                        <option value="">Selecione</option>
-                                        @foreach (var v in DominiosTiss.TipoConsulta) { <option value="@v.Codigo">@v.Rotulo</option> }
-                                    </select>
-                                </Campo>
+                                @if (_guia.EhSpSadt)
+                                {
+                                    <Campo Rotulo="Tipo de atendimento" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.TipoAtendimento))">
+                                        <select id="ga-TipoAtendimento" class="campo" value="@(_guia.TipoAtendimento ?? string.Empty)" @onchange="e => _guia.TipoAtendimento = TextoOuNulo(e)">
+                                            <option value="">Selecione</option>
+                                            @foreach (var v in DominiosTiss.TipoAtendimento) { <option value="@v.Codigo">@v.Rotulo</option> }
+                                        </select>
+                                    </Campo>
+                                    <Campo Rotulo="Caráter do atendimento" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.CaraterAtendimento))">
+                                        <select id="ga-CaraterAtendimento" class="campo" value="@(_guia.CaraterAtendimento ?? string.Empty)" @onchange="e => _guia.CaraterAtendimento = TextoOuNulo(e)">
+                                            <option value="">Selecione</option>
+                                            @foreach (var v in DominiosTiss.CaraterAtendimento) { <option value="@v.Codigo">@v.Rotulo</option> }
+                                        </select>
+                                    </Campo>
+                                }
+                                @if (_guia.PedeTipoConsulta)
+                                {
+                                    <Campo Rotulo="20 - Tipo de consulta" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.TipoConsulta))">
+                                        <select id="ga-TipoConsulta" class="campo" value="@_guia.TipoConsulta" @onchange="e => _guia.TipoConsulta = Texto(e)">
+                                            <option value="">Selecione</option>
+                                            @foreach (var v in DominiosTiss.TipoConsulta) { <option value="@v.Codigo">@v.Rotulo</option> }
+                                        </select>
+                                    </Campo>
+                                }
                                 <Campo Rotulo="19 - Tabela" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.CodigoTabela))">
                                     <select id="ga-CodigoTabela" class="campo" value="@_guia.CodigoTabela" @onchange="e => _guia.CodigoTabela = Texto(e)">
                                         <option value="">Selecione</option>
@@ -252,6 +306,13 @@
                                     <input id="ga-CodigoProcedimento" class="campo numero-guia" maxlength="10" inputmode="numeric" autocomplete="off"
                                            value="@_guia.CodigoProcedimento" @oninput="e => _guia.CodigoProcedimento = Texto(e)" />
                                 </Campo>
+                                @if (_guia.EhSpSadt)
+                                {
+                                    <Campo Rotulo="Descrição do procedimento" Obrigatorio="true" Classe="largo" Erro="@Erro(nameof(DadosGuiaConsultaAns.DescricaoProcedimento))">
+                                        <input id="ga-DescricaoProcedimento" class="campo" maxlength="150" autocomplete="off"
+                                               value="@_guia.DescricaoProcedimento" @oninput="e => _guia.DescricaoProcedimento = Texto(e)" />
+                                    </Campo>
+                                }
                                 <Campo Rotulo="22 - Valor do procedimento (R$)" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.ValorProcedimento))">
                                     <input id="ga-ValorProcedimento" class="campo numero-guia" maxlength="12" inputmode="decimal" autocomplete="off" placeholder="0,00"
                                            value="@_guia.ValorTexto" @oninput="e => _guia.ValorTexto = Texto(e)" />
@@ -264,6 +325,11 @@
                             </div>
                         </section>
                         </fieldset>
+                        @* Glosas de ALERTA: não impedem gravar; a operadora pode glosar depois. *@
+                        @foreach (var alerta in _guia.Alertas())
+                        {
+                            <Aviso Tom="atencao" Texto="@alerta" />
+                        }
 
                         @if (MostraBaixa) { <h3 class="fat-guia-ans-baixa">Baixa no sistema</h3> }
                     </div>

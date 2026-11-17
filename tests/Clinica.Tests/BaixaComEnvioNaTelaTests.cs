@@ -248,11 +248,16 @@ public sealed class BaixaComEnvioNaTelaTests
 
         // Maiúsculas e acento não são divergência: a operadora devolve "JOSE", a ficha diz "José".
         EnvioTissNaTela.ConferenciaDoNome(resultado, "José de Teste")!.Value
-            .Should().Be(("Na operadora: JOSE DE TESTE · na ficha: José de Teste. Os nomes conferem.", true));
+            .Should().Be(("Na operadora: JOSE DE TESTE · na ficha: José de Teste. Os nomes conferem.", true, false));
 
         var diferente = EnvioTissNaTela.ConferenciaDoNome(resultado, "Maria de Teste")!.Value;
         diferente.Confere.Should().BeFalse();
+        diferente.Diverge.Should().BeTrue("só a divergência com a ficha é vermelha");
         diferente.Texto.Should().Contain("DIFERENTES").And.Contain("A ficha não foi alterada");
+
+        // Consulta avulsa, sem ficha para comparar: o nome aparece NEUTRO (nem confere, nem diverge).
+        var semFicha = EnvioTissNaTela.ConferenciaDoNome(resultado, null)!.Value;
+        semFicha.Should().Be(("Na operadora: JOSE DE TESTE.", false, false));
 
         // Sem nome na resposta, não há o que conferir.
         EnvioTissNaTela.NomeNaOperadora("Elegível.").Should().BeNull();

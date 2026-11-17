@@ -559,7 +559,9 @@ outro arquivo do conector, da fila ou das telas conhece nome de operadora.
 | Padrão | TISS 4.01.00, SOAP, login e senha (MD5) no cabeçalho | o mesmo |
 | Codificação da mensagem na rede | ISO-8859-1 (a do padrão) | **UTF-8** (o APIM é WCF/basicHttpBinding: respondeu HTTP 415 a `charset=ISO-8859-1`) |
 | Elegibilidade | sim | **sim** |
-| Envio de guias nas telas | sim (a guia passa pela conferência ANS na baixa) | **não**: o endereço do lote está no catálogo, mas a guia da Amil ainda não passa pela conferência ANS, então não há guia pronta para enviar |
+| Guia em que a consulta vai | guia de consulta (inclusive o BSV) | **guia SP/SADT**, com senha de autorização e token (o Manual do Credenciado manda cobrar consulta "exclusivamente em guias de SP/SADT") |
+| Envio de guias nas telas | sim (a guia passa pela conferência ANS na baixa) | **pronto e desligado** (nov/2026): conferência SP/SADT, lote e arquivo prontos e testados; `EnvioDeGuiaNasTelas` falso deixa a Amil fora das telas de envio e da conferência na baixa — ver "Amil: o envio de guias" |
+| Prazos (aviso, não bloqueio) | — | cobrança em até 90 dias do atendimento; envio do 1º ao 5º dia útil, das 7h às 19h |
 
 Fonte da Amil: Portal do Credenciado Amil → Material de apoio → Manuais ("Manual de Utilização de
 Web Service para prestadores" e a tabela "Endereços web service Amil 4.01.00", com o L7 atual e o
@@ -602,11 +604,56 @@ e carteirinha da ficha; quem não dá para consultar fica recolhido, com o motiv
 `verificaElegibilidade`). Quem pede a consulta é o mesmo componente da ficha, sobre a mesma fila,
 com o intervalo, o teto diário e o resultado do dia. A lista e as frases: `ElegibilidadeNaAgendaService`.
 
-**O que a Amil pede no portal e o sistema ainda não faz** (registrado aqui para quando o envio de
-guias da Amil for ligado): faturamento aceito do 1º ao 5º dia útil, das 7h às 19h; atendimento
-confirmado pelo paciente com token, QR Code ou reconhecimento facial; cobrança que vence em 90 dias.
-Nenhuma dessas regras está no código. A janela do 1º ao 5º dia útil, quando entrar, é **aviso na
-tela, não bloqueio**.
+### Amil: o envio de guias (pronto, desligado — nov/2026)
+
+**O que a Amil exige**, lido nos manuais dela (Shared/Convenios/amil: Manual do Credenciado jul/2026,
+Manual de Faturamento Eletrônico v3.1, FAQ do faturamento eletrônico, Lista de glosas da prévia):
+
+- **A consulta vai em guia SP/SADT** ("as consultas realizadas devem ser informadas e cobradas
+  exclusivamente em guias de SP/SADT"). O faturamento do portal só tem SP/SADT, honorário individual e
+  resumo de internação. A acupuntura também vai em SP/SADT, como sessão.
+- **Senha de autorização em toda guia**: sem ela a prévia bloqueia (1403/894 "Senha/Token não
+  informado", 1403/862 "Senha inexistente"). Senha eletiva vale 60 dias.
+- **Atendimento confirmado pelo beneficiário** (token de 6 dígitos, QR Code ou reconhecimento facial),
+  no portal, no dia do atendimento; a data da confirmação deve ser a do atendimento. Sem confirmação:
+  bloqueio 3096/893. Sem token, só com justificativa e com a guia assinada + documento com foto
+  anexados no portal (bloqueio 991 se faltar). Mais de 5% de atendimentos sem token abre auditoria.
+  "O prestador deve incluir nos arquivos os respectivos códigos de autorização."
+- **Prazo**: guia em até 90 dias do atendimento (bloqueio 1701/405 "data de atendimento superior ao
+  permitido"); envio do 1º ao 5º dia útil, das 7h às 19h (visto no portal).
+- **O protocolo precisa ser FINALIZADO no portal** ("Finalizar faturamento"), uma vez por referência —
+  inclusive o que chega por web service ou importação de XML (FAQ 40: todos aparecem em Protocolos,
+  com prévia de glosas, e podem ser cancelados e reenviados).
+
+**Onde vai o token no XML.** O XSD 4.01.00 tem o lugar: `dadosAutorizacao/codValidacao` (st_texto10) na
+guia SP/SADT, ao lado da `senha`, da `dataAutorizacao` e da `dataValidadeSenha`; sem token, o motivo vai em
+`dadosAutorizacao/ausenciaCodValidacao` (`dm_ausenciaCodValidacao`, 01 a 07). O QR Code e o reconhecimento
+facial não têm campo no XML: eles confirmam no portal, e a guia leva a senha.
+
+**O que o sistema faz.** Na baixa, a guia da Amil é conferida como SP/SADT (`GuiaAnsNaBaixa`, o MESMO
+lugar da Petrobras; o modelo vem do catálogo, `OperadoraTiss.ModeloDaGuia`): senha, data da
+autorização, validade, token ou motivo, tipo de atendimento (04 consulta, 03 outras terapias), caráter
+e descrição do procedimento. Cada glosa de bloqueio que dá para pegar antes vira a frase do campo
+(1403, 1406, 1814, 3096, prazo); as de alerta (1405, 991) viram aviso. O lote sai pelo
+`TissLoteGuiasWs` de sempre, em UTF-8, para o endereço APIM do catálogo, e nunca repete um lote enviado
+(a mesma trava da Petrobras). O **arquivo de lote** (Lotes e XML TISS) já leva a guia SP/SADT
+conferida: é o arquivo para subir no SisAmil (TISS → Importação de arquivos XML), o caminho que
+funciona hoje sem web service. Os prazos são aviso na baixa e no painel de envio (`PrazosTiss`).
+
+**Para ligar** (depois da resposta do Núcleo TISS): `EnvioDeGuiaNasTelas: true` em
+`OperadorasTiss.Amil` (uma linha, um PR), publicar, e no servidor `comando.sh envio Amil ligar`. Até lá a
+baixa de quem fatura a Amil não muda.
+
+**Amil: o que falta saber** (perguntado ao Núcleo TISS, suportexml@amil.com.br) **e o que muda conforme a resposta:**
+
+| # | Pergunta | Se a resposta for… | O que muda |
+|---|---|---|---|
+| 1 | Qual é o "link único" do web service da clínica? | um endereço | `comando.sh endereco Amil todos <link> --operador …`; sem deploy |
+| 2 | As guias confirmadas por token, que o portal já digita sozinho ("Digitadas Automaticamente"), também vão no lote? | **não** (o portal já as tem) | o envio pelo sistema fica só para as que a clínica digita; a conferência continua valendo para o arquivo/registro |
+|   |   | **sim** | nada: o lote leva todas |
+| 3 | O protocolo enviado pelo web service precisa ser finalizado no portal? | **sim** (é o que o manual diz) | a tela de envio ganha o lembrete "finalize no portal"; o sistema não finaliza por web service |
+| 4 | A janela é mesmo do 1º ao 5º dia útil, das 7h às 19h? Feriado conta? | outra janela | trocar `JanelaDeEnvio` no catálogo; feriados: o sistema conta só seg–sex e diz isso na frase |
+| 5 | Existe ambiente de homologação? | **sim** | cadastrar o endereço de homologação com `comando.sh endereco` e testar antes de ligar; **não**: o primeiro lote real é de UMA guia, acompanhado no portal |
 
 **A codificação (nov/2026).** A primeira elegibilidade real da Amil voltou **HTTP 415** com corpo vazio:
 o WSDL dela é SOAP 1.1 (`soapAction=""`, document) servido por WCF, e o `basicHttpBinding` só aceita
