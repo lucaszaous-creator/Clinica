@@ -126,6 +126,24 @@ public sealed class ClienteDoCrmHttpTests : IDisposable
         Assert.Equal(["csrf-s1", "csrf-s2"], reply.Select(p => p.Csrf));
     }
 
+    /// <summary>
+    /// O cookie do CRM vence (2 h) e /api/session responde 200 ANÔNIMO, não 401: sem renovar, a tela ficava com
+    /// uma sessão sem AgentId e sem Inboxes — as listas renovavam sozinhas (401), e "Nova conversa" dizia
+    /// "O CRM não tem caixa de saída do WhatsApp ligada" (portal /gestao, 17/11/2026).
+    /// </summary>
+    [Fact] public async Task Sessao_vencida_no_CRM_entra_de_novo_e_volta_com_a_caixa_de_saida()
+    {
+        await Configurar(EnderecoA);
+        Assert.NotEmpty((await cliente.SessaoAsync(7)).Inboxes);
+        crm.Revogar();
+
+        var sessao = await cliente.SessaoAsync(7);
+
+        Assert.Equal("u7", sessao.AgentId);
+        Assert.NotEmpty(sessao.Inboxes);
+        Assert.Equal(2, Bilhetes());
+    }
+
     [Fact] public async Task Dois_401_seguidos_viram_CrmIndisponivel_e_pausam_as_entradas()
     {
         await Configurar(EnderecoA);
