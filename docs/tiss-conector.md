@@ -684,6 +684,16 @@ baixa de quem fatura a Amil não muda.
 | 4 | A janela é mesmo do 1º ao 5º dia útil, das 7h às 19h? Feriado conta? | **respondido pela homologação**: vale também para o web service (3091) | a janela virou regra da fila; feriados ainda em aberto: o sistema conta só seg–sex |
 | 5 | Existe ambiente de homologação? | **sim** | cadastrar o endereço de homologação com `comando.sh endereco` e testar antes de ligar; **não**: o primeiro lote real é de UMA guia, acompanhado no portal |
 
+**Perguntas ainda abertas ao Núcleo TISS** (nov/2026, depois do mapeamento campo a campo — Shared/Convenios/amil/08):
+
+| Pergunta | Hoje o sistema faz | Se a resposta for outra |
+|---|---|---|
+| O `codigoPrestadorNaOperadora` (cabeçalho, solicitante, executante) é o **login do portal**? | manda o login (regra do catálogo `LoginDoWebService`) | `comando.sh codigo Amil CODIGO --operador …`, sem deploy |
+| A **equipe** (`equipeSadt`, profissional executante) é obrigatória em consulta de consultório de pessoa jurídica? | manda sempre, com o código do profissional na Amil ou o CPF, e recusa a guia sem um dos dois | se não for, desligar `EquipeComProfissional` no catálogo (uma linha) |
+| Como informar a confirmação por **QR Code ou reconhecimento facial**: há um código de validação que vai em `codValidacao`? | pede o código que o portal mostra; sem ele, a guia fica pendente com a frase — nenhum motivo de ausência inventado | se for outro campo ou formato, muda a conferência e o XML (`GuiaAnsNaBaixa`, `TissExportService`) |
+| As guias confirmadas por token, que o portal digita sozinho, também vão no lote? | (sem resposta) | ver a pergunta 2 acima |
+| A janela do 1º ao 5º dia útil conta feriados? | conta só segunda a sexta | um calendário de feriados em `PrazosTiss.DiaUtilDoMes` |
+
 **A codificação (nov/2026).** A primeira elegibilidade real da Amil voltou **HTTP 415** com corpo vazio:
 o WSDL dela é SOAP 1.1 (`soapAction=""`, document) servido por WCF, e o `basicHttpBinding` só aceita
 `text/xml; charset=utf-8`. A codificação agora é dado do catálogo (`OperadoraTiss.Codificacao`): a
@@ -730,17 +740,42 @@ A janela é dado do catálogo (`OperadoraTiss.JanelaDeEnvio`; a Saúde Petrobras
   tentativa e sem sair nada.
 - **Recusa 3091** (`FilaTiss.GlosaForaDaJanela`) que chegar mesmo assim volta o lote a **agendado, sem
   gastar tentativa**, e limpa o carimbo de envio (a operadora disse que não recebeu: pode sair de novo).
-  Recebida DENTRO da janela, o agendamento é para a janela do mês SEGUINTE — nunca a mesma, para não virar
-  laço. Para operadora sem janela, 3091 é recusa comum.
+  O agendamento é para o **próximo dia útil da mesma janela** (uma ida por dia, sem laço) e só vai para o
+  mês seguinte quando a janela acaba — um feriado que a operadora não conta custa um dia, não o mês (e
+  os 90 dias). Para operadora sem janela, 3091 é recusa comum.
 - **Feriados:** o sistema não tem calendário de feriados; dia útil é de segunda a sexta. Um feriado
   nacional entre os cinco primeiros dias úteis desloca a janela real da operadora e o sistema não sabe
   disso: o agendamento pode cair num feriado (a Amil recusaria com 3091, e o lote volta agendado para o
-  mês seguinte). Quando houver calendário, ele entra em `PrazosTiss.DiaUtilDoMes`.
+  próximo dia útil da janela). Quando houver calendário, ele entra em `PrazosTiss.DiaUtilDoMes`.
 - **Prazo de 90 dias:** a guia que vence ANTES da próxima janela (ou já venceu) tem aviso **vermelho**
   na linha do painel de envio e na baixa (`PrazosTiss.AvisoDaGuia`, `ConferenciaDeEnvioTiss.PrazoGrave`,
   `PropostaGuiaAns.AlertaDePrazo`). Continua aviso, nunca bloqueio.
 - **`testar-lote` fora da janela** avisa antes de chamar ("só aceita lote do 1º ao 5º dia útil…; próxima
   janela: DD/MM às HH:mm") e não chama; `--mesmo-assim` chama (para ver a recusa 3091).
+
+### Amil: a guia SP/SADT campo a campo (nov/2026, Shared/Convenios/amil/08)
+
+Regras que vêm do catálogo (`OperadorasTiss.Amil`), nunca de `if Amil`:
+
+- **Equipe** (`EquipeComProfissional`): a SP/SADT leva `equipeSadt` com o profissional executante —
+  código dele na operadora (cadastro da equipe → "Código na Amil", tabela `CodigosProfissionalOperadora`)
+  ou, sem ele, o CPF (cadastro da equipe), mais conselho, número, UF, CBO e grau "12 - Clínico". Sem
+  nenhum dos dois, a conferência recusa: "Cadastre o CPF de {profissional}…" (1203/992).
+- **Confirmação**: "Como o paciente confirmou: token · QR Code · reconhecimento facial · não confirmou".
+  Token e o código de QR/rosto vão em `codValidacao`; QR ou rosto sem código ficam pendentes ("confirme
+  com a Amil como informar…"), sem motivo de ausência inventado. "Não confirmou" exige o motivo
+  (`ausenciaCodValidacao`) E a declaração "guia assinada e documento com foto anexados no portal hoje"
+  (a 991 é bloqueio).
+- **Horas** (37/38): do consultório (início e fim do atendimento registrados no "Atender"/"Finalizar");
+  sem eles, da agenda (horário marcado e o fim previsto pela duração). A proposta diz de onde vieram.
+- **Número da guia na operadora** (7): vai quando o sistema o tem (`NumeroGuiaReal`).
+- **Duplicidade** (`RecusaDuplicidade`, 1807/882): a mesma cobrança — carteira, procedimento e dia — no
+  mesmo lote ou numa guia já enviada que ainda a prende não entra no lote.
+- **90 dias** (`PrazoDeCobrancaBloqueia`, 1701/405): guia vencida não entra no lote, nem a que venceu
+  esperando a janela (o conector reconfere antes de enviar); antes de vencer, aviso vermelho.
+- A Saúde Petrobras não muda em nada disso.
+- **Prévia**: a baixa da Amil só aparece com o envio dela ligado; para fotografá-la, a prévia registra
+  `EnvioTissLigadoNaPrevia` (o app nunca: há teste) e tem a semente `SementeGuiaAmilNaBaixa`.
 
 ### Amil: homologação e os comandos de teste (nov/2026)
 

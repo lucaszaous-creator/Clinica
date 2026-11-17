@@ -504,7 +504,7 @@
     private string SubtituloDoFormulario
         => _guia is null ? "Confirme a guia no sistema do convênio antes de dar baixa."
             : EnviaPelaBaixa ? BaixaComEnvioNaTela.Subtitulo(_convenio ?? "a operadora")
-            : "Confira a guia de consulta com a do portal da operadora e informe o número que ele gerou.";
+            : $"Confira a guia {(_guia.EhSpSadt ? "SP/SADT" : "de consulta")} com a do portal da operadora e informe o número que ele gerou.";
 
     private string DicaDoConfirmar
         => !PodeBaixar ? "Seu acesso não permite dar baixa na guia." : !GuiaServe ? "Complete os campos da guia ANS marcados em vermelho."
