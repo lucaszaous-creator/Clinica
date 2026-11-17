@@ -103,6 +103,15 @@
                             @foreach (var v in RegistroDoProfissionalParaGuias.CbosPorNome) { <option value="@v.Codigo">@RegistroDoProfissionalParaGuias.RotuloDoCbo(v)</option> }
                         </select>
                     </Campo>
+                    @* O código do profissional na operadora que pede a equipe na guia (Amil): opcional; vence o CPF. *@
+                    @foreach (var operadora in EquipeService.OperadorasComCodigoDoProfissional)
+                    {
+                        var familia = operadora.Familia.ToString();
+                        <Campo Rotulo="@($"Código na {operadora.Nome}")" Dica="Opcional. Sem ele, a guia leva o CPF (Identificação).">
+                            <input id="@($"pf-Codigo{familia}")" class="campo" maxlength="14" autocomplete="off" data-codigo-na-operadora="@familia"
+                                   value="@(_codigosNaOperadora.GetValueOrDefault(familia))" @oninput="e => _codigosNaOperadora[familia] = Texto(e)" />
+                        </Campo>
+                    }
                 </div>
             </section>
 
@@ -246,6 +255,7 @@
     // O registro para guias: nunca nulo aqui. Vazio = "sem valor", e é vazio (não nulo) que vai
     // ao serviço quando a pessoa apaga o campo — nulo lá quer dizer "não mexa".
     private string _conselho = string.Empty, _numeroConselho = string.Empty, _ufConselho = string.Empty, _cbos = string.Empty;
+    private readonly Dictionary<string, string?> _codigosNaOperadora = new();
     private bool _ativo = true, _trava;
     private IReadOnlyList<(string Codigo, string Nome, bool GeraGuia, bool Ativo)> _catalogoDeConvenios = [];
     private readonly HashSet<string> _naoAtende = new(StringComparer.OrdinalIgnoreCase);
@@ -318,6 +328,8 @@
                 _numeroConselho = p.NumeroConselho ?? string.Empty;
                 _ufConselho = p.UfConselho ?? string.Empty;
                 _cbos = p.Cbos ?? string.Empty;
+                foreach (var (operadora, codigo) in await sp.GetRequiredService<EquipeService>().CodigosNasOperadorasAsync(ProfissionalId))
+                    _codigosNaOperadora[operadora] = codigo;
                 _telefone = p.Telefone;
                 _email = p.Email;
                 _cor = p.Cor;
@@ -495,7 +507,7 @@
         {
             _salvando = true;
             using var escopo = Escopos.CreateScope();
-            await escopo.ServiceProvider.GetRequiredService<EquipeService>().SalvarProfissionalAsync(new Profissional
+            var salvo = await escopo.ServiceProvider.GetRequiredService<EquipeService>().SalvarProfissionalAsync(new Profissional
             {
                 Id = ProfissionalId,
                 Nome = _nome!,
@@ -526,6 +538,8 @@
                 Ativo = _ativo,
                 Observacoes = _observacoes
             }, solicitante: SessaoUsuario.Atual);
+            if (_codigosNaOperadora.Count > 0)
+                await escopo.ServiceProvider.GetRequiredService<EquipeService>().SalvarCodigosNasOperadorasAsync(salvo.Id, _codigosNaOperadora, SessaoUsuario.Atual);
             await AoConcluir.InvokeAsync();
         }
         catch (Exception ex)

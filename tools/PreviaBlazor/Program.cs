@@ -31,6 +31,10 @@ builder.Services.AddDbContext<ClinicaDbContext>(o => o.UseSqlite(conexao));
 // fotografa os estados de falha.
 PreviaBlazor.CrmDeMentira.Registrar(builder.Services);
 builder.Services.AddTelasBlazor();
+// A baixa da Amil (guia SP/SADT) aparece na prévia para ser fotografada antes de o envio dela ser
+// ligado no catálogo (nov/2026). O app nunca registra isto: lá vale OperadoraTiss.EnvioDeGuiaNasTelas.
+builder.Services.AddSingleton(new Clinica.Application.Servicos.EnvioTissLigadoNaPrevia(
+    new HashSet<Clinica.Domain.Convenio> { Clinica.Domain.Convenio.Amil }));
 // Por navegador (Scoped): na página da aula o hospedeiro troca a tela pela moldura daquele
 // navegador — é o que faz "Abrir a ficha" ou "Ir para o Caixa" funcionarem no vídeo.
 builder.Services.AddScoped<PreviaBlazor.AulaAtual>();

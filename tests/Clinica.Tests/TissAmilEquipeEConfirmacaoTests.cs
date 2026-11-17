@@ -199,6 +199,18 @@ public sealed class TissAmilEquipeEConfirmacaoTests : IDisposable
         (await new ClinicaRepositorio(_b.NovoContexto()).CodigosDoProfissionalNasOperadorasAsync(profissional)).Should().BeEmpty();
     }
 
+    [Fact]
+    public void Nenhum_app_registra_a_Amil_ligada_so_na_previa()
+    {
+        var raiz = new DirectoryInfo(AppContext.BaseDirectory);
+        while (raiz is not null && !File.Exists(Path.Combine(raiz.FullName, "Clinica.sln"))) raiz = raiz.Parent;
+        var quemRegistra = Directory.GetFiles(Path.Combine(raiz!.FullName, "src"), "*.cs", SearchOption.AllDirectories)
+            .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}"))
+            .Where(f => File.ReadAllText(f).Contains("new EnvioTissLigadoNaPrevia(") || File.ReadAllText(f).Contains("new Clinica.Application.Servicos.EnvioTissLigadoNaPrevia("))
+            .ToList();
+        quemRegistra.Should().BeEmpty("só a prévia (tools/PreviaBlazor) e os testes mostram a baixa da Amil antes de ela ser ligada");
+    }
+
     // ==================== o lote: duplicidade e 90 dias ====================
 
     [Fact]
