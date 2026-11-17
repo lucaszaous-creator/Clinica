@@ -4255,6 +4255,19 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Take(1)
             .Select(ResumoDaTransacaoTiss);
 
+    public Task<AutorizacaoTiss?> ObterAutorizacaoTissAsync(int id, CancellationToken ct = default)
+        => _db.AutorizacoesTiss.FirstOrDefaultAsync(a => a.Id == id, ct);
+
+    public async Task<IReadOnlyList<AutorizacaoTiss>> AutorizacoesDoAgendamentoAsync(int agendamentoId, CancellationToken ct = default)
+        => await _db.AutorizacoesTiss.Where(a => a.AgendamentoId == agendamentoId).OrderBy(a => a.Id).ToListAsync(ct);
+
+    public async Task<IReadOnlyList<AutorizacaoTiss>> AutorizacoesDosAgendamentosAsync(IReadOnlyCollection<int> agendamentoIds, CancellationToken ct = default)
+        => await ConsultaAutorizacoesDosAgendamentos(agendamentoIds).ToListAsync(ct);
+
+    /// <summary>A consulta das autorizações dos horários, exposta para <c>TraducaoNoNpgsqlTests</c>.</summary>
+    public IQueryable<AutorizacaoTiss> ConsultaAutorizacoesDosAgendamentos(IReadOnlyCollection<int> agendamentoIds)
+        => _db.AutorizacoesTiss.AsNoTracking().Where(a => agendamentoIds.Contains(a.AgendamentoId)).OrderBy(a => a.Id);
+
     public async Task<IReadOnlyList<int>> GuiasIguaisJaEnviadasAsync(string carteira, string procedimento, DateOnly data,
         IReadOnlyCollection<int> exceto, CancellationToken ct = default)
         => await ConsultaGuiasIguaisJaEnviadas(carteira, procedimento, data, exceto).ToListAsync(ct);

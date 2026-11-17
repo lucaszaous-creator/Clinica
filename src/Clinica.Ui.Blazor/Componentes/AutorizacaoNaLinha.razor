@@ -1,0 +1,89 @@
+@*
+  A AUTORIZAÇÃO NA LINHA DA AGENDA (nov/2026, Amil). Só aparece nos horários cujo convênio pede
+  autorização pelo sistema (chave ligada). O selo diz em que ponto ela está; autorizada, o campo do
+  TOKEN fica ali mesmo — a recepção pede ao paciente, que está no balcão, e digita (na baixa, dias
+  depois, ele já foi embora). Sem token, o motivo. O token aparece MASCARADO fora da baixa.
+  A regra (selo, validação, trilha) mora no AutorizacaoTissService; aqui só o desenho.
+*@
+@using Clinica.Domain.Entities
+
+<span class="rd-autorizacao" data-autorizacao-da-linha>
+    @if (_selo.Rotulo.Length > 0)
+    {
+        <Selo Tom="@_selo.Tom" Dica="@_selo.Dica">@_selo.Rotulo</Selo>
+    }
+    @if (MostraToken)
+    {
+        <span class="rd-token">
+            <input class="campo rd-token-campo" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="Token (6 dígitos)"
+                   aria-label="Token do paciente (6 dígitos)" @bind="_token" @bind:event="oninput" disabled="@(!PodeAgir || Ocupado)" />
+            <button type="button" class="botao mini primario" disabled="@(!PodeAgir || Ocupado || (_token ?? "").Trim().Length != 6)"
+                    title="@(PodeAgir ? "Guarda o token no atendimento — a baixa já abre com ele" : "Seu acesso não permite registrar o token.")"
+                    @onclick="GuardarAsync">Guardar token</button>
+            <select class="campo mini rd-sem-token" aria-label="O paciente não confirmou: motivo" disabled="@(!PodeAgir || Ocupado)"
+                    value="" @onchange="SemTokenAsync">
+                <option value="">Sem token…</option>
+                @foreach (var m in GuiaAnsNaBaixa.MotivosSemToken)
+                {
+                    <option value="@m.Codigo">@m.Termo</option>
+                }
+            </select>
+        </span>
+        @if (Erro is { Length: > 0 })
+        {
+            <span class="rd-token-erro" role="alert">@Erro</span>
+        }
+    }
+    else if (Autorizacao is { } a && a.ValidaEm(Hoje) && a.ConfirmacaoResolvida && EhHoje)
+    {
+        <button type="button" class="botao fantasma mini" disabled="@(!PodeAgir || Ocupado)" @onclick="() => _corrigindo = true"
+                title="Digitar o token de novo (fica na trilha quem corrigiu e quando)">Corrigir token</button>
+    }
+    @if (_selo.PodePedir && EmAberto)
+    {
+        <button type="button" class="botao mini" disabled="@(!PodeAgir || Ocupado)" data-pedir-autorizacao
+                title="@(PodeAgir ? "Pede a autorização à operadora pelo sistema (um pedido valendo por horário)" : "Seu acesso não permite pedir a autorização.")"
+                @onclick="() => AoPedir.InvokeAsync()">@(Autorizacao is null ? "Pedir autorização" : "Pedir de novo")</button>
+    }
+</span>
+
+@code {
+    [Parameter] public AutorizacaoTiss? Autorizacao { get; set; }
+    [Parameter] public DateOnly Hoje { get; set; }
+    [Parameter] public bool EhHoje { get; set; }
+    [Parameter] public bool EmAberto { get; set; }
+    [Parameter] public bool PodeAgir { get; set; }
+    [Parameter] public bool Ocupado { get; set; }
+    [Parameter] public string? Erro { get; set; }
+    [Parameter] public EventCallback AoPedir { get; set; }
+    /// <summary>O token digitado; quem chama devolve se gravou (para limpar o campo).</summary>
+    [Parameter] public Func<string, Task<bool>>? AoGuardarToken { get; set; }
+    [Parameter] public Func<string, Task<bool>>? AoSemToken { get; set; }
+
+    private SeloDeAutorizacaoTiss _selo = AutorizacaoTissService.Selo(null, DateOnly.MinValue);
+    private string? _token;
+    private bool _corrigindo;
+    private int? _ultimaId;
+
+    /// <summary>O campo aparece na autorização valendo, HOJE, enquanto não há token nem motivo (ou ao corrigir).</summary>
+    private bool MostraToken => Autorizacao is { } a && a.ValidaEm(Hoje) && EhHoje && (!a.ConfirmacaoResolvida || _corrigindo);
+
+    protected override void OnParametersSet()
+    {
+        _selo = AutorizacaoTissService.Selo(Autorizacao, Hoje);
+        if (Autorizacao?.Id != _ultimaId) { _token = null; _corrigindo = false; _ultimaId = Autorizacao?.Id; }
+    }
+
+    private async Task GuardarAsync()
+    {
+        if (AoGuardarToken is null || _token is null) return;
+        if (await AoGuardarToken(_token.Trim())) { _token = null; _corrigindo = false; }
+    }
+
+    private async Task SemTokenAsync(ChangeEventArgs e)
+    {
+        var motivo = e.Value?.ToString();
+        if (string.IsNullOrEmpty(motivo) || AoSemToken is null) return;
+        if (await AoSemToken(motivo)) { _token = null; _corrigindo = false; }
+    }
+}

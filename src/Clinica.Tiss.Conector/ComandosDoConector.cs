@@ -22,7 +22,9 @@ public static class ComandosDoConector
               grava o login (TISS_WS_LOGIN) e a senha (TISS_WS_SENHA, ou a primeira linha da entrada)
           Clinica.Tiss.Conector credencial CONVENIO --remover --operador NOME
           Clinica.Tiss.Conector envio CONVENIO ligar|desligar --operador NOME
-          Clinica.Tiss.Conector endereco CONVENIO elegibilidade|envio|status|cancelamento|todos https://… --operador NOME
+          Clinica.Tiss.Conector autorizacao CONVENIO ligar|desligar --operador NOME
+              o pedido de autorização pelo sistema no Chegou (chave própria, separada do envio de guias)
+          Clinica.Tiss.Conector endereco CONVENIO elegibilidade|envio|status|cancelamento|autorizacao|status-autorizacao|todos https://… --operador NOME
           Clinica.Tiss.Conector codigo CONVENIO cnpj|login|CODIGO|padrao --operador NOME
           Clinica.Tiss.Conector situacao [CONVENIO]
           Clinica.Tiss.Conector cancelar ID --operador NOME
@@ -33,12 +35,13 @@ public static class ComandosDoConector
           Clinica.Tiss.Conector testar-lote CONVENIO --guias ID[,ID...] --operador NOME
           Clinica.Tiss.Conector testar-lote CONVENIO --exemplo --carteira N [--senha S] [--token T] [--cpf-profissional CPF] [--procedimento TUSS] [--valor 1,00] --operador NOME
           Clinica.Tiss.Conector testar-protocolo CONVENIO --protocolo N --operador NOME
+          Clinica.Tiss.Conector testar-autorizacao CONVENIO --carteira N [--procedimento TUSS] [--cpf-profissional CPF] [--crm N] [--uf 33] [--cbo 225125] --operador NOME
               os testes só rodam com o convênio em HOMOLOGAÇÃO, fazem UMA ida e não gravam nada nas
               guias nem na fila (só uma linha na trilha). [--soap-action VALOR] muda o SOAPAction.
               Fora da janela de envio da operadora, testar-lote avisa e não chama; --mesmo-assim chama.
 
         CONVENIO é o código do convênio no cadastro (ex.: Petrobras, Amil). NOME é quem está fazendo a mudança: vai para a trilha.
-        "todos" grava o mesmo endereço para os quatro serviços (o "link único" que a operadora fornece).
+        "todos" grava o mesmo endereço para todos os serviços (o "link único" que a operadora fornece).
         "codigo" escolhe o que vai em codigoPrestadorNaOperadora: o CNPJ da clínica, o login do web service,
         um código de até 14 caracteres, ou "padrao" para voltar à regra da operadora (Petrobras: CNPJ; Amil: login).
         """;
@@ -79,6 +82,14 @@ public static class ComandosDoConector
                     await credenciais.DefinirEnvioAsync(args[1], ligar, Opcao(args, "--operador") ?? "", default);
                     saida.WriteLine($"Envio pelo web service {(ligar ? "LIGADO" : "desligado")} para {args[1]}."
                                     + (ligar ? " Ele ainda depende de TISS_ENVIO_HABILITADO=true no ambiente do serviço." : ""));
+                    return 0;
+                }
+                case "autorizacao" when args.Length >= 3 && args[2] is "ligar" or "desligar":
+                {
+                    var ligar = args[2] == "ligar";
+                    await credenciais.DefinirAutorizacaoAsync(args[1], ligar, Opcao(args, "--operador") ?? "", default);
+                    saida.WriteLine($"Pedido de autorização pelo sistema {(ligar ? "LIGADO" : "desligado")} para {args[1]}."
+                                    + (ligar ? " A agenda passa a pedir no Chegou e a mostrar o selo, o token e o botão." : " A agenda não pede nem mostra a autorização."));
                     return 0;
                 }
                 case "endereco" when args.Length >= 4 && args[2] == "todos":
@@ -171,6 +182,19 @@ public static class ComandosDoConector
                     { erro.WriteLine("Uso: testar-protocolo CONVENIO --protocolo N --operador NOME"); return 2; }
                     return Imprimir(await Testes(servicos).ProtocoloAsync(args[1], protocolo, operador, Opcao(args, "--soap-action")), saida, erro);
                 }
+                case "testar-autorizacao" when args.Length >= 2:
+                {
+                    var carteira = Opcao(args, "--carteira");
+                    var operador = Opcao(args, "--operador");
+                    if (string.IsNullOrWhiteSpace(carteira) || string.IsNullOrWhiteSpace(operador))
+                    { erro.WriteLine("Uso: testar-autorizacao CONVENIO --carteira N [--procedimento TUSS] [--cpf-profissional CPF] --operador NOME"); return 2; }
+                    var cpf = Opcao(args, "--cpf-profissional");
+                    if (cpf is not null && !Clinica.Domain.Cpf.Valido(Clinica.Domain.Cpf.Normalizar(cpf)))
+                    { erro.WriteLine("--cpf-profissional inválido."); return 2; }
+                    var pedido = new PedidoDeTesteDeAutorizacao(carteira, Opcao(args, "--procedimento") ?? "10101012",
+                        Opcao(args, "--crm") ?? "000000", Opcao(args, "--uf") ?? "33", Opcao(args, "--cbo") ?? "225125", cpf);
+                    return Imprimir(await Testes(servicos).AutorizacaoAsync(args[1], pedido, operador, Opcao(args, "--soap-action")), saida, erro);
+                }
                 case "situacao":
                 {
                     var fila = servicos.GetRequiredService<FilaTissService>();
@@ -186,6 +210,7 @@ public static class ComandosDoConector
                         var teto = servicos.GetService<OpcoesDoConector>()?.LimiteDiarioElegibilidade ?? OpcoesDoConector.PadraoLimiteDiarioElegibilidade;
                         saida.WriteLine($"{convenio}: login {(c.Login is null ? "não cadastrado" : "cadastrado")}, senha {(c.TemSenha ? "cadastrada" : "não cadastrada")}, "
                                         + $"envio {(await credenciais.EnvioLigadoAsync(convenio) ? "LIGADO" : "desligado")}, "
+                                        + $"autorização {(await credenciais.AutorizacaoLigadaAsync(convenio) ? "LIGADA" : "desligada")}, "
                                         + $"hoje {await fila.IdasDeElegibilidadeHojeAsync(convenio)} de {teto} consultas.");
                         // De onde sai cada dado da mensagem — sem mostrar login, código nem senha.
                         var operadora = await credenciais.OperadoraAsync(convenio);
@@ -254,7 +279,8 @@ public static class ComandosDoConector
     }
 
     private static readonly TipoTransacaoTiss[] TiposComEndereco =
-        [TipoTransacaoTiss.Elegibilidade, TipoTransacaoTiss.EnvioGuia, TipoTransacaoTiss.StatusProtocolo, TipoTransacaoTiss.CancelamentoGuia];
+        [TipoTransacaoTiss.Elegibilidade, TipoTransacaoTiss.EnvioGuia, TipoTransacaoTiss.StatusProtocolo, TipoTransacaoTiss.CancelamentoGuia,
+         TipoTransacaoTiss.Autorizacao, TipoTransacaoTiss.StatusAutorizacao];
 
     private static string DescreverCodigo(CodigoDoPrestadorTiss regra) => regra switch
     {
@@ -269,6 +295,8 @@ public static class ComandosDoConector
         "envio" => TipoTransacaoTiss.EnvioGuia,
         "status" => TipoTransacaoTiss.StatusProtocolo,
         "cancelamento" => TipoTransacaoTiss.CancelamentoGuia,
+        "autorizacao" => TipoTransacaoTiss.Autorizacao,
+        "status-autorizacao" => TipoTransacaoTiss.StatusAutorizacao,
         _ => null
     };
 }

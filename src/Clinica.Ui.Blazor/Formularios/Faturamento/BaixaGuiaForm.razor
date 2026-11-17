@@ -161,28 +161,36 @@
                         @if (_guia.EhSpSadt)
                         {
                             @* GUIA SP/SADT (nov/2026, Amil): a senha de autorização, a data dela e o TOKEN que o
-                               beneficiário confirmou no portal. Sem senha ou sem confirmação a guia é bloqueada
-                               na prévia da operadora; a frase de cada campo diz qual glosa evita. *@
+                               beneficiário confirmou. Desde a autorização pelo sistema, a senha, a data e a validade
+                               vêm do pedido que o sistema fez no Chegou, e o token vem da RECEPÇÃO (colhido com o
+                               paciente presente): os dois chegam TRAVADOS. Digitar a senha é a exceção (autorização
+                               feita fora do sistema); corrigir o token aqui vai para a trilha. *@
                             <section class="secao-form" aria-label="Autorização e confirmação do atendimento" data-guia-sp-sadt>
-                                <h3>Autorização e confirmação do atendimento</h3>
+                                <h3>Autorização e confirmação do atendimento
+                                    @if (_guia.RotuloDaAutorizacao is { } rotuloAut) { <Selo Tom="sucesso" Dica="Senha, data e validade do pedido feito pelo sistema">@rotuloAut</Selo> }
+                                </h3>
+                                @if (!_guia.SenhaTravada)
+                                {
+                                    <Aviso Tom="aviso" Texto="Autorização feita fora do sistema: confira a senha, a data e a validade antes de confirmar." />
+                                }
                                 <div class="campos tres">
                                     <Campo Rotulo="Senha de autorização" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.Senha))">
-                                        <input id="ga-Senha" class="campo numero-guia" maxlength="20" autocomplete="off"
+                                        <input id="ga-Senha" class="campo numero-guia" maxlength="20" autocomplete="off" readonly="@_guia.SenhaTravada"
                                                value="@_guia.Senha" @oninput="e => _guia.Senha = Texto(e)" />
                                     </Campo>
                                     <Campo Rotulo="Data da autorização" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.DataAutorizacao))">
-                                        <input type="date" id="ga-DataAutorizacao" class="campo" value="@(_guia.DataAutorizacao?.ToString("yyyy-MM-dd"))"
+                                        <input type="date" id="ga-DataAutorizacao" class="campo" readonly="@_guia.SenhaTravada" value="@(_guia.DataAutorizacao?.ToString("yyyy-MM-dd"))"
                                                @onchange="e => _guia.DataAutorizacao = DateOnly.TryParse(e.Value?.ToString(), out var d) ? d : null" />
                                     </Campo>
                                     <Campo Rotulo="Validade da senha" Erro="@Erro(nameof(DadosGuiaConsultaAns.ValidadeSenha))">
-                                        <input type="date" id="ga-ValidadeSenha" class="campo" value="@(_guia.ValidadeSenha?.ToString("yyyy-MM-dd"))"
+                                        <input type="date" id="ga-ValidadeSenha" class="campo" readonly="@_guia.SenhaTravada" value="@(_guia.ValidadeSenha?.ToString("yyyy-MM-dd"))"
                                                @onchange="e => _guia.ValidadeSenha = DateOnly.TryParse(e.Value?.ToString(), out var d) ? d : null" />
                                     </Campo>
                                     @* COMO O PACIENTE CONFIRMOU (nov/2026, decisão do dono): a Amil é faturada só pelo sistema,
                                        com o TOKEN de 6 dígitos que o paciente vê no app Amil Clientes — a recepção não confirma no
                                        portal (lá a confirmação cria uma guia sozinha). Sem token, o motivo e os anexos no portal. *@
                                     <Campo Rotulo="Como o paciente confirmou" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.FormaConfirmacao))">
-                                        <select id="ga-FormaConfirmacao" class="campo" value="@(_guia.FormaEscolhida ?? string.Empty)"
+                                        <select id="ga-FormaConfirmacao" class="campo" disabled="@_guia.ConfirmacaoTravada" value="@(_guia.FormaEscolhida ?? string.Empty)"
                                                 @onchange="e => _guia.FormaConfirmacao = TextoOuNulo(e)">
                                             <option value="">Selecione</option>
                                             @foreach (var v in GuiaAnsNaBaixa.FormasDeConfirmacao) { <option value="@v.Codigo">@v.Termo</option> }
@@ -194,12 +202,12 @@
                                             <Campo Rotulo="Token" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.CodigoValidacao))"
                                                    Dica="Os 6 dígitos que o paciente mostra no app Amil Clientes.">
                                                 <input id="ga-CodigoValidacao" class="campo numero-guia" maxlength="6" inputmode="numeric" autocomplete="off"
-                                                       value="@_guia.CodigoValidacao" @oninput="e => _guia.CodigoValidacao = Texto(e)" />
+                                                       readonly="@_guia.ConfirmacaoTravada" value="@_guia.CodigoValidacao" @oninput="e => _guia.CodigoValidacao = Texto(e)" />
                                             </Campo>
                                             break;
                                         case GuiaAnsNaBaixa.ConfirmacaoNenhuma:
                                             <Campo Rotulo="Por que não confirmou" Obrigatorio="true" Classe="largo" Erro="@Erro(nameof(DadosGuiaConsultaAns.AusenciaCodigoValidacao))">
-                                                <select id="ga-AusenciaCodigoValidacao" class="campo" value="@(_guia.AusenciaCodigoValidacao ?? string.Empty)"
+                                                <select id="ga-AusenciaCodigoValidacao" class="campo" disabled="@_guia.ConfirmacaoTravada" value="@(_guia.AusenciaCodigoValidacao ?? string.Empty)"
                                                         @onchange="e => _guia.AusenciaCodigoValidacao = TextoOuNulo(e)">
                                                     <option value="">Selecione</option>
                                                     @foreach (var v in GuiaAnsNaBaixa.MotivosSemToken) { <option value="@v.Codigo">@v.Rotulo</option> }
@@ -212,6 +220,12 @@
                                             break;
                                     }
                                 </div>
+                                @if (_guia.ConfirmacaoTravada)
+                                {
+                                    <p class="secundario ga-confirmacao-da-recepcao">Token colhido na recepção, com o paciente presente.
+                                        <button type="button" class="botao fantasma mini" data-corrigir-token @onclick="() => _guia.CorrigindoConfirmacao = true"
+                                                title="Exceção: a correção vai para a trilha (quem e quando)">Corrigir</button></p>
+                                }
                             </section>
                         }
 

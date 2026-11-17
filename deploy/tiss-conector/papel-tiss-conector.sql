@@ -50,6 +50,9 @@ BEGIN
       -- A guia e a guia ANS conferida: o que o lote leva. A carteira e o nome do beneficiário que
       -- estão na conferência são dado pessoal — é o mínimo que o envio precisa ler.
       ['Codigos','SELECT'], ['GuiasTissConsulta','SELECT'],
+      -- A autorização pedida pelo sistema (nov/2026): o conector lê a FOTOGRAFIA do pedido (carteira,
+      -- procedimento, profissional) e grava a resposta (situação, senha, validade). Não lê agenda nem ficha.
+      ['AutorizacoesTiss','SELECT, UPDATE'],
       -- A trilha não se lê nem se edita daqui: só se acrescenta (envio e cancelamento concluídos).
       ['Auditoria','INSERT']] LOOP
     EXECUTE format('GRANT %s ON public.%I TO tiss_conector', g[2], g[1]);

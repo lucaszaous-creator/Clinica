@@ -45,6 +45,7 @@ public static class DependencyInjection
         services.AddScoped<EstornoAtendimentoService>();
         services.AddScoped<FaturamentoService>();
         services.AddScoped<GuiaAnsNaBaixaService>();
+        services.AddScoped<AutorizacaoTissService>();
         services.AddScoped<PendenciaService>();
         services.AddScoped<RodadaPendenciasService>();
         services.AddScoped<RelatorioService>();

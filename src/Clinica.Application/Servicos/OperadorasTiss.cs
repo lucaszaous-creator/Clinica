@@ -172,8 +172,8 @@ public static class OperadorasTiss
     ///
     /// VERSÃO (nov/2026, resposta do Núcleo TISS): a Amil pede TISS 4.03.00. O lote só existe em
     /// <c>api-tiss-lote-guias/v4.03.00</c> (em /v4.01.00 o WSDL dá 404), e o status do protocolo e o
-    /// demonstrativo vão junto. A elegibilidade continua em 4.01.00: funcionou em produção assim, e o
-    /// cancelamento também fica onde estava (o WSDL 4.01.00 dele abre).
+    /// demonstrativo vão junto. A elegibilidade continua em 4.01.00: funcionou em produção assim. O
+    /// cancelamento, o pedido de autorização e a situação dele vão em 4.03.00 (endereços que a Amil mandou).
     /// </summary>
     public static readonly OperadoraTiss Amil = new(
         Convenio.Amil, "Amil", "326305", CodigoDoPrestadorTiss.LoginDoWebService, EnvioDeGuiaNasTelas: false,
@@ -182,7 +182,12 @@ public static class OperadorasTiss
             (TipoTransacaoTiss.Elegibilidade, "api-tiss-verifica-elegibilidade/v4.01.00"),
             (TipoTransacaoTiss.EnvioGuia, "api-tiss-lote-guias/v4.03.00"),
             (TipoTransacaoTiss.StatusProtocolo, "api-tiss-solicitacao-status-protocolo/v4.03.00"),
-            (TipoTransacaoTiss.CancelamentoGuia, "api-tiss-cancela-guia/v4.01.00")),
+            (TipoTransacaoTiss.CancelamentoGuia, "api-tiss-cancela-guia/v4.03.00"),
+            // A autorização (nov/2026): o pedido e a situação dele, endereços 4.03.00 que a Amil mandou.
+            (TipoTransacaoTiss.Autorizacao, "api-tiss-solicitacao-procedimento/v4.03.00"),
+            (TipoTransacaoTiss.StatusAutorizacao, "api-tiss-solicitacao-status-autorizacao/v4.03.00"),
+            // O cancelamento da senha de um horário desmarcado vai ao MESMO serviço de cancelamento de guia.
+            (TipoTransacaoTiss.CancelaAutorizacao, "api-tiss-cancela-guia/v4.03.00")),
         // O APIM respondeu HTTP 415 à primeira elegibilidade real em ISO-8859-1 (nov/2026).
         Codificacao: CodificacaoTissWs.Utf8,
         ModeloDaGuia: ModeloDaGuiaTiss.SpSadt,
@@ -191,7 +196,11 @@ public static class OperadorasTiss
         Versoes: new Dictionary<TipoTransacaoTiss, string>
         {
             [TipoTransacaoTiss.EnvioGuia] = Versao403,
-            [TipoTransacaoTiss.StatusProtocolo] = Versao403
+            [TipoTransacaoTiss.StatusProtocolo] = Versao403,
+            [TipoTransacaoTiss.CancelamentoGuia] = Versao403,
+            [TipoTransacaoTiss.Autorizacao] = Versao403,
+            [TipoTransacaoTiss.StatusAutorizacao] = Versao403,
+            [TipoTransacaoTiss.CancelaAutorizacao] = Versao403
         },
         EnderecoDemonstrativo: new Uri("https://api.servicos.grupoamil.com.br/api-tiss-solicitacao-demonstrativo-retorno/v4.03.00"),
         // Resposta do Núcleo TISS (nov/2026): um endereço só para todos os serviços (o ?wsdl dá 404,
@@ -219,6 +228,9 @@ public static class OperadorasTiss
 
     /// <summary>A codificação da mensagem para a operadora (fora do catálogo: a do padrão, ISO-8859-1).</summary>
     public static CodificacaoTissWs CodificacaoDe(OperadoraTiss? operadora) => operadora?.Codificacao ?? CodificacaoTissWs.Iso88591;
+
+    /// <summary>A família tem o pedido de autorização pelo web service?</summary>
+    public static bool TemAutorizacao(Convenio familia) => EnderecoPadrao(familia, TipoTransacaoTiss.Autorizacao) is not null;
 
     /// <summary>A família tem algum web service (a credencial faz sentido)?</summary>
     public static bool TemWebService(Convenio familia) => Da(familia) is not null;

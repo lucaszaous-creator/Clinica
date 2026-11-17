@@ -42,6 +42,9 @@ public sealed class ExecutorDeTransacoesTiss(
     public static string FraseConvenioEmHomologacao(string convenio)
         => $"{convenio} está em HOMOLOGAÇÃO no servidor (comando ambiente): os pedidos das telas não vão à operadora até voltar para produção. Nada foi enviado.";
 
+    public static string FraseAutorizacaoDesligada(string convenio)
+        => $"O pedido de autorização pelo web service está desligado para {convenio}. Nada foi à operadora.";
+
     public static string FraseEnvioDesligadoNoConvenio(string convenio)
         => $"O envio pelo web service está desligado para {convenio}. Nada foi enviado à operadora.";
 
@@ -71,6 +74,13 @@ public sealed class ExecutorDeTransacoesTiss(
                     await RecusarAsync(t, FraseEnvioDesligadoNoConvenio(t.ConvenioCodigo), ct);
                     return true;
                 }
+            }
+            // A autorização tem chave PRÓPRIA por convênio, separada do envio de guias (nov/2026).
+            if (t.Tipo is TipoTransacaoTiss.Autorizacao or TipoTransacaoTiss.CancelaAutorizacao
+                && !await credenciais.AutorizacaoLigadaAsync(t.ConvenioCodigo, ct))
+            {
+                await RecusarAsync(t, FraseAutorizacaoDesligada(t.ConvenioCodigo), ct);
+                return true;
             }
 
             // A JANELA de envio da operadora (catálogo): lote fora dela volta à fila agendado, sem
@@ -170,7 +180,7 @@ public sealed class ExecutorDeTransacoesTiss(
                     log.LogWarning("Transação TISS {Id} ({Tipo}, {Convenio}): HTTP {Status} sem mensagem TISS. Corpo: {Trecho}",
                         t.Id, t.Tipo, t.ConvenioCodigo, resposta.StatusHttp,
                         Ocultar(TissWebserviceCliente.Trecho(resposta.Corpo!), [.. segredos, t.NumeroCarteira ?? string.Empty]));
-                if (desfecho.Incerto && t.EscreveNaOperadora) motivo += " " + FilaTiss.FraseSemNovaTentativa;
+                if (desfecho.Incerto && t.NaoRepeteDepoisDeSair) motivo += " " + FilaTiss.FraseSemNovaTentativa;
                 await FalharAsync(t, motivo, podeTentarDeNovo: false, resposta.Corpo, segredos, ct);
             }
         }

@@ -736,6 +736,142 @@ namespace Clinica.Infrastructure.Migrations
                     b.ToTable("Autorizacoes", (string)null);
                 });
 
+            modelBuilder.Entity("Clinica.Domain.Entities.AutorizacaoTiss", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AgendamentoId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("AtualizadaEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("AusenciaToken")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<string>("CaraterAtendimento")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .HasColumnType("character varying(1)");
+
+                    b.Property<string>("Cbos")
+                        .IsRequired()
+                        .HasMaxLength(6)
+                        .HasColumnType("character varying(6)");
+
+                    b.Property<string>("CodigoProcedimento")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("CodigoTabela")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<string>("ConselhoProfissional")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<int>("ConsultasDeStatus")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ConvenioCodigo")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateOnly?>("DataAutorizacao")
+                        .HasColumnType("date");
+
+                    b.Property<string>("DescricaoProcedimento")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("Motivo")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("NumeroCarteira")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("NumeroConselho")
+                        .IsRequired()
+                        .HasMaxLength(15)
+                        .HasColumnType("character varying(15)");
+
+                    b.Property<string>("NumeroGuiaOperadora")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("NumeroGuiaPrestador")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("PacienteId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("PedidaEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("PedidaPor")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("ProfissionalNome")
+                        .IsRequired()
+                        .HasMaxLength(70)
+                        .HasColumnType("character varying(70)");
+
+                    b.Property<int>("Quantidade")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Senha")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Situacao")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Token")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime?>("TokenRegistradoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("TokenRegistradoPor")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("UfConselho")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<DateOnly?>("ValidadeSenha")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AgendamentoId");
+
+                    b.ToTable("AutorizacoesTiss", (string)null);
+                });
+
             modelBuilder.Entity("Clinica.Domain.Entities.AvaliacaoClinica", b =>
                 {
                     b.Property<int>("Id")
@@ -6939,6 +7075,9 @@ namespace Clinica.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("AutorizacaoId")
+                        .HasColumnType("integer");
+
                     b.Property<int?>("CodigoId")
                         .HasColumnType("integer");
 
@@ -7028,6 +7167,8 @@ namespace Clinica.Infrastructure.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AutorizacaoId");
 
                     b.HasIndex("CodigoId");
 
@@ -8902,6 +9043,11 @@ namespace Clinica.Infrastructure.Migrations
 
             modelBuilder.Entity("Clinica.Domain.Entities.TransacaoTiss", b =>
                 {
+                    b.HasOne("Clinica.Domain.Entities.AutorizacaoTiss", "Autorizacao")
+                        .WithMany()
+                        .HasForeignKey("AutorizacaoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Clinica.Domain.Entities.CodigoFaturamento", null)
                         .WithMany()
                         .HasForeignKey("CodigoId")
@@ -8916,6 +9062,8 @@ namespace Clinica.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("TransacaoDeEnvioId")
                         .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Autorizacao");
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.TransacaoTissGuia", b =>

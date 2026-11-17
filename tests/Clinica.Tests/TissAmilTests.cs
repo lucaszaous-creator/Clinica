@@ -49,11 +49,16 @@ public sealed class TissAmilTests : IDisposable
         amil.Endereco(TipoTransacaoTiss.EnvioGuia).Should().Be(new Uri("https://api.servicos.grupoamil.com.br/api-tiss-lote-guias/v4.03.00"));
         amil.Endereco(TipoTransacaoTiss.StatusProtocolo).Should().Be(new Uri("https://api.servicos.grupoamil.com.br/api-tiss-solicitacao-status-protocolo/v4.03.00"));
         amil.EnderecoDemonstrativo.Should().Be(new Uri("https://api.servicos.grupoamil.com.br/api-tiss-solicitacao-demonstrativo-retorno/v4.03.00"));
-        amil.Endereco(TipoTransacaoTiss.CancelamentoGuia).Should().Be(new Uri("https://api.servicos.grupoamil.com.br/api-tiss-cancela-guia/v4.01.00"));
+        // Manual do Credenciado (jul/2026, p. 53): cancelamento e autorização em 4.03.00.
+        amil.Endereco(TipoTransacaoTiss.CancelamentoGuia).Should().Be(new Uri("https://api.servicos.grupoamil.com.br/api-tiss-cancela-guia/v4.03.00"));
+        amil.Endereco(TipoTransacaoTiss.CancelaAutorizacao).Should().Be(new Uri("https://api.servicos.grupoamil.com.br/api-tiss-cancela-guia/v4.03.00"));
+        amil.Endereco(TipoTransacaoTiss.Autorizacao).Should().Be(new Uri("https://api.servicos.grupoamil.com.br/api-tiss-solicitacao-procedimento/v4.03.00"));
+        amil.Endereco(TipoTransacaoTiss.StatusAutorizacao).Should().Be(new Uri("https://api.servicos.grupoamil.com.br/api-tiss-solicitacao-status-autorizacao/v4.03.00"));
+        amil.VersaoTiss(TipoTransacaoTiss.Autorizacao).Should().Be("4.03.00");
         amil.VersaoTiss(TipoTransacaoTiss.EnvioGuia).Should().Be("4.03.00");
         amil.VersaoTiss(TipoTransacaoTiss.StatusProtocolo).Should().Be("4.03.00");
         amil.VersaoTiss(TipoTransacaoTiss.Elegibilidade).Should().Be("4.01.00", "funcionou em produção assim");
-        amil.VersaoTiss(TipoTransacaoTiss.CancelamentoGuia).Should().Be("4.01.00");
+        amil.VersaoTiss(TipoTransacaoTiss.CancelamentoGuia).Should().Be("4.03.00");
         foreach (var tipo in Enum.GetValues<TipoTransacaoTiss>())
             OperadorasTiss.SaudePetrobras.VersaoTiss(tipo).Should().Be("4.01.00", "a Saúde Petrobras não muda");
     }
@@ -137,7 +142,8 @@ public sealed class TissAmilTests : IDisposable
             Servicos(), saida, erro)).Should().Be(0, erro.ToString());
 
         var credenciais = _b.Credenciais(new ClinicaRepositorio(_b.NovoContexto()));
-        foreach (var tipo in new[] { TipoTransacaoTiss.Elegibilidade, TipoTransacaoTiss.EnvioGuia, TipoTransacaoTiss.StatusProtocolo, TipoTransacaoTiss.CancelamentoGuia })
+        foreach (var tipo in new[] { TipoTransacaoTiss.Elegibilidade, TipoTransacaoTiss.EnvioGuia, TipoTransacaoTiss.StatusProtocolo, TipoTransacaoTiss.CancelamentoGuia,
+                     TipoTransacaoTiss.Autorizacao, TipoTransacaoTiss.StatusAutorizacao, TipoTransacaoTiss.CancelaAutorizacao })
             (await credenciais.EnderecoAsync(Amil, tipo)).Should().Be(new Uri("https://exemplo.invalid/tiss/link-unico"));
 
         _rede.Responder(HttpStatusCode.OK, Recibo("S"));

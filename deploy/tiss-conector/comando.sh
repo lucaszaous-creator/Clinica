@@ -43,7 +43,7 @@ case "$1" in
   cancelar) ;;
   # Os testes na homologação só LEEM a configuração e a guia e acrescentam à trilha: o usuário do
   # serviço basta. O "ambiente" muda a configuração, então vai pelo admin.env (o caso de baixo).
-  testar-elegibilidade|testar-lote|testar-protocolo) ;;
+  testar-elegibilidade|testar-lote|testar-protocolo|testar-autorizacao) ;;
   *)
     [ -r "$dir/admin.env" ] || { echo "Falta $dir/admin.env (a conexão com escrita na configuração). Ver docs/tiss-conector.md §4." >&2; exit 1; }
     carregar "$dir/admin.env"

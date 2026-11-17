@@ -64,6 +64,14 @@ public sealed record DadosGuiaConsultaAns
     public bool ExigeEquipe { get; init; }
     public string? EquipeCpf { get; init; }
     public string? GrauParticipacao { get; init; }
+
+    // ---- a autorização pedida pelo sistema (nov/2026) ----
+    /// <summary>A autorização do atendimento pedida pelo sistema: a senha, a data e a validade vêm dela, travadas.</summary>
+    public int? AutorizacaoId { get; init; }
+    /// <summary>"autorizado pela Amil em DD/MM": a operadora que autorizou (nulo = autorização feita fora do sistema).</summary>
+    public string? AutorizadaPor { get; init; }
+    /// <summary>O token (ou o motivo de não haver) foi colhido na RECEPÇÃO, com o paciente presente: vem travado.</summary>
+    public bool ConfirmacaoDaRecepcao { get; init; }
 }
 
 /// <summary>
@@ -222,7 +230,7 @@ public static partial class GuiaAnsNaBaixa
     {
         // 1403/894 "Senha/Token não informado" e 1403/862 "Senha inexistente": bloqueio.
         if (string.IsNullOrWhiteSpace(d.Senha))
-            erros[nameof(d.Senha)] = "Informe a senha de autorização do portal da operadora. Sem ela a guia é bloqueada (glosa 1403).";
+            erros[nameof(d.Senha)] = "Informe a senha de autorização. Sem ela a guia é bloqueada (glosa 1403).";
         else if (d.Senha.Trim().Length > 20)
             erros[nameof(d.Senha)] = "A senha de autorização tem até 20 caracteres.";
 
@@ -530,8 +538,24 @@ public sealed class GuiaAnsNaBaixaService(IClinicaRepositorio repo, ParametrosSe
                 avisos.Add("Horas da guia: o horário marcado na agenda (o consultório não registrou início e fim). Confira.");
             }
         }
+        // ---- a autorização pedida pelo sistema (nov/2026): senha, data, validade e o token da recepção ----
+        AutorizacaoTiss? autorizacao = null;
+        if (modelo == ModeloDaGuiaTiss.SpSadt && horario is not null)
+            autorizacao = (await repo.AutorizacoesDoAgendamentoAsync(horario.Id, ct))
+                .Where(a => a.Situacao == SituacaoAutorizacaoTiss.Autorizada && !string.IsNullOrWhiteSpace(a.Senha))
+                .OrderBy(a => a.Id).LastOrDefault();
         if (modelo == ModeloDaGuiaTiss.SpSadt)
-            avisos.Add($"{operadora!.Nome}: a guia vai em SP/SADT. Copie do portal a senha de autorização, a data dela e o token que o beneficiário confirmou.");
+        {
+            if (autorizacao is not null)
+            {
+                avisos.Add($"Autorizado pela {operadora!.Nome}"
+                           + (autorizacao.DataAutorizacao is { } d ? $" em {d:dd/MM}" : "") + ": a senha, a data e a validade vêm do pedido do sistema.");
+                if (!autorizacao.ConfirmacaoResolvida)
+                    avisos.Add("A recepção não registrou o token do paciente: digite-o (a guia sem confirmação é bloqueada).");
+            }
+            else
+                avisos.Add($"{operadora!.Nome}: autorização feita fora do sistema — informe a senha, a data e a validade, e o token que o beneficiário confirmou.");
+        }
 
         return new PropostaGuiaAns(true, new DadosGuiaConsultaAns
         {
@@ -566,7 +590,15 @@ public sealed class GuiaAnsNaBaixaService(IClinicaRepositorio repo, ParametrosSe
             HoraFinal = horaFinal,
             ExigeEquipe = exigeEquipe,
             EquipeCpf = exigeEquipe ? cpfDoProfissional : null,
-            GrauParticipacao = exigeEquipe ? DominiosTiss.GrauClinico : null
+            GrauParticipacao = exigeEquipe ? DominiosTiss.GrauClinico : null,
+            Senha = autorizacao?.Senha,
+            DataAutorizacao = autorizacao?.DataAutorizacao,
+            ValidadeSenha = autorizacao?.ValidadeSenha,
+            CodigoValidacao = autorizacao?.Token,
+            AusenciaCodigoValidacao = string.IsNullOrWhiteSpace(autorizacao?.Token) ? autorizacao?.AusenciaToken : null,
+            AutorizacaoId = autorizacao?.Id,
+            AutorizadaPor = autorizacao is null ? null : operadora!.Nome,
+            ConfirmacaoDaRecepcao = autorizacao?.ConfirmacaoResolvida == true
         }, avisos, alertaDePrazo);
     }
 
@@ -688,6 +720,20 @@ public sealed class GuiaAnsEmEdicao
     public bool ExigeEquipe { get; private init; }
     public string? EquipeCpf { get; set; }
     public string? GrauParticipacao { get; set; }
+    public int? AutorizacaoId { get; private init; }
+    public string? AutorizadaPor { get; private init; }
+    public bool ConfirmacaoDaRecepcao { get; private init; }
+
+    /// <summary>A senha, a data e a validade vieram da autorização pedida pelo sistema: o formulário as trava.</summary>
+    public bool SenhaTravada => AutorizacaoId is not null;
+
+    /// <summary>O token (ou o motivo) veio da recepção: travado, salvo a correção por exceção (vai à trilha).</summary>
+    public bool ConfirmacaoTravada => ConfirmacaoDaRecepcao && !CorrigindoConfirmacao;
+    public bool CorrigindoConfirmacao { get; set; }
+
+    /// <summary>"autorizado pela Amil em 17/11".</summary>
+    public string? RotuloDaAutorizacao => AutorizadaPor is null ? null
+        : $"autorizado pela {AutorizadaPor}" + (DataAutorizacao is { } d ? $" em {d:dd/MM}" : "");
 
     /// <summary>A forma de confirmação que a tela mostra escolhida (a gravada ou a deduzida).</summary>
     public string? FormaEscolhida => GuiaAnsNaBaixa.FormaDe(ParaDados());
@@ -716,6 +762,9 @@ public sealed class GuiaAnsEmEdicao
         ExigeEquipe = d.ExigeEquipe,
         EquipeCpf = d.EquipeCpf,
         GrauParticipacao = d.GrauParticipacao,
+        AutorizacaoId = d.AutorizacaoId,
+        AutorizadaPor = d.AutorizadaPor,
+        ConfirmacaoDaRecepcao = d.ConfirmacaoDaRecepcao,
         RegistroAns = d.RegistroAns,
         NumeroCarteira = d.NumeroCarteira,
         ValidadeCarteira = d.ValidadeCarteira,
@@ -784,7 +833,10 @@ public sealed class GuiaAnsEmEdicao
         HoraFinal = HoraFinal,
         ExigeEquipe = ExigeEquipe,
         EquipeCpf = EquipeCpf?.Trim(),
-        GrauParticipacao = GrauParticipacao
+        GrauParticipacao = GrauParticipacao,
+        AutorizacaoId = AutorizacaoId,
+        AutorizadaPor = AutorizadaPor,
+        ConfirmacaoDaRecepcao = ConfirmacaoDaRecepcao
     };
 
     /// <summary>O que falta ou está errado AGORA, campo → frase. Vazio = a guia pode ser gravada.</summary>

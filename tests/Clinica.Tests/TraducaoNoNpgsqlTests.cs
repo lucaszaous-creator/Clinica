@@ -998,6 +998,16 @@ public class TraducaoNoNpgsqlTests
     }
 
     [Fact]
+    public void Autorizacoes_dos_horarios_do_dia_traduzem_numa_ida()
+    {
+        using var db = Postgres();
+
+        var sql = new ClinicaRepositorio(db).ConsultaAutorizacoesDosAgendamentos([1, 2, 3]).ToQueryString();
+
+        sql.Should().Contain("\"AutorizacoesTiss\"").And.Contain("\"AgendamentoId\"").And.NotContain("JOIN");
+    }
+
+    [Fact]
     public void Elegibilidades_do_dia_para_a_agenda_traduzem_numa_ida_sem_os_xml()
     {
         using var db = Postgres();

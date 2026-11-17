@@ -2034,6 +2034,15 @@ public interface IClinicaRepositorio
     /// </summary>
     Task<IReadOnlyList<TransacaoTiss>> ElegibilidadesTissDoDiaAsync(DateTime desde, DateTime ate, CancellationToken ct = default);
 
+    /// <summary>A autorização (rastreada: quem chama grava o desfecho nela).</summary>
+    Task<AutorizacaoTiss?> ObterAutorizacaoTissAsync(int id, CancellationToken ct = default);
+
+    /// <summary>As autorizações de um horário, rastreadas (para não pedir em duplicidade e para cancelar).</summary>
+    Task<IReadOnlyList<AutorizacaoTiss>> AutorizacoesDoAgendamentoAsync(int agendamentoId, CancellationToken ct = default);
+
+    /// <summary>As autorizações dos horários (só leitura): o selo da agenda e a senha da baixa, numa ida.</summary>
+    Task<IReadOnlyList<AutorizacaoTiss>> AutorizacoesDosAgendamentosAsync(IReadOnlyCollection<int> agendamentoIds, CancellationToken ct = default);
+
 
     /// <summary>
     /// As guias (fora de <paramref name="exceto"/>) com a MESMA cobrança — carteira, procedimento e data

@@ -76,6 +76,9 @@ public sealed class PapeisDoConectorTissTests : IDisposable
             ["testar-lote", Amil, "--exemplo", "--carteira", TissBancoDeTeste.CarteiraFicticia, "--operador", Op],
             ["testar-lote", Amil, "--guias", guiaAmil.ToString(), "--operador", Op],
             ["testar-protocolo", Amil, "--protocolo", "777001", "--operador", Op],
+            ["testar-autorizacao", Amil, "--carteira", TissBancoDeTeste.CarteiraFicticia, "--operador", Op],
+            ["autorizacao", Amil, "ligar", "--operador", Op],
+            ["endereco", Amil, "autorizacao", "https://exemplo.invalid/autorizacao", "--operador", Op],
             ["ambiente", Amil, "producao", "--operador", Op],
             ["envio", Petrobras, "desligar", "--operador", Op],
             ["credencial", Amil, "--remover", "--operador", Op],
@@ -104,6 +107,28 @@ public sealed class PapeisDoConectorTissTests : IDisposable
             await PedirAsync(tipo);
             (await Conector().ProcessarProximaAsync()).Should().BeTrue(tipo.ToString());
         }
+        // A autorização (nov/2026): o pedido em análise volta à fila; o cancelamento que falha anota na autorização.
+        await _b.Credenciais().DefinirAutorizacaoAsync(Amil, true, TissBancoDeTeste.Operador);
+        await _b.Credenciais().DefinirEnderecoAsync(Amil, TipoTransacaoTiss.Autorizacao, "https://api.servicos.grupoamil.com.br/api-tiss-solicitacao-procedimento/v4.03.00", TissBancoDeTeste.Operador);
+        var autorizacao = await AutorizacaoPedidaAsync();
+        _rede.ResponderSempre(HttpStatusCode.OK, TissAutorizacaoWsTests.Resposta("2"));
+        (await Conector().ProcessarProximaAsync()).Should().BeTrue("pedido de autorização");
+        await using (var db = _b.NovoContexto())
+        {
+            var a = await db.AutorizacoesTiss.SingleAsync(x => x.Id == autorizacao.Id);
+            a.Situacao.Should().Be(SituacaoAutorizacaoTiss.EmAnalise);
+            a.Situacao = SituacaoAutorizacaoTiss.CancelamentoPedido;
+            (await db.TransacoesTiss.SingleAsync(t => t.AutorizacaoId == a.Id)).Estado = EstadoTransacaoTiss.Concluida;
+            db.TransacoesTiss.Add(new TransacaoTiss
+            {
+                Tipo = TipoTransacaoTiss.CancelaAutorizacao, ConvenioCodigo = Amil, AutorizacaoId = a.Id, NumeroGuiaPrestador = a.NumeroGuiaPrestador,
+                Estado = EstadoTransacaoTiss.Pendente, PedidoPor = TissBancoDeTeste.Operador, PedidoEm = _b.Agora
+            });
+            await db.SaveChangesAsync();
+        }
+        _rede.ResponderSempre(HttpStatusCode.InternalServerError);
+        (await Conector().ProcessarProximaAsync()).Should().BeTrue("cancelamento da autorização");
+
         // E o lote fora da janela (agendado de volta à fila) e a recusa por prazo.
         _b.Agora = new DateTime(2026, 11, 17, 10, 0, 0);
         await _b.Credenciais().DefinirEnvioAsync(Amil, true, TissBancoDeTeste.Operador);
@@ -198,7 +223,9 @@ public sealed class PapeisDoConectorTissTests : IDisposable
             new ProcessadorDeElegibilidade(repo, parametros, credenciais, () => _b.Agora),
             new ProcessadorDeEnvioDeGuia(repo, parametros, credenciais, () => _b.Agora),
             new ProcessadorDeStatusDeProtocolo(repo, parametros, credenciais, () => _b.Agora),
-            new ProcessadorDeCancelamentoDeGuia(repo, parametros, credenciais, () => _b.Agora)
+            new ProcessadorDeCancelamentoDeGuia(repo, parametros, credenciais, () => _b.Agora),
+            new ProcessadorDeAutorizacao(repo, parametros, credenciais, () => _b.Agora),
+            new ProcessadorDeCancelamentoDeAutorizacao(repo, parametros, credenciais, () => _b.Agora)
         ];
         return new ExecutorDeTransacoesTiss(_b.Fila(repo), credenciais, processadores, new TissWebserviceCliente(new HttpClient(_rede)),
             new OpcoesDoConector { EnvioHabilitado = true, Consumidor = "conector-de-teste" }, NullLogger<ExecutorDeTransacoesTiss>.Instance);
@@ -224,6 +251,25 @@ public sealed class PapeisDoConectorTissTests : IDisposable
                 await fila.EnfileirarCancelamentoGuiaAsync(Petrobras, guia.Id, "G" + guia.Id, "123456", TissBancoDeTeste.Operador);
                 break;
         }
+    }
+
+    /// <summary>Uma autorização da Amil na fila, como o Chegou a deixa (fora da medida; dados fictícios).</summary>
+    private async Task<AutorizacaoTiss> AutorizacaoPedidaAsync()
+    {
+        var a = new AutorizacaoTiss
+        {
+            AgendamentoId = 1, PacienteId = 1, ConvenioCodigo = Amil, NumeroCarteira = TissBancoDeTeste.CarteiraFicticia,
+            CodigoProcedimento = "10101012", DescricaoProcedimento = "CONSULTA", ProfissionalNome = "Profissional de Teste",
+            ConselhoProfissional = "06", NumeroConselho = "000000", UfConselho = "33", Cbos = "225125",
+            NumeroGuiaPrestador = "A900", PedidaPor = TissBancoDeTeste.Operador, PedidaEm = _b.Agora
+        };
+        _b.Db.Add(new TransacaoTiss
+        {
+            Tipo = TipoTransacaoTiss.Autorizacao, ConvenioCodigo = Amil, Autorizacao = a, NumeroCarteira = a.NumeroCarteira,
+            Estado = EstadoTransacaoTiss.Pendente, PedidoPor = a.PedidaPor, PedidoEm = a.PedidaEm
+        });
+        await _b.Db.SaveChangesAsync();
+        return a;
     }
 
     private async Task<int> GuiaAmilConferidaAsync()

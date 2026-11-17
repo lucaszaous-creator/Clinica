@@ -161,6 +161,32 @@ public sealed class CredenciaisTissService
                ?? OperadorasTiss.EnderecoPadrao(await FamiliaAsync(convenioCodigo, ct), tipo);
     }
 
+    // ==================== o pedido de autorização: chave própria por convênio ====================
+
+    public static string ChaveAutorizacao(string convenioCodigo) => Chave("TissAutorizacao:", convenioCodigo);
+
+    /// <summary>
+    /// O sistema pede a autorização à operadora sozinho (no "Chegou") e pelo botão? Desligado por padrão,
+    /// e SEPARADO do envio de guias: pedir senha não é cobrança, e as duas coisas se ligam em dias diferentes.
+    /// </summary>
+    public async Task<bool> AutorizacaoLigadaAsync(string convenioCodigo, CancellationToken ct = default)
+        => string.Equals(await _repo.ObterConfiguracaoAsync(ChaveAutorizacao(convenioCodigo), ct), "true", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Liga ou desliga o pedido de autorização pelo web service para o convênio, com trilha.</summary>
+    public async Task DefinirAutorizacaoAsync(string convenioCodigo, bool ligada, string operador, CancellationToken ct = default)
+    {
+        var quem = Operador(operador);
+        if (ligada && !OperadorasTiss.TemAutorizacao(await FamiliaAsync(convenioCodigo, ct)))
+            throw new InvalidOperationException($"O sistema não conhece o pedido de autorização de {convenioCodigo.Trim()}.");
+        await _repo.SalvarConfiguracaoAsync(ChaveAutorizacao(convenioCodigo), ligada ? "true" : "false", ct);
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = quem, Acao = ligada ? "AutorizacaoTissLigada" : "AutorizacaoTissDesligada",
+            Detalhe = $"Pedido de autorização pelo web service {(ligada ? "ligado" : "desligado")} ({convenioCodigo.Trim()})"
+        }, ct);
+        await _repo.SalvarAsync(ct);
+    }
+
     // ==================== o ambiente: produção ou homologação ====================
 
     public static string ChaveAmbiente(string convenioCodigo) => Chave("TissAmbiente:", convenioCodigo);
@@ -283,7 +309,9 @@ public sealed class CredenciaisTissService
         TipoTransacaoTiss.Elegibilidade => "TissUrl:E:",
         TipoTransacaoTiss.EnvioGuia => "TissUrl:G:",
         TipoTransacaoTiss.StatusProtocolo => "TissUrl:S:",
-        TipoTransacaoTiss.CancelamentoGuia => "TissUrl:C:",
+        TipoTransacaoTiss.CancelamentoGuia or TipoTransacaoTiss.CancelaAutorizacao => "TissUrl:C:",
+        TipoTransacaoTiss.Autorizacao => "TissUrl:A:",
+        TipoTransacaoTiss.StatusAutorizacao => "TissUrl:T:",
         _ => throw new InvalidOperationException("Tipo de transação TISS sem endereço previsto.")
     }, convenioCodigo);
 

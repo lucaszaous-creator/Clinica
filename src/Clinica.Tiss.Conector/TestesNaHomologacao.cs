@@ -13,6 +13,9 @@ public sealed record RelogioDoConector(Func<DateTime> Agora);
 /// <summary>O que um teste na homologação devolve: deu para ir e voltar, e as linhas para o terminal.</summary>
 public sealed record ResultadoDoTesteTiss(bool Foi, IReadOnlyList<string> Linhas);
 
+/// <summary>O pedido de autorização do teste na homologação (dados fictícios, salvo a carteira de teste da operadora).</summary>
+public sealed record PedidoDeTesteDeAutorizacao(string Carteira, string Procedimento, string NumeroConselho, string UfConselho, string Cbos, string? CpfProfissional);
+
 /// <summary>A guia fictícia do <c>testar-lote --exemplo</c>: só a carteira é real (a homologação pede uma válida).</summary>
 public sealed record GuiaDeExemploTiss(string Carteira, string? Senha = null, string? Token = null,
     string Procedimento = "10101012", decimal Valor = 1.00m, string? CpfProfissional = null);
@@ -179,6 +182,50 @@ public sealed class TestesNaHomologacao(
         var desfecho = bruta.Corpo is null ? Ocultar(bruta.Falha ?? "sem resposta", d) : TissStatusProtocoloWs.LerResposta(bruta).Resumo;
         linhas.AddRange(Resposta(bruta, desfecho, d));
         await TrilhaAsync(operador, $"Teste de situação do protocolo na homologação ({convenio}): {Curto(desfecho)}", ct);
+        return new(bruta.Corpo is not null, linhas);
+    }
+
+    /// <summary>
+    /// Um PEDIDO DE AUTORIZAÇÃO na homologação (solicitacaoProcedimento 4.03.00), UMA ida. Nada é gravado
+    /// além da linha da trilha: nenhuma autorização, nenhuma transação. O profissional solicitante é o
+    /// informado (conselho, número, UF e CBO) ou o de mentira; o XSD 4.03.00 NÃO tem CPF do profissional
+    /// na solicitação — o CPF informado é só conferido e citado, não vai na mensagem.
+    /// </summary>
+    public async Task<ResultadoDoTesteTiss> AutorizacaoAsync(string convenio, PedidoDeTesteDeAutorizacao p, string operador,
+        string? soapAction = null, CancellationToken ct = default)
+    {
+        var (d, recusa) = await PrepararAsync(convenio, TipoTransacaoTiss.Autorizacao, ct);
+        if (d is null) return Recusado(recusa!);
+        var prestador = await parametros.ObterPrestadorAsync(ct);
+        var momento = agora();
+        string envelope;
+        try
+        {
+            envelope = TissAutorizacaoWs.MontarEnvelope(new PedidoAutorizacaoTiss
+            {
+                Remetente = d.Remetente, Sequencial = Sequencial(), Momento = momento,
+                NumeroGuiaPrestador = "T" + momento.ToString("yyMMddHHmmss", CultureInfo.InvariantCulture),
+                NumeroCarteira = p.Carteira.Trim(),
+                NomeContratado = prestador.RazaoSocial ?? prestador.NomeFantasia ?? "Clínica",
+                Cnes = string.IsNullOrWhiteSpace(prestador.Cnes) ? GuiaAnsNaBaixa.CnesDeQuemNaoTem : prestador.Cnes.Trim(),
+                NomeProfissional = "PROFISSIONAL DE TESTE", ConselhoProfissional = "06",
+                NumeroConselho = p.NumeroConselho, UfConselho = p.UfConselho, Cbos = p.Cbos,
+                DataSolicitacao = DateOnly.FromDateTime(momento), CodigoProcedimento = p.Procedimento,
+                DescricaoProcedimento = "PROCEDIMENTO DE TESTE"
+            });
+        }
+        catch (ArgumentException ex) { return Recusado("Dados recusados antes do envio: " + ex.Message); }
+
+        var bruta = await Enviar(d, envelope, soapAction, ct);
+        var linhas = Cabecalho($"pedido de autorização do procedimento {p.Procedimento}", d, d.Remetente.VersaoTiss);
+        if (p.CpfProfissional is not null)
+            linhas.Add("O CPF do profissional não vai na solicitação (o XSD 4.03.00 identifica o solicitante por conselho, número, UF e CBO).");
+        var lida = TissAutorizacaoWs.LerResposta(bruta);
+        // A senha da homologação aparece aqui (é o que o teste quer ver); na trilha, só a situação.
+        var desfecho = bruta.Corpo is null ? Ocultar(bruta.Falha ?? "sem resposta", d)
+            : lida.Resumo + (lida.Autorizada && lida.Senha is { } senha ? $" Senha da homologação: {senha}." : "");
+        linhas.AddRange(Resposta(bruta, desfecho, d));
+        await TrilhaAsync(operador, $"Teste de pedido de autorização na homologação ({convenio}): {Curto(bruta.Corpo is null ? desfecho : lida.Resumo)}", ct);
         return new(bruta.Corpo is not null, linhas);
     }
 
