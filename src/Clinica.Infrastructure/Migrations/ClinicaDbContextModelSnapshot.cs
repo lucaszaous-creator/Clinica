@@ -1358,6 +1358,25 @@ namespace Clinica.Infrastructure.Migrations
                     b.ToTable("Codigos");
                 });
 
+            modelBuilder.Entity("Clinica.Domain.Entities.CodigoProfissionalOperadora", b =>
+                {
+                    b.Property<int>("ProfissionalId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Operadora")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasMaxLength(14)
+                        .HasColumnType("character varying(14)");
+
+                    b.HasKey("ProfissionalId", "Operadora");
+
+                    b.ToTable("CodigosProfissionalOperadora", (string)null);
+                });
+
             modelBuilder.Entity("Clinica.Domain.Entities.CodigoRecuperacaoPortal", b =>
                 {
                     b.Property<int>("Id")
@@ -3166,6 +3185,9 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<int>("CodigoId")
                         .HasColumnType("integer");
 
+                    b.Property<bool?>("AnexosNoPortal")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("AtendimentoRn")
                         .HasColumnType("boolean");
 
@@ -3232,6 +3254,28 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<string>("DescricaoProcedimento")
                         .HasMaxLength(150)
                         .HasColumnType("character varying(150)");
+
+                    b.Property<string>("EquipeCodigoNaOperadora")
+                        .HasMaxLength(14)
+                        .HasColumnType("character varying(14)");
+
+                    b.Property<string>("EquipeCpf")
+                        .HasMaxLength(11)
+                        .HasColumnType("character varying(11)");
+
+                    b.Property<string>("FormaConfirmacao")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("GrauParticipacao")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<TimeOnly?>("HoraFinal")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<TimeOnly?>("HoraInicial")
+                        .HasColumnType("time without time zone");
 
                     b.Property<string>("IndicacaoAcidente")
                         .IsRequired()
@@ -7792,6 +7836,17 @@ namespace Clinica.Infrastructure.Migrations
                     b.Navigation("Atendimento");
 
                     b.Navigation("Lote");
+                });
+
+            modelBuilder.Entity("Clinica.Domain.Entities.CodigoProfissionalOperadora", b =>
+                {
+                    b.HasOne("Clinica.Domain.Entities.Profissional", "Profissional")
+                        .WithMany()
+                        .HasForeignKey("ProfissionalId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Profissional");
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.CodigoRecuperacaoPortal", b =>

@@ -73,6 +73,18 @@ public static class DominiosTiss
         new("06", "Material de exame enviado por terceiros"), new("07", "Beneficiário não tem celular"),
     ];
 
+    /// <summary><c>dm_grauPart</c> — grau de participação na equipe da SP/SADT (campo 49). Termos do XSD.</summary>
+    public static readonly IReadOnlyList<ValorTiss> GrauParticipacao =
+    [
+        new("12", "Clínico"), new("00", "Cirurgião"), new("01", "Primeiro auxiliar"), new("02", "Segundo auxiliar"),
+        new("03", "Terceiro auxiliar"), new("04", "Quarto auxiliar"), new("05", "Instrumentador"), new("06", "Anestesista"),
+        new("07", "Auxiliar de anestesista"), new("08", "Consultor"), new("09", "Perfusionista"),
+        new("10", "Pediatra na sala de parto"), new("11", "Auxiliar SADT"), new("13", "Intensivista"),
+    ];
+
+    /// <summary>O grau de quem atende sozinho no consultório (consulta, acupuntura): "12 - Clínico".</summary>
+    public const string GrauClinico = "12";
+
     /// <summary><c>dm_conselhoProfissional</c> — campo 13.</summary>
     public static readonly IReadOnlyList<ValorTiss> ConselhoProfissional =
     [

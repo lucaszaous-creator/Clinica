@@ -630,9 +630,9 @@ public sealed class FilaTissService
     /// <summary>
     /// O lote reservado volta para a fila AGENDADO para a janela de envio da operadora, SEM gastar
     /// tentativa: fora da janela (<paramref name="recusaDaOperadora"/> nulo: só adia se estiver fora), ou
-    /// porque a operadora o recusou por prazo (glosa <see cref="FilaTiss.GlosaForaDaJanela"/>) — e aí vai
-    /// para a janela SEGUINTE, nunca a mesma, para não virar laço. A recusa 3091 é resposta clara de que o
-    /// lote não foi recebido: o carimbo de envio é limpo, e o lote pode sair de novo na janela.
+    /// porque a operadora o recusou por prazo (glosa <see cref="FilaTiss.GlosaForaDaJanela"/>). A recusa 3091 é resposta clara de que o
+    /// lote não foi recebido: o carimbo de envio é limpo, e o lote pode sair de novo — no próximo dia útil
+    /// da janela, nunca no mesmo dia.
     /// Falso = está dentro da janela (ou a operadora não tem janela) e nada mudou.
     /// </summary>
     public async Task<bool> AgendarNaJanelaAsync(int id, OperadoraTiss? operadora, string? recusaDaOperadora = null, CancellationToken ct = default)
@@ -642,9 +642,9 @@ public sealed class FilaTissService
         if (recusaDaOperadora is null && PrazosTiss.DentroDaJanela(janela, agora)) return false;
         var t = await EmEnvioAsync(id, ct);
         if (t.Tipo != TipoTransacaoTiss.EnvioGuia) return false;
-        // Recusada DENTRO da janela: a próxima é a do mês seguinte (tentar de novo nesta seria laço).
-        var quando = PrazosTiss.ProximaAbertura(janela, agora,
-            depoisDaAtual: recusaDaOperadora is not null && PrazosTiss.DentroDaJanela(janela, agora));
+        // Recusada pela operadora: o próximo dia útil da janela (uma ida por dia, sem laço); acabou a
+        // janela, a do mês seguinte. Um feriado que a operadora não conta custa um dia, não o mês.
+        var quando = PrazosTiss.ProximaAbertura(janela, agora, aPartirDeAmanha: recusaDaOperadora is not null);
         t.Estado = EstadoTransacaoTiss.Pendente;
         t.Consumidor = null;
         t.ReservadaEm = null;
@@ -760,6 +760,8 @@ public sealed class FilaTissService
         var avisos = new List<string>();
         var avisosPorGuia = new Dictionary<int, string>();
         var graves = new HashSet<int>();
+        var hoje = DateOnly.FromDateTime(_agora());
+        var cobrancasDoLote = new HashSet<(string, string, DateOnly DataAtendimento)>();
         if (PrazosTiss.JanelaDeEnvio(operadora, _agora()) is { } janela) avisos.Add(janela);
 
         var guias = new List<GuiaDoLote>();
@@ -798,6 +800,28 @@ public sealed class FilaTissService
             // o mesmo número duas vezes, e a resposta acha a guia de volta por ele.
             guias.Add(new GuiaDoLote(codigo, NumeroDoPrestador(id, anteriores[id].Count() + 1), declarada));
             var atendidoEm = codigo.GuiaAns?.DataAtendimento ?? codigo.Atendimento?.Data ?? default;
+            // As regras da OPERADORA (catálogo) que bloqueiam a guia na prévia dela — ela não entra no lote.
+            if (operadora is not null && codigo.GuiaAns is { } ans)
+            {
+                string? daOperadora = null;
+                if (PrazosTiss.BloqueadaPeloPrazo(operadora, ans.DataAtendimento, hoje))
+                    daOperadora = PrazosTiss.FraseBloqueadaPeloPrazo(operadora, ans.DataAtendimento);
+                else if (operadora.RecusaDuplicidade)
+                {
+                    var cobranca = (ans.NumeroCarteira.Trim(), ans.CodigoProcedimento.Trim(), ans.DataAtendimento);
+                    if (!cobrancasDoLote.Add(cobranca))
+                        daOperadora = $"Este lote já tem outra guia do mesmo paciente, procedimento e dia: a {operadora.Nome} cobra uma só (glosa 1807).";
+                    else if ((await _repo.GuiasIguaisJaEnviadasAsync(cobranca.Item1, cobranca.Item2, cobranca.DataAtendimento, distintas, ct)) is { Count: > 0 } iguais)
+                        daOperadora = $"Já há guia deste paciente, deste procedimento e deste dia enviada à {operadora.Nome} (guia {iguais[0]}): "
+                                      + "ela bloqueia a duplicidade (glosa 1807). Confira antes de enviar de novo.";
+                }
+                if (daOperadora is not null)
+                {
+                    guias.RemoveAt(guias.Count - 1);
+                    recusas[id] = daOperadora;
+                    continue;
+                }
+            }
             if (PrazosTiss.AvisoDaGuia(operadora, atendidoEm, _agora()) is { } prazo)
             {
                 avisosPorGuia[id] = prazo.Texto;

@@ -40,7 +40,8 @@ public sealed class TissJanelaDeEnvioTests : IDisposable
     [InlineData("2026-11-06 19:30", false, "2026-12-01 07:00")] // 5º dia útil depois das 19h
     [InlineData("2026-11-17 10:00", false, "2026-12-01 07:00")] // meio do mês
     [InlineData("2026-10-31 10:00", false, "2026-11-02 07:00")] // sábado antes do 1º dia útil
-    [InlineData("2026-11-03 10:00", true, "2026-12-01 07:00")]  // recusada DENTRO: a janela seguinte
+    [InlineData("2026-11-03 10:00", true, "2026-11-04 07:00")]  // recusada: o próximo dia útil da janela
+    [InlineData("2026-11-06 10:00", true, "2026-12-01 07:00")]  // recusada no 5º: acabou a janela, o mês seguinte
     public void A_proxima_abertura_da_janela(string agora, bool depoisDaAtual, string esperada)
         => PrazosTiss.ProximaAbertura(Janela, DateTime.Parse(agora), depoisDaAtual).Should().Be(DateTime.Parse(esperada));
 
@@ -127,11 +128,11 @@ public sealed class TissJanelaDeEnvioTests : IDisposable
         t.Estado.Should().Be(EstadoTransacaoTiss.Pendente);
         t.Tentativas.Should().Be(0, "a recusa por prazo não gasta tentativa");
         t.EnvioIniciadoEm.Should().BeNull("a operadora disse que não recebeu: pode sair de novo");
-        t.ProximaTentativaEm.Should().Be(PrimeiroDeDezembro, "recusada DENTRO da janela: a seguinte, nunca a mesma");
-        t.Resultado.Should().StartWith("Agendado para 01/12/2026").And.Contain("3091");
+        t.ProximaTentativaEm.Should().Be(new DateTime(2026, 11, 4, 7, 0, 0), "o próximo dia útil da mesma janela: uma ida por dia");
+        t.Resultado.Should().StartWith("Agendado para 04/11/2026").And.Contain("3091");
 
-        (await Conector().ProcessarProximaAsync()).Should().BeFalse("nada de laço na mesma janela");
-        _b.Agora = PrimeiroDeDezembro.AddHours(1);
+        (await Conector().ProcessarProximaAsync()).Should().BeFalse("nada de laço no mesmo dia");
+        _b.Agora = new DateTime(2026, 11, 4, 8, 0, 0);
         _rede.Responder(HttpStatusCode.InternalServerError, "");
         await Conector().ProcessarProximaAsync();
         _rede.Idas.Should().HaveCount(2);

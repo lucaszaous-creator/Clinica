@@ -70,6 +70,18 @@ public static class PrazosTiss
             : null;
     }
 
+    /// <summary>
+    /// A guia passou do prazo de cobrança E a operadora bloqueia por isso (catálogo: Amil, 1701/405)? Então
+    /// ela não entra no lote; para as outras, o prazo é só aviso.
+    /// </summary>
+    public static bool BloqueadaPeloPrazo(OperadoraTiss? operadora, DateOnly dataAtendimento, DateOnly hoje)
+        => operadora is { PrazoDeCobrancaBloqueia: true, PrazoDeCobrancaDias: { } prazo } && dataAtendimento != default
+           && dataAtendimento.AddDays(prazo) < hoje;
+
+    public static string FraseBloqueadaPeloPrazo(OperadoraTiss operadora, DateOnly dataAtendimento)
+        => $"Passou o prazo de cobrança da {operadora.Nome}: {operadora.PrazoDeCobrancaDias} dias do atendimento, até "
+           + $"{dataAtendimento.AddDays(operadora.PrazoDeCobrancaDias ?? 0):dd/MM/yyyy}. A {operadora.Nome} bloqueia a guia (glosa 1701): ela não entra no lote.";
+
     /// <summary>Agora está dentro da janela de envio (o dia útil e a hora)?</summary>
     public static bool DentroDaJanela(JanelaDeEnvioTiss janela, DateTime agora)
         => DiaUtilDoMes(DateOnly.FromDateTime(agora)) is { } n && n >= janela.PrimeiroDiaUtil && n <= janela.UltimoDiaUtil
@@ -77,24 +89,19 @@ public static class PrazosTiss
 
     /// <summary>
     /// Quando a janela de envio abre de novo. Dentro dela, é agora — a não ser que
-    /// <paramref name="depoisDaAtual"/> (a operadora acabou de recusar por prazo DENTRO da janela: tentar
-    /// de novo nela seria laço), e aí é a do mês seguinte. Dia útil = segunda a sexta; o sistema não
-    /// tem calendário de feriados.
+    /// <paramref name="aPartirDeAmanha"/> (a operadora acabou de recusar por prazo: UMA ida por dia), e aí
+    /// é o PRÓXIMO dia útil da janela, ainda neste mês se a janela não acabou, senão o 1º do mês seguinte.
+    /// Assim um feriado no meio (que a Amil não conta como dia útil) custa um dia, não o mês. Dia útil =
+    /// segunda a sexta; o sistema não tem calendário de feriados.
     /// </summary>
-    public static DateTime ProximaAbertura(JanelaDeEnvioTiss janela, DateTime agora, bool depoisDaAtual = false)
+    public static DateTime ProximaAbertura(JanelaDeEnvioTiss janela, DateTime agora, bool aPartirDeAmanha = false)
     {
-        if (!depoisDaAtual && DentroDaJanela(janela, agora)) return agora;
+        if (!aPartirDeAmanha && DentroDaJanela(janela, agora)) return agora;
         var hoje = DateOnly.FromDateTime(agora);
-        for (var d = hoje; d <= hoje.AddDays(70); d = d.AddDays(1))
+        for (var d = aPartirDeAmanha ? hoje.AddDays(1) : hoje; d <= hoje.AddDays(70); d = d.AddDays(1))
         {
             if (DiaUtilDoMes(d) is not { } n || n < janela.PrimeiroDiaUtil || n > janela.UltimoDiaUtil) continue;
             var abre = d.ToDateTime(janela.Abre);
-            if (depoisDaAtual)
-            {
-                // Pula a janela do mês em que se está: a próxima é a do mês seguinte.
-                if (d.Year == hoje.Year && d.Month == hoje.Month) continue;
-                return abre;
-            }
             if (d == hoje && TimeOnly.FromDateTime(agora) >= janela.Fecha) continue;
             return d == hoje && TimeOnly.FromDateTime(agora) >= janela.Abre ? agora : abre;
         }

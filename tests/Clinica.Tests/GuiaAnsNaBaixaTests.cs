@@ -101,7 +101,8 @@ public class GuiaAnsNaBaixaTests : IDisposable
         ["dm_CBOS", DominiosTiss.Cbos],
         ["dm_tipoAtendimento", DominiosTiss.TipoAtendimento],
         ["dm_caraterAtendimento", DominiosTiss.CaraterAtendimento],
-        ["dm_ausenciaCodValidacao", DominiosTiss.AusenciaCodigoValidacao]
+        ["dm_ausenciaCodValidacao", DominiosTiss.AusenciaCodigoValidacao],
+        ["dm_grauPart", DominiosTiss.GrauParticipacao]
     ];
 
     [Theory]
@@ -304,7 +305,10 @@ public class GuiaAnsNaBaixaTests : IDisposable
         salvo.NumeroGuiaReal.Should().Be("PB123");
         var guia = salvo.GuiaAns;
         Assert.NotNull(guia);
-        guia.Should().BeEquivalentTo(GuiaCompleta(), o => o.ExcludingMissingMembers());
+        // Os campos da SP/SADT (Amil) ficam nulos na guia de consulta: não entram na comparação.
+        guia.Should().BeEquivalentTo(GuiaCompleta(), o => o.ExcludingMissingMembers().Excluding(d => d.AnexosNoPortal));
+        guia.AnexosNoPortal.Should().BeNull();
+        guia.FormaConfirmacao.Should().BeNull();
         guia.ValorProcedimento.Should().Be(139.00m);
         guia.ConferidaPor.Should().Be("secretaria");
         guia.ConferidaEm.Should().BeCloseTo(DateTime.Now, TimeSpan.FromMinutes(1));

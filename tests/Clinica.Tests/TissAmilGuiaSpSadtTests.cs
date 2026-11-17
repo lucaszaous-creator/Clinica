@@ -82,19 +82,22 @@ public sealed class TissAmilGuiaSpSadtTests : IDisposable
     public void Sem_senha_sem_confirmacao_ou_com_autorizacao_posterior_a_guia_nao_passa_e_a_frase_diz_a_glosa()
     {
         GuiaAnsNaBaixa.Validar(GuiaAmil() with { Senha = " " })[nameof(DadosGuiaConsultaAns.Senha)].Should().Contain("1403");
-        GuiaAnsNaBaixa.Validar(GuiaAmil() with { CodigoValidacao = null })[nameof(DadosGuiaConsultaAns.CodigoValidacao)].Should().Contain("3096");
+        GuiaAnsNaBaixa.Validar(GuiaAmil() with { CodigoValidacao = null })[nameof(DadosGuiaConsultaAns.FormaConfirmacao)].Should().Contain("3096");
+        GuiaAnsNaBaixa.Validar(GuiaAmil() with { CodigoValidacao = null, FormaConfirmacao = GuiaAnsNaBaixa.ConfirmacaoToken })
+            [nameof(DadosGuiaConsultaAns.CodigoValidacao)].Should().Contain("3096");
         GuiaAnsNaBaixa.Validar(GuiaAmil() with { CodigoValidacao = "12345" })[nameof(DadosGuiaConsultaAns.CodigoValidacao)].Should().Contain("6 dígitos");
-        GuiaAnsNaBaixa.Validar(GuiaAmil() with { AusenciaCodigoValidacao = "04" })[nameof(DadosGuiaConsultaAns.CodigoValidacao)].Should().Contain("OU");
+        // Por token, o motivo de ausência digitado por engano não vai (a forma escolhida manda).
+        GuiaAnsNaBaixa.Validar(GuiaAmil() with { AusenciaCodigoValidacao = "04" }).Should().BeEmpty();
         GuiaAnsNaBaixa.Validar(GuiaAmil() with { DataAutorizacao = Dia.AddDays(1) })[nameof(DadosGuiaConsultaAns.DataAutorizacao)].Should().Contain("1814");
         GuiaAnsNaBaixa.Validar(GuiaAmil() with { DataAutorizacao = null }).Should().ContainKey(nameof(DadosGuiaConsultaAns.DataAutorizacao));
         GuiaAnsNaBaixa.Validar(GuiaAmil() with { TipoAtendimento = "05" }).Should().ContainKey(nameof(DadosGuiaConsultaAns.TipoAtendimento), "05 foi inativado na 4.00");
         GuiaAnsNaBaixa.Validar(GuiaAmil() with { CaraterAtendimento = null }).Should().ContainKey(nameof(DadosGuiaConsultaAns.CaraterAtendimento));
         GuiaAnsNaBaixa.Validar(GuiaAmil() with { DescricaoProcedimento = "" }).Should().ContainKey(nameof(DadosGuiaConsultaAns.DescricaoProcedimento));
         GuiaAnsNaBaixa.Validar(GuiaAmil() with { NomeContratado = null }).Should().ContainKey(nameof(DadosGuiaConsultaAns.NomeContratado));
-        // Sem token, com o motivo: passa — e o alerta lembra o anexo que a Amil pede (glosa 991).
-        var semToken = GuiaAmil() with { CodigoValidacao = null, AusenciaCodigoValidacao = "07" };
-        GuiaAnsNaBaixa.Validar(semToken).Should().BeEmpty();
-        GuiaAnsNaBaixa.Alertas(semToken).Should().ContainSingle(a => a.Contains("991"));
+        // Sem confirmação: o motivo E a declaração dos anexos no portal (a 991 é BLOQUEIO, não alerta).
+        var semToken = GuiaAmil() with { CodigoValidacao = null, AusenciaCodigoValidacao = "07", FormaConfirmacao = GuiaAnsNaBaixa.ConfirmacaoNenhuma };
+        GuiaAnsNaBaixa.Validar(semToken)[nameof(DadosGuiaConsultaAns.AnexosNoPortal)].Should().Contain("991");
+        GuiaAnsNaBaixa.Validar(semToken with { AnexosNoPortal = true }).Should().BeEmpty();
         GuiaAnsNaBaixa.Alertas(GuiaAmil() with { ValidadeSenha = Dia.AddDays(-1) }).Should().ContainSingle(a => a.Contains("1405"));
         GuiaAnsNaBaixa.Alertas(GuiaAmil()).Should().BeEmpty();
         // A guia de consulta (Petrobras) não ganha nenhuma dessas exigências.
@@ -108,7 +111,7 @@ public sealed class TissAmilGuiaSpSadtTests : IDisposable
         var codigo = new CodigoFaturamento { Id = 7 };
         GuiaAnsNaBaixa.Aplicar(codigo, GuiaAmil(), "faturista.teste", new DateTime(2026, 11, 10, 9, 0, 0));
         codigo.GuiaAns!.ModeloGuia.Should().Be(GuiaAnsNaBaixa.ModeloGuiaSpSadt);
-        GuiaAnsNaBaixa.DaGuia(codigo.GuiaAns).Should().BeEquivalentTo(GuiaAmil(), o => o
+        GuiaAnsNaBaixa.DaGuia(codigo.GuiaAns).Should().BeEquivalentTo(GuiaAmil() with { FormaConfirmacao = GuiaAnsNaBaixa.ConfirmacaoToken }, o => o
             .Excluding(d => d.ValidadeCarteira).Excluding(d => d.NomeSocial).Excluding(d => d.Observacao));
 
         // Refeita como consulta (catálogo mudou): os campos da SP/SADT saem, nada fica pela metade.

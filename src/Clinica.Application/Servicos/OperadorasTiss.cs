@@ -86,6 +86,18 @@ public sealed record JanelaDeEnvioTiss(int PrimeiroDiaUtil, int UltimoDiaUtil, T
 /// O ponto ÚNICO de homologação da operadora (nulo = ela não tem): com o convênio em homologação
 /// (<c>comando.sh ambiente</c>), TODOS os serviços vão para ele.
 /// </param>
+/// <param name="EquipeComProfissional">
+/// A guia SP/SADT leva a EQUIPE (<c>equipeSadt</c>) com o profissional que executou, identificado pelo
+/// código dele na operadora ou pelo CPF (Amil: 1203/992 bloqueiam sem ele). A conferência exige um dos dois.
+/// </param>
+/// <param name="PrazoDeCobrancaBloqueia">
+/// Passado o <see cref="PrazoDeCobrancaDias"/>, a operadora BLOQUEIA a guia (Amil: 1701/405): ela não
+/// entra no lote. Falso = só aviso.
+/// </param>
+/// <param name="RecusaDuplicidade">
+/// A operadora bloqueia a mesma cobrança duas vezes (Amil: 1807/882): mesmo beneficiário, procedimento
+/// e data numa guia já enviada, ou no mesmo lote, não entra.
+/// </param>
 /// <param name="EntregaConfirmadaNoPortal">
 /// A operadora só considera o faturamento ENTREGUE depois da confirmação no portal dela: "enviado"
 /// pelo web service não é "entregue", e a tela diz isso depois do envio.
@@ -100,7 +112,10 @@ public sealed record OperadoraTiss(
     IReadOnlyDictionary<TipoTransacaoTiss, string>? Versoes = null,
     Uri? EnderecoDemonstrativo = null,
     Uri? EnderecoHomologacao = null,
-    bool EntregaConfirmadaNoPortal = false)
+    bool EntregaConfirmadaNoPortal = false,
+    bool EquipeComProfissional = false,
+    bool PrazoDeCobrancaBloqueia = false,
+    bool RecusaDuplicidade = false)
 {
     public Uri? Endereco(TipoTransacaoTiss tipo) => Enderecos.TryGetValue(tipo, out var uri) ? uri : null;
 
@@ -183,7 +198,11 @@ public static class OperadorasTiss
         // então o serviço é decidido pelo corpo da mensagem). Aceita carteira válida de produção.
         EnderecoHomologacao: new Uri("https://api-dev.servicos.grupoamil.com.br/api-tiss-servico-test"),
         // "A confirmação de entrega do faturamento e do recurso continua no portal."
-        EntregaConfirmadaNoPortal: true);
+        EntregaConfirmadaNoPortal: true,
+        // Mapeamento campo a campo contra os manuais e a lista de glosas (Shared/Convenios/amil/08).
+        EquipeComProfissional: true,
+        PrazoDeCobrancaBloqueia: true,
+        RecusaDuplicidade: true);
 
     /// <summary>Todas as operadoras com web service conhecidas.</summary>
     public static IReadOnlyList<OperadoraTiss> Todas { get; } = [SaudePetrobras, Amil];

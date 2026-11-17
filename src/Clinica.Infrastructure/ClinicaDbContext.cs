@@ -47,6 +47,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<Atendimento> Atendimentos => Set<Atendimento>();
     public DbSet<CodigoFaturamento> Codigos => Set<CodigoFaturamento>();
     public DbSet<GuiaTissConsulta> GuiasTissConsulta => Set<GuiaTissConsulta>();
+    public DbSet<CodigoProfissionalOperadora> CodigosProfissionalOperadora => Set<CodigoProfissionalOperadora>();
     public DbSet<TransacaoTiss> TransacoesTiss => Set<TransacaoTiss>();
     public DbSet<TransacaoTissGuia> TransacoesTissGuias => Set<TransacaoTissGuia>();
     public DbSet<Agendamento> Agendamentos => Set<Agendamento>();
@@ -463,6 +464,10 @@ public class ClinicaDbContext : DbContext
             e.Property(g => g.TipoAtendimento).HasMaxLength(2);
             e.Property(g => g.CaraterAtendimento).HasMaxLength(1);
             e.Property(g => g.DescricaoProcedimento).HasMaxLength(150);
+            e.Property(g => g.FormaConfirmacao).HasMaxLength(10);
+            e.Property(g => g.EquipeCpf).HasMaxLength(11);
+            e.Property(g => g.EquipeCodigoNaOperadora).HasMaxLength(14);
+            e.Property(g => g.GrauParticipacao).HasMaxLength(2);
             e.Property(g => g.ConferidaPor).HasMaxLength(80);
             e.Property(g => g.ConferidaEm).HasColumnType("timestamp without time zone");
             // A guia do sistema não se apaga (só é estornada); a cascata existe para a exclusão de
@@ -472,6 +477,16 @@ public class ClinicaDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
             // "A última guia deste profissional" pré-preenche conselho, UF e CBO da próxima.
             e.HasIndex(g => new { g.NomeProfissional, g.ConferidaEm });
+        });
+
+        // O código do profissional numa operadora (nov/2026, Amil): opcional, um por operadora.
+        b.Entity<CodigoProfissionalOperadora>(e =>
+        {
+            e.ToTable("CodigosProfissionalOperadora");
+            e.HasKey(c => new { c.ProfissionalId, c.Operadora });
+            e.Property(c => c.Operadora).HasMaxLength(40);
+            e.Property(c => c.Codigo).HasMaxLength(14).IsRequired();
+            e.HasOne(c => c.Profissional).WithMany().HasForeignKey(c => c.ProfissionalId).OnDelete(DeleteBehavior.Cascade);
         });
 
         b.Entity<LoteTiss>(e =>

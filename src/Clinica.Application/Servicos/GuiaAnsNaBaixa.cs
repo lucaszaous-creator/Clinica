@@ -50,6 +50,21 @@ public sealed record DadosGuiaConsultaAns
     public string? TipoAtendimento { get; init; }
     public string? CaraterAtendimento { get; init; }
     public string? DescricaoProcedimento { get; init; }
+
+    /// <summary>Como o beneficiário confirmou: <see cref="GuiaAnsNaBaixa.ConfirmacaoToken"/> e as outras.</summary>
+    public string? FormaConfirmacao { get; init; }
+
+    /// <summary>"Não confirmou": quem confere declara a guia assinada e o documento com foto anexados no portal.</summary>
+    public bool AnexosNoPortal { get; init; }
+
+    public TimeOnly? HoraInicial { get; init; }
+    public TimeOnly? HoraFinal { get; init; }
+
+    /// <summary>A operadora exige a equipe com o profissional executante (catálogo).</summary>
+    public bool ExigeEquipe { get; init; }
+    public string? EquipeCpf { get; init; }
+    public string? EquipeCodigoNaOperadora { get; init; }
+    public string? GrauParticipacao { get; init; }
 }
 
 /// <summary>
@@ -92,6 +107,35 @@ public static partial class GuiaAnsNaBaixa
 
     /// <summary>O token da Amil: "código único de 6 dígitos" (Manual do Credenciado, jul/2026).</summary>
     public const int DigitosDoToken = 6;
+
+    // Como o beneficiário confirmou o atendimento no portal (Manual do Credenciado: token, QR Code ou
+    // reconhecimento facial; sem nenhum, guia assinada + documento com foto anexados no portal).
+    public const string ConfirmacaoToken = "token";
+    public const string ConfirmacaoQrCode = "qrcode";
+    public const string ConfirmacaoFacial = "facial";
+    public const string ConfirmacaoNenhuma = "nao";
+
+    public static readonly IReadOnlyList<ValorTiss> FormasDeConfirmacao =
+    [
+        new(ConfirmacaoToken, "Token (6 dígitos)"), new(ConfirmacaoQrCode, "QR Code"),
+        new(ConfirmacaoFacial, "Reconhecimento facial"), new(ConfirmacaoNenhuma, "Não confirmou"),
+    ];
+
+    /// <summary>
+    /// QR Code ou rosto SEM código: o XSD só tem <c>codValidacao</c> (o código) ou <c>ausenciaCodValidacao</c>
+    /// (um motivo de 01 a 07), e nenhum motivo diz "confirmado por QR ou rosto". Até a Amil dizer como
+    /// informar, a guia fica pendente — inventar um motivo de ausência contaria como atendimento sem
+    /// confirmação (auditoria acima de 5%) e convidaria a glosa 991.
+    /// </summary>
+    public const string FraseQrOuRostoSemCodigo =
+        "Confirme com a Amil como informar a confirmação por QR Code ou rosto. Se o portal mostrou um código de validação depois da confirmação, informe-o aqui.";
+
+    /// <summary>A forma de confirmação da guia: a escolhida, ou (guias antigas) deduzida do token ou do motivo.</summary>
+    public static string? FormaDe(DadosGuiaConsultaAns d)
+        => !string.IsNullOrWhiteSpace(d.FormaConfirmacao) ? d.FormaConfirmacao
+            : !string.IsNullOrWhiteSpace(d.CodigoValidacao) ? ConfirmacaoToken
+            : !string.IsNullOrWhiteSpace(d.AusenciaCodigoValidacao) ? ConfirmacaoNenhuma
+            : null;
 
     /// <summary>
     /// Esta guia pede a guia ANS na baixa? Hoje: TODA guia pelo convênio de paciente da família
@@ -170,7 +214,7 @@ public static partial class GuiaAnsNaBaixa
     }
 
     /// <summary>
-    /// O que a guia SP/SADT pede além da de consulta — XSD 4.01.00 (<c>ctm_sp-sadtGuia</c>) e as
+    /// O que a guia SP/SADT pede além da de consulta — XSD 4.03.00 (<c>ctm_sp-sadtGuia</c>) e as
     /// GLOSAS DE BLOQUEIO da prévia da Amil ("Lista de glosas – Prévia – Bloqueio e Alerta", jan/2023)
     /// que dá para pegar antes do envio. Cada frase diz o que corrigir e qual glosa evita.
     /// </summary>
@@ -189,21 +233,49 @@ public static partial class GuiaAnsNaBaixa
         else if (d.DataAtendimento != default && autorizada > d.DataAtendimento)
             erros[nameof(d.DataAutorizacao)] = "A autorização não pode ser posterior ao atendimento: a guia é bloqueada (glosa 1814).";
 
-        // 3096/893 "Atendimento sem confirmação": bloqueio. O token vai em codValidacao; sem ele,
-        // o motivo vai em ausenciaCodValidacao — um OU outro.
+        // A CONFIRMAÇÃO do atendimento (3096/893: sem ela, bloqueio). Token, QR Code e rosto vão em
+        // codValidacao; "não confirmou" vai em ausenciaCodValidacao, com os anexos no portal (991: bloqueio).
         var token = d.CodigoValidacao?.Trim();
-        var ausencia = d.AusenciaCodigoValidacao;
-        if (string.IsNullOrEmpty(token) && string.IsNullOrEmpty(ausencia))
-            erros[nameof(d.CodigoValidacao)] = $"Informe o token do beneficiário ({DigitosDoToken} dígitos) ou o motivo de não ter token. Sem confirmação a guia é bloqueada (glosa 3096).";
-        else if (!string.IsNullOrEmpty(token) && !string.IsNullOrEmpty(ausencia))
-            erros[nameof(d.CodigoValidacao)] = "Informe o token OU o motivo de não ter token, não os dois.";
-        else if (!string.IsNullOrEmpty(token) && (token.Length != DigitosDoToken || !token.All(char.IsAsciiDigit)))
-            erros[nameof(d.CodigoValidacao)] = $"O token tem {DigitosDoToken} dígitos. Token inválido bloqueia a guia (glosa 1406).";
-        else if (!string.IsNullOrEmpty(ausencia) && !DominiosTiss.Contem(DominiosTiss.AusenciaCodigoValidacao, ausencia))
-            erros[nameof(d.AusenciaCodigoValidacao)] = "Escolha o motivo de não ter token na lista do padrão.";
+        switch (FormaDe(d))
+        {
+            case ConfirmacaoToken:
+                if (string.IsNullOrEmpty(token))
+                    erros[nameof(d.CodigoValidacao)] = $"Informe o token do beneficiário ({DigitosDoToken} dígitos). Sem confirmação a guia é bloqueada (glosa 3096).";
+                else if (token.Length != DigitosDoToken || !token.All(char.IsAsciiDigit))
+                    erros[nameof(d.CodigoValidacao)] = $"O token tem {DigitosDoToken} dígitos. Token inválido bloqueia a guia (glosa 1406).";
+                break;
+            case ConfirmacaoQrCode or ConfirmacaoFacial:
+                if (string.IsNullOrEmpty(token)) erros[nameof(d.CodigoValidacao)] = FraseQrOuRostoSemCodigo;
+                else if (token.Length > 10) erros[nameof(d.CodigoValidacao)] = "O código de validação tem até 10 caracteres (padrão TISS).";
+                break;
+            case ConfirmacaoNenhuma:
+                if (!DominiosTiss.Contem(DominiosTiss.AusenciaCodigoValidacao, d.AusenciaCodigoValidacao))
+                    erros[nameof(d.AusenciaCodigoValidacao)] = "Escolha o motivo de o paciente não ter confirmado.";
+                if (!d.AnexosNoPortal)
+                    erros[nameof(d.AnexosNoPortal)] = "Sem confirmação, a Amil bloqueia a guia se a guia assinada e o documento com foto não estiverem anexados no portal no dia (glosa 991). Anexe e marque.";
+                break;
+            default:
+                erros[nameof(d.FormaConfirmacao)] = "Diga como o paciente confirmou o atendimento no portal. Sem confirmação a guia é bloqueada (glosa 3096).";
+                break;
+        }
+
+        // A EQUIPE: o profissional que executou, pelo código dele na operadora ou pelo CPF (1203/992: bloqueio).
+        if (d.ExigeEquipe)
+        {
+            var cpf = Cpf.Normalizar(d.EquipeCpf);
+            if (string.IsNullOrWhiteSpace(d.EquipeCodigoNaOperadora) && !Cpf.Valido(cpf))
+                erros[nameof(d.EquipeCpf)] = $"Cadastre o CPF de {(string.IsNullOrWhiteSpace(d.NomeProfissional) ? "o profissional" : d.NomeProfissional.Trim())} "
+                    + "(cadastro da equipe) ou o código dele na operadora: sem o profissional executante a guia é bloqueada (glosas 1203 e 992).";
+            if (d.EquipeCodigoNaOperadora is { Length: > 14 })
+                erros[nameof(d.EquipeCodigoNaOperadora)] = "O código do profissional na operadora tem até 14 caracteres.";
+            if (!string.IsNullOrEmpty(d.GrauParticipacao) && !DominiosTiss.Contem(DominiosTiss.GrauParticipacao, d.GrauParticipacao))
+                erros[nameof(d.GrauParticipacao)] = "Escolha o grau de participação na lista do padrão.";
+        }
+        if (d.HoraInicial is { } inicio && d.HoraFinal is { } fim && fim < inicio)
+            erros[nameof(d.HoraFinal)] = "A hora final não pode ser antes da inicial.";
 
         Dominio(erros, nameof(d.TipoAtendimento), d.TipoAtendimento, DominiosTiss.TipoAtendimento, "Escolha o tipo de atendimento.");
-        // 5031/954 e 955: caráter divergente é bloqueio; aqui só o domínio — a autorização está no portal.
+        // 5031/955: caráter divergente da autorização é bloqueio; aqui só o domínio — a autorização está no portal.
         Dominio(erros, nameof(d.CaraterAtendimento), d.CaraterAtendimento, DominiosTiss.CaraterAtendimento, "Escolha o caráter do atendimento.");
         Texto(erros, nameof(d.DescricaoProcedimento), d.DescricaoProcedimento, 150, "Informe a descrição do procedimento");
         // O nome do contratado solicitante é obrigatório na SP/SADT (st_texto70).
@@ -218,8 +290,6 @@ public static partial class GuiaAnsNaBaixa
     {
         var alertas = new List<string>();
         if (d.Modelo != ModeloDaGuiaTiss.SpSadt) return alertas;
-        if (!string.IsNullOrEmpty(d.AusenciaCodigoValidacao))
-            alertas.Add("Sem token, a operadora pede a guia assinada pelo beneficiário e um documento com foto anexados no portal (glosa 991 se faltar).");
         if (d.ValidadeSenha is { } validade && d.DataAtendimento != default && validade < d.DataAtendimento)
             alertas.Add($"A senha venceu em {validade:dd/MM/yyyy}, antes do atendimento: a operadora pode glosar (glosa 1405).");
         if (d.DataAutorizacao is { } autorizada && d.DataAtendimento != default && autorizada < d.DataAtendimento.AddDays(-60) && d.ValidadeSenha is null)
@@ -264,11 +334,20 @@ public static partial class GuiaAnsNaBaixa
         guia.Senha = sp ? Limpo(d.Senha) : null;
         guia.DataAutorizacao = sp ? d.DataAutorizacao : null;
         guia.ValidadeSenha = sp ? d.ValidadeSenha : null;
-        guia.CodigoValidacao = sp ? Limpo(d.CodigoValidacao) : null;
-        guia.AusenciaCodigoValidacao = sp ? Limpo(d.AusenciaCodigoValidacao) : null;
         guia.TipoAtendimento = sp ? d.TipoAtendimento : null;
         guia.CaraterAtendimento = sp ? d.CaraterAtendimento : null;
         guia.DescricaoProcedimento = sp ? Limpo(d.DescricaoProcedimento) : null;
+        var forma = sp ? FormaDe(d) : null;
+        guia.FormaConfirmacao = forma;
+        // Token/QR/rosto: só o código. Não confirmou: só o motivo (e a declaração dos anexos).
+        guia.CodigoValidacao = forma is ConfirmacaoToken or ConfirmacaoQrCode or ConfirmacaoFacial ? Limpo(d.CodigoValidacao) : null;
+        guia.AusenciaCodigoValidacao = forma == ConfirmacaoNenhuma ? Limpo(d.AusenciaCodigoValidacao) : null;
+        guia.AnexosNoPortal = forma == ConfirmacaoNenhuma ? d.AnexosNoPortal : null;
+        guia.HoraInicial = sp ? d.HoraInicial : null;
+        guia.HoraFinal = sp ? d.HoraFinal : null;
+        guia.EquipeCpf = sp && Cpf.Valido(Cpf.Normalizar(d.EquipeCpf)) ? Cpf.Normalizar(d.EquipeCpf) : null;
+        guia.EquipeCodigoNaOperadora = sp ? Limpo(d.EquipeCodigoNaOperadora) : null;
+        guia.GrauParticipacao = sp && (guia.EquipeCpf is not null || guia.EquipeCodigoNaOperadora is not null) ? Limpo(d.GrauParticipacao) : null;
         // Na guia de consulta o tipo de consulta é obrigatório; na SP/SADT só existe na consulta.
         if (sp && d.TipoAtendimento != DominiosTiss.TipoAtendimentoConsulta) guia.TipoConsulta = string.Empty;
         guia.ConferidaPor = string.IsNullOrWhiteSpace(operador) ? "?" : Cortar(operador.Trim(), 80);
@@ -340,12 +419,14 @@ public static partial class GuiaAnsNaBaixa
 /// devolve os campos preenchidos. Só leitura — quem grava é o <see cref="FaturamentoService"/>.
 /// </summary>
 public sealed class GuiaAnsNaBaixaService(IClinicaRepositorio repo, ParametrosService parametros, PrecoConvenioService precos,
-    CredenciaisTissService credenciais)
+    CredenciaisTissService credenciais, EnvioTissLigadoNaPrevia? previa = null)
 {
     public async Task<PropostaGuiaAns> PrepararAsync(int codigoId, CancellationToken ct = default)
     {
         var codigo = await repo.ObterCodigoAsync(codigoId, ct);
-        if (codigo is null || !GuiaAnsNaBaixa.Exige(codigo)) return PropostaGuiaAns.NaoExige;
+        var familia = codigo?.Atendimento?.Paciente is { } p ? CatalogoConvenios.Familia(p.ConvenioCodigo ?? p.Convenio.ToString()) : (Convenio?)null;
+        var naPrevia = familia is { } f && codigo!.Atendimento!.Particular == false && previa?.Familias.Contains(f) == true;
+        if (codigo is null || !(GuiaAnsNaBaixa.Exige(codigo) || naPrevia)) return PropostaGuiaAns.NaoExige;
 
         var atendimento = codigo.Atendimento!;
         var paciente = atendimento.Paciente!;
@@ -368,7 +449,7 @@ public sealed class GuiaAnsNaBaixaService(IClinicaRepositorio repo, ParametrosSe
         if (codigo.GuiaAns is { } anterior)
         {
             avisos.Add($"Esta guia já tinha sido conferida por {anterior.ConferidaPor} em {anterior.ConferidaEm:dd/MM/yyyy}. Confira de novo antes de confirmar.");
-            return new PropostaGuiaAns(true, DaGuia(anterior), avisos, alertaDePrazo);
+            return new PropostaGuiaAns(true, DaGuia(anterior) with { ExigeEquipe = operadora?.EquipeComProfissional == true }, avisos, alertaDePrazo);
         }
 
         // ---- profissional executante ----
@@ -429,6 +510,35 @@ public sealed class GuiaAnsNaBaixaService(IClinicaRepositorio repo, ParametrosSe
         if (string.IsNullOrWhiteSpace(paciente.Carteirinha))
             avisos.Add("A ficha do paciente está sem o número da carteira.");
         var consulta = TissExportService.EhConsulta(codigo.Tipo);
+
+        // ---- equipe (Amil): o profissional executante, pelo código na operadora (vence) ou pelo CPF ----
+        var exigeEquipe = modelo == ModeloDaGuiaTiss.SpSadt && operadora?.EquipeComProfissional == true;
+        string? cpfDoProfissional = null, codigoDoProfissional = null;
+        if (exigeEquipe && profissional is not null)
+        {
+            cpfDoProfissional = Cpf.Valido(Cpf.Normalizar(profissional.Cpf)) ? Cpf.Normalizar(profissional.Cpf) : null;
+            (await repo.CodigosDoProfissionalNasOperadorasAsync(profissional.Id, ct)).TryGetValue(operadora!.Familia.ToString(), out codigoDoProfissional);
+            if (cpfDoProfissional is null && codigoDoProfissional is null)
+                avisos.Add($"Cadastre o CPF de {nomeProfissional} (cadastro da equipe) ou o código dele na {operadora.Nome}: a guia não sai sem o profissional executante.");
+        }
+
+        // ---- horas (37/38): as do consultório (início e fim do atendimento); sem elas, as da agenda ----
+        TimeOnly? horaInicial = null, horaFinal = null;
+        if (modelo == ModeloDaGuiaTiss.SpSadt && horario is not null)
+        {
+            if (horario.InicioAtendimentoEm is { } inicio)
+            {
+                horaInicial = TimeOnly.FromDateTime(inicio);
+                horaFinal = horario.FimAtendimentoEm is { } fim ? TimeOnly.FromDateTime(fim) : null;
+                avisos.Add("Horas da guia: o início e o fim do atendimento registrados no consultório.");
+            }
+            else
+            {
+                horaInicial = TimeOnly.FromDateTime(horario.DataHora);
+                horaFinal = TimeOnly.FromDateTime(horario.FimPrevisto);
+                avisos.Add("Horas da guia: o horário marcado na agenda (o consultório não registrou início e fim). Confira.");
+            }
+        }
         if (modelo == ModeloDaGuiaTiss.SpSadt)
             avisos.Add($"{operadora!.Nome}: a guia vai em SP/SADT. Copie do portal a senha de autorização, a data dela e o token que o beneficiário confirmou.");
 
@@ -459,12 +569,26 @@ public sealed class GuiaAnsNaBaixaService(IClinicaRepositorio repo, ParametrosSe
             TipoAtendimento = modelo == ModeloDaGuiaTiss.SpSadt
                 ? (consulta ? DominiosTiss.TipoAtendimentoConsulta : "03") : null,
             CaraterAtendimento = modelo == ModeloDaGuiaTiss.SpSadt ? "1" : null,
-            DescricaoProcedimento = modelo == ModeloDaGuiaTiss.SpSadt ? GuiaAnsNaBaixa.DescricaoProposta(codigo.Tipo) : null
+            DescricaoProcedimento = modelo == ModeloDaGuiaTiss.SpSadt ? GuiaAnsNaBaixa.DescricaoProposta(codigo.Tipo) : null,
+            FormaConfirmacao = modelo == ModeloDaGuiaTiss.SpSadt ? GuiaAnsNaBaixa.ConfirmacaoToken : null,
+            HoraInicial = horaInicial,
+            HoraFinal = horaFinal,
+            ExigeEquipe = exigeEquipe,
+            EquipeCpf = exigeEquipe ? cpfDoProfissional : null,
+            EquipeCodigoNaOperadora = exigeEquipe ? codigoDoProfissional : null,
+            GrauParticipacao = exigeEquipe ? DominiosTiss.GrauClinico : null
         }, avisos, alertaDePrazo);
     }
 
     private static DadosGuiaConsultaAns DaGuia(GuiaTissConsulta g) => GuiaAnsNaBaixa.DaGuia(g);
 }
+
+/// <summary>
+/// As operadoras cuja conferência na baixa aparece MESMO com o envio dela desligado no catálogo. Só a
+/// prévia das telas (para fotografar a baixa da Amil antes de ela ser ligada) e os testes o registram;
+/// o app nunca: sem registro, vale só <see cref="OperadoraTiss.EnvioDeGuiaNasTelas"/>.
+/// </summary>
+public sealed record EnvioTissLigadoNaPrevia(IReadOnlySet<Convenio> Familias);
 
 /// <summary>A leitura da guia ANS já gravada, de volta para os campos do formulário.</summary>
 public static partial class GuiaAnsNaBaixa
@@ -507,7 +631,16 @@ public static partial class GuiaAnsNaBaixa
         AusenciaCodigoValidacao = g.AusenciaCodigoValidacao,
         TipoAtendimento = g.TipoAtendimento,
         CaraterAtendimento = g.CaraterAtendimento,
-        DescricaoProcedimento = g.DescricaoProcedimento
+        DescricaoProcedimento = g.DescricaoProcedimento,
+        FormaConfirmacao = g.FormaConfirmacao,
+        AnexosNoPortal = g.AnexosNoPortal == true,
+        HoraInicial = g.HoraInicial,
+        HoraFinal = g.HoraFinal,
+        // A guia gravada com a equipe foi conferida com ela: relida, continua exigindo.
+        ExigeEquipe = g.EquipeCpf is not null || g.EquipeCodigoNaOperadora is not null,
+        EquipeCpf = g.EquipeCpf,
+        EquipeCodigoNaOperadora = g.EquipeCodigoNaOperadora,
+        GrauParticipacao = g.GrauParticipacao
     };
 }
 
@@ -559,6 +692,17 @@ public sealed class GuiaAnsEmEdicao
     public string? TipoAtendimento { get; set; }
     public string? CaraterAtendimento { get; set; }
     public string? DescricaoProcedimento { get; set; }
+    public string? FormaConfirmacao { get; set; }
+    public bool AnexosNoPortal { get; set; }
+    public TimeOnly? HoraInicial { get; set; }
+    public TimeOnly? HoraFinal { get; set; }
+    public bool ExigeEquipe { get; private init; }
+    public string? EquipeCpf { get; set; }
+    public string? EquipeCodigoNaOperadora { get; set; }
+    public string? GrauParticipacao { get; set; }
+
+    /// <summary>A forma de confirmação que a tela mostra escolhida (a gravada ou a deduzida).</summary>
+    public string? FormaEscolhida => GuiaAnsNaBaixa.FormaDe(ParaDados());
 
     /// <summary>O tipo de consulta só aparece na SP/SADT quando o atendimento é consulta.</summary>
     public bool PedeTipoConsulta => !EhSpSadt || TipoAtendimento == DominiosTiss.TipoAtendimentoConsulta;
@@ -577,6 +721,14 @@ public sealed class GuiaAnsEmEdicao
         TipoAtendimento = d.TipoAtendimento,
         CaraterAtendimento = d.CaraterAtendimento,
         DescricaoProcedimento = d.DescricaoProcedimento,
+        FormaConfirmacao = GuiaAnsNaBaixa.FormaDe(d),
+        AnexosNoPortal = d.AnexosNoPortal,
+        HoraInicial = d.HoraInicial,
+        HoraFinal = d.HoraFinal,
+        ExigeEquipe = d.ExigeEquipe,
+        EquipeCpf = d.EquipeCpf,
+        EquipeCodigoNaOperadora = d.EquipeCodigoNaOperadora,
+        GrauParticipacao = d.GrauParticipacao,
         RegistroAns = d.RegistroAns,
         NumeroCarteira = d.NumeroCarteira,
         ValidadeCarteira = d.ValidadeCarteira,
@@ -638,7 +790,15 @@ public sealed class GuiaAnsEmEdicao
         AusenciaCodigoValidacao = string.IsNullOrWhiteSpace(AusenciaCodigoValidacao) ? null : AusenciaCodigoValidacao,
         TipoAtendimento = TipoAtendimento,
         CaraterAtendimento = CaraterAtendimento,
-        DescricaoProcedimento = DescricaoProcedimento?.Trim()
+        DescricaoProcedimento = DescricaoProcedimento?.Trim(),
+        FormaConfirmacao = FormaConfirmacao,
+        AnexosNoPortal = AnexosNoPortal,
+        HoraInicial = HoraInicial,
+        HoraFinal = HoraFinal,
+        ExigeEquipe = ExigeEquipe,
+        EquipeCpf = EquipeCpf?.Trim(),
+        EquipeCodigoNaOperadora = EquipeCodigoNaOperadora?.Trim(),
+        GrauParticipacao = GrauParticipacao
     };
 
     /// <summary>O que falta ou está errado AGORA, campo → frase. Vazio = a guia pode ser gravada.</summary>
