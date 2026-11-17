@@ -557,6 +557,7 @@ outro arquivo do conector, da fila ou das telas conhece nome de operadora.
 | `codigoPrestadorNaOperadora` | CNPJ da clínica | **login do web service** (o login do portal é o código do credenciado) |
 | Endereços padrão | `https://webservices.crc.com.br/tiss/ws/40100/…` | APIM: `https://api.servicos.grupoamil.com.br/api-tiss-…/v4.01.00` |
 | Padrão | TISS 4.01.00, SOAP, login e senha (MD5) no cabeçalho | o mesmo |
+| Codificação da mensagem na rede | ISO-8859-1 (a do padrão) | **UTF-8** (o APIM é WCF/basicHttpBinding: respondeu HTTP 415 a `charset=ISO-8859-1`) |
 | Elegibilidade | sim | **sim** |
 | Envio de guias nas telas | sim (a guia passa pela conferência ANS na baixa) | **não**: o endereço do lote está no catálogo, mas a guia da Amil ainda não passa pela conferência ANS, então não há guia pronta para enviar |
 
@@ -593,9 +594,9 @@ LGPD") para paciente de convênio da família Amil **quando a credencial da Amil
 O formulário "Web service" do convênio, em Configurações do faturamento, passa a abrir na linha da
 Amil — só com a credencial e um aviso de que, por enquanto, ela serve para a elegibilidade.
 
-**Na agenda** (nov/2026): a Grade de horários (Recepção → Agenda) ganhou o botão discreto
+**Na agenda** (nov/2026): a aba "Dia" da Agenda (Recepção → Agenda → Dia, tela `AgendaDoDia`) tem o botão discreto
 "Consultar elegibilidade", que só aparece quando há convênio com consulta automática (família do
-catálogo + credencial gravada). Ele abre um painel com os pacientes do dia mostrado na grade (convênio
+catálogo + credencial gravada). Ele abre um painel com os pacientes do dia mostrado na aba (convênio
 e carteirinha da ficha; quem não dá para consultar fica recolhido, com o motivo) e uma aba "Avulso"
 (carteirinha digitada, ou CPF — que só acha a ficha: o padrão 4.01.00 não tem CPF na
 `verificaElegibilidade`). Quem pede a consulta é o mesmo componente da ficha, sobre a mesma fila,
@@ -606,6 +607,24 @@ guias da Amil for ligado): faturamento aceito do 1º ao 5º dia útil, das 7h à
 confirmado pelo paciente com token, QR Code ou reconhecimento facial; cobrança que vence em 90 dias.
 Nenhuma dessas regras está no código. A janela do 1º ao 5º dia útil, quando entrar, é **aviso na
 tela, não bloqueio**.
+
+**A codificação (nov/2026).** A primeira elegibilidade real da Amil voltou **HTTP 415** com corpo vazio:
+o WSDL dela é SOAP 1.1 (`soapAction=""`, document) servido por WCF, e o `basicHttpBinding` só aceita
+`text/xml; charset=utf-8`. A codificação agora é dado do catálogo (`OperadoraTiss.Codificacao`): a
+declaração `<?xml … encoding=…?>`, os bytes e o `Content-Type` saem juntos dela
+(`TissWebserviceCliente.Codificar`); a Saúde Petrobras sai byte a byte como antes. O **hash** do
+epílogo não muda: ele é do TEXTO das tags em ISO-8859-1 (Componente de Comunicação), não dos bytes —
+na elegibilidade, que só leva dígitos e códigos, o MD5 é o mesmo em qualquer codificação. Se a Amil
+recusar o hash de uma mensagem com acento (guia), a pergunta a fazer a ela é se o hash é sobre UTF-8.
+
+**HTTP de erro sem mensagem SOAP.** 4xx (415, 404, 403, 401) sem envelope SOAP vira "não foi possível"
+**sem nova tentativa** (`FilaTiss.RecusaDefinitivaDoHttp`; 408 e 429 continuam passageiros): repetir
+não muda a resposta e cada ida gasta a cota do dia. O motivo na linha e no log leva o status e até 300
+caracteres do corpo, sem a carteira e sem segredo. 5xx e falta de resposta continuam tentando de novo.
+
+**Tirar uma transação Pendente da fila:** `comando.sh cancelar ID --operador 'Seu Nome'` (o ID é a
+primeira coluna do `comando.sh situacao`). É a mesma regra do "Cancelar" das telas: só sai o que ainda
+não foi pego pelo conector; o que já está em envio ou terminou não muda (código de saída 1).
 
 ### Testar a elegibilidade da Amil na VPS (primeira vez)
 
@@ -670,6 +689,8 @@ journalctl -u clinica-tiss-conector -f
 | `… adiada: teto diário de 300 consultas atingido. Fica Pendente.` | O convênio bateu o teto de elegibilidade do dia. | Nada, se for esperado; para subir, ver "Limite de chamadas". |
 | `… sem sucesso: sem resposta da operadora (…) Fica Pendente.` | A operadora não respondeu; o sistema tenta de novo. | Nada, se for esporádico. |
 | `… sem sucesso: … LoginInvalido … Fica Falhou.` | A operadora recusou o login. | Girar a credencial. **Não** fique repetindo: pode bloquear o acesso. |
+| `… sem sucesso: a operadora recusou a mensagem (HTTP 415): … Fica Falhou.` | A operadora não leu a mensagem (formato, endereço, proteção). Não se repete sozinho. | Ler o trecho do corpo; 415 = codificação/cabeçalho, 404/405 = endereço, 403 = proteção da operadora. |
+| `… HTTP 502 sem mensagem TISS. Corpo: …` | Página de erro do gateway da operadora. | Nada, se for esporádico; o trecho diz quem respondeu. |
 | `… Fica Falhou.` num envio | O envio não se completou. | Conferir **no portal da operadora** se a guia chegou, antes de pedir outro. |
 | `Conector TISS: a volta falhou (NpgsqlException). Falhas seguidas: N.` | O banco não respondeu. | Ver o Postgres; o conector volta sozinho. |
 | `42501` em qualquer lugar | Falta permissão no usuário do banco. | Rever `papel-tiss-conector.sql` (o serviço) ou `papel-tiss-operacao.sql` (o `comando.sh`). |

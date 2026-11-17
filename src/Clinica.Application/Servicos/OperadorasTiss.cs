@@ -20,6 +20,24 @@ public enum CodigoDoPrestadorTiss
     Cadastrado
 }
 
+/// <summary>
+/// A codificação em que a mensagem SOAP vai pela rede: a declaração <c>&lt;?xml … encoding=…?&gt;</c>,
+/// os bytes do corpo e o <c>Content-Type</c> concordam sempre (<see cref="TissWebserviceCliente.Codificar"/>).
+/// O HASH do epílogo não muda com ela: é calculado sobre o TEXTO das tags, em ISO-8859-1, como
+/// manda o Componente de Comunicação do padrão (<see cref="TissElegibilidadeWs.CalcularHash"/>).
+/// </summary>
+public enum CodificacaoTissWs
+{
+    /// <summary>ISO-8859-1, a codificação do padrão TISS (Saúde Petrobras).</summary>
+    Iso88591,
+
+    /// <summary>
+    /// UTF-8 (Amil, nov/2026): o APIM da Amil serve um WSDL SOAP 1.1 de WCF e respondeu HTTP 415 à
+    /// mensagem em <c>text/xml; charset=ISO-8859-1</c> — o basicHttpBinding só aceita UTF-8.
+    /// </summary>
+    Utf8
+}
+
 /// <summary>Uma operadora com web service TISS que o sistema conhece sem ninguém digitar nada.</summary>
 /// <param name="Familia">A família do convênio no catálogo (o convênio cadastrado aponta para ela).</param>
 /// <param name="Nome">Como a operadora aparece nas frases.</param>
@@ -31,9 +49,11 @@ public enum CodigoDoPrestadorTiss
 /// sem ela não há guia pronta para enviar, e mostrar o envio seria prometer o que não acontece.
 /// </param>
 /// <param name="Enderecos">Os endereços de produção, um por tipo de transação. O cadastrado no convênio vence.</param>
+/// <param name="Codificacao">Em que codificação a mensagem vai pela rede (ver <see cref="CodificacaoTissWs"/>).</param>
 public sealed record OperadoraTiss(
     Convenio Familia, string Nome, string RegistroAns, CodigoDoPrestadorTiss CodigoDoPrestador,
-    bool EnvioDeGuiaNasTelas, IReadOnlyDictionary<TipoTransacaoTiss, Uri> Enderecos)
+    bool EnvioDeGuiaNasTelas, IReadOnlyDictionary<TipoTransacaoTiss, Uri> Enderecos,
+    CodificacaoTissWs Codificacao = CodificacaoTissWs.Iso88591)
 {
     public Uri? Endereco(TipoTransacaoTiss tipo) => Enderecos.TryGetValue(tipo, out var uri) ? uri : null;
 }
@@ -76,7 +96,9 @@ public static class OperadorasTiss
             (TipoTransacaoTiss.Elegibilidade, "api-tiss-verifica-elegibilidade/v4.01.00"),
             (TipoTransacaoTiss.EnvioGuia, "api-tiss-lote-guias/v4.01.00"),
             (TipoTransacaoTiss.StatusProtocolo, "api-tiss-solicitacao-status-protocolo/v4.01.00"),
-            (TipoTransacaoTiss.CancelamentoGuia, "api-tiss-cancela-guia/v4.01.00")));
+            (TipoTransacaoTiss.CancelamentoGuia, "api-tiss-cancela-guia/v4.01.00")),
+        // O APIM respondeu HTTP 415 à primeira elegibilidade real em ISO-8859-1 (nov/2026).
+        Codificacao: CodificacaoTissWs.Utf8);
 
     /// <summary>Todas as operadoras com web service conhecidas.</summary>
     public static IReadOnlyList<OperadoraTiss> Todas { get; } = [SaudePetrobras, Amil];
@@ -86,6 +108,9 @@ public static class OperadorasTiss
 
     /// <summary>O endereço de produção que o sistema conhece para a família e o tipo (nulo = nenhum).</summary>
     public static Uri? EnderecoPadrao(Convenio familia, TipoTransacaoTiss tipo) => Da(familia)?.Endereco(tipo);
+
+    /// <summary>A codificação da mensagem para a operadora (fora do catálogo: a do padrão, ISO-8859-1).</summary>
+    public static CodificacaoTissWs CodificacaoDe(OperadoraTiss? operadora) => operadora?.Codificacao ?? CodificacaoTissWs.Iso88591;
 
     /// <summary>A família tem algum web service (a credencial faz sentido)?</summary>
     public static bool TemWebService(Convenio familia) => Da(familia) is not null;

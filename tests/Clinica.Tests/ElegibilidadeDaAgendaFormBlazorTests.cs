@@ -137,6 +137,57 @@ public sealed class ElegibilidadeDaAgendaFormBlazorTests : IClassFixture<BancoDa
         Assert.Contains("aba Avulso", form.Markup);
     }
 
+    /// <summary>
+    /// O botão mora na aba "Dia" da Agenda (a tela que os apps MOSTRAM) e abre o painel com o dia
+    /// que ela mostra. Esteve na Grade de horários (#361), que o menu dos apps esconde.
+    /// </summary>
+    [Fact]
+    public void A_aba_Dia_mostra_o_botao_e_abre_o_painel_do_dia_mostrado()
+    {
+        using var ctx = Contexto();
+        var tela = ctx.RenderComponent<Clinica.Ui.Blazor.Telas.AgendaDoDia>();
+        Esperar(() => tela.FindAll("[data-consultar-elegibilidade-agenda]").Count == 1);
+        Assert.False(tela.Find("[data-consultar-elegibilidade-agenda]").HasAttribute("disabled"));
+
+        Agir(tela, t => t.Find("[data-consultar-elegibilidade-agenda]"), e => e.ClickAsync(new MouseEventArgs()));
+        Esperar(() => tela.FindAll("[data-aba-agenda]").Count == 1);
+        Assert.Contains(DateTime.Today.ToString("dd/MM"), tela.Find("[data-aba-agenda]").TextContent);
+    }
+
+    /// <summary>Sem nenhum dos bits da elegibilidade, o botão nasce desabilitado e diz por quê.</summary>
+    [Fact]
+    public void Sem_permissao_o_botao_da_aba_Dia_nasce_desabilitado()
+    {
+        new SessaoUsuario().Entrar(new UsuarioSistema { Id = 9, Nome = "Balcão sem consulta", Perfil = PerfilAcesso.Recepcao,
+            PermissoesNegadas = EnvioTissNaTela.PermissoesDaElegibilidade });
+        using var ctx = Contexto();
+        var tela = ctx.RenderComponent<Clinica.Ui.Blazor.Telas.AgendaDoDia>();
+        Esperar(() => tela.FindAll("[data-consultar-elegibilidade-agenda]").Count == 1);
+        var botao = tela.Find("[data-consultar-elegibilidade-agenda]");
+        Assert.True(botao.HasAttribute("disabled"));
+        Assert.Contains("não permite", botao.GetAttribute("title"));
+    }
+
+    /// <summary>
+    /// UMA PORTA POR PERGUNTA, e a porta tem de estar no menu: os .razor que têm o botão são
+    /// EXATAMENTE os declarados em TelasComOBotao — a lista que a verificação Windows do CI procura
+    /// nas abas visíveis do Recepção e do Gerente (tools/Clinica.Verificacao.Desktop). Botão posto
+    /// numa tela sem declarar reprova aqui; tela declarada fora do menu reprova lá.
+    /// </summary>
+    [Fact]
+    public void As_telas_com_o_botao_sao_as_declaradas_para_a_conferencia_do_menu()
+    {
+        var raiz = new DirectoryInfo(AppContext.BaseDirectory);
+        while (raiz is not null && !File.Exists(Path.Combine(raiz.FullName, "Clinica.sln"))) raiz = raiz.Parent;
+        Assert.NotNull(raiz);
+        var comBotao = Directory.GetFiles(Path.Combine(raiz!.FullName, "src", "Clinica.Ui.Blazor"), "*.razor", SearchOption.AllDirectories)
+            .Where(f => File.ReadAllText(f).Contains("data-consultar-elegibilidade-agenda"))
+            .Select(f => Path.GetFileNameWithoutExtension(f)!).OrderBy(n => n).ToList();
+        var declaradas = ElegibilidadeDaAgendaForm.TelasComOBotao.Select(t => t.Name).OrderBy(n => n).ToList();
+        Assert.Equal(declaradas, comBotao);
+        Assert.DoesNotContain("GradeDaAgenda", comBotao);
+    }
+
     // ==================== peças ====================
 
     private sealed record PacienteSemeado(int AgendamentoId, int PacienteId, string Carteira, string Cpf);

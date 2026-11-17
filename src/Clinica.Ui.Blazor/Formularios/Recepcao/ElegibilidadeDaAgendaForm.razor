@@ -1,6 +1,9 @@
 @*
   CONSULTAR ELEGIBILIDADE A PARTIR DA AGENDA (nov/2026, pedido do dono: "apenas uma função para
-  termos consulta"). Abre do botão discreto da Grade de horários.
+  termos consulta"). Abre do botão discreto da aba "Dia" da Agenda (AgendaDoDia, chave "fila") —
+  a tela onde a recepção vive. Ele esteve na Grade de horários (#361), que os apps NÃO mostram
+  (OrganizacaoNavegacao a esconde): as telas que anunciam o botão estão em TelasComOBotao, e a
+  verificação Windows do CI confere que cada uma é alcançável no menu real do Recepção e do Gerente.
 
   Dois jeitos de consultar, em duas abas:
   - "Agenda de <dia>": os pacientes do dia, com convênio e carteirinha DO CADASTRO. Quem não pode
@@ -162,7 +165,15 @@
         </li>
     };
 
-    /// <summary>O dia mostrado na grade: a aba "Agenda" lista os pacientes dele.</summary>
+    /// <summary>
+    /// As telas que mostram o botão "Consultar elegibilidade". Tela anunciada tem de estar no MENU
+    /// dos apps: a verificação Windows (tools/Clinica.Verificacao.Desktop) as procura nas abas
+    /// visíveis do Recepção e do Gerente, e um teste confere que esta lista é a dos .razor que
+    /// têm o botão. A foto da prévia (/tela/X) não prova que a tela está no menu.
+    /// </summary>
+    public static readonly IReadOnlyList<Type> TelasComOBotao = [typeof(Clinica.Ui.Blazor.Telas.AgendaDoDia)];
+
+    /// <summary>O dia mostrado na aba "Dia": a aba "Agenda" do painel lista os pacientes dele.</summary>
     [Parameter] public DateOnly Dia { get; set; } = DateOnly.FromDateTime(DateTime.Today);
     [Parameter] public EventCallback AoFechar { get; set; }
 

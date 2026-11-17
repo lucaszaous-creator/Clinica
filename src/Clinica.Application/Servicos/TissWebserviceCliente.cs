@@ -42,9 +42,9 @@ public sealed class TissWebserviceCliente(HttpClient http)
     /// viram <c>Elegivel = null</c> com o motivo — nunca "não elegível".
     /// </summary>
     public async Task<RespostaElegibilidadeTiss> VerificarElegibilidadeAsync(Uri endereco, PedidoElegibilidadeTiss pedido,
-        CancellationToken cancelamento = default)
+        CancellationToken cancelamento = default, CodificacaoTissWs codificacao = CodificacaoTissWs.Iso88591)
     {
-        var bruta = await EnviarAsync(endereco, TissElegibilidadeWs.MontarEnvelope(pedido), cancelamento);
+        var bruta = await EnviarAsync(endereco, TissElegibilidadeWs.MontarEnvelope(pedido), cancelamento, codificacao);
         if (bruta.Corpo is null)
             return new RespostaElegibilidadeTiss { Falha = bruta.Falha };
 
@@ -60,13 +60,15 @@ public sealed class TissWebserviceCliente(HttpClient http)
     /// Rede fora do ar e resposta sem corpo voltam como <see cref="RespostaBrutaTissWs.Falha"/>,
     /// nunca como exceção — e nunca com a cara de recusa da operadora.
     /// </summary>
-    public async Task<RespostaBrutaTissWs> EnviarAsync(Uri endereco, string envelope, CancellationToken cancelamento = default)
+    public async Task<RespostaBrutaTissWs> EnviarAsync(Uri endereco, string envelope, CancellationToken cancelamento = default,
+        CodificacaoTissWs codificacao = CodificacaoTissWs.Iso88591)
     {
         Exigir(endereco.Scheme == Uri.UriSchemeHttps, "O web service TISS só é chamado por HTTPS: a mensagem leva login e dado de beneficiário.");
 
-        // Os bytes saem na codificação que o envelope DECLARA (ISO-8859-1), a mesma do hash.
-        using var conteudo = new ByteArrayContent(TissElegibilidadeWs.Latin1.GetBytes(envelope));
-        conteudo.Headers.ContentType = new MediaTypeHeaderValue("text/xml") { CharSet = "ISO-8859-1" };
+        // A declaração, os bytes e o Content-Type na MESMA codificação — a da operadora no catálogo.
+        var (bytes, charset) = Codificar(envelope, codificacao);
+        using var conteudo = new ByteArrayContent(bytes);
+        conteudo.Headers.ContentType = new MediaTypeHeaderValue("text/xml") { CharSet = charset };
         using var requisicao = new HttpRequestMessage(HttpMethod.Post, endereco) { Content = conteudo };
         requisicao.Headers.TryAddWithoutValidation("SOAPAction", "\"\"");
 
@@ -87,10 +89,55 @@ public sealed class TissWebserviceCliente(HttpClient http)
 
         // O SOAP devolve a falha (login, hash, schema) com HTTP 500 e o motivo NO CORPO: por isso
         // o corpo volta inteiro, com o status ao lado, e só a falta dele é falha de transporte.
-        return string.IsNullOrWhiteSpace(corpo)
-            ? new RespostaBrutaTissWs(null, status, $"resposta vazia da operadora (HTTP {status})")
-            : new RespostaBrutaTissWs(corpo, status, null);
+        if (string.IsNullOrWhiteSpace(corpo))
+            return new RespostaBrutaTissWs(null, status, $"resposta vazia da operadora (HTTP {status})");
+        // HTTP de CLIENTE (4xx) SEM mensagem SOAP — 415 de formato, 404 de endereço, 403 da proteção:
+        // a operadora não leu a mensagem. O corpo (página de erro) não é XML TISS: vira falha com o
+        // status e um trecho curto, para o log dizer o que houve; a fila não repete
+        // (FilaTiss.RecusaDefinitivaDoHttp). A página de 5xx continua voltando como corpo — "não se
+        // sabe" —, como antes; o conector põe o trecho dela no log.
+        if (status is >= 400 and < 500 && !PareceSoap(corpo))
+            return new RespostaBrutaTissWs(null, status, $"a operadora recusou a mensagem (HTTP {status}): {Trecho(corpo)}");
+        return new RespostaBrutaTissWs(corpo, status, null);
     }
+
+    /// <summary>
+    /// O envelope pronto para a rede: a declaração <c>&lt;?xml … encoding=…?&gt;</c> reescrita para a
+    /// codificação da operadora, os bytes nela e o <c>charset</c> do Content-Type. Em ISO-8859-1 (o
+    /// padrão, Saúde Petrobras) os bytes são EXATAMENTE os de antes. O hash não muda: ele já está no
+    /// texto, calculado sobre o conteúdo das tags (não sobre os bytes).
+    /// </summary>
+    public static (byte[] Bytes, string Charset) Codificar(string envelope, CodificacaoTissWs codificacao)
+    {
+        System.Text.Encoding encoding = codificacao == CodificacaoTissWs.Utf8
+            ? new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
+            : TissElegibilidadeWs.Latin1;
+        var nome = NomeDa(codificacao);
+        return (encoding.GetBytes(ComDeclaracao(envelope, nome)), nome);
+    }
+
+    /// <summary>O nome da codificação na declaração XML e no <c>charset</c>.</summary>
+    public static string NomeDa(CodificacaoTissWs codificacao) => codificacao == CodificacaoTissWs.Utf8 ? "utf-8" : "ISO-8859-1";
+
+    /// <summary>O texto com a declaração XML dizendo <paramref name="nomeDaCodificacao"/> (põe uma quando não há).</summary>
+    public static string ComDeclaracao(string envelope, string nomeDaCodificacao)
+    {
+        var declaracao = $"<?xml version=\"1.0\" encoding=\"{nomeDaCodificacao}\"?>";
+        if (!envelope.StartsWith("<?xml", StringComparison.Ordinal)) return declaracao + envelope;
+        var fim = envelope.IndexOf("?>", StringComparison.Ordinal);
+        return declaracao + envelope[(fim + 2)..];
+    }
+
+    /// <summary>Até 300 caracteres do corpo, numa linha só — para o log e a linha da fila.</summary>
+    public static string Trecho(string corpo)
+    {
+        var linha = System.Text.RegularExpressions.Regex.Replace(corpo, @"\s+", " ").Trim();
+        return linha.Length <= 300 ? linha : linha[..300] + "…";
+    }
+
+    /// <summary>O corpo tem cara de envelope SOAP (o que as classes da transação sabem ler)?</summary>
+    public static bool PareceSoap(string corpo)
+        => corpo.Contains("Envelope", StringComparison.Ordinal) && corpo.TrimStart().StartsWith('<');
 
     private static string LerXml(byte[] bytes)
     {

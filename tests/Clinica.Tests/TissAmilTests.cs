@@ -271,6 +271,175 @@ public sealed class TissAmilTests : IDisposable
         conferencia.PorGuia[guia.Id].Should().Contain("padrão ANS");
     }
 
+    // ---------- a codificação da mensagem (nov/2026: o HTTP 415 do APIM) ----------
+
+    [Fact]
+    public async Task A_mensagem_da_Amil_sai_em_UTF_8_declarada_nos_bytes_e_no_cabecalho_e_valida_no_XSD()
+    {
+        OperadorasTiss.Amil.Codificacao.Should().Be(CodificacaoTissWs.Utf8);
+        await _b.PrestadorAsync();
+        await _b.Credenciais().SalvarAsync(Amil, Login, Senha, TissBancoDeTeste.Operador);
+        _rede.Responder(HttpStatusCode.OK, Recibo("S"));
+        var pedido = await PedirAsync();
+
+        await Conector().ProcessarProximaAsync();
+
+        var ida = _rede.Idas.Single();
+        ida.ContentType.Should().Be("text/xml; charset=utf-8");
+        ida.SoapAction.Should().Be("\"\"", "SOAP 1.1 do WSDL da Amil: soapAction vazio, entre aspas");
+        var texto = new UTF8Encoding(false, throwOnInvalidBytes: true).GetString(ida.Bytes);
+        texto.Should().StartWith("<?xml version=\"1.0\" encoding=\"utf-8\"?>");
+        ida.Bytes.Take(3).Should().NotEqual(new byte[] { 0xEF, 0xBB, 0xBF }, "sem BOM: a declaração já diz a codificação");
+        // Os bytes, lidos como o servidor os lê (pela declaração), dão a mensagem válida no XSD.
+        using var leitor = System.Xml.XmlReader.Create(new MemoryStream(ida.Bytes));
+        var mensagem = XDocument.Load(leitor).Root!.Element(Soap + "Body")!.Elements().Single();
+        TissWsDeTeste.ValidarNoXsd(mensagem).Should().BeEmpty();
+        // O XML guardado na fila diz a MESMA codificação que foi pela rede.
+        (await _b.NovoContexto().TransacoesTiss.AsNoTracking().SingleAsync(t => t.Id == pedido.Id)).XmlEnviado
+            .Should().StartWith("<?xml version=\"1.0\" encoding=\"utf-8\"?>");
+    }
+
+    [Fact]
+    public async Task A_mensagem_da_Petrobras_sai_byte_a_byte_como_antes_em_ISO_8859_1()
+    {
+        OperadorasTiss.SaudePetrobras.Codificacao.Should().Be(CodificacaoTissWs.Iso88591);
+        // O de antes: Latin1.GetBytes(envelope) com charset ISO-8859-1. O Codificar devolve o mesmo.
+        var envelope = TissElegibilidadeWs.MontarEnvelope(new PedidoElegibilidadeTiss
+        {
+            RegistroAnsOperadora = "422631", CodigoPrestadorNaOperadora = "00000000000191", NumeroCarteira = TissBancoDeTeste.CarteiraFicticia,
+            Login = "login-ficticio", SenhaMd5 = Md5, Sequencial = "000000001001", Momento = new DateTime(2026, 11, 10, 9, 0, 0)
+        });
+        var (bytes, charset) = TissWebserviceCliente.Codificar(envelope, CodificacaoTissWs.Iso88591);
+        bytes.Should().Equal(Encoding.Latin1.GetBytes(envelope));
+        charset.Should().Be("ISO-8859-1");
+
+        // E pela fila, de ponta a ponta: o cabeçalho e a declaração continuam os de antes.
+        await _b.PrestadorAsync();
+        await _b.Credenciais().SalvarAsync(TissBancoDeTeste.Petrobras, Login, Senha, TissBancoDeTeste.Operador);
+        _rede.Responder(HttpStatusCode.OK, Recibo("S"));
+        await _b.Fila().EnfileirarElegibilidadeAsync(TissBancoDeTeste.Petrobras, TissBancoDeTeste.CarteiraFicticia, null, null, TissBancoDeTeste.Operador);
+        await Conector().ProcessarProximaAsync();
+        var ida = _rede.Idas.Single();
+        ida.ContentType.Should().Be("text/xml; charset=ISO-8859-1");
+        ida.Corpo.Should().StartWith("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>");
+        ida.Bytes.Should().Equal(Encoding.Latin1.GetBytes(ida.Corpo));
+    }
+
+    /// <summary>
+    /// O hash é do TEXTO das tags, em ISO-8859-1 (Componente de Comunicação do padrão), e não dos
+    /// bytes que vão pela rede: a mesma mensagem, mandada em ISO-8859-1 ou em UTF-8, leva o MESMO
+    /// hash, e quem a relê (pela declaração) recalcula e confere. Com acento a diferença aparece:
+    /// o MD5 dos bytes UTF-8 seria outro.
+    /// </summary>
+    [Theory]
+    [InlineData("0001234567")]
+    [InlineData("Clínica São João")]
+    public void O_hash_e_do_texto_e_vale_igual_nas_duas_codificacoes(string conteudo)
+    {
+        var ans = TissMensagemWs.Ans;
+        var mensagem = TissMensagemWs.Fechar("pedidoElegibilidadeWS",
+            new XElement(ans + "cabecalho", new XElement(ans + "Padrao", "4.01.00")),
+            new XElement(ans + "pedidoElegibilidade", new XElement(ans + "numeroCarteira", conteudo)));
+        var envelope = TissMensagemWs.Envelope(mensagem);
+        var hash = mensagem.Element(ans + "hash")!.Value;
+
+        foreach (var codificacao in new[] { CodificacaoTissWs.Iso88591, CodificacaoTissWs.Utf8 })
+        {
+            var (bytes, _) = TissWebserviceCliente.Codificar(envelope, codificacao);
+            using var leitor = System.Xml.XmlReader.Create(new MemoryStream(bytes));
+            var relida = XDocument.Load(leitor).Root!.Element(Soap + "Body")!.Elements().Single();
+            relida.Element(ans + "hash")!.Value.Should().Be(hash, $"o hash não depende da codificação ({codificacao})");
+            relida.Descendants(ans + "numeroCarteira").Single().Value.Should().Be(conteudo);
+            var semHash = new XElement(relida);
+            semHash.Element(ans + "hash")!.Remove();
+            TissElegibilidadeWs.CalcularHash(semHash).Should().Be(hash);
+        }
+        var textoDasTags = "4.01.00" + conteudo;
+        hash.Should().Be(Convert.ToHexString(System.Security.Cryptography.MD5.HashData(Encoding.Latin1.GetBytes(textoDasTags))).ToLowerInvariant());
+        var md5DoUtf8 = Convert.ToHexString(System.Security.Cryptography.MD5.HashData(Encoding.UTF8.GetBytes(textoDasTags))).ToLowerInvariant();
+        if (conteudo.Any(c => c > 127)) md5DoUtf8.Should().NotBe(hash);
+        else md5DoUtf8.Should().Be(hash);
+    }
+
+    // ---------- HTTP de erro sem mensagem SOAP ----------
+
+    [Fact]
+    public async Task HTTP_415_sem_corpo_vira_nao_foi_possivel_sem_repetir_e_o_motivo_diz_o_status()
+    {
+        await _b.PrestadorAsync();
+        await _b.Credenciais().SalvarAsync(Amil, Login, Senha, TissBancoDeTeste.Operador);
+        _rede.Responder(HttpStatusCode.UnsupportedMediaType, "");
+        var pedido = await PedirAsync();
+
+        await Conector().ProcessarProximaAsync();
+        _b.Agora = _b.Agora.AddHours(2);
+        await Conector().ProcessarProximaAsync();
+
+        _rede.Idas.Should().ContainSingle("um 415 não melhora tentando de novo, e cada ida gasta a cota do dia");
+        var t = await GravadaAsync(pedido.Id);
+        t.Estado.Should().Be(EstadoTransacaoTiss.Falhou);
+        t.Tentativas.Should().Be(1);
+        t.Erro.Should().Contain("HTTP 415").And.Contain(FilaTiss.FraseRecusaDoHttp);
+    }
+
+    [Fact]
+    public async Task HTTP_de_erro_com_pagina_leva_o_trecho_do_corpo_sem_a_carteira_e_sem_a_senha()
+    {
+        await _b.PrestadorAsync();
+        await _b.Credenciais().SalvarAsync(Amil, Login, Senha, TissBancoDeTeste.Operador);
+        var pagina = $"<html><body><h1>415 Unsupported Media Type</h1><p>Esperado text/xml; charset=utf-8. "
+                     + $"Pedido {TissBancoDeTeste.CarteiraFicticia} {Md5}</p>{new string('x', 600)}</body></html>";
+        _rede.Responder(HttpStatusCode.UnsupportedMediaType, pagina);
+        var pedido = await PedirAsync();
+
+        await Conector().ProcessarProximaAsync();
+
+        var t = await GravadaAsync(pedido.Id);
+        t.Estado.Should().Be(EstadoTransacaoTiss.Falhou);
+        t.Erro.Should().Contain("HTTP 415").And.Contain("Unsupported Media Type").And.Contain("charset=utf-8");
+        t.Erro.Should().NotContain(TissBancoDeTeste.CarteiraFicticia).And.NotContain(Md5);
+        t.Erro.Should().NotContain(new string('x', 301), "só um trecho curto do corpo");
+    }
+
+    [Fact]
+    public async Task HTTP_503_sem_corpo_continua_tentando_de_novo()
+    {
+        await _b.PrestadorAsync();
+        await _b.Credenciais().SalvarAsync(Amil, Login, Senha, TissBancoDeTeste.Operador);
+        _rede.Responder(HttpStatusCode.ServiceUnavailable, "");
+        var pedido = await PedirAsync();
+
+        await Conector().ProcessarProximaAsync();
+
+        var t = await GravadaAsync(pedido.Id);
+        t.Estado.Should().Be(EstadoTransacaoTiss.Pendente);
+        t.Erro.Should().Contain("HTTP 503");
+    }
+
+    [Theory]
+    [InlineData(415, true)] [InlineData(404, true)] [InlineData(403, true)] [InlineData(401, true)]
+    [InlineData(408, false)] [InlineData(429, false)] [InlineData(500, false)] [InlineData(503, false)] [InlineData(null, false)]
+    public void Recusa_definitiva_do_HTTP_e_so_o_4xx_que_nao_passa_sozinho(int? status, bool definitiva)
+        => FilaTiss.RecusaDefinitivaDoHttp(status).Should().Be(definitiva);
+
+    [Fact]
+    public async Task O_comando_cancelar_tira_da_fila_a_transacao_pendente_e_so_ela()
+    {
+        var pedido = await PedirAsync();
+        var (saida, erro) = (new StringWriter(), new StringWriter());
+
+        (await ComandosDoConector.ExecutarAsync(["cancelar", pedido.Id.ToString(), "--operador", "operador.servidor"], Servicos(), saida, erro))
+            .Should().Be(0, erro.ToString());
+        saida.ToString().Should().Contain($"Transação {pedido.Id} cancelada");
+        (await GravadaAsync(pedido.Id)).Estado.Should().Be(EstadoTransacaoTiss.Cancelada);
+
+        // De novo: já não está Pendente — nada muda, e o código de saída diz isso.
+        (await ComandosDoConector.ExecutarAsync(["cancelar", pedido.Id.ToString(), "--operador", "operador.servidor"], Servicos(), saida, erro))
+            .Should().Be(1);
+        // Sem operador, não cancela.
+        (await ComandosDoConector.ExecutarAsync(["cancelar", pedido.Id.ToString()], Servicos(), saida, erro)).Should().Be(2);
+    }
+
     // ---------- montagem ----------
 
     private ExecutorDeTransacoesTiss Conector()
@@ -320,10 +489,10 @@ public sealed class TissAmilTests : IDisposable
         </soapenv:Envelope>
         """.Trim();
 
-    /// <summary>A "operadora": responde o combinado, na ordem, e anota cada ida.</summary>
+    /// <summary>A "operadora": responde o combinado, na ordem, e anota cada ida (os bytes e os cabeçalhos também).</summary>
     private sealed class Rede : HttpMessageHandler
     {
-        public sealed record Ida(Uri Endereco, string Corpo);
+        public sealed record Ida(Uri Endereco, string Corpo, byte[] Bytes, string? ContentType, string? SoapAction);
 
         private readonly Queue<HttpResponseMessage> _respostas = new();
         public List<Ida> Idas { get; } = [];
@@ -333,7 +502,10 @@ public sealed class TissAmilTests : IDisposable
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
-            Idas.Add(new Ida(request.RequestUri!, Encoding.Latin1.GetString(await request.Content!.ReadAsByteArrayAsync(ct))));
+            var bytes = await request.Content!.ReadAsByteArrayAsync(ct);
+            Idas.Add(new Ida(request.RequestUri!, Encoding.Latin1.GetString(bytes), bytes,
+                request.Content.Headers.ContentType?.ToString(),
+                request.Headers.TryGetValues("SOAPAction", out var acao) ? acao.Single() : null));
             return _respostas.Count > 0 ? _respostas.Dequeue() : throw new InvalidOperationException("O teste não combinou resposta para esta ida.");
         }
     }

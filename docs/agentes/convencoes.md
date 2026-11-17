@@ -5,7 +5,7 @@ sessão). O texto é o MESMO, sem reescrita: design system, WPF/XAML, Blazor, EF
 `verificar-suite`, assinatura digital, impressão, CRM e as rodadas de UI, cada uma com o defeito que a
 originou. Antes de escrever uma tela, uma consulta ou uma checagem, procure aqui a lição da área.
 
-## Índice (212 tópicos, na ordem do arquivo)
+## Índice (213 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -221,6 +221,7 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
 - `<Aviso>` só desenha o TEXTO — conteúdo filho sem `Texto` some (out/2026)
 - Classe GENÉRICA no CSS global é colisão esperando acontecer: `.entrada` da tela de login esticava a legenda do Fluxo de caixa
 - Tela Blazor no CELULAR: abaixo de 640 px, número em uma coluna, tabela vira cartão, filtro na largura toda
+- A foto da prévia (`/tela/X`) não prova que a tela está no MENU: confira a composição com `OrganizacaoNavegacao`
 ---
 
 
@@ -5338,3 +5339,15 @@ cartões se sobrepunham — o seletor do celular tem de REPETIR o da janela; (2)
 `minmax(380px,1fr)` rolava a página de lado em 390 px — use `minmax(min(100%,380px),1fr)`. Conferência: fotografar
 cada tela a 390 px com `fullPage` e medir `document.documentElement.scrollWidth` (tem de ser a largura da tela).
 
+- **A foto da prévia (`/tela/X`) não prova que a tela está no MENU: confira a composição com `OrganizacaoNavegacao` (nov/2026)**:
+o botão "Consultar elegibilidade" (#361) entrou na `GradeDaAgenda` (chave `agenda-recepcao`), foi fotografado
+em 1366 e 1024 pela prévia em `/tela/GradeDaAgenda` e testado no bUnit — e a clínica não o via, porque os apps
+NÃO mostram essa tela: o `OrganizacaoNavegacao` reescreve as abas da Agenda (Dia = `fila`, Visão geral, Por tipo
+de atendimento), marca `agenda-recepcao` como `Oculto` e o `IrPara` desvia a chave para a Visão geral. A prévia
+abre QUALQUER componente pelo nome; o bUnit renderiza o componente sozinho; nenhum dos dois passa pelo menu.
+O botão mudou para a aba Dia (`AgendaDoDia`). Regra: antes de pôr uma ação numa tela, ache-a no MENU REAL
+(`ModuloX.Itens` → `OrganizacaoNavegacao.Aplicar` → `ShellViewModel.Grupos`), não no arquivo. Tela que anuncia
+uma ação nova é DECLARADA (`ElegibilidadeDaAgendaForm.TelasComOBotao`), e a verificação Windows do CI
+(`tools/Clinica.Verificacao.Desktop`) navega até ela pelas abas visíveis do Recepção e do Gerente; um teste
+Linux confere que a lista é a dos `.razor` que têm o botão. Ação nova que se anuncia noutra tela entra no mesmo
+laço (`TelasAnunciadas` na verificação).

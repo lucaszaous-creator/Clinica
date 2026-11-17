@@ -93,14 +93,28 @@ public sealed class ExecutorDeTransacoesTiss(
             var operadora = preparo.Endereco.Host;
             await _intervalo.AguardarVezAsync(operadora, ct);
 
+            // A codificação da mensagem é a da operadora no catálogo (Amil: UTF-8; o resto: ISO-8859-1).
+            // O XML guardado diz a mesma codificação que foi pela rede.
+            var codificacao = OperadorasTiss.CodificacaoDe(await credenciais.OperadoraAsync(t.ConvenioCodigo, ct));
+            var envelope = TissWebserviceCliente.ComDeclaracao(preparo.Envelope, TissWebserviceCliente.NomeDa(codificacao));
+
             // A partir desta linha a mensagem pode ter chegado à operadora.
-            await fila.MarcarEnvioIniciadoAsync(t.Id, preparo.Envelope, ct);
+            await fila.MarcarEnvioIniciadoAsync(t.Id, envelope, ct);
             RespostaBrutaTissWs resposta;
-            try { resposta = await transporte.EnviarAsync(preparo.Endereco, preparo.Envelope, ct); }
+            try { resposta = await transporte.EnviarAsync(preparo.Endereco, envelope, ct, codificacao); }
             finally { _intervalo.RegistrarIda(operadora); }
             if (string.IsNullOrWhiteSpace(resposta.Corpo))
             {
-                // Rede: quem só pergunta tenta de novo; quem escreve, a fila não deixa repetir.
+                // HTTP 4xx sem mensagem SOAP (415 de formato, 404, 403): a operadora não leu a
+                // mensagem e repetir não muda nada — vira "não foi possível" sem nova tentativa. O
+                // motivo leva o status e um trecho do corpo, SEM a carteira (Ocultar) e sem segredo.
+                if (FilaTiss.RecusaDefinitivaDoHttp(resposta.StatusHttp))
+                {
+                    var motivo = (resposta.Falha ?? $"a operadora recusou a mensagem (HTTP {resposta.StatusHttp})") + " " + FilaTiss.FraseRecusaDoHttp;
+                    await FalharAsync(t, motivo, podeTentarDeNovo: false, null, [.. segredos, t.NumeroCarteira ?? string.Empty], ct);
+                    return true;
+                }
+                // Rede ou 5xx sem corpo: quem só pergunta tenta de novo; quem escreve, a fila não deixa repetir.
                 await FalharAsync(t, resposta.Falha ?? "sem resposta da operadora", podeTentarDeNovo: true, null, segredos, ct);
                 return true;
             }
@@ -122,6 +136,12 @@ public sealed class ExecutorDeTransacoesTiss(
                 // clínica. Quando não se sabe se a operadora fez o que se pediu e a transação ESCREVE
                 // nela, a frase manda conferir no portal antes de qualquer novo pedido.
                 var motivo = desfecho.Falha ?? "resposta não reconhecida";
+                // HTTP de erro com página que não é SOAP (502 do gateway…): o log leva o status e um
+                // trecho do corpo, sem a carteira e sem segredo — "não é XML" sozinho não deixa diagnosticar.
+                if (resposta.StatusHttp >= 400 && !TissWebserviceCliente.PareceSoap(resposta.Corpo!))
+                    log.LogWarning("Transação TISS {Id} ({Tipo}, {Convenio}): HTTP {Status} sem mensagem TISS. Corpo: {Trecho}",
+                        t.Id, t.Tipo, t.ConvenioCodigo, resposta.StatusHttp,
+                        Ocultar(TissWebserviceCliente.Trecho(resposta.Corpo!), [.. segredos, t.NumeroCarteira ?? string.Empty]));
                 if (desfecho.Incerto && t.EscreveNaOperadora) motivo += " " + FilaTiss.FraseSemNovaTentativa;
                 await FalharAsync(t, motivo, podeTentarDeNovo: false, resposta.Corpo, segredos, ct);
             }

@@ -25,6 +25,8 @@ public static class ComandosDoConector
           Clinica.Tiss.Conector endereco CONVENIO elegibilidade|envio|status|cancelamento|todos https://… --operador NOME
           Clinica.Tiss.Conector codigo CONVENIO cnpj|login|CODIGO|padrao --operador NOME
           Clinica.Tiss.Conector situacao [CONVENIO]
+          Clinica.Tiss.Conector cancelar ID --operador NOME
+              tira da fila uma transação ainda Pendente (ela não vai mais à operadora)
 
         CONVENIO é o código do convênio no cadastro (ex.: Petrobras, Amil). NOME é quem está fazendo a mudança: vai para a trilha.
         "todos" grava o mesmo endereço para os quatro serviços (o "link único" que a operadora fornece).
@@ -94,6 +96,21 @@ public static class ComandosDoConector
                     };
                     saida.WriteLine($"Código do prestador de {args[1]}: {descricao}.");
                     return 0;
+                }
+                case "cancelar" when args.Length >= 2:
+                {
+                    var operador = Opcao(args, "--operador");
+                    if (!int.TryParse(args[1], out var id) || string.IsNullOrWhiteSpace(operador))
+                    {
+                        erro.WriteLine("Uso: cancelar ID --operador NOME (o ID é o número da primeira coluna do comando situacao).");
+                        return 2;
+                    }
+                    // A MESMA regra do botão "Cancelar" das telas: só sai da fila o que ainda não foi pego.
+                    var cancelou = await servicos.GetRequiredService<FilaTissService>().CancelarAsync(id, operador);
+                    (cancelou ? saida : erro).WriteLine(cancelou
+                        ? $"Transação {id} cancelada: ela não vai mais à operadora."
+                        : $"A transação {id} não está Pendente (já foi pega, terminou ou foi cancelada): nada mudou.");
+                    return cancelou ? 0 : 1;
                 }
                 case "situacao":
                 {
