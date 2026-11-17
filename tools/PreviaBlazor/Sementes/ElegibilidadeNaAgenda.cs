@@ -7,8 +7,8 @@ using Clinica.Infrastructure;
 namespace PreviaBlazor.Sementes;
 
 /// <summary>
-/// CONSULTAR ELEGIBILIDADE NA AGENDA (nov/2026): o botão "Consultar elegibilidade" da Grade de
-/// horários só aparece quando há convênio com consulta automática (família do catálogo
+/// CONSULTAR ELEGIBILIDADE NA AGENDA (nov/2026): o botão "Consultar elegibilidade" da aba "Dia"
+/// da Agenda (AgendaDoDia) só aparece quando há convênio com consulta automática (família do catálogo
 /// <see cref="OperadorasTiss"/> + credencial gravada). Esta semente põe uma credencial de mentira da
 /// Amil (a da Petrobras vem da semente do envio) e quatro pacientes na agenda de HOJE: um já
 /// consultado hoje (elegível), um da Amil, um sem carteirinha e um de convênio sem consulta.

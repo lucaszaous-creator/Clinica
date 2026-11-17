@@ -32,6 +32,19 @@ public static class FilaTiss
     /// <summary>Elegibilidade e status: até três idas à operadora antes de pedir que alguém olhe.</summary>
     public const int MaximoDeTentativas = 3;
 
+    /// <summary>
+    /// A operadora recusou a mensagem por HTTP de CLIENTE (4xx) — formato (415), endereço (404),
+    /// proteção (403), login no transporte (401). Tentar de novo não muda a resposta e cada ida gasta
+    /// a cota do dia (nov/2026: o 415 da Amil foi tentado duas vezes). Só 408 (tempo esgotado) e 429
+    /// (devagar) são passageiros. 5xx e falta de resposta continuam podendo tentar de novo.
+    /// </summary>
+    public static bool RecusaDefinitivaDoHttp(int? statusHttp)
+        => statusHttp is >= 400 and < 500 and not 408 and not 429;
+
+    /// <summary>O que vai na linha (e na tela) quando a recusa HTTP é definitiva.</summary>
+    public const string FraseRecusaDoHttp =
+        "Tentar de novo não muda a resposta: o sistema não repete sozinho. Avise o suporte.";
+
     /// <summary>Reserva sem desfecho por mais tempo que isto é de um conector que morreu no meio.</summary>
     public static readonly TimeSpan ReservaVence = TimeSpan.FromMinutes(5);
 

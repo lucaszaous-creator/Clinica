@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Roda um comando de operação do conector TISS na VPS (credencial, envio, endereco, codigo, situacao).
+# Roda um comando de operação do conector TISS na VPS (credencial, envio, endereco, codigo, situacao, cancelar).
 # Uso (como root):   /opt/clinica-tiss-conector/current/deploy/comando.sh situacao Petrobras
 # Roteiro: docs/tiss-conector.md §4 e §5.
 #
@@ -38,6 +38,9 @@ carregar() {
 carregar "$dir/conector.env"
 case "$1" in
   situacao) ;;  # só leitura: o usuário do serviço basta
+  # Tirar uma transação Pendente da fila: o usuário do serviço já grava a fila e acrescenta à
+  # trilha (papel-tiss-conector.sql); o de operação (admin.env) não alcança a fila.
+  cancelar) ;;
   *)
     [ -r "$dir/admin.env" ] || { echo "Falta $dir/admin.env (a conexão com escrita na configuração). Ver docs/tiss-conector.md §4." >&2; exit 1; }
     carregar "$dir/admin.env"

@@ -23,6 +23,16 @@
 <div class="pagina rec-dia @(_carregando && _carregou ? "carregando" : null)">
     <CabecalhoPagina Sobretitulo="Recepção · Agenda" Titulo="Agenda do dia"
                      Subtitulo="Quem vem, em que ponto cada um está e o que falta fazer no balcão — na ordem da hora.">
+        @* Consultar elegibilidade (nov/2026): discreto, antes das ações do dia. É AQUI, na aba "Dia" (chave
+           "fila"), que a recepção vive — a Grade de horários fica fora do menu dos apps
+           (OrganizacaoNavegacao), e o botão nela não era visto. Só aparece quando há convênio com
+           consulta automática (catálogo + credencial gravada). *@
+        @if (_temConsultaDeElegibilidade)
+        {
+            <button type="button" class="botao" data-consultar-elegibilidade-agenda disabled="@(!PodeConsultarElegibilidade)"
+                    title="@(PodeConsultarElegibilidade ? "Pergunta à operadora se a carteirinha está ativa" : "Seu acesso não permite consultar a operadora.")"
+                    @onclick="AbrirElegibilidade"><Icone Nome="busca" />Consultar elegibilidade</button>
+        }
         <button type="button" class="botao" @onclick="ImprimirFolhaAsync"
                 title="A folha que o profissional leva para a sala — sem dado clínico (Ctrl+P)"><Icone Nome="imprimir" />Imprimir folha do dia</button>
         <button type="button" class="botao primario" disabled="@(!Pode(Permissao.EditarAgenda))" @onclick="NovoHorarioAsync"
@@ -251,6 +261,12 @@
     <HorarioDaAgendaForm AgendamentoId="horario" AoFechar="() => _horarioAberto = null" AoMudou="() => CarregarAsync()" />
 }
 
+@if (_elegibilidadeAberta)
+{
+    @* A aba "Agenda de <dia>" do painel lista o dia que esta tela MOSTRA. *@
+    <ElegibilidadeDaAgendaForm Dia="_dia" AoFechar="() => _elegibilidadeAberta = false" />
+}
+
 @if (_menu is not null)
 {
     @* Clicar fora fecha o "⋯" — sem isso o menu ficaria aberto por cima da linha seguinte. *@
@@ -294,7 +310,47 @@
         // "Finalizar" do consultório chegam ao balcão sem ninguém apertar Atualizar.
         _relogio = new Timer(_ => _ = InvokeAsync(BaterAsync), null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
         ConsumirPedidoDeDia();
-        return CarregarAsync();
+        return CarregarELerElegibilidadeAsync();
+    }
+
+    private async Task CarregarELerElegibilidadeAsync()
+    {
+        await CarregarAsync();
+        await LerSeHaConsultaDeElegibilidadeAsync();
+    }
+
+    // ==================== consultar elegibilidade ====================
+
+    private bool _elegibilidadeAberta, _temConsultaDeElegibilidade;
+
+    private static bool PodeConsultarElegibilidade => SessaoUsuario.Atual.PodeAlgum(EnvioTissNaTela.PermissoesDaElegibilidade);
+
+    private void AbrirElegibilidade()
+    {
+        // As duas barreiras: o botão nasce desabilitado e o clique confere de novo.
+        if (!ExigirAlgum(EnvioTissNaTela.PermissoesDaElegibilidade, "consultar a elegibilidade na operadora")) return;
+        _menu = null;
+        _elegibilidadeAberta = true;
+    }
+
+    /// <summary>
+    /// O botão só existe quando há convênio com consulta automática. Uma leitura curta ao abrir a
+    /// tela, DEPOIS da agenda (o mesmo escopo não corre em paralelo); falha aqui só esconde o botão
+    /// (e vai para o log) — nunca impede a agenda de abrir.
+    /// </summary>
+    private async Task LerSeHaConsultaDeElegibilidadeAsync()
+    {
+        try
+        {
+            using var escopo = Escopo();
+            var convenios = await escopo.ServiceProvider.GetRequiredService<ElegibilidadeNaAgendaService>().ConveniosComConsultaAsync();
+            _temConsultaDeElegibilidade = convenios.Count > 0;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — agenda do dia: não foi possível saber se há consulta de elegibilidade", ex);
+            _temConsultaDeElegibilidade = false;
+        }
     }
 
     /// <summary>Voltou à aba: relê por trás, SEM limpar a tela (a falha vai só ao log).</summary>
