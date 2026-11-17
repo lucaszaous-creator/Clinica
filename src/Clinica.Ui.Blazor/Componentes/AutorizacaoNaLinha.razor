@@ -15,11 +15,11 @@
     @if (MostraToken)
     {
         <span class="rd-token">
-            <input class="campo rd-token-campo" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="Token (6 dígitos)"
+            <input class="campo rd-token-campo" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="Token"
                    aria-label="Token do paciente (6 dígitos)" @bind="_token" @bind:event="oninput" disabled="@(!PodeAgir || Ocupado)" />
             <button type="button" class="botao mini primario" disabled="@(!PodeAgir || Ocupado || (_token ?? "").Trim().Length != 6)"
                     title="@(PodeAgir ? "Guarda o token no atendimento — a baixa já abre com ele" : "Seu acesso não permite registrar o token.")"
-                    @onclick="GuardarAsync">Guardar token</button>
+                    @onclick="GuardarAsync">Guardar</button>
             <select class="campo mini rd-sem-token" aria-label="O paciente não confirmou: motivo" disabled="@(!PodeAgir || Ocupado)"
                     value="" @onchange="SemTokenAsync">
                 <option value="">Sem token…</option>

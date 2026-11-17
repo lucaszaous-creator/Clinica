@@ -130,7 +130,7 @@
         {
             @if (_autorizacoes.AvisoDeToken is { } avisoDoToken)
             {
-                <div class="rd-aviso-token" data-aviso-token-faltando><Aviso Tom="aviso" Texto="@avisoDoToken" /></div>
+                <div class="rd-aviso-token" data-aviso-token-faltando><Aviso Tom="atencao" Texto="@avisoDoToken" /></div>
             }
             <div class="tabela-rolagem">
                 <table class="lista rd-tabela">
@@ -181,16 +181,6 @@
                                                     }
                                                 </span>
                                             }
-                                            @if (_autorizacoes.HorariosQuePedem.Contains(l.AgendamentoId))
-                                            {
-                                                @* A autorização pelo sistema (nov/2026): o selo e, autorizada, o token ali mesmo. *@
-                                                <AutorizacaoNaLinha Autorizacao="@(_autorizacoes.PorHorario.TryGetValue(l.AgendamentoId, out var aut) ? aut : null)"
-                                                                    Hoje="Hoje" EhHoje="l.EhHoje" EmAberto="@(l.Situacao == StatusAgendamento.Agendado)"
-                                                                    PodeAgir="PodeAutorizar" Ocupado="_ocupado"
-                                                                    Erro="@(_erroDoToken.TryGetValue(l.AgendamentoId, out var erroToken) ? erroToken : null)"
-                                                                    AoPedir="() => PedirAutorizacaoAsync(l)"
-                                                                    AoGuardarToken="t => GuardarTokenAsync(l, t)" AoSemToken="m => SemTokenAsync(l, m)" />
-                                            }
                                         </div>
                                     </div>
                                 </td>
@@ -201,6 +191,16 @@
                                 <td class="rd-col-status">
                                     <span class="rd-status grupo-@l.Grupo"><i class="rd-ponto"></i>@l.Status</span>
                                     @if (l.StatusDetalhe.Length > 0) { <span class="secundario">@l.StatusDetalhe</span> }
+                                    @if (_autorizacoes.HorariosQuePedem.Contains(l.AgendamentoId))
+                                    {
+                                        @* A autorização pelo sistema (nov/2026): o selo e, autorizada, o token ali mesmo. *@
+                                        <AutorizacaoNaLinha Autorizacao="@(_autorizacoes.PorHorario.TryGetValue(l.AgendamentoId, out var aut) ? aut : null)"
+                                                            Hoje="Hoje" EhHoje="l.EhHoje" EmAberto="@(l.Situacao == StatusAgendamento.Agendado)"
+                                                            PodeAgir="PodeAutorizar" Ocupado="_ocupado"
+                                                            Erro="@(_erroDoToken.TryGetValue(l.AgendamentoId, out var erroToken) ? erroToken : null)"
+                                                            AoPedir="() => PedirAutorizacaoAsync(l)"
+                                                            AoGuardarToken="t => GuardarTokenAsync(l, t)" AoSemToken="m => SemTokenAsync(l, m)" />
+                                    }
                                 </td>
                                 <td class="direita rd-col-acoes nao-quebra">
                                     <span class="botoes-linha">

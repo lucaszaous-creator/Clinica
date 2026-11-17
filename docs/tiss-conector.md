@@ -836,6 +836,96 @@ leva **até 100 guias**; e a **confirmação de entrega continua no portal** (en
 6. **Voltar para produção:** `sudo $C ambiente Amil producao --operador 'Seu Nome'` e `sudo $C situacao Amil`.
    O envio continua desligado; a elegibilidade das telas volta a funcionar.
 
+### Amil: a autorização pelo sistema e o token na recepção (nov/2026)
+
+**O que muda para a recepção.** A senha de autorização deixa de ser copiada do Portal do Credenciado e o
+token deixa de ser digitado na baixa (que acontece dias depois, com o paciente já em casa):
+
+1. **Chegou.** A recepção marca "Chegou" (aba Dia, Início ou o formulário do horário). Com a chave da Amil
+   ligada, o sistema pede a autorização sozinho, pela fila do conector (`solicitacaoProcedimento` 4.03.00).
+2. **Autorizado.** A senha, a data e a validade ficam guardadas no atendimento (`AutorizacoesTiss`), e a
+   linha da agenda mostra o selo **"Autorizado · peça o token ao paciente"** com o campo do token.
+3. **Token.** O paciente abre o app Amil Clientes e mostra os 6 dígitos; a recepção digita e guarda
+   (fica quem digitou e quando). O selo vira **"Autorizado · token ok"**. Sem token: **"Sem token…"** e o
+   motivo da tabela TISS (sem celular, instabilidade, não quis informar), ali mesmo → selo "Não confirmou".
+   Enquanto faltar token de alguém autorizado hoje, a aba Dia mostra em amarelo
+   **"Faltou o token de N pacientes Amil hoje"**.
+4. **Baixa.** O pop-up abre com a senha, a data, a validade e o token **carregados e travados**, o selo
+   "autorizado pela Amil em DD/MM", e o resto que o sistema já sabe (executante pelo CPF, conselho e CBO;
+   TUSS e valor da tabela da Amil; datas e horas). A pessoa confere e confirma. Corrigir o token na baixa
+   é exceção ("Corrigir"): grava, e a trilha diz que mudou (`GuiaAnsDiferenteDaAutorizacao`, sem o token).
+   Sem autorização do sistema, a baixa avisa "Autorização feita fora do sistema" e os campos ficam livres.
+
+**As respostas da Amil** (`ct_situacaoAutorizacao`, `statusSolicitacao`):
+
+| Resposta | O que o sistema faz | O que a recepção vê |
+|---|---|---|
+| 1 autorizado / 7 parcial | guarda senha, data, validade (e o número na operadora) | "Autorizado · peça o token ao paciente" |
+| 2 em análise / 4–5 aguardando | a MESMA transação volta à fila e pergunta a situação (`solicitacao-status-autorizacao`) a cada **30 min**, até **16 vezes** (8 h); passado o teto, para | "Autorização em análise"; depois do teto, o motivo manda conferir no portal |
+| 3 negado, ou `mensagemErro` | guarda o motivo (código e descrição) | "Autorização negada" + motivo, e "Pedir de novo" |
+| sem resposta, HTTP de erro, corpo que não é TISS | **não se sabe** — nunca "negado"; a mensagem que saiu não é repetida sozinha | "Autorização sem resposta — não é negativa. Confira antes de pedir de novo." |
+| 6 cancelada | guarda como cancelada | "Pedir autorização" volta |
+
+**Pedido não é cobrança, mas não duplica.** "Pedir autorização"/"Pedir de novo" (na coluna Status da
+linha, mesmas permissões do Chegou) devolve a autorização que está na fila, em análise ou valendo: um
+horário tem **uma** autorização valendo. Pedir de novo só depois de negada, cancelada, vencida ou sem
+resposta. O número da guia de solicitação é `A<id>`.
+
+**Desmarcado, falta ou cancelado.** Pedido ainda na fila: é cancelado e nada sai. Senha emitida (ou em
+análise): o sistema pede o cancelamento pelo `cancela-guia` 4.03.00. **O XSD não tem cancelamento por
+senha**: cancela-se a **guia de solicitação** (`tipoGuia` 1) pelo número dela no prestador e, quando veio,
+na operadora. Substituído (a sessão aconteceu por fora) não cancela.
+
+**Acupuntura em série.** Um pedido **por sessão**, no Chegou de cada uma: o manual (p. 22) pede validação
+a cada novo atendimento, e o token nasce com cada autorização (p. 25). O XSD aceita `quantidadeSolicitada`
+> 1, mas o manual não diz se uma senha para N sessões vale com um token por sessão. **Pergunta aberta ao
+Núcleo TISS:** "uma solicitação com quantidade N para acupuntura em série é aceita, e cada sessão gera
+token próprio?"
+
+**A chave.** `comando.sh autorizacao Amil ligar|desligar --operador NOME` (admin.env), **desligada** por
+padrão e separada do envio de guias (`envio`) e de `TISS_ENVIO_HABILITADO`. Desligada: a agenda não pede,
+não mostra selo, campo nem botão, e o conector recusa o que estiver na fila. `situacao Amil` mostra
+"autorização LIGADA/desligada". Endereços (catálogo, trocáveis por `endereco Amil autorizacao|status-autorizacao|cancelamento URL`):
+`api-tiss-solicitacao-procedimento/v4.03.00`, `api-tiss-solicitacao-status-autorizacao/v4.03.00`,
+`api-tiss-cancela-guia/v4.03.00` (o cancelamento de guia da Amil também passou a 4.03.00, Manual p. 53).
+
+**Dados e LGPD.** O conector lê só a fotografia do pedido na autorização (carteira, procedimento,
+profissional) — `GRANT SELECT, UPDATE ON "AutorizacoesTiss"` no `papel-tiss-conector.sql`, medido por
+`PapeisDoConectorTissTests`; não lê agenda nem ficha. O **token** é dado de autenticação do beneficiário:
+fica só na autorização e na guia, nunca em log nem na trilha, e fora da baixa aparece mascarado (`••••13`).
+A senha também não vai para a frase da fila nem para a trilha.
+
+**Testar na homologação** — `testar-autorizacao` (usuário do serviço, `conector.env`): só com a Amil em
+homologação, UMA ida, nada gravado além da linha `TesteTissHomologacao` (sem carteira e sem senha).
+
+```bash
+C=/opt/clinica-tiss-conector/current/deploy/comando.sh
+sudo $C situacao Amil                                   # login/senha cadastrados, autorização desligada
+sudo $C ambiente Amil homologacao --operador 'Seu Nome'
+sudo $C testar-autorizacao Amil --carteira CARTEIRA_VALIDA --procedimento 10101012 \
+     --cpf-profissional CPF_DO_PROFISSIONAL --crm NUMERO --uf 33 --cbo 225125 --operador 'Seu Nome'
+#   "Autorizado … Senha da homologação: X" = o caminho funciona; "Em análise" = idem, com análise;
+#   "Negado: código - motivo" = resposta da Amil (ex.: carteira, CBO); HTTP 404/415 = --soap-action ou Núcleo TISS.
+sudo $C ambiente Amil producao --operador 'Seu Nome'
+```
+
+O XSD 4.03.00 **não tem CPF do profissional** na solicitação (o solicitante vai por conselho, número, UF
+e CBO): `--cpf-profissional` é conferido e citado na saída, mas não vai na mensagem; `--crm`, `--uf`
+(código IBGE, 33 = RJ) e `--cbo` vão. Sem eles, vai o profissional de mentira (CRM 000000/RJ, CBO 225125).
+
+#### UX · DX · CX
+
+- 🧑‍💻 **UX** — a recepção não abre o portal: marca Chegou, pede o token ao paciente presente e digita 6
+  dígitos na própria linha; o amarelo do dia lembra quem falta enquanto ainda dá. A baixa vira conferir e
+  confirmar. Falha de rede nunca aparece como "negado".
+- 🛠️ **DX** — uma entidade (`AutorizacaoTiss`, migration aditiva), um serviço (`AutorizacaoTissService`:
+  pedir, cancelar, token, selo, aviso, divergência — com teste), dois processadores no conector e a
+  mesma fila (sem tabela de agendamento nova: a pergunta da situação reaproveita a transação). Regra na
+  Application; Razor só desenha (`AutorizacaoNaLinha`). Testes: `TissAutorizacaoWsTests`,
+  `TissAutorizacaoFluxoTests`, `PapeisDoConectorTissTests`.
+- 🤝 **CX** — menos glosa de senha (1403) e de token (3096/1406), sem copiar à mão; risco controlado por
+  chave própria desligada, homologação antes e nenhum reenvio automático do que saiu.
+
 ### Testar a elegibilidade da Amil na VPS (primeira vez)
 
 1. Publicar este commit (`deploy/tiss-conector/publicar.sh`) e instalar por cima (`sudo bash instalar.sh Amil`),
@@ -961,6 +1051,14 @@ Dito sem enfeite:
   passo é trocar a senha no portal e girar a credencial aqui.
 
 ## O que não foi verificado
+
+- **A autorização pelo sistema (nov/2026) nunca foi à Amil**, nem à homologação: está provado que o
+  pedido, a pergunta da situação e o cancelamento da guia de solicitação saem válidos no XSD 4.03.00 e
+  que as respostas escritas segundo o XSD são lidas certo. Não se sabe se a Amil aceita a solicitação
+  com o login como código do prestador, se responde "autorizado" na hora para consulta (o manual diz que
+  sim), se a validade vem na resposta, se o `cancela-guia` cancela uma guia de **solicitação**
+  (`tipoGuia` 1) e se uma solicitação com quantidade N vale para acupuntura em série. A migration
+  `AutorizacaoTissDaAmil` não rodou contra Postgres.
 
 - **A Amil nunca foi chamada** (nem o WSDL, por este código): o primeiro teste real é na VPS. Não se
   sabe se o endereço APIM responde com o login e a senha do portal ou se exige o "link único"; se o
