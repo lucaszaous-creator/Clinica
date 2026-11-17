@@ -8,7 +8,7 @@
 -- Rodar de novo é seguro.
 --
 -- Ele substitui, no admin.env, a senha do usuário dos APPS (que alcança o banco inteiro): este
--- só lê e grava a configuração e só ACRESCENTA na trilha. Não lê paciente, guia nem fila; não apaga
+-- só lê e grava a configuração, lê o cadastro de convênios e só ACRESCENTA na trilha. Não lê paciente, guia nem fila; não apaga
 -- nada; não cria nem altera tabela.
 DO $$ BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'tiss_operacao') THEN
@@ -23,6 +23,10 @@ REVOKE ALL ON ALL TABLES IN SCHEMA public FROM tiss_operacao;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM tiss_operacao;
 
 GRANT SELECT, INSERT, UPDATE ON public."Configuracoes" TO tiss_operacao;
+-- O cadastro do convênio (só leitura): a família da operadora decide o catálogo — o "ambiente", a
+-- regra do código do prestador e o endereço padrão (nov/2026: sem esta linha, "comando.sh ambiente"
+-- parou em 42501 na VPS). PapeisDoConectorTissTests mede esta lista contra o que o código lê.
+GRANT SELECT ON public."Convenios" TO tiss_operacao;
 GRANT INSERT ON public."Auditoria" TO tiss_operacao;
 -- O EF grava a linha da trilha com RETURNING "Id": ler SÓ essa coluna é preciso para o INSERT passar.
 GRANT SELECT ("Id") ON public."Auditoria" TO tiss_operacao;
