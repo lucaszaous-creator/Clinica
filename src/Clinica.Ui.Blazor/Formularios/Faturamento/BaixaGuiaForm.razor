@@ -264,7 +264,7 @@
                                 @if (_guia.ExigeEquipe)
                                 {
                                     @* A EQUIPE (Amil): o profissional executante pelo CPF — é por ele que a Amil o identifica. *@
-                                    <Campo Rotulo="CPF do profissional" Erro="@Erro(nameof(DadosGuiaConsultaAns.EquipeCpf))" Dica="Do cadastro da equipe.">
+                                    <Campo Rotulo="CPF do profissional" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.EquipeCpf))" Dica="Do cadastro da equipe. É por ele que a operadora identifica o profissional.">
                                         <input id="ga-EquipeCpf" class="campo numero-guia" maxlength="14" inputmode="numeric" autocomplete="off"
                                                value="@_guia.EquipeCpf" @oninput="e => _guia.EquipeCpf = Texto(e)" />
                                     </Campo>
