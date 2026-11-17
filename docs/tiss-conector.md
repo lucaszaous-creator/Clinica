@@ -701,6 +701,53 @@ caracteres do corpo, sem a carteira e sem segredo. 5xx e falta de resposta conti
 primeira coluna do `comando.sh situacao`). É a mesma regra do "Cancelar" das telas: só sai o que ainda
 não foi pego pelo conector; o que já está em envio ou terminou não muda (código de saída 1).
 
+### Amil: homologação e os comandos de teste (nov/2026)
+
+O Núcleo TISS respondeu: há **homologação** num endereço único,
+`https://api-dev.servicos.grupoamil.com.br/api-tiss-servico-test` (o `?wsdl` dá 404, então o serviço é
+decidido pela mensagem), com o login e a senha do portal e qualquer carteira válida de produção; o lote
+leva **até 100 guias**; e a **confirmação de entrega continua no portal** (enviado não é entregue).
+
+- `comando.sh ambiente Amil homologacao|producao --operador NOME` aponta TODOS os serviços da Amil para a
+  homologação (por cima até do endereço cadastrado) ou de volta. Vai para a trilha
+  (`AmbienteTissHomologacao`/`AmbienteTissProducao`), e o `situacao Amil` mostra o ambiente em destaque.
+  **Enquanto a Amil estiver em homologação, a fila de produção recusa os pedidos das telas** (a
+  consulta de elegibilidade da ficha e da agenda termina recusada, com a frase do ambiente): nada da
+  tela vai à homologação. Volte para produção ao terminar.
+- `testar-elegibilidade`, `testar-lote` e `testar-protocolo` (`TestesNaHomologacao`): só rodam com o
+  convênio em homologação e conferem que o endereço resolvido é o dela; funcionam com o envio desligado;
+  fazem UMA ida; mostram a resposta (protocolo, ou o HTTP com até 300 caracteres do corpo, sem a senha) e
+  **não gravam nada nas guias nem na fila** — só uma linha `TesteTissHomologacao` na trilha, sem carteira.
+  Rodam com o usuário do serviço (`conector.env`); o `ambiente` usa o `admin.env`.
+- `testar-lote --guias ID[,ID…]` lê as guias Amil conferidas (SP/SADT) e as manda com um número próprio de
+  teste (`H<guia>T<hora>`). Como o envio da Amil está desligado, a baixa ainda não confere guia Amil: o
+  caminho de hoje é `--exemplo --carteira N`, uma guia SP/SADT fictícia em memória (contratado = a
+  clínica; profissional "PROFISSIONAL DE TESTE", CRM 000000/RJ — a homologação pode recusá-lo, e saber
+  isso é parte do teste), com `--senha`, `--token`, `--procedimento` (padrão 10101012) e `--valor`
+  (padrão 1,00) opcionais. Sem `--token`, vai `ausenciaCodValidacao` 03.
+- `--soap-action VALOR` muda o cabeçalho SOAPAction (padrão `""`, o do WSDL). Se o ponto único da
+  homologação responder que não reconhece o serviço, é isto que se tenta.
+- Depois de um envio REAL recebido, o painel de envio mostra "Enviado. Confirme a entrega no portal da
+  Amil (protocolo N): enviado não é entregue." (`EnvioTissNaTela.LembreteDeEntrega`).
+
+**Roteiro do primeiro teste na homologação** (na VPS 1, como root; `C=/opt/clinica-tiss-conector/current/deploy/comando.sh`):
+
+0. O conector instalado tem de ser deste commit ou posterior (`publicar.sh` + `instalar.sh`, acima). Para
+   `--guias`, o banco também precisa da migration `GuiaSpSadtDaAmil` (aplicada quando um app desta versão
+   abre); para `--exemplo`, elegibilidade e protocolo, não.
+1. Conferir: `sudo $C situacao Amil` → login e senha cadastrados, envio desligado, ambiente de produção.
+2. Apontar para a homologação: `sudo $C ambiente Amil homologacao --operador 'Seu Nome'` e de novo
+   `sudo $C situacao Amil` → a linha `*** Amil: AMBIENTE DE HOMOLOGAÇÃO … ***`.
+3. Provar o ambiente: `sudo $C testar-elegibilidade Amil --carteira CARTEIRA_VALIDA --operador 'Seu Nome'`
+   → "Elegível"/"Não elegível" é resposta da homologação; `LoginInvalido` = credencial; HTTP 404/405/415 ou
+   "não reconhece o serviço" = tentar `--soap-action` (ver acima) ou perguntar ao Núcleo TISS.
+4. Um lote de uma guia: `sudo $C testar-lote Amil --exemplo --carteira CARTEIRA_VALIDA --senha SENHA_DE_UMA_AUTORIZACAO --token TOKEN --operador 'Seu Nome'`
+   (sem senha e token, a homologação deve devolver a glosa de senha/token — também é resultado).
+   → `PROTOCOLO: N` = recebido; senão, a frase da operadora ou o HTTP com o trecho do corpo.
+5. A situação do protocolo: `sudo $C testar-protocolo Amil --protocolo N --operador 'Seu Nome'`.
+6. **Voltar para produção:** `sudo $C ambiente Amil producao --operador 'Seu Nome'` e `sudo $C situacao Amil`.
+   O envio continua desligado; a elegibilidade das telas volta a funcionar.
+
 ### Testar a elegibilidade da Amil na VPS (primeira vez)
 
 1. Publicar este commit (`deploy/tiss-conector/publicar.sh`) e instalar por cima (`sudo bash instalar.sh Amil`),
