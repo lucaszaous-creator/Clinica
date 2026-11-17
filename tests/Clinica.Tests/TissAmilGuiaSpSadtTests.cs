@@ -150,10 +150,12 @@ public sealed class TissAmilGuiaSpSadtTests : IDisposable
         guia.Name.Should().Be(Ans + "guiaSP-SADT");
         var mensagem = TissLoteGuiasWs.MontarPedido(new PedidoLoteGuiasTiss
         {
-            Remetente = new RemetenteTissWs { RegistroAnsOperadora = "326305", CodigoPrestadorNaOperadora = Login, Login = Login, SenhaMd5 = TissElegibilidadeWs.SenhaEmMd5(Senha) },
+            Remetente = new RemetenteTissWs { RegistroAnsOperadora = "326305", CodigoPrestadorNaOperadora = Login, Login = Login, SenhaMd5 = TissElegibilidadeWs.SenhaEmMd5(Senha), VersaoTiss = "4.03.00" },
             Sequencial = "000000001001", Momento = new DateTime(2026, 11, 10, 9, 0, 0), NumeroLote = "900000000099", Guias = [guia]
         });
-        TissWsDeTeste.ValidarNoXsd(mensagem).Should().BeEmpty();
+        // A Amil recebe o lote em 4.03.00 (o XSD oficial dela); a guia é a mesma estrutura da 4.01.00.
+        TissWsDeTeste.ValidarNoXsd(mensagem, "4.03.00").Should().BeEmpty();
+        mensagem.Descendants(Ans + "Padrao").Single().Value.Should().Be("4.03.00");
 
         var autorizacao = guia.Element(Ans + "dadosAutorizacao")!;
         autorizacao.Element(Ans + "senha")!.Value.Should().Be("SENHA0001");
@@ -250,9 +252,47 @@ public sealed class TissAmilGuiaSpSadtTests : IDisposable
         ida.ContentType.Should().Be("text/xml; charset=utf-8");
         using var leitor = System.Xml.XmlReader.Create(new MemoryStream(ida.Bytes));
         var mensagem = XDocument.Load(leitor).Root!.Element(Soap + "Body")!.Elements().Single();
-        TissWsDeTeste.ValidarNoXsd(mensagem).Should().BeEmpty();
+        TissWsDeTeste.ValidarNoXsd(mensagem, "4.03.00").Should().BeEmpty();
+        mensagem.Descendants(Ans + "Padrao").Single().Value.Should().Be("4.03.00");
         mensagem.Descendants(Ans + "guiaSP-SADT").Should().ContainSingle();
         mensagem.Descendants(Ans + "registroANS").First().Value.Should().Be("326305");
+    }
+
+    // ==================== a versão do padrão por operadora ====================
+
+    [Fact]
+    public void O_lote_da_Petrobras_continua_em_4_01_00_byte_a_byte_e_versao_desconhecida_e_recusada()
+    {
+        var pedido = new PedidoLoteGuiasTiss
+        {
+            Remetente = TissWsDeTeste.Remetente(), Sequencial = TissWsDeTeste.Sequencial, Momento = TissWsDeTeste.Momento,
+            NumeroLote = "42", Guias = [TissWsDeTeste.GuiaConsulta()]
+        };
+        var padrao = TissLoteGuiasWs.MontarEnvelope(pedido);
+        // Dizer 4.01.00 explicitamente dá EXATAMENTE a mensagem de antes (sem versão dita).
+        TissLoteGuiasWs.MontarEnvelope(pedido with { Remetente = TissWsDeTeste.Remetente() with { VersaoTiss = "4.01.00" } })
+            .Should().Be(padrao);
+        XDocument.Parse(padrao).Descendants(Ans + "Padrao").Single().Value.Should().Be("4.01.00");
+        TissWsDeTeste.ValidarNoXsd(TissLoteGuiasWs.MontarPedido(pedido)).Should().BeEmpty();
+
+        var desconhecida = () => TissLoteGuiasWs.MontarPedido(pedido with { Remetente = TissWsDeTeste.Remetente() with { VersaoTiss = "4.02.00" } });
+        desconhecida.Should().Throw<ArgumentException>().WithMessage("*4.02.00*");
+    }
+
+    [Fact]
+    public void A_mensagem_da_Amil_em_4_03_00_nao_passaria_no_XSD_4_01_00()
+    {
+        // Prova de que a validação 4.03.00 não é de enfeite: o XSD 4.01.00 recusa "4.03.00" no Padrao.
+        var codigo = new CodigoFaturamento { Id = 98 };
+        GuiaAnsNaBaixa.Aplicar(codigo, GuiaAmil(), "faturista.teste", DateTime.Now);
+        var mensagem = TissLoteGuiasWs.MontarPedido(new PedidoLoteGuiasTiss
+        {
+            Remetente = new RemetenteTissWs { RegistroAnsOperadora = "326305", CodigoPrestadorNaOperadora = Login, Login = Login, SenhaMd5 = TissElegibilidadeWs.SenhaEmMd5(Senha), VersaoTiss = "4.03.00" },
+            Sequencial = "000000001001", Momento = new DateTime(2026, 11, 10, 9, 0, 0), NumeroLote = "900000000098",
+            Guias = [TissExportService.GuiaConferida(codigo, NumeroGuiaPrestadorTiss.Gerar(98))]
+        });
+        TissWsDeTeste.ValidarNoXsd(mensagem, "4.03.00").Should().BeEmpty();
+        TissWsDeTeste.ValidarNoXsd(mensagem, "4.01.00").Should().NotBeEmpty();
     }
 
     // ==================== peças ====================

@@ -45,9 +45,17 @@ public sealed class TissAmilTests : IDisposable
         amil.CodigoDoPrestador.Should().Be(CodigoDoPrestadorTiss.LoginDoWebService);
         amil.EnvioDeGuiaNasTelas.Should().BeFalse("a guia da Amil ainda não passa pela conferência ANS na baixa");
         amil.Endereco(TipoTransacaoTiss.Elegibilidade).Should().Be(new Uri("https://api.servicos.grupoamil.com.br/api-tiss-verifica-elegibilidade/v4.01.00"));
-        amil.Endereco(TipoTransacaoTiss.EnvioGuia).Should().Be(new Uri("https://api.servicos.grupoamil.com.br/api-tiss-lote-guias/v4.01.00"));
-        amil.Endereco(TipoTransacaoTiss.StatusProtocolo).Should().Be(new Uri("https://api.servicos.grupoamil.com.br/api-tiss-solicitacao-status-protocolo/v4.01.00"));
+        // Resposta do Núcleo TISS (nov/2026): lote, status e demonstrativo em 4.03.00.
+        amil.Endereco(TipoTransacaoTiss.EnvioGuia).Should().Be(new Uri("https://api.servicos.grupoamil.com.br/api-tiss-lote-guias/v4.03.00"));
+        amil.Endereco(TipoTransacaoTiss.StatusProtocolo).Should().Be(new Uri("https://api.servicos.grupoamil.com.br/api-tiss-solicitacao-status-protocolo/v4.03.00"));
+        amil.EnderecoDemonstrativo.Should().Be(new Uri("https://api.servicos.grupoamil.com.br/api-tiss-solicitacao-demonstrativo-retorno/v4.03.00"));
         amil.Endereco(TipoTransacaoTiss.CancelamentoGuia).Should().Be(new Uri("https://api.servicos.grupoamil.com.br/api-tiss-cancela-guia/v4.01.00"));
+        amil.VersaoTiss(TipoTransacaoTiss.EnvioGuia).Should().Be("4.03.00");
+        amil.VersaoTiss(TipoTransacaoTiss.StatusProtocolo).Should().Be("4.03.00");
+        amil.VersaoTiss(TipoTransacaoTiss.Elegibilidade).Should().Be("4.01.00", "funcionou em produção assim");
+        amil.VersaoTiss(TipoTransacaoTiss.CancelamentoGuia).Should().Be("4.01.00");
+        foreach (var tipo in Enum.GetValues<TipoTransacaoTiss>())
+            OperadorasTiss.SaudePetrobras.VersaoTiss(tipo).Should().Be("4.01.00", "a Saúde Petrobras não muda");
     }
 
     [Fact]
