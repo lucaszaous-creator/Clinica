@@ -166,6 +166,16 @@ public sealed class RetencaoNaTelaTests
     }
 
     [Fact]
+    public void A_etiqueta_da_faixa_diz_com_quem_o_caso_esta()
+    {
+        // Quem atende pela recepção vê com quem está o caso; quem cuida dele lê "com você".
+        Assert.Equal("Retenção · BSV · 32 dias · com Ana", RetencaoNaTela.Etiqueta(Sebastiao, usuarioId: 99));
+        Assert.Equal("Retenção · BSV · 32 dias · com você", RetencaoNaTela.Etiqueta(Sebastiao, usuarioId: 7));
+        Assert.Equal("Retenção · BSV · 32 dias", RetencaoNaTela.Etiqueta(Sebastiao with { ResponsavelId = null }, usuarioId: 7));
+        Assert.Equal("Retenção · BSV · indicado há 3 dias · com Ana", RetencaoNaTela.Etiqueta(Felipe, usuarioId: 99));
+    }
+
+    [Fact]
     public void A_abertura_da_conversa_sem_mensagens_e_um_modelo_para_quem_autorizou()
     {
         var convite = RetencaoNaTela.Abertura(Sebastiao, null, Agora)!;

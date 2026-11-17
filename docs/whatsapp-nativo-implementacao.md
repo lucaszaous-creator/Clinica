@@ -1187,3 +1187,37 @@ alterado). "Marcar como lida" usa o `/read` de sempre e não depende da publica�
   balão e na coluna da ficha.
 - **Reenviar modelo ou arquivo**: o modelo se escolhe de novo em Modelos e o arquivo se anexa de novo
   — reenviar por aqui pularia as conferências desses caminhos.
+
+## 19. As conversas da retenção: um número só, duas caixas (17/11/2026)
+
+A direção pediu: a Patrycia (gerente) cuida da retenção, a Flávia (secretária) atende o que chega pela
+recepção, e uma não pega a conversa da outra. A regra mora **no CRM**
+(`semdor-crm/docs/retencao-conversas.md`, `RetentionRouting.cs`):
+
+- O convite que sai pelo modo Retenção já ia marcado (`AppReply.ContactRecordedByApp`, em
+  `WhatsAppDaRecepcaoService.EnviarModeloAsync`). Agora o CRM também leva a conversa para a fila
+  **Retenção**, com quem enviou, por 30 dias.
+- A resposta do paciente em até 7 dias volta para ela, sem o menu.
+- Se ele escrever por conta própria com o caso aberto, recebe o menu com "0. Falar com Patrycia" no topo.
+  Escolhendo um setor, segue para a recepção.
+- A recepção não vê a fila Retenção: perfis novos do CRM nascem sem ela, e a gestão a marca na tela
+  Equipe só para quem cuida da retenção.
+
+**O contrato com os apps não mudou** (`ContratosDoCrm.cs`, mesmo SHA-256). A fila nova chega pela lista
+`AppSession.Queues` e já aparece na transferência. Passar para a Patrycia é "Transferir → Retenção".
+
+**No app**, a etiqueta da faixa diz com quem o caso está: "Retenção · BSV · 32 dias · com Patrycia"
+(`RetencaoNaTela.Etiqueta`, com teste). Quem cuida lê "com você". Assim a Flávia sabe, antes de marcar
+ou combinar algo, que a Patrycia está negociando a volta daquele paciente.
+
+### 🧑‍💻 UX
+- A Flávia continua na mesma tela e não vê as conversas da retenção. Quando a conversa de um paciente em retenção cai com ela, a etiqueta avisa.
+- A Patrycia recebe de volta as respostas aos convites dela.
+
+### 🛠️ DX
+- No app, uma função pura (`Etiqueta`) e uma linha de Razor. O resto é configuração da fila no CRM.
+- Publicar o CRM antes ou depois dos apps não quebra nada. Sem o CRM novo, a fila Retenção não existe e tudo funciona como antes.
+
+### 🤝 CX
+- Um número só e sem custo novo.
+- Para a produção: publicar o CRM, marcar a fila Retenção no perfil da Patrycia (tela Equipe) e conferir que a Flávia não a tem.

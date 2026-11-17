@@ -296,7 +296,7 @@ else
                     }
                     @if (c.Caso is { } caso)
                     {
-                        <span class="selo tom-info"><Icone Nome="coracao" />Retenção · @RetencaoNaTela.Tratamento(caso.Modalidade) · @RetencaoNaTela.Dias(caso)</span>
+                        <span class="selo tom-info"><Icone Nome="coracao" />@RetencaoNaTela.Etiqueta(caso, SessaoUsuario.Atual.UsuarioId)</span>
                     }
                 </div>
                 @if (SemDorLigado && _resumoSemDor is { } resumoAberto && resumoAberto.Conversa == c.Conversa?.Id)

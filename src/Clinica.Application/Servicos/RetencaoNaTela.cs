@@ -276,6 +276,18 @@ public static class RetencaoNaTela
     public static string Dias(LinhaAcompanhamento l)
         => l.Tipo == TipoAcompanhamento.NovoBsv ? "indicado há " + ConversaDoAcompanhamento.TempoTexto(l) : ConversaDoAcompanhamento.TempoTexto(l);
 
+    /// <summary>
+    /// A etiqueta da faixa da conversa: "Retenção · BSV · 32 dias · com Patrycia" (nov/2026). Quem atende pela
+    /// recepção vê com quem o caso está antes de marcar ou combinar algo, e quem cuida dele lê "com você".
+    /// Sem responsável, a etiqueta não inventa um.
+    /// </summary>
+    public static string Etiqueta(LinhaAcompanhamento caso, int usuarioId)
+    {
+        var etiqueta = $"Retenção · {Tratamento(caso.Modalidade)} · {Dias(caso)}";
+        if (caso.ResponsavelId is null) return etiqueta;
+        return etiqueta + " · com " + (caso.ResponsavelId == usuarioId ? "você" : ConversaDoAcompanhamento.Dono(caso, usuarioId));
+    }
+
     /// <summary>"BSV · última 22/09 · 6 sessões · pacote com saldo" / "BSV · indicado em 21/10 por Dr. Marcos".</summary>
     public static string Detalhe(LinhaAcompanhamento l)
     {
