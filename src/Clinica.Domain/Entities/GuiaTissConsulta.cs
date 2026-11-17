@@ -138,8 +138,9 @@ public class GuiaTissConsulta
     public string? DescricaoProcedimento { get; set; }
 
     /// <summary>
-    /// Como o beneficiário confirmou o atendimento no portal (nov/2026): "token", "qrcode", "facial" ou
-    /// "nao" (<c>GuiaAnsNaBaixa.Confirmacao*</c>). Nulo nas guias anteriores a este campo.
+    /// Como o beneficiário confirmou o atendimento (nov/2026, decisão do dono: a Amil é faturada só pelo
+    /// sistema, com o TOKEN na guia): "token" ou "nao" (<c>GuiaAnsNaBaixa.Confirmacao*</c>). Nulo nas
+    /// guias anteriores a este campo.
     /// </summary>
     public string? FormaConfirmacao { get; set; }
 
@@ -150,11 +151,11 @@ public class GuiaTissConsulta
     public TimeOnly? HoraInicial { get; set; }
     public TimeOnly? HoraFinal { get; set; }
 
-    /// <summary>Equipe (campos 49–50): o CPF do profissional executante (11 dígitos)…</summary>
+    /// <summary>
+    /// Equipe (campos 49–50): o CPF do profissional executante (11 dígitos) — é por ele que a Amil
+    /// identifica o profissional (cadastrado em "Meus Dados" no portal; não existe código de profissional).
+    /// </summary>
     public string? EquipeCpf { get; set; }
-
-    /// <summary>…ou o código dele na operadora, que vence o CPF quando existe.</summary>
-    public string? EquipeCodigoNaOperadora { get; set; }
 
     /// <summary>Grau de participação (<c>dm_grauPart</c>; "12" = clínico).</summary>
     public string? GrauParticipacao { get; set; }

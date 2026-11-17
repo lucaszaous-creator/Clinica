@@ -207,12 +207,13 @@ public sealed class TissAmilGuiaSpSadtTests : IDisposable
     public void A_janela_do_1o_ao_5o_dia_util_das_7h_as_19h()
     {
         // Nov/2026: dia 2 é segunda-feira (1º dia útil); dia 6 é o 5º; dia 9 é o 6º.
-        PrazosTiss.DiaUtilDoMes(new DateOnly(2026, 11, 2)).Should().Be(1);
-        PrazosTiss.DiaUtilDoMes(new DateOnly(2026, 11, 6)).Should().Be(5);
+        // Nov/2026: dia 2 (segunda) é Finados — o 1º dia útil é o 3, e o 5º é o 9.
+        PrazosTiss.DiaUtilDoMes(new DateOnly(2026, 11, 3)).Should().Be(1);
+        PrazosTiss.DiaUtilDoMes(new DateOnly(2026, 11, 9)).Should().Be(5);
         PrazosTiss.DiaUtilDoMes(new DateOnly(2026, 11, 1)).Should().BeNull("domingo");
         PrazosTiss.JanelaDeEnvio(OperadorasTiss.Amil, new DateTime(2026, 11, 3, 10, 0, 0)).Should().BeNull();
         PrazosTiss.JanelaDeEnvio(OperadorasTiss.Amil, new DateTime(2026, 11, 3, 19, 30, 0)).Should().Contain("das 07:00 às 19:00");
-        PrazosTiss.JanelaDeEnvio(OperadorasTiss.Amil, new DateTime(2026, 11, 9, 10, 0, 0)).Should().Contain("6º dia útil");
+        PrazosTiss.JanelaDeEnvio(OperadorasTiss.Amil, new DateTime(2026, 11, 10, 10, 0, 0)).Should().Contain("6º dia útil");
         PrazosTiss.JanelaDeEnvio(OperadorasTiss.SaudePetrobras, new DateTime(2026, 11, 9, 23, 0, 0)).Should().BeNull();
     }
 
@@ -221,7 +222,7 @@ public sealed class TissAmilGuiaSpSadtTests : IDisposable
     [Fact]
     public async Task A_conferencia_do_lote_da_Amil_avisa_a_janela_e_o_prazo_sem_impedir_o_envio()
     {
-        _b.Agora = new DateTime(2026, 11, 9, 10, 0, 0); // 6º dia útil: fora da janela
+        _b.Agora = new DateTime(2026, 11, 10, 10, 0, 0); // 6º dia útil (dia 2 é Finados): fora da janela
         var (_, guia) = await GuiaAmilNoBancoAsync(atendidoEm: new DateOnly(2026, 8, 20));
 
         var conferencia = await _b.Fila().ConferirEnvioAsync("Amil", [guia.Id]);

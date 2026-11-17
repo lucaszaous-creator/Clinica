@@ -63,7 +63,6 @@ public sealed record DadosGuiaConsultaAns
     /// <summary>A operadora exige a equipe com o profissional executante (catálogo).</summary>
     public bool ExigeEquipe { get; init; }
     public string? EquipeCpf { get; init; }
-    public string? EquipeCodigoNaOperadora { get; init; }
     public string? GrauParticipacao { get; init; }
 }
 
@@ -108,27 +107,28 @@ public static partial class GuiaAnsNaBaixa
     /// <summary>O token da Amil: "código único de 6 dígitos" (Manual do Credenciado, jul/2026).</summary>
     public const int DigitosDoToken = 6;
 
-    // Como o beneficiário confirmou o atendimento no portal (Manual do Credenciado: token, QR Code ou
-    // reconhecimento facial; sem nenhum, guia assinada + documento com foto anexados no portal).
+    // Como o beneficiário confirmou o atendimento (nov/2026, decisão do dono): a Amil é faturada SÓ pelo
+    // sistema, com o TOKEN de 6 dígitos do app Amil Clientes na guia (codValidacao) — a recepção não
+    // confirma no portal, porque a confirmação lá cria sozinha a guia no faturamento do portal (duplicaria).
+    // O QR Code não gera código para digitar (o paciente o lê com a câmera do app): não tem lugar aqui.
     public const string ConfirmacaoToken = "token";
-    public const string ConfirmacaoQrCode = "qrcode";
-    public const string ConfirmacaoFacial = "facial";
     public const string ConfirmacaoNenhuma = "nao";
 
     public static readonly IReadOnlyList<ValorTiss> FormasDeConfirmacao =
     [
-        new(ConfirmacaoToken, "Token (6 dígitos)"), new(ConfirmacaoQrCode, "QR Code"),
-        new(ConfirmacaoFacial, "Reconhecimento facial"), new(ConfirmacaoNenhuma, "Não confirmou"),
+        new(ConfirmacaoToken, "Token (6 dígitos)"), new(ConfirmacaoNenhuma, "Não confirmou"),
     ];
 
     /// <summary>
-    /// QR Code ou rosto SEM código: o XSD só tem <c>codValidacao</c> (o código) ou <c>ausenciaCodValidacao</c>
-    /// (um motivo de 01 a 07), e nenhum motivo diz "confirmado por QR ou rosto". Até a Amil dizer como
-    /// informar, a guia fica pendente — inventar um motivo de ausência contaria como atendimento sem
-    /// confirmação (auditoria acima de 5%) e convidaria a glosa 991.
+    /// Os motivos de NÃO ter o token que fazem sentido num consultório, com o código do XSD 4.03.00
+    /// (<c>dm_ausenciaCodValidacao</c>). O "outros" do portal não tem código no padrão: não é inventado.
     /// </summary>
-    public const string FraseQrOuRostoSemCodigo =
-        "Confirme com a Amil como informar a confirmação por QR Code ou rosto. Se o portal mostrou um código de validação depois da confirmação, informe-o aqui.";
+    public static readonly IReadOnlyList<ValorTiss> MotivosSemToken =
+    [
+        new("07", "Paciente não tem celular"),
+        new("03", "Instabilidade de sistema (regularizado depois do atendimento)"),
+        new("04", "Paciente não quis informar o token"),
+    ];
 
     /// <summary>A forma de confirmação da guia: a escolhida, ou (guias antigas) deduzida do token ou do motivo.</summary>
     public static string? FormaDe(DadosGuiaConsultaAns d)
@@ -233,8 +233,8 @@ public static partial class GuiaAnsNaBaixa
         else if (d.DataAtendimento != default && autorizada > d.DataAtendimento)
             erros[nameof(d.DataAutorizacao)] = "A autorização não pode ser posterior ao atendimento: a guia é bloqueada (glosa 1814).";
 
-        // A CONFIRMAÇÃO do atendimento (3096/893: sem ela, bloqueio). Token, QR Code e rosto vão em
-        // codValidacao; "não confirmou" vai em ausenciaCodValidacao, com os anexos no portal (991: bloqueio).
+        // A CONFIRMAÇÃO do atendimento (3096/893: sem ela, bloqueio). O token vai em codValidacao; "não
+        // confirmou" vai em ausenciaCodValidacao, com os anexos no portal (991: bloqueio).
         var token = d.CodigoValidacao?.Trim();
         switch (FormaDe(d))
         {
@@ -244,30 +244,23 @@ public static partial class GuiaAnsNaBaixa
                 else if (token.Length != DigitosDoToken || !token.All(char.IsAsciiDigit))
                     erros[nameof(d.CodigoValidacao)] = $"O token tem {DigitosDoToken} dígitos. Token inválido bloqueia a guia (glosa 1406).";
                 break;
-            case ConfirmacaoQrCode or ConfirmacaoFacial:
-                if (string.IsNullOrEmpty(token)) erros[nameof(d.CodigoValidacao)] = FraseQrOuRostoSemCodigo;
-                else if (token.Length > 10) erros[nameof(d.CodigoValidacao)] = "O código de validação tem até 10 caracteres (padrão TISS).";
-                break;
             case ConfirmacaoNenhuma:
-                if (!DominiosTiss.Contem(DominiosTiss.AusenciaCodigoValidacao, d.AusenciaCodigoValidacao))
+                if (!DominiosTiss.Contem(MotivosSemToken, d.AusenciaCodigoValidacao))
                     erros[nameof(d.AusenciaCodigoValidacao)] = "Escolha o motivo de o paciente não ter confirmado.";
                 if (!d.AnexosNoPortal)
                     erros[nameof(d.AnexosNoPortal)] = "Sem confirmação, a Amil bloqueia a guia se a guia assinada e o documento com foto não estiverem anexados no portal no dia (glosa 991). Anexe e marque.";
                 break;
             default:
-                erros[nameof(d.FormaConfirmacao)] = "Diga como o paciente confirmou o atendimento no portal. Sem confirmação a guia é bloqueada (glosa 3096).";
+                erros[nameof(d.FormaConfirmacao)] = "Informe o token que o paciente mostrou no app Amil Clientes, ou que ele não confirmou. Sem confirmação a guia é bloqueada (glosa 3096).";
                 break;
         }
 
-        // A EQUIPE: o profissional que executou, pelo código dele na operadora ou pelo CPF (1203/992: bloqueio).
+        // A EQUIPE: o profissional que executou, pelo CPF — é por ele que a Amil o identifica (1203/992: bloqueio).
         if (d.ExigeEquipe)
         {
-            var cpf = Cpf.Normalizar(d.EquipeCpf);
-            if (string.IsNullOrWhiteSpace(d.EquipeCodigoNaOperadora) && !Cpf.Valido(cpf))
+            if (!Cpf.Valido(Cpf.Normalizar(d.EquipeCpf)))
                 erros[nameof(d.EquipeCpf)] = $"Cadastre o CPF de {(string.IsNullOrWhiteSpace(d.NomeProfissional) ? "o profissional" : d.NomeProfissional.Trim())} "
-                    + "(cadastro da equipe) ou o código dele na operadora: sem o profissional executante a guia é bloqueada (glosas 1203 e 992).";
-            if (d.EquipeCodigoNaOperadora is { Length: > 14 })
-                erros[nameof(d.EquipeCodigoNaOperadora)] = "O código do profissional na operadora tem até 14 caracteres.";
+                    + "(cadastro da equipe): a operadora identifica o profissional executante pelo CPF, e sem ele a guia é bloqueada (glosas 1203 e 992).";
             if (!string.IsNullOrEmpty(d.GrauParticipacao) && !DominiosTiss.Contem(DominiosTiss.GrauParticipacao, d.GrauParticipacao))
                 erros[nameof(d.GrauParticipacao)] = "Escolha o grau de participação na lista do padrão.";
         }
@@ -339,15 +332,14 @@ public static partial class GuiaAnsNaBaixa
         guia.DescricaoProcedimento = sp ? Limpo(d.DescricaoProcedimento) : null;
         var forma = sp ? FormaDe(d) : null;
         guia.FormaConfirmacao = forma;
-        // Token/QR/rosto: só o código. Não confirmou: só o motivo (e a declaração dos anexos).
-        guia.CodigoValidacao = forma is ConfirmacaoToken or ConfirmacaoQrCode or ConfirmacaoFacial ? Limpo(d.CodigoValidacao) : null;
+        // Token: só o token. Não confirmou: só o motivo (e a declaração dos anexos).
+        guia.CodigoValidacao = forma == ConfirmacaoToken ? Limpo(d.CodigoValidacao) : null;
         guia.AusenciaCodigoValidacao = forma == ConfirmacaoNenhuma ? Limpo(d.AusenciaCodigoValidacao) : null;
         guia.AnexosNoPortal = forma == ConfirmacaoNenhuma ? d.AnexosNoPortal : null;
         guia.HoraInicial = sp ? d.HoraInicial : null;
         guia.HoraFinal = sp ? d.HoraFinal : null;
         guia.EquipeCpf = sp && Cpf.Valido(Cpf.Normalizar(d.EquipeCpf)) ? Cpf.Normalizar(d.EquipeCpf) : null;
-        guia.EquipeCodigoNaOperadora = sp ? Limpo(d.EquipeCodigoNaOperadora) : null;
-        guia.GrauParticipacao = sp && (guia.EquipeCpf is not null || guia.EquipeCodigoNaOperadora is not null) ? Limpo(d.GrauParticipacao) : null;
+        guia.GrauParticipacao = sp && guia.EquipeCpf is not null ? Limpo(d.GrauParticipacao) : null;
         // Na guia de consulta o tipo de consulta é obrigatório; na SP/SADT só existe na consulta.
         if (sp && d.TipoAtendimento != DominiosTiss.TipoAtendimentoConsulta) guia.TipoConsulta = string.Empty;
         guia.ConferidaPor = string.IsNullOrWhiteSpace(operador) ? "?" : Cortar(operador.Trim(), 80);
@@ -511,15 +503,14 @@ public sealed class GuiaAnsNaBaixaService(IClinicaRepositorio repo, ParametrosSe
             avisos.Add("A ficha do paciente está sem o número da carteira.");
         var consulta = TissExportService.EhConsulta(codigo.Tipo);
 
-        // ---- equipe (Amil): o profissional executante, pelo código na operadora (vence) ou pelo CPF ----
+        // ---- equipe (Amil): o profissional executante, pelo CPF do cadastro da equipe ----
         var exigeEquipe = modelo == ModeloDaGuiaTiss.SpSadt && operadora?.EquipeComProfissional == true;
-        string? cpfDoProfissional = null, codigoDoProfissional = null;
+        string? cpfDoProfissional = null;
         if (exigeEquipe && profissional is not null)
         {
             cpfDoProfissional = Cpf.Valido(Cpf.Normalizar(profissional.Cpf)) ? Cpf.Normalizar(profissional.Cpf) : null;
-            (await repo.CodigosDoProfissionalNasOperadorasAsync(profissional.Id, ct)).TryGetValue(operadora!.Familia.ToString(), out codigoDoProfissional);
-            if (cpfDoProfissional is null && codigoDoProfissional is null)
-                avisos.Add($"Cadastre o CPF de {nomeProfissional} (cadastro da equipe) ou o código dele na {operadora.Nome}: a guia não sai sem o profissional executante.");
+            if (cpfDoProfissional is null)
+                avisos.Add($"Cadastre o CPF de {nomeProfissional} (cadastro da equipe): a {operadora!.Nome} identifica o profissional pelo CPF, e a guia não sai sem ele.");
         }
 
         // ---- horas (37/38): as do consultório (início e fim do atendimento); sem elas, as da agenda ----
@@ -575,7 +566,6 @@ public sealed class GuiaAnsNaBaixaService(IClinicaRepositorio repo, ParametrosSe
             HoraFinal = horaFinal,
             ExigeEquipe = exigeEquipe,
             EquipeCpf = exigeEquipe ? cpfDoProfissional : null,
-            EquipeCodigoNaOperadora = exigeEquipe ? codigoDoProfissional : null,
             GrauParticipacao = exigeEquipe ? DominiosTiss.GrauClinico : null
         }, avisos, alertaDePrazo);
     }
@@ -637,9 +627,8 @@ public static partial class GuiaAnsNaBaixa
         HoraInicial = g.HoraInicial,
         HoraFinal = g.HoraFinal,
         // A guia gravada com a equipe foi conferida com ela: relida, continua exigindo.
-        ExigeEquipe = g.EquipeCpf is not null || g.EquipeCodigoNaOperadora is not null,
+        ExigeEquipe = g.EquipeCpf is not null,
         EquipeCpf = g.EquipeCpf,
-        EquipeCodigoNaOperadora = g.EquipeCodigoNaOperadora,
         GrauParticipacao = g.GrauParticipacao
     };
 }
@@ -698,7 +687,6 @@ public sealed class GuiaAnsEmEdicao
     public TimeOnly? HoraFinal { get; set; }
     public bool ExigeEquipe { get; private init; }
     public string? EquipeCpf { get; set; }
-    public string? EquipeCodigoNaOperadora { get; set; }
     public string? GrauParticipacao { get; set; }
 
     /// <summary>A forma de confirmação que a tela mostra escolhida (a gravada ou a deduzida).</summary>
@@ -727,7 +715,6 @@ public sealed class GuiaAnsEmEdicao
         HoraFinal = d.HoraFinal,
         ExigeEquipe = d.ExigeEquipe,
         EquipeCpf = d.EquipeCpf,
-        EquipeCodigoNaOperadora = d.EquipeCodigoNaOperadora,
         GrauParticipacao = d.GrauParticipacao,
         RegistroAns = d.RegistroAns,
         NumeroCarteira = d.NumeroCarteira,
@@ -797,7 +784,6 @@ public sealed class GuiaAnsEmEdicao
         HoraFinal = HoraFinal,
         ExigeEquipe = ExigeEquipe,
         EquipeCpf = EquipeCpf?.Trim(),
-        EquipeCodigoNaOperadora = EquipeCodigoNaOperadora?.Trim(),
         GrauParticipacao = GrauParticipacao
     };
 

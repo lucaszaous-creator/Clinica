@@ -178,9 +178,9 @@
                                         <input type="date" id="ga-ValidadeSenha" class="campo" value="@(_guia.ValidadeSenha?.ToString("yyyy-MM-dd"))"
                                                @onchange="e => _guia.ValidadeSenha = DateOnly.TryParse(e.Value?.ToString(), out var d) ? d : null" />
                                     </Campo>
-                                    @* COMO O PACIENTE CONFIRMOU (Manual do Credenciado: token, QR Code ou rosto). Nenhum
-                                       motivo de ausência é escolhido por quem confirmou por QR ou rosto: isso contaria como
-                                       atendimento sem confirmação. *@
+                                    @* COMO O PACIENTE CONFIRMOU (nov/2026, decisão do dono): a Amil é faturada só pelo sistema,
+                                       com o TOKEN de 6 dígitos que o paciente vê no app Amil Clientes — a recepção não confirma no
+                                       portal (lá a confirmação cria uma guia sozinha). Sem token, o motivo e os anexos no portal. *@
                                     <Campo Rotulo="Como o paciente confirmou" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.FormaConfirmacao))">
                                         <select id="ga-FormaConfirmacao" class="campo" value="@(_guia.FormaEscolhida ?? string.Empty)"
                                                 @onchange="e => _guia.FormaConfirmacao = TextoOuNulo(e)">
@@ -192,15 +192,8 @@
                                     {
                                         case GuiaAnsNaBaixa.ConfirmacaoToken:
                                             <Campo Rotulo="Token" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.CodigoValidacao))"
-                                                   Dica="Os 6 dígitos que o beneficiário confirmou no portal.">
+                                                   Dica="Os 6 dígitos que o paciente mostra no app Amil Clientes.">
                                                 <input id="ga-CodigoValidacao" class="campo numero-guia" maxlength="6" inputmode="numeric" autocomplete="off"
-                                                       value="@_guia.CodigoValidacao" @oninput="e => _guia.CodigoValidacao = Texto(e)" />
-                                            </Campo>
-                                            break;
-                                        case GuiaAnsNaBaixa.ConfirmacaoQrCode or GuiaAnsNaBaixa.ConfirmacaoFacial:
-                                            <Campo Rotulo="Código de validação do portal" Obrigatorio="true" Classe="largo" Erro="@Erro(nameof(DadosGuiaConsultaAns.CodigoValidacao))"
-                                                   Dica="O código que o portal mostra depois da confirmação, se mostrar.">
-                                                <input id="ga-CodigoValidacao" class="campo numero-guia" maxlength="10" autocomplete="off"
                                                        value="@_guia.CodigoValidacao" @oninput="e => _guia.CodigoValidacao = Texto(e)" />
                                             </Campo>
                                             break;
@@ -209,7 +202,7 @@
                                                 <select id="ga-AusenciaCodigoValidacao" class="campo" value="@(_guia.AusenciaCodigoValidacao ?? string.Empty)"
                                                         @onchange="e => _guia.AusenciaCodigoValidacao = TextoOuNulo(e)">
                                                     <option value="">Selecione</option>
-                                                    @foreach (var v in DominiosTiss.AusenciaCodigoValidacao) { <option value="@v.Codigo">@v.Rotulo</option> }
+                                                    @foreach (var v in GuiaAnsNaBaixa.MotivosSemToken) { <option value="@v.Codigo">@v.Rotulo</option> }
                                                 </select>
                                             </Campo>
                                             <Campo Rotulo="Anexos no portal" Obrigatorio="true" Classe="largo" Erro="@Erro(nameof(DadosGuiaConsultaAns.AnexosNoPortal))">
@@ -270,15 +263,10 @@
                                 </Campo>
                                 @if (_guia.ExigeEquipe)
                                 {
-                                    @* A EQUIPE (Amil): o profissional executante pelo código na operadora (vence) ou pelo CPF. *@
+                                    @* A EQUIPE (Amil): o profissional executante pelo CPF — é por ele que a Amil o identifica. *@
                                     <Campo Rotulo="CPF do profissional" Erro="@Erro(nameof(DadosGuiaConsultaAns.EquipeCpf))" Dica="Do cadastro da equipe.">
                                         <input id="ga-EquipeCpf" class="campo numero-guia" maxlength="14" inputmode="numeric" autocomplete="off"
                                                value="@_guia.EquipeCpf" @oninput="e => _guia.EquipeCpf = Texto(e)" />
-                                    </Campo>
-                                    <Campo Rotulo="Código do profissional na operadora" Erro="@Erro(nameof(DadosGuiaConsultaAns.EquipeCodigoNaOperadora))"
-                                           Dica="Opcional; quando existe, vai no lugar do CPF.">
-                                        <input id="ga-EquipeCodigoNaOperadora" class="campo numero-guia" maxlength="14" autocomplete="off"
-                                               value="@_guia.EquipeCodigoNaOperadora" @oninput="e => _guia.EquipeCodigoNaOperadora = Texto(e)" />
                                     </Campo>
                                     <Campo Rotulo="Grau de participação" Erro="@Erro(nameof(DadosGuiaConsultaAns.GrauParticipacao))">
                                         <select id="ga-GrauParticipacao" class="campo" value="@(_guia.GrauParticipacao ?? string.Empty)" @onchange="e => _guia.GrauParticipacao = TextoOuNulo(e)">

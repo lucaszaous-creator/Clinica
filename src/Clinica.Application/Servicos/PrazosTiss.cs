@@ -3,7 +3,8 @@ namespace Clinica.Application.Servicos;
 /// <summary>
 /// Os PRAZOS da operadora para receber o faturamento (nov/2026, Amil): até quantos dias depois do
 /// atendimento ela aceita a guia e em que janela do mês aceita o envio. É AVISO, nunca bloqueio — a
-/// decisão de enviar é de quem fatura, e o sistema não conhece feriados nem acordos da clínica.
+/// decisão de enviar é de quem fatura. Dia útil = segunda a sexta menos os feriados NACIONAIS
+/// (<see cref="Domain.Regras.FeriadosNacionais"/>); estaduais, municipais e pontos facultativos não entram.
 /// Os números moram no catálogo (<see cref="OperadoraTiss.PrazoDeCobrancaDias"/>,
 /// <see cref="OperadoraTiss.JanelaDeEnvio"/>); a regra e as frases, só aqui.
 /// </summary>
@@ -40,7 +41,7 @@ public static class PrazosTiss
         return $"A {operadora.Nome} só aceita o envio do {janela.PrimeiroDiaUtil}º ao {janela.UltimoDiaUtil}º dia útil do mês, "
                + $"das {janela.Abre:HH\\:mm} às {janela.Fecha:HH\\:mm}"
                + (diaUtil is { } d ? $" (hoje é o {d}º dia útil)." : " (hoje não é dia útil).")
-               + " Fora dela, o envio pode ser recusado. Dia útil aqui é de segunda a sexta: confira os feriados.";
+               + " Fora dela, o envio é recusado. Dia útil aqui é de segunda a sexta, sem os feriados nacionais.";
     }
 
     /// <summary>Os avisos de uma guia na baixa: o prazo de cobrança e a janela do mês.</summary>
@@ -92,7 +93,7 @@ public static class PrazosTiss
     /// <paramref name="aPartirDeAmanha"/> (a operadora acabou de recusar por prazo: UMA ida por dia), e aí
     /// é o PRÓXIMO dia útil da janela, ainda neste mês se a janela não acabou, senão o 1º do mês seguinte.
     /// Assim um feriado no meio (que a Amil não conta como dia útil) custa um dia, não o mês. Dia útil =
-    /// segunda a sexta; o sistema não tem calendário de feriados.
+    /// segunda a sexta, sem os feriados nacionais.
     /// </summary>
     public static DateTime ProximaAbertura(JanelaDeEnvioTiss janela, DateTime agora, bool aPartirDeAmanha = false)
     {
@@ -108,13 +109,19 @@ public static class PrazosTiss
         throw new InvalidOperationException("A janela de envio do catálogo não abre em nenhum dia dos próximos dois meses.");
     }
 
-    /// <summary>Que dia útil do mês é <paramref name="dia"/> (segunda a sexta), ou nulo no fim de semana.</summary>
+    /// <summary>
+    /// Que dia útil do mês é <paramref name="dia"/> (segunda a sexta, menos os feriados nacionais —
+    /// <see cref="Domain.Regras.FeriadosNacionais"/>), ou nulo quando ele mesmo não é dia útil.
+    /// </summary>
     public static int? DiaUtilDoMes(DateOnly dia)
     {
-        if (dia.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) return null;
+        if (!EhDiaUtil(dia)) return null;
         var n = 0;
         for (var d = new DateOnly(dia.Year, dia.Month, 1); d <= dia; d = d.AddDays(1))
-            if (d.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday)) n++;
+            if (EhDiaUtil(d)) n++;
         return n;
     }
+
+    private static bool EhDiaUtil(DateOnly d)
+        => d.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday) && !Domain.Regras.FeriadosNacionais.Eh(d);
 }

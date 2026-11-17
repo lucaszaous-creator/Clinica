@@ -235,10 +235,10 @@ public sealed class TissExportService
     /// A guia SP/SADT na ORDEM e com as tags do XSD 4.03.00 (<c>ctm_sp-sadtGuia</c>; a mesma estrutura da
     /// 4.01.00), a partir da guia conferida na baixa (Amil, nov/2026). Uma consulta ou sessão = UM
     /// procedimento executado. Em <c>dadosAutorizacao</c>: o número da guia na operadora quando há, a
-    /// senha, a data dela e a CONFIRMAÇÃO — o código (token, QR Code ou rosto) em <c>codValidacao</c>, ou,
+    /// senha, a data dela e a CONFIRMAÇÃO — o token do beneficiário em <c>codValidacao</c>, ou,
     /// sem confirmação, o motivo em <c>ausenciaCodValidacao</c>. O solicitante é a clínica e o profissional
-    /// que atendeu; o EXECUTANTE vai na equipe (<c>equipeSadt</c>), pelo código dele na operadora ou pelo
-    /// CPF — na SP/SADT 4.03, <c>dadosExecutante</c> só leva a clínica e o CNES. As horas vão quando há.
+    /// que atendeu; o EXECUTANTE vai na equipe (<c>equipeSadt</c>), pelo CPF — na SP/SADT 4.03,
+    /// <c>dadosExecutante</c> só leva a clínica e o CNES. As horas vão quando há.
     /// </summary>
     private static XElement CriarGuiaSpSadtConferida(GuiaTissConsulta ans, string numeroGuiaPrestador, string? numeroGuiaOperadora)
     {
@@ -305,19 +305,16 @@ public sealed class TissExportService
     }
 
     /// <summary>
-    /// A equipe com o profissional executante (<c>ct_identEquipeSADT</c>): o código na operadora vence
-    /// o CPF. Sem nenhum dos dois, não vai (a conferência da operadora que a exige não deixa chegar aqui).
+    /// A equipe com o profissional executante (<c>ct_identEquipeSADT</c>), pelo CPF. Sem CPF, não vai (a
+    /// conferência da operadora que a exige não deixa chegar aqui).
     /// </summary>
     private static XElement? EquipeSadt(GuiaTissConsulta ans)
     {
-        var codigo = string.IsNullOrWhiteSpace(ans.EquipeCodigoNaOperadora) ? null : ans.EquipeCodigoNaOperadora.Trim();
-        if (codigo is null && string.IsNullOrWhiteSpace(ans.EquipeCpf)) return null;
+        if (string.IsNullOrWhiteSpace(ans.EquipeCpf)) return null;
         return new XElement(Ans + "equipeSadt",
             ElementoOpcional("grauPart", ans.GrauParticipacao),
-            new XElement(Ans + "codProfissional",
-                codigo is not null
-                    ? new XElement(Ans + "codigoPrestadorNaOperadora", codigo)
-                    : new XElement(Ans + "cpfContratado", ans.EquipeCpf!.Trim())),
+            // A Amil identifica o profissional pelo CPF (não há "código do profissional" nela).
+            new XElement(Ans + "codProfissional", new XElement(Ans + "cpfContratado", ans.EquipeCpf.Trim())),
             new XElement(Ans + "nomeProf", Cortar(ans.NomeProfissional, 70)),
             new XElement(Ans + "conselho", ans.ConselhoProfissional),
             new XElement(Ans + "numeroConselhoProfissional", ans.NumeroConselho),

@@ -55,7 +55,7 @@ public enum ModeloDaGuiaTiss
 /// <summary>
 /// A janela em que a operadora aceita o envio do faturamento: do <paramref name="PrimeiroDiaUtil"/>º
 /// ao <paramref name="UltimoDiaUtil"/>º dia útil do mês, das <paramref name="Abre"/> às
-/// <paramref name="Fecha"/>. Dia útil aqui é segunda a sexta: o sistema não tem calendário de feriados.
+/// <paramref name="Fecha"/>. Dia útil aqui é segunda a sexta, sem os feriados nacionais (<c>FeriadosNacionais</c>).
 /// </summary>
 public sealed record JanelaDeEnvioTiss(int PrimeiroDiaUtil, int UltimoDiaUtil, TimeOnly Abre, TimeOnly Fecha);
 

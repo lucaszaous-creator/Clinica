@@ -1,6 +1,7 @@
 using System.Globalization;
 using Clinica.Application.Abstracoes;
 using Clinica.Application.Servicos;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Regras;
 
@@ -14,7 +15,7 @@ public sealed record ResultadoDoTesteTiss(bool Foi, IReadOnlyList<string> Linhas
 
 /// <summary>A guia fictícia do <c>testar-lote --exemplo</c>: só a carteira é real (a homologação pede uma válida).</summary>
 public sealed record GuiaDeExemploTiss(string Carteira, string? Senha = null, string? Token = null,
-    string Procedimento = "10101012", decimal Valor = 1.00m);
+    string Procedimento = "10101012", decimal Valor = 1.00m, string? CpfProfissional = null);
 
 /// <summary>
 /// OS TESTES NA HOMOLOGAÇÃO (nov/2026, Amil): elegibilidade, lote e situação do protocolo, cada um UMA
@@ -208,7 +209,11 @@ public sealed class TestesNaHomologacao(
                 CodigoProcedimento = e.Procedimento, ValorProcedimento = e.Valor,
                 ModeloGuia = sp ? GuiaAnsNaBaixa.ModeloGuiaSpSadt : null,
                 Senha = e.Senha, DataAutorizacao = hoje,
+                FormaConfirmacao = string.IsNullOrWhiteSpace(e.Token) ? GuiaAnsNaBaixa.ConfirmacaoNenhuma : GuiaAnsNaBaixa.ConfirmacaoToken,
                 CodigoValidacao = e.Token,
+                // A equipe (Amil): o profissional pelo CPF, quando --cpf-profissional é dado.
+                EquipeCpf = Cpf.Valido(Cpf.Normalizar(e.CpfProfissional)) ? Cpf.Normalizar(e.CpfProfissional) : null,
+                GrauParticipacao = Cpf.Valido(Cpf.Normalizar(e.CpfProfissional)) ? DominiosTiss.GrauClinico : null,
                 // Sem token: "03 - instabilidade de sistemas" é o motivo menos falso para um teste.
                 AusenciaCodigoValidacao = string.IsNullOrWhiteSpace(e.Token) ? "03" : null,
                 TipoAtendimento = DominiosTiss.TipoAtendimentoConsulta, CaraterAtendimento = "1",

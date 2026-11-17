@@ -32,37 +32,6 @@ public sealed class EquipeService
     public Task<Profissional?> ObterProfissionalAsync(int id, CancellationToken ct = default)
         => _repo.ObterProfissionalAsync(id, ct);
 
-    /// <summary>
-    /// As operadoras que pedem o profissional executante na guia (equipe da SP/SADT, catálogo): é para
-    /// elas que o cadastro da equipe oferece o "código do profissional na operadora".
-    /// </summary>
-    public static IReadOnlyList<OperadoraTiss> OperadorasComCodigoDoProfissional
-        => OperadorasTiss.Todas.Where(o => o.EquipeComProfissional).ToList();
-
-    /// <summary>Os códigos do profissional nas operadoras (pela família, ex.: "Amil").</summary>
-    public Task<IReadOnlyDictionary<string, string>> CodigosNasOperadorasAsync(int profissionalId, CancellationToken ct = default)
-        => _repo.CodigosDoProfissionalNasOperadorasAsync(profissionalId, ct);
-
-    /// <summary>
-    /// Grava os códigos do profissional nas operadoras (vazio tira). Opcional na guia: quando existe,
-    /// vai no lugar do CPF na equipe. Só quem gerencia a equipe; até 14 caracteres (padrão TISS).
-    /// </summary>
-    public async Task SalvarCodigosNasOperadorasAsync(int profissionalId, IReadOnlyDictionary<string, string?> codigos,
-        SessaoUsuario solicitante, CancellationToken ct = default)
-    {
-        if (!solicitante.Pode(Permissao.GerenciarEquipe))
-            throw new UnauthorizedAccessException("Seu acesso não permite mexer no cadastro da equipe.");
-        foreach (var (operadora, codigo) in codigos)
-        {
-            if (!OperadorasComCodigoDoProfissional.Any(o => o.Familia.ToString() == operadora))
-                throw new InvalidOperationException($"O sistema não guarda código de profissional para {operadora}.");
-            if ((codigo ?? string.Empty).Trim().Length > 14)
-                throw new InvalidOperationException($"O código do profissional na {operadora} tem até 14 caracteres.");
-            await _repo.DefinirCodigoDoProfissionalNaOperadoraAsync(profissionalId, operadora, codigo, ct);
-        }
-        await _repo.SalvarAsync(ct);
-    }
-
     /// <summary>Cria ou atualiza um profissional. Devolve a entidade persistida.</summary>
     public async Task<Profissional> SalvarProfissionalAsync(Profissional dados, CancellationToken ct = default,
         SessaoUsuario? solicitante = null)

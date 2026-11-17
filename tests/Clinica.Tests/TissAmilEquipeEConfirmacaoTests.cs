@@ -13,8 +13,8 @@ namespace Clinica.Tests;
 
 /// <summary>
 /// A GUIA SP/SADT DA AMIL, campo a campo contra os manuais e a lista de glosas (Shared/Convenios/amil/08,
-/// nov/2026): a EQUIPE com o profissional executante (1203/992), a CONFIRMAÇÃO por token, QR Code, rosto
-/// ou nenhuma (3096, 991), as HORAS, o número da guia na operadora, a DUPLICIDADE (1807/882) e o prazo de
+/// nov/2026): a EQUIPE com o profissional executante pelo CPF (1203/992), a CONFIRMAÇÃO pelo TOKEN ou
+/// nenhuma (3096, 991 — decisão do dono: a Amil é faturada só pelo sistema, com o token), as HORAS, o número da guia na operadora, a DUPLICIDADE (1807/882) e o prazo de
 /// 90 dias como BLOQUEIO (1701/405). Só dados fictícios; os CPFs são gerados válidos, de ninguém.
 /// </summary>
 public sealed class TissAmilEquipeEConfirmacaoTests : IDisposable
@@ -53,16 +53,15 @@ public sealed class TissAmilEquipeEConfirmacaoTests : IDisposable
         OperadorasTiss.SaudePetrobras.EquipeComProfissional.Should().BeFalse("a Petrobras não muda");
 
         GuiaAnsNaBaixa.Validar(GuiaAmil() with { EquipeCpf = null })[nameof(DadosGuiaConsultaAns.EquipeCpf)]
-            .Should().Contain("Cadastre o CPF de Dra. Ana de Teste").And.Contain("1203");
+            .Should().Contain("Cadastre o CPF de Dra. Ana de Teste").And.Contain("pelo CPF").And.Contain("1203");
         GuiaAnsNaBaixa.Validar(GuiaAmil() with { EquipeCpf = "11111111111" }).Should().ContainKey(nameof(DadosGuiaConsultaAns.EquipeCpf), "CPF inválido");
         GuiaAnsNaBaixa.Validar(GuiaAmil()).Should().BeEmpty();
-        GuiaAnsNaBaixa.Validar(GuiaAmil() with { EquipeCpf = null, EquipeCodigoNaOperadora = "PROF0001" }).Should().BeEmpty("o código na operadora basta");
         GuiaAnsNaBaixa.Validar(GuiaAmil() with { EquipeCpf = null, ExigeEquipe = false }).Should().BeEmpty("quem não exige a equipe não a pede");
         GuiaAnsNaBaixa.Validar(GuiaAmil() with { GrauParticipacao = "99" }).Should().ContainKey(nameof(DadosGuiaConsultaAns.GrauParticipacao));
     }
 
     [Fact]
-    public void A_equipe_vai_no_XML_com_o_codigo_na_operadora_vencendo_o_CPF_e_valida_no_XSD_4_03_00()
+    public void A_equipe_vai_no_XML_pelo_CPF_e_valida_no_XSD_4_03_00()
     {
         var comCpf = Guia(GuiaAmil());
         var equipe = comCpf.Descendants(Ans + "equipeSadt").Single();
@@ -72,10 +71,6 @@ public sealed class TissAmilEquipeEConfirmacaoTests : IDisposable
         equipe.Element(Ans + "CBOS")!.Value.Should().Be("225105");
         Valida(comCpf);
 
-        var comCodigo = Guia(GuiaAmil() with { EquipeCodigoNaOperadora = "PROF0001" });
-        comCodigo.Descendants(Ans + "codigoPrestadorNaOperadora").Select(e => e.Value).Should().Contain("PROF0001");
-        comCodigo.Descendants(Ans + "cpfContratado").Should().BeEmpty("o código vence o CPF");
-        Valida(comCodigo);
 
         Guia(GuiaAmil() with { EquipeCpf = null, ExigeEquipe = false }).Descendants(Ans + "equipeSadt").Should().BeEmpty();
     }
@@ -83,19 +78,31 @@ public sealed class TissAmilEquipeEConfirmacaoTests : IDisposable
     // ==================== a confirmação ====================
 
     [Fact]
-    public void QR_Code_ou_rosto_sem_codigo_fica_pendente_sem_inventar_motivo_e_com_codigo_vai_em_codValidacao()
+    public void So_ha_token_ou_nao_confirmou_e_o_token_tem_exatamente_seis_digitos()
     {
-        foreach (var forma in new[] { GuiaAnsNaBaixa.ConfirmacaoQrCode, GuiaAnsNaBaixa.ConfirmacaoFacial })
-        {
-            GuiaAnsNaBaixa.Validar(GuiaAmil() with { FormaConfirmacao = forma, CodigoValidacao = null })[nameof(DadosGuiaConsultaAns.CodigoValidacao)]
-                .Should().Be(GuiaAnsNaBaixa.FraseQrOuRostoSemCodigo);
-            var comCodigo = GuiaAmil() with { FormaConfirmacao = forma, CodigoValidacao = "QR98765" };
-            GuiaAnsNaBaixa.Validar(comCodigo).Should().BeEmpty();
-            var xml = Guia(comCodigo);
-            xml.Descendants(Ans + "codValidacao").Single().Value.Should().Be("QR98765");
-            xml.Descendants(Ans + "ausenciaCodValidacao").Should().BeEmpty("nunca um motivo de ausência inventado");
-        }
+        GuiaAnsNaBaixa.FormasDeConfirmacao.Select(f => f.Codigo).Should().Equal(GuiaAnsNaBaixa.ConfirmacaoToken, GuiaAnsNaBaixa.ConfirmacaoNenhuma);
+        GuiaAnsNaBaixa.Validar(GuiaAmil() with { CodigoValidacao = "12345" })[nameof(DadosGuiaConsultaAns.CodigoValidacao)].Should().Contain("6 dígitos");
+        GuiaAnsNaBaixa.Validar(GuiaAmil() with { CodigoValidacao = "1234567" }).Should().ContainKey(nameof(DadosGuiaConsultaAns.CodigoValidacao));
+        GuiaAnsNaBaixa.Validar(GuiaAmil() with { CodigoValidacao = "12345a" }).Should().ContainKey(nameof(DadosGuiaConsultaAns.CodigoValidacao));
+        // Uma forma que saiu (QR Code) não é aceita: a guia não passa.
+        GuiaAnsNaBaixa.Validar(GuiaAmil() with { FormaConfirmacao = "qrcode" }).Should().ContainKey(nameof(DadosGuiaConsultaAns.FormaConfirmacao));
+        Guia(GuiaAmil()).Descendants(Ans + "codValidacao").Single().Value.Should().Be("123456");
     }
+
+    [Fact]
+    public void Os_motivos_sem_token_sao_os_de_consultorio_com_o_codigo_do_XSD()
+    {
+        GuiaAnsNaBaixa.MotivosSemToken.Select(m => m.Codigo).Should().Equal("07", "03", "04");
+        GuiaAnsNaBaixa.MotivosSemToken.Should().OnlyContain(m => DominiosTiss.Contem(DominiosTiss.AusenciaCodigoValidacao, m.Codigo), "sem código inventado");
+        var semToken = GuiaAmil() with { FormaConfirmacao = GuiaAnsNaBaixa.ConfirmacaoNenhuma, CodigoValidacao = null, AnexosNoPortal = true };
+        GuiaAnsNaBaixa.Validar(semToken with { AusenciaCodigoValidacao = "01" }).Should().ContainKey(nameof(DadosGuiaConsultaAns.AusenciaCodigoValidacao),
+            "internado não é motivo de consultório");
+        GuiaAnsNaBaixa.Validar(semToken with { AusenciaCodigoValidacao = "07" }).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Removido_QR_Code_ou_rosto_nao_existem_mais()
+        => GuiaAnsNaBaixa.FormasDeConfirmacao.Should().NotContain(f => f.Termo.Contains("QR") || f.Termo.Contains("facial"));
 
     [Fact]
     public void Sem_confirmacao_exige_o_motivo_e_os_anexos_no_portal_e_sem_forma_nenhuma_nao_passa()
@@ -150,7 +157,7 @@ public sealed class TissAmilEquipeEConfirmacaoTests : IDisposable
     // ==================== a proposta da baixa ====================
 
     [Fact]
-    public async Task A_proposta_traz_o_codigo_do_profissional_na_Amil_ou_o_CPF_e_as_horas_do_consultorio_ou_da_agenda()
+    public async Task A_proposta_traz_o_CPF_do_profissional_e_as_horas_do_consultorio_ou_da_agenda()
     {
         var (codigoId, profissional) = await GuiaAmilComHorarioAsync(inicioReal: null);
         await using (var db = _b.NovoContexto())
@@ -168,35 +175,16 @@ public sealed class TissAmilEquipeEConfirmacaoTests : IDisposable
         proposta.Dados.HoraInicial.Should().Be(new TimeOnly(14, 30));
         proposta.Avisos.Should().Contain(a => a.Contains("horário marcado na agenda"));
 
-        // Com o código na Amil cadastrado, ele vai; e com início e fim do consultório, as horas são as reais.
-        var repo = new ClinicaRepositorio(_b.NovoContexto());
-        await repo.DefinirCodigoDoProfissionalNaOperadoraAsync(profissional, "Amil", "PROF0001");
-        await repo.SalvarAsync();
+        // Com início e fim do consultório, as horas são as reais.
         var (outro, _) = await GuiaAmilComHorarioAsync(inicioReal: new DateTime(2026, 11, 3, 14, 40, 0), profissionalId: profissional);
         var segunda = await Proposta().PrepararAsync(outro);
-        segunda.Dados!.EquipeCodigoNaOperadora.Should().Be("PROF0001");
+        segunda.Dados!.EquipeCpf.Should().Be(CpfFicticio);
         segunda.Dados.HoraInicial.Should().Be(new TimeOnly(14, 40));
         segunda.Dados.HoraFinal.Should().Be(new TimeOnly(15, 10));
         segunda.Avisos.Should().Contain(a => a.Contains("registrados no consultório"));
 
         // Sem a prévia, a Amil desligada não pede a conferência (o app de hoje).
         (await Proposta(previa: false).PrepararAsync(outro)).Exige.Should().BeFalse();
-    }
-
-    [Fact]
-    public async Task O_codigo_do_profissional_na_operadora_grava_troca_e_sai()
-    {
-        var (_, profissional) = await GuiaAmilComHorarioAsync(inicioReal: null);
-        var repo = new ClinicaRepositorio(_b.NovoContexto());
-        await repo.DefinirCodigoDoProfissionalNaOperadoraAsync(profissional, "Amil", " PROF0001 ");
-        await repo.SalvarAsync();
-        (await new ClinicaRepositorio(_b.NovoContexto()).CodigosDoProfissionalNasOperadorasAsync(profissional))["Amil"].Should().Be("PROF0001");
-        await repo.DefinirCodigoDoProfissionalNaOperadoraAsync(profissional, "Amil", "PROF0002");
-        await repo.SalvarAsync();
-        (await new ClinicaRepositorio(_b.NovoContexto()).CodigosDoProfissionalNasOperadorasAsync(profissional))["Amil"].Should().Be("PROF0002");
-        await repo.DefinirCodigoDoProfissionalNaOperadoraAsync(profissional, "Amil", "");
-        await repo.SalvarAsync();
-        (await new ClinicaRepositorio(_b.NovoContexto()).CodigosDoProfissionalNasOperadorasAsync(profissional)).Should().BeEmpty();
     }
 
     [Fact]

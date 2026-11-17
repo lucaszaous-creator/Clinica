@@ -18,13 +18,6 @@ namespace Clinica.Infrastructure.Migrations
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
-                name: "EquipeCodigoNaOperadora",
-                table: "GuiasTissConsulta",
-                type: "character varying(14)",
-                maxLength: 14,
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
                 name: "EquipeCpf",
                 table: "GuiasTissConsulta",
                 type: "character varying(11)",
@@ -56,39 +49,13 @@ namespace Clinica.Infrastructure.Migrations
                 table: "GuiasTissConsulta",
                 type: "time without time zone",
                 nullable: true);
-
-            migrationBuilder.CreateTable(
-                name: "CodigosProfissionalOperadora",
-                columns: table => new
-                {
-                    ProfissionalId = table.Column<int>(type: "integer", nullable: false),
-                    Operadora = table.Column<string>(type: "character varying(40)", maxLength: 40, nullable: false),
-                    Codigo = table.Column<string>(type: "character varying(14)", maxLength: 14, nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_CodigosProfissionalOperadora", x => new { x.ProfissionalId, x.Operadora });
-                    table.ForeignKey(
-                        name: "FK_CodigosProfissionalOperadora_Profissionais_ProfissionalId",
-                        column: x => x.ProfissionalId,
-                        principalTable: "Profissionais",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "CodigosProfissionalOperadora");
-
             migrationBuilder.DropColumn(
                 name: "AnexosNoPortal",
-                table: "GuiasTissConsulta");
-
-            migrationBuilder.DropColumn(
-                name: "EquipeCodigoNaOperadora",
                 table: "GuiasTissConsulta");
 
             migrationBuilder.DropColumn(

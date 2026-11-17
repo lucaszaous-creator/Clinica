@@ -2034,13 +2034,6 @@ public interface IClinicaRepositorio
     /// </summary>
     Task<IReadOnlyList<TransacaoTiss>> ElegibilidadesTissDoDiaAsync(DateTime desde, DateTime ate, CancellationToken ct = default);
 
-    /// <summary>Os códigos do profissional nas operadoras (operadora → código). Vazio = nenhum cadastrado.</summary>
-    Task<IReadOnlyDictionary<string, string>> CodigosDoProfissionalNasOperadorasAsync(int profissionalId, CancellationToken ct = default);
-
-    /// <summary>
-    /// Grava (ou, vazio, tira) o código do profissional numa operadora. Só rastreia: quem chama salva.
-    /// </summary>
-    Task DefinirCodigoDoProfissionalNaOperadoraAsync(int profissionalId, string operadora, string? codigo, CancellationToken ct = default);
 
     /// <summary>
     /// As guias (fora de <paramref name="exceto"/>) com a MESMA cobrança — carteira, procedimento e data

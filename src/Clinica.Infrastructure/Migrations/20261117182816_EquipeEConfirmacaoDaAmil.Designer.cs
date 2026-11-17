@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Clinica.Infrastructure.Migrations
 {
     [DbContext(typeof(ClinicaDbContext))]
-    [Migration("20261117171802_EquipeEConfirmacaoDaAmil")]
+    [Migration("20261117182816_EquipeEConfirmacaoDaAmil")]
     partial class EquipeEConfirmacaoDaAmil
     {
         /// <inheritdoc />
@@ -1359,25 +1359,6 @@ namespace Clinica.Infrastructure.Migrations
                     b.HasIndex("DataBaixa", "DataPrevistaFaturamento");
 
                     b.ToTable("Codigos");
-                });
-
-            modelBuilder.Entity("Clinica.Domain.Entities.CodigoProfissionalOperadora", b =>
-                {
-                    b.Property<int>("ProfissionalId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Operadora")
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)");
-
-                    b.Property<string>("Codigo")
-                        .IsRequired()
-                        .HasMaxLength(14)
-                        .HasColumnType("character varying(14)");
-
-                    b.HasKey("ProfissionalId", "Operadora");
-
-                    b.ToTable("CodigosProfissionalOperadora", (string)null);
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.CodigoRecuperacaoPortal", b =>
@@ -3257,10 +3238,6 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<string>("DescricaoProcedimento")
                         .HasMaxLength(150)
                         .HasColumnType("character varying(150)");
-
-                    b.Property<string>("EquipeCodigoNaOperadora")
-                        .HasMaxLength(14)
-                        .HasColumnType("character varying(14)");
 
                     b.Property<string>("EquipeCpf")
                         .HasMaxLength(11)
@@ -7839,17 +7816,6 @@ namespace Clinica.Infrastructure.Migrations
                     b.Navigation("Atendimento");
 
                     b.Navigation("Lote");
-                });
-
-            modelBuilder.Entity("Clinica.Domain.Entities.CodigoProfissionalOperadora", b =>
-                {
-                    b.HasOne("Clinica.Domain.Entities.Profissional", "Profissional")
-                        .WithMany()
-                        .HasForeignKey("ProfissionalId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Profissional");
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.CodigoRecuperacaoPortal", b =>

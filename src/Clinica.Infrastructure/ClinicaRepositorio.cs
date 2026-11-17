@@ -4255,26 +4255,6 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Take(1)
             .Select(ResumoDaTransacaoTiss);
 
-    public async Task<IReadOnlyDictionary<string, string>> CodigosDoProfissionalNasOperadorasAsync(int profissionalId, CancellationToken ct = default)
-        => await _db.CodigosProfissionalOperadora.AsNoTracking()
-            .Where(c => c.ProfissionalId == profissionalId)
-            .ToDictionaryAsync(c => c.Operadora, c => c.Codigo, ct);
-
-    public async Task DefinirCodigoDoProfissionalNaOperadoraAsync(int profissionalId, string operadora, string? codigo, CancellationToken ct = default)
-    {
-        var valor = (codigo ?? string.Empty).Trim();
-        var existente = await _db.CodigosProfissionalOperadora
-            .FirstOrDefaultAsync(c => c.ProfissionalId == profissionalId && c.Operadora == operadora, ct);
-        if (valor.Length == 0)
-        {
-            if (existente is not null) _db.CodigosProfissionalOperadora.Remove(existente);
-            return;
-        }
-        if (existente is null)
-            await _db.CodigosProfissionalOperadora.AddAsync(new CodigoProfissionalOperadora { ProfissionalId = profissionalId, Operadora = operadora, Codigo = valor }, ct);
-        else existente.Codigo = valor;
-    }
-
     public async Task<IReadOnlyList<int>> GuiasIguaisJaEnviadasAsync(string carteira, string procedimento, DateOnly data,
         IReadOnlyCollection<int> exceto, CancellationToken ct = default)
         => await ConsultaGuiasIguaisJaEnviadas(carteira, procedimento, data, exceto).ToListAsync(ct);

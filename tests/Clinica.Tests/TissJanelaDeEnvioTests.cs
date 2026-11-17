@@ -37,13 +37,31 @@ public sealed class TissJanelaDeEnvioTests : IDisposable
     [Theory]
     [InlineData("2026-11-03 10:00", false, "2026-11-03 10:00")] // dentro: é agora
     [InlineData("2026-11-03 06:00", false, "2026-11-03 07:00")] // antes das 7h de um dia da janela
-    [InlineData("2026-11-06 19:30", false, "2026-12-01 07:00")] // 5º dia útil depois das 19h
+    [InlineData("2026-11-09 19:30", false, "2026-12-01 07:00")] // 5º dia útil (dia 2 é Finados) depois das 19h
     [InlineData("2026-11-17 10:00", false, "2026-12-01 07:00")] // meio do mês
-    [InlineData("2026-10-31 10:00", false, "2026-11-02 07:00")] // sábado antes do 1º dia útil
+    [InlineData("2026-10-31 10:00", false, "2026-11-03 07:00")] // sábado antes do 1º dia útil (dia 2 é Finados)
     [InlineData("2026-11-03 10:00", true, "2026-11-04 07:00")]  // recusada: o próximo dia útil da janela
-    [InlineData("2026-11-06 10:00", true, "2026-12-01 07:00")]  // recusada no 5º: acabou a janela, o mês seguinte
+    [InlineData("2026-11-06 10:00", true, "2026-11-09 07:00")]  // recusada no 4º (sexta): segunda é o 5º
+    [InlineData("2026-11-09 10:00", true, "2026-12-01 07:00")]  // recusada no 5º: acabou a janela, o mês seguinte
     public void A_proxima_abertura_da_janela(string agora, bool depoisDaAtual, string esperada)
         => PrazosTiss.ProximaAbertura(Janela, DateTime.Parse(agora), depoisDaAtual).Should().Be(DateTime.Parse(esperada));
+
+    [Fact]
+    public void Feriado_nacional_nao_e_dia_util_da_janela()
+    {
+        // O portal da Amil: "para os dias não úteis será acrescentado o próximo dia útil".
+        Clinica.Domain.Regras.FeriadosNacionais.Nome(new DateOnly(2026, 11, 2)).Should().Be("Finados");
+        Clinica.Domain.Regras.FeriadosNacionais.Pascoa(2026).Should().Be(new DateOnly(2026, 4, 5));
+        Clinica.Domain.Regras.FeriadosNacionais.Eh(new DateOnly(2026, 4, 3)).Should().BeTrue("Paixão de Cristo");
+        Clinica.Domain.Regras.FeriadosNacionais.Eh(new DateOnly(2026, 11, 20)).Should().BeTrue("Consciência Negra");
+        Clinica.Domain.Regras.FeriadosNacionais.Eh(new DateOnly(2026, 2, 17)).Should().BeFalse("Carnaval é ponto facultativo, fica de fora");
+        PrazosTiss.DiaUtilDoMes(new DateOnly(2026, 11, 2)).Should().BeNull("Finados");
+        PrazosTiss.DiaUtilDoMes(new DateOnly(2026, 11, 3)).Should().Be(1);
+        PrazosTiss.DiaUtilDoMes(new DateOnly(2026, 11, 9)).Should().Be(5);
+        PrazosTiss.ProximaAbertura(Janela, new DateTime(2026, 10, 31, 10, 0, 0)).Should().Be(new DateTime(2026, 11, 3, 7, 0, 0));
+        // Janeiro de 2027: dia 1 é feriado (sexta) — o 1º dia útil é segunda, dia 4.
+        PrazosTiss.ProximaAbertura(Janela, new DateTime(2026, 12, 31, 10, 0, 0)).Should().Be(new DateTime(2027, 1, 4, 7, 0, 0));
+    }
 
     [Fact]
     public void A_guia_que_vence_antes_da_proxima_janela_e_aviso_grave()
@@ -99,11 +117,11 @@ public sealed class TissJanelaDeEnvioTests : IDisposable
     [Fact]
     public async Task Pedido_dentro_da_janela_que_o_conector_so_pega_fora_dela_volta_agendado_sem_gastar_tentativa()
     {
-        _b.Agora = new DateTime(2026, 11, 6, 18, 59, 0); // 5º dia útil, um minuto antes de fechar
+        _b.Agora = new DateTime(2026, 11, 6, 18, 59, 0); // 4º dia útil (dia 2 é Finados), um minuto antes de fechar
         var pedido = await _b.Fila().EnfileirarEnvioAsync(Amil, [await ProntoAsync()], TissBancoDeTeste.Operador);
         pedido.ProximaTentativaEm.Should().BeNull("dentro da janela o pedido não é agendado");
 
-        _b.Agora = new DateTime(2026, 11, 9, 10, 0, 0); // o serviço só o pega na segunda: 6º dia útil
+        _b.Agora = new DateTime(2026, 11, 10, 10, 0, 0); // o serviço só o pega na terça: 6º dia útil (dia 2 é Finados)
         (await Conector().ProcessarProximaAsync()).Should().BeTrue();
 
         _rede.Idas.Should().BeEmpty();

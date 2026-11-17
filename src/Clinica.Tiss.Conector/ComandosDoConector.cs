@@ -31,7 +31,7 @@ public static class ComandosDoConector
               aponta TODOS os serviços do convênio para a homologação da operadora (ou de volta)
           Clinica.Tiss.Conector testar-elegibilidade CONVENIO --carteira N [--operador NOME]
           Clinica.Tiss.Conector testar-lote CONVENIO --guias ID[,ID...] --operador NOME
-          Clinica.Tiss.Conector testar-lote CONVENIO --exemplo --carteira N [--senha S] [--token T] [--procedimento TUSS] [--valor 1,00] --operador NOME
+          Clinica.Tiss.Conector testar-lote CONVENIO --exemplo --carteira N [--senha S] [--token T] [--cpf-profissional CPF] [--procedimento TUSS] [--valor 1,00] --operador NOME
           Clinica.Tiss.Conector testar-protocolo CONVENIO --protocolo N --operador NOME
               os testes só rodam com o convênio em HOMOLOGAÇÃO, fazem UMA ida e não gravam nada nas
               guias nem na fila (só uma linha na trilha). [--soap-action VALOR] muda o SOAPAction.
@@ -148,8 +148,11 @@ public static class ComandosDoConector
                         if (string.IsNullOrWhiteSpace(carteira)) { erro.WriteLine("--exemplo pede --carteira N (uma carteira válida de produção)."); return 2; }
                         var valor = Opcao(args, "--valor") is { } v ? GuiaAnsEmEdicao.LerValor(v) : 1.00m;
                         if (valor is null or <= 0) { erro.WriteLine("--valor inválido (ex.: 1,00)."); return 2; }
+                        var cpfProfissional = Opcao(args, "--cpf-profissional");
+                        if (cpfProfissional is not null && !Clinica.Domain.Cpf.Valido(Clinica.Domain.Cpf.Normalizar(cpfProfissional)))
+                        { erro.WriteLine("--cpf-profissional inválido."); return 2; }
                         exemplo = new GuiaDeExemploTiss(carteira, Opcao(args, "--senha"), Opcao(args, "--token"),
-                            Opcao(args, "--procedimento") ?? "10101012", valor.Value);
+                            Opcao(args, "--procedimento") ?? "10101012", valor.Value, cpfProfissional);
                     }
                     var ids = new List<int>();
                     foreach (var parte in (Opcao(args, "--guias") ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
