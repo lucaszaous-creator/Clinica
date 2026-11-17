@@ -33,6 +33,16 @@ public static class FilaTiss
     public const int MaximoDeTentativas = 3;
 
     /// <summary>
+    /// As guias de um envio em LOTES de até <see cref="TransacaoTissLimites.GuiasPorLote"/> (o
+    /// máximo do XSD e o que a Amil confirmou, nov/2026), na ordem em que vieram.
+    /// </summary>
+    public static IReadOnlyList<IReadOnlyList<int>> DividirEmLotes(IReadOnlyList<int> codigoIds)
+        => codigoIds.Chunk(TransacaoTissLimites.GuiasPorLote).Select(l => (IReadOnlyList<int>)l).ToList();
+
+    /// <summary>Quantos lotes um envio de <paramref name="guias"/> guias vira.</summary>
+    public static int Lotes(int guias) => guias <= 0 ? 0 : (guias + TransacaoTissLimites.GuiasPorLote - 1) / TransacaoTissLimites.GuiasPorLote;
+
+    /// <summary>
     /// A operadora recusou a mensagem por HTTP de CLIENTE (4xx) — formato (415), endereço (404),
     /// proteção (403), login no transporte (401). Tentar de novo não muda a resposta e cada ida gasta
     /// a cota do dia (nov/2026: o 415 da Amil foi tentado duas vezes). Só 408 (tempo esgotado) e 429
@@ -227,6 +237,51 @@ public sealed class FilaTissService
         string convenioCodigo, IReadOnlyList<int> codigoIds, CancellationToken ct = default,
         IReadOnlyCollection<int>? conferidasNoPortal = null)
         => (await MontarLoteAsync(convenioCodigo, codigoIds, conferidasNoPortal, ct)).Conferencia;
+
+    /// <summary>
+    /// A conferência de um envio de QUALQUER tamanho: a de cada lote de até 100 (<see cref="FilaTiss.DividirEmLotes"/>),
+    /// somada. Guia repetida em lotes diferentes também é recusada.
+    /// </summary>
+    public async Task<ConferenciaDeEnvioTiss> ConferirEnvioEmLotesAsync(
+        string convenioCodigo, IReadOnlyList<int> codigoIds, CancellationToken ct = default,
+        IReadOnlyCollection<int>? conferidasNoPortal = null)
+    {
+        if (codigoIds is null || codigoIds.Count <= TransacaoTissLimites.GuiasPorLote)
+            return await ConferirEnvioAsync(convenioCodigo, codigoIds!, ct, conferidasNoPortal);
+        var partes = new List<ConferenciaDeEnvioTiss>();
+        // SEQUENCIAL: é o mesmo repositório (o mesmo DbContext).
+        foreach (var lote in FilaTiss.DividirEmLotes(codigoIds))
+            partes.Add(await ConferirEnvioAsync(convenioCodigo, lote, ct, conferidasNoPortal));
+        var porGuia = partes.SelectMany(p => p.PorGuia).GroupBy(p => p.Key).ToDictionary(g => g.Key, g => g.First().Value);
+        foreach (var repetida in codigoIds.GroupBy(id => id).Where(g => g.Count() > 1))
+            porGuia[repetida.Key] = "Esta guia aparece mais de uma vez na lista.";
+        return new ConferenciaDeEnvioTiss
+        {
+            Impedimento = partes.Select(p => p.Impedimento).FirstOrDefault(i => i is not null),
+            PorGuia = porGuia,
+            Avisos = partes.SelectMany(p => p.Avisos).Distinct().ToList(),
+            AvisosPorGuia = partes.SelectMany(p => p.AvisosPorGuia).GroupBy(p => p.Key).ToDictionary(g => g.Key, g => g.First().Value)
+        };
+    }
+
+    /// <summary>
+    /// Pede o envio de QUALQUER número de guias (nov/2026): acima de 100, o sistema divide em lotes de
+    /// até 100, um pedido por lote. A conferência de TODOS vem antes de qualquer um entrar na fila — uma
+    /// guia recusada recusa o envio inteiro (<see cref="EnvioTissRecusadoException"/>) e nada sai pela metade.
+    /// </summary>
+    public async Task<IReadOnlyList<TransacaoTiss>> EnfileirarEnvioEmLotesAsync(
+        string convenioCodigo, IReadOnlyList<int> codigoIds, string operador, CancellationToken ct = default,
+        IReadOnlyCollection<int>? conferidasNoPortal = null)
+    {
+        Operador(operador);
+        var conferencia = await ConferirEnvioEmLotesAsync(convenioCodigo, codigoIds, ct, conferidasNoPortal);
+        if (!conferencia.PodeEnviar)
+            throw new EnvioTissRecusadoException(conferencia);
+        var pedidos = new List<TransacaoTiss>();
+        foreach (var lote in FilaTiss.DividirEmLotes(codigoIds))
+            pedidos.Add(await EnfileirarEnvioAsync(convenioCodigo, lote, operador, ct, conferidasNoPortal));
+        return pedidos;
+    }
 
     /// <summary>
     /// Pede o envio de um LOTE de guias à operadora (de 1 a 100, do mesmo convênio). É este pedido, feito por quem está logado, que autoriza o envio DAQUELAS guias — o

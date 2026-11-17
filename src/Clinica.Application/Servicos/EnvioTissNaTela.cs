@@ -264,15 +264,12 @@ public static class EnvioTissNaTela
     /// que desfazer depois não é um clique.
     /// </summary>
     public static string PerguntaDoEnvio(int guias, string convenioNome)
-        => $"Enviar {guias} guia(s) à {convenioNome} pelo web service?\n\n"
+        => $"Enviar {guias} guia(s) à {convenioNome} pelo web service"
+           + (FilaTiss.Lotes(guias) > 1 ? $", em {FilaTiss.Lotes(guias)} lotes de até {TransacaoTissLimites.GuiasPorLote}" : string.Empty)
+           + "?\n\n"
            + "É a COBRANÇA de verdade: a operadora recebe essas guias como apresentadas pela clínica. "
            + "Depois de enviado, não há como desfazer por aqui — só cancelando a guia na operadora.";
 
-    /// <summary>O que impede marcar mais guias (nulo = pode): o lote leva até 100.</summary>
-    public static string? ImpedimentoDaMarcacao(int marcadas)
-        => marcadas > TransacaoTissLimites.GuiasPorLote
-            ? $"Um envio leva até {TransacaoTissLimites.GuiasPorLote} guias e há {marcadas} marcadas: desmarque algumas e envie em dois lotes."
-            : null;
 
     /// <summary>
     /// O aviso da tela quando o envio está desligado para o convênio (nulo = está ligado). Diz

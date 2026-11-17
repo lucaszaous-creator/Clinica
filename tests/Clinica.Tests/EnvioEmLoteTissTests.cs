@@ -81,6 +81,37 @@ public sealed class EnvioEmLoteTissTests : IDisposable
         (await _b.Db.TransacoesTiss.CountAsync()).Should().Be(0);
     }
 
+    [Fact]
+    public async Task Acima_de_cem_o_envio_e_dividido_sozinho_em_lotes_de_ate_cem_e_cada_guia_vai_uma_vez()
+    {
+        var ids = await _b.GuiasAsync(205);
+
+        (await _b.Fila().ConferirEnvioEmLotesAsync(P, ids)).PodeEnviar.Should().BeTrue();
+        var pedidos = await _b.Fila().EnfileirarEnvioEmLotesAsync(P, ids, Op);
+
+        pedidos.Select(p => p.Guias.Count).Should().Equal(100, 100, 5);
+        var gravadas = await _b.NovoContexto().TransacoesTissGuias.AsNoTracking().ToListAsync();
+        gravadas.Select(g => g.CodigoId).Should().BeEquivalentTo(ids.Cast<int?>(), "cada guia em um lote só");
+        FilaTiss.Lotes(205).Should().Be(3);
+        FilaTiss.Lotes(100).Should().Be(1);
+        FilaTiss.DividirEmLotes(ids).Select(l => l[0]).Should().Equal([ids[0], ids[100], ids[200]], "na ordem em que vieram");
+    }
+
+    [Fact]
+    public async Task Uma_guia_recusada_em_qualquer_lote_recusa_o_envio_inteiro_e_nada_entra_na_fila()
+    {
+        var ids = await _b.GuiasAsync(120);
+        var semConferencia = (await _b.GuiaAsync(conferida: false)).Guia.Id;
+        var lista = ids.Concat([semConferencia, ids[3]]).ToList(); // a 2ª parte tem uma sem conferência e uma repetida
+
+        var pedir = () => _b.Fila().EnfileirarEnvioEmLotesAsync(P, lista, Op);
+
+        var recusa = await pedir.Should().ThrowAsync<EnvioTissRecusadoException>();
+        recusa.Which.Conferencia.PorGuia.Keys.Should().Contain([semConferencia, ids[3]]);
+        recusa.Which.Conferencia.PorGuia[ids[3]].Should().Contain("mais de uma vez");
+        (await _b.NovoContexto().TransacoesTiss.CountAsync()).Should().Be(0, "nenhum lote sai pela metade");
+    }
+
     // ---------- cada recusa, com a frase da linha ----------
 
     [Fact]

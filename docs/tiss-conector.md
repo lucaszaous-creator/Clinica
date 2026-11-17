@@ -557,6 +557,7 @@ outro arquivo do conector, da fila ou das telas conhece nome de operadora.
 | `codigoPrestadorNaOperadora` | CNPJ da clínica | **login do web service** (o login do portal é o código do credenciado) |
 | Endereços padrão | `https://webservices.crc.com.br/tiss/ws/40100/…` | APIM: `https://api.servicos.grupoamil.com.br/api-tiss-…/v4.01.00` |
 | Padrão | TISS 4.01.00, SOAP, login e senha (MD5) no cabeçalho | o mesmo |
+| Versão do padrão | 4.01.00 em tudo | **4.03.00** no lote, no status do protocolo e no demonstrativo (`api-tiss-…/v4.03.00`); elegibilidade e cancelamento em 4.01.00 |
 | Codificação da mensagem na rede | ISO-8859-1 (a do padrão) | **UTF-8** (o APIM é WCF/basicHttpBinding: respondeu HTTP 415 a `charset=ISO-8859-1`) |
 | Elegibilidade | sim | **sim** |
 | Guia em que a consulta vai | guia de consulta (inclusive o BSV) | **guia SP/SADT**, com senha de autorização e token (o Manual do Credenciado manda cobrar consulta "exclusivamente em guias de SP/SADT") |
@@ -603,6 +604,33 @@ e carteirinha da ficha; quem não dá para consultar fica recolhido, com o motiv
 (carteirinha digitada, ou CPF — que só acha a ficha: o padrão 4.01.00 não tem CPF na
 `verificaElegibilidade`). Quem pede a consulta é o mesmo componente da ficha, sobre a mesma fila,
 com o intervalo, o teto diário e o resultado do dia. A lista e as frases: `ElegibilidadeNaAgendaService`.
+
+### Amil: TISS 4.03.00 no lote (nov/2026, resposta do Núcleo TISS)
+
+A Amil pede o padrão **4.03.00**. O lote só existe em `api-tiss-lote-guias/v4.03.00` (o WSDL abre, com
+namespace `…/tissloteguias/v40300`; em `/v4.01.00` dá 404). A versão é dado do catálogo, por tipo de
+transação (`OperadoraTiss.Versoes`, `VersaoTiss(tipo)`), e chega ao `Padrao` do cabeçalho pelo
+remetente; versão que o sistema não conhece é recusada antes da rede.
+
+| Transação da Amil | Versão | Endereço |
+|---|---|---|
+| Lote de guias | 4.03.00 | `api-tiss-lote-guias/v4.03.00` |
+| Status do protocolo | 4.03.00 | `api-tiss-solicitacao-status-protocolo/v4.03.00` |
+| Demonstrativo de retorno | 4.03.00 | `api-tiss-solicitacao-demonstrativo-retorno/v4.03.00` (só o endereço: a transação ainda não existe no sistema) |
+| Elegibilidade | 4.01.00 | `api-tiss-verifica-elegibilidade/v4.01.00` — funcionou em produção assim; não mexemos |
+| Cancelamento de guia | 4.01.00 | `api-tiss-cancela-guia/v4.01.00` (fora do escopo desta rodada) |
+
+**O que muda da 4.01.00 para a 4.03.00 na guia SP/SADT** (XSD oficiais, Componente de Comunicação 202511,
+comparados tipo a tipo): a estrutura de `ctm_sp-sadtGuia`, `ct_autorizacaoSADT` (senha, `codValidacao`,
+`ausenciaCodValidacao`), `ctm_sp-sadtAtendimento` e `ct_guiaValorTotal` é a MESMA, sem campo novo nem
+obrigatório novo; `valorUnitario` e `valorTotal` do procedimento executado passam de `st_decimal8-2`
+para `st_decimal10-2` (o sistema continua limitando a 999.999,99, que cabe nos dois); o CBO 223575 entra
+no domínio; e o `Padrao` aceita 4.02.00 e 4.03.00. A mensagem é validada contra os XSD 4.03.00 em
+`tests/Clinica.Tests/Tiss/xsd-4.03.00` (a mesma mensagem é recusada pelo XSD 4.01.00 — há teste).
+
+**Até 100 guias por lote** (o máximo do XSD, que a Amil confirmou): acima disso o sistema DIVIDE sozinho
+(`FilaTissService.EnfileirarEnvioEmLotesAsync`, um pedido por lote de até 100, na ordem marcada). Todas as
+partes são conferidas antes de qualquer uma entrar na fila: uma guia recusada recusa o envio inteiro.
 
 ### Amil: o envio de guias (pronto, desligado — nov/2026)
 
