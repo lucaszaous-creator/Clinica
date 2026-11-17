@@ -203,6 +203,11 @@
                         {
                             <p class="fat-envio-frase">@situacao.Frase</p>
                         }
+                        @if (EnvioTissNaTela.LembreteDeEntrega(OperadorasTiss.Da(Clinica.Domain.Regras.CatalogoConvenios.Familia(envio.ConvenioCodigo)), envio) is { } lembrete)
+                        {
+                            @* "Enviado" não é "entregue": a operadora pede a confirmação no portal dela. *@
+                            <Aviso Tom="atencao" Texto="@lembrete" />
+                        }
                         @if (_recados.TryGetValue(envio.Id, out var recado))
                         {
                             <Aviso Tom="@recado.Tom" Texto="@recado.Texto" />

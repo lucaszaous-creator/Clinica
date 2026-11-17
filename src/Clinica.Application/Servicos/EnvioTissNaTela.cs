@@ -319,6 +319,17 @@ public static class EnvioTissNaTela
         + "(docs/tiss-conector.md). Com esta chave ligada, a baixa da guia ganha \"Conferir e deixar pronta para envio\" "
         + "e a tela Guias TISS ganha o envio à operadora.";
 
+    /// <summary>
+    /// O lembrete depois de um envio RECEBIDO pela operadora que só considera o faturamento entregue
+    /// depois da confirmação no portal dela (Amil, nov/2026: "a confirmação de entrega do faturamento
+    /// continua no portal"). Nulo = não há o que lembrar (outra operadora, ou ainda sem protocolo).
+    /// </summary>
+    public static string? LembreteDeEntrega(OperadoraTiss? operadora, TransacaoTiss envio)
+        => operadora is { EntregaConfirmadaNoPortal: true } && envio.Tipo == TipoTransacaoTiss.EnvioGuia
+           && envio.Estado == EstadoTransacaoTiss.Concluida && !string.IsNullOrWhiteSpace(envio.Protocolo)
+            ? $"Enviado. Confirme a entrega no portal da {operadora.Nome} (protocolo {envio.Protocolo.Trim()}): enviado não é entregue."
+            : null;
+
     // ==================== a elegibilidade ====================
 
     /// <summary>

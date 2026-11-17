@@ -35,6 +35,13 @@ public sealed class ExecutorDeTransacoesTiss(
     public const string FraseEnvioDesligadoNoServidor =
         "O envio pelo web service está desligado neste servidor (TISS_ENVIO_HABILITADO). Nada foi enviado à operadora.";
 
+    /// <summary>
+    /// A fila de PRODUÇÃO não vai à homologação: com o convênio em homologação, o pedido das telas é
+    /// recusado (nada sai). Quem testa a homologação são os comandos <c>testar-*</c> do servidor.
+    /// </summary>
+    public static string FraseConvenioEmHomologacao(string convenio)
+        => $"{convenio} está em HOMOLOGAÇÃO no servidor (comando ambiente): os pedidos das telas não vão à operadora até voltar para produção. Nada foi enviado.";
+
     public static string FraseEnvioDesligadoNoConvenio(string convenio)
         => $"O envio pelo web service está desligado para {convenio}. Nada foi enviado à operadora.";
 
@@ -47,6 +54,11 @@ public sealed class ExecutorDeTransacoesTiss(
         IReadOnlyList<string> segredos = [];
         try
         {
+            if (await credenciais.EmHomologacaoAsync(t.ConvenioCodigo, ct))
+            {
+                await RecusarAsync(t, FraseConvenioEmHomologacao(t.ConvenioCodigo), ct);
+                return true;
+            }
             if (t.EscreveNaOperadora)
             {
                 if (!opcoes.EnvioHabilitado)

@@ -82,6 +82,14 @@ public sealed record JanelaDeEnvioTiss(int PrimeiroDiaUtil, int UltimoDiaUtil, T
 /// <param name="EnderecoDemonstrativo">
 /// O demonstrativo de retorno: só o endereço, porque o sistema ainda não tem a transação dele.
 /// </param>
+/// <param name="EnderecoHomologacao">
+/// O ponto ÚNICO de homologação da operadora (nulo = ela não tem): com o convênio em homologação
+/// (<c>comando.sh ambiente</c>), TODOS os serviços vão para ele.
+/// </param>
+/// <param name="EntregaConfirmadaNoPortal">
+/// A operadora só considera o faturamento ENTREGUE depois da confirmação no portal dela: "enviado"
+/// pelo web service não é "entregue", e a tela diz isso depois do envio.
+/// </param>
 public sealed record OperadoraTiss(
     Convenio Familia, string Nome, string RegistroAns, CodigoDoPrestadorTiss CodigoDoPrestador,
     bool EnvioDeGuiaNasTelas, IReadOnlyDictionary<TipoTransacaoTiss, Uri> Enderecos,
@@ -90,7 +98,9 @@ public sealed record OperadoraTiss(
     int? PrazoDeCobrancaDias = null,
     JanelaDeEnvioTiss? JanelaDeEnvio = null,
     IReadOnlyDictionary<TipoTransacaoTiss, string>? Versoes = null,
-    Uri? EnderecoDemonstrativo = null)
+    Uri? EnderecoDemonstrativo = null,
+    Uri? EnderecoHomologacao = null,
+    bool EntregaConfirmadaNoPortal = false)
 {
     public Uri? Endereco(TipoTransacaoTiss tipo) => Enderecos.TryGetValue(tipo, out var uri) ? uri : null;
 
@@ -168,7 +178,12 @@ public static class OperadorasTiss
             [TipoTransacaoTiss.EnvioGuia] = Versao403,
             [TipoTransacaoTiss.StatusProtocolo] = Versao403
         },
-        EnderecoDemonstrativo: new Uri("https://api.servicos.grupoamil.com.br/api-tiss-solicitacao-demonstrativo-retorno/v4.03.00"));
+        EnderecoDemonstrativo: new Uri("https://api.servicos.grupoamil.com.br/api-tiss-solicitacao-demonstrativo-retorno/v4.03.00"),
+        // Resposta do Núcleo TISS (nov/2026): um endereço só para todos os serviços (o ?wsdl dá 404,
+        // então o serviço é decidido pelo corpo da mensagem). Aceita carteira válida de produção.
+        EnderecoHomologacao: new Uri("https://api-dev.servicos.grupoamil.com.br/api-tiss-servico-test"),
+        // "A confirmação de entrega do faturamento e do recurso continua no portal."
+        EntregaConfirmadaNoPortal: true);
 
     /// <summary>Todas as operadoras com web service conhecidas.</summary>
     public static IReadOnlyList<OperadoraTiss> Todas { get; } = [SaudePetrobras, Amil];
