@@ -401,6 +401,21 @@ por variável. **O que falta e não é código**: o contrato com a Anthropic e a
 art. 33 (cláusulas-padrão da ANPD ou outra hipótese). Enquanto não existirem, este item
 fica ⚠️ também por este motivo.
 
+✅ **17/11/2026 — envio TISS às operadoras: decisão da direção registrada** (o pendente de
+`docs/tiss-conector.md`, seção "LGPD — a decisão que ainda falta"). Texto aprovado pela direção:
+
+> A clínica autoriza o envio dos dados da guia (carteira, atendimento, procedimento,
+> profissional e valor) à operadora do próprio paciente, pelo canal oficial dela (web service
+> TISS), com a finalidade de faturar o atendimento prestado. São os mesmos dados que hoje a
+> secretária digita no portal da operadora. Base legal: execução de serviço de saúde e
+> transações administrativas dele (LGPD, art. 11, II, "a" e "f"). Os dados enviados e as
+> respostas ficam guardados pelo prazo de recurso de glosa.
+
+Vale para a elegibilidade, a autorização e o envio de guias da Saúde Petrobras e da Amil
+pelo conector TISS. É leitura técnica aprovada pela direção, não parecer jurídico: a validação
+final é do encarregado de dados ou do jurídico da clínica. Continua pendente a rotina de
+descarte dos XML guardados em `TransacoesTiss` depois do prazo de recurso.
+
 ---
 
 ## O que falta, em uma lista
