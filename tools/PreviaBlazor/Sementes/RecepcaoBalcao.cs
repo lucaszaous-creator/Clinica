@@ -57,6 +57,19 @@ public sealed class SementeRecepcaoBalcao : ISemente
         Lancar(tereza, hoje, ModalidadeAtendimento.Consulta, "Ana Lima");
         Lancar(vinicius, hoje.AddDays(-1), ModalidadeAtendimento.BsvComAcupuntura, null);
 
+        // O DETALHE DO ATENDIMENTO (nov/2026): a 1ª guia do Otávio baixada, com número, e a
+        // receita dela — é o que o "Abrir" e a busca por nº da guia precisam para desenhar.
+        var guia = db.Codigos.Where(c => c.Atendimento!.PacienteId == otavio.Id).OrderBy(c => c.Id).First();
+        guia.DarBaixa(hoje, "20261100417", "Ana Lima", null);
+        db.Lancamentos.Add(new LancamentoFinanceiro
+        {
+            Data = hoje, Tipo = TipoLancamento.Entrada, Status = StatusLancamento.Realizado, DataPagamento = hoje,
+            Descricao = $"Unimed — guia 20261100417 ({otavio.Nome})", Valor = 145m,
+            FormaPagamento = FormaPagamento.Convenio, PacienteId = otavio.Id, CodigoFaturamentoId = guia.Id
+        });
+        db.SaveChanges();
+        db.ChangeTracker.Clear();
+
         // ---------- Consultas de convênio ----------
         var consultas = new ConsultaService(repo);
         consultas.RenovarAsync(otavio.Id, hoje.AddDays(-40)).GetAwaiter().GetResult(); // vencida (22 dias)

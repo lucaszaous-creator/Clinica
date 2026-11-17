@@ -20,9 +20,25 @@ public sealed class SementeBase : ISemente
         var nasc = new DateOnly(1970, 3, 1);
         for (var p = 0; p < nomes.Length; p++)
             db.Add(new Paciente { Nome = nomes[p], Telefone = $"(21) 9{p}{p}12-34{p}{p}", DataNascimento = nasc.AddYears(p * 3).AddDays(p * 37) });
-        db.Add(new Profissional { Nome = "Dra. Helena Duarte", NomeCurto = "Dra. Helena", RegistroConselho = "CRM-RJ 52.1234" });
-        db.Add(new Profissional { Nome = "Dr. Marcos Vieira", NomeCurto = "Dr. Marcos", RegistroConselho = "CRM-RJ 61.9876" });
-        db.Add(new Profissional { Nome = "Bianca Moraes", NomeCurto = "Bianca", RegistroConselho = "CREFITO-2 12345-F" });
+        // O registro para guias de convênio (nov/2026), nos códigos do padrão TISS e FICTÍCIO como
+        // o resto: "06" = CRM, "05" = CREFITO, "33" = RJ; CBO 225105 = médico acupunturista,
+        // 225133 = médico psiquiatra, 223605 = fisioterapeuta geral. É com ele que a guia de
+        // consulta da baixa abre preenchida na prévia.
+        db.Add(new Profissional
+        {
+            Nome = "Dra. Helena Duarte", NomeCurto = "Dra. Helena", RegistroConselho = "CRM-RJ 52.1234",
+            ConselhoProfissional = "06", NumeroConselho = "521234", UfConselho = "33", Cbos = "225105"
+        });
+        db.Add(new Profissional
+        {
+            Nome = "Dr. Marcos Vieira", NomeCurto = "Dr. Marcos", RegistroConselho = "CRM-RJ 61.9876",
+            ConselhoProfissional = "06", NumeroConselho = "619876", UfConselho = "33", Cbos = "225133"
+        });
+        db.Add(new Profissional
+        {
+            Nome = "Bianca Moraes", NomeCurto = "Bianca", RegistroConselho = "CREFITO-2 12345-F",
+            ConselhoProfissional = "05", NumeroConselho = "12345F", UfConselho = "33", Cbos = "223605"
+        });
         db.SaveChanges();
 
         var cat = new Dictionary<string, CategoriaFinanceira>();

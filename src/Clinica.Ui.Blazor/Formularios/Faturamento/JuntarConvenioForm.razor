@@ -1,0 +1,148 @@
+@*
+  JUNTAR DOIS CONVÊNIOS (nov/2026). Nasceu dos dois "Particular" da clínica — o criado à mão e
+  o que o catálogo garantia —, cada um com parte dos pacientes, e o nome repetido travando o
+  "Salvar configurações". Juntar põe os pacientes, os preços e as autorizações em vigor no
+  convênio que FICA; o que SAI é desativado e renomeado, e o histórico já lançado não muda.
+
+  Grava NA HORA (como a exclusão), não no "Salvar configurações": por isso a tela de trás só
+  abre este formulário sem alterações pendentes, e relê o catálogo quando ele conclui.
+  A decisão mora em ConvenioCatalogoService.JuntarAsync; aqui só se escolhe e se mostra.
+*@
+@using Clinica.Application.Servicos
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="@($"Juntar \"{Origem.Nome}\" em outro convênio")"
+       Subtitulo="Os pacientes deste convênio passam para o escolhido abaixo, e este sai das listas de escolha. Use quando houver dois cadastros para a mesma operadora (ou dois “Particular”)."
+       Largura="medio" AoFechar="AoFechar">
+    <ChildContent>
+        <Campo Rotulo="Juntar em" Obrigatorio="true" Classe="largo">
+            <select class="campo" value="@(_destino ?? "")" disabled="@_ocupado" @onchange="TrocarDestinoAsync">
+                <option value="">Escolha o convênio que fica…</option>
+                @foreach (var c in Destinos)
+                {
+                    <option value="@c.Codigo">@c.Nome</option>
+                }
+            </select>
+        </Campo>
+
+        <div class="fat-juntar">
+            <div class="fat-juntar-lado">
+                <span class="rotulo">Sai</span>
+                <strong>@Origem.Nome</strong>
+                @Contagem(_usoOrigem)
+            </div>
+            <div class="fat-juntar-lado">
+                <span class="rotulo">Fica</span>
+                <strong>@(DestinoEscolhido?.Nome ?? "—")</strong>
+                @if (DestinoEscolhido is not null) { @Contagem(_usoDestino) }
+            </div>
+        </div>
+
+        <Aviso Tom="info" Texto="O que já foi lançado não muda: caixa, repasse, tributos e lotes TISS continuam com o convênio de quando aconteceram. O convênio que sai fica desativado e renomeado — não é apagado. Os preços passam para o que fica só se ele ainda não tiver tabela própria." />
+        <Aviso Tom="erro" Texto="@_mensagem" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao perigo" @onclick="JuntarAsync"
+                disabled="@(_ocupado || DestinoEscolhido is null || _usoOrigem is null || !PodeEditar)"
+                title="@(PodeEditar ? null : "Seu acesso não permite alterar as configurações do faturamento.")">
+            <Icone Nome="check" />@RotuloDoBotao
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    /// <summary>O convênio que SAI.</summary>
+    [Parameter, EditorRequired] public ConvenioCadastro Origem { get; set; } = default!;
+    /// <summary>O catálogo da tela (os destinos possíveis saem dele).</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<ConvenioCadastro> Catalogo { get; set; } = [];
+    [Parameter] public EventCallback<ResultadoJuncaoConvenios> AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private string? _destino, _mensagem;
+    private UsoDoConvenio? _usoOrigem, _usoDestino;
+    private bool _ocupado;
+    private int _geracao;
+
+    private static bool PodeEditar => SessaoUsuario.Atual.Pode(Permissao.ConfigurarFaturamento);
+    private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
+
+    private IEnumerable<ConvenioCadastro> Destinos => ConfiguracoesFaturamentoNaTela.DestinosDaJuncao(Origem, Catalogo);
+
+    private ConvenioCadastro? DestinoEscolhido => Destinos.FirstOrDefault(c => c.Codigo == _destino);
+
+    private string RotuloDoBotao => _ocupado ? "Juntando…"
+        : DestinoEscolhido is null ? "Juntar"
+        : _usoOrigem is { Pacientes: var n } ? $"Juntar {(n == 1 ? "1 paciente" : $"{n} pacientes")} em {DestinoEscolhido.Nome}"
+        : $"Juntar em {DestinoEscolhido.Nome}";
+
+    private static RenderFragment Contagem(UsoDoConvenio? uso) => __builder =>
+    {
+        if (uso is null)
+        {
+            <span class="campo-dica">Contando…</span>
+        }
+        else
+        {
+            <span class="campo-dica">@(uso.Pacientes == 1 ? "1 paciente" : $"{uso.Pacientes} pacientes") · @(uso.Precos == 1 ? "1 preço" : $"{uso.Precos} preços") · @(uso.Autorizacoes == 1 ? "1 autorização em vigor" : $"{uso.Autorizacoes} autorizações em vigor")</span>
+        }
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        // O homônimo (o outro "Particular") já vem escolhido: é o caso que fez este formulário existir.
+        _destino = ConfiguracoesFaturamentoNaTela.DestinoSugerido(Origem, Catalogo)?.Codigo;
+        await ContarAsync();
+    }
+
+    private async Task TrocarDestinoAsync(ChangeEventArgs e)
+    {
+        _destino = e.Value?.ToString() is { Length: > 0 } v ? v : null;
+        _mensagem = null;
+        await ContarAsync();
+    }
+
+    private async Task ContarAsync()
+    {
+        var geracao = ++_geracao;
+        _usoDestino = null;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var catalogo = escopo.ServiceProvider.GetRequiredService<ConvenioCatalogoService>();
+            // Sequencial: é o mesmo DbContext.
+            var origem = await catalogo.UsoAsync(Origem.Codigo, Hoje);
+            var destino = _destino is { } d ? await catalogo.UsoAsync(d, Hoje) : null;
+            if (geracao != _geracao) return;
+            _usoOrigem = origem;
+            _usoDestino = destino;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracao) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — contagem para juntar convênios falhou", ex);
+            _mensagem = $"Não foi possível contar os pacientes: {ex.Message}";
+        }
+    }
+
+    private async Task JuntarAsync()
+    {
+        if (_ocupado || _destino is null) return;
+        _mensagem = null;
+        try
+        {
+            _ocupado = true;
+            SessaoUsuario.Atual.Exigir(Permissao.ConfigurarFaturamento, "juntar convênios");
+            using var escopo = Escopos.CreateScope();
+            var resultado = await escopo.ServiceProvider.GetRequiredService<ConvenioCatalogoService>()
+                .JuntarAsync(Origem.Codigo, _destino, SessaoUsuario.Atual.Operador, Hoje);
+            await AoConcluir.InvokeAsync(resultado);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — juntar convênios", ex);
+            _mensagem = ex.Message;
+        }
+        finally { _ocupado = false; }
+    }
+}

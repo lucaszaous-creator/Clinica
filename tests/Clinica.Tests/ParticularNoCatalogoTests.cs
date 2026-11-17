@@ -183,4 +183,54 @@ public class ParticularNoCatalogoTests : IDisposable
         salva.RegistroAnsOperadora.Should().Be(
             "326305", "é ele que endereça o lote TISS à operadora certa");
     }
+
+    /// <summary>
+    /// Os campos da Sul América (nov/2026) — eletro no mesmo dia e os intervalos mínimos —
+    /// também passam pelo ramo de UPDATE: sem a cópia campo a campo, a edição os perderia.
+    /// </summary>
+    [Fact]
+    public async Task Eletro_no_mesmo_dia_e_intervalos_GRAVAM_na_edicao()
+    {
+        await _catalogo.SalvarAsync([new ConvenioCadastro
+        {
+            Codigo = "OperadoraIntervalos", Nome = "Operadora dos intervalos",
+            Familia = Convenio.Personalizado, Ativo = true, FazEletro = true
+        }]);
+
+        var editada = (await _catalogo.ListarAsync()).First(c => c.Codigo == "OperadoraIntervalos");
+        editada.EletroNoMesmoDia = true;
+        editada.IntervaloAcupunturaDias = 1;
+        editada.IntervaloEletroDias = 7;
+        await _catalogo.SalvarAsync([editada]);
+
+        var salva = (await _catalogo.ListarAsync()).First(c => c.Codigo == "OperadoraIntervalos");
+        salva.EletroNoMesmoDia.Should().BeTrue();
+        salva.IntervaloAcupunturaDias.Should().Be(1);
+        salva.IntervaloEletroDias.Should().Be(7);
+        var cfg = salva.ParaConfig();
+        cfg.EletroNoMesmoDia.Should().BeTrue();
+        cfg.MaiorIntervaloDias.Should().Be(7);
+    }
+
+    /// <summary>
+    /// A clínica que criou o "Particular" à mão, com OUTRO código, antes da garantia existir
+    /// não ganha um segundo — o par de nomes iguais travava o "Salvar configurações" inteiro
+    /// (nov/2026: a Sul América não pôde ser configurada por causa dele).
+    /// </summary>
+    [Fact]
+    public async Task Particular_criado_a_mao_com_outro_codigo_nao_ganha_um_segundo()
+    {
+        await _catalogo.SalvarAsync([new ConvenioCadastro
+        {
+            Codigo = "CVparticularDaClinica", Nome = "particular ", Familia = Convenio.Personalizado,
+            Ativo = true, GeraGuia = false
+        }]);
+
+        var lista = await _catalogo.ListarAsync();
+
+        lista.Where(c => c.Nome.Trim().Equals("Particular", StringComparison.OrdinalIgnoreCase))
+            .Should().ContainSingle().Which.Codigo.Should().Be("CVparticularDaClinica");
+        ConfiguracoesFaturamentoNaTela.ConferirAntesDeSalvar(lista, [], []).Should().BeNull(
+            "sem nome repetido, o Salvar configurações grava");
+    }
 }

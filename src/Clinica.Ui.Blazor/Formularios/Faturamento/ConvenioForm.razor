@@ -73,6 +73,7 @@
                 {
                     <p class="fat-conv-texto">Como este convênio é personalizado, os ajustes abaixo é que definem o que o sistema gera a cada atendimento.</p>
                     <label class="alternar"><input type="checkbox" checked="@Convenio.FazEletro" @onchange="@(e => Mudar(() => Convenio.FazEletro = e.Value is true))" /> A clínica atende com eletroacupuntura neste convênio</label>
+                    <label class="alternar"><input type="checkbox" checked="@Convenio.EletroNoMesmoDia" @onchange="@(e => Mudar(() => Convenio.EletroNoMesmoDia = e.Value is true))" /> Acupuntura e eletroacupuntura são autorizadas no mesmo dia (a eletro não vira 2º código)</label>
                     <label class="alternar"><input type="checkbox" checked="@Convenio.TemSegundoCodigo" @onchange="@(e => Mudar(() => Convenio.TemSegundoCodigo = e.Value is true))" /> Gera um 2º código alguns dias depois do atendimento</label>
                     <label class="alternar"><input type="checkbox" checked="@Convenio.SegundoCodigoDependeApp" @onchange="@(e => Mudar(() => Convenio.SegundoCodigoDependeApp = e.Value is true))" /> O 2º código só é possível se o paciente tiver o app do convênio</label>
                     <label class="alternar"><input type="checkbox" checked="@Convenio.FaturaBsv" @onchange="@(e => Mudar(() => Convenio.FaturaBsv = e.Value is true))" /> Fatura BSV</label>
@@ -98,6 +99,18 @@
                         </Campo>
                     </div>
                     <span class="campo-dica">Deixe a validade da consulta em branco se este convênio não exige renovar a consulta de tempos em tempos.</span>
+
+                    <div class="campos">
+                        <Campo Rotulo="Intervalo entre acupunturas, em dias">
+                            <input type="number" min="0" max="365" class="campo" value="@Convenio.IntervaloAcupunturaDias"
+                                   @onchange="@(e => Mudar(() => { if (int.TryParse(e.Value?.ToString(), out var d) && d is >= 0 and <= 365) Convenio.IntervaloAcupunturaDias = d; }))" />
+                        </Campo>
+                        <Campo Rotulo="Intervalo entre eletroacupunturas, em dias">
+                            <input type="number" min="0" max="365" class="campo" value="@Convenio.IntervaloEletroDias"
+                                   @onchange="@(e => Mudar(() => { if (int.TryParse(e.Value?.ToString(), out var d) && d is >= 0 and <= 365) Convenio.IntervaloEletroDias = d; }))" />
+                        </Campo>
+                    </div>
+                    <span class="campo-dica">Quantos dias o convênio exige entre duas autorizações do mesmo procedimento para o mesmo paciente (0 = sem limite). A guia que cairia antes disso nasce com a data em que o convênio a libera e aparece nas pendências nesse dia.</span>
 
                     <div class="campos">
                         <Campo Rotulo="Semáforo quando o paciente TEM app">

@@ -81,6 +81,16 @@ public static class AtendimentoDoBalcaoNaTela
     /// </summary>
     public const string GuiasNoFinalizar = "nascem quando o profissional finalizar";
 
+    /// <summary>
+    /// A linha "Guias" do resumo quando o horário foi marcado como PARTICULAR (nov/2026):
+    /// "nascem quando o profissional finalizar" prometeria uma guia que não vai existir.
+    /// </summary>
+    public const string GuiasDoParticular = "nenhuma — atendimento particular";
+
+    /// <summary>A nota sob o botão, no horário particular: onde está o dinheiro, já que guia não há.</summary>
+    public const string NotaDoParticular =
+        "Atendimento particular: não há guia. A cobrança é registrada no caixa, no Finalizar da sessão.";
+
     /// <summary>No marcar a hora é "Outro horário" (as pílulas são o caminho normal); no lançar é a hora.</summary>
     public static string RotuloHora(bool marcar) => marcar ? "Outro horário" : "Hora";
 
@@ -398,11 +408,11 @@ public static class AtendimentoDoBalcaoNaTela
         or ImpedimentoElegibilidade.ConsultaVencida or ImpedimentoElegibilidade.ConsultaARenovar;
 
     public const string SemConvenio =
-        "Sem convênio vinculado — o atendimento não gera guia e não pode ser lançado. Escolha o convênio do paciente (particular, para quem paga do bolso).";
+        "Sem convênio vinculado — o atendimento não gera guia e não pode ser lançado. Escolha o convênio do paciente — ou marque ESTE atendimento como Particular, acima.";
 
     public static string RecusaSemConvenio(string paciente)
         => $"{paciente} está sem convênio, e sem convênio o atendimento não gera guia. Escolha o convênio para lançar — "
-           + "quem paga do bolso entra no convênio particular.";
+           + "ou marque este atendimento como Particular (a escolha \u201CAtendimento por\u201D), se ele paga do bolso.";
 
     public const string SemProfissionalNaMarcacao =
         "Sem profissional: o horário não aparece no quadro de ninguém e fica fora do repasse. Escolha em \"Quem atende\" — o sistema não sorteia.";

@@ -34,11 +34,15 @@ public sealed class SementeEquipe : ISemente
         var abigail = db.Add(new Profissional
         {
             Nome = "Abigail Nunes", NomeCurto = "Enf. Abigail", RegistroConselho = "COREN-RJ 345.678",
+            // Registro para guias (fictício): "02" = COREN, "33" = RJ, CBO 223505 = enfermeiro.
+            ConselhoProfissional = "02", NumeroConselho = "345678", UfConselho = "33", Cbos = "223505",
             Cpf = "52998224725", Telefone = "(21) 98888-1001", Email = "abigail@clinica.exemplo",
             DiasDeAtendimento = Dias(DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday),
             AtendeDas = new TimeOnly(7, 0), AtendeAte = new TimeOnly(13, 0), Ordem = 0,
             Observacoes = "Responsável pela sala de infusão."
         }).Entity;
+        // O Dr. Caio fica SEM o registro para guias, de propósito: é a ficha em que a prévia (e a
+        // foto) mostram a PROPOSTA lida do texto livre, com o botão "Usar estes valores".
         var caio = db.Add(new Profissional
         {
             Nome = "Dr. Caio Rezende", NomeCurto = "Dr. Caio", RegistroConselho = "CRM-RJ 77.2468",

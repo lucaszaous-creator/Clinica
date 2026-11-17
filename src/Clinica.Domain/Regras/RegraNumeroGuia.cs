@@ -6,7 +6,9 @@ namespace Clinica.Domain.Regras;
 /// Por que isto é uma regra de DOMÍNIO e não uma máscara de tela
 /// -------------------------------------------------------------
 /// A baixa acontece em quatro portas — a tela de baixa do faturamento, a baixa em lote do
-/// painel, a rodada de pendências e a fila do Gerente — e a validação vale nas quatro. Uma
+/// painel e a rodada de pendências, esta em duas telas (o formulário do painel e a janela
+/// bloqueante da abertura do app) — e a validação vale nas quatro. O Gerente não tem porta
+/// própria: dá baixa por essas mesmas telas. Uma
 /// máscara no <c>TextBox</c> cobre a primeira e deixa as outras três passarem, que é o
 /// mesmo defeito recorrente do projeto (capacidade que existe numa porta só) vestido de
 /// validação. Por isso quem recusa é <c>FaturamentoService.DarBaixaAsync</c>, no caminho
@@ -47,8 +49,8 @@ public static class RegraNumeroGuia
     /// Critica o número digitado. Devolve a frase a mostrar, ou <c>null</c> quando passa.
     ///
     /// Número EM BRANCO passa em qualquer formato: "ainda não tenho o número" é uma
-    /// resposta legítima na fila do Gerente, e é a tela de baixa do faturamento que exige
-    /// o preenchimento. Quem valida forma não decide obrigatoriedade.
+    /// resposta legítima na baixa em lote e na rodada de pendências, e é a tela de baixa do
+    /// faturamento que exige o preenchimento. Quem valida forma não decide obrigatoriedade.
     /// </summary>
     public static string? Criticar(string? numero, FormatoNumeroGuia formato)
     {

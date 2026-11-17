@@ -19,3 +19,11 @@
 .guia-motivos .motivo-topo strong{flex:1 1 200px}
 .guia-motivos .motivos p{margin:var(--space-2) 0 0;font-size:var(--text-table-size);line-height:1.5;color:var(--texto-secundario)}
 .nota-prazo{margin:0;font-size:var(--text-small-size);color:var(--texto-secundario);line-height:1.45}
+/* Nov/2026 — com a coluna Atendimento (o padrão da Consulta de guias), em 1024 o paciente ficava
+   sem largura (medido na foto): a glosa desce para a célula da baixa e as ações estreitam. */
+.fat-faturados .so-estreito{display:none}
+@media (max-width:1280px){
+  .fat-faturados th.col-glosa,.fat-faturados td.col-glosa{display:none}
+  .fat-faturados .so-estreito{display:block;margin-top:2px}
+  .fat-faturados th.col-acoes{width:200px !important}
+}

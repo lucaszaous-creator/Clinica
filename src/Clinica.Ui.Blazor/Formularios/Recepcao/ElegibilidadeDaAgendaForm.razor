@@ -1,0 +1,244 @@
+@*
+  CONSULTAR ELEGIBILIDADE A PARTIR DA AGENDA (nov/2026, pedido do dono: "apenas uma função para
+  termos consulta"). Abre do botão discreto da aba "Dia" da Agenda (AgendaDoDia, chave "fila") —
+  a tela onde a recepção vive. Ele esteve na Grade de horários (#361), que os apps NÃO mostram
+  (OrganizacaoNavegacao a esconde): as telas que anunciam o botão estão em TelasComOBotao, e a
+  verificação Windows do CI confere que cada uma é alcançável no menu real do Recepção e do Gerente.
+
+  Dois jeitos de consultar, em duas abas:
+  - "Agenda de <dia>": os pacientes do dia, com convênio e carteirinha DO CADASTRO. Quem não pode
+    ser consultado aparece desabilitado, com o motivo (particular, sem consulta automática, sem
+    carteirinha). Quem já foi consultado hoje tem um selo pequeno.
+  - "Avulso": a carteirinha digitada, ou o CPF — que só acha a ficha: o padrão TISS 4.01.00 não
+    aceita CPF na verificação de elegibilidade, então a consulta usa a carteirinha da ficha.
+
+  Nada aqui pergunta à operadora: quem pede é o MESMO componente da ficha do paciente
+  (ElegibilidadeNaOperadora), sobre a MESMA fila — com o intervalo, o teto diário e o resultado do
+  dia reaproveitado ("Consultar de novo" explícito). As três respostas (elegível, não elegível,
+  não foi possível) e os estados carregando e na fila são os dele. A lista e as frases moram no
+  ElegibilidadeNaAgendaService (Application, com teste).
+*@
+@namespace Clinica.Ui.Blazor.Formularios
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="Consultar elegibilidade" Largura="medio" AoFechar="AoFechar"
+       Subtitulo="Pergunta à operadora se a carteirinha está ativa. Só nos convênios com consulta automática.">
+    <ChildContent>
+        <div class="abas" role="tablist" aria-label="Como consultar">
+            <button type="button" role="tab" data-aba-agenda aria-selected="@(_aba == 0 ? "true" : "false")" @onclick="() => _aba = 0">Agenda de @Dia.ToString("dd/MM")</button>
+            <button type="button" role="tab" data-aba-avulso aria-selected="@(_aba == 1 ? "true" : "false")" @onclick="() => _aba = 1">Avulso</button>
+        </div>
+
+        @if (_falhou)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler a agenda para a consulta" Detalhe="@_erroLeitura" AoTentarDeNovo="CarregarAsync" />
+        }
+        else if (_leitura is null)
+        {
+            <Esqueleto Altura="160" />
+        }
+        else if (_aba == 0)
+        {
+            @if (_leitura.Pacientes.Count == 0)
+            {
+                <EstadoVazio Titulo="Ninguém na agenda deste dia" Descricao="Use a aba Avulso para consultar uma carteirinha ou um CPF." Icone="vazio" />
+            }
+            else
+            {
+                var consultaveis = _leitura.Pacientes.Where(p => p.Impedimento is null).ToList();
+                var outros = _leitura.Pacientes.Where(p => p.Impedimento is not null).ToList();
+                @if (consultaveis.Count == 0)
+                {
+                    <p class="campo-dica">Ninguém deste dia tem convênio com consulta automática e carteirinha na ficha. Use a aba Avulso.</p>
+                }
+                else
+                {
+                    <ul class="ea-lista" aria-label="Pacientes da agenda que dá para consultar">
+                        @foreach (var p in consultaveis) { @Linha(p) }
+                    </ul>
+                }
+                @if (outros.Count > 0)
+                {
+                    @* Os que não dá para consultar ficam recolhidos: aparecem com o motivo, mas não empurram a lista. *@
+                    <details class="ea-outros" data-sem-consulta>
+                        <summary>Sem consulta automática ou sem carteirinha (@outros.Count)</summary>
+                        <ul class="ea-lista" aria-label="Pacientes da agenda sem consulta">
+                            @foreach (var p in outros) { @Linha(p) }
+                        </ul>
+                    </details>
+                }
+                @if (_escolhido is { } e)
+                {
+                    <div class="ea-consulta" data-consulta-da-agenda>
+                        <p class="campo-dica">@e.Paciente · @e.ConvenioNome · carteirinha @e.Carteira</p>
+                        <ElegibilidadeNaOperadora @key="e.AgendamentoId" ConvenioCodigo="@e.ConvenioCodigo" Carteira="@e.Carteira"
+                                                  Validade="e.Validade" PacienteId="e.PacienteId" NomeDaFicha="@e.Paciente" />
+                    </div>
+                }
+            }
+        }
+        else if (_leitura.Convenios.Count == 0)
+        {
+            <Aviso Tom="info" Texto="Nenhum convênio tem consulta automática configurada. Ela existe para os convênios de operadora com web service no sistema, depois que a credencial é cadastrada no servidor de envio." />
+        }
+        else
+        {
+            <div class="campos">
+                <Campo Rotulo="Convênio">
+                    <select id="ea-Convenio" class="campo" value="@_convenio" @onchange="TrocarConvenio">
+                        @foreach (var c in _leitura.Convenios) { <option value="@c.Codigo">@c.Nome</option> }
+                    </select>
+                </Campo>
+                <Campo Rotulo="Consultar por">
+                    <select id="ea-Tipo" class="campo" value="@(_porCpf ? "cpf" : "carteira")" @onchange="TrocarTipo">
+                        <option value="carteira">Carteirinha</option>
+                        <option value="cpf">CPF (acha a carteirinha na ficha)</option>
+                    </select>
+                </Campo>
+                <Campo Rotulo="@(_porCpf ? "CPF" : "Número da carteirinha")">
+                    <input id="ea-Numero" class="campo" maxlength="@(_porCpf ? 14 : 20)" autocomplete="off" value="@_numero"
+                           @oninput="e => { _numero = e.Value?.ToString(); _busca = null; }" />
+                </Campo>
+            </div>
+            @if (_porCpf)
+            {
+                <div class="botoes-linha">
+                    <button type="button" class="botao" data-buscar-cpf disabled="@(_buscando || string.IsNullOrWhiteSpace(_numero))" @onclick="BuscarCpfAsync">
+                        <Icone Nome="busca" />@(_buscando ? "Buscando…" : "Buscar pelo CPF")</button>
+                </div>
+                @if (_busca is { } busca)
+                {
+                    @if (busca.Unico is { } achado)
+                    {
+                        <div class="ea-consulta" data-consulta-avulsa>
+                            <p class="campo-dica">@achado.Nome · @achado.ConvenioNome · carteirinha @achado.Carteira</p>
+                            <ElegibilidadeNaOperadora @key="@($"cpf:{achado.PacienteId}")" ConvenioCodigo="@achado.ConvenioCodigo" Carteira="@achado.Carteira"
+                                                      Validade="achado.Validade" PacienteId="achado.PacienteId" NomeDaFicha="@achado.Nome" />
+                        </div>
+                    }
+                    else
+                    {
+                        <Aviso Tom="atencao" Texto="@busca.Frase" />
+                    }
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(_numero))
+            {
+                <div class="ea-consulta" data-consulta-avulsa>
+                    <ElegibilidadeNaOperadora @key="@($"carteira:{_convenio}")" ConvenioCodigo="@_convenio" Carteira="@_numero" />
+                </div>
+            }
+            @if (_erro is not null)
+            {
+                <Aviso Tom="erro" Texto="@_erro" />
+            }
+        }
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Fechar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    /// <summary>Uma linha do paciente da agenda: hora, nome, convênio e carteirinha, o motivo e o sinal de hoje.</summary>
+    private RenderFragment Linha(PacienteDaAgendaParaElegibilidade p) => __builder =>
+    {
+        var escolhido = _escolhido?.AgendamentoId == p.AgendamentoId;
+        <li>
+            <button type="button" class="ea-linha @(escolhido ? "escolhida" : null)" data-paciente-agenda="@p.AgendamentoId"
+                    aria-pressed="@(escolhido ? "true" : "false")" disabled="@(p.Impedimento is not null)"
+                    title="@(p.Impedimento ?? $"Consultar a carteirinha de {p.Paciente}")" @onclick="() => _escolhido = p">
+                <span class="ea-hora">@p.Hora.ToString("HH:mm")</span>
+                <span class="ea-quem">
+                    <span class="principal">@p.Paciente</span>
+                    <span class="campo-dica">@p.ConvenioNome@(p.Carteira is null ? null : $" · {p.Carteira}")</span>
+                    @if (p.Impedimento is not null)
+                    {
+                        <span class="campo-dica" data-impedimento>@p.Impedimento</span>
+                    }
+                </span>
+                @if (p.ConsultaDeHoje is { } hoje)
+                {
+                    <Selo Tom="@hoje.Tom">@hoje.Rotulo</Selo>
+                }
+            </button>
+        </li>
+    };
+
+    /// <summary>
+    /// As telas que mostram o botão "Consultar elegibilidade". Tela anunciada tem de estar no MENU
+    /// dos apps: a verificação Windows (tools/Clinica.Verificacao.Desktop) as procura nas abas
+    /// visíveis do Recepção e do Gerente, e um teste confere que esta lista é a dos .razor que
+    /// têm o botão. A foto da prévia (/tela/X) não prova que a tela está no menu.
+    /// </summary>
+    public static readonly IReadOnlyList<Type> TelasComOBotao = [typeof(Clinica.Ui.Blazor.Telas.AgendaDoDia)];
+
+    /// <summary>O dia mostrado na aba "Dia": a aba "Agenda" do painel lista os pacientes dele.</summary>
+    [Parameter] public DateOnly Dia { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private int _aba;
+    private ElegibilidadeNaAgenda? _leitura;
+    private PacienteDaAgendaParaElegibilidade? _escolhido;
+    private bool _falhou, _buscando, _porCpf;
+    private string? _erroLeitura, _erro, _convenio, _numero;
+    private BuscaDeElegibilidadePorCpf? _busca;
+    private int _geracao;
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        _falhou = false;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var leitura = await escopo.ServiceProvider.GetRequiredService<ElegibilidadeNaAgendaService>().PrepararAsync(Dia);
+            if (geracao != _geracao) return;
+            _leitura = leitura;
+            _convenio ??= leitura.Convenios.FirstOrDefault()?.Codigo;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — agenda: a lista para a consulta de elegibilidade não pôde ser lida", ex);
+            if (geracao != _geracao) return;
+            _falhou = true;
+            _erroLeitura = ex.Message;
+        }
+    }
+
+    private void TrocarConvenio(ChangeEventArgs e)
+    {
+        _convenio = e.Value?.ToString();
+        _busca = null;
+    }
+
+    private void TrocarTipo(ChangeEventArgs e)
+    {
+        _porCpf = e.Value?.ToString() == "cpf";
+        _numero = null;
+        _busca = null;
+    }
+
+    private async Task BuscarCpfAsync()
+    {
+        if (_buscando) return;
+        _erro = null;
+        _buscando = true;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            _busca = await escopo.ServiceProvider.GetRequiredService<ElegibilidadeNaAgendaService>().ProcurarPorCpfAsync(_numero, _convenio);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — agenda: a busca pelo CPF falhou", ex);
+            _erro = "Não foi possível buscar o CPF no cadastro: " + ex.Message;
+        }
+        finally
+        {
+            _buscando = false;
+        }
+    }
+}

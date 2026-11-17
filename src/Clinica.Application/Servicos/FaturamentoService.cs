@@ -12,18 +12,40 @@ public sealed class FaturamentoService
 
     public FaturamentoService(IClinicaRepositorio repo) => _repo = repo;
 
+    /// <param name="guiaAns">
+    /// A guia de consulta no padrão ANS conferida no formulário de baixa. OBRIGATÓRIA quando a
+    /// guia a exige (<see cref="GuiaAnsNaBaixa.Exige(CodigoFaturamento)"/>: consulta da Saúde
+    /// Petrobras) e ignorada nas demais. Fica por último, depois do <paramref name="ct"/>, para
+    /// não mudar a chamada de nenhuma porta que já existia.
+    /// </param>
     public async Task DarBaixaAsync(
         int codigoId, DateOnly dataBaixa, string? numeroGuia, string? usuario, string? observacao,
-        CancellationToken ct = default)
+        CancellationToken ct = default, DadosGuiaConsultaAns? guiaAns = null)
     {
         var codigo = await _repo.ObterCodigoAsync(codigoId, ct)
             ?? throw new InvalidOperationException($"Código {codigoId} não encontrado.");
 
         // A crítica de formato mora AQUI, e não em cada tela, porque a baixa tem quatro
-        // portas (tela de baixa, baixa em lote, rodada de pendências e fila do Gerente).
+        // portas e três caminhos até este método: a tela de baixa (uma guia), a baixa em lote
+        // do painel e a rodada de pendências — esta com duas telas, o formulário do painel e
+        // a janela bloqueante da abertura do app. O Gerente dá baixa por essas mesmas telas.
         // Validar na tela cobriria uma; validar no caminho único cobre as quatro.
         if (RegraNumeroGuia.Criticar(numeroGuia, FormatoDaGuia(codigo)) is { } critica)
             throw new InvalidOperationException(critica);
+
+        // A guia ANS (nov/2026) segue a mesma lógica: a exigência mora no caminho ÚNICO. A tela de
+        // baixa traz a guia conferida; o lote e a rodada não têm formulário por guia, e a recusa
+        // daqui é a rede para o que escapar das conferências deles (que avisam ANTES de gravar).
+        var exigeGuiaAns = GuiaAnsNaBaixa.Exige(codigo);
+        if (exigeGuiaAns)
+        {
+            if (guiaAns is null)
+                throw new InvalidOperationException(GuiaAnsNaBaixa.RecusaSemGuia);
+            var erros = GuiaAnsNaBaixa.Validar(guiaAns);
+            if (erros.Count > 0)
+                throw new InvalidOperationException("A guia ANS não pode ser gravada: " + string.Join(" ", erros.Values));
+            GuiaAnsNaBaixa.Aplicar(codigo, guiaAns, usuario, DateTime.Now);
+        }
 
         codigo.DarBaixa(dataBaixa, numeroGuia, usuario, observacao);
         await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
@@ -31,7 +53,45 @@ public sealed class FaturamentoService
             Operador = string.IsNullOrWhiteSpace(usuario) ? "?" : usuario,
             Acao = "BaixaGuia",
             Detalhe = $"Baixa em {dataBaixa:dd/MM/yyyy}" +
-                      (string.IsNullOrWhiteSpace(numeroGuia) ? "" : $", guia {numeroGuia}"),
+                      (string.IsNullOrWhiteSpace(numeroGuia) ? "" : $", guia {numeroGuia}") +
+                      (exigeGuiaAns ? ", guia ANS de consulta conferida" : ""),
+            CodigoId = codigo.Id,
+            PacienteId = codigo.Atendimento?.PacienteId
+        }, ct);
+        await _repo.SalvarAsync(ct);
+    }
+
+    /// <summary>
+    /// CONFERE a guia ANS sem dar baixa (nov/2026): grava a guia de consulta conferida para que ela
+    /// possa ser ENVIADA à operadora pelo web service antes da baixa. A baixa continua sendo outro
+    /// ato, depois — e continua exigindo a guia conferida, que então já estará gravada.
+    ///
+    /// Só para guia que pede a guia ANS (<see cref="GuiaAnsNaBaixa.Exige(CodigoFaturamento)"/>) e
+    /// que ainda NÃO tem baixa: a de guia baixada só muda por estorno e nova baixa. Conferir de
+    /// novo substitui a conferência anterior. A trilha vai no mesmo salvamento.
+    /// </summary>
+    public async Task ConferirGuiaAnsAsync(int codigoId, DadosGuiaConsultaAns guia, string? operador, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(operador))
+            throw new InvalidOperationException("A conferência da guia ANS leva quem conferiu: faça login antes.");
+        var codigo = await _repo.ObterCodigoAsync(codigoId, ct)
+            ?? throw new InvalidOperationException($"Código {codigoId} não encontrado.");
+        if (codigo.Baixado)
+            throw new InvalidOperationException("Esta guia já tem baixa: a guia ANS dela não é conferida de novo. Para corrigir, estorne a baixa.");
+        if (codigo.Status != StatusCodigo.Aberto)
+            throw new InvalidOperationException("Só guia em aberto é conferida para envio.");
+        if (!GuiaAnsNaBaixa.Exige(codigo))
+            throw new InvalidOperationException("Esta guia não pede a conferência no padrão ANS.");
+        var erros = GuiaAnsNaBaixa.Validar(guia);
+        if (erros.Count > 0)
+            throw new InvalidOperationException("A guia ANS não pode ser gravada: " + string.Join(" ", erros.Values));
+
+        GuiaAnsNaBaixa.Aplicar(codigo, guia, operador, DateTime.Now);
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = operador.Trim(),
+            Acao = "GuiaAnsConferida",
+            Detalhe = "Guia ANS de consulta conferida, sem baixa",
             CodigoId = codigo.Id,
             PacienteId = codigo.Atendimento?.PacienteId
         }, ct);

@@ -102,15 +102,6 @@ internal static class MapeamentoTablet
             e.HasIndex(x => new { x.UsuarioId, x.ExpiraEm });
             e.HasOne<UsuarioSistema>().WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.Restrict);
         });
-        b.Entity<LiberacaoPortal>(e =>
-        {
-            e.ToTable("LiberacoesPortal");
-            e.HasKey(x => x.UsuarioId);
-            e.Property(x => x.UsuarioId).ValueGeneratedNever();
-            e.Property(x => x.Resumo).HasMaxLength(64);
-            e.Property(x => x.CriadaPor).HasMaxLength(200);
-            e.HasOne<UsuarioSistema>().WithOne().HasForeignKey<LiberacaoPortal>(x => x.UsuarioId).OnDelete(DeleteBehavior.Cascade);
-        });
         b.Entity<CodigoRecuperacaoPortal>(e =>
         {
             e.ToTable("CodigosRecuperacaoPortal");

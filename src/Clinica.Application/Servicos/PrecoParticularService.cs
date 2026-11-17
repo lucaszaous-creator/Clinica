@@ -1,4 +1,5 @@
 using Clinica.Application.Abstracoes;
+using Clinica.Application.Modelos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Regras;
@@ -38,6 +39,19 @@ public sealed class PrecoParticularService
 
     public PrecoParticularService(IClinicaRepositorio repo) => _repo = repo;
 
+    /// <summary>
+    /// Só a sessão de CONSULTA carrega especialidade (o <c>AgendaService</c> a limpa em toda
+    /// outra modalidade). Preço de acupuntura cadastrado COM especialidade não casava com
+    /// sessão nenhuma, e nada avisava: foi assim que a clínica teve "preço cadastrado" e a
+    /// Conciliação respondendo "sem preço na tabela" (nov/2026).
+    /// </summary>
+    public static bool AceitaEspecialidade(string? modalidadeCodigo)
+        => CatalogoModalidades.Base(modalidadeCodigo) == ModalidadeAtendimento.Consulta;
+
+    public const string EspecialidadeSoNaConsulta =
+        "Só o preço de CONSULTA tem especialidade: nas outras modalidades a sessão não carrega "
+        + "especialidade, e um preço com ela nunca seria proposto. Deixe a especialidade em branco.";
+
     public Task<IReadOnlyList<PrecoParticular>> CatalogoAsync(
         bool somenteAtivos = false, CancellationToken ct = default)
         => _repo.PrecosParticularAsync(somenteAtivos, ct);
@@ -53,6 +67,8 @@ public sealed class PrecoParticularService
                 + "e nesse caso é melhor não cadastrar.");
         if (dados.VigenteDe is { } de && dados.VigenteAte is { } ate && de > ate)
             throw new InvalidOperationException("A vigência começa antes de terminar.");
+        if (!string.IsNullOrWhiteSpace(dados.EspecialidadeCodigo) && !AceitaEspecialidade(dados.ModalidadeCodigo))
+            throw new InvalidOperationException(EspecialidadeSoNaConsulta);
 
         var preco = dados.Id == 0
             ? null
@@ -70,6 +86,8 @@ public sealed class PrecoParticularService
         // especialidade chamada "" que nunca casa com nada.
         preco.EspecialidadeCodigo = string.IsNullOrWhiteSpace(dados.EspecialidadeCodigo)
             ? null : dados.EspecialidadeCodigo.Trim();
+        // Nulo = vale para todos os profissionais (o que toda linha anterior vale).
+        preco.ProfissionalId = dados.ProfissionalId;
         preco.Valor = dados.Valor;
         preco.VigenteDe = dados.VigenteDe;
         preco.VigenteAte = dados.VigenteAte;
@@ -99,13 +117,18 @@ public sealed class PrecoParticularService
     /// pelo CÓDIGO ou pela FAMÍLIA (o código embutido da família é o nome do enum) e cuja
     /// especialidade é a da sessão ou "qualquer". Vence o mais específico; entre iguais, o
     /// reajuste mais novo.
+    ///
+    /// O PROFISSIONAL (nov/2026) é a especificidade mais forte: o preço cadastrado para quem
+    /// atende ganha de qualquer preço geral, e o preço de OUTRO profissional nunca serve. Sem
+    /// profissional informado (sessão sem horário, lançamento avulso), só concorrem os gerais.
     /// </summary>
     public async Task<PrecoParticular?> ResolverAsync(
         string? modalidadeCodigo,
         ModalidadeAtendimento familia,
         string? especialidadeCodigo,
         DateOnly dia,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        int? profissionalId = null)
     {
         var codigo = string.IsNullOrWhiteSpace(modalidadeCodigo) ? familia.ToString() : modalidadeCodigo;
         var codigoDaFamilia = familia.ToString();
@@ -113,7 +136,7 @@ public sealed class PrecoParticularService
 
         var candidatos = (await AtivosAsync(ct))
             .Where(p => p.VigenteEm(dia))
-            .Select(p => (Preco: p, Pontos: Pontuar(p, codigo, codigoDaFamilia, especialidade)))
+            .Select(p => (Preco: p, Pontos: Pontuar(p, codigo, codigoDaFamilia, especialidade, profissionalId)))
             .Where(c => c.Pontos >= 0)
             .ToList();
 
@@ -129,28 +152,49 @@ public sealed class PrecoParticularService
     /// -1 = não serve. Modalidade: código exato vale 2, família vale 1. Especialidade:
     /// declarada e igual vale +1, "qualquer" vale 0, declarada e diferente não serve.
     /// </summary>
-    private static int Pontuar(PrecoParticular p, string codigo, string codigoDaFamilia, string? especialidade)
+    private static int Pontuar(PrecoParticular p, string codigo, string codigoDaFamilia, string? especialidade,
+        int? profissionalId)
     {
+        // Preço de um profissional: só serve a ELE, e pesa mais que modalidade e especialidade
+        // juntas (10 > 3) — "a consulta da Dra. Ana" ganha de "consulta de endocrinologia".
+        var doProfissional = 0;
+        if (p.ProfissionalId is { } dono)
+        {
+            if (dono != profissionalId) return -1;
+            doProfissional = 10;
+        }
         int modalidade;
         if (string.Equals(p.ModalidadeCodigo, codigo, StringComparison.OrdinalIgnoreCase)) modalidade = 2;
         else if (string.Equals(p.ModalidadeCodigo, codigoDaFamilia, StringComparison.OrdinalIgnoreCase)) modalidade = 1;
         else return -1;
 
-        if (string.IsNullOrWhiteSpace(p.EspecialidadeCodigo)) return modalidade;
+        // A especialidade só PESA no preço de consulta. O que foi gravado com ela noutra
+        // modalidade (antes da trava do Salvar) vale como "qualquer": é o que quem cadastrou quis.
+        if (string.IsNullOrWhiteSpace(p.EspecialidadeCodigo) || !AceitaEspecialidade(p.ModalidadeCodigo))
+            return doProfissional + modalidade;
         if (especialidade is not null
             && string.Equals(p.EspecialidadeCodigo, especialidade, StringComparison.OrdinalIgnoreCase))
-            return modalidade + 1;
+            return doProfissional + modalidade + 1;
         return -1;
     }
 
     /// <summary>O valor a propor, com a procedência escrita. Não grava nada.</summary>
     public async Task<PrecoProposto> ProporAsync(
         string? modalidadeCodigo, ModalidadeAtendimento familia, string? especialidadeCodigo,
-        DateOnly dia, CancellationToken ct = default)
+        DateOnly dia, CancellationToken ct = default, int? profissionalId = null)
     {
-        var preco = await ResolverAsync(modalidadeCodigo, familia, especialidadeCodigo, dia, ct);
+        var preco = await ResolverAsync(modalidadeCodigo, familia, especialidadeCodigo, dia, ct, profissionalId);
         return preco is null
             ? PrecoProposto.Nenhum
             : new PrecoProposto(preco.Valor, $"tabela do particular: {preco.Descricao} ({preco.Vigencia})");
     }
+
+    /// <summary>
+    /// O preço de uma sessão PENDENTE da Conciliação — com quem atendeu, como o Finalizar
+    /// faz. A tela chamava a forma solta sem o profissional, e todo preço cadastrado por
+    /// profissional ficava invisível ali ("sem preço na tabela", nov/2026).
+    /// </summary>
+    public Task<PrecoProposto> ProporAsync(SessaoSemReceita sessao, CancellationToken ct = default)
+        => ProporAsync(sessao.CodigoDaModalidade, sessao.Modalidade, sessao.CodigoDaEspecialidade,
+            sessao.Data, ct, sessao.ProfissionalId);
 }

@@ -25,7 +25,8 @@ public sealed class LeituraAgendaDoDia(
     PainelRecepcaoService painel,
     TermoProcedimentoService termos,
     ColetaRemotaTermoService coletaRemota,
-    IClinicaRepositorio repo)
+    IClinicaRepositorio repo,
+    ConsultaService? consultas = null)
 {
     public async Task<DadosDaAgendaDoDia> LerAsync(DateOnly dia, DateOnly hoje, CancellationToken ct = default)
     {
@@ -127,6 +128,24 @@ public sealed class LeituraAgendaDoDia(
             jaFechados = [];
         }
 
-        return new DadosDaAgendaDoDia(dia, doDia, comPendencia, situacaoTermos, confirmacoes, pacotes, jaFechados);
+        // A consulta do convênio vencida ou a renovar (nov/2026) — aviso como os outros: a
+        // falha vai ao log e o selo some, a lista continua.
+        IReadOnlyDictionary<int, StatusConsultaPaciente> aRenovar = new Dictionary<int, StatusConsultaPaciente>();
+        if (consultas is not null)
+        {
+            try
+            {
+                aRenovar = await consultas.ARenovarNosHorariosAsync(doDia, ct);
+            }
+            catch (Exception ex)
+            {
+                Diagnostico.Registrar("Recepção — consultas a renovar do dia não puderam ser conferidas", ex);
+            }
+        }
+
+        return new DadosDaAgendaDoDia(dia, doDia, comPendencia, situacaoTermos, confirmacoes, pacotes, jaFechados)
+        {
+            Consultas = aRenovar
+        };
     }
 }

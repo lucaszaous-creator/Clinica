@@ -9,7 +9,8 @@ namespace PreviaBlazor.Sementes;
 /// A GRADE da agenda (Recepção, out/2026). O dia de HOJE já vem da semente da Agenda do dia (todas
 /// as situações); esta acrescenta só o que a grade tem e a lista não: a agenda FECHADA no fim da
 /// tarde de um profissional (o vão hachurado com o motivo), dois horários SOBREPOSTOS (as raias),
-/// uma sessão marcada em SÉRIE (o "cancelar o resto da série") e a LISTA DE ESPERA — um pedido
+/// uma sessão marcada em SÉRIE (o "cancelar o resto da série"), uma consulta PARTICULAR de quem
+/// tem plano (o selo e a escolha convênio/particular do formulário) e a LISTA DE ESPERA — um pedido
 /// prioritário de qualquer profissional e outro só à tarde, com a Dra. Helena (o "quem chamar").
 /// Pacientes PRÓPRIOS, para não mexer no que as outras telas contam.
 /// </summary>
@@ -57,6 +58,18 @@ public sealed class SementeGradeDaAgenda : ISemente
             ModalidadePrevista = ModalidadeAtendimento.Consulta, ModalidadeCodigo = nameof(ModalidadeAtendimento.Consulta),
             EspecialidadeConsultaCodigo = nameof(Especialidade.ClinicaDaDor), Encaixe = true,
             CriadoPor = "recepcao", CriadoEm = hoje.AddDays(-1).AddHours(15)
+        });
+
+        // Uma consulta PARTICULAR de quem tem plano (nov/2026): o selo "Particular" no cartão e
+        // na janela do horário — a paciente tem convênio na ficha, e quem atende não o aceita.
+        var lucia = P("Lúcia Peçanha Torres", "(21) 98222-0005");
+        db.SaveChanges();
+        db.Add(new Agendamento
+        {
+            PacienteId = lucia.Id, ProfissionalId = marcos.Id, DataHora = hoje.AddHours(15),
+            ModalidadePrevista = ModalidadeAtendimento.Consulta, ModalidadeCodigo = nameof(ModalidadeAtendimento.Consulta),
+            EspecialidadeConsultaCodigo = nameof(Especialidade.ClinicaDaDor), Particular = true,
+            CriadoPor = "recepcao", CriadoEm = hoje.AddDays(-1).AddHours(10)
         });
 
         // Uma série de três sessões semanais (hoje e as duas próximas semanas).

@@ -27,8 +27,16 @@
             <Campo Rotulo="até" Classe="data">
                 <input type="date" class="campo" value="@Iso(_fim)" @onchange="@(e => TrocarPeriodoAsync(_inicio, Data(e) ?? _fim))" />
             </Campo>
+            <Campo Rotulo="Período" Classe="estreito">
+                <select class="campo" value="@(_atalho?.ToString() ?? "")" @onchange="@(e => AtalhoAsync(e.Value?.ToString()))">
+                    <option value="">Personalizado</option>
+                    @foreach (var a in Enum.GetValues<AtalhoPeriodoFaturados>()) { <option value="@a">@GuiasFaturadasNaTela.Rotulo(a)</option> }
+                </select>
+            </Campo>
             <button type="button" class="botao primario" @onclick="() => CarregarAsync()" disabled="@Carregando"><Icone Nome="busca" />Buscar</button>
-            <span class="divisor" aria-hidden="true"></span>
+        </div>
+        @* Os filtros no MESMO padrão da Consulta de guias (nov/2026, pedido da gerência). *@
+        <div class="filtros">
             <Campo Rotulo="Paciente">
                 <div class="busca"><Icone Nome="busca" /><input class="campo" placeholder="Parte do nome — o acento não atrapalha" maxlength="80"
                        value="@_filtro.Paciente" @oninput="@(e => Filtrar(_filtro with { Paciente = e.Value?.ToString() ?? "" }))" /></div>
@@ -42,6 +50,18 @@
                     @foreach (var c in _convenios) { <option value="@c">@c</option> }
                 </select>
             </Campo>
+            <Campo Rotulo="Modalidade">
+                <select class="campo" value="@(_filtro.Modalidade?.ToString() ?? "")" @onchange="@(e => Filtrar(_filtro with { Modalidade = Enum.TryParse<ModalidadeAtendimento>(e.Value?.ToString(), out var m) ? m : null }))">
+                    <option value="">Todas</option>
+                    @foreach (var m in Enum.GetValues<ModalidadeAtendimento>()) { <option value="@m">@ModalidadeInfo.NomeExibicao(m)</option> }
+                </select>
+            </Campo>
+            <Campo Rotulo="Especialidade">
+                <select class="campo" value="@(_filtro.Especialidade?.ToString() ?? "")" @onchange="@(e => Filtrar(_filtro with { Especialidade = Enum.TryParse<Especialidade>(e.Value?.ToString(), out var esp) ? esp : null }))">
+                    <option value="">Todas</option>
+                    @foreach (var esp in Enum.GetValues<Especialidade>()) { <option value="@esp">@EspecialidadeInfo.NomeExibicao(esp)</option> }
+                </select>
+            </Campo>
             @if (_filtro.Ativo)
             {
                 <button type="button" class="botao fantasma" @onclick="() => Filtrar(FiltroFaturados.Nenhum)">Limpar filtro</button>
@@ -51,6 +71,10 @@
         @if (_carregou && !_naoVerificado)
         {
             <div class="resumo-guias @(_filtro.Ativo ? "filtrado" : null)">@GuiasFaturadasNaTela.Resumo(_filtro, _linhas.Count, _todas.Count)</div>
+        }
+        @if (GuiasFaturadasNaTela.DicaHistoricoDoPaciente(_filtro, _inicio, _fim) is { } dica)
+        {
+            <div class="faixa"><Aviso Tom="info" Texto="@dica" /></div>
         }
         @if (_fim < _inicio)
         {
@@ -79,27 +103,36 @@
                 <table class="lista">
                     <thead>
                         <tr>
+                            <th style="width:112px">Atendimento</th>
                             <th>Paciente</th>
-                            <th style="width:18%">Convênio</th>
-                            <th style="width:124px">Código</th>
+                            <th style="width:15%">Convênio</th>
+                            <th style="width:19%">Modalidade e código</th>
                             <th style="width:100px">Nº guia</th>
                             <th style="width:96px">Baixa</th>
-                            <th style="width:100px">Glosa</th>
-                            <th class="direita" style="width:212px">Ações</th>
+                            <th class="col-glosa" style="width:100px">Glosa</th>
+                            <th class="direita col-acoes" style="width:212px">Ações</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var c in _linhas)
                         {
                             var glosa = ConsultaDeGuiasNaTela.Glosa(c.Glosa);
+                            var especialidade = ConsultaDeGuiasNaTela.Especialidade(c);
                             <tr @key="c.Id">
-                                <td><span class="principal corta" title="@c.Atendimento?.Paciente?.Nome">@(c.Atendimento?.Paciente?.Nome ?? "—")</span>
-                                    @if (c.Atendimento is { } a) { <span class="secundario corta" title="Data do atendimento">atend. @Formato.Data(a.Data)</span> }</td>
+                                <td class="nao-quebra">
+                                    <span class="principal">@(c.Atendimento is { } a ? Formato.Data(a.Data) : "—")</span>
+                                    @if (!string.IsNullOrWhiteSpace(c.Atendimento?.Numero)) { <span class="secundario corta" title="Atendimento nº @c.Atendimento!.Numero">nº @c.Atendimento!.Numero</span> }
+                                </td>
+                                <td><span class="principal corta" title="@c.Atendimento?.Paciente?.Nome">@(c.Atendimento?.Paciente?.Nome ?? "—")</span></td>
                                 <td><span class="corta texto-secundario" title="@ConsultaDeGuiasNaTela.Convenio(c)">@ConsultaDeGuiasNaTela.Convenio(c)</span></td>
-                                <td><span class="corta">@RotulosEnum.De(c.Tipo)</span><span class="secundario">@RotulosEnum.De(c.Ordem)</span></td>
+                                <td>
+                                    <span class="corta" title="@ConsultaDeGuiasNaTela.Modalidade(c.Atendimento)">@ConsultaDeGuiasNaTela.Modalidade(c.Atendimento)@(especialidade is null ? null : $" · {especialidade}")</span>
+                                    <span class="secundario corta">@ConsultaDeGuiasNaTela.Codigo(c)</span>
+                                </td>
                                 <td><span class="corta numero" title="@c.NumeroGuiaReal">@(string.IsNullOrWhiteSpace(c.NumeroGuiaReal) ? "—" : c.NumeroGuiaReal)</span></td>
-                                <td class="nao-quebra">@(c.DataBaixa is { } b ? Formato.Data(b) : "—")</td>
-                                <td>@if (glosa is { } gl) { <Selo Tom="@gl.Tom">@gl.Texto</Selo> } else { <span class="texto-secundario">—</span> }</td>
+                                <td class="nao-quebra">@(c.DataBaixa is { } b ? Formato.Data(b) : "—")
+                                    @if (glosa is { } gls) { <span class="so-estreito"><Selo Tom="@gls.Tom">@gls.Texto</Selo></span> }</td>
+                                <td class="col-glosa">@if (glosa is { } gl) { <Selo Tom="@gl.Tom">@gl.Texto</Selo> } else { <span class="texto-secundario">—</span> }</td>
                                 <td class="direita">
                                     <div class="botoes-linha">
                                         <button type="button" class="botao mini primario" disabled="@(_ocupado == c.Id)" @onclick="() => GuiaPdfAsync(c)"
@@ -140,6 +173,7 @@
     private int _geracao;
     private int? _ocupado;
     private CodigoFaturamento? _glosando;
+    private AtalhoPeriodoFaturados? _atalho = AtalhoPeriodoFaturados.EsteMes;
 
     private static bool PodeEstornar => Pode(Permissao.EstornarBaixa);
     private static bool PodeGlosar => Pode(Permissao.RegistrarGlosa);
@@ -161,8 +195,18 @@
         _ => Task.CompletedTask
     };
 
+    /// <summary>O atalho escolhe as duas datas e busca; escolher "Personalizado" só libera as datas.</summary>
+    private Task AtalhoAsync(string? valor)
+    {
+        if (!Enum.TryParse<AtalhoPeriodoFaturados>(valor, out var atalho)) { _atalho = null; return Task.CompletedTask; }
+        _atalho = atalho;
+        (_inicio, _fim) = GuiasFaturadasNaTela.Periodo(atalho, DateOnly.FromDateTime(DateTime.Today));
+        return CarregarAsync();
+    }
+
     private Task TrocarPeriodoAsync(DateOnly inicio, DateOnly fim)
     {
+        _atalho = null;
         _inicio = inicio;
         _fim = fim;
         return CarregarAsync();

@@ -66,6 +66,22 @@ public class TraducaoNoNpgsqlTests
     }
 
     [Fact]
+    public void Guias_do_paciente_desde_uma_data_traduzem_sem_rastreio()
+    {
+        using var db = Postgres();
+        var sql = new ClinicaRepositorio(db).ConsultaCodigosDoPacienteDesde(7, new DateOnly(2026, 11, 1)).ToQueryString();
+        sql.Should().Contain("PacienteId").And.Contain("DataPrevistaFaturamento");
+    }
+
+    [Fact]
+    public void Autorizacoes_utilizaveis_do_convenio_traduzem()
+    {
+        using var db = Postgres();
+        new ClinicaRepositorio(db).ConsultaAutorizacoesUtilizaveis("Particular", new DateOnly(2026, 11, 8))
+            .ToQueryString().Should().Contain("DataValidade").And.Contain("Encerrada");
+    }
+
+    [Fact]
     public void Donos_dos_horarios_traduzem_em_projecao()
     {
         using var db = Postgres();
@@ -805,6 +821,33 @@ public class TraducaoNoNpgsqlTests
     }
 
     /// <summary>
+    /// A trava de consulta do convênio (nov/2026): as consultas do paciente pelo convênio, com o
+    /// número do atendimento pela navegação — e as filas das mensagens da liberação.
+    /// </summary>
+    [Fact]
+    public void Consultas_para_a_trava_e_as_filas_da_liberacao_traduzem()
+    {
+        using var db = Postgres();
+        var sql = new ClinicaRepositorio(db)
+            .ConsultaParaTravaDoPaciente(7, new DateTime(2026, 11, 1), new DateTime(2026, 12, 1)).ToQueryString();
+        sql.Should().Contain("\"Particular\"").And.Contain("\"ModalidadePrevista\"").And.Contain("\"Numero\"");
+
+        var fila = new LiberacaoDeTravaService(db, null!, () => new DateTime(2026, 11, 10))
+            .Fila().ToQueryString();
+        fila.Should().Contain("\"TratadoEm\" IS NULL").And.Contain("\"Modelo\"");
+    }
+
+    /// <summary>A leitura do intervalo por especialidade da cobertura do convênio (nov/2026).</summary>
+    [Fact]
+    public void Consultas_da_cobertura_do_convenio_traduzem()
+    {
+        using var db = Postgres();
+        var sql = new ClinicaRepositorio(db)
+            .ConsultaDaCoberturaDoPaciente(7, new DateTime(2026, 11, 1), new DateTime(2026, 12, 1)).ToQueryString();
+        sql.Should().Contain("\"Particular\"").And.Contain("\"EspecialidadeConsultaCodigo\"").And.Contain("\"EspecialidadeConsulta\"");
+    }
+
+    /// <summary>
     /// A conciliação do PARTICULAR (set/2026): três subconsultas (códigos, lançamentos,
     /// consumos) e a projeção do TIPO do primeiro código. É o tipo de expressão em que o
     /// SQLite dos testes e o Npgsql da clínica mais divergem — e a tela que a lê é a que
@@ -828,12 +871,40 @@ public class TraducaoNoNpgsqlTests
                 a.Id, a.PacienteId, a.Paciente!.Nome, a.Data, a.Modalidade, a.ModalidadeCodigo,
                 a.EspecialidadeConsulta, a.EspecialidadeConsultaCodigo,
                 a.Paciente.Convenio, a.Paciente.ConvenioCodigo,
-                a.Codigos.OrderBy(c => c.Id).Select(c => c.Tipo).First()))
+                a.Codigos.OrderBy(c => c.Id).Select(c => c.Tipo).First(), a.Particular,
+                db.Agendamentos.Where(g => g.AtendimentoId == a.Id)
+                    .OrderByDescending(g => g.Id).Select(g => g.ProfissionalId).FirstOrDefault()))
             .ToQueryString();
 
         sql.Should().Contain("\"RealizadoEm\" IS NOT NULL")
             .And.Contain("\"EstornadoEm\" IS NULL")
             .And.Contain("\"AtendimentoId\"");
+    }
+
+    /// <summary>A busca por número (do atendimento ou da guia) e o dinheiro do detalhe (sessão OU guia).</summary>
+    [Fact]
+    public void Busca_por_numero_e_dinheiro_do_detalhe_do_atendimento_traduzem()
+    {
+        using var db = Postgres();
+        var t = "2026-0004";
+        int? id = null;
+
+        var busca = db.Atendimentos.AsNoTracking()
+            .Include(a => a.Codigos).Include(a => a.Paciente)
+            .Where(a => (a.Numero != null && a.Numero.Contains(t))
+                        || (a.Numero == null && id != null && a.Id == id)
+                        || a.Codigos.Any(c => c.NumeroGuiaReal != null && c.NumeroGuiaReal.Contains(t)))
+            .OrderByDescending(a => a.Data).ThenByDescending(a => a.Id).Take(50)
+            .ToQueryString();
+        busca.Should().Contain("\"NumeroGuiaReal\"").And.Contain("LIMIT");
+
+        var codigos = new List<int> { 1, 2 };
+        var dinheiro = db.Lancamentos.AsNoTracking()
+            .Where(l => l.AtendimentoId == 7
+                        || (l.CodigoFaturamentoId != null && codigos.Contains(l.CodigoFaturamentoId.Value)))
+            .OrderBy(l => l.Data).ThenBy(l => l.Id)
+            .ToQueryString();
+        dinheiro.Should().Contain("\"CodigoFaturamentoId\"");
     }
 
     /// <summary>Os lançamentos que pagam uma lista de pacotes — o `Contains` sobre a FK nova.</summary>
@@ -887,6 +958,72 @@ public class TraducaoNoNpgsqlTests
             new DateTime(2026, 10, 19, 8, 0, 0), new DateTime(2026, 10, 21, 0, 0, 0)).ToQueryString();
         sql.Should().Contain("\"DataHora\"").And.Contain("COALESCE").And.Contain("\"TokenResposta\"")
             .And.Contain("\"EnviadoPor\"").And.Contain("ORDER BY");
+        sql.Should().NotContain("FotoMiniatura");
+    }
+
+    [Fact]
+    public void Fila_do_web_service_TISS_traduz_sem_os_xml()
+    {
+        using var db = Postgres();
+        var agora = new DateTime(2026, 11, 12, 9, 0, 0);
+        var sql = new ClinicaRepositorio(db).ConsultaTransacoesTissReservaveis(agora, agora.AddMinutes(-5), 10).ToQueryString();
+        sql.Should().Contain("\"TransacoesTiss\"").And.Contain("\"ProximaTentativaEm\"").And.Contain("ORDER BY").And.Contain("LIMIT");
+        sql.Should().NotContain("XmlEnviado").And.NotContain("XmlRecebido");
+    }
+
+    [Fact]
+    public void Consultas_do_limite_de_chamadas_TISS_traduzem_sem_os_xml()
+    {
+        using var db = Postgres();
+        var repo = new ClinicaRepositorio(db);
+        var dia = new DateTime(2026, 11, 16);
+
+        var idas = repo.ConsultaIdasDeElegibilidadeTiss("Petrobras", dia, dia.AddDays(1), 7).Select(t => t.Tentativas).ToQueryString();
+        var reaproveitavel = repo.ConsultaElegibilidadeTissReaproveitavel("Petrobras", "000123456789", dia, dia.AddDays(1)).ToQueryString();
+
+        idas.Should().Contain("\"EnvioIniciadoEm\"").And.Contain("\"Tentativas\"").And.NotContain("XmlEnviado");
+        reaproveitavel.Should().Contain("\"NumeroCarteira\"").And.Contain("\"ProcessadaEm\"").And.Contain("LIMIT")
+            .And.NotContain("XmlEnviado").And.NotContain("XmlRecebido");
+    }
+
+    [Fact]
+    public void Elegibilidades_do_dia_para_a_agenda_traduzem_numa_ida_sem_os_xml()
+    {
+        using var db = Postgres();
+        var dia = new DateTime(2026, 11, 17);
+
+        var sql = new ClinicaRepositorio(db).ConsultaElegibilidadesTissDoDia(dia, dia.AddDays(1)).ToQueryString();
+
+        sql.Should().Contain("\"TransacoesTiss\"").And.Contain("\"PedidoEm\"").And.Contain("\"ProcessadaEm\"").And.Contain("ORDER BY")
+            .And.NotContain("XmlEnviado").And.NotContain("XmlRecebido");
+    }
+
+    [Fact]
+    public void Consultas_do_envio_em_lote_TISS_traduzem_no_postgres()
+    {
+        using var db = Postgres();
+        var repo = new ClinicaRepositorio(db);
+
+        var daGuia = repo.ConsultaTransacoesTissDaGuia(7).ToQueryString();
+        var itens = repo.ConsultaItensDeEnvioTissDasGuias([7, 8]).ToQueryString();
+        var aBaixar = repo.ConsultaGuiasTissRecebidasSemBaixa(3).ToQueryString();
+
+        daGuia.Should().Contain("EXISTS").And.Contain("\"TransacoesTissGuias\"").And.NotContain("XmlEnviado");
+        itens.Should().Contain("\"TransacoesTissGuias\"").And.Contain("JOIN").And.NotContain("XmlRecebido");
+        aBaixar.Should().Contain("\"Codigos\"").And.Contain("\"DataBaixa\" IS NULL").And.Contain("\"Protocolo\"").And.Contain("ORDER BY");
+    }
+
+    [Theory]
+    [InlineData("Petrobras")]            // embutido: casa também pela família, com o código nulo
+    [InlineData("OperadoraCadastrada")]  // cadastrado pela clínica: só pelo código
+    public void Guias_prontas_para_envio_TISS_traduzem_no_postgres(string convenio)
+    {
+        using var db = Postgres();
+
+        var sql = new ClinicaRepositorio(db).ConsultaGuiasTissProntasParaEnvio(convenio, 50).ToQueryString();
+
+        sql.Should().Contain("\"GuiasTissConsulta\"").And.Contain("\"Pacientes\"").And.Contain("NOT EXISTS")
+            .And.Contain("\"TransacoesTissGuias\"").And.Contain("\"DataBaixa\" IS NULL").And.Contain("LIMIT");
         sql.Should().NotContain("FotoMiniatura");
     }
 }

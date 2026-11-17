@@ -82,20 +82,25 @@
             <div class="cartao-titulo">
                 <div>
                     <h2>Guias e códigos pendentes</h2>
-                    <p>@_resumo
-                        @if (_filtro.Ativo)
-                        {
-                            <button type="button" class="botao fantasma mini limpar" @onclick="LimparFiltros">Limpar filtros</button>
-                        }
-                    </p>
+                    <p>O que ainda não foi efetivado no sistema do convênio — a mais atrasada pede ação primeiro.</p>
                 </div>
-                <button type="button" class="botao" @onclick="AbrirLote" disabled="@(!Pode(Permissao.BaixarGuia))"
-                        title="@(Pode(Permissao.BaixarGuia) ? "Dar baixa em várias guias de uma vez — marque as linhas na primeira coluna" : "Seu acesso não permite dar baixa nas guias.")">
-                    <Icone Nome="check" />Baixa em lote@(_selecionados.Count > 0 ? $" · {_selecionados.Count}" : "")
-                </button>
+                <div class="acoes-titulo">
+                    <button type="button" class="botao" @onclick="ImprimirAsync" disabled="@(!Pode(Permissao.VerFaturamento) || _gerandoRelatorio)"
+                            title="@(Pode(Permissao.VerFaturamento) ? "Imprimir o relatório das guias pendentes à vista (PDF), com o filtro escrito no cabeçalho — Ctrl+P" : "Seu acesso não permite emitir o relatório das guias.")">
+                        <Icone Nome="imprimir" />@(_gerandoRelatorio ? "Gerando…" : "Imprimir relatório")
+                    </button>
+                    <button type="button" class="botao" @onclick="ExportarCsvAsync" disabled="@(!Pode(Permissao.VerFaturamento))"
+                            title="@(Pode(Permissao.VerFaturamento) ? "Exportar as guias pendentes à vista em CSV (abre no Excel)" : "Seu acesso não permite exportar as guias.")">
+                        <Icone Nome="baixar" />Exportar CSV
+                    </button>
+                    <button type="button" class="botao" @onclick="AbrirLote" disabled="@(!Pode(Permissao.BaixarGuia))"
+                            title="@(Pode(Permissao.BaixarGuia) ? "Dar baixa em várias guias de uma vez — marque as linhas na primeira coluna" : "Seu acesso não permite dar baixa nas guias.")">
+                        <Icone Nome="check" />Baixa em lote@(_selecionados.Count > 0 ? $" · {_selecionados.Count}" : "")
+                    </button>
+                </div>
             </div>
 
-            <div class="filtros">
+            <div class="filtros recorte">
                 <div class="chips" role="group" aria-label="Recorte rápido">
                     <button type="button" class="chip" aria-pressed="@Bool(_filtro.SoPrimeiros)" @onclick="() => Recortar(_filtro.AlternarPrimeiros())"
                             title="Só as guias do 1º código — a que nasce com o atendimento.">1º código · <b>@_contagens.Primeiros</b></button>
@@ -107,6 +112,20 @@
                     <button type="button" class="chip" aria-pressed="@Bool(_filtro.SoNoPrazo)" @onclick="() => Recortar(_filtro.AlternarNoPrazo())"
                             title="A data prevista ainda não chegou (semáforo amarelo)."><span class="semaforo amarelo"></span>No prazo · <b>@_contagens.NoPrazo</b></button>
                 </div>
+            </div>
+            @* Os campos no MESMO padrão da Consulta de guias (nov/2026, pedido da gerência): paciente,
+               período do atendimento, código, modalidade, especialidade, convênio — e como obter. *@
+            <div class="filtros">
+                <Campo Rotulo="Paciente (nome ou telefone)">
+                    <div class="busca"><Icone Nome="busca" /><input class="campo" placeholder="Nome ou telefone…" maxlength="80"
+                           value="@_filtro.Paciente" @oninput="@(e => Recortar(_filtro with { Paciente = e.Value?.ToString() }))" /></div>
+                </Campo>
+                <Campo Rotulo="De (atendimento)" Classe="data">
+                    <input type="date" class="campo" value="@Iso(_filtro.Inicio)" @onchange="@(e => Recortar(_filtro with { Inicio = Data(e) }))" />
+                </Campo>
+                <Campo Rotulo="Até" Classe="data">
+                    <input type="date" class="campo" value="@Iso(_filtro.Fim)" @onchange="@(e => Recortar(_filtro with { Fim = Data(e) }))" />
+                </Campo>
                 <Campo Rotulo="Código">
                     <select class="campo" value="@(_filtro.Tipo?.ToString() ?? "")" @onchange="e => Recortar(_filtro with { Tipo = Enum.TryParse<TipoCodigo>(e.Value?.ToString(), out var t) ? t : null })">
                         <option value="">Todos</option>
@@ -131,7 +150,22 @@
                         @foreach (var c in Enum.GetValues<Convenio>()) { <option value="@c">@CatalogoConvenios.Nome(c)</option> }
                     </select>
                 </Campo>
+                <Campo Rotulo="Como obter">
+                    <select class="campo" value="@(_filtro.Forma?.ToString() ?? "")" @onchange="e => Recortar(_filtro with { Forma = Enum.TryParse<FormaObtencao>(e.Value?.ToString(), out var f) ? f : null })">
+                        <option value="">Todas</option>
+                        @foreach (var f in Enum.GetValues<FormaObtencao>()) { <option value="@f">@PainelPendenciasFaturamento.ComoObter(f)</option> }
+                    </select>
+                </Campo>
+                @if (_filtro.Ativo)
+                {
+                    <button type="button" class="botao fantasma" @onclick="LimparFiltros">Limpar</button>
+                }
             </div>
+            <div class="resumo-guias @(_filtro.Ativo ? "filtrado" : null)">@_resumo</div>
+            @if (_filtro.PeriodoInvertido)
+            {
+                <div class="faixa"><Aviso Tom="atencao" Texto="A data final está antes da inicial — nenhuma guia cabe nesse período. Corrija as datas." /></div>
+            }
 
             @if (_linhas.Count == 0)
             {
@@ -146,9 +180,10 @@
                             <tr>
                                 <th class="col-marca"><input type="checkbox" class="marca-todas" aria-label="Marcar todas as linhas visíveis para a baixa em lote"
                                                              checked="@TodasMarcadas" @onchange="MarcarTodas" title="Marcar todas as linhas visíveis" /></th>
+                                <th class="col-atend">Atendimento</th>
                                 <th>Paciente</th>
                                 <th>Convênio</th>
-                                <th>Código</th>
+                                <th>Modalidade e código</th>
                                 <th>Prevista</th>
                                 <th>Observação</th>
                                 <th class="direita">Ações</th>
@@ -163,6 +198,9 @@
                                         <input type="checkbox" aria-label="Marcar para a baixa em lote" checked="@_selecionados.Contains(p.CodigoId)"
                                                @onchange="e => Marcar(p.CodigoId, e.Value is true)" />
                                     </td>
+                                    <td class="nao-quebra col-atend">
+                                        @if (p.DataAtendimento is { } da) { @Copiavel(Formato.Data(da), "principal") } else { <span class="texto-secundario">—</span> }
+                                    </td>
                                     <td>
                                         @Copiavel(p.PacienteNome, "principal")
                                         @if (string.IsNullOrWhiteSpace(p.PacienteTelefone))
@@ -176,12 +214,22 @@
                                     </td>
                                     <td class="col-conv">@Copiavel(p.ConvenioNome, null)</td>
                                     <td>
+                                        @if (p.Modalidade is { } mod) { <span class="secundario modalidade">@ModalidadeInfo.NomeExibicao(mod)</span> }
+                                        @* O TIPO do atendimento, à vista antes da baixa (nov/2026) — pelo catálogo: os tipos novos não estão no enum. *@
+                                        @if (p.TipoDeAtendimento is { } tipo) { <Selo Tom="info" Dica="O tipo de atendimento a que esta guia se refere">@tipo</Selo> }
                                         @Copiavel(RotulosEnum.De(p.Tipo), null)
                                         <span class="secundario">@RotulosEnum.De(p.Ordem) · @PainelPendenciasFaturamento.ComoObter(p.FormaObtencao)</span>
+                                        @* O ENVIO À OPERADORA desta guia (nov/2026), só nos convênios com web service. *@
+                                        @if (_selosDeEnvio.TryGetValue(p.CodigoId, out var envio))
+                                        {
+                                            <span class="fat-selo-envio" data-selo-envio="@p.CodigoId"><Selo Tom="@envio.Tom" Dica="@(envio.Detalhe ?? "Envio à operadora pelo web service")">@envio.Rotulo</Selo></span>
+                                            @if (envio.Detalhe is not null) { <span class="secundario fat-selo-envio-detalhe" title="@envio.Detalhe">@envio.Detalhe</span> }
+                                        }
                                     </td>
                                     <td class="nao-quebra">
                                         @Copiavel(Formato.Data(p.DataPrevista), null)
-                                        <span class="secundario @(p.DiasEmAtraso > 0 ? "atrasada" : null)">@SituacaoPrazo(p)</span>
+                                        <span class="secundario @(p.DiasEmAtraso > 0 ? "atrasada" : null)">@PainelPendenciasFaturamento.SituacaoDoPrazo(p, DateOnly.FromDateTime(DateTime.Today))</span>
+                                        @if (p.DataAtendimento is { } dae) { <span class="secundario so-estreito">atend. @Formato.Data(dae)</span> }
                                     </td>
                                     <td class="col-obs">
                                         @if (p.TemObservacao)
@@ -294,11 +342,11 @@
 
 @if (_baixa is { } baixa)
 {
-    <BaixaGuiaForm @ref="_formBaixa" CodigoId="baixa.CodigoId" AoFechar="() => { _baixa = null; _formBaixa = null; }" AoConcluir="BaixouAsync" />
+    <BaixaGuiaForm @ref="_formBaixa" CodigoId="baixa.CodigoId" AoFechar="() => { _baixa = null; _formBaixa = null; }" AoConcluir="BaixouAsync" AoConferir="ConferiuAsync" />
 }
 @if (_lote is { } lote)
 {
-    <BaixaLoteForm Itens="lote" AoFechar="() => _lote = null" AoConcluir="LoteConcluidoAsync" />
+    <BaixaLoteForm Itens="lote" AoFechar="() => _lote = null" AoConcluir="LoteConcluidoAsync" AoBaixarPelaGuia="CarregarAsync" />
 }
 @if (_nc is { } nc)
 {
@@ -310,7 +358,7 @@
 }
 @if (_rodada)
 {
-    <RodadaPendenciasForm AoFechar="() => _rodada = false" AoConcluir="RodadaConcluidaAsync" />
+    <RodadaPendenciasForm AoFechar="() => _rodada = false" AoConcluir="RodadaConcluidaAsync" AoBaixarPelaGuia="CarregarAsync" />
 }
 
 @code {
@@ -337,12 +385,15 @@
     private int _geracao;
 
     // Formulários abertos (um de cada).
+    /// <summary>O selo de envio à operadora de cada linha de convênio com web service (texto e tom).</summary>
+    private IReadOnlyDictionary<int, SeloDaLinhaNaTela> _selosDeEnvio = new Dictionary<int, SeloDaLinhaNaTela>();
     private PendenciaCodigo? _baixa;
     private BaixaGuiaForm? _formBaixa;
     private IReadOnlyList<PendenciaCodigo>? _lote;
     private PendenciaCodigo? _nc;
     private PendenciaCodigo? _obs;
     private bool _rodada;
+    private bool _gerandoRelatorio;
 
     private bool TodasMarcadas => _linhas.Count > 0 && _linhas.All(p => _selecionados.Contains(p.CodigoId));
 
@@ -360,6 +411,7 @@
     {
         AtalhoDeTela.Atualizar when _baixa is null && _lote is null && _nc is null && _obs is null && !_rodada => CarregarAsync(),
         AtalhoDeTela.Salvar when _baixa is not null && _formBaixa is not null => _formBaixa.ConfirmarAsync(),
+        AtalhoDeTela.Imprimir when _baixa is null && _lote is null && _nc is null && _obs is null && !_rodada => ImprimirAsync(),
         _ => Task.CompletedTask
     };
 
@@ -416,6 +468,30 @@
                 if (geracao != _geracao || Descartada) return;
             }
 
+            // Os selos de envio: uma leitura por convênio com web service (hoje, um), nunca por linha.
+            // Falha aqui não derruba o painel — a linha só fica sem o selo, e o log diz por quê.
+            IReadOnlyDictionary<int, SeloDaLinhaNaTela> selosDeEnvio = new Dictionary<int, SeloDaLinhaNaTela>();
+            try
+            {
+                var porConvenio = EnvioTissNaTela.GuiasComSeloPorConvenio(codigos);
+                if (porConvenio.Count > 0)
+                {
+                    var fila = escopo.ServiceProvider.GetRequiredService<FilaTissService>();
+                    var ids = porConvenio.Values.SelectMany(v => v).ToList();
+                    var selos = await fila.SelosDeEnvioAsync(ids);
+                    var prontas = new HashSet<int>();
+                    foreach (var convenio in porConvenio.Keys)
+                        foreach (var g in await fila.ProntasParaEnvioAsync(convenio, 500)) prontas.Add(g.CodigoId);
+                    selosDeEnvio = EnvioTissNaTela.SelosDasLinhas(ids, selos, prontas);
+                }
+            }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar("Blazor — painel: selos de envio à operadora", ex);
+            }
+            if (geracao != _geracao || Descartada) return;
+
+            _selosDeEnvio = selosDeEnvio;
             _todos = codigos.ToList();
             _consultas = consultas;
             _recursos = recursos;
@@ -485,6 +561,14 @@
         _baixa = null;
         _formBaixa = null;
         Notificacoes.Sucesso("Baixa registrada.");
+        await CarregarAsync();
+    }
+
+    /// <summary>A guia foi conferida para envio, sem baixa: fecha o formulário e relê (o selo da linha muda).</summary>
+    private async Task ConferiuAsync()
+    {
+        _baixa = null;
+        _formBaixa = null;
         await CarregarAsync();
     }
 
@@ -562,6 +646,42 @@
         await CarregarAsync();
         if (falhas is not null) await Dialogos.AvisoAsync("Rodar pendências", falhas);
         else Notificacoes.Sucesso("Rodada de pendências concluída.");
+    }
+
+    // ==================== relatório (nov/2026) ====================
+
+    /// <summary>
+    /// O relatório das guias pendentes À VISTA — o mesmo recorte da tabela, escrito no cabeçalho
+    /// do papel. Sai nome de paciente e telefone: VerFaturamento, como o CSV das faturadas.
+    /// </summary>
+    private async Task ImprimirAsync()
+    {
+        if (_gerandoRelatorio || !Exigir(Permissao.VerFaturamento, "emitir o relatório das guias pendentes")) return;
+        _gerandoRelatorio = true;
+        try
+        {
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+            var pdf = PainelPendenciasFaturamento.RelatorioPdf(_linhas, _filtro, _todos.Count, hoje, _nomeClinica);
+            var erro = await Host.SalvarEAbrirAsync(pdf, PainelPendenciasFaturamento.NomeArquivoRelatorio(hoje, ".pdf"), "PDF (*.pdf)|*.pdf", ".pdf");
+            if (erro is not null) Notificacoes.Erro(erro);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — relatório de guias pendentes não pôde ser gerado", ex);
+            Notificacoes.Erro($"Não foi possível gerar o relatório: {ex.Message}");
+        }
+        finally { _gerandoRelatorio = false; }
+    }
+
+    private async Task ExportarCsvAsync()
+    {
+        if (!Exigir(Permissao.VerFaturamento, "exportar as guias pendentes")) return;
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        var linhas = PainelPendenciasFaturamento.OrdenarParaRelatorio(_linhas)
+            .Select(p => PainelPendenciasFaturamento.LinhaRelatorio(p, hoje)).ToList();
+        var erro = await Host.ExportarCsvAsync(PainelPendenciasFaturamento.CabecalhoRelatorio, linhas,
+            PainelPendenciasFaturamento.NomeArquivoRelatorio(hoje, ".csv"));
+        if (erro is not null) Notificacoes.Erro(erro);
     }
 
     // ==================== consultas e glosas ====================
@@ -668,9 +788,10 @@
         _ => "No prazo"
     };
 
-    private static string SituacaoPrazo(PendenciaCodigo p) => p.DiasEmAtraso > 0
-        ? $"atrasada há {p.DiasEmAtraso} dia(s)"
-        : p.DataPrevista == DateOnly.FromDateTime(DateTime.Today) ? "vence hoje" : "no prazo";
+    private static string Iso(DateOnly? d) => d?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? string.Empty;
+
+    private static DateOnly? Data(ChangeEventArgs e)
+        => DateOnly.TryParseExact(e.Value?.ToString(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : null;
 
     private static string DiasRestantes(int dias) => dias switch
     {

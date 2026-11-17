@@ -654,8 +654,11 @@ public class ConsultorioTests : IDisposable
         var embutidas = await catalogo.ListarAsync();
 
         embutidas.Select(e => e.Codigo).Should().Contain(Enum.GetNames<Especialidade>());
+        // nov/2026 — os tipos de atendimento da casa (Infertilidade, Suplementação para gestante)
+        // entram pelo catálogo, de propósito: a mesma exceção declarada em FaturamentoCongeladoTests.
+        var daCasa = EspecialidadeCatalogoService.DaCasa.Select(t => t.Codigo).ToArray();
         embutidas.Should().OnlyContain(e => Enum.GetNames<Especialidade>().Contains(e.Codigo)
-            || e.Codigo == "Psicologia");
+            || e.Codigo == "Psicologia" || daCasa.Contains(e.Codigo));
         embutidas.Should().NotContain(e => e.Codigo == InstrumentoOswestry.CodigoNeurocirurgia,
             "especialidade nova entra pelo CATÁLOGO, quando a clínica a cadastrar");
     }

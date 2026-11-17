@@ -41,6 +41,9 @@ public static class IndicadoresNaTela
             VariacaoAtendidos: VariacaoDeAtendidos(serie),
             VariacaoNoShow: VariacaoDeNoShow(serie),
             Produtividade: painel.Produtividade.Select(LinhaDe).ToList(),
+            PorConvenio: a.PorPagador.Select(p => new LinhaPorConvenio(
+                p.Pagador, p.Particular, p.Atendidos.ToString(PtBr), p.Pacientes.ToString(PtBr),
+                a.Atendidos == 0 ? Travessao : Pct(Math.Round(p.Atendidos * 100.0 / a.Atendidos, 1)))).ToList(),
             Barras: Barras(painel.Produtividade),
             SerieAtendidos: serie.Select(m => new PontoDaSerie(m.Rotulo, m.Atendidos)).ToList(),
             SerieNoShow: nosShow,
@@ -173,6 +176,9 @@ public sealed record LinhaDeProdutividade(
     string Nome, int Atendidos, int Faltas, string NoShow, string Horas, int Evolucoes,
     string Prontuario, string QuedaDaDor);
 
+/// <summary>Uma linha de "Atendidos por convênio": o pagador da SESSÃO (a consulta particular de quem tem plano é "Particular").</summary>
+public sealed record LinhaPorConvenio(string Convenio, bool Particular, string Atendidos, string Pacientes, string Parte);
+
 public sealed record MesDosIndicadores(string Rotulo, int Atendidos, string NoShow, string Ocupacao);
 
 public sealed record PainelDeIndicadores(
@@ -182,6 +188,7 @@ public sealed record PainelDeIndicadores(
     string Nps, string NpsDetalhe,
     VariacaoDeIndicador? VariacaoAtendidos, VariacaoDeIndicador? VariacaoNoShow,
     IReadOnlyList<LinhaDeProdutividade> Produtividade,
+    IReadOnlyList<LinhaPorConvenio> PorConvenio,
     IReadOnlyList<BarraDeOcupacao> Barras,
     IReadOnlyList<PontoDaSerie> SerieAtendidos,
     IReadOnlyList<PontoDaSerie> SerieNoShow,

@@ -44,6 +44,29 @@ public sealed class Dialogos
         return Abrir(d);
     }
 
+    /// <summary>
+    /// Uma pergunta com DUAS OU MAIS respostas nomeadas (nov/2026 — "é pelo plano ou é
+    /// particular?"). Devolve o índice da opção, ou <c>null</c> quando a pessoa desiste:
+    /// Cancelar e Esc nunca escolhem por ela, e nenhuma opção é a do Enter.
+    /// </summary>
+    public Task<int?> EscolherAsync(string titulo, string mensagem, IReadOnlyList<string> opcoes)
+    {
+        var d = new DialogoAberto(TipoDialogo.Escolha, titulo, mensagem) { Opcoes = opcoes };
+        return Abrir(d).ContinueWith(
+            t => int.TryParse(t.Result, System.Globalization.CultureInfo.InvariantCulture, out var i) ? i : (int?)null,
+            TaskScheduler.Default);
+    }
+
+    /// <summary>Chamado pela camada: a pessoa clicou numa das opções da pergunta de escolha.</summary>
+    public void Escolher(DialogoAberto d, int opcao)
+    {
+        if (_fila.Count == 0 || !ReferenceEquals(_fila.Peek(), d) || d.Tipo != TipoDialogo.Escolha
+            || opcao < 0 || opcao >= d.Opcoes.Count) return;
+        _fila.Dequeue();
+        Mudou?.Invoke();
+        d.Resposta.TrySetResult(opcao.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    }
+
     public Task AvisoAsync(string titulo, string mensagem)
     {
         var d = new DialogoAberto(TipoDialogo.Aviso, titulo, mensagem) { RotuloConfirmar = "Entendi" };
@@ -77,6 +100,8 @@ public sealed class Dialogos
     public void Responder(DialogoAberto d, bool confirmou)
     {
         if (_fila.Count == 0 || !ReferenceEquals(_fila.Peek(), d)) return;
+        // A pergunta de escolha só se responde por uma OPÇÃO (Escolher); por aqui só se desiste.
+        if (confirmou && d.Tipo == TipoDialogo.Escolha) return;
         if (confirmou && d.Tipo == TipoDialogo.Texto && d.Obrigatorio && string.IsNullOrWhiteSpace(d.Texto))
         {
             d.Erro = "Escreva a resposta para continuar — ou cancele.";
@@ -89,7 +114,7 @@ public sealed class Dialogos
     }
 }
 
-public enum TipoDialogo { Confirmacao, Texto, Aviso }
+public enum TipoDialogo { Confirmacao, Texto, Aviso, Escolha }
 
 public sealed class DialogoAberto(TipoDialogo tipo, string titulo, string mensagem)
 {
@@ -99,6 +124,9 @@ public sealed class DialogoAberto(TipoDialogo tipo, string titulo, string mensag
     public bool Perigoso { get; init; }
     public bool Obrigatorio { get; init; }
     public string RotuloConfirmar { get; init; } = "Confirmar";
+
+    /// <summary>As respostas da pergunta de escolha, na ordem dos botões.</summary>
+    public IReadOnlyList<string> Opcoes { get; init; } = [];
     public string Texto { get; set; } = string.Empty;
     public string? Erro { get; set; }
     internal TaskCompletionSource<string?> Resposta { get; } =

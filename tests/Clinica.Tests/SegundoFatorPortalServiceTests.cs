@@ -41,7 +41,6 @@ public sealed class SegundoFatorPortalServiceTests : IDisposable
 
     private async Task<(byte[] Segredo, IReadOnlyList<string> Recuperacao)> Cadastrar()
     {
-        await Admin().LiberarPrimeiroAcessoAsync(_u.Id, "direcao");
         var segredo = Totp.NovoSegredo();
         var codigos = await _svc.CadastrarAsync(_u.Id, segredo, Totp.Codigo(segredo, Totp.Passo(DateTimeOffset.UtcNow)), default);
         Assert.NotNull(codigos);
@@ -72,8 +71,9 @@ public sealed class SegundoFatorPortalServiceTests : IDisposable
         Assert.False(await _svc.VerificarAsync(_u.Id, Totp.Codigo(segredo, Totp.Passo(DateTimeOffset.UtcNow) + 1), default));
         Assert.Contains(_db.Auditoria, a => a.Acao == "PortalSegundoFatorTravado" && a.Operador == "rita");
 
-        // A direção libera de novo (zera): o próximo login cadastra de novo.
-        await Admin().LiberarPrimeiroAcessoAsync(_u.Id, "direcao");
+        // A direção zera: a pessoa entra de novo só com a senha e é convidada a ativar.
+        await Admin().ZerarAsync(_u.Id, "direcao");
+        Assert.Contains(_db.Auditoria, a => a.Acao == "PortalSegundoFatorZerado");
         Assert.False(await _svc.TemAutenticadorAsync(_u.Id, default));
         Assert.Empty(_db.CodigosRecuperacaoPortal.Where(c => c.UsuarioId == _u.Id));
     }
@@ -89,36 +89,20 @@ public sealed class SegundoFatorPortalServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Sem_a_liberacao_da_direcao_a_senha_nao_cadastra_o_autenticador()
+    public async Task Situacao_mostra_ativo_e_travado_e_zerar_tira_da_lista()
     {
-        var segredo = Totp.NovoSegredo();
-        Assert.Null(await _svc.CadastrarAsync(_u.Id, segredo, Totp.Codigo(segredo, Totp.Passo(DateTimeOffset.UtcNow)), default));
-        Assert.False(await _svc.TemAutenticadorAsync(_u.Id, default));
-    }
-
-    [Fact]
-    public async Task Liberacao_vale_uma_vez_e_cinco_erros_a_invalidam()
-    {
-        var codigo = await Admin().LiberarPrimeiroAcessoAsync(_u.Id, "direcao");
-        Assert.Equal(SituacaoDoSegundoFator.Liberado, (await Admin().SituacoesAsync())[_u.Id]);
-        Assert.True(await _svc.ConferirLiberacaoAsync(_u.Id, codigo, default));
-        var segredo = Totp.NovoSegredo();
-        Assert.NotNull(await _svc.CadastrarAsync(_u.Id, segredo, Totp.Codigo(segredo, Totp.Passo(DateTimeOffset.UtcNow)), default));
-        Assert.False(await _svc.ConferirLiberacaoAsync(_u.Id, codigo, default)); // consumida no cadastro
+        await Cadastrar();
         Assert.Equal(SituacaoDoSegundoFator.Ativo, (await Admin().SituacoesAsync())[_u.Id]);
-
-        var outro = await Admin().LiberarPrimeiroAcessoAsync(_u.Id, "direcao"); // celular perdido: zera e libera
-        Assert.False(await _svc.TemAutenticadorAsync(_u.Id, default));
-        for (var i = 0; i < SegundoFatorPortalService.FalhasDaLiberacao; i++)
-            Assert.False(await _svc.ConferirLiberacaoAsync(_u.Id, "aaaaa-bbbbb", default));
-        Assert.False(await _svc.ConferirLiberacaoAsync(_u.Id, outro, default)); // invalidada
-        Assert.Contains(_db.Auditoria, a => a.Acao == "PortalLiberacaoInvalidada");
+        for (var i = 0; i < SegundoFatorPortalService.FalhasAteTravar; i++)
+            await _svc.VerificarAsync(_u.Id, "000000", default);
+        Assert.Equal(SituacaoDoSegundoFator.Travado, (await Admin().SituacoesAsync())[_u.Id]);
+        await Admin().ZerarAsync(_u.Id, "direcao");
+        Assert.False((await Admin().SituacoesAsync()).ContainsKey(_u.Id));
     }
 
     [Fact]
     public async Task Cadastro_com_codigo_errado_nao_grava_nada()
     {
-        await Admin().LiberarPrimeiroAcessoAsync(_u.Id, "direcao");
         var segredo = Totp.NovoSegredo();
         Assert.Null(await _svc.CadastrarAsync(_u.Id, segredo, "000000", default));
         Assert.False(await _svc.TemAutenticadorAsync(_u.Id, default));

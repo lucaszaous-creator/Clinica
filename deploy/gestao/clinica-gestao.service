@@ -10,7 +10,8 @@ Type=simple
 User=clinica-gestao
 Group=clinica-gestao-proxy
 # Lê (não escreve) o anel de chaves da API do portal: abre o cookie do aparelho.
-SupplementaryGroups=clinica-portal-chaves
+# E o próprio grupo: os arquivos do release são root:clinica-gestao (o Group= acima troca o grupo primário).
+SupplementaryGroups=clinica-portal-chaves clinica-gestao
 WorkingDirectory=/opt/clinica-gestao/current/app
 ExecStart=/opt/clinica-gestao/current/app/Clinica.Gestao.Web
 EnvironmentFile=/etc/clinica-gestao/gestao.env

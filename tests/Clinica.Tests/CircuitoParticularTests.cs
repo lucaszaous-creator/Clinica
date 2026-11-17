@@ -1,3 +1,4 @@
+using Clinica.Application.Formatacao;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Domain;
@@ -137,6 +138,192 @@ public class CircuitoParticularTests : IDisposable
 
     private IReadOnlyList<LancamentoFinanceiro> LancamentosDoPacote(int pacoteId)
         => _db.Lancamentos.AsNoTracking().Where(l => l.PacotePacienteId == pacoteId).OrderBy(l => l.Id).ToList();
+
+    // ==================== Receber ao marcar (nov/2026) ====================
+    // "O paciente chega no balcão, marca a consulta, a secretária passa o valor e é cobrado ali."
+
+    private PagamentoNaMarcacaoService Marcacao() => new(_repo, _financeiro);
+
+    [Fact]
+    public async Task Pago_ao_marcar_entra_no_caixa_na_hora_e_a_sessao_nao_vai_para_a_conciliacao()
+    {
+        var pacienteId = await ParticularAsync();
+        var agendamentoId = await AgendarAsync(pacienteId);
+
+        var pago = await Marcacao().ReceberAsync(agendamentoId,
+            new PagamentoNaMarcacao(500m, FormaPagamento.Pix), "recepcao", hoje: Dia.AddDays(-3));
+
+        // Recebido HOJE (antes da sessão), competência no dia da sessão, preso ao HORÁRIO.
+        pago.Status.Should().Be(StatusLancamento.Realizado);
+        pago.DataPagamento.Should().Be(Dia.AddDays(-3));
+        pago.Data.Should().Be(Dia);
+        pago.AgendamentoId.Should().Be(agendamentoId);
+        pago.AtendimentoId.Should().BeNull("o atendimento ainda não nasceu");
+        pago.PacienteId.Should().Be(pacienteId);
+        (await Marcacao().PagoPeloHorarioAsync(agendamentoId)).Should().Be(500m);
+
+        // O profissional finaliza: o atendimento nasce e o pagamento passa a apontar para ele.
+        _db.ChangeTracker.Clear();
+        var registro = await _fechamento.RegistrarAtendimentoAsync(agendamentoId, "medica");
+        _db.ChangeTracker.Clear();
+
+        _db.Lancamentos.AsNoTracking().Single().AtendimentoId.Should().Be(registro.Atendimento.Id);
+        registro.Proposta.SugereLancamento.Should().BeFalse("perguntar de novo seria cobrar duas vezes");
+        registro.TemDecisao.Should().BeFalse("não há janela de fechamento para abrir");
+        (await _financeiro.SessoesParticularesSemReceitaAsync(Dia, Dia)).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Um_horario_se_paga_uma_vez_e_convenio_nao_paga_no_balcao()
+    {
+        var agendamentoId = await AgendarAsync(await ParticularAsync());
+        await Marcacao().ReceberAsync(agendamentoId, new PagamentoNaMarcacao(500m, FormaPagamento.Dinheiro));
+        _db.ChangeTracker.Clear();
+
+        var deNovo = () => Marcacao().ReceberAsync(agendamentoId, new PagamentoNaMarcacao(500m, FormaPagamento.Dinheiro));
+        (await deNovo.Should().ThrowAsync<InvalidOperationException>()).WithMessage("*já tem pagamento*");
+        _db.Lancamentos.Count().Should().Be(1);
+
+        var semForma = () => Marcacao().ReceberAsync(agendamentoId, new PagamentoNaMarcacao(0m, FormaPagamento.Pix));
+        await semForma.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    /// <summary>A direção: "não impeça o lançamento pela falta de taxa da maquininha cadastrada".</summary>
+    [Fact]
+    public async Task Cartao_sem_taxa_cadastrada_entra_pelo_bruto_e_avisa()
+    {
+        var agendamentoId = await AgendarAsync(await ParticularAsync());
+
+        var pago = await Marcacao().ReceberAsync(agendamentoId,
+            new PagamentoNaMarcacao(500m, FormaPagamento.CartaoCredito, "Stone", "Visa", 2), "recepcao");
+
+        pago.Status.Should().Be(StatusLancamento.Realizado);
+        pago.Valor.Should().Be(500m);
+        pago.ValorLiquido.Should().Be(500m, "sem taxa cadastrada não há o que descontar");
+        pago.Adquirente.Should().Be("Stone");
+        pago.Parcelas.Should().Be(2);
+        pago.PrevisaoRecebimento.Should().BeNull();
+        PagamentoNaMarcacaoService.AvisoSemTaxa(pago).Should().Contain("SEM taxa").And.Contain("Stone");
+
+        // PIX não tem maquininha: nada a avisar.
+        var outro = await AgendarAsync(await ParticularAsync("Joana"));
+        var pix = await Marcacao().ReceberAsync(outro, new PagamentoNaMarcacao(500m, FormaPagamento.Pix));
+        PagamentoNaMarcacaoService.AvisoSemTaxa(pix).Should().BeNull();
+
+        // As OUTRAS portas continuam exigindo a taxa — a exceção é só do pagamento ao marcar.
+        var exigindo = () => new TaxaService(_repo).CalcularPagamentoPacienteAsync(
+            500m, DateOnly.FromDateTime(DateTime.Today), FormaPagamento.CartaoCredito, "Stone", "Visa", 2);
+        await exigindo.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task Cancelar_ou_faltar_num_horario_pago_avisa_e_nao_devolve_sozinho()
+    {
+        var agendamentoId = await AgendarAsync(await ParticularAsync());
+        await Marcacao().ReceberAsync(agendamentoId, new PagamentoNaMarcacao(500m, FormaPagamento.Pix));
+        _db.ChangeTracker.Clear();
+
+        var avisos = await _agenda.CancelarAsync(agendamentoId, "recepcao");
+
+        avisos.Should().Contain(a => a.Contains("PAGO ao marcar") && a.Contains("500,00"));
+        _db.Lancamentos.AsNoTracking().Single().Status.Should().Be(StatusLancamento.Realizado, "devolver é decisão de gente");
+
+        // Horário sem pagamento cancela calado, como sempre.
+        var outro = await AgendarAsync(await ParticularAsync("Joana"));
+        (await _agenda.CancelarAsync(outro, "recepcao")).Should().NotContain(a => a.Contains("PAGO"));
+    }
+
+    [Fact]
+    public void O_bloco_de_pagamento_confere_o_que_foi_digitado_antes_de_marcar()
+    {
+        PagamentoNaMarcacaoService.Conferir("500,00", FormaPagamento.Pix, null, null, null, out var erro)
+            .Should().Be(new PagamentoNaMarcacao(500m, FormaPagamento.Pix));
+        erro.Should().BeNull();
+
+        PagamentoNaMarcacaoService.Conferir("", FormaPagamento.Pix, null, null, null, out erro).Should().BeNull();
+        erro.Should().Contain("valor");
+        PagamentoNaMarcacaoService.Conferir("500", null, null, null, null, out erro).Should().BeNull();
+        erro.Should().Contain("Escolha como o paciente pagou");
+        PagamentoNaMarcacaoService.Conferir("500", FormaPagamento.Convenio, null, null, null, out _).Should().BeNull();
+
+        // Cartão pede maquininha e bandeira; só o crédito parcela.
+        PagamentoNaMarcacaoService.Conferir("500", FormaPagamento.CartaoCredito, null, "Visa", "2", out erro).Should().BeNull();
+        erro.Should().Contain("maquininha");
+        PagamentoNaMarcacaoService.Conferir("500", FormaPagamento.CartaoCredito, " Stone ", "Visa", "3", out _)
+            .Should().Be(new PagamentoNaMarcacao(500m, FormaPagamento.CartaoCredito, "Stone", "Visa", 3));
+        PagamentoNaMarcacaoService.Conferir("500", FormaPagamento.CartaoDebito, "Stone", "Visa", "9", out _)!
+            .Parcelas.Should().Be(1, "débito não parcela, seja o que for que ficou no campo");
+        PagamentoNaMarcacaoService.Formas.Should().NotContain(FormaPagamento.Convenio);
+    }
+
+    // ==================== O detalhe do atendimento (nov/2026) ====================
+
+    [Fact]
+    public async Task O_detalhe_do_atendimento_junta_o_que_foi_feito_e_o_que_foi_cobrado()
+    {
+        var pacienteId = await ParticularAsync();
+        var agendamentoId = await AgendarAsync(pacienteId);
+        var registro = await _fechamento.RegistrarAtendimentoAsync(agendamentoId, "recepcao");
+        await _fechamento.ConcluirAsync(new DecisaoFechamento(agendamentoId)
+        {
+            GerarLancamento = true, Valor = 180m, Forma = FormaPagamento.Pix
+        }, "recepcao");
+        _db.ChangeTracker.Clear();
+
+        var dados = await _repo.DadosDoDetalheDoAtendimentoAsync(registro.Atendimento.Id);
+
+        dados!.Horario!.ProfissionalId.Should().Be(_profPadrao);
+        dados.Horario.Profissional.Should().NotBeNull("o detalhe diz QUEM atendeu");
+        dados.Lancamentos.Should().ContainSingle().Which.Valor.Should().Be(180m);
+        dados.TemEvolucao.Should().BeFalse();
+
+        var comValor = DetalheDoAtendimentoNaTela.Montar(dados, podeVerValores: true, Dia);
+        comValor.ResumoDaCobranca.Should().Contain("180,00");
+        comValor.OQueFoiFeito.Should().Contain(c => c.Rotulo == "Quem atendeu" && c.Valor.Contains("Padrão"));
+
+        // Sem VerFinanceiro: houve cobrança, e não quanto.
+        var semValor = DetalheDoAtendimentoNaTela.Montar(dados, podeVerValores: false, Dia);
+        semValor.ValoresOcultos.Should().BeTrue();
+        semValor.ResumoDaCobranca.Should().NotContain("180");
+        semValor.Cobrancas.Should().OnlyContain(c => c.Valor == DetalheDoAtendimentoNaTela.SemValor);
+
+        (await _repo.DadosDoDetalheDoAtendimentoAsync(999_999)).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Particular_sem_dinheiro_diz_isso_no_detalhe()
+    {
+        var atendimento = await RealizarAsync(await ParticularAsync());
+        _db.ChangeTracker.Clear();
+
+        var detalhe = DetalheDoAtendimentoNaTela.Montar(
+            (await _repo.DadosDoDetalheDoAtendimentoAsync(atendimento.Id))!, podeVerValores: true, Dia);
+
+        detalhe.ResumoDaCobranca.Should().StartWith("Sem dinheiro registrado");
+        detalhe.TomDaCobranca.Should().Be("aviso");
+        detalhe.Cobrancas.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task A_busca_por_numero_acha_o_atendimento_e_a_guia_em_qualquer_data()
+    {
+        var atendimento = await RealizarAsync(await ParticularAsync());
+        var codigo = _db.Codigos.First(c => c.AtendimentoId == atendimento.Id);
+        codigo.NumeroGuiaReal = "77001234";
+        await _db.SaveChangesAsync();
+        _db.ChangeTracker.Clear();
+
+        (await _repo.AtendimentosPorNumeroAsync(atendimento.Numero!, 50)).Should().ContainSingle(a => a.Id == atendimento.Id);
+        (await _repo.AtendimentosPorNumeroAsync("7700123", 50)).Should().ContainSingle(a => a.Id == atendimento.Id);
+        (await _repo.AtendimentosPorNumeroAsync("99999999", 50)).Should().BeEmpty();
+        (await _repo.AtendimentosPorNumeroAsync("  ", 50)).Should().BeEmpty();
+
+        // A linha carrega o número da guia: é o que o filtro do período usa sem ir ao banco.
+        var linha = LancamentosNaTela.Montar((await _repo.AtendimentosPorNumeroAsync("77001234", 50)).Single());
+        DetalheDoAtendimentoNaTela.Casa(linha, "7700").Should().BeTrue();
+        DetalheDoAtendimentoNaTela.Casa(linha, "MARIA").Should().BeTrue("o nome casa sem acento e sem caixa");
+        DetalheDoAtendimentoNaTela.Casa(linha, "joaquim").Should().BeFalse();
+    }
 
     // ==================== A venda do pacote move dinheiro ====================
 
@@ -305,9 +492,32 @@ public class CircuitoParticularTests : IDisposable
 
         // E a Conciliação propõe o MESMO número para a mesma sessão.
         var pendente = (await _financeiro.SessoesParticularesSemReceitaAsync(Dia, Dia)).Single();
-        var proposto = await _precos.ProporAsync(
-            pendente.CodigoDaModalidade, pendente.Modalidade, pendente.CodigoDaEspecialidade, pendente.Data);
+        var proposto = await _precos.ProporAsync(pendente);
         proposto.Valor.Should().Be(180m);
+    }
+
+    /// <summary>
+    /// nov/2026, a clínica: "já temos os preços cadastrados" — e a aba Particulares dizia
+    /// "sem preço na tabela". O preço estava cadastrado POR PROFISSIONAL, e a Conciliação
+    /// perguntava sem dizer quem atendeu: só os preços gerais concorriam.
+    /// </summary>
+    [Fact]
+    public async Task A_conciliacao_propoe_o_preco_cadastrado_para_quem_atendeu()
+    {
+        var pacienteId = await ParticularAsync();
+        await _precos.SalvarAsync(new PrecoParticular
+        {
+            ModalidadeCodigo = nameof(ModalidadeAtendimento.AcupunturaComEletro),
+            ProfissionalId = _profPadrao, Valor = 250m
+        });
+
+        var agendamentoId = await AgendarAsync(pacienteId);
+        var registro = await _fechamento.RegistrarAtendimentoAsync(agendamentoId);
+        registro.Proposta.ValorSugerido.Should().Be(250m);
+
+        var pendente = (await _financeiro.SessoesParticularesSemReceitaAsync(Dia, Dia)).Single();
+        pendente.ProfissionalId.Should().Be(_profPadrao, "a sessão carrega quem atendeu, lido do horário");
+        (await _precos.ProporAsync(pendente)).Valor.Should().Be(250m, "o MESMO número do Finalizar");
     }
 
     [Fact]

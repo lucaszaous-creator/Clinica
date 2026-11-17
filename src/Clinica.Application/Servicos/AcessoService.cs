@@ -211,6 +211,27 @@ public sealed class AcessoService
     }
 
     /// <summary>
+    /// Quem APROVA a liberação da trava de consulta dos convênios (nov/2026): a clínica tem mais
+    /// de um gerente, e a direção escolhe quais respondem aos pedidos da recepção. Só gerente
+    /// pode ser marcado — é a esta pessoa que o pedido chega (WhatsApp e conversa com o
+    /// sistema), e a resposta dela marca uma consulta que o convênio pode glosar.
+    /// </summary>
+    public async Task DefinirAprovacaoDeLiberacaoAsync(
+        int usuarioId, bool aprova, string? operador = null, CancellationToken ct = default)
+    {
+        var usuario = await _repo.ObterUsuarioAsync(usuarioId, ct)
+            ?? throw new InvalidOperationException("Usuário não encontrado.");
+        if (aprova && usuario.Perfil != PerfilAcesso.Gerente)
+            throw new InvalidOperationException("Só quem tem o perfil de gerente pode aprovar liberações de trava de consulta.");
+        if (usuario.AprovaLiberacaoDeTrava == aprova) return;
+
+        usuario.AprovaLiberacaoDeTrava = aprova;
+        await AuditarAsync("AprovacaoDeLiberacaoAlterada",
+            $"{usuario.Login} — {(aprova ? "passa a aprovar" : "deixa de aprovar")} liberações de trava de consulta", operador, ct);
+        await _repo.SalvarAsync(ct);
+    }
+
+    /// <summary>
     /// O celular com que esta pessoa pergunta ao sistema pelo WhatsApp da clínica (out/2026). Em
     /// branco desliga. É dado de quem administra acessos: é para ESTE número que vão a agenda e os
     /// nomes dos pacientes — um dígito errado manda a agenda para um desconhecido. Por isso o

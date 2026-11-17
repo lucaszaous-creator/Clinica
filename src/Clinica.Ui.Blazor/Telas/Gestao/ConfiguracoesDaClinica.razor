@@ -90,6 +90,11 @@
 {
     <CamposPersonalizadosForm AoFechar="() => _campos = false" />
 }
+@if (_coberturaAberta)
+{
+    <CoberturaDoConvenioForm AoFechar="() => _coberturaAberta = false"
+                             AoConcluir="@(() => Notificacoes.Sucesso("Cobertura do convênio gravada — já vale para as próximas marcações."))" />
+}
 
 @code {
     // ============================ Abas ============================
@@ -251,6 +256,17 @@
                     <label class="alternar"><input type="checkbox" @bind="_guiaNoAgendamento" @bind:after="MudouOperacao" /> A guia nasce quando o atendimento entra no sistema (marcação ou avulso)</label>
                     <span class="campo-dica">Ligada, marcar um horário já gera o atendimento e as guias — a faturista pode efetivar no portal com antecedência, e cancelamento/falta suspende as guias sozinho (reabrir devolve). Guia de sessão futura não entra no painel de pendências até a data chegar.</span>
                     <Aviso Tom="atencao" Texto="LIGUE SÓ DEPOIS DE ATUALIZAR TODAS AS MÁQUINAS da clínica: um programa antigo confirmando presença de um horário marcado pelo novo geraria guia em dobro. A chave só é regravada quando muda — ligar dispara a recontagem das sessões realizadas." />
+                </div>
+                <div class="cfg-grupo">
+                    <h3>Trava de consulta dos convênios</h3>
+                    <label class="alternar"><input type="checkbox" @bind="_travaDeConsulta" @bind:after="MudouOperacao" /> Impedir nova consulta da mesma especialidade com o mesmo médico, pelo convênio, antes do prazo dele</label>
+                    <span class="campo-dica">O prazo é a validade da consulta já cadastrada em cada convênio (Unimed 22 dias, Amil e Petrobras 30, os demais no cadastro deles). Ligada, a recepção não consegue marcar outra consulta do mesmo paciente pelo convênio dentro do prazo — qualquer especialidade, qualquer médico. As saídas ficam na própria tela de marcar: outra data, consulta particular, ou o pedido de liberação à gerência. Só consulta: acupuntura, eletro e BSV não entram.</span>
+                    <Aviso Tom="atencao" Texto="ANTES DE LIGAR: marque em Acessos quais gerentes aprovam a liberação (e o celular do WhatsApp do sistema de cada um) — sem ninguém marcado, o pedido de liberação não tem a quem chegar. A trava vale em todas as portas de marcação, inclusive o CRM e o app do faturamento, que mostram a recusa mas não têm o botão de pedir liberação." />
+                </div>
+                <div class="cfg-grupo">
+                    <h3>O que a clínica atende por convênio</h3>
+                    <span class="campo-dica">Para o plano pelo qual a clínica só atende parte dos serviços (ex.: só consulta de algumas especialidades, uma por semana de cada). A marcação fora disso é recusada, sem pedido de liberação — a saída é marcar como particular. Quem já está na agenda fica como está.</span>
+                    <button type="button" class="botao" disabled="@(!Pode(Permissao.GerenciarUsuarios))" @onclick="() => _coberturaAberta = true">Configurar por convênio…</button>
                 </div>
                 <div class="cfg-grupo">
                     <h3>Assinatura digital das prescrições</h3>
@@ -598,6 +614,8 @@
     // Operação
     private string? _jornada, _recall, _carimbadora;
     private bool _guiaNoAgendamento, _guiaGravada;
+    private bool _travaDeConsulta, _travaGravada;
+    private bool _coberturaAberta;
     // Faturamento
     private string? _janela, _glosa, _rodada;
     private bool _aplicaConsultas, _aplicaCarteirinhas;
@@ -702,7 +720,7 @@
     // ============================ Leitura ============================
 
     private sealed record LidoClinica(DadosDaClinica Dados);
-    private sealed record LidoOperacao(int Jornada, int Recall, string? Carimbadora, bool Guia);
+    private sealed record LidoOperacao(int Jornada, int Recall, string? Carimbadora, bool Guia, bool Trava);
     private sealed record LidoFaturamento(int Janela, int Glosa, int Rodada, bool Consultas, bool Carteirinhas);
     private sealed record LidoConclusao(List<OpcaoEnfermagem> Modalidades, bool Automatica, int Horas);
     private sealed record LidoPublicacao(string? Dominio, int Dias, bool VemDoAmbiente, string? Endpoint, string? Regiao,
@@ -713,7 +731,8 @@
 
     private static async Task<LidoOperacao> LerOperacaoAsync(ParametrosService p)
         => new(await p.ObterJornadaDiariaAsync(), await p.ObterDiasInatividadeRecallAsync(),
-               (await p.ObterCarimbadoraDeTempoAsync())?.ToString(), await p.GuiaNoAgendamentoAsync());
+               (await p.ObterCarimbadoraDeTempoAsync())?.ToString(), await p.GuiaNoAgendamentoAsync(),
+               await p.TravaDeConsultaAsync());
 
     private static async Task<LidoFaturamento> LerFaturamentoAsync(ParametrosService p)
         => new(await p.ObterJanelaAlertaConsultaAsync(), await p.ObterPrazoRecursoGlosaAsync(),
@@ -844,6 +863,7 @@
         _recall = l.Recall.ToString(CultureInfo.InvariantCulture);
         _carimbadora = l.Carimbadora;
         _guiaNoAgendamento = _guiaGravada = l.Guia;
+        _travaDeConsulta = _travaGravada = l.Trava;
         _pendOperacao = false;
     }
 
@@ -1030,6 +1050,9 @@
             // Só quando MUDOU: ligar dispara o backfill do RealizadoEm.
             if (ConfiguracoesDaClinicaNaTela.GravarGuiaNoAgendamento(_guiaNoAgendamento, _guiaGravada))
                 await p.DefinirGuiaNoAgendamentoAsync(_guiaNoAgendamento);
+            // Idem: a chave da trava só é regravada quando mudou.
+            if (_travaDeConsulta != _travaGravada)
+                await p.DefinirTravaDeConsultaAsync(_travaDeConsulta);
             PublicarOperacao(await LerOperacaoAsync(p));
             return "Operação e marketing salvos.";
         });

@@ -125,6 +125,62 @@ public sealed class ConsultaService
         return resultado;
     }
 
+    /// <summary>
+    /// "ESTE HORÁRIO cobra a renovação da consulta?" — a resposta que a agenda do dia, a
+    /// grade e o Início da Recepção mostram como selo (nov/2026 — a direção: "a secretária
+    /// precisa ter visualmente que há uma consulta a renovar ou vencida").
+    ///
+    /// Devolve só os horários que COBRAM, pela chave do agendamento. Quem decide é
+    /// <see cref="HorarioCobraRenovacao"/> (o horário) e o mesmo <c>Avaliar</c> da aba
+    /// Consultas (o paciente) — a agenda nunca discorda da aba sobre a mesma pessoa.
+    ///
+    /// ⚠️ A referência é o DIA DO HORÁRIO, não hoje: na grade da semana, a consulta que
+    /// vale hoje pode estar vencida na sexta, e é na sexta que a sessão será faturada.
+    /// Uma ida ao banco para o lote inteiro (a grade da semana tem centenas de horários).
+    /// </summary>
+    public async Task<IReadOnlyDictionary<int, StatusConsultaPaciente>> ARenovarNosHorariosAsync(
+        IReadOnlyCollection<Agendamento> horarios, CancellationToken ct = default)
+    {
+        var resultado = new Dictionary<int, StatusConsultaPaciente>();
+        var cobram = horarios.Where(HorarioCobraRenovacao).ToList();
+        if (cobram.Count == 0) return resultado;
+
+        var snapshot = _parametros is null ? null : await _parametros.ObterAsync(ct);
+        var janela = await JanelaAsync(ct);
+        var ids = cobram.Select(a => a.PacienteId).Distinct().ToList();
+        var consultas = (await _repo.ConsultasDosPacientesAsync(ids, ct))
+            .GroupBy(c => c.PacienteId)
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<Consulta>)g.ToList());
+
+        foreach (var a in cobram)
+        {
+            var doPaciente = consultas.TryGetValue(a.PacienteId, out var c) ? c : Array.Empty<Consulta>();
+            var situacao = Avaliar(a.Paciente!, doPaciente, snapshot, janela, DateOnly.FromDateTime(a.DataHora));
+            if (situacao.ARenovar) resultado[a.Id] = situacao;
+        }
+
+        return resultado;
+    }
+
+    /// <summary>
+    /// O horário em que o selo faz sentido:
+    /// <list type="bullet">
+    ///   <item>ainda EM ABERTO (marcado, no local ou em atendimento) — depois da sessão o
+    ///   aviso não evita mais nada, e em horário cancelado é ruído;</item>
+    ///   <item>vai pelo CONVÊNIO — sessão particular (pela ficha ou marcada assim) não
+    ///   depende de consulta nenhuma (<see cref="SessaoParticular"/>);</item>
+    ///   <item>NÃO é uma consulta — o horário de consulta É a renovação; cobrar "renove a
+    ///   consulta" de quem veio consultar seria o sistema pedindo o que já está marcado.</item>
+    /// </list>
+    /// </summary>
+    public static bool HorarioCobraRenovacao(Agendamento a)
+        => a.Paciente is not null
+           // "Agendado" É o horário em aberto: a etapa da fila deriva do status (realizado,
+           // cancelado, falta e substituído saem dele), e chegar ou entrar não o muda.
+           && a.Status == StatusAgendamento.Agendado
+           && a.ModalidadePrevista != ModalidadeAtendimento.Consulta
+           && !SessaoParticular.Eh(a);
+
     /// <summary>Situação de consulta de um paciente só (o escolhido no formulário).</summary>
     public async Task<StatusConsultaPaciente?> DoPacienteAsync(
         int pacienteId, DateOnly referencia, CancellationToken ct = default)

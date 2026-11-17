@@ -1,0 +1,196 @@
+@*
+  O QUE A CLÍNICA ATENDE POR CONVÊNIO (nov/2026 — pedido da direção sobre a Petrobras: sai a
+  ACUPUNTURA ("não permite marcar, nem libera"); consulta só de geriatria, ginecologia e
+  psiquiatria, uma por semana de cada. O BSV continua — por isso a lista é do que SAI.)
+
+  A tela só escolhe e grava. Quem DECIDE o que a marcação recusa é a CoberturaDoConvenioRegra
+  (Domain), aplicada pela AgendaService em todas as portas de marcação — com teste. A sessão
+  marcada como PARTICULAR nunca é alcançada, e quem já estava na agenda fica como está.
+
+  Segunda barreira: GerenciarUsuarios (o mesmo bit das outras configurações da clínica).
+*@
+@namespace Clinica.Ui.Blazor.Formularios
+@using Clinica.Domain.Regras
+@using Clinica.Application.Modelos
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="O que a clínica atende por convênio"
+       Subtitulo="Restringe a MARCAÇÃO pelo plano. Particular nunca é barrado, e quem já está na agenda fica como está."
+       Largura="grande" AoFechar="AoFechar">
+    <ChildContent>
+        @if (_carregando)
+        {
+            <Esqueleto Altura="220" />
+        }
+        else if (_falhaAoAbrir is not null)
+        {
+            <Aviso Tom="erro" Texto="@_falhaAoAbrir" />
+        }
+        else
+        {
+            <div class="campos">
+                <Campo Rotulo="Convênio" Obrigatorio="true" Dica="@ResumoDoConvenio">
+                    <select class="campo" value="@_convenio" @onchange="TrocarConvenio">
+                        @foreach (var c in _convenios)
+                        {
+                            <option value="@c.Codigo">@c.Nome@(_todas.ContainsKey(c.Codigo) ? " · com restrição" : null)</option>
+                        }
+                    </select>
+                </Campo>
+                <Campo Rotulo="Intervalo por especialidade (dias)" Erro="@_erroIntervalo"
+                       Dica="Mínimo entre duas consultas da MESMA especialidade. 7 = uma por semana. 0 = sem intervalo.">
+                    <input class="campo valor" @bind="_intervalo" @bind:event="oninput" maxlength="3" inputmode="numeric" />
+                </Campo>
+            </div>
+
+            <fieldset class="cobertura-especialidades">
+                <legend>Atendimentos que a clínica NÃO marca por este plano</legend>
+                <span class="campo-dica">Marque o que saiu do plano (ex.: as modalidades de acupuntura). O que ficar desmarcado continua sendo marcado normalmente — o BSV, por exemplo.</span>
+                <div class="cobertura-lista">
+                    @foreach (var m in _modalidades)
+                    {
+                        <label class="alternar">
+                            <input type="checkbox" checked="@_bloqueadas.Contains(m.Codigo)" @onchange="ev => Bloquear(m.Codigo, ev.Value is true)" /> @m.Nome
+                        </label>
+                    }
+                </div>
+            </fieldset>
+
+            <fieldset class="cobertura-especialidades">
+                <legend>Consultas: especialidades atendidas pelo plano</legend>
+                <span class="campo-dica">Nenhuma marcada = consulta de qualquer especialidade.</span>
+                <div class="cobertura-lista">
+                    @foreach (var e in _especialidades)
+                    {
+                        <label class="alternar">
+                            <input type="checkbox" checked="@_marcadas.Contains(e.Codigo)" @onchange="ev => Marcar(e.Codigo, ev.Value is true)" /> @e.Nome
+                        </label>
+                    }
+                </div>
+            </fieldset>
+
+            <Aviso Tom="atencao" Texto="Vale assim que gravar, em todas as máquinas: a marcação fora da cobertura é RECUSADA, sem pedido de liberação. A saída de quem quer o atendimento é marcá-lo como particular." />
+            <Aviso Tom="erro" Texto="@_mensagem" />
+        }
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Fechar</button>
+        <button type="button" class="botao primario" @onclick="SalvarAsync"
+                disabled="@(_carregando || _falhaAoAbrir is not null || _ocupado || !PodeEditar)"
+                title="@(PodeEditar ? null : "Seu acesso não permite mudar as configurações da clínica.")">
+            <Icone Nome="check" />@(_ocupado ? "Gravando…" : "Gravar para este convênio")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter] public EventCallback AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private sealed record Opcao(string Codigo, string Nome);
+
+    private bool _carregando = true, _ocupado;
+    private string? _falhaAoAbrir, _mensagem, _erroIntervalo;
+    private IReadOnlyList<Opcao> _convenios = [];
+    private IReadOnlyList<Opcao> _especialidades = [];
+    private Dictionary<string, CoberturaDoConvenio> _todas = new(StringComparer.OrdinalIgnoreCase);
+    private string _convenio = string.Empty;
+    private IReadOnlyList<Opcao> _modalidades = [];
+    private readonly HashSet<string> _bloqueadas = new(StringComparer.OrdinalIgnoreCase);
+    private string _intervalo = "0";
+    private readonly HashSet<string> _marcadas = new(StringComparer.OrdinalIgnoreCase);
+
+    private static bool PodeEditar => SessaoUsuario.Atual.Pode(Permissao.GerenciarUsuarios);
+
+    private string ResumoDoConvenio => _todas.TryGetValue(_convenio, out var c)
+        ? CoberturaDoConvenioNaTela.Resumo(c)
+        : "Sem restrição hoje: a clínica marca tudo por este plano.";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var sp = escopo.ServiceProvider;
+            _todas = (await sp.GetRequiredService<ParametrosService>().CoberturaDosConveniosAsync())
+                .ToDictionary(p => p.Key, p => p.Value, StringComparer.OrdinalIgnoreCase);
+            // Só convênio que FATURA: particular e "a definir" não têm o que restringir.
+            _convenios = CatalogoConvenios.Ativos.Where(c => c.GeraGuia)
+                .Select(c => new Opcao(c.Codigo, c.Nome))
+                .OrderBy(c => c.Nome, StringComparer.Create(CultureInfo.GetCultureInfo("pt-BR"), true)).ToList();
+            _especialidades = CatalogoEspecialidades.Ativas.Select(e => new Opcao(e.Codigo, e.Nome))
+                .OrderBy(e => e.Nome, StringComparer.Create(CultureInfo.GetCultureInfo("pt-BR"), true)).ToList();
+            // A consulta não entra na lista: o que se restringe nela são as ESPECIALIDADES, abaixo.
+            _modalidades = CatalogoModalidades.Ativas.Where(m => m.Base != ModalidadeAtendimento.Consulta)
+                .Select(m => new Opcao(m.Codigo, m.Nome)).ToList();
+            if (_convenios.Count == 0) _falhaAoAbrir = "Não há convênio ativo que fature para configurar.";
+            else Mostrar(_convenios[0].Codigo);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — cobertura do convênio não pôde ser lida", ex);
+            _falhaAoAbrir = "Não foi possível ler a configuração: " + ex.Message;
+        }
+        finally
+        {
+            _carregando = false;
+        }
+    }
+
+    private void TrocarConvenio(ChangeEventArgs e) => Mostrar(e.Value?.ToString() ?? string.Empty);
+
+    private void Mostrar(string codigo)
+    {
+        _convenio = codigo;
+        _mensagem = _erroIntervalo = null;
+        _marcadas.Clear();
+        var c = _todas.TryGetValue(codigo, out var gravada) ? gravada : new CoberturaDoConvenio([], [], 0);
+        _bloqueadas.Clear();
+        foreach (var m in c.ModalidadesNaoAtendidas) _bloqueadas.Add(m);
+        _intervalo = c.IntervaloDias.ToString(CultureInfo.InvariantCulture);
+        foreach (var e in c.Especialidades) _marcadas.Add(e);
+    }
+
+    private void Bloquear(string codigo, bool marcada)
+    {
+        if (marcada) _bloqueadas.Add(codigo); else _bloqueadas.Remove(codigo);
+    }
+
+    private void Marcar(string codigo, bool marcada)
+    {
+        if (marcada) _marcadas.Add(codigo); else _marcadas.Remove(codigo);
+    }
+
+    private async Task SalvarAsync()
+    {
+        if (_ocupado) return;
+        _mensagem = _erroIntervalo = null;
+        // A SEGUNDA barreira — devolve a frase, nunca exceção solta num evento.
+        if (!PodeEditar) { _mensagem = "Seu acesso não permite mudar as configurações da clínica."; return; }
+        if (!int.TryParse(_intervalo, NumberStyles.None, CultureInfo.InvariantCulture, out var dias) || dias > 365)
+        {
+            _erroIntervalo = "Informe um número de dias entre 0 e 365.";
+            return;
+        }
+
+        _ocupado = true;
+        try
+        {
+            var cobertura = new CoberturaDoConvenio(_bloqueadas.ToArray(), _marcadas.ToArray(), dias);
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<ParametrosService>()
+                .DefinirCoberturaDoConvenioAsync(_convenio, cobertura);
+            if (cobertura.Restringe) _todas[_convenio] = cobertura; else _todas.Remove(_convenio);
+            await AoConcluir.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — cobertura do convênio não pôde ser gravada", ex);
+            _mensagem = ex.Message;
+        }
+        finally
+        {
+            _ocupado = false;
+        }
+    }
+}

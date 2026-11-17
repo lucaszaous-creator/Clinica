@@ -76,7 +76,7 @@ app.MapPost("/crm/v1/staff/ask",async(StaffAsk input,AssistenteWhatsAppService s
     return new StaffAnswer(r.DaEquipe,r.Texto,r.Nome,r.Entendeu);
 });
 app.MapGet("/crm/v1/staff/notices",async(AssistenteWhatsAppService s,CancellationToken ct)=>
-    (await s.AvisosPendentesAsync(ct)).Select(a=>new StaffNotice(a.PedidoId,a.Telefone,a.Texto)).ToArray());
+    (await s.AvisosPendentesAsync(ct)).Select(a=>new StaffNotice(a.PedidoId,a.Telefone,a.Texto,a.Modelo,a.Parametros?.ToArray(),a.Botoes?.ToArray())).ToArray());
 app.MapPost("/crm/v1/staff/notices/ack",async(StaffNoticeAck input,AssistenteWhatsAppService s,CancellationToken ct)=>{
     await s.ConfirmarAvisoAsync(input.RequestId,input.Delivered,input.Reason,ct);
     return Results.Ok(new{ok=true});

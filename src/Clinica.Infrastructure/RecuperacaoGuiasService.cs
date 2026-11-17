@@ -69,7 +69,7 @@ public sealed class RecuperacaoGuiasService(ClinicaDbContext db, IClinicaReposit
         if (a.Status is not (StatusAgendamento.Agendado or StatusAgendamento.Realizado)) erro = "Horário cancelado, falta ou substituição: conferir na agenda.";
         else if (a.DataHora > ConclusaoAutomaticaService.Agora) erro = "Sessão futura: não recuperar antes do atendimento.";
         else if (a.Status == StatusAgendamento.Realizado && a.FimAtendimentoEm != null
-            && (a.Atendimento?.Codigos.Count > 0 || !CatalogoConvenios.GeraGuia(a.Paciente!.ConvenioCodigo)))
+            && (a.Atendimento?.Codigos.Count > 0 || SessaoParticular.Eh(a)))
             erro = "A sessão já está concluída com códigos; nenhum será substituído ou duplicado.";
         else if (a.Atendimento?.EstornadoEm != null) erro = "Atendimento estornado: conferir no faturamento.";
         else if (a.Status == StatusAgendamento.Realizado && a.AtendimentoId == null) erro = "Realizado sem vínculo: localize o atendimento original.";
@@ -87,21 +87,21 @@ public sealed class RecuperacaoGuiasService(ClinicaDbContext db, IClinicaReposit
             erro = "Há mais de um horário no dia: vincule a evolução explicitamente pela ficha.";
         else if (await db.Atendimentos.AnyAsync(t => t.PacienteId == a.PacienteId && t.Data == data
             && t.Id != a.AtendimentoId && t.EstornadoEm == null, ct)) erro = "Há outro atendimento no dia: confira as guias e o vínculo antes de recuperar.";
-        else if (a.Paciente!.ConvenioADefinir && a.Atendimento?.Codigos.Any(c => c.Status != StatusCodigo.NaoAplicavel) != true)
+        else if (a.Paciente!.ConvenioADefinir && !a.Particular && a.Atendimento?.Codigos.Any(c => c.Status != StatusCodigo.NaoAplicavel) != true)
             erro = "Convênio a definir: confira o convênio da sessão na ficha.";
         else if (a.Atendimento?.Codigos.Count > 0 && a.Atendimento.Codigos.All(c => c.Status == StatusCodigo.NaoAplicavel)
-            && CatalogoConvenios.GeraGuia(a.Paciente!.ConvenioCodigo))
+            && !SessaoParticular.Eh(a))
             erro = "Os códigos existentes estão não aplicáveis: revisar a situação no faturamento sem substituí-los.";
         if (erro == null && a.Atendimento is {} t && (t.PacienteId != a.PacienteId || t.Data != data || t.Modalidade != a.ModalidadePrevista))
             erro = "Os dados do atendimento original divergem da sessão.";
         var versao = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new {
             a.Id, a.PacienteId, a.ProfissionalId, a.DataHora, a.Status, a.AtendimentoId, a.FimAtendimentoEm,
-            a.ModalidadePrevista, a.ModalidadeCodigo, a.EspecialidadeConsultaCodigo, a.PrimeiroCodigo,
+            a.ModalidadePrevista, a.ModalidadeCodigo, a.EspecialidadeConsultaCodigo, a.PrimeiroCodigo, a.Particular,
             a.Paciente!.ConvenioCodigo, a.Paciente.Convenio, Evolucao = e == null ? null : new {
                 e.Id, e.AgendamentoId, e.AtendimentoId, e.CriadoEm, e.AtualizadoEm, e.TextoEvolucao }, erro }))));
-        return (new(a.Id, a.Paciente.Nome, a.Profissional?.Nome ?? "Não informado", a.DataHora, a.Paciente.ConvenioNome,
+        return (new(a.Id, a.Paciente.Nome, a.Profissional?.Nome ?? "Não informado", a.DataHora, SessaoParticular.Pagador(a.Paciente, a.Particular),
             e?.Id, erro == null, erro ?? (a.Atendimento?.Codigos.Count > 0 ? "Concluir preservando códigos existentes"
-                : !CatalogoConvenios.GeraGuia(a.Paciente.ConvenioCodigo) ? "Concluir sem guia, conforme configuração do convênio"
+                : SessaoParticular.Eh(a) ? (a.Particular ? "Concluir sem guia: sessão marcada como particular" : "Concluir sem guia, conforme configuração do convênio")
                 : e!.AgendamentoId == null ? $"Vincular evolução #{e.Id} e gerar guias" : "Pronta para recuperar as guias"), versao, escrita), a, e);
     }
 
@@ -113,7 +113,7 @@ public sealed class RecuperacaoGuiasService(ClinicaDbContext db, IClinicaReposit
         var u = await Autorizar(usuarioId, ct);
         var (item, a, e) = await Conferir(pedido.Id, ct);
         if (a.Atendimento is { EstornadoEm: null }
-            && (a.Atendimento.Codigos.Count > 0 || !CatalogoConvenios.GeraGuia(a.Paciente!.ConvenioCodigo))
+            && (a.Atendimento.Codigos.Count > 0 || SessaoParticular.Eh(a))
             && a.Status == StatusAgendamento.Realizado && a.FimAtendimentoEm != null)
             return new(a.Id, true, 0, "O atendimento já possui códigos. Nenhuma nova guia foi criada.");
         if (!item.PodeRecuperar) throw new InvalidOperationException(item.Situacao);
@@ -121,7 +121,7 @@ public sealed class RecuperacaoGuiasService(ClinicaDbContext db, IClinicaReposit
             throw new InvalidOperationException("A sessão mudou desde a prévia. Atualize e confira novamente.");
         const string operador = "sistema:recuperacao-guias";
         var anteriores = a.Atendimento?.Codigos.Count(c => c.Status != StatusCodigo.NaoAplicavel) ?? 0;
-        var geraGuia = CatalogoConvenios.GeraGuia(a.Paciente!.ConvenioCodigo);
+        var geraGuia = !SessaoParticular.Eh(a);
         if (e!.AgendamentoId == null) await new ProntuarioService(repo).VincularAoHorarioAsync(e.Id, a.Id, operador, ct);
         if (a.AtendimentoId != null && geraGuia) await atendimentos.RecuperarGuiasAusentesAsync(a, operador, ct);
         var fim = await agenda.ConcluirAtendimentoClinicoAsync(a.Id, operador, ct, u.Id,

@@ -19,7 +19,7 @@ public static class DependencyInjection
         services.AddDbContext<ClinicaDbContext>(o => o.UseNpgsql(connectionString, ConfigurarNpgsql)
             .AddInterceptors(InterceptadorMedicao.Instancia)); // só conta idas e tempo (ver MedicaoBanco)
         services.AddScoped<IClinicaRepositorio, ClinicaRepositorio>();
-        // A direção libera o primeiro acesso ao portal e zera o autenticador perdido (tela de Acessos).
+        // A direção zera o autenticador perdido do portal (tela de Acessos).
         services.AddScoped<Clinica.Application.Tablet.ISegundoFatorDoPortal, Tablet.AdministracaoDoSegundoFator>();
         services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<ILeituraParalela, LeituraParalela>();
@@ -32,6 +32,9 @@ public static class DependencyInjection
         services.AddScoped<IChatEquipeService, ChatEquipeService>();
         services.AddScoped<AvisosDoSemDorService>();
         services.AddScoped<IPedidosRecepcaoService, PedidosRecepcaoService>();
+        // O pedido de liberação da trava de consulta (nov/2026): pedido pelo app, decidido pela gerência.
+        services.AddScoped<LiberacaoDeTravaService>();
+        services.AddScoped<ILiberacaoDeTravaService>(sp => sp.GetRequiredService<LiberacaoDeTravaService>());
         // A remarcação pedida pelo paciente (@SemDor): a tela usa a interface; a ponte, a classe (fila do CRM).
         services.AddScoped<RemarcacaoPeloPacienteService>();
         services.AddScoped<IRemarcacaoPeloPacienteService>(sp => sp.GetRequiredService<RemarcacaoPeloPacienteService>());
@@ -41,6 +44,7 @@ public static class DependencyInjection
         services.AddScoped<AtendimentoService>();
         services.AddScoped<EstornoAtendimentoService>();
         services.AddScoped<FaturamentoService>();
+        services.AddScoped<GuiaAnsNaBaixaService>();
         services.AddScoped<PendenciaService>();
         services.AddScoped<RodadaPendenciasService>();
         services.AddScoped<RelatorioService>();
@@ -125,6 +129,7 @@ public static class DependencyInjection
         services.AddScoped<CustoTransacaoService>();
         services.AddScoped<RentabilidadeConvenioService>();
         services.AddScoped<PrecoConvenioService>();
+        services.AddScoped<AtendimentosPorProfissionalService>();
         services.AddScoped<PrecoParticularService>();
         services.AddScoped<AuditoriaService>();
 
@@ -161,6 +166,7 @@ public static class DependencyInjection
         // A ponte Recepção → Financeiro: depende de quatro serviços acima, e por isso
         // vem depois deles.
         services.AddScoped<FechamentoSessaoService>();
+        services.AddScoped<PagamentoNaMarcacaoService>();
         services.AddScoped<DocumentoFinanceiroService>();
         services.AddScoped<DocumentosFinanceirosPdfService>();
         services.AddScoped<IndicadoresService>();
@@ -177,6 +183,13 @@ public static class DependencyInjection
         // A fila tem duas portas: o desktop PÕE o pedido, a ponte do CRM o entrega.
         services.AddScoped<EnvioAoPacienteService>();
         services.AddScoped<FilaEnviosCrmService>();
+        // A fila do web service TISS (nov/2026): a tela pede, o conector no servidor executa.
+        services.AddScoped<FilaTissService>();
+        services.AddScoped<CredenciaisTissService>();
+        // A consulta de elegibilidade a partir da agenda (nov/2026): a lista de quem dá para consultar.
+        services.AddScoped<ElegibilidadeNaAgendaService>();
+        // A baixa em lote das guias que a operadora recebeu: quem chama é a tela, com quem está logado.
+        services.AddScoped<BaixaDasGuiasEnviadasService>();
         services.AddScoped<TendenciaAtendimentosService>();
         services.AddScoped<AcessoService>();
         services.AddScoped<PrevencaoGlosaService>();

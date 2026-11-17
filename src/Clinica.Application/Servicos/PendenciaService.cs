@@ -86,7 +86,9 @@ public sealed class PendenciaService
         {
             ConvenioCodigo = paciente?.ConvenioCodigo,
             Modalidade = c.Atendimento?.Modalidade,
-            Especialidade = c.Especialidade ?? c.Atendimento?.EspecialidadeConsulta
+            Especialidade = c.Especialidade ?? c.Atendimento?.EspecialidadeConsulta,
+            EspecialidadeCodigo = c.EspecialidadeCodigo ?? c.Atendimento?.EspecialidadeConsultaCodigo,
+            DataAtendimento = c.Atendimento?.Data
         };
     }
 
@@ -138,7 +140,9 @@ public sealed class PendenciaService
                 {
                     ConvenioCodigo = paciente?.ConvenioCodigo,
                     Modalidade = c.Atendimento?.Modalidade,
-                    Especialidade = c.Especialidade ?? c.Atendimento?.EspecialidadeConsulta
+                    Especialidade = c.Especialidade ?? c.Atendimento?.EspecialidadeConsulta,
+                    EspecialidadeCodigo = c.EspecialidadeCodigo ?? c.Atendimento?.EspecialidadeConsultaCodigo,
+                    DataAtendimento = c.Atendimento?.Data
                 };
             })
             .OrderBy(p => p.PacienteNome)

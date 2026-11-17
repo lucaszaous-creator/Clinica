@@ -69,6 +69,43 @@ public sealed class SementeAgendaDoDia : ISemente
         db.SaveChanges();
         for (var i = 0; i < 9; i++) db.Add(new ConsumoPacote { PacotePacienteId = pacote.Id, Data = DateOnly.FromDateTime(hoje).AddDays(-7 * (i + 1)) });
 
+        // Consultas JÁ REALIZADAS nos dias anteriores, pelos três tipos de atendimento (nov/2026) —
+        // é o que o relatório por profissional conta: tipo e guia interna da infertilidade.
+        void ConsultaRealizada(Paciente p, int diasAtras, string tipo, string? guiaInterna = null, bool particular = false)
+        {
+            var quando = hoje.AddDays(-diasAtras).AddHours(9);
+            var atendimento = new Atendimento
+            {
+                PacienteId = p.Id, Data = DateOnly.FromDateTime(quando), Modalidade = ModalidadeAtendimento.Consulta,
+                EspecialidadeConsultaCodigo = tipo, Particular = particular, RealizadoEm = quando.AddMinutes(40)
+            };
+            // Pelo plano, a consulta deixa a guia pendente de baixa — é a linha que o faturista vê.
+            if (!particular)
+                atendimento.Codigos.Add(new CodigoFaturamento
+                {
+                    Tipo = TipoCodigo.Consulta, Ordem = OrdemCodigo.Primeiro, EspecialidadeCodigo = tipo,
+                    DataPrevistaFaturamento = DateOnly.FromDateTime(quando), FormaObtencao = FormaObtencao.NaoAplica,
+                    Status = StatusCodigo.Aberto, Descricao = $"Consulta de {tipo}."
+                });
+            db.Add(atendimento);
+            db.SaveChanges();
+            db.Add(new Agendamento
+            {
+                PacienteId = p.Id, ProfissionalId = helena.Id, DataHora = quando, DuracaoMinutos = 30,
+                ModalidadePrevista = ModalidadeAtendimento.Consulta, ModalidadeCodigo = nameof(ModalidadeAtendimento.Consulta),
+                EspecialidadeConsultaCodigo = tipo, Status = StatusAgendamento.Realizado, AtendimentoId = atendimento.Id,
+                Particular = particular, InfertilidadeGuiaDe = guiaInterna,
+                ChegadaEm = quando.AddMinutes(-5), InicioAtendimentoEm = quando, FimAtendimentoEm = quando.AddMinutes(40),
+                CriadoPor = "recepcao", CriadoEm = quando.AddDays(-2)
+            });
+        }
+        ConsultaRealizada(clara, 1, "Infertilidade", nameof(Especialidade.Geriatria));
+        ConsultaRealizada(felipe, 1, "Infertilidade", nameof(Especialidade.Psiquiatria), particular: true);
+        ConsultaRealizada(ivo, 2, "Infertilidade", nameof(Especialidade.Geriatria));
+        ConsultaRealizada(nadia, 2, nameof(Especialidade.Ginecologia));
+        ConsultaRealizada(marta, 3, nameof(Especialidade.Ginecologia));
+        ConsultaRealizada(simone, 3, "SuplementacaoGestante", particular: true);
+
         // Cancelou e faltou: ficam na lista, apagados.
         A(andre, 8, 30, ModalidadeAtendimento.AcupunturaSimples, marcos, StatusAgendamento.Cancelado);
         A(simone, 9, 0, ModalidadeAtendimento.BsvApenas, helena, StatusAgendamento.Faltou, 60);
@@ -88,6 +125,8 @@ public sealed class SementeAgendaDoDia : ISemente
         aHeitor.ChegadaEm = agora.AddMinutes(-12);
         aHeitor.Encaixe = true;
         aHeitor.Observacoes = "Trazer exames de imagem da última consulta.";
+        // Atendimento de infertilidade lançado numa guia interna (nov/2026): o selo da linha.
+        aHeitor.InfertilidadeGuiaDe = nameof(Especialidade.Geriatria);
 
         // Ainda vêm: confirmou, não confirmou, não vem, e um sem profissional.
         var aMarta = A(marta, 14, 0, ModalidadeAtendimento.AcupunturaComEletro, helena);
@@ -102,6 +141,18 @@ public sealed class SementeAgendaDoDia : ISemente
             Origem = $"AGD:{a.Id}", Referencia = DateOnly.FromDateTime(hoje), EnviadoEm = hoje.AddDays(-1).AddHours(17),
             EnviadoPor = "recepcao", Comentario = comentario
         });
+        // A consulta do convênio (nov/2026): a da Marta venceu, a do Felipe vence em dois dias
+        // e a do Otto está em dia — o selo só fala nos dois primeiros.
+        void ConsultaDoConvenio(Paciente p, int venceEmDias) => db.Add(new Consulta
+        {
+            PacienteId = p.Id, Convenio = p.Convenio, ValidadeDias = 22,
+            DataEmissao = DateOnly.FromDateTime(hoje).AddDays(venceEmDias - 22),
+            DataVencimento = DateOnly.FromDateTime(hoje).AddDays(venceEmDias)
+        });
+        ConsultaDoConvenio(marta, -6);
+        ConsultaDoConvenio(felipe, 2);
+        ConsultaDoConvenio(otto, 15);
+
         Confirmacao(aMarta, StatusContato.Respondido);
         // Pediu pelo WhatsApp para cancelar: a linha mostra "Aceitar cancelamento" e "Paciente manteve o horário".
         Confirmacao(aIvo, StatusContato.Respondido, Clinica.Application.Modelos.RodadaDeConfirmacao.RespostaCancelar);

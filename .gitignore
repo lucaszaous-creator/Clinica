@@ -42,3 +42,7 @@ __pycache__/
 # Prévia Blazor: pid e log locais
 tools/PreviaBlazor/.previa-*
 TestResults/
+
+# A pasta e o pacote que o deploy/tiss-conector/publicar.sh gera na raiz.
+/tiss-conector-*/
+/tiss-conector-*.tar.gz

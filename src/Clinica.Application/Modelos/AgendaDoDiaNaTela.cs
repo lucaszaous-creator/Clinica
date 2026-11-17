@@ -20,6 +20,13 @@ public sealed record DadosDaAgendaDoDia(
     IReadOnlyDictionary<int, (int Usadas, int Contratadas)> Pacotes,
     IReadOnlySet<int> JaFechados)
 {
+    /// <summary>
+    /// A consulta do convênio que cada horário cobra renovar, pela chave do AGENDAMENTO
+    /// (nov/2026). Só entram os que cobram — quem decide é o <c>ConsultaService</c>.
+    /// </summary>
+    public IReadOnlyDictionary<int, StatusConsultaPaciente> Consultas { get; init; }
+        = new Dictionary<int, StatusConsultaPaciente>();
+
     public static DadosDaAgendaDoDia Vazio(DateOnly dia) => new(dia, [], new HashSet<int>(),
         new Dictionary<int, IReadOnlyList<SituacaoTermo>>(), new Dictionary<int, RespostaDeConfirmacao>(),
         new Dictionary<int, (int, int)>(), new HashSet<int>());
@@ -111,6 +118,24 @@ public sealed record LinhaAgendaDoDia
     public required bool TemGuiaPendente { get; init; }
     public required bool FechamentoPendente { get; init; }
 
+    /// <summary>
+    /// "Consulta vencida em 02/11/2026 — renove antes de faturar." — a frase da consulta do
+    /// convênio que este horário cobra (nov/2026); nula quando não há o que renovar. O selo
+    /// pode ter ficado de fora pelo teto de três: a dica da linha a diz sempre.
+    /// </summary>
+    public string? AvisoDaConsulta { get; init; }
+
+    /// <summary>A consulta já venceu (vermelho) — falso quando só está para vencer (âmbar).</summary>
+    public bool ConsultaVencida { get; init; }
+
+    /// <summary>
+    /// "Infertilidade · guia Geriatria" (nov/2026) — o atendimento de infertilidade e a guia
+    /// interna em que ele é lançado; nulo quando não é. Selo PRÓPRIO, fora do teto de três da
+    /// fila: não é aviso que compete com os outros, é o que o horário É.
+    /// </summary>
+    public string? SeloDaInfertilidade { get; init; }
+    public string? DicaDaInfertilidade { get; init; }
+
     public bool TemSala => !string.IsNullOrWhiteSpace(Sala);
     public bool TemPacote => PacoteUsadas is not null && PacoteContratadas is not null;
 
@@ -176,6 +201,8 @@ public sealed record LinhaAgendaDoDia
             "Não confirmou" => "Avisado na rodada de confirmação, sem resposta",
             _ => null
         },
+        AvisoDaConsulta,
+        DicaDaInfertilidade,
         EhRetornoDoSegundoCodigo ? "Legado: retorno do 2º código — guia não é atendimento, pode apagar" : null,
         string.IsNullOrWhiteSpace(Observacoes) ? null : $"Obs.: {Observacoes}",
         Lancamento
@@ -270,6 +297,9 @@ public static class AgendaDoDiaNaTela
         var guia = vivo && d.ComPendencia.Contains(a.PacienteId);
         (int Usadas, int Contratadas)? pacote = vivo && d.Pacotes.TryGetValue(a.PacienteId, out var p) ? p : null;
 
+        // Só o que o serviço disse que COBRA (em aberto, pelo convênio, e não é a própria consulta).
+        var consulta = d.Consultas.TryGetValue(a.Id, out var situacaoConsulta) ? situacaoConsulta : null;
+
         var espera = a.EsperaMinutos(agora);
         var chamada = a.ChamadoHaMinutos(agora);
         var atraso = a.AtrasoMinutos(agora);
@@ -296,7 +326,9 @@ public static class AgendaDoDiaNaTela
             // "sem profissional" é aviso: horário sem dono some do Meu dia e do repasse.
             Profissional = a.Profissional?.Rotulo ?? "sem profissional",
             Sala = a.Sala?.Nome ?? string.Empty,
-            Convenio = a.Paciente?.ConvenioNome ?? string.Empty,
+            // O PAGADOR desta sessão: "Particular" quando o horário foi marcado assim, mesmo
+            // com convênio na ficha (nov/2026) — é o que a recepção precisa ler na linha.
+            Convenio = a.Paciente is null ? string.Empty : SessaoParticular.PagadorComFicha(a.Paciente, a.Particular),
             Observacoes = a.Observacoes,
             Foto = a.Paciente?.FotoMiniatura,
             Telefone = a.Paciente?.Telefone,
@@ -311,7 +343,12 @@ public static class AgendaDoDiaNaTela
                 a.InicioAtendimentoEm, a.FimAtendimentoEm),
             Confirmacao = confirmacao,
             Selos = SelosDaFila.Montar(a.Etapa, termoPendente, termoAConferir, guia,
-                pacote?.Usadas, pacote?.Contratadas, atraso, a.FimAtendimentoEm),
+                pacote?.Usadas, pacote?.Contratadas, atraso, a.FimAtendimentoEm, consulta),
+            AvisoDaConsulta = consulta?.AvisoRenovacao,
+            ConsultaVencida = consulta is { Vencida: true },
+            // Fica também na linha cancelada: é a classificação do horário, e o relatório a conta.
+            SeloDaInfertilidade = InfertilidadeNaTela.Selo(a.InfertilidadeGuiaDe),
+            DicaDaInfertilidade = InfertilidadeNaTela.DicaDoSelo(a.InfertilidadeGuiaDe),
             PacoteUsadas = pacote?.Usadas,
             PacoteContratadas = pacote?.Contratadas,
             TemGuiaPendente = guia,
@@ -320,13 +357,9 @@ public static class AgendaDoDiaNaTela
             FechamentoPendente = a.Etapa == EtapaFila.Finalizado
                                  && a.AtendimentoId is { } atendimentoId
                                  && !d.JaFechados.Contains(atendimentoId)
-                                 && (d.Pacotes.ContainsKey(a.PacienteId) || EhParticular(a.Paciente))
+                                 && (d.Pacotes.ContainsKey(a.PacienteId) || SessaoParticular.Eh(a))
         };
     }
-
-    /// <summary>O convênio da ficha NÃO gera guia (parcela 60) — do cache do catálogo, sem banco.</summary>
-    public static bool EhParticular(Paciente? paciente)
-        => paciente is not null && !CatalogoConvenios.GeraGuia(paciente.ConvenioCodigo ?? paciente.Convenio.ToString());
 
     /// <summary>"Marcado por Ana em 08/08/2026 14:32" — ou a frase que assume a lacuna.</summary>
     public static string DescreverLancamento(Agendamento a)

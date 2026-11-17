@@ -495,6 +495,7 @@ public sealed class ConsultorioService
             evolucao?.Id)
         {
             ModalidadeFamilia = a.ModalidadePrevista,
+            InfertilidadeGuiaDe = a.InfertilidadeGuiaDe,
             ColetaPreventivo = a.ColetaPreventivo,
             EsperaMinutos = a.EsperaMinutos(DateTime.Now),
             ChamadoHaMinutos = a.ChamadoHaMinutos(DateTime.Now),

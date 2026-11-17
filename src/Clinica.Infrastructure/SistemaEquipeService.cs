@@ -32,6 +32,13 @@ public sealed class SistemaEquipeService
     {
         var momento = agora();
         var hoje = DateOnly.FromDateTime(momento);
+
+        // A gerência decide a liberação de trava TAMBÉM por aqui (nov/2026): o pedido chega a
+        // esta conversa, e responder "liberar 12" no app vale o mesmo que no WhatsApp — é a
+        // porta que funciona quando o WhatsApp não entrega (fora da janela de 24 h da Meta).
+        if (await LiberacaoDeTravaService.Sobre(db, agora).DecidirPorTextoAsync(eu, pergunta, "app", ct) is { } decisao)
+            return (decisao, null);
+
         var profissionais = await db.Profissionais.AsNoTracking().Where(p => p.Ativo)
             .Select(p => new { p.Id, p.Nome }).ToListAsync(ct);
         var p = SistemaEquipeRegras.Interpretar(pergunta, hoje, profissionais.Select(x => (x.Id, x.Nome)).ToList());

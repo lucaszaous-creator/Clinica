@@ -21,7 +21,7 @@ public sealed class NavegacaoDaGestao
 }
 
 /// <summary>"Atender" e "Ver ficha": a tela do paciente, na seção pedida (como o posto do Consultório no app).</summary>
-public sealed class PostoDaGestao(NavegacaoDaGestao navegacao, PedidoDaTelaDoPaciente pedido) : IPostoDoConsultorio
+public sealed class PostoDaGestao(NavegacaoDaGestao navegacao, PedidoDaTelaDoPaciente pedido, IAvisosDoBanco avisos) : IPostoDoConsultorio
 {
     public bool Disponivel => navegacao.Moldura is not null;
 
@@ -38,19 +38,51 @@ public sealed class PostoDaGestao(NavegacaoDaGestao navegacao, PedidoDaTelaDoPac
         return Task.FromResult(navegacao.Navegar(chave));
     }
 
-    public IDisposable? EscutarAgenda(Func<Task> reler) => null;
-}
+    /// <summary>
+    /// A agenda mudou noutra máquina: relê (agrupando a rajada — um horário remarcado dispara
+    /// mais de um aviso). Complemento do relógio da tela, nunca substituto.
+    /// </summary>
+    public IDisposable? EscutarAgenda(Func<Task> reler) => new EscutaDaAgenda(avisos, reler);
 
-/// <summary>"Marcar atendimento" da agenda: a aba de marcação.</summary>
-public sealed class JanelasDaAgendaDaGestao(NavegacaoDaGestao navegacao) : IJanelasDaAgenda
-{
-    public bool Disponivel => navegacao.Conhece("marcar-horario");
-    public Task<bool> MarcarNovoHorarioAsync(DateOnly dia, int? profissionalId) => Task.FromResult(navegacao.Navegar("marcar-horario"));
-}
+    private sealed class EscutaDaAgenda : IDisposable
+    {
+        private static readonly TimeSpan Pausa = TimeSpan.FromMilliseconds(400);
+        private readonly IAvisosDoBanco _avisos;
+        private readonly Func<Task> _reler;
+        private int _geracao;
+        private volatile bool _desligada;
 
-/// <summary>Marcar um horário para um paciente (retornos, acompanhamento): a aba de marcação.</summary>
-public sealed class MarcacaoDaGestao(NavegacaoDaGestao navegacao) : IMarcacaoDeHorario
-{
-    public Task<bool> MarcarAsync(int pacienteId, int? profissionalId, string? modalidadeCodigo)
-        => Task.FromResult(navegacao.Navegar("marcar-horario"));
+        public EscutaDaAgenda(IAvisosDoBanco avisos, Func<Task> reler)
+        {
+            _avisos = avisos;
+            _reler = reler;
+            _avisos.Mudou += AoMudar;
+        }
+
+        private void AoMudar(string tabela)
+        {
+            if (_desligada || (tabela != "*" && tabela != "Agendamentos")) return;
+            _ = RelerDepoisAsync(Interlocked.Increment(ref _geracao));
+        }
+
+        private async Task RelerDepoisAsync(int geracao)
+        {
+            try
+            {
+                await Task.Delay(Pausa);
+                if (_desligada || geracao != Volatile.Read(ref _geracao)) return;
+                await _reler();
+            }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar("Gestão web — releitura da agenda por aviso do banco", ex);
+            }
+        }
+
+        public void Dispose()
+        {
+            _desligada = true;
+            _avisos.Mudou -= AoMudar;
+        }
+    }
 }

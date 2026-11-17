@@ -106,7 +106,7 @@ public static class AgendamentoNaTela
     /// <summary>A recusa da ficha sem convênio com a chave ligada (parcela 92) — a frase do WPF.</summary>
     public static string RecusaSemConvenio(string paciente)
         => $"{paciente} está sem convênio, e com \"guia no agendamento\" ligada marcar já gera as guias. "
-           + "Escolha o convênio do paciente para marcar — quem paga do bolso entra no convênio particular.";
+           + "Escolha o convênio do paciente para marcar — ou marque este horário como Particular, se ele paga do bolso.";
 
     /// <summary>
     /// A CAPA do que o paciente já tem no dia escolhido (parcela 70), pelo MESMO ponto único do

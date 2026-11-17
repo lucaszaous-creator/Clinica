@@ -145,6 +145,12 @@ public class ConvenioCadastro
     public int DiasSegundoCodigo { get; set; } = 1;
     public bool FaturaBsv { get; set; } = true;
     public bool InverteDatasBsv { get; set; }
+    /// <summary>Acupuntura + eletro no mesmo dia, as duas como 1º código (ver <see cref="Clinica.Domain.Regras.ConfiguracaoRegraGenerica.EletroNoMesmoDia"/>).</summary>
+    public bool EletroNoMesmoDia { get; set; }
+    /// <summary>Dias mínimos entre duas acupunturas autorizadas (0 = sem limite).</summary>
+    public int IntervaloAcupunturaDias { get; set; }
+    /// <summary>Dias mínimos entre duas eletroacupunturas autorizadas (0 = sem limite).</summary>
+    public int IntervaloEletroDias { get; set; }
     public int? ValidadeConsultaDias { get; set; }
     public Categoria CategoriaComApp { get; set; } = Categoria.Verde;
     public Categoria CategoriaSemApp { get; set; } = Categoria.Amarela;
@@ -159,6 +165,9 @@ public class ConvenioCadastro
         DiasSegundoCodigo = DiasSegundoCodigo,
         FaturaBsv = FaturaBsv,
         InverteDatasBsv = InverteDatasBsv,
+        EletroNoMesmoDia = EletroNoMesmoDia,
+        IntervaloAcupunturaDias = IntervaloAcupunturaDias,
+        IntervaloEletroDias = IntervaloEletroDias,
         ValidadeConsultaDias = ValidadeConsultaDias,
         CategoriaComApp = CategoriaComApp,
         CategoriaSemApp = CategoriaSemApp

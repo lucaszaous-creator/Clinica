@@ -1,0 +1,49 @@
+# Conector do web service TISS na VPS da CLÍNICA (VPS 1), ao lado do Postgres. Roteiro: docs/tiss-conector.md.
+# Copie para /etc/systemd/system/ e: systemctl daemon-reload && systemctl enable --now clinica-tiss-conector
+[Unit]
+Description=Conector do web service TISS (fila de elegibilidade e guias com as operadoras)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+# "notify": o serviço avisa o systemd quando terminou de subir (Microsoft.Extensions.Hosting.Systemd).
+Type=notify
+User=clinica-tiss
+Group=clinica-tiss
+WorkingDirectory=/opt/clinica-tiss-conector/current
+ExecStart=/opt/clinica-tiss-conector/current/Clinica.Tiss.Conector
+EnvironmentFile=/etc/clinica-tiss-conector/conector.env
+Environment=TZ=America/Sao_Paulo
+Environment=DOTNET_CLI_TELEMETRY_OPTOUT=1
+Environment=DOTNET_ENVIRONMENT=Production
+Restart=always
+RestartSec=15
+# Parar no meio de uma ida à operadora deixa a transação reservada: dê tempo de ela terminar.
+TimeoutStopSec=75
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+# SEM IPAddressDeny/IPAddressAllow, de propósito: o conector precisa SAIR por HTTPS para o
+# web service da operadora, cujo IP pode mudar. Ele NÃO escuta em porta nenhuma — não há
+# entrada a trancar. Quem limita a saída, se a clínica quiser, é o firewall da VPS (443).
+MemoryMax=384M
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

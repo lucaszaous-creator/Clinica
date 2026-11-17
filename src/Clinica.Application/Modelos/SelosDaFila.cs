@@ -37,7 +37,8 @@ public sealed record SeloFila(string Texto, TomDoSelo Tom, string Dica);
 ///   <item><b>Impede o passo</b> — termo do procedimento pendente. Sem ele o
 ///   procedimento para na maca.</item>
 ///   <item><b>Cobra agora, com o paciente aqui</b> — a guia pendente (o documento que
-///   só é barato pedir agora) e o pacote no fim (penúltima, última, esgotado). "Pacote
+///   só é barato pedir agora), a consulta do convênio vencida ou a renovar (nov/2026) e
+///   o pacote no fim (penúltima, última, esgotado). "Pacote
 ///   3/10" não é aviso: é contexto, e vai para a linha de texto.</item>
 ///   <item><b>Estado da coluna</b> — o atraso, só em AGUARDANDO; o encerramento pelo
 ///   consultório, só em EM ATENDIMENTO. Fora da coluna certa o selo não diz nada.</item>
@@ -69,6 +70,7 @@ public static class SelosDaFila
     /// <param name="sessoesContratadas">Sessões contratadas do pacote ativo; nulo sem pacote.</param>
     /// <param name="atrasoMinutos">Minutos além da hora marcada sem check-in; nulo sem atraso.</param>
     /// <param name="encerradoEm">A hora em que o profissional encerrou o atendimento; nulo se não encerrou.</param>
+    /// <param name="consulta">A consulta do convênio que ESTE horário cobra renovar (<c>ConsultaService.ARenovarNosHorariosAsync</c>); nulo quando não há o que renovar.</param>
     public static IReadOnlyList<SeloFila> Montar(
         EtapaFila etapa,
         bool termoPendente,
@@ -77,7 +79,8 @@ public static class SelosDaFila
         int? sessoesUsadas,
         int? sessoesContratadas,
         int? atrasoMinutos,
-        DateTime? encerradoEm)
+        DateTime? encerradoEm,
+        StatusConsultaPaciente? consulta = null)
     {
         var selos = new List<SeloFila>(Maximo);
 
@@ -105,6 +108,13 @@ public static class SelosDaFila
         if (guiaPendente)
             selos.Add(new SeloFila("Guia pendente", TomDoSelo.Erro,
                 "Guia de atendimento anterior por baixar — peça o documento enquanto ele está aqui"));
+
+        // A consulta do convênio (nov/2026): vencida, a sessão de hoje não fatura — VERMELHO;
+        // a vencer dentro da janela, dá para renovar com a pessoa aqui — âmbar. Vem antes do
+        // pacote: quem vai pelo convênio quase nunca tem pacote, e o teto é de três selos.
+        if (consulta?.SeloRenovacao is { } seloConsulta)
+            selos.Add(new SeloFila(seloConsulta, consulta.Vencida ? TomDoSelo.Erro : TomDoSelo.Aviso,
+                consulta.AvisoRenovacao ?? seloConsulta));
 
         if (sessoesUsadas is { } usadas && sessoesContratadas is { } contratadas)
         {

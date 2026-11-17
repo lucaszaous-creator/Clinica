@@ -35,7 +35,7 @@
         {
             <div class="campos">
                 <Campo Rotulo="Modalidade (o que foi feito)" Obrigatorio="true" Erro="@_erroModalidade" Classe="largo">
-                    <select class="campo" value="@(_modalidade ?? "")" @onchange="e => { _modalidade = Vazio(e); _erroModalidade = null; }">
+                    <select class="campo" value="@(_modalidade ?? "")" @onchange="e => { _modalidade = Vazio(e); _erroModalidade = null; _especialidade = PrecosParticularNaTela.EspecialidadeQueVale(_modalidade, _especialidade); }">
                         <option value="">Escolha a modalidade…</option>
                         @foreach (var m in _modalidades)
                         {
@@ -44,12 +44,28 @@
                     </select>
                 </Campo>
                 <Campo Rotulo="Especialidade atendida" Classe="largo"
-                       Dica="É o que diferencia a consulta de psiquiatria da de geriatria. Em branco, o preço vale para qualquer especialidade desta modalidade — o caso normal da acupuntura. Um preço com especialidade VENCE o genérico da modalidade.">
-                    <select class="campo" value="@(_especialidade ?? "")" @onchange="e => _especialidade = Vazio(e)">
+                       Dica="@(AbreEspecialidade ? PrecosParticularNaTela.DicaDaEspecialidade : PrecosParticularNaTela.DicaSemEspecialidade)">
+                    <select class="campo" value="@(_especialidade ?? "")" disabled="@(!AbreEspecialidade)" @onchange="e => _especialidade = Vazio(e)">
                         <option value="">(qualquer especialidade)</option>
                         @foreach (var s in _especialidades)
                         {
                             <option value="@s.Codigo">@s.Nome</option>
+                        }
+                    </select>
+                </Campo>
+            </div>
+
+            @* O PREÇO POR PROFISSIONAL (nov/2026): duas médicas da mesma especialidade cobram valores
+               diferentes. Em branco vale para todos; com profissional, ganha do preço geral. *@
+            <div class="campos">
+                <Campo Rotulo="Profissional" Classe="largo"
+                       Dica="Em branco, o preço vale para todos. Escolhido, ele vale só para as sessões deste profissional e ganha do preço geral da mesma modalidade — é como se monta a tabela de valores de cada um.">
+                    <select class="campo" value="@(_profissionalId?.ToString(CultureInfo.InvariantCulture) ?? "")"
+                            @onchange="e => _profissionalId = int.TryParse(e.Value?.ToString(), out var id) ? id : null">
+                        <option value="">(todos os profissionais)</option>
+                        @foreach (var p in _profissionais)
+                        {
+                            <option value="@p.Id">@p.Rotulo@(p.Ativo ? "" : " (inativo)")</option>
                         }
                     </select>
                 </Campo>
@@ -92,6 +108,8 @@
     private IReadOnlyList<OpcaoDeCatalogo> _modalidades = [];
     private IReadOnlyList<OpcaoDeCatalogo> _especialidades = [];
     private string? _modalidade, _especialidade, _valor;
+    private IReadOnlyList<Profissional> _profissionais = [];
+    private int? _profissionalId;
     private DateOnly? _vigenteDe, _vigenteAte;
     private bool _ativo = true;
     /// <summary>A tela não as mostra: carregadas para voltarem INTACTAS no Salvar.</summary>
@@ -102,6 +120,9 @@
     private bool _ocupado;
 
     private static bool PodeEditar => SessaoUsuario.Atual.PodeAlgum(PrecosParticularNaTela.QuemEdita);
+
+    /// <summary>Só a consulta tem especialidade — nas outras o campo fica fechado e em branco.</summary>
+    private bool AbreEspecialidade => PrecosParticularNaTela.AbreEspecialidade(_modalidade);
 
     private static string? Vazio(ChangeEventArgs e) => e.Value?.ToString() is { Length: > 0 } v ? v : null;
 
@@ -126,6 +147,12 @@
                 }
             }
 
+            // Os ativos — e, na edição, o dono do preço mesmo inativo (quem não edita, PRESERVA).
+            var equipe = await sp.GetRequiredService<EquipeService>().ProfissionaisAtivosAsync();
+            _profissionais = existente?.Profissional is { } dono && equipe.All(x => x.Id != dono.Id)
+                ? [.. equipe, dono] : equipe.ToList();
+            _profissionalId = existente?.ProfissionalId;
+
             _modalidades = PrecosParticularNaTela.Opcoes(
                 modalidades.Select(m => (m.Codigo, m.Nome, m.Ativo)), existente?.ModalidadeCodigo);
             _especialidades = PrecosParticularNaTela.Opcoes(
@@ -134,7 +161,9 @@
             if (existente is { } p)
             {
                 _modalidade = PrecosParticularNaTela.Casar(_modalidades, p.ModalidadeCodigo);
-                _especialidade = PrecosParticularNaTela.Casar(_especialidades, p.EspecialidadeCodigo);
+                // O preço antigo de acupuntura gravado COM especialidade abre em branco: é o que vale.
+                _especialidade = PrecosParticularNaTela.EspecialidadeQueVale(p.ModalidadeCodigo,
+                    PrecosParticularNaTela.Casar(_especialidades, p.EspecialidadeCodigo));
                 _valor = PrecosParticularNaTela.ParaCampo(p.Valor);
                 _vigenteDe = p.VigenteDe;
                 _vigenteAte = p.VigenteAte;
@@ -170,6 +199,7 @@
                 Id = PrecoId,
                 ModalidadeCodigo = _modalidade!,
                 EspecialidadeCodigo = _especialidade,
+                ProfissionalId = _profissionalId,
                 Valor = valor,
                 VigenteDe = _vigenteDe,
                 VigenteAte = _vigenteAte,

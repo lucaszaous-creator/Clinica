@@ -896,6 +896,22 @@ public class UsuarioSistema
     /// </summary>
     public DateTime? WhatsAppLigadoEm { get; set; }
 
+    /// <summary>
+    /// Esta pessoa APROVA a liberação da trava de consulta dos convênios (nov/2026). É por
+    /// PESSOA, e não um bit de <see cref="Permissao"/>, por dois motivos: a clínica tem mais de
+    /// um gerente e a direção escolhe QUAIS deles respondem (o pedido da própria gerência), e
+    /// o enum de permissões está no último bit de um <c>int</c> gravado em produção — o
+    /// próximo bit é a migration mais cara do sistema. Quem marca é a direção, em Acessos;
+    /// o pedido chega ao WhatsApp cadastrado acima e à conversa com o sistema, no app.
+    /// </summary>
+    public bool AprovaLiberacaoDeTrava { get; set; }
+
+    /// <summary>
+    /// Aprova de fato: marcado pela direção E com o perfil de gerente. A marca sozinha não
+    /// basta — quem deixou de ser gerente não continua liberando por uma caixinha esquecida.
+    /// </summary>
+    public bool PodeAprovarLiberacao => Ativo && AprovaLiberacaoDeTrava && Perfil == PerfilAcesso.Gerente;
+
     /// <summary>Desativado não entra, mas continua existindo na auditoria.</summary>
     public bool Ativo { get; set; } = true;
 

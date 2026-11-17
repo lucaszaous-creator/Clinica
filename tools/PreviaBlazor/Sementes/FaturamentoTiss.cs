@@ -44,7 +44,8 @@ public sealed class SementeFaturamentoTiss : ISemente
         {
             var r = atendimentos.LancarAsync(p.Id, data, ModalidadeAtendimento.Consulta, operador: "Prévia").GetAwaiter().GetResult();
             foreach (var c in r.Atendimento.Codigos.Where(c => c.DataPrevistaFaturamento <= hoje))
-                faturamento.DarBaixaAsync(c.Id, hoje, (numero++).ToString(), "Prévia", "baixa da prévia (TISS)").GetAwaiter().GetResult();
+                faturamento.DarBaixaAsync(c.Id, hoje, (numero++).ToString(), "Prévia", "baixa da prévia (TISS)",
+                    guiaAns: GuiaAnsDaPrevia.Para(c, p, data)).GetAwaiter().GetResult();
             db.ChangeTracker.Clear();
         }
 

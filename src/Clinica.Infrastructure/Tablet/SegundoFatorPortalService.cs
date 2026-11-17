@@ -68,19 +68,15 @@ public sealed class SegundoFatorPortalService(ClinicaDbContext db, IProtecaoDoSe
     }
 
     /// <summary>
-    /// Primeiro acesso: grava o autenticador SÓ depois que a pessoa provou que o celular gera
-    /// o código certo (o segredo viaja até aqui no cookie de entrada pendente, cifrado), e
-    /// devolve os dez códigos de recuperação — a única vez que eles existem em claro.
+    /// A ativação (dentro do portal, já com a sessão aberta): grava o autenticador SÓ depois que a
+    /// pessoa provou que o celular gera o código certo (o segredo viaja até aqui num cookie
+    /// cifrado), e devolve os dez códigos de recuperação — a única vez que eles existem em claro.
     /// </summary>
     public async Task<IReadOnlyList<string>?> CadastrarAsync(int usuarioId, byte[] segredo, string? codigo, CancellationToken ct)
     {
         var passo = Totp.Verificar(segredo, codigo, relogio.GetUtcNow(), long.MinValue);
         if (passo is null) return null;
         if (await TemAutenticadorAsync(usuarioId, ct)) return null; // corrida: outro aparelho cadastrou antes
-        // A liberação da direção é consumida AQUI, junto com o cadastro: vale uma vez.
-        var liberacao = await db.LiberacoesPortal.FindAsync([usuarioId], ct);
-        if (liberacao is null || liberacao.ExpiraEm <= Agora || liberacao.Falhas >= FalhasDaLiberacao) return null;
-        db.LiberacoesPortal.Remove(liberacao);
         db.SegundosFatoresPortal.Add(new SegundoFatorPortal
         {
             UsuarioId = usuarioId, SegredoProtegido = protecao.Proteger(segredo), AtivadoEm = Agora, UltimoPasso = passo.Value
@@ -130,30 +126,6 @@ public sealed class SegundoFatorPortalService(ClinicaDbContext db, IProtecaoDoSe
         else { d.ExpiraEm = expira; d.Origem = origem; d.Credencial = credencial; }
         Auditar(usuarioId, "PortalDispositivoConfiavel", $"aparelho confiável por {DiasDeConfianca} dias" + (origem is null ? "" : $" · origem {origem}"));
         await db.SaveChangesAsync(ct);
-    }
-
-    /// <summary>Erros do código de liberação até ele deixar de valer (a direção gera outro).</summary>
-    public const int FalhasDaLiberacao = 5;
-
-    /// <summary>
-    /// O código que a direção entregou para o PRIMEIRO acesso confere? Errar conta; no teto, o código
-    /// morre. Não consome: o consumo é no cadastro, quando o celular provou o código.
-    /// </summary>
-    public async Task<bool> ConferirLiberacaoAsync(int usuarioId, string? codigo, CancellationToken ct)
-    {
-        var l = await db.LiberacoesPortal.FindAsync([usuarioId], ct);
-        if (l is null || l.ExpiraEm <= Agora || l.Falhas >= FalhasDaLiberacao) return false;
-        var certo = !string.IsNullOrWhiteSpace(codigo) && codigo.Length <= 40
-            && System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
-                System.Text.Encoding.ASCII.GetBytes(AdministracaoDoSegundoFator.ResumoDaLiberacao(usuarioId, codigo)),
-                System.Text.Encoding.ASCII.GetBytes(l.Resumo));
-        if (!certo)
-        {
-            l.Falhas++;
-            Auditar(usuarioId, l.Falhas >= FalhasDaLiberacao ? "PortalLiberacaoInvalidada" : "PortalLiberacaoFalhou", $"falhas: {l.Falhas}");
-            await db.SaveChangesAsync(ct);
-        }
-        return certo;
     }
 
     private async Task<IReadOnlyList<string>> TrocarRecuperacaoAsync(int usuarioId, CancellationToken ct)

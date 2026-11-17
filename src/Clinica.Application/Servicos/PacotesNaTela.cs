@@ -106,6 +106,18 @@ public static class PacotesNaTela
 
     // ---------------------------------------------------------------- catálogo
 
+    /// <summary>
+    /// Pacote de UMA sessão é quase sempre o PREÇO DA SESSÃO cadastrado na aba errada
+    /// (nov/2026: a clínica pôs "Ginecologia — 1 sessão — R$ 500" aqui, nunca vendeu pacote
+    /// nenhum, e a Conciliação seguia sem preço). O catálogo só age quando alguém VENDE.
+    /// Aviso, não recusa: voucher de uma sessão existe.
+    /// </summary>
+    public static string? AvisoDeUmaSessao(TipoPacote tipo, string? sessoes)
+        => tipo == TipoPacote.Sessoes && int.TryParse(sessoes?.Trim(), out var n) && n == 1
+            ? "Uma sessão só? O valor da sessão avulsa se cadastra na aba \"Preço da sessão\" — é de lá que o "
+              + "Finalizar e a Conciliação propõem o valor. O que fica neste catálogo só vale depois de VENDIDO a um paciente."
+            : null;
+
     public static LinhaDeCatalogoPacote LinhaDe(PacoteCatalogo p) => new(
         Id: p.Id,
         Nome: p.Nome,

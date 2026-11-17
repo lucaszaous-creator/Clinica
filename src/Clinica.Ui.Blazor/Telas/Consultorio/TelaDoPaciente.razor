@@ -77,6 +77,11 @@
                 {
                     <p class="tp-linha">O crachá clínico não pôde ser lido agora — o prontuário abre assim mesmo.</p>
                 }
+                @* O crachá mostra o plano da PESSOA; este selo diz que o HORÁRIO aberto é particular. *@
+                @if (TelaDoPacienteNaTela.SeloDeSessaoParticular(_horario) is { } seloParticular)
+                {
+                    <p class="tp-linha"><Selo Tom="aviso">@seloParticular</Selo></p>
+                }
                 <p class="tp-origem">@TelaDoPacienteNaTela.DescreverOrigem(ctx.AgendamentoId, ctx.DataDoHorario, Hoje)</p>
             </div>
 

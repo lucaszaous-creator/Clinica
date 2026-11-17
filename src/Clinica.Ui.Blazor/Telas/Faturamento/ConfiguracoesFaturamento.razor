@@ -72,6 +72,14 @@
 {
     <ConvenioForm Convenio="convenio" PodeEditar="PodeConfigurar" AoMudar="MarcarPendente" AoFechar="() => _editando = null" />
 }
+@if (_webService is { } doWebService)
+{
+    <WebServiceDoConvenioForm ConvenioCodigo="@doWebService.Codigo" Nome="@doWebService.Nome" AoFechar="() => _webService = null" />
+}
+@if (_juntando is { } origem)
+{
+    <JuntarConvenioForm Origem="origem" Catalogo="_convenios" AoFechar="() => _juntando = null" AoConcluir="JuntouAsync" />
+}
 @if (_regrasFamilia)
 {
     <RegrasFamiliaForm Itens="_familias" PodeEditar="PodeConfigurar" AoMudar="MarcarPendente" AoFechar="() => _regrasFamilia = false" />
@@ -134,6 +142,18 @@
                                 <td class="direita">
                                     <div class="botoes-linha" @ondblclick:stopPropagation="true">
                                         <button type="button" class="botao mini primario" @onclick="() => _editando = c"><Icone Nome="abrir" />Abrir</button>
+                                        @* A credencial e a chave de envio da operadora (nov/2026): só nos convênios com web service. *@
+                                        @if (EnvioTissNaTela.TemWebService(c.Familia))
+                                        {
+                                            <button type="button" class="botao mini" data-web-service="@c.Codigo" disabled="@(!ConvenioJaGravado(c))"
+                                                    title="@(ConvenioJaGravado(c) ? "Credencial da operadora e chave de envio pelo web service" : "Salve as configurações antes: o convênio ainda não foi gravado.")"
+                                                    @onclick="() => AbrirWebService(c)"><Icone Nome="link" />Web service</button>
+                                        }
+                                        @if (ConfiguracoesFaturamentoNaTela.ConvenioPodeSerJuntado(c))
+                                        {
+                                            <button type="button" class="botao mini icone" title="Juntar com outro convênio" aria-label="@($"Juntar o convênio {c.Nome} com outro")"
+                                                    disabled="@(!PodeConfigurar)" @onclick="() => AbrirJuncaoAsync(c)"><Icone Nome="transferir" /></button>
+                                        }
                                         @if (ConfiguracoesFaturamentoNaTela.ConvenioPodeSerExcluido(c))
                                         {
                                             <button type="button" class="botao mini icone contorno-perigo" title="Excluir convênio" aria-label="@($"Excluir o convênio {c.Nome}")"
@@ -356,6 +376,23 @@
     private int _geracao;
 
     private ConvenioCadastro? _editando;
+    /// <summary>O convênio que vai SAIR numa junção (formulário aberto).</summary>
+    private ConvenioCadastro? _juntando;
+    /// <summary>O convênio cujo web service (credencial e chave de envio) está aberto.</summary>
+    private ConvenioCadastro? _webService;
+
+    /// <summary>A credencial é gravada na hora, pelo código do convênio: convênio ainda não salvo não tem onde gravá-la.</summary>
+    private bool ConvenioJaGravado(ConvenioCadastro c) => !string.IsNullOrWhiteSpace(c.Codigo) && !_pendente;
+
+    private void AbrirWebService(ConvenioCadastro c)
+    {
+        if (!ConvenioJaGravado(c))
+        {
+            Notificacoes.Erro("Salve as configurações antes de abrir o web service deste convênio.");
+            return;
+        }
+        _webService = c;
+    }
     private bool _regrasFamilia;
 
     /// <summary>Metade VISÍVEL: configurar muda a regra para todo mundo, não o registro de uma guia.</summary>
@@ -389,7 +426,7 @@
     /// pessoa digitou sumiria ao trocar de tela e voltar.
     /// </summary>
     protected override Task AoVoltarAsync()
-        => _pendente || _prazosPendentes || _clinicaPendente || _salvando || _editando is not null || _regrasFamilia
+        => _pendente || _prazosPendentes || _clinicaPendente || _salvando || _editando is not null || _regrasFamilia || _juntando is not null || _webService is not null
             ? Task.CompletedTask
             : CarregarAsync(silencioso: true);
 
@@ -524,6 +561,31 @@
             return;
         await ExcluirAsync(sp => sp.GetRequiredService<ConvenioCatalogoService>().ExcluirAsync(alvo.Codigo),
             () => _convenios.Remove(alvo), "o convênio");
+    }
+
+    /// <summary>
+    /// A junção grava NA HORA e relê o catálogo ao concluir — por cima de alteração não salva,
+    /// ela apagaria o que a pessoa digitou. Por isso só abre com a lista limpa.
+    /// </summary>
+    private async Task AbrirJuncaoAsync(ConvenioCadastro origem)
+    {
+        if (!Exigir(Permissao.ConfigurarFaturamento, "juntar convênios")) return;
+        if (_pendente)
+        {
+            await Dialogos.AvisoAsync("Há alterações não salvas",
+                "Juntar convênios grava na hora e recarrega a lista. Salve as alterações dos convênios — "
+                + "ou clique em Atualizar para descartá-las — e depois junte. Se o Salvar estiver recusando "
+                + "por nome repetido, descarte, junte primeiro e refaça as alterações em seguida.");
+            return;
+        }
+        _juntando = origem;
+    }
+
+    private async Task JuntouAsync(ResultadoJuncaoConvenios resultado)
+    {
+        _juntando = null;
+        Notificacoes.Sucesso($"\"{resultado.Saiu}\" juntado em \"{resultado.Ficou}\": {resultado.Resumo()}");
+        await CarregarAsync(silencioso: true);
     }
 
     // ============================ Modalidades e especialidades ============================

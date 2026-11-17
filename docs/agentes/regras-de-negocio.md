@@ -6,7 +6,7 @@ mora o código. Mexer numa área? Leia antes o tópico dela — vários registra
 teste pega. Lição nova de uma área entra aqui, no tópico dela; regra que vale para TODA mudança
 continua no `CLAUDE.md`.
 
-## Índice (188 tópicos, na ordem do arquivo)
+## Índice (196 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -14,6 +14,10 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
 - A SUÍTE PASSOU A RODAR CONTRA UM POSTGRES DE VERDADE — e a primeira rodada achou TRÊS
 - A AMARRA ENTRE O HORÁRIO E A SESSÃO, e a pergunta que ela produz
 - O CIRCUITO DO PARTICULAR — a Recepção é o centro, e o dinheiro de quem não tem
+- PARTICULAR POR HORÁRIO — a paciente tem plano, e quem atende não o aceita
+- RECEBER AO MARCAR — o particular paga no balcão quando marca, e é ali que o dinheiro entra
+- O DETALHE DO ATENDIMENTO E A BUSCA — o que foi feito, as guias e o que foi cobrado
+- TRAVA DE CONSULTA DO CONVÊNIO e a liberação da gerência pelo WhatsApp
 - ESTORNAR UM ATENDIMENTO
 - A BUSCA DE PACIENTE VIROU A TELA
 - O SELETOR DE PACIENTE DEIXOU DE DESPEJAR O ALFABETO
@@ -198,6 +202,10 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
 - A FICHA ÚNICA LIGA EM UM CLIQUE — e quem confere continua sendo a recepção
 - O TELEFONE DA FICHA VAI AO CRM SEM O 0 DO INTERURBANO
 - O "RETORNO SUGERIDO" SAIU DO SISTEMA — e o dado gravado fica
+- SUL AMÉRICA: ACUPUNTURA + ELETRO NO MESMO DIA, E O INTERVALO ENTRE AUTORIZAÇÕES
+- CONSULTA VENCIDA / A RENOVAR NA AGENDA — o selo e quando ele se cala
+- COBERTURA DO CONVÊNIO — o que a clínica aceita MARCAR por um plano
+- INFERTILIDADE: A GUIA INTERNA DO HORÁRIO — classificação, nunca regra de guia
 
 ---
 
@@ -339,6 +347,13 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   releitura do diff. E o `[RelayCommand]` fica colado ao método: um helper inserido entre
   o atributo e o método foi o único erro que o `compilar-sombra` acusou nesta parcela —
   rede que roda antes do push é rede que pega antes do CI.
+  ⚠️ **A PROCEDÊNCIA DO PREÇO DE CONVÊNIO leva o NOME, não o código** (nov/2026, a clínica
+  mandou a tela: "tabela: CVdb38f1f7 · Acupuntura — R$ 91,41" embaixo de guias da SulAmérica).
+  `PrecoConvenio.Descricao` escrevia `ConvenioCodigo` cru, e a operadora cadastrada pela clínica
+  tem código GERADO; o tipo e a especialidade saíam com o nome do enum. Agora
+  `CatalogoConvenios.NomeOuCodigo` + `RotulosEnum`. ⚠️ `Nome(codigo)` NÃO serve para frase
+  gravada: código desconhecido vira "Unimed (Padrão)" — outra operadora, escrita com certeza.
+  O que já foi lançado guarda a frase antiga: a procedência é copiada no lançamento e não se reescreve.
   ⚠️ **O PREÇO DO PARTICULAR É OUTRA TABELA, com outra chave** (pedido da direção no
   mesmo dia: *"um cadastro de preço por tipo de especialidade atendida quando o paciente
   for particular"*). A primeira versão lia a tabela POR CONVÊNIO com o código "Particular"
@@ -386,6 +401,172 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   Financeiro) — o balcão vê o aviso e ainda não RECEBE dali; e a prévia da guia do Novo
   atendimento ainda não mostra o preço do particular — ele aparece no Finalizar, que é
   onde a cobrança acontece.
+- **PARTICULAR POR HORÁRIO — a paciente tem plano, e quem atende não o aceita** (nov/2026; as
+  médicas, em vídeo: *"essa paciente tem plano, mas o atendimento dela por mim foi particular,
+  porque eu não atendo o plano dela… uma forma de já no agendamento sinalizar… para a gente ter
+  um relatório de quantas consultas particulares têm"*). Até aqui particular era só o convênio
+  da FICHA sem guia (parcela 60), e a saída era trocar a ficha — o que tirava a guia da
+  acupuntura da mesma paciente, que É pelo plano. Agora a marca é do HORÁRIO:
+  `Agendamento.Particular` viaja para `Atendimento.Particular`, e o motor NÃO mudou — os
+  códigos nascem `NaoAplicavel` pelo mesmo `AplicarParticular` do particular de ficha. Decisão,
+  comparação das opções e o que ficou de fora: `docs/particular-por-horario.md`.
+  ⚠️ **A pergunta "esta sessão é particular?" tem DUAS fontes e mora num lugar só**:
+  `SessaoParticular` (Domain). Leitor que olha só `CatalogoConvenios.GeraGuia(paciente…)` erra
+  a sessão marcada; o que olha só a marca erra a ficha particular. Leitor novo pergunta ali —
+  hoje: fechamento, fila, grade, relatório por médico, recuperação de guias, tablet, conciliação
+  e o cabeçalho do Consultório.
+  ⚠️ **Nulo preserva, de novo** (a regra da parcela 68): `RemarcarAsync` e
+  `LancarNoHorarioAsync` recebem `bool? particular`, e `null` mantém a marca — o Empurrar, o
+  arrastar da grade e o faturamento remarcam sem saber dela, e desligá-la ali devolveria ao
+  convênio, calado, uma consulta que a médica não atende pelo plano. Mudar a marca REGERA as
+  guias pelo caminho da troca de modalidade, que recusa guia baixada, em lote ou em NC.
+  ⚠️ **O que a sessão particular por escolha NÃO faz**: não renova a consulta do convênio
+  (`ConcluirPresencaAsync` — a validade é do plano), não reescreve `paciente.Categoria` (o
+  semáforo é do plano) e não carimba o convênio da ficha na receita
+  (`SessaoSemReceita.ParticularApesarDoConvenio` — dinheiro do bolso não entra na receita da
+  Unimed). E ela PASSA pela recusa do convênio "a definir" (parcela 92): a falta de guia deixou
+  de ser calada, é a escolha registrada.
+  ⚠️ **Corrigir a sessão JÁ ATENDIDA não é estorno**: `AgendaService.DefinirParticularAsync`
+  troca só essa resposta (marca + guias + trilha, no mesmo `SaveChanges`); o caso do vídeo era
+  uma consulta de ontem. A renovação da consulta do plano feita na conclusão NÃO é desfeita
+  sozinha — o serviço avisa. A porta é a janela do horário atendido ("Foi particular…"), com
+  `EditarAgenda` E `LancarAtendimento`; no horário em aberto a escolha está no formulário.
+  ⚠️ **Projeção em árvore de expressão não aceita parâmetro opcional** (CS0854): o
+  `SessaoSemReceita` é montado dentro de um `Select` traduzido, então o campo novo do record é
+  POSICIONAL e obrigatório — e a cópia da consulta em `TraducaoNoNpgsqlTests` muda junto.
+  **A cobrança NO ATO DA MARCAÇÃO não foi construída**: o preço é DITO na marcação (a mesma
+  frase do Finalizar, `CobrancaDaSessao`) e a cobrança continua no Finalizar/Conciliação.
+  Receber antes de a sessão existir pede política da clínica (devolução, crédito, falta) — as
+  opções e as quatro perguntas estão no documento.
+- **RECEBER AO MARCAR — o particular paga no balcão quando marca, e é ali que o dinheiro entra**
+  (nov/2026; a direção: *"o paciente chega no balcão, marca a consulta, a secretária passa o
+  valor e é cobrado ali na hora"*, depois de ver 7 sessões pagas paradas na aba Particulares da
+  Conciliação pedindo "recebido ou a receber"). O formulário de marcar MOSTRAVA o preço e não
+  tinha onde registrar o pagamento: o dinheiro só entrava dias depois, redigitado. Agora o
+  `AgendamentoForm` tem o bloco **"Recebido agora, no balcão"** (ligado por padrão em horário
+  NOVO de sessão particular sem pacote; valor da tabela, editável; a FORMA é obrigatória) e
+  grava pelo `PagamentoNaMarcacaoService`: entrada REALIZADA hoje, competência no dia da sessão.
+  ⚠️ **O dinheiro se prende ao HORÁRIO** (`LancamentoFinanceiro.AgendamentoId`, coluna aditiva):
+  ao marcar, o atendimento ainda não existe. O `AtendimentoId` é amarrado em
+  `AgendaService.ConfirmarNucleoAsync`, no MESMO commit em que o atendimento nasce — ao lado da
+  amarração das evoluções, e pela mesma razão. É por essa chave que Conciliação, repasse e
+  estorno o enxergam; **leitor novo de "esta sessão tem dinheiro?" continua olhando
+  `AtendimentoId`**, e só quem pergunta ANTES do atendimento usa `EntradasDoHorarioAsync`
+  (o Finalizar, para não cobrar duas vezes; o cancelamento, para avisar).
+  ⚠️ **A forma não se presume**: sem ela o cartão não gera taxa nem recebível e o extrato não
+  concilia. É a única coisa que o sistema não sabe sozinho — por isso é o único campo a mais.
+  ⚠️ **A conferência é ANTES de gravar o horário; o recebimento, DEPOIS.** Valor ou forma
+  faltando recusam o Salvar (e a frase dá a saída: desmarcar, para a marcação por telefone).
+  Caixa do dia fechado falha DEPOIS de o horário existir e vira AVISO — desfazer a marcação
+  porque o caixa recusou deixaria o paciente sem horário (a hierarquia do
+  `FechamentoSessaoService.ConcluirAsync`).
+  ⚠️ **Maquininha SEM taxa cadastrada NÃO impede receber aqui** (a direção: *"não impeça o
+  lançamento pela falta de taxa da maquininha cadastrada"*). O cartão entra pelo BRUTO, sem taxa
+  e sem previsão de recebimento, e a tela AVISA (`AvisoSemTaxa`) — sem data prevista ele não
+  aparece nos recebíveis de cartão até alguém cadastrar a taxa. É exceção DESTA porta
+  (`exigirTaxaCadastrada: false`): Finalizar, Pagamentos e venda de pacote continuam exigindo.
+  ⚠️ **Cancelar ou marcar falta num horário pago AVISA e não devolve** (`AvisoDeHorarioPago`):
+  devolver é decisão de quem está com o paciente e ato de quem mexe no Financeiro. Remarcar não
+  precisa de nada — o horário é a mesma linha.
+  ⚠️ Pego na FOTO e no teste que já existia: a frase do preço continuava dizendo "o pagamento é
+  registrado no Finalizar" em cima do campo de pagamento (`CobrancaDaSessao.Montar(recebeAqui:)`),
+  e dois testes do formulário marcavam paciente particular com um clique — eles passaram a
+  desmarcar o bloco, que é exatamente a marcação por telefone.
+  **Fora, com o motivo**: o chamado da lista de espera e o Marcar/Lançar do balcão não ganharam o
+  bloco (o segundo já tem a janela de fechamento); "manter como crédito" no cancelamento não
+  existe como conceito — hoje é aviso; e a aba Particulares com médico e especialidade espera o
+  PR do preço por profissional, que traz o `ProfissionalId` da sessão.
+- **O DETALHE DO ATENDIMENTO E A BUSCA — o que foi feito, as guias e o que foi cobrado**
+  (nov/2026; a recepção: *"encontramos o paciente e o nº do atendimento, mas precisaríamos saber
+  o que foi feito naquele atendimento, o que foi cobrado, guia e outras coisas"*). Tudo já
+  estava no banco e só aparecia na janela de ESTORNO, que é para desfazer. **Uma porta por
+  pergunta**: nada de tela nova — a aba Lançamentos ganhou o campo de busca e o botão **Abrir**
+  (`DetalheDoAtendimentoForm`, só leitura). O que ele afirma mora em
+  `DetalheDoAtendimentoNaTela` (Application, com teste); a leitura é UMA
+  (`DadosDoDetalheDoAtendimentoAsync`, seis idas em sequência).
+  ⚠️ **O dinheiro do atendimento tem DUAS chaves**: o do particular aponta para a SESSÃO
+  (`AtendimentoId`), o do convênio para a GUIA (`CodigoFaturamentoId`). Leitor que olha só a
+  primeira diz "nada cobrado" de toda sessão de convênio já paga.
+  ⚠️ **Duas fronteiras de LEITURA, que são decisão da direção**: (a) prontuário fica de fora —
+  o detalhe diz SE há evolução, nunca o conteúdo (a tela é do balcão; ponto 5 do compromisso), e
+  por não abrir prontuário não registra acesso; (b) valor só para `VerFinanceiro` — sem o bit
+  a pessoa lê "cobrança registrada", sem o número.
+  ⚠️ **A busca tem dois alcances e a tela diz qual está valendo**: NOME filtra o período já
+  carregado (sem isso "Maria" traria anos); texto que é só NÚMERO, com 3+ dígitos, vai ao banco
+  em QUALQUER data pelo nº do atendimento ou da guia (`AtendimentosPorNumeroAsync`, teto de 50,
+  estornados inclusive — a linha diz "ESTORNADO" e perde o botão de estornar). Ao banco só no
+  Enter/saída do campo, nunca a cada tecla.
+  ⚠️ Pego na FOTO, não em teste: o campo nasceu só na lista "Atendimentos", e a tela abre em
+  "Horários marcados" — quem chegava com o número na mão não via onde digitar. Agora fica à
+  vista nas duas e digitar leva para Atendimentos. E o nome `FichaDoAtendimentoNaTela` já era do
+  Consultório: **`grep` do nome antes de criar a classe** (o erro só aparece ao compilar a Ui).
+  **Fora, com o motivo**: "abrir a ficha do paciente" a partir do detalhe e a busca global da
+  moldura (apontaria para este mesmo painel) — ficam para quando forem pedidas.
+- **TRAVA DE CONSULTA DO CONVÊNIO e a liberação da gerência pelo WhatsApp** (nov/2026, pedido
+  da gerência; decisão, opções e limites em `docs/trava-de-consulta.md`). O convênio paga uma
+  consulta a cada N dias — o N é a **validade da consulta que já estava cadastrada** (Unimed 22,
+  Amil/Petrobras 30, personalizados no cadastro). Com a chave `TravaDeConsulta` ligada
+  (Configurações; **desligada por padrão**), o `AgendaService` RECUSA marcar outra consulta pelo
+  convênio dentro do prazo (`TravaDeConsultaException`, com a `TravaAcesa` para a tela desenhar a
+  box). Qualquer consulta do paciente conta (especialidade e médico não zeram); só consulta;
+  particular não acende nem sofre.
+  ⚠️ **A trava é da MARCAÇÃO**: `AgendarAsync`, `LancarAvulsoAsync` e o `RemarcarAsync` quando o
+  horário passa a disputá-la (virou consulta pelo convênio, mudou de DIA, voltou de cancelado).
+  Concluir, confirmar presença e lançar sobre o horário que já existe NÃO conferem — senão a
+  consulta marcada antes de a chave ligar ficaria presa na Fila.
+  ⚠️ **Quem aprova é COLUNA do usuário, não bit de `Permissao`**
+  (`UsuarioSistema.AprovaLiberacaoDeTrava`, só perfil Gerente — `PodeAprovarLiberacao`): há mais
+  de um gerente e a direção escolhe quais; e o enum está no último bit de um `int` de produção.
+  ⚠️ **A decisão por texto**: `LiberacaoDeTravaRegras.Ler`. Sem o NÚMERO do pedido, só a palavra
+  sozinha decide ("sim", "não") e só para quem aprova e tem pedido aberto — "não vou conseguir
+  hoje" é conversa. Com o número, o resto é o motivo. Entra ANTES das outras perguntas no
+  `SistemaEquipeService` (chat do app) e no `AssistenteWhatsAppService` (WhatsApp).
+  ⚠️ **As mensagens à equipe saem em `staff/notices`** com o `RequestId` NEGATIVO (−id do
+  `AvisoDeLiberacao`); o ack separa pelo sinal. O pedido à gerência vai como MODELO da Meta
+  (`liberacao_de_consulta`, 7 campos, botões Liberar/Negar cujo payload é "liberar N"/"negar N")
+  — `StaffNotice` ganhou `Template`/`Parameters`/`ButtonPayloads` no FIM, com padrão, e o
+  arquivo de contrato segue idêntico ao do `semdor-crm`. O corpo mora em
+  `LiberacaoDeTravaRegras.CorpoDoModelo`, com teste que casa os campos: mudar um lado sem o
+  outro faz o CRM cair no texto livre (que só chega na janela de 24 h). **Ao paciente a
+  liberação não manda nada**: o horário liberado é horário novo, e quem confirma é a "mensagem
+  ao marcar" do CRM — duas mensagens sobre o mesmo fato seriam ruído. A leitura da fila da equipe é
+  também o pulso que EXPIRA pedidos. Tabela nova na ponte = linha nova no
+  `deploy/ponte-crm/papel-ponte-crm.sql` (rodar de novo) — e a fila nova tem `try/catch` para
+  não derrubar a antiga enquanto o GRANT não foi dado.
+  ⚠️ **Só um decide**: `DecidirAsync` reivindica com `ExecuteUpdate` (pendente → decidido); o
+  segundo gerente lê "já foi decidido por Fulano". Liberado, marca por `AgendarAsync` — ou
+  `RemarcarAsync`, quando o pedido nasceu de uma remarcação (`AgendamentoARemarcarId`), para o
+  paciente não ficar com dois horários. A trava enxerga a liberação pelo ESTADO
+  (`ExisteLiberacaoDeTravaAsync`: paciente + dia), sem parâmetro atravessando a agenda.
+  ⚠️ **Limite que não é do código**: fora da janela de 24 h da Meta a mensagem livre não chega.
+  O pedido está SEMPRE na conversa com o sistema, no app, e a resposta lá vale igual.
+  **No mesmo pedido**: (a) **preço por profissional** — `PrecoParticular.ProfissionalId`; o
+  preço de quem atende ganha do geral (10 pontos > modalidade+especialidade) e o de OUTRO nunca
+  serve. ⚠️ **A Conciliação nasceu sem saber quem atendeu e propunha só o geral** — a clínica
+  cadastrou os preços por profissional e a aba Particulares respondia "sem preço na tabela" em
+  todas as linhas (*"por que não foi contabilizado, uma vez que já temos os preços
+  cadastrados?"*). Agora `SessaoSemReceita.ProfissionalId` vem do HORÁRIO da sessão (o
+  atendimento não tem a coluna) e a tela pergunta por `PrecoParticularService.ProporAsync(sessao)`
+  — o MESMO número do Finalizar, com teste. **Especificidade nova numa regra de preço: releia
+  CADA leitor**; o que não passa o dado novo não quebra, só deixa de achar o preço.
+  ⚠️ **O que a clínica TINHA de fato era outro defeito, e o banco é que mostrou** (duas consultas
+  de leitura na VPS 1): (i) o único preço era "Acupuntura (apenas) · especialidade Acupuntura",
+  e **só a sessão de CONSULTA carrega especialidade** (`AgendaService` a limpa nas outras) — o
+  preço não casava com sessão nenhuma e nada avisava. Agora `PrecoParticularService.
+  AceitaEspecialidade` decide num lugar só: o Salvar recusa, o formulário fecha o campo, e a
+  linha já gravada assim vale como "qualquer especialidade" (no `Pontuar` e na lista). (ii) os
+  preços de consulta estavam no **Catálogo de pacotes** como "pacote de 1 sessão", com ZERO
+  pacotes vendidos: o catálogo só age quando alguém VENDE, e duas abas vizinhas falando de preço
+  do particular induziam a troca — o formulário do catálogo avisa (`PacotesNaTela.
+  AvisoDeUmaSessao`; aviso, não recusa: voucher de uma sessão existe). **Hipótese de causa se
+  confirma no DADO antes de virar correção** — a do profissional era plausível, tinha teste
+  verde e não era o que acontecia ali. (b) **convênios que o
+  profissional NÃO atende** — `Profissional.ConveniosNaoAtendidos` (códigos separados por `;`;
+  guarda-se a EXCEÇÃO, para convênio novo nascer atendido por todos). ⚠️ No
+  `SalvarProfissionalAsync`, NULO preserva (a tela de Acessos regrava o profissional só para o
+  CPF) e vazio limpa. É o que PRÉ-MARCA particular nas telas (`SugereParticular`) — sugestão
+  com nota, que a escolha feita na mão desliga. (c) **Atendidos por convênio** nos Indicadores —
+  `IndicadoresAgenda.PorPagador`, pela SESSÃO (`SessaoParticular.Eh`).
 - **ESTORNAR UM ATENDIMENTO** (parcela 94). O `RemarcarAsync` recusava horário realizado
   dizendo "Estorne o atendimento antes" — e **não havia estorno nenhum**: a instrução
   mandava fazer o que não existe, e a saída que sobrava era o `Cancelar`, sem trava.
@@ -610,7 +791,9 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   lugar do zero** —, que passava batido, dava a guia por baixada e só aparecia no retorno da
   operadora, semanas depois, com boa parte do prazo de recurso já corrida. A regra mora no
   **DOMÍNIO** e é aplicada em `FaturamentoService.DarBaixaAsync`, não na tela, porque a baixa tem
-  **quatro portas** (tela de baixa, baixa em lote, rodada de pendências e fila do Gerente): validar
+  **quatro portas** e três caminhos até o serviço (tela de baixa; baixa em lote; rodada de pendências,
+  em duas telas — o formulário do painel e a janela bloqueante da abertura do app. A "fila do
+  Gerente" de antes não existe mais: ele dá baixa por essas mesmas telas): validar
   na tela cobre uma e deixa três passando, que é o defeito recorrente do projeto vestido de
   validação. A tela usa a MESMA regra para avisar ANTES do clique — a dica ao lado do campo é a
   metade que explica; o serviço é a que impede.
@@ -2117,6 +2300,96 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   `ClinicaRepositorio.SalvarAsync` traduz `DbUpdateConcurrencyException` em mensagem amigável.
 - XML TISS gerado passa por `TissValidador.Validar` (estrutura + hash do epílogo); XSD oficial
   é opcional (pasta `%APPDATA%\ClinicaFaturamento\tiss\schemas`).
+- **TELAS DO ENVIO À OPERADORA: cada estado tem um nome, e "não se sabe se chegou" não tem botão**
+  (nov/2026). As telas só PEDEM (a fila executa): "Conferir e deixar pronta para envio" no formulário
+  de baixa (`ConferirGuiaAnsAsync`, sem número e sem baixa), a aba "Envio pelo web service" de Guias
+  TISS (`EnvioAOperadoraPainel`), o selo na linha do painel, a credencial em Configurações → Convênios
+  → "Web service" e a elegibilidade ao lado da carteira. Tudo o que a tela AFIRMA mora em
+  `EnvioTissNaTela` (Application, com teste). ⚠️ **"Pronta" não é "enviada", "na fila" não é
+  "enviada", "enviada" não é "recebida"** — frases e cores diferentes, e o texto do botão diz isso.
+  ⚠️ **Envio que saiu e falhou é "NÃO SE SABE SE CHEGOU"** (`NaoSeSabeSeChegou`: escreve na
+  operadora + falhou + a mensagem saiu): vai em vermelho, manda conferir no portal e NÃO oferece
+  reenvio com um clique. ⚠️ **A fila DEVOLVE essa guia à lista das prontas** (pedir de novo é ato
+  de gente) — e foi a captura da prévia que mostrou o furo: marcada e enviada em dois cliques. Na
+  tela ela nasce TRAVADA (`EnvioTissNaTela.DaPronta`): caixa apagada, "marcar todas" a pula, o
+  envio recusa — até a pessoa declarar numa pergunta que conferiu no portal que ela não está lá. ⚠️ **Formulário com dois desfechos tem dois avisos para quem está atrás**:
+  o `BaixaGuiaForm` ganhou `AoConferir`, porque usar o `AoConcluir` faria o painel dizer "baixa
+  registrada" sobre uma guia que continua pendente. ⚠️ **Campo de senha não liga o valor de volta**:
+  só `@oninput`, e o campo é recriado (`@key`) depois de gravar — `value="@_senha"` escreveria a
+  senha no HTML a cada tecla. O selo do painel custa duas leituras por convênio com web service,
+  nunca uma por linha. Com o envio desligado para o convênio o formulário de baixa fica idêntico
+  ao de antes. `docs/tiss-telas-do-envio.md`.
+- **A BAIXA QUE ENVIA: o formulário não pede o que ainda não existe** (nov/2026, correção de fluxo
+  da direção: *"a guia só é gerada APÓS o envio"*). O formulário de baixa pedia o "número da guia
+  gerada" a quem ia ENVIAR — nada quebrava, e por isso nenhuma rede pegou: a pergunta que faltou foi
+  **"em que momento do processo real este dado passa a existir?"**. Com o envio ligado, a ação
+  principal é "Enviar para {convênio} e dar baixa": confere, enfileira UMA guia, o formulário
+  acompanha (2 s, relógio da view) e, recebida, registra a baixa sozinho com o número devolvido.
+  Tudo o que a tela afirma mora em `BaixaComEnvioNaTela` (com teste). ⚠️ **A baixa automática só
+  acontece na abertura que PEDIU o envio** — quem reabre vê "Registrar a baixa": abrir formulário
+  não grava, e a baixa leva o login de quem clicou (o conector nunca dá baixa). ⚠️ **Recebida sem
+  número da operadora NÃO é "guia gerada"**: a frase diz que a baixa ficou com o NOSSO número.
+  ⚠️ **Trava de reenvio em dúvida mora na FILA, não na tela** (`conferidasNoPortal` em
+  `EnfileirarEnvioAsync`, com auditoria): passaram a existir duas telas que pedem envio, e a trava
+  que morava só na aba não valia para o formulário. ⚠️ **"Saiu e falhou" NÃO é sinônimo de dúvida**:
+  o lote que a operadora RECUSOU com resposta clara também saiu e falhou, e não deixou nada lá. A
+  primeira guarda tratava os dois igual e travaria o reenvio legítimo — quem mostrou foram três
+  testes do motor na suíte longa, não os testes da tela. A dúvida é o erro que traz a
+  `FilaTiss.MarcaDeDuvida`; como a marca vem no FIM do texto, o corte no tamanho da coluna a
+  preserva (`CortarErro`) — senão um erro comprido transformaria dúvida em recusa clara, calado.
+  ⚠️ **Estado que nasce fora da vista não
+  aconteceu**: quem clica no rodapé de um formulário longo não vê um bloco que aparece no topo — o
+  acompanhamento é `position:sticky` (visto na foto de 1024, não em teste). ⚠️ **Teste de baixa
+  manual em banco com as sementes do envio precisa DESLIGAR o envio**: a semente `EnvioTiss` o
+  liga para a Petrobras, e o formulário muda de rosto. O nome devolvido na elegibilidade vai no
+  `Resultado` da transação (sem coluna) e a tela o compara com a ficha sem alterar a ficha.
+- **SEMENTE NOVA QUE CRIA PACIENTE RODA DEPOIS DE QUEM CONTA PACIENTES** (nov/2026, o CI vermelho
+  do PR do envio TISS). Várias sementes da prévia escolhem paciente pela POSIÇÃO na lista inteira
+  (`TendenciaEMetas` distribui sessões realizadas por todos em ciclo; `RepassesResultado` sorteia;
+  `IndicadoresDaDirecao` pula os doze primeiros). A `SementeEnvioTiss` nasceu na ordem 49 criando
+  doze pacientes: o ciclo se deslocou, sessões "realizadas" caíram em quem estava na fila do
+  Acompanhamento (viraram "sessão realizada", fora da fila) e pacientes do envio ganharam sessões
+  antigas e entraram no recall. Nada quebrou na família de testes da mudança — quebrou
+  `RelacionamentoBlazorParidadeTests`, que só a suíte inteira roda. Ela passou para a ordem 100
+  (a última). ⚠️ **Semente é dado COMPARTILHADO entre a prévia e todos os testes de tela**: mexeu
+  em `Sementes/`, a rede é a suíte completa, não o `--filter` da família. Não é regra de produto: o
+  recall nasce de sessão realizada antiga, nunca do envio nem da baixa da guia.
+- **Web service TISS da Saúde Petrobras (nov/2026, primeiro passo)**: `TissElegibilidadeWs` monta e lê a
+  verificação de elegibilidade (4.01.00) e `TissWebserviceCliente` a envia; quem chama é só a
+  ferramenta `tools/TissPetrobras` — nenhuma tela. A resposta tem TRÊS estados: elegível, não
+  elegível e **não avaliado** (login, hash, schema, rede); falha nunca vira "não elegível". O hash
+  do web service é em ISO-8859-1; o do lote (`TissExportService`) segue em UTF-8 e não foi mexido.
+  Não há homologação no manual da operadora: toda chamada é produção. `docs/tiss-webservice-petrobras.md`.
+- **Baixa de CONSULTA da Saúde Petrobras pede a guia ANS (nov/2026, pedido da direção)**: o formulário de
+  baixa abre com os campos da "Guia de Consulta" do portal da operadora, na mesma ordem e numeração, já
+  preenchidos; a guia conferida é gravada em `GuiasTissConsulta` (1:1 com a guia) no mesmo `SaveChanges`
+  da baixa. Quem decide é `GuiaAnsNaBaixa.Exige` — TODA guia da família Petrobras (consulta, consulta de
+  especialidade e BSV, que a clínica lança no portal na mesma tela de guia de consulta), nunca particular.
+  No XML do lote a guia conferida sai como guia de consulta, uma por código. A recusa mora em `FaturamentoService.DarBaixaAsync`,
+  o caminho único. ⚠️ **Recusa nova no serviço chega às portas em massa**: o lote e a rodada não têm
+  formulário por guia, então conferem ANTES de gravar (`DecisoesDaRodada.ImpedimentoDaGuiaAns`). Na rodada
+  (inclusive a BLOQUEANTE) a decisão dessa linha é a JUSTIFICATIVA, gravada como anotação da pendência e
+  não como não conformidade — a NC tiraria a guia do painel, que é onde a baixa dela se resolve. As
+  sementes da prévia que dão baixa em consulta Petrobras passam a guia (`GuiaAnsDaPrevia`); sem isso a
+  suíte de telas inteira reprova na montagem do banco. Domínios do padrão em `DominiosTiss`, conferidos
+  contra o XSD por teste: UF é código IBGE ("33"), conselho tem zero ("06"), valor tem ponto ("139.00").
+  A baixa NÃO envia nada à operadora e nenhum texto diz que envia. `docs/baixa-petrobras-guia-ans.md`.
+- **CONSELHO, NÚMERO, UF E CBO SÃO DO PROFISSIONAL, e o texto livre do conselho continua** (nov/2026,
+  decisão da direção pela tela do portal). `Profissional` ganhou `ConselhoProfissional`, `NumeroConselho`,
+  `UfConselho` e `Cbos`, nos CÓDIGOS do `DominiosTiss` e todos opcionais; o `RegistroConselho` em texto
+  livre segue mandando nos documentos clínicos e nenhum dos dois é derivado do outro. A regra é
+  `RegistroDoProfissionalParaGuias` (Application, pura): a guia da baixa busca o executante CAMPO A
+  CAMPO — cadastro → última guia conferida → texto livre —, e fonte mais fraca nunca passa por cima
+  de fonte mais forte. ⚠️ **Campo novo num cadastro com cópia campo a campo nasce com "nulo = não
+  sei"**: o `EquipeService` só toca o campo quando o chamador o manda (vazio = apagar). Sem isso a
+  tela de Acessos, que regrava o profissional para corrigir o CPF, apagaria o CBO na primeira
+  correção — e nada quebraria. O formulário PROPÕE o que leu do texto livre e não preenche sozinho.
+  No lote e na rodada do PAINEL a linha da Saúde Petrobras tem o botão "Abrir a guia" (o mesmo
+  `BaixaGuiaForm`, por cima); `LinhaDaRodada.BaixadaNoFormulario` tira a linha de toda conta, e a
+  justificativa dela não é regravada depois da baixa. ⚠️ **Formulário aberto de dentro de outro avisa
+  quem está atrás NA HORA** (`AoBaixarPelaGuia` → o painel relê): concluir "ao fechar" faria o painel
+  dizer "rodada concluída" sobre linhas que a pessoa digitou e descartou. A janela WPF bloqueante
+  não tem o botão. A migration destes campos é gerada na integração, uma só.
 - `PrevencaoGlosaService` (radar de glosas) roda na exportação do lote: carteirinha vencida,
   duplicidade e taxa histórica por padrão (convênio+tipo). `TissRetornoImport.Ler` importa o
   demonstrativo XML da operadora e pré-preenche as decisões do retorno (casadas pelo nº real
@@ -4688,3 +4961,84 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   ao gravar — quem não edita, preserva —; sem isso a primeira correção de uma sessão antiga apagaria o
   retorno que ela tinha. O "Retorno do 2º código" (`OrigemAgendamento.RetornoSugerido`) é outro assunto
   e não mudou.
+
+- **SUL AMÉRICA: ACUPUNTURA + ELETRO NO MESMO DIA, E O INTERVALO ENTRE AUTORIZAÇÕES** (08/11/2026,
+  pedido da cliente: *"pode fazer acupuntura + eletroacupuntura no mesmo dia. Acupuntura libera nova
+  com intervalo de 1 dia e eletroacupuntura autoriza com 7 dias"*). A Sul América é convênio
+  PERSONALIZADO (não existe no enum), então a mudança é na regra genérica e vale para qualquer
+  operadora personalizada que a clínica configurar igual — três ajustes novos no formulário do
+  convênio (`ConvenioCadastro` → `ConfiguracaoRegraGenerica`): **"acupuntura e eletro no mesmo dia"**
+  (`EletroNoMesmoDia`: na acupuntura+eletro as duas guias saem hoje como 1º código, sem depender do
+  app nem de "gera 2º código") e os **intervalos mínimos** entre duas acupunturas e entre duas eletros
+  do mesmo paciente (`IntervaloAcupunturaDias`/`IntervaloEletroDias`, 0 = sem limite; a migration
+  `IntervaloEntreProcedimentosDoConvenio` nasce em 0/falso, então nenhum convênio muda sozinho).
+  ⚠️ **A clínica precisa marcar os três no cadastro da Sul América** (Configurações do faturamento →
+  Convênios → Sul América): o código não sabe qual linha é ela.
+  **Decisão da direção sobre o que fazer quando o intervalo não venceu: ADIAR a data, não recusar.**
+  A guia nasce com a data em que o convênio a libera (eletro 4 dias depois da anterior → +3 dias; ela
+  vira 2º código, obtida pela forma do 2º código) e aparece nas pendências nesse dia, com aviso no
+  lançamento e o porquê na descrição. O cálculo (`RegraGenerica.Liberar`) olha para trás E para a
+  frente: nenhuma guia do mesmo tipo a menos de N dias — senão um lançamento retroativo encostaria
+  numa eletro já adiada, e uma fila de eletros adiadas se empilha de 7 em 7. Guia "não aplicável"
+  (estorno, sem app) não conta. O histórico vem de `CodigosDoPacienteDesdeAsync` (cruza o mês — o
+  `CodigosNoMes` da Petrobras não serve) e só é lido quando o convênio TEM intervalo; o próprio
+  atendimento sai dele na correção/recuperação, como no histórico do mês. Testes: `RegraGenericaTests`
+  (bloco Sul América), `IntervaloEntreProcedimentosTests` (prévia e lançamento atravessando o mês) e
+  `TraducaoNoNpgsqlTests`.
+  **Guia no agendamento** (a guia nasce na marcação): (a) **remarcar por DATA** num convênio com
+  intervalo NÃO desloca pelo delta — o delta levaria o adiamento junto (sessão movida para depois da
+  liberação continuaria adiada) e não adiaria a sessão puxada para perto de outra eletro. A regra roda
+  de novo na data nova e as MESMAS guias abertas recebem data, ordem, forma e descrição
+  (`AtendimentoService.RecalcularPeloIntervaloAsync`); sem intervalo, segue o delta de sempre.
+  (b) **A série** já respeita o intervalo entre as próprias sessões: `AgendarSerieAsync` grava sessão a
+  sessão, e cada uma enxerga a anterior. (c) ⚠️ **`CancelarSerieAsync` mudava o status e NÃO suspendia
+  as guias** (o cancelamento de um horário só suspende, via `RefletirStatusDoHorarioAsync`): as guias
+  das sessões desistidas ficavam abertas — pendência fantasma rumo à rodada bloqueante, e, aqui, eletro
+  que nunca houve segurando as reais. Corrigido no mesmo PR. ⚠️ **Limite conhecido:** estornar,
+  cancelar ou remarcar a sessão ANTERIOR não puxa de volta a guia já adiada da seguinte — o recálculo
+  só acontece na guia que está sendo gerada ou remarcada.
+  ⚠️ **Ao configurar a Sul América, a clínica esbarrou em "Há convênios com o mesmo nome: Particular"**
+  e o "Salvar configurações" recusou tudo: o `ConvenioCatalogoService.ListarAsync` GARANTE o particular
+  (código `Particular`) olhando só o CÓDIGO, e a clínica já tinha o dela criado à mão com outro código.
+  A garantia passou a olhar também o NOME; a linha da clínica vence (é a que tem os pacientes). Se as
+  duas linhas já estiverem GRAVADAS no banco, a correção não as junta — renomear ou excluir a da
+  clínica (a com lixeira) destrava. Teste: `ParticularNoCatalogoTests.Particular_criado_a_mao_*`.
+  **JUNTAR CONVÊNIOS** (botão ⇄ na linha do convênio, Configurações do faturamento): para os dois
+  "Particular" — e para qualquer operadora cadastrada duas vezes. `ConvenioCatalogoService.JuntarAsync`
+  move o que decide o FUTURO — o convênio dos pacientes, as autorizações ainda utilizáveis e os preços
+  (só se quem fica ainda não tem tabela ativa; senão a dele vence) — e NÃO mexe no passado: financeiro,
+  repasse, tributo e lote TISS guardam o código de quando foram lançados. O que sai não é apagado: fica
+  desativado e renomeado "… (juntado em X, dd/MM/aaaa)", e o histórico continua legível. Tudo, com a
+  auditoria `ConveniosJuntados`, num SaveChanges só. Recusa: mesmo convênio, embutido saindo (junte o
+  outro nele), "a definir" de qualquer lado, destino desativado. Grava NA HORA, então a tela só abre
+  o formulário sem alteração pendente. Testes: `JuntarConveniosTests`.
+
+- **CONSULTA VENCIDA / A RENOVAR NA AGENDA — o selo e quando ele se cala** (nov/2026): o selo da Agenda do dia, da grade, da janela do horário e o contador do Início leem
+`ConsultaService.ARenovarNosHorariosAsync` — nunca recalcule na tela. Ele só fala no horário
+EM ABERTO, que vai pelo CONVÊNIO e que NÃO é a própria consulta; quem nunca emitiu consulta
+não leva selo; a referência é o DIA DO HORÁRIO (na semana, em dia na segunda e vencida na
+sexta). Leitor novo de agenda que queira o aviso passa por esse método. Detalhes e o que
+ficou de fora: `docs/consulta-a-renovar-na-agenda.md`.
+
+- **COBERTURA DO CONVÊNIO — o que a clínica aceita MARCAR por um plano** (nov/2026, Petrobras:
+sai a ACUPUNTURA — o BSV fica; consulta só de geriatria, ginecologia e psiquiatria, uma por
+semana de cada): a lista é do que SAI do plano, nunca "só consulta". É decisão da
+CLÍNICA, não regra de guia — mora em configuração (`ParametrosService`, chave
+`CoberturaDosConveniosV1`) e em `CoberturaDoConvenioRegra`, e é aplicada pela `AgendaService` em
+todas as portas de MARCAÇÃO. Sem liberação ("não permite, nem libera"); a saída é o particular,
+que a regra nunca alcança. Quem já estava na agenda fica como está (concluir e lançar sobre
+horário existente não conferem). O convênio com intervalo próprio sai da trava geral de
+consulta. Porta nova de marcação passa por `GarantirCoberturaDoConvenioAsync`, ao lado da trava.
+Detalhes: `docs/cobertura-do-convenio.md`.
+
+- **INFERTILIDADE: A GUIA INTERNA DO HORÁRIO — classificação, nunca regra de guia** (nov/2026):
+`Agendamento.InfertilidadeGuiaDe` guarda em qual guia interna (Geriatria ou Psiquiatria) o
+atendimento de infertilidade é lançado, para controle, relatório e repasse. A direção o pediu
+dizendo que "não vai para o convênio", e o campo foi aceito NESSA premissa: ele não pode entrar
+em regra de guia, código TISS, lote nem XML — quem atende é o profissional do horário. O teste
+`A_marca_e_so_classificacao_interna_as_guias_geradas_sao_as_mesmas` prende isso. Remarcar sem o
+parâmetro preserva; vazio limpa; a troca vai à trilha. Detalhes: `docs/infertilidade-guia-interna.md`.
+Os TIPOS de atendimento da direção (Infertilidade, Ginecologia, Suplementação para gestante) são
+especialidades de consulta; os dois novos vêm de `EspecialidadeCatalogoService.DaCasa` (catálogo,
+nunca o enum — `FaturamentoCongeladoTests` os lista de propósito). É a consulta de Infertilidade
+que faz a tela pedir a guia interna (`InfertilidadeNaTela.EhInfertilidade`); não há chave separada.

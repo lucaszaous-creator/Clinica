@@ -46,11 +46,15 @@ builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 64 * 1024);
 builder.Services.AddClinica(conexao);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<SessaoDoPortalNaGestao>();
+// Desligada por padrão: o gerente entra só com a senha até ativar o segundo fator no portal.
+// Ligue (Gestao__ExigirSegundoFator=true) para a gestão abrir só para quem já ativou.
+builder.Services.AddSingleton(new OpcoesDaGestaoWeb(cfg.GetValue<bool>("Gestao:ExigirSegundoFator")));
 
 // Os pedidos entre telas ("abra a ficha deste paciente") são SINGLETON no desktop, onde há uma
 // pessoa por processo. Aqui são POR CONEXÃO — registrados antes do AddTelasBlazor, que só os
 // acrescenta se faltarem: o pedido de uma pessoa nunca aparece na tela de outra.
 builder.Services.AddScoped<PedidoDaAgendaDoDia>();
+builder.Services.AddScoped<PedidoDasConsultas>();
 builder.Services.AddScoped<PedidoDaTelaDoPaciente>();
 builder.Services.AddScoped<PedidoDaFichaDoBalcao>();
 builder.Services.AddScoped<PedidoDeDocumento>();
@@ -61,12 +65,29 @@ builder.Services.AddTelasBlazor();
 builder.Services.AddScoped<IAssinaturaNaTela, AssinaturaForaDaGestao>();
 
 builder.Services.AddSingleton(CatalogoDaGestao.Embutido());
+// Convênios, modalidades e especialidades em memória: nos apps quem carrega é a abertura; aqui,
+// este serviço — na subida e de novo a cada poucos minutos (o processo vive semanas).
+builder.Services.AddHostedService<CatalogosDaGestao>();
 builder.Services.AddScoped<SessaoDaConexao>();
 builder.Services.AddScoped<NavegacaoDaGestao>();
 builder.Services.AddScoped<IHostDaTela, HostDaTelaWeb>();
 builder.Services.AddScoped<IPostoDoConsultorio, PostoDaGestao>();
 builder.Services.AddScoped<IJanelasDaAgenda, JanelasDaAgendaDaGestao>();
 builder.Services.AddScoped<IMarcacaoDeHorario, MarcacaoDaGestao>();
+// As pontes que faltavam (nov/2026): sem elas valia o "indisponível" da prévia — a aba Marcar
+// abria vazia, "ver na agenda" não abria o dia e a 2ª via do documento dizia "é do aplicativo".
+builder.Services.AddScoped<PedidosDaGestao>();
+builder.Services.AddScoped<MarcacaoComPedido>();
+builder.Services.AddScoped<IJanelasDoAtendimento, JanelasDoAtendimentoDaGestao>();
+builder.Services.AddScoped<IAgendaDaVisaoGeral, AgendaDaVisaoGeralDaGestao>();
+builder.Services.AddScoped<IBalcaoDaRecepcao, BalcaoDaGestao>();
+builder.Services.AddScoped<IJanelasDoAtendimentoClinico, JanelasDoAtendimentoClinicoDaGestao>();
+builder.Services.AddScoped<IJanelasDosExames, JanelasDosExamesDaGestao>();
+builder.Services.AddScoped<IJanelasDosProntuarios, JanelasDosProntuariosDaGestao>();
+builder.Services.AddScoped<IDocumentosDaRecepcao, DocumentosDaGestao>();
+// O aviso instantâneo do banco (a grade e o chat relêem quando outra máquina grava).
+builder.Services.AddScoped<IAvisosDoBanco, AvisosDoBancoDaGestao>();
+builder.Services.AddHostedService<EscutaDoBancoDaGestao>();
 builder.Services.AddScoped<CircuitHandler, AtividadeComSessao>();
 
 // O MESMO anel de chaves da API do portal (abre o cookie do aparelho). A gestão só LÊ: nunca
@@ -134,10 +155,14 @@ app.UseRateLimiter();
 // vindo da origem do portal (contra o sequestro de WebSocket entre sites — o "CORS" do Blazor).
 app.Use(async (ctx, next) =>
 {
-    if (ctx.Request.Path.StartsWithSegments("/_blazor") || HttpMethods.IsPost(ctx.Request.Method))
     {
+        // A origem é EXIGIDA no WebSocket e no POST (o navegador sempre a manda nos dois) e, quando vem,
+        // tem de ser a do portal. Um GET da mesma origem NÃO traz Origin (o /_blazor/initializers e os
+        // arquivos do arranque): exigir ali deixava a gestão em tela branca (403 no próprio arranque).
         var o = ctx.Request.Headers.Origin.ToString().TrimEnd('/');
-        if (!string.Equals(o, origem, StringComparison.OrdinalIgnoreCase) && !(desenvolvimento && o.Length == 0))
+        var daPropria = string.Equals(o, origem, StringComparison.OrdinalIgnoreCase);
+        var exigida = ctx.WebSockets.IsWebSocketRequest || HttpMethods.IsPost(ctx.Request.Method);
+        if ((o.Length > 0 && !daPropria) || (exigida && o.Length == 0 && !desenvolvimento))
         {
             ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
             return;

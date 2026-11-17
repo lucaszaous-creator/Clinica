@@ -35,6 +35,16 @@ public static class CatalogoConvenios
     public static string Nome(string? codigo)
         => Buscar(codigo)?.Nome ?? ConvenioInfo.NomeExibicaoPadrao(Familia(codigo));
 
+    /// <summary>
+    /// O nome para ESCREVER numa frase que fica gravada (a procedência do preço): o do cadastro
+    /// quando o código é conhecido, o da família quando o código É o enum, e o próprio código
+    /// quando ninguém o conhece. Difere do <see cref="Nome(string?)"/> só neste último caso:
+    /// lá o desconhecido vira "Unimed (Padrão)", o que numa frase gravada afirmaria a operadora errada.
+    /// </summary>
+    public static string NomeOuCodigo(string? codigo)
+        => Buscar(codigo)?.Nome
+           ?? (Enum.TryParse<Convenio>(codigo, out var familia) ? Nome(familia) : codigo ?? string.Empty);
+
     /// <summary>Família (regra) do convênio pelo código; se desconhecido, tenta interpretar o código como o próprio enum.</summary>
     public static Convenio Familia(string? codigo)
     {

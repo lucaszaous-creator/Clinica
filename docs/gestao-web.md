@@ -38,7 +38,7 @@
 
 | Camada | O que está no código |
 |---|---|
-| Entrada | **primeiro acesso só com o código de liberação que a direção gera na tela de Acessos** (uso único, 72 h, 5 erros o invalidam — sem ele, quem soubesse a senha cadastraria o próprio celular); TOTP pessoal (RFC 6238, um uso por código), 10 falhas (código ou recuperação) travam; limite por aparelho/origem; entrada pendente em cookie cifrado de 5 min; confiança no aparelho por pessoa, presa à versão da senha |
+| Entrada | **segundo fator opcional, com convite a cada login** até a pessoa ativar (decisão da direção, ver abaixo); TOTP pessoal (RFC 6238, um uso por código), 10 falhas (código ou recuperação) travam; limite por aparelho/origem; entrada pendente em cookie cifrado de 5 min; confiança no aparelho por pessoa, presa à versão da senha |
 | Navegador | CSP sem origem externa e sem script em linha; `frame-ancestors 'none'`; HSTS; `nosniff`; `no-store`; COOP/CORP same-origin; **nenhum CORS** (nem cabeçalho `Access-Control-*`) |
 | WebSocket | o `/_blazor` só é aceito com `Origin` = `Gestao:Origem` (contra sequestro de WebSocket entre sites); mensagem de entrada limitada a 64 KB; arquivos sobem e descem por stream |
 | Servidor | só `/gestao` (o resto é 404); socket Unix que só o cloudflared alcança; systemd com usuário próprio, sem saída de rede, memória no teto; limite de 300 req/min por origem |
@@ -58,8 +58,16 @@ profissional que o gerente NÃO deva ver, aí uma política RLS por `Profissiona
   `AssinaturaForaDaGestao` responde "no aplicativo do computador ou no Consultório do portal".
 - **Escolher uma pasta** (backup, exportação do prontuário em pasta): "só no aplicativo".
 - **Sino e videoaulas**: o vigia dos pedidos e respostas é do shell do app; a moldura da web os esconde.
+- **Assinar, renovar o link e tirar do ar um documento emitido**: passam pela área congelada
+  (assinatura e `PublicacaoDocumentoService`); o menu da linha não os oferece no portal. A 2ª via,
+  o envio, a nova versão e o cancelamento funcionam.
+- **Enviar PDF pelo WhatsApp deste computador**: depende do WhatsApp instalado na máquina; no
+  portal o caminho é o WhatsApp do CRM, e a opção aparece apagada com esse motivo.
 
 ## Implantação (VPS)
+
+**Atalho (nov/2026):** os passos 2 a 5 são o `deploy/vps/instalar-gestao.sh` (root, uma vez) +
+a rota `^/gestao` no painel do túnel; o app chega pelo deploy automático (`docs/deploy-automatico.md`).
 
 Ordem — cada passo só depois do anterior conferido:
 
@@ -81,18 +89,84 @@ Ordem — cada passo só depois do anterior conferido:
    gerente (→ gestão, as quatro áreas), sair (a gestão volta ao login em até 1 min), e a
    recepção que digita `/gestao` volta ao login.
 
-**Avisar a equipe antes:** no primeiro acesso depois da publicação, cada pessoa digita o **código de
-liberação** que a direção gera na tela de Acessos (botão "Liberar o portal" na linha da pessoa) e
-entrega pessoalmente, e então cadastra o autenticador (Google ou Microsoft Authenticator) — um
-minuto por pessoa. Quem perder o celular sem os códigos de recuperação recebe da direção um código
-novo pelo mesmo botão (ele zera o autenticador antigo).
+**Depois da primeira instalação**, o merge na `main` publica o portal e a gestão sozinho:
+`docs/deploy-automatico.md`.
+
+**O segundo fator é OPCIONAL, com convite (decisão da direção, nov/2026).** Para não travar quem
+não tem familiaridade técnica (e não virar chamado de suporte), quem ainda não ativou entra só com a
+senha, e o portal mostra, **a cada login**, o convite "Ativar agora / Agora não" até a pessoa ativar.
+A ativação é feita por dentro, já logado (`/api/conta/segundo-fator/iniciar` e `/ativar`). Quem
+ativou passa a precisar do código do celular (ou do aparelho confiável). Quem perder o celular: a
+direção usa "Zerar o autenticador" na tela de Acessos, e a pessoa volta a entrar só com a senha.
+
+⚠️ **O risco aceito:** enquanto a pessoa não ativa, a conta dela vale o que vale a senha. Para a
+GESTÃO (o sistema inteiro pela internet) existe a chave `Gestao__ExigirSegundoFator=true`, desligada
+por padrão: ligada, a gestão só abre para quem já ativou. Recomendação: ligar assim que o gerente ativar.
 
 **Achados da auditoria de segurança (metodologia security-audit da Cloudflare, escopo: autenticação
-do portal), nov/2026:** (1) *médio, corrigido* — o primeiro cadastro do autenticador exigia só a senha;
-agora exige a liberação da direção. (2) *corrigido* — `AcessoAoWhatsApp.Pode` liberava a sessão fechada
+do portal), nov/2026:** (1) *médio* — o primeiro cadastro do autenticador exigia só a senha. Corrigido com um código de
+liberação da direção e, depois, **revertido por decisão da direção** em favor do segundo fator
+opcional com convite (o risco aceito está descrito acima). (2) *corrigido* — `AcessoAoWhatsApp.Pode` liberava a sessão fechada
 do servidor. Rejeitados com a razão no relatório: força bruta do TOTP em paralelo (token de
 concorrência), troca do cookie pendente, enumeração de usuários, aparelho confiável após troca de
 senha, XSS pelo SVG do QR.
+
+## Catálogos em memória (correção de 10/11/2026)
+
+As telas leem `CatalogoModalidades`, `CatalogoEspecialidades` e `CatalogoConvenios` de forma
+síncrona, de um cache em memória. Nos apps quem o enche é a abertura (`AberturaDoBanco`); o portal
+não passa por ela e subiu **sem carga nenhuma**: no Lançar/Marcar, ao escolher quem atende, a
+lista de tipos de atendimento sumia com "Nenhuma modalidade ativa que este profissional atenda"
+(a habilitação é conferida contra o catálogo, e o catálogo estava vazio), enquanto o app mostrava
+tudo. O cadastro da clínica estava certo; o defeito era do processo do portal.
+
+`Hospedagem/CatalogosDaGestao.cs` carrega os três catálogos **antes** da primeira conexão e os
+relê a cada 2 minutos (5 s enquanto o banco não responde) — este processo vive semanas, e o que a
+clínica muda em Configurações num app precisa chegar aqui sem reinício.
+
+- 🧑‍💻 **UX** — o portal mostra os mesmos tipos de atendimento, especialidades e nomes de convênio
+  do app; mudança feita num app aparece no portal em até 2 minutos.
+- 🛠️ **DX** — uma peça (`CatalogosDaGestao`), que chama a MESMA `RecarregarCatalogosAsync` dos
+  apps. Processo novo que hospede as telas e não passe pela abertura precisa do equivalente.
+  Teste: `PortaDaGestaoTests.O_portal_carrega_os_catalogos_que_as_telas_leem`.
+- 🤝 **CX** — três leituras pequenas a cada 2 minutos; banco fora do ar na subida não derruba o
+  portal (tenta de novo). Não muda nada nos cinco apps.
+
+## As pontes das telas no portal (10/11/2026)
+
+As telas pedem ao hospedeiro o que só ele sabe (navegar levando o contexto, entregar um PDF,
+perguntar um motivo). Nos apps quem responde é o módulo WPF; o portal respondia a três pontes e,
+nas outras, valia o "indisponível" da prévia. `Hospedagem/PontesDaGestao.cs` responde às que
+faltavam, todas **por conexão** e chamando os mesmos serviços da Application:
+
+| O que a pessoa faz | Antes, no portal | Agora |
+|---|---|---|
+| "Marcar atendimento" na agenda do dia, na grade, na visão geral, em Retornos/Acompanhamento | a aba Marcar abria vazia (ou o botão nascia apagado) | abre com dia, hora do vão, profissional, sala, duração, modalidade e paciente |
+| Clicar numa célula da Visão geral | abria o dia na própria tela | abre a aba Dia, no dia, com o profissional |
+| "Ver na agenda" (ficha, pedido da enfermagem) | "não está disponível" | abre a Grade no dia |
+| Nome do paciente (Acompanhamento, Glosas, WhatsApp, chat) | não abria a ficha | abre a tela do paciente, ou a ficha do balcão para quem não alcança o prontuário |
+| 2ª via e cancelamento de documento emitido | "é do aplicativo" | PDF no navegador (com a trilha de acesso) e cancelamento com motivo |
+| "Detalhes" do pedido de exame; "Novo prontuário" | "abre no aplicativo" | abre o paciente em Exames e anexos; abre o atendimento |
+| Agenda mudou noutra máquina | só pelo relógio da tela | relê em menos de um segundo (`OuvinteDeMudancas`), relógio mantido |
+| Folha do médico: por que a sessão não concluiu | sem a frase | a pendência da conclusão automática |
+
+A conclusão automática das sessões já roda no servidor (`ConclusaoAutomaticaWorker`, na API do
+portal); a gestão só não mostrava o motivo da pendência.
+
+⚠️ **O aviso do banco chega fora da conexão.** No servidor a sessão é a do fluxo
+(`SessaoUsuario.UsarNesteFluxo`); `AvisosDoBancoDaGestao` guarda o contexto de execução de quem
+assinou e roda o aviso nele — sem isso a releitura rodaria como "ninguém" e seria recusada.
+
+- 🧑‍💻 **UX** — quem trabalha pelo portal deixa de redigitar o que já clicou e de ler "abra no
+  aplicativo" para o que é só navegação ou PDF; o que continua fora some do menu em vez de falhar.
+- 🛠️ **DX** — um arquivo de pontes no portal, nenhuma mudança nas telas nem nos cinco apps. Ponte
+  nova que o app registrar precisa da irmã aqui: `O_portal_responde_a_todas_as_pontes_das_telas`
+  lista as pontes e reprova a que cair no "indisponível". A 2ª via e o cancelamento repetem os
+  passos do `AcoesDoDocumento` do shell (que é WPF e o portal não referencia): mudou lá, mude aqui.
+- 🤝 **CX** — uma conexão ociosa a mais no banco (a escuta) e nada novo para instalar. A área
+  congelada não ganhou porta: assinar e mexer no link do documento continuam só no aplicativo.
+- **Não rodou:** as pontes têm teste de unidade e o registro tem teste de integração, mas o
+  fluxo não foi exercitado num navegador contra o portal de verdade.
 
 ## UX · DX · CX
 

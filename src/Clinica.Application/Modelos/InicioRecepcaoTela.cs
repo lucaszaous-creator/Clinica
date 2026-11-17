@@ -111,16 +111,26 @@ public static class InicioRecepcaoTela
     /// (ou, no "Confirmar amanhã", não há rodada gerada — e a frase do contador diz qual).
     /// </summary>
     public static IReadOnlyList<ItemDoBalcao> ItensDoBalcao(
-        int? guias, ContadorDoBalcao? confirmarAmanha, int? recall)
+        int? guias, ContadorDoBalcao? confirmarAmanha, int? recall, int? consultas = null)
     {
         var confirmar = confirmarAmanha ?? new ContadorDoBalcao("Confirmar amanhã", null, "não foi possível conferir");
         return
         [
             Item("guias", "Guias do 2º código", guias, "de pacientes que vêm hoje", "perigo"),
+            // nov/2026 — a consulta do convênio vencida ou a vencer de quem vem hoje: renovar
+            // com a pessoa presente custa uma frase; depois, a sessão não fatura.
+            Item("consultas", "Consultas a renovar", consultas, "de pacientes que vêm hoje pelo convênio", "aviso"),
             new ItemDoBalcao("confirmar", confirmar.Titulo, confirmar.ValorTexto, confirmar.Detalhe, "info"),
             Item("recall", "Recall de hoje", recall, "contatos combinados para hoje", "neutro")
         ];
     }
+
+    /// <summary>
+    /// Quantos PACIENTES de hoje têm consulta vencida ou a renovar — pacientes, e não
+    /// horários: quem vem duas vezes no dia renova uma consulta só. Nulo = a leitura falhou.
+    /// </summary>
+    public static int? ConsultasARenovarHoje(IReadOnlyDictionary<int, StatusConsultaPaciente>? aRenovar)
+        => aRenovar?.Values.Select(s => s.PacienteId).Distinct().Count();
 
     private static ItemDoBalcao Item(string chave, string titulo, int? valor, string detalhe, string tom)
         => new(chave, titulo, valor?.ToString(PtBr) ?? "—", valor is null ? "não foi possível conferir" : detalhe, tom);

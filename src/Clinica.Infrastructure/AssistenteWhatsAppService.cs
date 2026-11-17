@@ -23,7 +23,9 @@ public sealed record OpcoesDocumentoPeloWhatsApp(bool Habilitado, string Portal)
 }
 
 /// <summary>O desfecho de um pedido à recepção que ainda precisa chegar pelo WhatsApp a quem pediu.</summary>
-public sealed record AvisoWhatsAppEquipe(int PedidoId, string Telefone, string Texto);
+/// <param name="Modelo">Nome do modelo aprovado da Meta, quando a mensagem precisa chegar fora da janela de 24 h (o pedido de liberação de trava).</param>
+public sealed record AvisoWhatsAppEquipe(int PedidoId, string Telefone, string Texto,
+    string? Modelo = null, IReadOnlyList<string>? Parametros = null, IReadOnlyList<string>? Botoes = null);
 
 /// <summary>
 /// O sistema da clínica respondendo pelo WhatsApp a quem é da equipe (out/2026). O médico manda
@@ -73,6 +75,8 @@ public sealed class AssistenteWhatsAppService
         if (eu is null) return new(false);
         texto = (texto ?? "").Trim();
         var hoje = DateOnly.FromDateTime(agora());
+        // A decisão de uma liberação de trava ("sim", "negar 12") nunca vai à IA para ser reescrita.
+        if (await LiberacaoDeTravaService.Sobre(db, agora).EhDecisaoAsync(eu, texto, ct)) return new(true, Nome: eu.Nome);
         if (texto.Length == 0 || AssistenteWhatsAppRegras.LerPedido(texto, hoje) is not null) return new(true, Nome: eu.Nome);
         // Pedido de documento conta como ENTENDIDO mesmo com a fase 4 desligada: o texto de uma
         // receita ou de um relatório nunca vai à IA para ser reescrito (@SemDor fase 4).
@@ -104,7 +108,13 @@ public sealed class AssistenteWhatsAppService
         var gravarResposta = true;
         try
         {
-            if (documentos.Ligado && DocumentoPeloWhatsAppRegras.Ler(texto) is { } documento)
+            // A GERÊNCIA decidindo uma liberação de trava de consulta (nov/2026): vem ANTES de
+            // tudo — "sim" e "não" não podem cair no "não entendi" nem virar pedido à recepção.
+            // Quem decide é este LOGIN (o celular é o cadastrado em Acessos para ele), e só
+            // quem a direção marcou como aprovador.
+            if (await LiberacaoDeTravaService.Sobre(db, agora).DecidirPorTextoAsync(eu, texto, "whatsapp", ct) is { } decisao)
+                resposta = decisao;
+            else if (documentos.Ligado && DocumentoPeloWhatsAppRegras.Ler(texto) is { } documento)
                 (resposta, textoNoChat) = await DocumentoAsync(eu, documento, idMensagem, momento, ct);
             else if (documentos.Ligado && DocumentoPeloWhatsAppRegras.PedeDocumento(texto))
                 resposta = DocumentoPeloWhatsAppRegras.QualDocumento;
@@ -322,7 +332,24 @@ public sealed class AssistenteWhatsAppService
     {
         var desde = agora().AddDays(-3);
         var linhas = await ConsultaAvisos(db, desde).ToListAsync(ct);
-        return linhas.Select(x => new AvisoWhatsAppEquipe(x.Pedido.Id, x.Telefone, PedidosRecepcaoRegras.Desfecho(x.Pedido))).ToList();
+        var avisos = linhas.Select(x => new AvisoWhatsAppEquipe(x.Pedido.Id, x.Telefone, PedidosRecepcaoRegras.Desfecho(x.Pedido))).ToList();
+
+        // As mensagens da LIBERAÇÃO DE TRAVA (o pedido à gerência, o desfecho a quem pediu) saem
+        // pela MESMA fila, sem mudar o contrato com o CRM: ele só manda o texto ao celular e
+        // devolve o número. O número delas vai NEGATIVO (-id do aviso) para não colidir com o do
+        // pedido à recepção; <see cref="ConfirmarAvisoAsync"/> separa pelo sinal.
+        try
+        {
+            avisos.AddRange((await LiberacaoDeTravaService.Sobre(db, agora).AvisosParaEquipeAsync(ct))
+                .Select(a => new AvisoWhatsAppEquipe(-a.Id, a.Telefone, a.Texto, a.Modelo, a.Parametros, a.Botoes)));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // A fila nova não pode derrubar a antiga (o papel da ponte sem o GRANT das tabelas novas).
+            Clinica.Application.Diagnostico.Registrar("WhatsApp da equipe — fila da liberação de trava não pôde ser lida", ex);
+            db.ChangeTracker.Clear();
+        }
+        return avisos;
     }
 
     public sealed record LinhaDoAviso(PedidoRecepcao Pedido, string Telefone);
@@ -343,6 +370,12 @@ public sealed class AssistenteWhatsAppService
     /// </summary>
     public async Task ConfirmarAvisoAsync(int pedidoId, bool entregue, string? motivo, CancellationToken ct = default)
     {
+        // Número negativo = mensagem da liberação de trava (ver AvisosPendentesAsync).
+        if (pedidoId < 0)
+        {
+            await LiberacaoDeTravaService.Sobre(db, agora).ConfirmarAvisoAsync(-pedidoId, entregue, motivo, ct);
+            return;
+        }
         var momento = agora();
         var mudou = await db.PedidosRecepcao.Where(p => p.Id == pedidoId && p.AvisoWhatsAppEm == null)
             .ExecuteUpdateAsync(s => s.SetProperty(p => p.AvisoWhatsAppEm, momento), ct);

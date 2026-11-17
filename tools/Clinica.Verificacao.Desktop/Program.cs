@@ -56,6 +56,21 @@ internal static partial class Program
         };
         return app.Run();
     }
+    /// <summary>
+    /// As telas que ANUNCIAM uma ação (um botão que a clínica vai procurar): cada uma tem de ser
+    /// alcançável no menu real do Recepção e do Gerente. Ação nova anunciada noutra tela entra aqui.
+    /// </summary>
+    static IEnumerable<(string Acao, Type Componente)> TelasAnunciadas() =>
+        Clinica.Ui.Blazor.Formularios.ElegibilidadeDaAgendaForm.TelasComOBotao.Select(t => ("Consultar elegibilidade", t));
+
+    /// <summary>A tela à vista no shell é o componente (sozinha ou como a aba selecionada).</summary>
+    static bool Mostra(ShellViewModel shell, Type componente) => shell.TelaAtual switch
+    {
+        ITelaDoNavegador t => t.Componente == componente,
+        Clinica.Desktop.Shell.Componentes.TelaComAbas { ConteudoVisivel: ITelaDoNavegador t } => t.Componente == componente,
+        _ => false
+    };
+
     static void Conferir(bool condicao, string caso) { if (!condicao) Falhas.Add(caso); else Evidencias.Add(new { teste=caso, passou=true }); }
     static async Task VerificarAsync()
     {
@@ -139,6 +154,22 @@ internal static partial class Program
             Conferir(visiveis.Select(i=>i.Rotulo).Distinct().Count()==visiveis.Count,$"{nome}: sem rótulos principais duplicados");
             Conferir(!NavegacaoSuite.Existe("destino-inexistente"),$"{nome}: destino inexistente recusado");
             if (!SessaoUsuario.Atual.Pode(Permissao.GerenciarUsuarios)) Conferir(!NavegacaoSuite.Existe("acessos"),$"{nome}: acesso proibido não resolve como aba vizinha");
+            // TELA ANUNCIADA TEM DE ESTAR NO MENU (nov/2026): o botão "Consultar elegibilidade" do #361
+            // entrou na GradeDaAgenda, que o OrganizacaoNavegacao esconde — a foto da prévia (/tela/X) e o
+            // bUnit abrem o componente pelo nome e não passam pelo menu. Aqui a tela é procurada nas abas
+            // VISÍVEIS do app composto, e a navegação até ela tem de pô-la à vista.
+            if (nome is "Recepção" or "Gerente")
+                foreach (var (acao, componente) in TelasAnunciadas())
+                {
+                    // Cada chave é perguntada só à fábrica do módulo DONO dela (o descritor é barato).
+                    var chave = visiveis.SelectMany(i => i.Abas.Count == 0 ? new[] { i.Chave } : i.Abas.Select(a => a.Chave))
+                        .Where(NavegacaoSuite.Existe)
+                        .FirstOrDefault(c => shell.Itens.FirstOrDefault(i => i.Chave == c) is { } dono
+                            && modulos.FirstOrDefault(m => m.Nome == dono.ModuloNome)?.CriarTela(c, provider) is ITelaDoNavegador t
+                            && t.Componente == componente);
+                    Conferir(chave is not null && NavegacaoSuite.Ir(chave) && Mostra(shell, componente),
+                        $"{nome}: {componente.Name} ({acao}) alcançável pelas abas visíveis do menu");
+                }
             foreach(var item in shell.Itens.Where(i=>i.Abas.Count==0).ToArray())
             {
                 try

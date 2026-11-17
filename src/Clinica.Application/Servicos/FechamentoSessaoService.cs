@@ -227,13 +227,19 @@ public sealed class FechamentoSessaoService
         // e o `AtendimentoJaConsumiuPacoteAsync` do PacoteService.
         var dia = hoje ?? DateOnly.FromDateTime(ag.DataHora);
 
-        // PARTICULAR = o convênio da ficha não gera guia (parcela 60). É o paciente cujo
-        // dinheiro SÓ entra por aqui — o de convênio entra pela conciliação da guia.
-        var ehParticular = ag.Paciente is { } pac
-                           && !CatalogoConvenios.GeraGuia(pac.ConvenioCodigo ?? pac.Convenio.ToString());
+        // PARTICULAR = o convênio da ficha não gera guia (parcela 60) OU o horário foi
+        // marcado como particular apesar do convênio (nov/2026). É a sessão cujo dinheiro SÓ
+        // entra por aqui — a de convênio entra pela conciliação da guia.
+        var ehParticular = SessaoParticular.Eh(ag);
 
         var pacote = await PacoteADebitarAsync(ag.PacienteId, dia, ct);
         var (valor, procedencia, forma) = await ValorSugeridoAsync(ag.PacienteId, ct);
+
+        // PAGO AO MARCAR (nov/2026): o dinheiro desta sessão já está no caixa, preso ao horário.
+        // Perguntar de novo no Finalizar é cobrar duas vezes — a mesma razão do pacote.
+        var jaPago = false;
+        try { jaPago = (await _repo.EntradasDoHorarioAsync(ag.Id, ct)).Count > 0; }
+        catch (Exception ex) { Diagnostico.Registrar("Fechamento da sessão — pagamento na marcação não pôde ser lido", ex); }
 
         // Sem histórico, o particular ainda pode ter PREÇO: a tabela do particular por
         // especialidade atendida, cadastrada no Gerente (set/2026). O histórico vem
@@ -258,7 +264,7 @@ public sealed class FechamentoSessaoService
             // porque já pagou antes. Paciente de convênio sem histórico nunca cai aqui:
             // o dinheiro dele entra pela conciliação da guia, e um lançamento marcado
             // por padrão viraria receita fantasma no caixa.
-            SugereLancamento: pacote is null && (ehParticular || valor is not null),
+            SugereLancamento: !jaPago && pacote is null && (ehParticular || valor is not null),
             Insumos: insumos,
             EhParticular: ehParticular);
     }
@@ -553,7 +559,8 @@ public sealed class FechamentoSessaoService
             var proposto = await _precos.ProporAsync(
                 ag.ModalidadeCodigo, ag.ModalidadePrevista,
                 ag.EspecialidadeConsultaCodigo ?? ag.EspecialidadeConsulta?.ToString(),
-                dia, ct);
+                // O preço de QUEM ATENDE ganha do geral (nov/2026): o horário sabe quem é.
+                dia, ct, ag.ProfissionalId);
 
             return proposto.Houve ? (proposto.Valor, proposto.Procedencia) : (null, null);
         }

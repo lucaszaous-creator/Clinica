@@ -5,8 +5,19 @@ using Clinica.Domain;
 
 namespace Clinica.Application.Formatacao;
 
-/// <summary>O período da Visão geral da agenda.</summary>
-public enum ModoVisaoAgenda { Dia, Semana, Mes }
+/// <summary>
+/// O período da Visão geral da agenda. <see cref="Periodo"/> (nov/2026, pedido da gerência:
+/// "visualizar a agenda por semana, mês ou período personalizado") são as duas datas que a
+/// pessoa escolhe — vale para ele <see cref="VisaoGeralDaAgendaNaTela.PeriodoPersonalizado"/>.
+/// </summary>
+public enum ModoVisaoAgenda { Dia, Semana, Mes, Periodo }
+
+/// <summary>
+/// O procedimento da agenda (nov/2026, pedido da gerência: "filtrar por procedimento: BSV,
+/// consulta e acupuntura"). É a FAMÍLIA da modalidade, a mesma que dá a cor ao traço: o BSV com
+/// acupuntura no mesmo dia é BSV — é o procedimento que pede sala, preparo e guia de BSV.
+/// </summary>
+public enum ProcedimentoDaAgenda { Todos, Acupuntura, Bsv, Consulta }
 
 /// <summary>Um horário na lista do modo DIA. Cancelado e falta continuam, apagados — a regra da folha do dia.</summary>
 public sealed record LinhaHorarioOcupacao(HorarioOcupacao Horario, string Inicio, string Ate)
@@ -100,6 +111,91 @@ public static class VisaoGeralDaAgendaNaTela
         var primeiro = new DateOnly(dia.Year, dia.Month, 1);
         return (primeiro, primeiro.AddMonths(1).AddDays(-1));
     }
+
+    // ==================== período personalizado e procedimento (nov/2026) ====================
+
+    /// <summary>
+    /// O teto do período personalizado. A leitura da ocupação mede cada profissional dia a dia;
+    /// um trimestre cobre o "mês passado + este" e o "último trimestre" que a gerência confere,
+    /// sem transformar a Visão geral num relatório anual que segura a tela da recepção.
+    /// </summary>
+    public const int MaximoDiasPeriodo = 93;
+
+    /// <summary>
+    /// As duas datas do período personalizado, ou a frase do porquê não. A tela não consulta
+    /// com o período recusado — mostra a frase onde estaria a lista.
+    /// </summary>
+    public static ((DateOnly Inicio, DateOnly Fim)? Periodo, string? Erro) PeriodoPersonalizado(DateOnly? de, DateOnly? ate)
+    {
+        if (de is not { } i || ate is not { } f) return (null, "Escolha as duas datas do período.");
+        if (f < i) return (null, "A data final está antes da inicial. Corrija as datas.");
+        if (f.DayNumber - i.DayNumber + 1 > MaximoDiasPeriodo)
+            return (null, $"Escolha um período de até {MaximoDiasPeriodo} dias (cerca de três meses).");
+        return ((i, f), null);
+    }
+
+    /// <summary>‹ / › no período personalizado: o mesmo tamanho, para trás ou para a frente.</summary>
+    public static (DateOnly Inicio, DateOnly Fim)? AndarPeriodo(DateOnly de, DateOnly ate, int passo)
+    {
+        var dias = (ate.DayNumber - de.DayNumber + 1) * passo;
+        var (i, f) = (de.AddDays(dias), ate.AddDays(dias));
+        return i.Year is < 1901 || f.Year > 2199 ? null : (i, f);
+    }
+
+    public static string Rotulo(ProcedimentoDaAgenda p) => p switch
+    {
+        ProcedimentoDaAgenda.Acupuntura => "Acupuntura",
+        ProcedimentoDaAgenda.Bsv => "BSV",
+        ProcedimentoDaAgenda.Consulta => "Consulta",
+        _ => "Todos"
+    };
+
+    public static string Dica(ProcedimentoDaAgenda p) => p switch
+    {
+        ProcedimentoDaAgenda.Acupuntura => "Acupuntura simples e com eletroacupuntura",
+        ProcedimentoDaAgenda.Bsv => "BSV, sozinho ou com acupuntura no mesmo dia",
+        ProcedimentoDaAgenda.Consulta => "Consultas médicas, de qualquer especialidade",
+        _ => "Todos os procedimentos"
+    };
+
+    public static bool Casa(ProcedimentoDaAgenda filtro, ModalidadeAtendimento familia) => filtro switch
+    {
+        ProcedimentoDaAgenda.Acupuntura => familia is ModalidadeAtendimento.AcupunturaSimples or ModalidadeAtendimento.AcupunturaComEletro,
+        ProcedimentoDaAgenda.Bsv => familia is ModalidadeAtendimento.BsvApenas or ModalidadeAtendimento.BsvComAcupuntura,
+        ProcedimentoDaAgenda.Consulta => familia == ModalidadeAtendimento.Consulta,
+        _ => true
+    };
+
+    /// <summary>
+    /// Quantos horários de cada procedimento a lista tem — a contagem À VISTA antes do clique,
+    /// como as pílulas da Agenda do dia. Só os que OCUPAM (cancelado e falta não são atendimento).
+    /// </summary>
+    public static IReadOnlyDictionary<ProcedimentoDaAgenda, int> ContagemPorProcedimento(IEnumerable<LinhaHorarioOcupacao> linhas)
+    {
+        var ativos = linhas.Where(l => !l.Inativo).ToList();
+        return Enum.GetValues<ProcedimentoDaAgenda>()
+            .ToDictionary(p => p, p => ativos.Count(l => Casa(p, l.Horario.Familia)));
+    }
+
+    /// <summary>
+    /// A frase ao lado das pílulas. A pílula conta ATENDIMENTOS (o que ocupa); a lista mostra
+    /// também cancelados e faltas, apagados — a frase diz a diferença, senão "146" na pílula e
+    /// "157" na lista parecem erro. Filtrada, ela DIZ que está filtrada.
+    /// </summary>
+    public static string ResumoDaLista(IReadOnlyCollection<LinhaHorarioOcupacao> mostradas, int total, ProcedimentoDaAgenda filtro)
+    {
+        var inativos = mostradas.Count(l => l.Inativo);
+        var extra = inativos == 0 ? string.Empty : $" (com {inativos} cancelado(s) ou falta(s))";
+        return filtro == ProcedimentoDaAgenda.Todos
+            ? $"{mostradas.Count} horário(s) na lista{extra}"
+            : $"{mostradas.Count} de {total} horário(s) — {Rotulo(filtro)}{extra}";
+    }
+
+    /// <summary>A lista do período com a DATA no horário — num período de vários dias a hora sozinha não diz nada.</summary>
+    public static IReadOnlyList<LinhaHorarioOcupacao> HorariosDoPeriodo(OcupacaoAgenda d)
+        => d.Horarios.OrderBy(h => h.Inicio).ThenBy(h => h.Profissional, StringComparer.Create(PtBr, true))
+            .Select(h => new LinhaHorarioOcupacao(h, h.Inicio.ToString("dd/MM HH:mm", PtBr),
+                $"{h.Inicio.ToString("ddd", PtBr)} · até {h.Fim.ToString("HH:mm", PtBr)}")).ToList();
 
     /// <summary>‹ / › — um período para trás ou para a frente. Nulo fora de 1901–2199.</summary>
     public static DateOnly? Andar(ModoVisaoAgenda modo, DateOnly dia, int passo)

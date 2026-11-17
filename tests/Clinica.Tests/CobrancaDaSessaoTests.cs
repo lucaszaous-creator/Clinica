@@ -106,4 +106,15 @@ public class CobrancaDaSessaoTests
         comTabela.Should().Be(semTabela);
         comTabela.SemPreco.Should().BeFalse("com pacote não falta preço — não há o que cobrar");
     }
+
+    /// <summary>nov/2026: o formulário de marcar RECEBE o pagamento — a frase não manda ao Finalizar.</summary>
+    [Fact]
+    public void Onde_se_recebe_ao_marcar_a_frase_aponta_para_o_campo_e_nao_para_o_finalizar()
+    {
+        var comPreco = CobrancaDaSessao.Montar(true, new PrecoProposto(320m, "tabela do particular: Consulta"), null, recebeAqui: true);
+        comPreco.Frase.Should().Contain("Registre abaixo").And.NotContain("Finalizar");
+
+        var semPreco = CobrancaDaSessao.Montar(true, PrecoProposto.Nenhum, null, recebeAqui: true);
+        semPreco.Frase.Should().Contain("informe abaixo").And.NotContain("Finalizar");
+    }
 }

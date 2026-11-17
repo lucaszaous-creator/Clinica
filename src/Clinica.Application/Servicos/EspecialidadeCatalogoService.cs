@@ -15,6 +15,17 @@ public sealed class EspecialidadeCatalogoService
 
     public EspecialidadeCatalogoService(IClinicaRepositorio repo) => _repo = repo;
 
+    /// <summary>O código da consulta de INFERTILIDADE — é ela que pede a guia interna (<c>InfertilidadeNaTela</c>).</summary>
+    public const string CodigoInfertilidade = "Infertilidade";
+    public const string CodigoSuplementacaoGestante = "SuplementacaoGestante";
+
+    /// <summary>Os tipos de atendimento garantidos no catálogo além das embutidas do enum.</summary>
+    public static readonly IReadOnlyList<(string Codigo, string Nome)> DaCasa =
+    [
+        (CodigoInfertilidade, "Infertilidade"),
+        (CodigoSuplementacaoGestante, "Suplementação para gestante")
+    ];
+
     /// <summary>Todas as entradas (embutidas garantidas + adicionadas), ordenadas por nome.</summary>
     public async Task<IReadOnlyList<EspecialidadeCadastro>> ListarAsync(CancellationToken ct = default)
     {
@@ -32,6 +43,15 @@ public sealed class EspecialidadeCatalogoService
                     Ativo = true
                 };
         }
+
+        // E os TIPOS DE ATENDIMENTO da casa (nov/2026 — a direção: "pode dividir o meu atendimento
+        // em três: infertilidade, ginecologia e suplementação para gestante; fica mais
+        // caracterizado o tipo de atendimento"). Ginecologia já é embutida; os outros dois
+        // entram pelo CATÁLOGO, nunca pelo enum (FaturamentoCongeladoTests). Só são garantidos
+        // enquanto ninguém os gravou: a clínica que renomear ou desativar um deles é obedecida.
+        foreach (var (codigo, nome) in DaCasa)
+            if (!salvas.ContainsKey(codigo))
+                salvas[codigo] = new EspecialidadeCadastro { Codigo = codigo, Nome = nome, Ativo = true };
 
         return salvas.Values.OrderBy(e => e.Nome).ToList();
     }

@@ -101,6 +101,43 @@
             }
         </section>
 
+        @* ATENDIDOS POR CONVÊNIO (nov/2026, pedido da gerência): conta a SESSÃO pelo pagador dela — a
+           consulta marcada como particular de quem tem plano entra em "Particular". *@
+        @if (p.PorConvenio.Count > 0)
+        {
+            <section class="cartao lista-cartao" aria-label="Atendidos por convênio">
+                <div class="cartao-titulo">
+                    <div>
+                        <h2>Atendidos por convênio</h2>
+                        <p>Cada atendimento conta para quem PAGA aquela sessão: a consulta particular de quem tem plano entra em "Particular", não no plano da ficha.</p>
+                    </div>
+                </div>
+                <div class="tabela-rolagem">
+                    <table class="lista ind-tabela">
+                        <thead>
+                            <tr>
+                                <th>Convênio</th>
+                                <th class="direita">Atendidos</th>
+                                <th class="direita">Pacientes</th>
+                                <th class="direita" title="Parte dos atendidos do período">% do período</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var c in p.PorConvenio)
+                            {
+                                <tr @key="c.Convenio">
+                                    <td><span class="principal">@c.Convenio</span>@if (c.Particular) { <Selo Tom="aviso">sem guia · caixa</Selo> }</td>
+                                    <td class="direita numero">@c.Atendidos</td>
+                                    <td class="direita numero">@c.Pacientes</td>
+                                    <td class="direita numero">@c.Parte</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        }
+
         <div class="ind-duas">
             <section class="cartao cartao-corpo" aria-label="Ocupação por profissional">
                 <div class="cartao-titulo"><div><h2>Ocupação por profissional</h2>

@@ -49,6 +49,7 @@ public sealed class TissExportService
             .Where(c => c.Baixado)
             .GroupBy(c => c.AtendimentoId)
             .SelectMany(g => SepararGuias(g))
+            .SelectMany(SepararConferidas)
             .Select((g, i) => CriarGuia(g, prestador, i + 1))
             .ToList();
 
@@ -134,11 +135,34 @@ public sealed class TissExportService
     }
 
     /// <summary>
+    /// A guia conferida na baixa (nov/2026) é UMA guia de consulta por código: a guia de consulta
+    /// do padrão leva um procedimento só, e foi assim que a pessoa a conferiu contra o portal —
+    /// inclusive o BSV da Saúde Petrobras, que a clínica lança lá como guia de consulta. Grupo sem
+    /// nenhuma guia conferida passa intacto, e o lote dos outros convênios não muda.
+    /// </summary>
+    private static IEnumerable<IReadOnlyList<CodigoFaturamento>> SepararConferidas(IReadOnlyList<CodigoFaturamento> grupo)
+    {
+        if (grupo.All(c => c.GuiaAns is null))
+        {
+            yield return grupo;
+            yield break;
+        }
+        foreach (var conferida in grupo.Where(c => c.GuiaAns is not null))
+            yield return [conferida];
+        var resto = grupo.Where(c => c.GuiaAns is null).ToList();
+        if (resto.Count > 0) yield return resto;
+    }
+
+    /// <summary>
     /// Consulta pura vira guia de consulta; qualquer procedimento (acupuntura, eletro, BSV,
     /// preventivo) vira guia SP/SADT, como as operadoras esperam no 4.01.
     /// </summary>
     private static XElement CriarGuia(IReadOnlyList<CodigoFaturamento> grupo, DadosPrestador prestador, int numeroGuia)
     {
+        // Conferida na baixa: sai como a guia de consulta que foi conferida, seja qual for o tipo.
+        if (grupo is [{ GuiaAns: { } ans } conferida])
+            return CriarGuiaConsultaConferida(conferida, ans, numeroGuia);
+
         var somenteConsulta = grupo.All(c => EhConsulta(c.Tipo));
         return somenteConsulta
             ? CriarGuiaConsulta(grupo, prestador, numeroGuia)
@@ -148,6 +172,10 @@ public sealed class TissExportService
     private static XElement CriarGuiaConsulta(IReadOnlyList<CodigoFaturamento> grupo, DadosPrestador prestador, int numeroGuia)
     {
         var primeiro = grupo.First();
+
+        // Daqui para baixo é a guia SEM conferência: o resumo que o sistema sabia montar sozinho, e
+        // que o XSD 4.01.00 recusa (falta executante, acidente, regime e valor). A guia conferida na
+        // baixa (Saúde Petrobras, nov/2026) sai completa por CriarGuiaConsultaConferida, em CriarGuia.
 
         return new XElement(Ans + "guiaConsulta",
             new XElement(Ans + "cabecalhoConsulta",
@@ -162,6 +190,62 @@ public sealed class TissExportService
                     new XElement(Ans + "codigoTabela", "22"),
                     new XElement(Ans + "codigoProcedimento", prestador.CodigoTuss(primeiro.Tipo)))));
     }
+
+    /// <summary>
+    /// A guia de consulta na ORDEM e com as tags do XSD 4.01.00 (<c>ctm_consultaGuia</c>), a partir
+    /// da guia ANS conferida na baixa. Tag opcional sem valor é OMITIDA (vazia é inválida), o
+    /// contratado leva UMA identificação só, e validade da carteira, nome do beneficiário, nome
+    /// social e nome do contratado não saem: não existem na guia de consulta do padrão.
+    /// </summary>
+    private static XElement CriarGuiaConsultaConferida(CodigoFaturamento codigo, GuiaTissConsulta ans, int numeroGuia)
+        => CriarGuiaConsultaConferida(ans, codigo.NumeroGuiaReal ?? numeroGuia.ToString());
+
+    /// <summary>
+    /// A guia de consulta conferida na baixa, como elemento do padrão (<c>guiaConsulta</c>), com o
+    /// <c>numeroGuiaPrestador</c> que quem chama escolheu — é a porta do envio pelo web service
+    /// (<see cref="TissLoteGuiasWs"/>), onde o número tem de ser único por guia e não repetir
+    /// entre lotes (<see cref="NumeroGuiaPrestadorTiss"/>). O arquivo de lote (<see cref="GerarLoteXml"/>)
+    /// continua numerando como sempre numerou. Guia sem conferência é recusada: sem os dados
+    /// conferidos o XSD 4.01.00 a reprova, e a operadora também.
+    /// </summary>
+    public static XElement GuiaConsultaConferida(CodigoFaturamento codigo, string numeroGuiaPrestador)
+    {
+        if (codigo.GuiaAns is not { } ans)
+            throw new ArgumentException("Só a guia conferida na baixa (com a guia ANS gravada) sai pelo web service.");
+        if (string.IsNullOrWhiteSpace(numeroGuiaPrestador) || numeroGuiaPrestador.Length > NumeroGuiaPrestadorTiss.TamanhoMaximo)
+            throw new ArgumentException($"O número da guia no prestador é obrigatório e tem até {NumeroGuiaPrestadorTiss.TamanhoMaximo} caracteres.");
+        return CriarGuiaConsultaConferida(ans, numeroGuiaPrestador);
+    }
+
+    private static XElement CriarGuiaConsultaConferida(GuiaTissConsulta ans, string numeroGuiaPrestador)
+        => new(Ans + "guiaConsulta",
+            new XElement(Ans + "cabecalhoConsulta",
+                new XElement(Ans + "registroANS", ans.RegistroAns),
+                new XElement(Ans + "numeroGuiaPrestador", numeroGuiaPrestador)),
+            new XElement(Ans + "dadosBeneficiario",
+                new XElement(Ans + "numeroCarteira", ans.NumeroCarteira),
+                new XElement(Ans + "atendimentoRN", ans.AtendimentoRn ? "S" : "N")),
+            new XElement(Ans + "contratadoExecutante",
+                new XElement(Ans + "codigoPrestadorNaOperadora", ans.CodigoPrestadorNaOperadora),
+                new XElement(Ans + "CNES", ans.Cnes)),
+            new XElement(Ans + "profissionalExecutante",
+                ElementoOpcional("nomeProfissional", ans.NomeProfissional),
+                new XElement(Ans + "conselhoProfissional", ans.ConselhoProfissional),
+                new XElement(Ans + "numeroConselhoProfissional", ans.NumeroConselho),
+                new XElement(Ans + "UF", ans.UfConselho),
+                new XElement(Ans + "CBOS", ans.Cbos)),
+            new XElement(Ans + "indicacaoAcidente", ans.IndicacaoAcidente),
+            new XElement(Ans + "dadosAtendimento",
+                ElementoOpcional("coberturaEspecial", ans.CoberturaEspecial),
+                new XElement(Ans + "regimeAtendimento", ans.RegimeAtendimento),
+                ElementoOpcional("saudeOcupacional", ans.SaudeOcupacional),
+                new XElement(Ans + "dataAtendimento", ans.DataAtendimento.ToString("yyyy-MM-dd")),
+                new XElement(Ans + "tipoConsulta", ans.TipoConsulta),
+                new XElement(Ans + "procedimento",
+                    new XElement(Ans + "codigoTabela", ans.CodigoTabela),
+                    new XElement(Ans + "codigoProcedimento", ans.CodigoProcedimento),
+                    new XElement(Ans + "valorProcedimento", GuiaAnsNaBaixa.ValorNoXml(ans.ValorProcedimento)))),
+            ElementoOpcional("observacao", ans.Observacao));
 
     private static XElement CriarGuiaSpSadt(IReadOnlyList<CodigoFaturamento> grupo, DadosPrestador prestador, int numeroGuia)
     {

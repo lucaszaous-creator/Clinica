@@ -2,6 +2,7 @@ using System.Net;
 using Clinica.Application.Tablet;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
+using Clinica.Gestao.Web.Hospedagem;
 using Clinica.Infrastructure;
 using Clinica.Infrastructure.Tablet;
 using Microsoft.AspNetCore.DataProtection;
@@ -26,6 +27,7 @@ public sealed class PortaDaGestaoTests : IAsyncLifetime
     private SqliteConnection _conn = null!;
     private WebApplicationFactory<Program> _fabrica = null!;
     private IDataProtector _protetor = null!;
+    private bool _catalogosRegistrados;
 
     public async Task InitializeAsync()
     {
@@ -51,6 +53,13 @@ public sealed class PortaDaGestaoTests : IAsyncLifetime
                                                || d.ServiceType == typeof(ClinicaDbContext)).ToList())
                     s.Remove(d);
                 s.AddDbContext<ClinicaDbContext>(o => o.UseSqlite(_conn));
+                // A releitura periódica dos catálogos fica fora: ela usaria a MESMA conexão SQLite em
+                // outra thread, no meio dos testes. O registro é conferido; a carga, chamada à mão.
+                var catalogos = s.Where(d => d.ImplementationType == typeof(CatalogosDaGestao)).ToList();
+                _catalogosRegistrados = catalogos.Count == 1 && catalogos[0].ServiceType == typeof(Microsoft.Extensions.Hosting.IHostedService);
+                foreach (var d in catalogos) s.Remove(d);
+                // A escuta do banco tentaria conectar no Postgres que o teste não tem.
+                foreach (var d in s.Where(d => d.ImplementationType == typeof(EscutaDoBancoDaGestao)).ToList()) s.Remove(d);
             });
         });
         using var escopo = _fabrica.Services.CreateScope();
@@ -99,6 +108,71 @@ public sealed class PortaDaGestaoTests : IAsyncLifetime
     }
 
     private HttpClient Cliente() => _fabrica.CreateClient(new() { AllowAutoRedirect = false, BaseAddress = new Uri("https://localhost") });
+
+    /// <summary>
+    /// O defeito de nov/2026: o portal não carregava os catálogos em memória, e o Lançar/Marcar
+    /// respondia "Nenhuma modalidade ativa que este profissional atenda" ao escolher quem atende.
+    /// </summary>
+    [Fact]
+    public async Task O_portal_carrega_os_catalogos_que_as_telas_leem()
+    {
+        Assert.True(_catalogosRegistrados, "Program.cs deixou de registrar CatalogosDaGestao como serviço de fundo.");
+        using (var escopo = _fabrica.Services.CreateScope())
+        {
+            var db = escopo.ServiceProvider.GetRequiredService<ClinicaDbContext>();
+            db.Modalidades.Add(new ModalidadeCadastro { Codigo = "VarianteDoPortal", Nome = "Variante do portal", Base = ModalidadeAtendimento.BsvApenas, Ativo = true });
+            await db.SaveChangesAsync();
+        }
+        Clinica.Domain.Regras.CatalogoModalidades.Atualizar([]);
+        Clinica.Domain.Regras.CatalogoEspecialidades.Atualizar([]);
+
+        var catalogos = new CatalogosDaGestao(_fabrica.Services, Microsoft.Extensions.Logging.Abstractions.NullLogger<CatalogosDaGestao>.Instance);
+        Assert.True(await catalogos.RecarregarAsync());
+
+        var profissional = new Profissional { Nome = "Quem atende" };
+        var linhas = Clinica.Application.Modelos.AtendimentoDoBalcaoNaTela.Modalidades(
+            Clinica.Domain.Regras.CatalogoModalidades.Ativas, Clinica.Domain.Regras.CatalogoEspecialidades.Ativas, profissional);
+        Assert.Contains(linhas, m => m.Codigo == "VarianteDoPortal");
+        foreach (var embutida in Enum.GetValues<ModalidadeAtendimento>())
+            Assert.Contains(linhas, m => m.Codigo == embutida.ToString());
+    }
+
+    /// <summary>
+    /// Toda ponte que as telas pedem ao hospedeiro tem resposta no portal: ponte nova que o app
+    /// registra e o portal esquece volta ao "indisponível" da prévia — o defeito de nov/2026.
+    /// </summary>
+    [Fact]
+    public void O_portal_responde_a_todas_as_pontes_das_telas()
+    {
+        using var escopo = _fabrica.Services.CreateScope();
+        var sp = escopo.ServiceProvider;
+        Type[] pontes =
+        [
+            typeof(Clinica.Ui.Blazor.Hospedagem.IHostDaTela), typeof(Clinica.Ui.Blazor.Hospedagem.IPostoDoConsultorio),
+            typeof(Clinica.Ui.Blazor.Hospedagem.IJanelasDaAgenda), typeof(Clinica.Ui.Blazor.Hospedagem.IMarcacaoDeHorario),
+            typeof(Clinica.Ui.Blazor.Hospedagem.IJanelasDoAtendimento), typeof(Clinica.Ui.Blazor.Hospedagem.IAgendaDaVisaoGeral),
+            typeof(Clinica.Ui.Blazor.Hospedagem.IBalcaoDaRecepcao), typeof(Clinica.Ui.Blazor.Hospedagem.IJanelasDoAtendimentoClinico),
+            typeof(Clinica.Ui.Blazor.Hospedagem.IJanelasDosExames), typeof(Clinica.Ui.Blazor.Hospedagem.IJanelasDosProntuarios),
+            typeof(Clinica.Ui.Blazor.Hospedagem.IDocumentosDaRecepcao), typeof(Clinica.Ui.Blazor.Hospedagem.IAvisosDoBanco),
+            typeof(Clinica.Ui.Blazor.Hospedagem.IAssinaturaNaTela),
+        ];
+        foreach (var ponte in pontes)
+        {
+            var servico = sp.GetService(ponte);
+            Assert.True(servico is not null, $"O portal não registra {ponte.Name}.");
+            Assert.True(servico!.GetType().Assembly == typeof(CatalogosDaGestao).Assembly,
+                $"{ponte.Name} está respondendo com {servico.GetType().Name}, que não é do portal.");
+        }
+    }
+
+    /// <summary>Banco fora do ar não derruba o portal: a carga responde falso e tenta de novo depois.</summary>
+    [Fact]
+    public async Task Catalogo_que_nao_pode_ser_lido_nao_derruba_o_portal()
+    {
+        var sc = new ServiceCollection();
+        var catalogos = new CatalogosDaGestao(sc.BuildServiceProvider(), Microsoft.Extensions.Logging.Abstractions.NullLogger<CatalogosDaGestao>.Instance);
+        Assert.False(await catalogos.RecarregarAsync());
+    }
 
     [Fact]
     public async Task Sem_sessao_volta_ao_login_do_portal()
@@ -157,8 +231,22 @@ public sealed class PortaDaGestaoTests : IAsyncLifetime
         var s = await Sessao(PerfilAcesso.Gerente);
         var alheio = await Cliente().SendAsync(Pedido("/gestao/_blazor/negotiate?negotiateVersion=1", s, origem: "https://atacante.invalid", accept: "*/*"));
         Assert.Equal(HttpStatusCode.Forbidden, alheio.StatusCode);
-        var semOrigem = await Cliente().SendAsync(Pedido("/gestao/_blazor/negotiate?negotiateVersion=1", s, origem: null, accept: "*/*"));
-        Assert.Equal(HttpStatusCode.Forbidden, semOrigem.StatusCode);
+        // O negotiate de verdade é POST: sem Origin, recusado.
+        var post = Pedido("/gestao/_blazor/negotiate?negotiateVersion=1", s, origem: null, accept: "*/*");
+        post.Method = HttpMethod.Post;
+        post.Content = new StringContent("");
+        Assert.Equal(HttpStatusCode.Forbidden, (await Cliente().SendAsync(post)).StatusCode);
+    }
+
+    [Fact]
+    public async Task GET_da_mesma_origem_sem_Origin_passa_no_arranque()
+    {
+        // O navegador NÃO manda Origin num GET da mesma origem: o /_blazor/initializers do arranque vinha 403 e a
+        // gestão ficava em tela branca em produção (nov/2026).
+        var s = await Sessao(PerfilAcesso.Gerente);
+        var r = await Cliente().SendAsync(Pedido("/gestao/_blazor/initializers", s, origem: null, accept: "*/*"));
+        Assert.NotEqual(HttpStatusCode.Forbidden, r.StatusCode);
+        Assert.NotEqual(HttpStatusCode.Unauthorized, r.StatusCode);
     }
 
     [Fact]
@@ -168,4 +256,23 @@ public sealed class PortaDaGestaoTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.NotFound, (await Cliente().SendAsync(Pedido("/profissional/", s))).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await Cliente().SendAsync(Pedido("/", s))).StatusCode);
     }
+
+    [Fact]
+    public async Task Com_a_chave_ligada_a_gestao_so_abre_para_quem_ativou_o_segundo_fator()
+    {
+        var s = await Sessao(PerfilAcesso.Gerente);
+        using var escopo = _fabrica.Services.CreateScope();
+        var db = escopo.ServiceProvider.GetRequiredService<ClinicaDbContext>();
+        var id = ContratoTablet.Hash(s.Token);
+        var exige = new SessaoDoPortalNaGestao(db, TimeProvider.System, new OpcoesDaGestaoWeb(ExigirSegundoFator: true));
+        var padrao = new SessaoDoPortalNaGestao(db, TimeProvider.System, new OpcoesDaGestaoWeb(ExigirSegundoFator: false));
+
+        Assert.NotNull(await padrao.ReconferirAsync(id, default));   // desligada: entra só com a senha
+        Assert.Null(await exige.ReconferirAsync(id, default));       // ligada: sem autenticador, não entra
+        var usuarioId = db.SessoesTablet.Single(x => x.Id == id).UsuarioId;
+        db.SegundosFatoresPortal.Add(new SegundoFatorPortal { UsuarioId = usuarioId, SegredoProtegido = "x", AtivadoEm = 1 });
+        await db.SaveChangesAsync();
+        Assert.NotNull(await exige.ReconferirAsync(id, default));    // ativou: entra
+    }
 }
+

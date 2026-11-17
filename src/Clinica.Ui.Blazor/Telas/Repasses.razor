@@ -19,6 +19,8 @@
                      Subtitulo="Apuração por profissional, com base na receita recebida e na regra de repasse.">
         <SeletorMes Valor="Mes" ValorChanged="TrocarMesAsync" />
         <button type="button" class="botao" @onclick="ExportarAsync" disabled="@(_calculados.Count == 0)"><Icone Nome="baixar" />Exportar CSV</button>
+        <button type="button" class="botao" @onclick="AbrirRelatorio" disabled="@(!Pode(Permissao.VerFinanceiro))"
+                title="@(Pode(Permissao.VerFinanceiro) ? "Cada atendimento realizado, por profissional, com o valor de tabela e o recebido — para a folha e o repasse" : "Seu acesso não permite emitir relatórios do financeiro.")"><Icone Nome="imprimir" />Atendimentos por profissional</button>
         <button type="button" class="botao" @onclick="() => _regrasAbertas = true"><Icone Nome="lista" />Regras e apurações</button>
         <button type="button" class="botao primario" @onclick="NovaRegra" disabled="@(!PodeEditar)"
                 title="@(PodeEditar ? null : "Seu acesso não permite mexer nos repasses.")"><Icone Nome="mais" />Nova regra</button>
@@ -116,6 +118,10 @@
                        AoFechar="() => _regrasAbertas = false" AoNovaRegra="NovaRegra"
                        AoExcluirRegra="ExcluirRegraAsync" AoCancelarApuracao="CancelarApuracaoAsync" />
 }
+@if (_relatorioAberto)
+{
+    <AtendimentosPorProfissionalForm Inicio="Inicio" Fim="Fim" AoFechar="() => _relatorioAberto = false" />
+}
 @if (_novaRegra)
 {
     <RegraRepasseForm AoFechar="() => _novaRegra = false" AoConcluir="RegraSalvaAsync" />
@@ -138,6 +144,12 @@
 
     private bool _regrasAbertas;
     private bool _novaRegra;
+    private bool _relatorioAberto;
+
+    private void AbrirRelatorio()
+    {
+        if (Exigir(Permissao.VerFinanceiro, "emitir o relatório de atendimentos por profissional")) _relatorioAberto = true;
+    }
 
     private static bool PodeEditar => Pode(Permissao.EditarFinanceiro);
 

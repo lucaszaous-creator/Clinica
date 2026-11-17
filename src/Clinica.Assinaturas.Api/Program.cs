@@ -269,7 +269,8 @@ app.MapGet("/api/sessao",async(HttpContext ctx,IAntiforgery csrf,PortalTabletSer
             expiraEm=s.ExpiraEm,contexto=ContratoTablet.Hash("contexto-portal:"+s.Id),
             atendimento=atendimentoHabilitado && s.Modo=="equipe" && PoliticaAtendimentoTablet.PodeUsarPosto(s.Usuario!),
             coleta=s.Modo=="equipe" && PortalTabletService.PodeColher(s.Usuario!),
-            destinos=s.Modo=="equipe" ? svc.Destinos(s.Usuario!) : []});
+            destinos=s.Modo=="equipe" ? svc.Destinos(s.Usuario!) : [],
+            segundoFatorAtivo=s.Modo=="equipe" && await ctx.RequestServices.GetRequiredService<SegundoFatorPortalService>().TemAutenticadorAsync(s.UsuarioId,ctx.RequestAborted)});
     }
     catch(UnauthorizedAccessException) {return Results.Ok(new {csrf=token,modo="entrada",demo,homologacao});}
 });
@@ -278,12 +279,12 @@ app.MapGet("/api/sessao",async(HttpContext ctx,IAntiforgery csrf,PortalTabletSer
 // a versão da credencial, o aparelho e — no primeiro acesso — o segredo novo ainda não
 // confirmado. Nada disso vai ao banco antes de o código provar que o celular está certo.
 string Origem(HttpContext ctx)=>OrigemRateLimitTablet.Obter(ctx,socketPrivado) ?? "origem-ausente";
-async Task<IResult> AbrirSessao(HttpContext ctx,UsuarioSistema u,string dispositivo,PortalTabletService svc)
+async Task<IResult> AbrirSessao(HttpContext ctx,UsuarioSistema u,string dispositivo,PortalTabletService svc,bool convidar=false)
 {
     var entrada=await svc.EntrarAsync(u,dispositivo,ctx.Request.Cookies[cookieSessao],ctx.RequestAborted);
     ctx.Response.Cookies.Append(cookieSessao,entrada.Token,Cookie(2));
     ctx.Response.Cookies.Delete(cookieEntrada,Cookie(0));
-    return Results.Ok(new {modo="equipe",destinos=svc.Destinos(u)});
+    return Results.Ok(new {modo="equipe",destinos=svc.Destinos(u),convidarSegundoFator=convidar});
 }
 async Task<(UsuarioSistema U,EntradaDoPortal.Pendente P)?> Pendente(HttpContext ctx,ClinicaDbContext db,PortalTabletService svc)
 {
@@ -312,48 +313,71 @@ app.MapPost("/api/entrar",async(HttpContext ctx,Entrada pedido,AcessoService ace
     if(await fator.TemAutenticadorAsync(u.Id,ctx.RequestAborted))
     {
         if(await fator.ConfiavelAsync(u,dispositivo,ctx.RequestAborted)) return await AbrirSessao(ctx,u,dispositivo,svc);
-        ctx.Response.Cookies.Append(cookieEntrada,EntradaDoPortal.Proteger(protetorEntrada,new(u.Id,ContratoTablet.Hash(u.SenhaHash),dispositivo,null,"codigo")),Cookie(1));
+        ctx.Response.Cookies.Append(cookieEntrada,EntradaDoPortal.Proteger(protetorEntrada,new(u.Id,ContratoTablet.Hash(u.SenhaHash),dispositivo)),Cookie(1));
         return Results.Ok(new {etapa="codigo"});
     }
-    // Primeiro acesso: a senha NÃO basta para cadastrar o autenticador (quem a soubesse cadastraria o
-    // próprio celular e trancaria o dono fora). Falta o código de liberação que a direção entregou.
-    ctx.Response.Cookies.Append(cookieEntrada,EntradaDoPortal.Proteger(protetorEntrada,new(u.Id,ContratoTablet.Hash(u.SenhaHash),dispositivo,null,"liberacao")),Cookie(1));
-    return Results.Ok(new {etapa="liberacao"});
-});
-app.MapPost("/api/entrar/liberacao",async(HttpContext ctx,CodigoEntrada pedido,ClinicaDbContext db,PortalTabletService svc,SegundoFatorPortalService fator)=>
-{
-    if(await Pendente(ctx,db,svc) is not var (u,p) || p.Etapa!="liberacao") return EntradaVencida();
-    if(!await fator.Para(u).ConferirLiberacaoAsync(u.Id,pedido.Codigo,ctx.RequestAborted))
-        return Results.Json(new {erro="Código de liberação não confere ou venceu. Peça um novo à direção da clínica."},statusCode:401);
-    var segredo=Totp.NovoSegredo();
-    ctx.Response.Cookies.Append(cookieEntrada,EntradaDoPortal.Proteger(protetorEntrada,new(u.Id,p.Credencial,p.Dispositivo,Convert.ToBase64String(segredo),"cadastro")),Cookie(1));
-    var conta=u.Login;
-    return Results.Ok(new {etapa="cadastro",conta=$"Clínica SemDor ({conta})",chave=Totp.ChaveLegivel(segredo),
-        qrSvg=EntradaDoPortal.QrSvg(Totp.Endereco("Clínica SemDor",conta,segredo))});
+    // Sem autenticador: entra só com a senha (decisão da direção, nov/2026 — a equipe sem
+    // familiaridade técnica não fica presa na porta) e o portal CONVIDA a ativar, a cada login, até
+    // a pessoa ativar. Quem já ativou passa pelo código acima.
+    return await AbrirSessao(ctx,u,dispositivo,svc,convidar:true);
 });
 app.MapPost("/api/entrar/codigo",async(HttpContext ctx,CodigoEntrada pedido,ClinicaDbContext db,PortalTabletService svc,SegundoFatorPortalService fator)=>
 {
-    if(await Pendente(ctx,db,svc) is not var (u,p) || p.Etapa!="codigo") return EntradaVencida();
+    if(await Pendente(ctx,db,svc) is not var (u,p)) return EntradaVencida();
     if(!await fator.Para(u).VerificarAsync(u.Id,pedido.Codigo,ctx.RequestAborted))
         return Results.Json(new {erro="Código não confere. Confira a hora do celular e digite o código que está na tela agora."},statusCode:401);
     if(pedido.Confiar) await fator.ConfiarAsync(u,p.Dispositivo,Origem(ctx),ctx.RequestAborted);
     return await AbrirSessao(ctx,u,p.Dispositivo,svc);
 });
-app.MapPost("/api/entrar/cadastro",async(HttpContext ctx,CodigoEntrada pedido,ClinicaDbContext db,PortalTabletService svc,SegundoFatorPortalService fator)=>
+// ── ATIVAR o segundo fator, já dentro do portal (nov/2026). ────────────────────────────────────
+// O convite aparece a cada login até a pessoa ativar. O segredo do QR fica na MEMÓRIA deste processo,
+// preso a ESTA sessão e a este usuário, por 10 min; só vai ao banco quando o código prova o celular.
+// Era um cookie cifrado: dois /iniciar quase juntos (o convite e a tela disputando) geravam duas chaves,
+// a tela mostrava uma e o cookie guardava a outra — e o código certo do aplicativo era recusado
+// (produção, nov/2026: o código enviado batia com a chave da tela). Aqui o segundo /iniciar da mesma
+// sessão devolve a MESMA chave, sob trava. Reiniciar o portal perde a ativação em curso: "comece de novo".
+var ativacoes=new Dictionary<string,(int Usuario,byte[] Segredo,DateTimeOffset Expira)>(StringComparer.Ordinal);
+var travaAtivacoes=new object();
+var cookieAtivacaoAntigo=demo ? "clinica.ativacao" : "__Host-clinica.ativacao";
+app.MapPost("/api/conta/segundo-fator/iniciar",async(HttpContext ctx,PortalTabletService svc,SegundoFatorPortalService fator)=>
 {
-    if(await Pendente(ctx,db,svc) is not var (u,p) || p.Etapa!="cadastro" || p.SegredoNovo is null) return EntradaVencida();
-    var codigos=await fator.Para(u).CadastrarAsync(u.Id,Convert.FromBase64String(p.SegredoNovo),pedido.Codigo,ctx.RequestAborted);
+    var s=await Sessao(ctx,svc,false);
+    if(s.Modo!="equipe") throw new UnauthorizedAccessException();
+    var u=s.Usuario!;
+    if(await fator.TemAutenticadorAsync(u.Id,ctx.RequestAborted))
+        return Results.Json(new {erro="A verificação em duas etapas já está ativa nesta conta."},statusCode:409);
+    byte[] segredo;
+    var agora=DateTimeOffset.UtcNow;
+    lock(travaAtivacoes)
+    {
+        foreach(var vencida in ativacoes.Where(x=>x.Value.Expira<=agora).Select(x=>x.Key).ToList()) ativacoes.Remove(vencida);
+        if(ativacoes.TryGetValue(s.Id,out var a) && a.Usuario==u.Id) segredo=a.Segredo;
+        else { segredo=Totp.NovoSegredo(); ativacoes[s.Id]=(u.Id,segredo,agora.AddMinutes(10)); }
+    }
+    ctx.Response.Cookies.Delete(cookieAtivacaoAntigo,Cookie(0)); // o cookie da versão anterior, se ficou
+    return Results.Ok(new {conta=$"Clínica SemDor ({u.Login})",chave=Totp.ChaveLegivel(segredo),
+        qrSvg=EntradaDoPortal.QrSvg(Totp.Endereco("Clínica SemDor",u.Login,segredo))});
+});
+app.MapPost("/api/conta/segundo-fator/ativar",async(HttpContext ctx,CodigoEntrada pedido,PortalTabletService svc,SegundoFatorPortalService fator)=>
+{
+    var s=await Sessao(ctx,svc,false);
+    if(s.Modo!="equipe") throw new UnauthorizedAccessException();
+    var u=s.Usuario!;
+    byte[]? segredo=null;
+    lock(travaAtivacoes)
+        if(ativacoes.TryGetValue(s.Id,out var a) && a.Usuario==u.Id && a.Expira>DateTimeOffset.UtcNow) segredo=a.Segredo;
+    if(segredo is null)
+        return Results.Json(new {erro="A ativação demorou demais. Comece de novo."},statusCode:410);
+    var codigos=await fator.Para(u).CadastrarAsync(u.Id,segredo,pedido.Codigo,ctx.RequestAborted);
     if(codigos is null)
         return Results.Json(new {erro="Código não confere. Confira se leu o QR desta tela e digite o código que aparece no aplicativo."},statusCode:401);
-    if(pedido.Confiar) await fator.ConfiarAsync(u,p.Dispositivo,Origem(ctx),ctx.RequestAborted);
-    var entrada=await svc.EntrarAsync(u,p.Dispositivo,ctx.Request.Cookies[cookieSessao],ctx.RequestAborted);
-    ctx.Response.Cookies.Append(cookieSessao,entrada.Token,Cookie(2));
-    ctx.Response.Cookies.Delete(cookieEntrada,Cookie(0));
-    return Results.Ok(new {modo="equipe",destinos=svc.Destinos(u),recuperacao=codigos});
+    lock(travaAtivacoes) ativacoes.Remove(s.Id);
+    if(pedido.Confiar) await fator.ConfiarAsync(u,s.Dispositivo,Origem(ctx),ctx.RequestAborted);
+    return Results.Ok(new {recuperacao=codigos});
 });
 app.MapPost("/api/entrar/recuperacao",async(HttpContext ctx,CodigoEntrada pedido,ClinicaDbContext db,PortalTabletService svc,SegundoFatorPortalService fator)=>
 {
-    if(await Pendente(ctx,db,svc) is not var (u,p) || p.Etapa!="codigo") return EntradaVencida();
+    if(await Pendente(ctx,db,svc) is not var (u,p)) return EntradaVencida();
     if(!await fator.Para(u).UsarRecuperacaoAsync(u.Id,pedido.Codigo,ctx.RequestAborted))
         return Results.Json(new {erro="Código de recuperação não confere ou já foi usado."},statusCode:401);
     if(pedido.Confiar) await fator.ConfiarAsync(u,p.Dispositivo,Origem(ctx),ctx.RequestAborted);

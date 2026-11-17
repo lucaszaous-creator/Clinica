@@ -44,6 +44,9 @@ public sealed record SessaoDoDia(
     /// </summary>
     public ModalidadeAtendimento ModalidadeFamilia { get; init; }
 
+    /// <summary>A guia interna do atendimento de infertilidade (nov/2026); nulo quando não é.</summary>
+    public string? InfertilidadeGuiaDe { get; init; }
+
     /// <summary>A consulta leva a COLETA DE PREVENTIVO (out/2026) — o selo que o médico vê na lista do dia.</summary>
     public bool ColetaPreventivo { get; init; }
 

@@ -143,6 +143,9 @@
 .rg-selos{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
 .rg-selo{padding:0 6px;border-radius:var(--radius-pequeno);border:1px solid var(--marca-medio);background:var(--acento-suave);
   color:var(--acento);white-space:nowrap}
+.rg-selo.aviso{border-color:var(--aviso);background:var(--aviso-suave);color:var(--aviso-texto)}
+.rg-consulta{font-style:normal;font-weight:700;color:var(--aviso-texto);margin-right:3px}
+.rg-consulta.perigo{color:var(--erro-texto)}
 .rg-selo.perigo{border-color:var(--erro);background:var(--erro-suave);color:var(--erro-texto)}
 .rg-selo.neutro{border-color:var(--borda);background:var(--superficie-hover);color:var(--texto-secundario)}
 .rg-mais{flex:none;align-self:flex-start}
@@ -157,3 +160,20 @@
 .rg-vagas-lista{display:flex;flex-direction:column;gap:var(--space-2);margin:var(--space-2) 0}
 .rg-vaga{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;height:auto;padding:var(--space-2) var(--space-3);text-align:left}
 .rg-estado-vagas{font-size:var(--text-small-size)}
+
+/* Consultar elegibilidade a partir da agenda (nov/2026): a lista do dia e a consulta escolhida. */
+.ea-lista{list-style:none;margin:var(--space-3) 0;padding:0;display:flex;flex-direction:column;gap:var(--space-1);
+  max-height:calc(var(--space-16) * 4);overflow-y:auto}
+.ea-linha{display:flex;align-items:center;gap:var(--space-3);width:100%;text-align:left;cursor:pointer;
+  padding:var(--space-2) var(--space-3);border:1px solid var(--borda);border-radius:var(--radius-pequeno);
+  background:var(--superficie);color:var(--texto-primario)}
+.ea-linha:hover:not(:disabled){background:var(--superficie-hover)}
+.ea-linha:focus-visible{outline:2px solid var(--acento);outline-offset:2px}
+.ea-linha.escolhida{border-color:var(--acento);background:var(--acento-suave)}
+.ea-linha:disabled{cursor:default;color:var(--texto-secundario)}
+.ea-hora{font-variant-numeric:tabular-nums;color:var(--texto-secundario);min-width:calc(var(--space-6) + var(--space-2))}
+.ea-quem{display:flex;flex-direction:column;flex:1;min-width:0}
+.ea-quem .principal{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ea-consulta{display:flex;flex-direction:column;gap:var(--space-2);margin-top:var(--space-3);padding-top:var(--space-3);border-top:1px solid var(--borda)}
+.ea-outros{margin-top:var(--space-2)}
+.ea-outros summary{cursor:pointer;color:var(--texto-secundario);font-size:var(--text-small-size);padding:var(--space-1) 0}

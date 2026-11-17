@@ -39,6 +39,25 @@ public sealed class ConfiguracaoRegraGenerica
     /// <summary>Dias de validade da consulta (renovação). Null = sem consulta renovável.</summary>
     public int? ValidadeConsultaDias { get; set; }
 
+    /// <summary>
+    /// Na acupuntura+eletro, a eletroacupuntura sai no MESMO dia, como 1º código ao lado da
+    /// acupuntura — e não como 2º código dias depois (Sul América, nov/2026). Não depende do
+    /// app nem de <see cref="TemSegundoCodigo"/>: não é um 2º código.
+    /// </summary>
+    public bool EletroNoMesmoDia { get; set; }
+
+    /// <summary>
+    /// Dias mínimos entre duas acupunturas autorizadas para o mesmo paciente (0 = sem limite).
+    /// A guia que cairia antes disso nasce com a data em que o convênio a libera.
+    /// </summary>
+    public int IntervaloAcupunturaDias { get; set; }
+
+    /// <summary>Dias mínimos entre duas eletroacupunturas autorizadas (0 = sem limite). Mesma mecânica.</summary>
+    public int IntervaloEletroDias { get; set; }
+
+    /// <summary>O maior dos intervalos: até onde, para trás, o histórico do paciente precisa ser lido.</summary>
+    public int MaiorIntervaloDias => Math.Max(Math.Max(IntervaloAcupunturaDias, IntervaloEletroDias), 0);
+
     /// <summary>Categoria-base do paciente quando POSSUI app.</summary>
     public Categoria CategoriaComApp { get; set; } = Categoria.Verde;
 

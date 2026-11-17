@@ -1,4 +1,5 @@
 using Clinica.Domain.Entities;
+using Clinica.Domain.Regras;
 
 namespace Clinica.Application.Modelos;
 
@@ -175,6 +176,18 @@ public static class TelaDoPacienteNaTela
             ? $"Chamado da agenda de {data:dd/MM/yyyy} — a evolução nasce ligada a esse horário."
             : "Chamado da agenda de hoje — a evolução nasce ligada a este horário.";
     }
+
+    /// <summary>
+    /// O aviso de que ESTE atendimento é particular embora o crachá mostre o plano (nov/2026 —
+    /// o vídeo das médicas: o dedo no "Unimed" do cabeçalho de uma consulta que foi particular).
+    /// O crachá é da PESSOA e continua dizendo o convênio dela; este selo é do HORÁRIO aberto.
+    /// Nulo quando não há horário, quando ele vai pelo convênio, ou quando a ficha já é
+    /// particular (aí o próprio crachá já diz).
+    /// </summary>
+    public static string? SeloDeSessaoParticular(Agendamento? horario)
+        => horario is not null && SessaoParticular.ApesarDoConvenio(horario.Paciente, horario.Particular)
+            ? "Este atendimento é PARTICULAR — sem guia do convênio"
+            : null;
 
     /// <summary>
     /// Para onde o "voltar" leva: o Meu dia quando o paciente veio de um horário e a pessoa

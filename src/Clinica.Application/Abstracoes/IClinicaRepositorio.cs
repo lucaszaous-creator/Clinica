@@ -30,6 +30,13 @@ public interface IClinicaRepositorio
     /// <summary>Códigos do paciente lançados no mês informado (usado pela rotação de especialidades da Petrobras).</summary>
     Task<IReadOnlyList<CodigoFaturamento>> CodigosDoPacienteNoMesAsync(int pacienteId, int ano, int mes, CancellationToken ct = default);
 
+    /// <summary>
+    /// Códigos do paciente com data prevista a partir de <paramref name="desde"/>, inclusive os
+    /// de datas futuras (guias já adiadas). Alimenta o intervalo mínimo entre procedimentos do
+    /// convênio personalizado (Sul América: acupuntura 1 dia, eletro 7 dias), que cruza o mês.
+    /// </summary>
+    Task<IReadOnlyList<CodigoFaturamento>> CodigosDoPacienteDesdeAsync(int pacienteId, DateOnly desde, CancellationToken ct = default);
+
     /// <summary>Todos os códigos ainda em aberto (não baixados, não "não aplicável" e não "não conformidade"), com paciente carregado.</summary>
     Task<IReadOnlyList<CodigoFaturamento>> CodigosEmAbertoAsync(CancellationToken ct = default, int? pacienteId = null);
 
@@ -50,6 +57,13 @@ public interface IClinicaRepositorio
         IReadOnlyCollection<int> pacienteIds, CancellationToken ct = default);
 
     Task<CodigoFaturamento?> ObterCodigoAsync(int codigoId, CancellationToken ct = default);
+
+    /// <summary>
+    /// A guia de consulta ANS mais recente conferida para este profissional executante (pelo nome
+    /// gravado na guia) — de onde a baixa seguinte propõe conselho, número, UF e CBO, enquanto o
+    /// cadastro da equipe não tem esses campos separados. Sem rastreio: é só leitura.
+    /// </summary>
+    Task<GuiaTissConsulta?> UltimaGuiaAnsDoProfissionalAsync(string nomeProfissional, CancellationToken ct = default);
 
     Task AdicionarAtendimentoAsync(Atendimento atendimento, CancellationToken ct = default);
 
@@ -158,6 +172,25 @@ public interface IClinicaRepositorio
     /// </summary>
     Task<IReadOnlyList<Agendamento>> AgendamentosDoPacienteNoPeriodoAsync(
         int pacienteId, DateOnly de, DateOnly ate, CancellationToken ct = default);
+
+    /// <summary>
+    /// As CONSULTAS do paciente pelo convênio (marcadas ou atendidas, nunca as particulares, as
+    /// canceladas nem as faltas) num intervalo — o que a trava de consulta confere (nov/2026).
+    /// Projeção curta: o dia e o número do atendimento, sem ficha nem guias.
+    /// </summary>
+    Task<IReadOnlyList<Clinica.Domain.Regras.ConsultaParaTrava>> ConsultasPeloConvenioDoPacienteAsync(
+        int pacienteId, DateTime de, DateTime ate, CancellationToken ct = default);
+
+    /// <summary>
+    /// As consultas pelo convênio (marcadas ou atendidas, nunca as particulares) do paciente
+    /// na janela, com a ESPECIALIDADE de cada uma — o intervalo por especialidade da
+    /// cobertura do convênio (nov/2026).
+    /// </summary>
+    Task<IReadOnlyList<Clinica.Domain.Regras.ConsultaDaCobertura>> ConsultasPeloConvenioComEspecialidadeAsync(
+        int pacienteId, DateTime de, DateTime ate, CancellationToken ct = default);
+
+    /// <summary>Há liberação da gerência, já aprovada, para uma consulta deste paciente neste dia?</summary>
+    Task<bool> ExisteLiberacaoDeTravaAsync(int pacienteId, DateOnly dia, CancellationToken ct = default);
 
     /// <summary>Paciente com todo o histórico (atendimentos e seus códigos) carregado.</summary>
     Task<Paciente?> ObterPacienteComHistoricoAsync(int pacienteId, CancellationToken ct = default);
@@ -313,6 +346,20 @@ public interface IClinicaRepositorio
 
     /// <summary>Há algum paciente cadastrado com este código de convênio?</summary>
     Task<bool> ConvenioEmUsoAsync(string codigo, CancellationToken ct = default);
+
+    /// <summary>
+    /// JUNTAR CONVÊNIOS (nov/2026): o que aponta para o código e se MOVE numa junção —
+    /// pacientes, preços e autorizações ainda utilizáveis (não encerradas e com validade a
+    /// partir de <paramref name="hoje"/>). RASTREADOS: o serviço muda o código e grava no
+    /// mesmo SaveChanges da auditoria. Financeiro, repasse, tributo e lote TISS NÃO entram:
+    /// são fatos já lançados.
+    /// </summary>
+    Task<IReadOnlyList<Paciente>> PacientesDoConvenioAsync(string codigo, CancellationToken ct = default);
+    Task<IReadOnlyList<PrecoConvenio>> PrecosDoConvenioAsync(string codigo, CancellationToken ct = default);
+    Task<IReadOnlyList<AutorizacaoSessoes>> AutorizacoesUtilizaveisDoConvenioAsync(string codigo, DateOnly hoje, CancellationToken ct = default);
+
+    /// <summary>Quantos pacientes, preços e autorizações utilizáveis apontam para o código (só contagem).</summary>
+    Task<(int Pacientes, int Precos, int Autorizacoes)> ContarUsoDoConvenioAsync(string codigo, DateOnly hoje, CancellationToken ct = default);
 
     /// <summary>Catálogo de modalidades (todas, ativas e inativas).</summary>
     Task<IReadOnlyList<ModalidadeCadastro>> ModalidadesAsync(CancellationToken ct = default);
@@ -1401,6 +1448,13 @@ public interface IClinicaRepositorio
         int? codigoFaturamentoId, int? atendimentoId, CancellationToken ct = default);
 
     /// <summary>Entradas realizadas ligadas a uma lista de atendimentos (base do repasse).</summary>
+    /// <summary>
+    /// As entradas VIVAS (não canceladas) pagas AO MARCAR este horário (nov/2026). RASTREADAS:
+    /// quem chama amarra o atendimento recém-nascido no mesmo commit.
+    /// </summary>
+    Task<IReadOnlyList<LancamentoFinanceiro>> EntradasDoHorarioAsync(
+        int agendamentoId, CancellationToken ct = default);
+
     Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosDosAtendimentosAsync(
         IReadOnlyCollection<int> atendimentoIds, CancellationToken ct = default);
 
@@ -1477,6 +1531,22 @@ public interface IClinicaRepositorio
     /// pela agenda tinha de graça: o estorno SOLTA o horário, então o atendimento
     /// anulado sumia da lista sozinho. Sem este filtro ele voltaria a aparecer.
     /// </summary>
+    /// <summary>
+    /// Atendimentos cujo NÚMERO, ou o número de uma GUIA deles, contém o termo — em qualquer
+    /// data, estornados inclusive (nov/2026: quem tem o número na mão não sabe o dia). Do mais
+    /// recente para o mais antigo, até <paramref name="teto"/>.
+    /// </summary>
+    Task<IReadOnlyList<Atendimento>> AtendimentosPorNumeroAsync(
+        string termo, int teto, CancellationToken ct = default);
+
+    /// <summary>
+    /// Tudo o que há sobre UM atendimento, para a ficha dele: o horário com quem atendeu, o
+    /// dinheiro (ligado à sessão OU a uma guia dela, cancelado inclusive), o pacote debitado,
+    /// o insumo e SE há evolução (nunca o conteúdo). Leitura pura, sem rastreio.
+    /// </summary>
+    Task<Clinica.Application.Formatacao.DadosDoDetalheDoAtendimento?> DadosDoDetalheDoAtendimentoAsync(
+        int atendimentoId, CancellationToken ct = default);
+
     Task<IReadOnlyList<Atendimento>> AtendimentosNoPeriodoAsync(
         DateOnly inicio, DateOnly fim, CancellationToken ct = default);
 
@@ -1856,6 +1926,113 @@ public interface IClinicaRepositorio
     /// </summary>
     Task<EnvioPacienteCrm?> EnvioPacienteCrmEmAbertoAsync(
         int documentoClinicoId, string canal, DateTime agora, CancellationToken ct = default);
+
+    // ---- Fila do web service TISS (nov/2026 — quem executa é o conector no servidor) ----
+
+    /// <summary>
+    /// Esquece o que este escopo tem rastreado e ainda não gravou. Para quem processa VÁRIOS itens
+    /// no mesmo escopo e não pode deixar a tentativa que falhou num item ir junto na gravação do
+    /// seguinte (a baixa das guias enviadas). Não desfaz nada que já foi salvo.
+    /// </summary>
+    void DescartarAlteracoesPendentes();
+
+    /// <summary>Acrescenta a transação (grava no próximo <see cref="SalvarAsync"/>, junto da trilha).</summary>
+    Task AdicionarTransacaoTissAsync(TransacaoTiss transacao, CancellationToken ct = default);
+
+    /// <summary>A transação INTEIRA, com os XML e as guias do lote, RASTREADA — para carimbar o envio e gravar o resultado.</summary>
+    Task<TransacaoTiss?> ObterTransacaoTissAsync(int id, CancellationToken ct = default);
+
+    /// <summary>
+    /// As transações que um conector pode reservar em <paramref name="agora"/>: as pendentes cuja
+    /// espera já passou e as reservadas antes de <paramref name="reservaVencidaAntes"/> (o conector
+    /// que as pegou morreu no meio). Da mais antiga para a mais nova, até <paramref name="limite"/>.
+    /// ⚠️ SEM os XML (projeção): a pergunta se repete a cada poucos segundos.
+    /// </summary>
+    Task<IReadOnlyList<TransacaoTiss>> TransacoesTissReservaveisAsync(
+        DateTime agora, DateTime reservaVencidaAntes, int limite, CancellationToken ct = default);
+
+    /// <summary>
+    /// Reserva a transação para <paramref name="consumidor"/> SE ela ainda estiver na versão
+    /// <paramref name="versaoVista"/> — um único UPDATE condicional, direto no banco. Devolve falso
+    /// quando outro conector chegou antes: é isto que impede dois processos de pegar a mesma linha.
+    /// Não usa o rastreamento: quem reservou relê com <see cref="ObterTransacaoTissAsync"/>.
+    /// </summary>
+    Task<bool> ReservarTransacaoTissAsync(
+        int id, int versaoVista, string consumidor, DateTime agora, CancellationToken ct = default);
+
+    /// <summary>
+    /// Relê do banco uma transação já rastreada neste escopo. Necessário depois de
+    /// <see cref="ReservarTransacaoTissAsync"/>, que grava sem passar pelo rastreamento.
+    /// </summary>
+    Task RecarregarTransacaoTissAsync(TransacaoTiss transacao, CancellationToken ct = default);
+
+    /// <summary>
+    /// As guias pedidas para um envio, com o paciente (para o convênio) e a guia ANS conferida,
+    /// SEM rastreamento: é só para conferir se cada uma pode entrar no lote.
+    /// </summary>
+    Task<IReadOnlyList<CodigoFaturamento>> CodigosParaEnvioTissAsync(IReadOnlyCollection<int> codigoIds, CancellationToken ct = default);
+
+    /// <summary>
+    /// As mesmas guias, só com a guia ANS conferida — SEM o atendimento e SEM o paciente. É o que o
+    /// conector lê para montar o lote: tudo o que vai à operadora já está na guia conferida, e o
+    /// serviço do servidor não precisa (nem tem permissão para) ler a ficha de ninguém.
+    /// </summary>
+    Task<IReadOnlyList<CodigoFaturamento>> GuiasConferidasParaEnvioTissAsync(IReadOnlyCollection<int> codigoIds, CancellationToken ct = default);
+
+    /// <summary>
+    /// Os itens de envio destas guias, com a transação de cada um (sem os XML), do mais novo para o
+    /// mais velho. É a trava contra duplicidade (uma guia num envio que não falhou não entra em
+    /// outro) e a conta de quantas vezes cada guia já foi enviada.
+    /// </summary>
+    Task<IReadOnlyList<TransacaoTissGuia>> ItensDeEnvioTissDasGuiasAsync(IReadOnlyCollection<int> codigoIds, CancellationToken ct = default);
+
+    /// <summary>
+    /// As guias de um lote que a operadora RECEBEU e que ainda não têm baixa no sistema — o que
+    /// a baixa em lote tem a fazer depois de um envio.
+    /// </summary>
+    Task<IReadOnlyList<GuiaTissRecebidaSemBaixa>> GuiasTissRecebidasSemBaixaAsync(int transacaoId, CancellationToken ct = default);
+
+    /// <summary>
+    /// As guias de um convênio com a guia ANS conferida, sem baixa e fora de qualquer envio que as
+    /// prenda (na fila, em andamento, ou concluído com a guia recebida ou ainda sem resposta).
+    /// Da mais antiga para a mais nova, até <paramref name="limite"/>.
+    /// </summary>
+    Task<IReadOnlyList<GuiaProntaParaEnvioTiss>> GuiasTissProntasParaEnvioAsync(string convenioCodigo, int limite, CancellationToken ct = default);
+
+    /// <summary>Os últimos ENVIOS (de um convênio, ou de todos), cada um com as guias do lote, sem os XML.</summary>
+    Task<IReadOnlyList<TransacaoTiss>> EnviosTissRecentesComGuiasAsync(string? convenioCodigo, int limite, CancellationToken ct = default);
+
+    /// <summary>As transações de uma guia — as dela e os lotes em que ela entrou —, da mais nova para a mais velha, sem os XML.</summary>
+    Task<IReadOnlyList<TransacaoTiss>> TransacoesTissDaGuiaAsync(int codigoId, CancellationToken ct = default);
+
+    /// <summary>
+    /// As últimas transações (de um convênio, ou de todos quando <paramref name="convenioCodigo"/>
+    /// é nulo), da mais nova para a mais velha, sem os XML — para a tela acompanhar.
+    /// </summary>
+    Task<IReadOnlyList<TransacaoTiss>> TransacoesTissRecentesAsync(
+        string? convenioCodigo, int limite, CancellationToken ct = default);
+
+    /// <summary>
+    /// Quantas idas REAIS à operadora as elegibilidades do convênio fizeram entre <paramref name="desde"/>
+    /// e <paramref name="ate"/>: a soma das tentativas das transações cuja mensagem SAIU nesse intervalo
+    /// (<see cref="TransacaoTiss.EnvioIniciadoEm"/>). Transação recusada antes da rede não tem o carimbo e
+    /// não conta. <paramref name="excetoId"/> fica de fora (a que o conector acabou de reservar).
+    /// </summary>
+    Task<int> IdasDeElegibilidadeTissAsync(string convenioCodigo, DateTime desde, DateTime ate, int? excetoId, CancellationToken ct = default);
+
+    /// <summary>
+    /// A elegibilidade da carteira no convênio que dispensa um pedido novo: a que ainda está na fila
+    /// (pendente ou em envio) ou a concluída entre <paramref name="desde"/> e <paramref name="ate"/>. A mais nova,
+    /// sem os XML; nulo quando não há.
+    /// </summary>
+    Task<TransacaoTiss?> ElegibilidadeTissReaproveitavelAsync(string convenioCodigo, string numeroCarteira, DateTime desde, DateTime ate, CancellationToken ct = default);
+
+    /// <summary>
+    /// As elegibilidades do DIA, de todos os convênios, sem os XML: as pedidas no intervalo que ainda
+    /// estão na fila e as que terminaram (concluídas, falhas ou canceladas) no intervalo. É o que a
+    /// agenda usa para marcar "consultado hoje" numa ida só ao banco — e não uma por paciente.
+    /// </summary>
+    Task<IReadOnlyList<TransacaoTiss>> ElegibilidadesTissDoDiaAsync(DateTime desde, DateTime ate, CancellationToken ct = default);
 
     Task<IReadOnlyList<ContatoCampanha>> ContatosDoPacienteAsync(
         int pacienteId, int limite = 20, CancellationToken ct = default);

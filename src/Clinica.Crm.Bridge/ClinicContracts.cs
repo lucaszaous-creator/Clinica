@@ -94,7 +94,11 @@ public sealed record StaffNumbers(string[] Phones);
 // reconhecem a pergunta (a resposta seria a ajuda).
 public sealed record StaffAsk(string Phone, string Text, string MessageId, bool Probe = false);
 public sealed record StaffAnswer(bool Staff, string? Reply = null, string? Name = null, bool Understood = true);
-public sealed record StaffNotice(int RequestId, string Phone, string Text);
+// Template (nov/2026): o pedido de liberação da trava de consulta vai como MODELO aprovado da Meta —
+// chega fora da janela de 24 h. Parameters são os campos {{1}}…{{n}}; ButtonPayloads, o que cada
+// botão de resposta rápida devolve ao ser tocado. Sem o modelo aprovado na conta, o CRM manda o Text.
+public sealed record StaffNotice(int RequestId, string Phone, string Text,
+    string? Template = null, string[]? Parameters = null, string[]? ButtonPayloads = null);
 public sealed record StaffNoticeAck(int RequestId, bool Delivered, string? Reason = null);
 
 // A remarcação pedida pelo PACIENTE (@SemDor, out/2026 — docs/semdor-assistente.md no Clinica): o

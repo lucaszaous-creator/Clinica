@@ -14,7 +14,9 @@ public sealed record LinhaDePrecoParticular(
     /// <summary>Vigente HOJE — é o valor que o Finalizar e a Conciliação propõem agora.</summary>
     bool ValendoAgora,
     /// <summary>A situação em palavras: valendo agora, ainda não vale, vigência encerrada ou inativo.</summary>
-    string Situacao);
+    string Situacao,
+    /// <summary>De quem é o preço — ou "todos", escrito (célula vazia se lê como "não preenchido").</summary>
+    string Profissional = PrecosParticularNaTela.TodosOsProfissionais);
 
 /// <summary>Uma opção do formulário (código + nome do catálogo). O código nulo é "qualquer especialidade".</summary>
 public sealed record OpcaoDeCatalogo(string? Codigo, string Nome);
@@ -58,11 +60,31 @@ public static class PrecosParticularNaTela
         PrecoId: p.Id,
         Modalidade: p.ModalidadeNome,
         // "qualquer" escrito, e não célula vazia: vazio se lê como "não preenchido".
-        Especialidade: string.IsNullOrWhiteSpace(p.EspecialidadeCodigo) ? QualquerEspecialidade : p.EspecialidadeNome,
+        // Fora da consulta a especialidade gravada não pesa (ver o serviço): a linha diz o que VALE.
+        Especialidade: EspecialidadeQueVale(p.ModalidadeCodigo, p.EspecialidadeCodigo) is null
+            ? QualquerEspecialidade : p.EspecialidadeNome,
         Valor: p.Valor.ToString("C", PtBr),
         Vigencia: p.Vigencia,
         ValendoAgora: p.VigenteEm(hoje),
-        Situacao: Situacao(p, hoje));
+        Situacao: Situacao(p, hoje),
+        Profissional: p.ProfissionalId is null ? TodosOsProfissionais : p.Profissional?.Rotulo ?? "(profissional removido)");
+
+    public const string TodosOsProfissionais = "todos";
+
+    /// <summary>A especialidade que o preço de fato usa: nula fora da consulta, seja o que for que veio.</summary>
+    public static string? EspecialidadeQueVale(string? modalidadeCodigo, string? especialidadeCodigo)
+        => string.IsNullOrWhiteSpace(especialidadeCodigo) || !PrecoParticularService.AceitaEspecialidade(modalidadeCodigo)
+            ? null : especialidadeCodigo;
+
+    /// <summary>O campo Especialidade só abre com modalidade de consulta escolhida.</summary>
+    public static bool AbreEspecialidade(string? modalidadeCodigo)
+        => !string.IsNullOrWhiteSpace(modalidadeCodigo) && PrecoParticularService.AceitaEspecialidade(modalidadeCodigo);
+
+    public const string DicaDaEspecialidade =
+        "É o que diferencia a consulta de psiquiatria da de geriatria. Em branco, o preço vale para qualquer especialidade. Um preço com especialidade VENCE o genérico da modalidade.";
+
+    public const string DicaSemEspecialidade =
+        "Só a CONSULTA tem especialidade. Nesta modalidade o preço vale para toda sessão dela.";
 
     /// <summary>
     /// Fora de vigência, a tela diz POR QUÊ: o reajuste que começa mês que vem, o preço antigo já
@@ -96,7 +118,7 @@ public static class PrecosParticularNaTela
     public static string Concluido(bool novo) => novo ? Cadastrado : Atualizado;
 
     public static string PerguntaDeExcluir(LinhaDePrecoParticular l)
-        => $"Apagar o preço de {l.Modalidade} ({l.Especialidade})? Se ele já propôs valor a "
+        => $"Apagar o preço de {l.Modalidade} ({l.Especialidade}{(l.Profissional == TodosOsProfissionais ? "" : " · " + l.Profissional)})? Se ele já propôs valor a "
            + "alguma sessão, prefira ENCERRAR pela vigência: os lançamentos guardam o valor "
            + "copiado, mas apagar a linha apaga a explicação de por que aquela sessão valeu aquilo.";
 

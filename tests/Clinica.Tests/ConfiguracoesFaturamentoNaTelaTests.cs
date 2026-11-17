@@ -106,6 +106,7 @@ public class ConfiguracoesFaturamentoNaTelaTests : IDisposable
             FormatoNumeroGuia = FormatoNumeroGuia.Alfanumerico, RegistroAnsOperadora = "123456", GeraGuia = false,
             FazEletro = true, TemSegundoCodigo = true, FormaSegundoCodigo = FormaObtencao.Ligacao,
             SegundoCodigoDependeApp = true, DiasSegundoCodigo = 7, FaturaBsv = false, InverteDatasBsv = true,
+            EletroNoMesmoDia = true, IntervaloAcupunturaDias = 1, IntervaloEletroDias = 7,
             ValidadeConsultaDias = 45, CategoriaComApp = Categoria.Vermelha, CategoriaSemApp = Categoria.Verde
         };
         var copia = ConfiguracoesFaturamentoNaTela.Copia(origem);
