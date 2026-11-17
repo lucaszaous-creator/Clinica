@@ -20,7 +20,7 @@ public sealed class SementeGuiaAmilNaBaixa : ISemente
         var dia = DateOnly.FromDateTime(DateTime.Today).AddDays(-2);
         var profissional = new Profissional
         {
-            Nome = "Dr. Caio Prévia Lins", NomeCurto = "Dr. Caio", ConselhoProfissional = "06", NumeroConselho = "520001",
+            Nome = "Dr. Túlio Prévia Lins", NomeCurto = "Dr. Túlio Lins", ConselhoProfissional = "06", NumeroConselho = "520001",
             UfConselho = "33", Cbos = "225105", Cpf = CpfFicticio("529982247"), Ativo = true
         };
         var paciente = new Paciente
