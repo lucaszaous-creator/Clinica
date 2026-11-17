@@ -74,7 +74,8 @@ public sealed class ProcessadorDeElegibilidade(
 }
 
 /// <summary>O que toda mensagem precisa saber do convênio e da clínica, lido num lugar só.</summary>
-public sealed record DadosDoConvenio(string? RegistroAns, string? CodigoPrestador, Uri? Endereco, string? Pendencia)
+public sealed record DadosDoConvenio(string? RegistroAns, string? CodigoPrestador, Uri? Endereco, string? Pendencia,
+    string VersaoTiss = OperadorasTiss.VersaoPadrao)
 {
     public static async Task<DadosDoConvenio> LerAsync(
         IClinicaRepositorio repo, ParametrosService parametros, CredenciaisTissService credenciais,
@@ -120,7 +121,8 @@ public sealed record DadosDoConvenio(string? RegistroAns, string? CodigoPrestado
         if (endereco is null)
             return new(null, null, null, $"O endereço do web service de {tipo} para {convenioCodigo} não está cadastrado.");
 
-        return new(registro, codigo, endereco, null);
+        // A versão do padrão é a da operadora para este tipo (Amil: lote e status em 4.03.00).
+        return new(registro, codigo, endereco, null, operadora?.VersaoTiss(tipo) ?? OperadorasTiss.VersaoPadrao);
     }
 
     /// <summary>
@@ -143,7 +145,8 @@ public sealed record DadosDoConvenio(string? RegistroAns, string? CodigoPrestado
         RegistroAnsOperadora = RegistroAns!,
         CodigoPrestadorNaOperadora = CodigoPrestador!,
         Login = credencial.Login,
-        SenhaMd5 = credencial.SenhaMd5
+        SenhaMd5 = credencial.SenhaMd5,
+        VersaoTiss = VersaoTiss
     };
 
     /// <summary>

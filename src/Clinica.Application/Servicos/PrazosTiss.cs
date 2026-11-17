@@ -45,8 +45,61 @@ public static class PrazosTiss
 
     /// <summary>Os avisos de uma guia na baixa: o prazo de cobrança e a janela do mês.</summary>
     public static IReadOnlyList<string> DaGuia(OperadoraTiss? operadora, DateOnly dataAtendimento, DateTime agora)
-        => new[] { PrazoDeCobranca(operadora, dataAtendimento, DateOnly.FromDateTime(agora)), JanelaDeEnvio(operadora, agora) }
+        => new[] { AvisoDaGuia(operadora, dataAtendimento, agora)?.Texto, JanelaDeEnvio(operadora, agora) }
             .OfType<string>().ToList();
+
+    /// <summary>
+    /// O aviso do prazo de cobrança de UMA guia, e se ele é GRAVE (vermelho): a guia já venceu, ou vence
+    /// ANTES da próxima janela de envio — esperar a janela é perdê-la (nov/2026, Amil: a janela vale
+    /// também para o web service, recusa 3091). Nulo = nada a dizer.
+    /// </summary>
+    public static (string Texto, bool Grave)? AvisoDaGuia(OperadoraTiss? operadora, DateOnly dataAtendimento, DateTime agora)
+    {
+        var hoje = DateOnly.FromDateTime(agora);
+        if (operadora?.PrazoDeCobrancaDias is { } prazo && dataAtendimento != default && operadora.JanelaDeEnvio is { } janela
+            && !DentroDaJanela(janela, agora))
+        {
+            var limite = dataAtendimento.AddDays(prazo);
+            var abre = ProximaAbertura(janela, agora);
+            if (limite >= hoje && limite < DateOnly.FromDateTime(abre))
+                return ($"A guia vence em {limite:dd/MM/yyyy} ({prazo} dias do atendimento), ANTES da próxima janela de envio da {operadora.Nome} "
+                        + $"({abre:dd/MM 'às' HH:mm}): ela não vai chegar a tempo pelo envio. Fale com a {operadora.Nome} ou cobre pelo portal.", true);
+        }
+        return PrazoDeCobranca(operadora, dataAtendimento, hoje) is { } aviso
+            ? (aviso, aviso.StartsWith("Passou", StringComparison.Ordinal))
+            : null;
+    }
+
+    /// <summary>Agora está dentro da janela de envio (o dia útil e a hora)?</summary>
+    public static bool DentroDaJanela(JanelaDeEnvioTiss janela, DateTime agora)
+        => DiaUtilDoMes(DateOnly.FromDateTime(agora)) is { } n && n >= janela.PrimeiroDiaUtil && n <= janela.UltimoDiaUtil
+           && TimeOnly.FromDateTime(agora) >= janela.Abre && TimeOnly.FromDateTime(agora) < janela.Fecha;
+
+    /// <summary>
+    /// Quando a janela de envio abre de novo. Dentro dela, é agora — a não ser que
+    /// <paramref name="depoisDaAtual"/> (a operadora acabou de recusar por prazo DENTRO da janela: tentar
+    /// de novo nela seria laço), e aí é a do mês seguinte. Dia útil = segunda a sexta; o sistema não
+    /// tem calendário de feriados.
+    /// </summary>
+    public static DateTime ProximaAbertura(JanelaDeEnvioTiss janela, DateTime agora, bool depoisDaAtual = false)
+    {
+        if (!depoisDaAtual && DentroDaJanela(janela, agora)) return agora;
+        var hoje = DateOnly.FromDateTime(agora);
+        for (var d = hoje; d <= hoje.AddDays(70); d = d.AddDays(1))
+        {
+            if (DiaUtilDoMes(d) is not { } n || n < janela.PrimeiroDiaUtil || n > janela.UltimoDiaUtil) continue;
+            var abre = d.ToDateTime(janela.Abre);
+            if (depoisDaAtual)
+            {
+                // Pula a janela do mês em que se está: a próxima é a do mês seguinte.
+                if (d.Year == hoje.Year && d.Month == hoje.Month) continue;
+                return abre;
+            }
+            if (d == hoje && TimeOnly.FromDateTime(agora) >= janela.Fecha) continue;
+            return d == hoje && TimeOnly.FromDateTime(agora) >= janela.Abre ? agora : abre;
+        }
+        throw new InvalidOperationException("A janela de envio do catálogo não abre em nenhum dia dos próximos dois meses.");
+    }
 
     /// <summary>Que dia útil do mês é <paramref name="dia"/> (segunda a sexta), ou nulo no fim de semana.</summary>
     public static int? DiaUtilDoMes(DateOnly dia)

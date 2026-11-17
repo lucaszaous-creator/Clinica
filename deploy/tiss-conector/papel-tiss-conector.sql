@@ -9,10 +9,10 @@
 -- não apaga nada; não cria nem altera tabela; não é dono de nada. Diferente do papel da ponte
 -- do CRM, ele NÃO recebe leitura de tabela nova: o que não está na lista, ele não vê.
 --
--- ⚠️ Esta lista foi escrita a partir do código e NÃO foi medida contra um Postgres de verdade
--- (o papel da ponte tem PontePapelRestritoTests; este ainda não tem o equivalente). Se o conector
--- registrar "42501" (permissão negada) no log, falta uma linha aqui — e é para faltar mesmo,
--- até alguém decidir que ele deve alcançar aquela tabela.
+-- Esta lista é MEDIDA (nov/2026): PapeisDoConectorTissTests roda o serviço e cada comando do
+-- comando.sh sobre um banco que anota o SQL e compara as tabelas e operações usadas com os GRANTs
+-- daqui, nos dois sentidos. Ainda não foi rodada contra um Postgres de verdade: se o conector
+-- registrar "42501" (permissão negada) no log, falta uma linha aqui e o teste deixou passar.
 --
 -- Para ENVIAR o lote ele lê a guia e a conferência dela (Codigos e GuiasTissConsulta), e só:
 -- tudo o que vai à operadora já está na guia conferida. A ficha do paciente (Pacientes) e o

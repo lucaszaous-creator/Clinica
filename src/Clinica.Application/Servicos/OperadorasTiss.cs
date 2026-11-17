@@ -75,15 +75,38 @@ public sealed record JanelaDeEnvioTiss(int PrimeiroDiaUtil, int UltimoDiaUtil, T
 /// <param name="ModeloDaGuia">A guia em que a consulta conferida vai à operadora (ver <see cref="ModeloDaGuiaTiss"/>).</param>
 /// <param name="PrazoDeCobrancaDias">Dias, a partir do atendimento, em que a operadora ainda aceita a guia (nulo = o sistema não sabe).</param>
 /// <param name="JanelaDeEnvio">Quando a operadora aceita o envio do faturamento (nulo = a qualquer hora).</param>
+/// <param name="Versoes">
+/// A versão do padrão TISS em que cada transação é escrita (nov/2026). O que não está aqui sai em
+/// <see cref="OperadorasTiss.VersaoPadrao"/> (4.01.00). A Amil só publica o lote em 4.03.00.
+/// </param>
+/// <param name="EnderecoDemonstrativo">
+/// O demonstrativo de retorno: só o endereço, porque o sistema ainda não tem a transação dele.
+/// </param>
+/// <param name="EnderecoHomologacao">
+/// O ponto ÚNICO de homologação da operadora (nulo = ela não tem): com o convênio em homologação
+/// (<c>comando.sh ambiente</c>), TODOS os serviços vão para ele.
+/// </param>
+/// <param name="EntregaConfirmadaNoPortal">
+/// A operadora só considera o faturamento ENTREGUE depois da confirmação no portal dela: "enviado"
+/// pelo web service não é "entregue", e a tela diz isso depois do envio.
+/// </param>
 public sealed record OperadoraTiss(
     Convenio Familia, string Nome, string RegistroAns, CodigoDoPrestadorTiss CodigoDoPrestador,
     bool EnvioDeGuiaNasTelas, IReadOnlyDictionary<TipoTransacaoTiss, Uri> Enderecos,
     CodificacaoTissWs Codificacao = CodificacaoTissWs.Iso88591,
     ModeloDaGuiaTiss ModeloDaGuia = ModeloDaGuiaTiss.Consulta,
     int? PrazoDeCobrancaDias = null,
-    JanelaDeEnvioTiss? JanelaDeEnvio = null)
+    JanelaDeEnvioTiss? JanelaDeEnvio = null,
+    IReadOnlyDictionary<TipoTransacaoTiss, string>? Versoes = null,
+    Uri? EnderecoDemonstrativo = null,
+    Uri? EnderecoHomologacao = null,
+    bool EntregaConfirmadaNoPortal = false)
 {
     public Uri? Endereco(TipoTransacaoTiss tipo) => Enderecos.TryGetValue(tipo, out var uri) ? uri : null;
+
+    /// <summary>A versão do padrão em que esta transação é escrita para esta operadora.</summary>
+    public string VersaoTiss(TipoTransacaoTiss tipo)
+        => Versoes is not null && Versoes.TryGetValue(tipo, out var v) ? v : OperadorasTiss.VersaoPadrao;
 }
 
 /// <summary>
@@ -110,6 +133,15 @@ public static class OperadorasTiss
             (TipoTransacaoTiss.StatusProtocolo, "tissSolicitacaoStatusProtocolo"),
             (TipoTransacaoTiss.CancelamentoGuia, "tissCancelaGuia")));
 
+    /// <summary>A versão do padrão que o sistema escreve quando a operadora não pede outra.</summary>
+    public const string VersaoPadrao = "4.01.00";
+
+    /// <summary>A 4.03.00 (ANS, vigente desde 01/12/2025): a que a Amil exige no lote de guias.</summary>
+    public const string Versao403 = "4.03.00";
+
+    /// <summary>As versões que o sistema sabe escrever (os XSD que estão nos testes).</summary>
+    public static readonly IReadOnlyList<string> VersoesConhecidas = [VersaoPadrao, Versao403];
+
     /// <summary>
     /// Amil, da tabela "Endereços web service Amil 4.01.00" do Portal do Credenciado (APIM, o
     /// endereço novo; nov/2026). O manual fala de um "link único" pedido ao Núcleo TISS: quando a
@@ -122,20 +154,36 @@ public static class OperadorasTiss
     /// e depois ligar o envio do convênio no servidor (<c>comando.sh envio Amil ligar</c>).
     /// Prazos do Manual de Faturamento Eletrônico e do portal: cobrança em até 90 dias do
     /// atendimento; envio do 1º ao 5º dia útil, das 7h às 19h.
+    ///
+    /// VERSÃO (nov/2026, resposta do Núcleo TISS): a Amil pede TISS 4.03.00. O lote só existe em
+    /// <c>api-tiss-lote-guias/v4.03.00</c> (em /v4.01.00 o WSDL dá 404), e o status do protocolo e o
+    /// demonstrativo vão junto. A elegibilidade continua em 4.01.00: funcionou em produção assim, e o
+    /// cancelamento também fica onde estava (o WSDL 4.01.00 dele abre).
     /// </summary>
     public static readonly OperadoraTiss Amil = new(
         Convenio.Amil, "Amil", "326305", CodigoDoPrestadorTiss.LoginDoWebService, EnvioDeGuiaNasTelas: false,
         Enderecos(
             "https://api.servicos.grupoamil.com.br/",
             (TipoTransacaoTiss.Elegibilidade, "api-tiss-verifica-elegibilidade/v4.01.00"),
-            (TipoTransacaoTiss.EnvioGuia, "api-tiss-lote-guias/v4.01.00"),
-            (TipoTransacaoTiss.StatusProtocolo, "api-tiss-solicitacao-status-protocolo/v4.01.00"),
+            (TipoTransacaoTiss.EnvioGuia, "api-tiss-lote-guias/v4.03.00"),
+            (TipoTransacaoTiss.StatusProtocolo, "api-tiss-solicitacao-status-protocolo/v4.03.00"),
             (TipoTransacaoTiss.CancelamentoGuia, "api-tiss-cancela-guia/v4.01.00")),
         // O APIM respondeu HTTP 415 à primeira elegibilidade real em ISO-8859-1 (nov/2026).
         Codificacao: CodificacaoTissWs.Utf8,
         ModeloDaGuia: ModeloDaGuiaTiss.SpSadt,
         PrazoDeCobrancaDias: 90,
-        JanelaDeEnvio: new JanelaDeEnvioTiss(1, 5, new TimeOnly(7, 0), new TimeOnly(19, 0)));
+        JanelaDeEnvio: new JanelaDeEnvioTiss(1, 5, new TimeOnly(7, 0), new TimeOnly(19, 0)),
+        Versoes: new Dictionary<TipoTransacaoTiss, string>
+        {
+            [TipoTransacaoTiss.EnvioGuia] = Versao403,
+            [TipoTransacaoTiss.StatusProtocolo] = Versao403
+        },
+        EnderecoDemonstrativo: new Uri("https://api.servicos.grupoamil.com.br/api-tiss-solicitacao-demonstrativo-retorno/v4.03.00"),
+        // Resposta do Núcleo TISS (nov/2026): um endereço só para todos os serviços (o ?wsdl dá 404,
+        // então o serviço é decidido pelo corpo da mensagem). Aceita carteira válida de produção.
+        EnderecoHomologacao: new Uri("https://api-dev.servicos.grupoamil.com.br/api-tiss-servico-test"),
+        // "A confirmação de entrega do faturamento e do recurso continua no portal."
+        EntregaConfirmadaNoPortal: true);
 
     /// <summary>Todas as operadoras com web service conhecidas.</summary>
     public static IReadOnlyList<OperadoraTiss> Todas { get; } = [SaudePetrobras, Amil];

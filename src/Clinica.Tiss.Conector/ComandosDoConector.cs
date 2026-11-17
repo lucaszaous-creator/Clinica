@@ -27,6 +27,15 @@ public static class ComandosDoConector
           Clinica.Tiss.Conector situacao [CONVENIO]
           Clinica.Tiss.Conector cancelar ID --operador NOME
               tira da fila uma transação ainda Pendente (ela não vai mais à operadora)
+          Clinica.Tiss.Conector ambiente CONVENIO homologacao|producao --operador NOME
+              aponta TODOS os serviços do convênio para a homologação da operadora (ou de volta)
+          Clinica.Tiss.Conector testar-elegibilidade CONVENIO --carteira N [--operador NOME]
+          Clinica.Tiss.Conector testar-lote CONVENIO --guias ID[,ID...] --operador NOME
+          Clinica.Tiss.Conector testar-lote CONVENIO --exemplo --carteira N [--senha S] [--token T] [--procedimento TUSS] [--valor 1,00] --operador NOME
+          Clinica.Tiss.Conector testar-protocolo CONVENIO --protocolo N --operador NOME
+              os testes só rodam com o convênio em HOMOLOGAÇÃO, fazem UMA ida e não gravam nada nas
+              guias nem na fila (só uma linha na trilha). [--soap-action VALOR] muda o SOAPAction.
+              Fora da janela de envio da operadora, testar-lote avisa e não chama; --mesmo-assim chama.
 
         CONVENIO é o código do convênio no cadastro (ex.: Petrobras, Amil). NOME é quem está fazendo a mudança: vai para a trilha.
         "todos" grava o mesmo endereço para os quatro serviços (o "link único" que a operadora fornece).
@@ -112,12 +121,63 @@ public static class ComandosDoConector
                         : $"A transação {id} não está Pendente (já foi pega, terminou ou foi cancelada): nada mudou.");
                     return cancelou ? 0 : 1;
                 }
+                case "ambiente" when args.Length >= 3 && args[2] is "homologacao" or "producao":
+                {
+                    var homologacao = args[2] == "homologacao";
+                    await credenciais.DefinirAmbienteAsync(args[1], homologacao, Opcao(args, "--operador") ?? "", default);
+                    var operadora = await credenciais.OperadoraAsync(args[1]);
+                    saida.WriteLine(homologacao
+                        ? $"{args[1]} em HOMOLOGAÇÃO: todos os serviços vão para {operadora?.EnderecoHomologacao}. Os pedidos das telas ficam recusados até voltar para produção."
+                        : $"{args[1]} em produção.");
+                    return 0;
+                }
+                case "testar-elegibilidade" when args.Length >= 2:
+                {
+                    var carteira = Opcao(args, "--carteira");
+                    if (string.IsNullOrWhiteSpace(carteira)) { erro.WriteLine("Uso: testar-elegibilidade CONVENIO --carteira N"); return 2; }
+                    return Imprimir(await Testes(servicos).ElegibilidadeAsync(args[1], carteira, Opcao(args, "--operador") ?? "", Opcao(args, "--soap-action")), saida, erro);
+                }
+                case "testar-lote" when args.Length >= 2:
+                {
+                    var operador = Opcao(args, "--operador");
+                    if (string.IsNullOrWhiteSpace(operador)) { erro.WriteLine("Informe --operador NOME: o teste vai para a trilha."); return 2; }
+                    GuiaDeExemploTiss? exemplo = null;
+                    if (args.Contains("--exemplo"))
+                    {
+                        var carteira = Opcao(args, "--carteira");
+                        if (string.IsNullOrWhiteSpace(carteira)) { erro.WriteLine("--exemplo pede --carteira N (uma carteira válida de produção)."); return 2; }
+                        var valor = Opcao(args, "--valor") is { } v ? GuiaAnsEmEdicao.LerValor(v) : 1.00m;
+                        if (valor is null or <= 0) { erro.WriteLine("--valor inválido (ex.: 1,00)."); return 2; }
+                        exemplo = new GuiaDeExemploTiss(carteira, Opcao(args, "--senha"), Opcao(args, "--token"),
+                            Opcao(args, "--procedimento") ?? "10101012", valor.Value);
+                    }
+                    var ids = new List<int>();
+                    foreach (var parte in (Opcao(args, "--guias") ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                    {
+                        if (!int.TryParse(parte, out var id)) { erro.WriteLine($"--guias: \"{parte}\" não é um número de guia."); return 2; }
+                        ids.Add(id);
+                    }
+                    return Imprimir(await Testes(servicos).LoteAsync(args[1], ids, exemplo, operador, Opcao(args, "--soap-action"),
+                        mesmoAssim: args.Contains("--mesmo-assim")), saida, erro);
+                }
+                case "testar-protocolo" when args.Length >= 2:
+                {
+                    var protocolo = Opcao(args, "--protocolo");
+                    var operador = Opcao(args, "--operador");
+                    if (string.IsNullOrWhiteSpace(protocolo) || string.IsNullOrWhiteSpace(operador))
+                    { erro.WriteLine("Uso: testar-protocolo CONVENIO --protocolo N --operador NOME"); return 2; }
+                    return Imprimir(await Testes(servicos).ProtocoloAsync(args[1], protocolo, operador, Opcao(args, "--soap-action")), saida, erro);
+                }
                 case "situacao":
                 {
                     var fila = servicos.GetRequiredService<FilaTissService>();
                     var convenio = args.Length >= 2 ? args[1] : null;
                     if (convenio is not null)
                     {
+                        if (await credenciais.EmHomologacaoAsync(convenio))
+                            saida.WriteLine($"*** {convenio}: AMBIENTE DE HOMOLOGAÇÃO — todos os serviços vão para {(await credenciais.OperadoraAsync(convenio))?.EnderecoHomologacao}; os pedidos das telas ficam recusados. Voltar: comando.sh ambiente {convenio} producao --operador NOME ***");
+                        else
+                            saida.WriteLine($"{convenio}: ambiente de produção.");
                         var c = await credenciais.ParaATelaAsync(convenio);
                         // As idas REAIS de hoje (o que o teto conta) e o teto deste servidor.
                         var teto = servicos.GetService<OpcoesDoConector>()?.LimiteDiarioElegibilidade ?? OpcoesDoConector.PadraoLimiteDiarioElegibilidade;
@@ -171,6 +231,17 @@ public static class ComandosDoConector
         }
         erro.WriteLine();
         return senha.ToString();
+    }
+
+    private static TestesNaHomologacao Testes(IServiceProvider servicos) => new(
+        servicos.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>(), servicos.GetRequiredService<ParametrosService>(),
+        servicos.GetRequiredService<CredenciaisTissService>(), servicos.GetRequiredService<TissWebserviceCliente>(),
+        servicos.GetService<RelogioDoConector>()?.Agora ?? HoraDaClinica.Agora);
+
+    private static int Imprimir(ResultadoDoTesteTiss resultado, TextWriter saida, TextWriter erro)
+    {
+        foreach (var linha in resultado.Linhas) (resultado.Foi ? saida : erro).WriteLine(linha);
+        return resultado.Foi ? 0 : 1;
     }
 
     private static string? Opcao(string[] args, string nome)

@@ -91,6 +91,7 @@ public sealed class ProcessadorDeEnvioDeGuia(
                 XmlRecebido = bruta.Corpo,
                 Guias = ResultadosPorGuia.De(resposta.Guias)
             }),
+            false when resposta.GlosasDoLote.Any(g => g.Codigo == FilaTiss.GlosaForaDaJanela) => DesfechoTiss.ForaDaJanela(resposta.Resumo),
             false => DesfechoTiss.Falhar(resposta.Resumo),
             null => DesfechoTiss.NaoSeSabe(resposta.Resumo)
         };

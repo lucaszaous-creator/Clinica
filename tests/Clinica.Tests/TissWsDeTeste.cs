@@ -65,11 +65,11 @@ internal static class TissWsDeTeste
     /// Problemas da mensagem no XSD oficial do web service (<c>tissWebServicesV4_01_00.xsd</c>).
     /// Lista vazia = válida. Serve para o pedido que sai e para a resposta escrita no teste.
     /// </summary>
-    public static List<string> ValidarNoXsd(XElement mensagem)
+    public static List<string> ValidarNoXsd(XElement mensagem, string versao = "4.01.00")
     {
-        var pasta = Path.Combine(AppContext.BaseDirectory, "Tiss", "xsd-4.01.00");
+        var pasta = Path.Combine(AppContext.BaseDirectory, "Tiss", "xsd-" + versao);
         var schemas = new XmlSchemaSet { XmlResolver = new XmlUrlResolver() };
-        schemas.Add(Ans.NamespaceName, Path.Combine(pasta, "tissWebServicesV4_01_00.xsd"));
+        schemas.Add(Ans.NamespaceName, Path.Combine(pasta, $"tissWebServicesV{versao.Replace('.', '_')}.xsd"));
         schemas.Compile();
 
         var problemas = new List<string>();

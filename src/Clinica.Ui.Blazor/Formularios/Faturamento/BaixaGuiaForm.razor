@@ -120,6 +120,8 @@
                                 </div>
                             </section>
                         }
+                        @* O prazo de cobrança GRAVE (venceu, ou vence antes da próxima janela): vermelho, à parte. *@
+                        <Aviso Tom="erro" Texto="@(_leitura is null ? _alertaDePrazo : null)" />
                         <Aviso Tom="info" Texto="@(_leitura is null ? AvisoDaGuia : null)" />
                         <fieldset class="fat-guia-campos" disabled="@GuiaSoLeitura">
 
@@ -470,6 +472,7 @@
     /// <summary>A guia ANS em conferência — nula quando esta guia não a pede (baixa comum).</summary>
     private GuiaAnsEmEdicao? _guia;
     private IReadOnlyList<string> _avisosDaGuia = [];
+    private string? _alertaDePrazo;
 
     /// <summary>O que merece conferência nesta guia, numa caixa só (nulo = nada a dizer, e a caixa não aparece).</summary>
     private string? AvisoDaGuia => _avisosDaGuia.Count switch
@@ -535,6 +538,7 @@
             var proposta = await escopo.ServiceProvider.GetRequiredService<GuiaAnsNaBaixaService>().PrepararAsync(CodigoId);
             _guia = proposta.Exige && proposta.Dados is not null ? GuiaAnsEmEdicao.De(proposta.Dados) : null;
             _avisosDaGuia = proposta.Avisos;
+            _alertaDePrazo = proposta.AlertaDePrazo;
             // O envio pelo web service: só se pergunta para a guia que pede a guia ANS, e antes de
             // publicar o código — o rodapé não pode ganhar um botão depois de desenhado.
             _convenioCodigo = paciente is null ? null : paciente.ConvenioCodigo ?? paciente.Convenio.ToString();

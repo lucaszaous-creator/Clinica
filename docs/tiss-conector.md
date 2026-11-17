@@ -557,11 +557,12 @@ outro arquivo do conector, da fila ou das telas conhece nome de operadora.
 | `codigoPrestadorNaOperadora` | CNPJ da clínica | **login do web service** (o login do portal é o código do credenciado) |
 | Endereços padrão | `https://webservices.crc.com.br/tiss/ws/40100/…` | APIM: `https://api.servicos.grupoamil.com.br/api-tiss-…/v4.01.00` |
 | Padrão | TISS 4.01.00, SOAP, login e senha (MD5) no cabeçalho | o mesmo |
+| Versão do padrão | 4.01.00 em tudo | **4.03.00** no lote, no status do protocolo e no demonstrativo (`api-tiss-…/v4.03.00`); elegibilidade e cancelamento em 4.01.00 |
 | Codificação da mensagem na rede | ISO-8859-1 (a do padrão) | **UTF-8** (o APIM é WCF/basicHttpBinding: respondeu HTTP 415 a `charset=ISO-8859-1`) |
 | Elegibilidade | sim | **sim** |
 | Guia em que a consulta vai | guia de consulta (inclusive o BSV) | **guia SP/SADT**, com senha de autorização e token (o Manual do Credenciado manda cobrar consulta "exclusivamente em guias de SP/SADT") |
 | Envio de guias nas telas | sim (a guia passa pela conferência ANS na baixa) | **pronto e desligado** (nov/2026): conferência SP/SADT, lote e arquivo prontos e testados; `EnvioDeGuiaNasTelas` falso deixa a Amil fora das telas de envio e da conferência na baixa — ver "Amil: o envio de guias" |
-| Prazos (aviso, não bloqueio) | — | cobrança em até 90 dias do atendimento; envio do 1º ao 5º dia útil, das 7h às 19h |
+| Prazos | — | envio do 1º ao 5º dia útil, das 7h às 19h — **regra da fila** (o lote fora dela fica agendado; a Amil recusa com 3091 até na homologação); cobrança em até 90 dias do atendimento — aviso, vermelho quando a guia vence antes da próxima janela |
 
 Fonte da Amil: Portal do Credenciado Amil → Material de apoio → Manuais ("Manual de Utilização de
 Web Service para prestadores" e a tabela "Endereços web service Amil 4.01.00", com o L7 atual e o
@@ -604,6 +605,33 @@ e carteirinha da ficha; quem não dá para consultar fica recolhido, com o motiv
 `verificaElegibilidade`). Quem pede a consulta é o mesmo componente da ficha, sobre a mesma fila,
 com o intervalo, o teto diário e o resultado do dia. A lista e as frases: `ElegibilidadeNaAgendaService`.
 
+### Amil: TISS 4.03.00 no lote (nov/2026, resposta do Núcleo TISS)
+
+A Amil pede o padrão **4.03.00**. O lote só existe em `api-tiss-lote-guias/v4.03.00` (o WSDL abre, com
+namespace `…/tissloteguias/v40300`; em `/v4.01.00` dá 404). A versão é dado do catálogo, por tipo de
+transação (`OperadoraTiss.Versoes`, `VersaoTiss(tipo)`), e chega ao `Padrao` do cabeçalho pelo
+remetente; versão que o sistema não conhece é recusada antes da rede.
+
+| Transação da Amil | Versão | Endereço |
+|---|---|---|
+| Lote de guias | 4.03.00 | `api-tiss-lote-guias/v4.03.00` |
+| Status do protocolo | 4.03.00 | `api-tiss-solicitacao-status-protocolo/v4.03.00` |
+| Demonstrativo de retorno | 4.03.00 | `api-tiss-solicitacao-demonstrativo-retorno/v4.03.00` (só o endereço: a transação ainda não existe no sistema) |
+| Elegibilidade | 4.01.00 | `api-tiss-verifica-elegibilidade/v4.01.00` — funcionou em produção assim; não mexemos |
+| Cancelamento de guia | 4.01.00 | `api-tiss-cancela-guia/v4.01.00` (fora do escopo desta rodada) |
+
+**O que muda da 4.01.00 para a 4.03.00 na guia SP/SADT** (XSD oficiais, Componente de Comunicação 202511,
+comparados tipo a tipo): a estrutura de `ctm_sp-sadtGuia`, `ct_autorizacaoSADT` (senha, `codValidacao`,
+`ausenciaCodValidacao`), `ctm_sp-sadtAtendimento` e `ct_guiaValorTotal` é a MESMA, sem campo novo nem
+obrigatório novo; `valorUnitario` e `valorTotal` do procedimento executado passam de `st_decimal8-2`
+para `st_decimal10-2` (o sistema continua limitando a 999.999,99, que cabe nos dois); o CBO 223575 entra
+no domínio; e o `Padrao` aceita 4.02.00 e 4.03.00. A mensagem é validada contra os XSD 4.03.00 em
+`tests/Clinica.Tests/Tiss/xsd-4.03.00` (a mesma mensagem é recusada pelo XSD 4.01.00 — há teste).
+
+**Até 100 guias por lote** (o máximo do XSD, que a Amil confirmou): acima disso o sistema DIVIDE sozinho
+(`FilaTissService.EnfileirarEnvioEmLotesAsync`, um pedido por lote de até 100, na ordem marcada). Todas as
+partes são conferidas antes de qualquer uma entrar na fila: uma guia recusada recusa o envio inteiro.
+
 ### Amil: o envio de guias (pronto, desligado — nov/2026)
 
 **O que a Amil exige**, lido nos manuais dela (Shared/Convenios/amil: Manual do Credenciado jul/2026,
@@ -638,7 +666,8 @@ e descrição do procedimento. Cada glosa de bloqueio que dá para pegar antes v
 `TissLoteGuiasWs` de sempre, em UTF-8, para o endereço APIM do catálogo, e nunca repete um lote enviado
 (a mesma trava da Petrobras). O **arquivo de lote** (Lotes e XML TISS) já leva a guia SP/SADT
 conferida: é o arquivo para subir no SisAmil (TISS → Importação de arquivos XML), o caminho que
-funciona hoje sem web service. Os prazos são aviso na baixa e no painel de envio (`PrazosTiss`).
+funciona hoje sem web service. A janela de envio é regra da fila (abaixo, "A janela de envio é regra da
+fila"); o prazo de 90 dias é aviso na baixa e no painel de envio (`PrazosTiss`).
 
 **Para ligar** (depois da resposta do Núcleo TISS): `EnvioDeGuiaNasTelas: true` em
 `OperadorasTiss.Amil` (uma linha, um PR), publicar, e no servidor `comando.sh envio Amil ligar`. Até lá a
@@ -652,7 +681,7 @@ baixa de quem fatura a Amil não muda.
 | 2 | As guias confirmadas por token, que o portal já digita sozinho ("Digitadas Automaticamente"), também vão no lote? | **não** (o portal já as tem) | o envio pelo sistema fica só para as que a clínica digita; a conferência continua valendo para o arquivo/registro |
 |   |   | **sim** | nada: o lote leva todas |
 | 3 | O protocolo enviado pelo web service precisa ser finalizado no portal? | **sim** (é o que o manual diz) | a tela de envio ganha o lembrete "finalize no portal"; o sistema não finaliza por web service |
-| 4 | A janela é mesmo do 1º ao 5º dia útil, das 7h às 19h? Feriado conta? | outra janela | trocar `JanelaDeEnvio` no catálogo; feriados: o sistema conta só seg–sex e diz isso na frase |
+| 4 | A janela é mesmo do 1º ao 5º dia útil, das 7h às 19h? Feriado conta? | **respondido pela homologação**: vale também para o web service (3091) | a janela virou regra da fila; feriados ainda em aberto: o sistema conta só seg–sex |
 | 5 | Existe ambiente de homologação? | **sim** | cadastrar o endereço de homologação com `comando.sh endereco` e testar antes de ligar; **não**: o primeiro lote real é de UMA guia, acompanhado no portal |
 
 **A codificação (nov/2026).** A primeira elegibilidade real da Amil voltou **HTTP 415** com corpo vazio:
@@ -672,6 +701,94 @@ caracteres do corpo, sem a carteira e sem segredo. 5xx e falta de resposta conti
 **Tirar uma transação Pendente da fila:** `comando.sh cancelar ID --operador 'Seu Nome'` (o ID é a
 primeira coluna do `comando.sh situacao`). É a mesma regra do "Cancelar" das telas: só sai o que ainda
 não foi pego pelo conector; o que já está em envio ou terminou não muda (código de saída 1).
+
+### Resultado do primeiro teste na homologação da Amil (nov/2026, conector 3811074b)
+
+- `ambiente Amil homologacao` parou em `42501: permission denied for table Convenios`: o comando usa o
+  `tiss_operacao`, que lê o cadastro de convênios (a família da operadora). Corrigido em
+  `papel-tiss-operacao.sql` (`GRANT SELECT ON public."Convenios"`, depois do REVOKE do início). Os dois
+  papéis agora são MEDIDOS: `PapeisDoConectorTissTests` roda o serviço e cada comando sobre um banco que
+  anota o SQL e compara com os GRANTs, nos dois sentidos (nada usado sem permissão, nada concedido sem uso).
+  Na VPS: rode de novo os dois `papel-tiss-*.sql` (é seguro) ou mantenha o GRANT manual, que é o mesmo.
+- `testar-elegibilidade`: **HTTP 200 · Elegível**. O ponto único de homologação funciona com o
+  SOAPAction `""` (o padrão do WSDL): o serviço é decidido pela mensagem.
+- `testar-lote --exemplo`: **HTTP 200 · recusa 3091** ("COBRANÇA FORA DO PRAZO ESTIPULADO NO CONTRATO -
+  ENVIO DO FATURAMENTO SÓ PODE SER REALIZADO NOS DIAS 01; 02; 03; 04; 05"). O XML 4.03.00, o login, o
+  endereço e o SOAPAction foram aceitos; a recusa é de regra. **A janela vale para o web service, até na
+  homologação.**
+- `ambiente Amil producao` voltou certo.
+
+### A janela de envio é regra da fila (nov/2026)
+
+A janela é dado do catálogo (`OperadoraTiss.JanelaDeEnvio`; a Saúde Petrobras não tem):
+
+- **Lote pedido fora da janela** entra na fila **agendado** para a próxima abertura (1º dia útil, 7h,
+  horário de Brasília — `HoraDaClinica`): `ProximaTentativaEm` e a frase "Agendado para DD/MM/AAAA às
+  07:00 …". O painel de envio mostra "Agendado" com a data; a baixa mostra "Agendado para a janela de
+  envio" (e não "o serviço não respondeu"). Pode ser **cancelado** até lá.
+- **O conector reconfere** antes de enviar: lote que ele pegue fora da janela volta agendado, sem gastar
+  tentativa e sem sair nada.
+- **Recusa 3091** (`FilaTiss.GlosaForaDaJanela`) que chegar mesmo assim volta o lote a **agendado, sem
+  gastar tentativa**, e limpa o carimbo de envio (a operadora disse que não recebeu: pode sair de novo).
+  Recebida DENTRO da janela, o agendamento é para a janela do mês SEGUINTE — nunca a mesma, para não virar
+  laço. Para operadora sem janela, 3091 é recusa comum.
+- **Feriados:** o sistema não tem calendário de feriados; dia útil é de segunda a sexta. Um feriado
+  nacional entre os cinco primeiros dias úteis desloca a janela real da operadora e o sistema não sabe
+  disso: o agendamento pode cair num feriado (a Amil recusaria com 3091, e o lote volta agendado para o
+  mês seguinte). Quando houver calendário, ele entra em `PrazosTiss.DiaUtilDoMes`.
+- **Prazo de 90 dias:** a guia que vence ANTES da próxima janela (ou já venceu) tem aviso **vermelho**
+  na linha do painel de envio e na baixa (`PrazosTiss.AvisoDaGuia`, `ConferenciaDeEnvioTiss.PrazoGrave`,
+  `PropostaGuiaAns.AlertaDePrazo`). Continua aviso, nunca bloqueio.
+- **`testar-lote` fora da janela** avisa antes de chamar ("só aceita lote do 1º ao 5º dia útil…; próxima
+  janela: DD/MM às HH:mm") e não chama; `--mesmo-assim` chama (para ver a recusa 3091).
+
+### Amil: homologação e os comandos de teste (nov/2026)
+
+O Núcleo TISS respondeu: há **homologação** num endereço único,
+`https://api-dev.servicos.grupoamil.com.br/api-tiss-servico-test` (o `?wsdl` dá 404, então o serviço é
+decidido pela mensagem), com o login e a senha do portal e qualquer carteira válida de produção; o lote
+leva **até 100 guias**; e a **confirmação de entrega continua no portal** (enviado não é entregue).
+
+- `comando.sh ambiente Amil homologacao|producao --operador NOME` aponta TODOS os serviços da Amil para a
+  homologação (por cima até do endereço cadastrado) ou de volta. Vai para a trilha
+  (`AmbienteTissHomologacao`/`AmbienteTissProducao`), e o `situacao Amil` mostra o ambiente em destaque.
+  **Enquanto a Amil estiver em homologação, a fila de produção recusa os pedidos das telas** (a
+  consulta de elegibilidade da ficha e da agenda termina recusada, com a frase do ambiente): nada da
+  tela vai à homologação. Volte para produção ao terminar.
+- `testar-elegibilidade`, `testar-lote` e `testar-protocolo` (`TestesNaHomologacao`): só rodam com o
+  convênio em homologação e conferem que o endereço resolvido é o dela; funcionam com o envio desligado;
+  fazem UMA ida; mostram a resposta (protocolo, ou o HTTP com até 300 caracteres do corpo, sem a senha) e
+  **não gravam nada nas guias nem na fila** — só uma linha `TesteTissHomologacao` na trilha, sem carteira.
+  Rodam com o usuário do serviço (`conector.env`); o `ambiente` usa o `admin.env`.
+- `testar-lote --guias ID[,ID…]` lê as guias Amil conferidas (SP/SADT) e as manda com um número próprio de
+  teste (`H<guia>T<hora>`). Como o envio da Amil está desligado, a baixa ainda não confere guia Amil: o
+  caminho de hoje é `--exemplo --carteira N`, uma guia SP/SADT fictícia em memória (contratado = a
+  clínica; profissional "PROFISSIONAL DE TESTE", CRM 000000/RJ — a homologação pode recusá-lo, e saber
+  isso é parte do teste), com `--senha`, `--token`, `--procedimento` (padrão 10101012) e `--valor`
+  (padrão 1,00) opcionais. Sem `--token`, vai `ausenciaCodValidacao` 03.
+- `--soap-action VALOR` muda o cabeçalho SOAPAction (padrão `""`, o do WSDL). Se o ponto único da
+  homologação responder que não reconhece o serviço, é isto que se tenta.
+- Depois de um envio REAL recebido, o painel de envio mostra "Enviado. Confirme a entrega no portal da
+  Amil (protocolo N): enviado não é entregue." (`EnvioTissNaTela.LembreteDeEntrega`).
+
+**Roteiro do primeiro teste na homologação** (na VPS 1, como root; `C=/opt/clinica-tiss-conector/current/deploy/comando.sh`):
+
+0. O conector instalado tem de ser deste commit ou posterior (`publicar.sh` + `instalar.sh`, acima). Para
+   `--guias`, o banco também precisa da migration `GuiaSpSadtDaAmil` (aplicada quando um app desta versão
+   abre); para `--exemplo`, elegibilidade e protocolo, não.
+1. Conferir: `sudo $C situacao Amil` → login e senha cadastrados, envio desligado, ambiente de produção.
+2. Apontar para a homologação: `sudo $C ambiente Amil homologacao --operador 'Seu Nome'` e de novo
+   `sudo $C situacao Amil` → a linha `*** Amil: AMBIENTE DE HOMOLOGAÇÃO … ***`.
+3. Provar o ambiente: `sudo $C testar-elegibilidade Amil --carteira CARTEIRA_VALIDA --operador 'Seu Nome'`
+   → "Elegível"/"Não elegível" é resposta da homologação; `LoginInvalido` = credencial; HTTP 404/405/415 ou
+   "não reconhece o serviço" = tentar `--soap-action` (ver acima) ou perguntar ao Núcleo TISS.
+4. Um lote de uma guia — **do 1º ao 5º dia útil, das 7h às 19h** (fora disso o comando avisa e não chama;
+   `--mesmo-assim` chama e a Amil devolve 3091): `sudo $C testar-lote Amil --exemplo --carteira CARTEIRA_VALIDA --senha SENHA_DE_UMA_AUTORIZACAO --token TOKEN --operador 'Seu Nome'`
+   (sem senha e token, a homologação deve devolver a glosa de senha/token — também é resultado).
+   → `PROTOCOLO: N` = recebido; senão, a frase da operadora ou o HTTP com o trecho do corpo.
+5. A situação do protocolo: `sudo $C testar-protocolo Amil --protocolo N --operador 'Seu Nome'`.
+6. **Voltar para produção:** `sudo $C ambiente Amil producao --operador 'Seu Nome'` e `sudo $C situacao Amil`.
+   O envio continua desligado; a elegibilidade das telas volta a funcionar.
 
 ### Testar a elegibilidade da Amil na VPS (primeira vez)
 

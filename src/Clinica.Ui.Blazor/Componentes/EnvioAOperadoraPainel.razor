@@ -39,7 +39,7 @@
         <div class="cartao-titulo">
             <div>
                 <h2>Envio à operadora pelo web service</h2>
-                <p>As guias conferidas ("prontas para envio") saem daqui para a operadora, em lotes de até @TransacaoTissLimites.GuiasPorLote. A resposta volta por guia, e a baixa das recebidas é dada com um clique. A baixa manual, com o número copiado do portal, continua no painel de pendências.</p>
+                <p>As guias conferidas ("prontas para envio") saem daqui para a operadora; acima de @TransacaoTissLimites.GuiasPorLote, o sistema divide em lotes de até @TransacaoTissLimites.GuiasPorLote sozinho. A resposta volta por guia, e a baixa das recebidas é dada com um clique. A baixa manual, com o número copiado do portal, continua no painel de pendências.</p>
             </div>
             <div class="fat-envio-topo">
                 @if (_convenios.Count > 1)
@@ -108,7 +108,7 @@
                                                 <span class="principal">@g.PacienteNome</span>
                                                 <span class="secundario">@RotulosEnum.De(g.Tipo) · atendimento em @Formato.Data(g.DataAtendimento)</span>
                                                 @if (recusa is not null) { <span class="campo-erro" data-recusa="@g.CodigoId">@recusa</span> }
-                                                else if (AvisoDaLinha(g.CodigoId) is { } prazo) { <span class="campo-dica" data-aviso-de-prazo="@g.CodigoId">@prazo</span> }
+                                                else if (AvisoDaLinha(g.CodigoId) is { } prazo) { <span class="@(PrazoGrave(g.CodigoId) ? "campo-erro" : "campo-dica")" data-aviso-de-prazo="@g.CodigoId" data-prazo-grave="@(PrazoGrave(g.CodigoId) ? "true" : null)">@prazo</span> }
                                                 @if (ressalva is not null)
                                                 {
                                                     <span class="@(ressalva.PedeConferenciaNoPortal ? "campo-erro" : "campo-dica")" data-ressalva="@g.CodigoId">@ressalva.Texto</span>
@@ -202,6 +202,11 @@
                         else if (situacao.Frase is not null)
                         {
                             <p class="fat-envio-frase">@situacao.Frase</p>
+                        }
+                        @if (EnvioTissNaTela.LembreteDeEntrega(OperadorasTiss.Da(Clinica.Domain.Regras.CatalogoConvenios.Familia(envio.ConvenioCodigo)), envio) is { } lembrete)
+                        {
+                            @* "Enviado" não é "entregue": a operadora pede a confirmação no portal dela. *@
+                            <Aviso Tom="atencao" Texto="@lembrete" />
                         }
                         @if (_recados.TryGetValue(envio.Id, out var recado))
                         {
@@ -441,14 +446,12 @@
     private async Task MarcarTodasAsync(bool marcar)
     {
         _marcadas.Clear();
-        // Marcar todas respeita o teto do lote: as primeiras 100, e a tela diz que sobraram.
+        // Marcar todas marca TODAS: acima de 100 o envio é dividido em lotes (FilaTiss.DividirEmLotes).
         // E NUNCA marca a guia travada: "marcar todas" não pode ser o atalho que pula a conferência no portal.
         var marcaveis = _prontas.Where(g => !Travada(g.CodigoId)).ToList();
-        if (marcar) foreach (var g in marcaveis.Take(TransacaoTissLimites.GuiasPorLote)) _marcadas.Add(g.CodigoId);
+        if (marcar) foreach (var g in marcaveis) _marcadas.Add(g.CodigoId);
         _mensagemDoEnvio = !marcar ? null
-            : marcaveis.Count > TransacaoTissLimites.GuiasPorLote
-                ? $"Marcadas as primeiras {TransacaoTissLimites.GuiasPorLote} de {marcaveis.Count}: um envio leva até {TransacaoTissLimites.GuiasPorLote} guias."
-                : marcaveis.Count < _prontas.Count
+            : marcaveis.Count < _prontas.Count
                     ? $"{_prontas.Count - marcaveis.Count} guia(s) ficaram de fora: pedem a conferência no portal antes de um novo envio."
                     : null;
         await ConferirMarcadasAsync();
@@ -462,7 +465,7 @@
         {
             using var escopo = Escopos.CreateScope();
             _conferencia = await escopo.ServiceProvider.GetRequiredService<FilaTissService>()
-                .ConferirEnvioAsync(_convenio, _marcadas.ToList(), conferidasNoPortal: _liberadas.ToList());
+                .ConferirEnvioEmLotesAsync(_convenio, _marcadas.ToList(), conferidasNoPortal: _liberadas.ToList());
         }
         catch (Exception ex)
         {
@@ -475,6 +478,9 @@
     private string? AvisoDaLinha(int codigoId)
         => _marcadas.Contains(codigoId) && _conferencia is { } c && c.AvisosPorGuia.TryGetValue(codigoId, out var frase) ? frase : null;
 
+    /// <summary>A guia vence antes da próxima janela (ou já venceu): o aviso dela é vermelho.</summary>
+    private bool PrazoGrave(int codigoId) => _conferencia?.PrazoGrave.Contains(codigoId) == true;
+
     private string? RecusaDaLinha(int codigoId)
         => _marcadas.Contains(codigoId) && _conferencia is { } c && c.PorGuia.TryGetValue(codigoId, out var frase) ? frase : null;
 
@@ -485,7 +491,6 @@
         if (!PodeGerenciar) { _mensagemDoEnvio = "Seu acesso não permite enviar guias à operadora. Fale com a direção da clínica."; return; }
         if (!_ligado) { _mensagemDoEnvio = EnvioTissNaTela.AvisoDeEnvioDesligado(false, NomeDoConvenio); return; }
         if (_marcadas.Count == 0) { _mensagemDoEnvio = "Marque ao menos uma guia para enviar à operadora."; return; }
-        if (EnvioTissNaTela.ImpedimentoDaMarcacao(_marcadas.Count) is { } teto) { _mensagemDoEnvio = teto; return; }
         if (_marcadas.Any(Travada))
         {
             _mensagemDoEnvio = "Há guia marcada de um envio em que não se sabe se chegou: confira no portal e libere-a na linha antes de enviar. Nada foi enviado.";
@@ -508,14 +513,20 @@
         {
             SessaoUsuario.Atual.Exigir(Permissao.GerenciarLotesTiss, "enviar guias à operadora");
             using var escopo = Escopos.CreateScope();
-            var envio = await escopo.ServiceProvider.GetRequiredService<FilaTissService>()
-                .EnfileirarEnvioAsync(_convenio, _marcadas.ToList(), SessaoUsuario.Atual.Operador,
+            var envios = await escopo.ServiceProvider.GetRequiredService<FilaTissService>()
+                .EnfileirarEnvioEmLotesAsync(_convenio, _marcadas.ToList(), SessaoUsuario.Atual.Operador,
                     // A declaração de quem liberou a guia do envio em dúvida vai junto: é a fila que a exige e a audita.
                     conferidasNoPortal: _liberadas.Where(_marcadas.Contains).ToList());
             _marcadas.Clear();
             _conferencia = null;
-            _pedidosDaSessao.Add(envio.Id);
-            Notificacoes.Sucesso($"Pedido de envio de {envio.Guias.Count} guia(s) na fila. Ainda não foi à operadora: acompanhe em Envios recentes.");
+            foreach (var envio in envios) _pedidosDaSessao.Add(envio.Id);
+            var guias = envios.Sum(e => e.Guias.Count);
+            // Fora da janela da operadora o pedido entra AGENDADO: a frase diz para quando.
+            Notificacoes.Sucesso(envios.FirstOrDefault(FilaTiss.Agendado) is { } agendado
+                ? $"Pedido de envio de {guias} guia(s) na fila. {agendado.Resultado}"
+                : $"Pedido de envio de {guias} guia(s)"
+                  + (envios.Count > 1 ? $" em {envios.Count} lotes" : string.Empty)
+                  + " na fila. Ainda não foi à operadora: acompanhe em Envios recentes.");
         }
         catch (EnvioTissRecusadoException ex)
         {

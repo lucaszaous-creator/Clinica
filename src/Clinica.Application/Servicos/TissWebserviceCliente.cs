@@ -61,7 +61,7 @@ public sealed class TissWebserviceCliente(HttpClient http)
     /// nunca como exceção — e nunca com a cara de recusa da operadora.
     /// </summary>
     public async Task<RespostaBrutaTissWs> EnviarAsync(Uri endereco, string envelope, CancellationToken cancelamento = default,
-        CodificacaoTissWs codificacao = CodificacaoTissWs.Iso88591)
+        CodificacaoTissWs codificacao = CodificacaoTissWs.Iso88591, string? soapAction = null)
     {
         Exigir(endereco.Scheme == Uri.UriSchemeHttps, "O web service TISS só é chamado por HTTPS: a mensagem leva login e dado de beneficiário.");
 
@@ -70,7 +70,9 @@ public sealed class TissWebserviceCliente(HttpClient http)
         using var conteudo = new ByteArrayContent(bytes);
         conteudo.Headers.ContentType = new MediaTypeHeaderValue("text/xml") { CharSet = charset };
         using var requisicao = new HttpRequestMessage(HttpMethod.Post, endereco) { Content = conteudo };
-        requisicao.Headers.TryAddWithoutValidation("SOAPAction", "\"\"");
+        // O WSDL do padrão diz soapAction="" (vai entre aspas). Um ponto único (a homologação da Amil)
+        // pode pedir outro: só os comandos de teste do servidor o mudam.
+        requisicao.Headers.TryAddWithoutValidation("SOAPAction", "\"" + (soapAction ?? string.Empty).Trim('"') + "\"");
 
         string corpo;
         int status;
