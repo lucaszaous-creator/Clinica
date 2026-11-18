@@ -5,7 +5,7 @@ sessão). O texto é o MESMO, sem reescrita: design system, WPF/XAML, Blazor, EF
 `verificar-suite`, assinatura digital, impressão, CRM e as rodadas de UI, cada uma com o defeito que a
 originou. Antes de escrever uma tela, uma consulta ou uma checagem, procure aqui a lição da área.
 
-## Índice (213 tópicos, na ordem do arquivo)
+## Índice (214 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -222,6 +222,7 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
 - Classe GENÉRICA no CSS global é colisão esperando acontecer: `.entrada` da tela de login esticava a legenda do Fluxo de caixa
 - Tela Blazor no CELULAR: abaixo de 640 px, número em uma coluna, tabela vira cartão, filtro na largura toda
 - A foto da prévia (`/tela/X`) não prova que a tela está no MENU: confira a composição com `OrganizacaoNavegacao`
+- Atualização que falha não pode se repetir sozinha: o Velopack REABRE o app antigo
 ---
 
 
@@ -5351,3 +5352,28 @@ uma ação nova é DECLARADA (`ElegibilidadeDaAgendaForm.TelasComOBotao`), e a v
 (`tools/Clinica.Verificacao.Desktop`) navega até ela pelas abas visíveis do Recepção e do Gerente; um teste
 Linux confere que a lista é a dos `.razor` que têm o botão. Ação nova que se anuncia noutra tela entra no mesmo
 laço (`TelasAnunciadas` na verificação).
+
+- **Atualização que falha não pode se repetir sozinha: o Velopack REABRE o app antigo** (26/10/2026). Na máquina da clínica um app da suíte
+  mostrava a tela de atualização do Velopack a cada abertura e nunca concluía; o dono reinstalou
+  por acesso remoto. O mecanismo está no `velopack_<app>.log` (`%LOCALAPPDATA%\velopack\`): o
+  `Update.exe apply` falha ao trocar a pasta (`IO error: O arquivo já está sendo usado por outro
+  processo. (os error 32)` — outra instância viva, antivírus, ou o `Failed to wait for process
+  … Acesso negado. Continuing...` que faz ele seguir sem esperar o app sair) e, como foi chamado
+  com `Restart: true`, **relança a versão ANTIGA**. Ela acha a mesma novidade no feed e chama
+  `ApplyUpdatesAndRestart` de novo — o código não tinha memória entre aberturas, então cada
+  reabertura era "a primeira". E o `VelopackApp.Run()` padrão ainda reaplica, em TODA partida, o
+  pacote já baixado (`Launching app is out-dated … Newest Local Available`) antes de o nosso
+  código rodar. Três regras: (1) **toda instalação passa por `TentativasDeAtualizacao`** — no
+  máximo 2 por versão a cada 12 h, contadas em disco ao lado dos logs, e a desistência vai para
+  o log com a versão e onde está o log do Velopack (o app abre na versão que tem, em vez de
+  prender a clínica na tela); (2) **`SetAutoApplyOnStartup(false)`** nos quatro `Program.cs` da
+  suíte — quem instala é o `AtualizadorSuite`, um lugar só, com o limite; (3) **"atualização
+  presa" se diagnostica pelo `velopack_<app>.log` antes de qualquer hipótese de feed**: o feed
+  estava certo (`Found newer remote release` em cada volta), quem falhava era a troca de pasta.
+  O faturamento (`UpdateService`, fora da suíte) tem o mesmo desenho e já registrou dois `apply`
+  simultâneos para o mesmo processo em set/2026; não foi mexido aqui porque está em produção.
+  ⚠️ **Nov/2026 — a atualização ANTES DO LOGIN reaproveita o mesmo `ApplyUpdatesAndRestart` na abertura**, agora
+  com a janela "Atualizando…" por cima: a regra (`AtualizacaoNaAbertura`) consulta `MotivoParaNaoInstalar` ANTES de
+  mostrar a janela e `RegistrarTentativa` ANTES de entregar ao Velopack — senão o laço volta, com a nossa tela no
+  lugar da do Velopack. Só a versão OBRIGATÓRIA (marca nas notas da release) segura a abertura, e por no máximo
+  2 min; a janela é WPF nativo (antes do WebView2 existir, sem flash preto). Ver `docs/atualizacao-antes-do-login.md`.
