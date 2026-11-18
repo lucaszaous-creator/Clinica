@@ -623,6 +623,7 @@ public class ClinicaDbContext : DbContext
             e.Property(a => a.ChamadoEm).HasColumnType("timestamp without time zone");
             e.Property(a => a.InicioAtendimentoEm).HasColumnType("timestamp without time zone");
             e.Property(a => a.FimAtendimentoEm).HasColumnType("timestamp without time zone");
+            e.Property(a => a.ConcluidoAutomaticamenteEm).HasColumnType("timestamp without time zone");
             e.Property(a => a.EnfermagemConferidaEm).HasColumnType("timestamp without time zone");
             e.Ignore(a => a.AtendimentoEncerrado);
             e.HasOne(a => a.Profissional).WithMany()

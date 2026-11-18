@@ -551,6 +551,7 @@ public sealed class AgendaService
             // balcão como sessão pronta para fechar. Cada carimbo novo da fila tem de entrar
             // NESTE bloco: é a lição da parcela 69, e a parcela 74 a repetiu.
             ag.FimAtendimentoEm = null;
+            ag.ConcluidoAutomaticamenteEm = null;
         }
 
         // GUIA NO AGENDAMENTO (parcela 70): o atendimento acompanha o horário, no MESMO

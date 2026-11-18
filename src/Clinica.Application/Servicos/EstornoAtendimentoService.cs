@@ -253,6 +253,7 @@ public sealed class EstornoAtendimentoService
             horario.ChamadoEm = null;
             horario.InicioAtendimentoEm = null;
             horario.FimAtendimentoEm = null;
+            horario.ConcluidoAutomaticamenteEm = null;
             liberado = horario.Id;
         }
 
