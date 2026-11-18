@@ -13,7 +13,14 @@ public enum IndicadorMeta
     Sessoes,
 
     /// <summary>Ocupação média da agenda no mês, de 0 a 100.</summary>
-    Ocupacao
+    Ocupacao,
+
+    /// <summary>
+    /// Pacientes que VOLTARAM pela retenção no mês (nov/2026, Fila 360): casos do Acompanhamento cuja
+    /// sessão de volta (a primeira realizada da modalidade depois da referência) caiu no mês. Só da
+    /// clínica inteira: a retenção é de quem cuida dela, não de um profissional nem de uma modalidade.
+    /// </summary>
+    Retornos
 }
 
 /// <summary>
@@ -82,7 +89,10 @@ public class MetaMensal
     /// agenda sobre jornada, e jornada não tem modalidade — uma "ocupação da acupuntura"
     /// dividiria minutos de uma coisa pela capacidade de outra.
     /// </summary>
-    public static bool AceitaSegmento(IndicadorMeta indicador) => indicador != IndicadorMeta.Ocupacao;
+    public static bool AceitaSegmento(IndicadorMeta indicador) => indicador is not (IndicadorMeta.Ocupacao or IndicadorMeta.Retornos);
+
+    /// <summary>A meta de quem voltou é da clínica: quem traz o paciente de volta é a retenção, não um profissional.</summary>
+    public static bool AceitaProfissional(IndicadorMeta indicador) => indicador != IndicadorMeta.Retornos;
 
     public string? Observacoes { get; set; }
 
@@ -102,6 +112,7 @@ public class MetaMensal
         IndicadorMeta.Faturamento => "Faturamento",
         IndicadorMeta.Sessoes => "Sessões",
         IndicadorMeta.Ocupacao => "Ocupação",
+        IndicadorMeta.Retornos => "Voltaram (retenção)",
         _ => indicador.ToString()
     };
 
@@ -114,6 +125,7 @@ public class MetaMensal
     {
         IndicadorMeta.Faturamento => valor.ToString("C"),
         IndicadorMeta.Ocupacao => $"{valor:0.#}%",
+        IndicadorMeta.Retornos => $"{valor:0} pacientes",
         _ => $"{valor:0.#} sessões"
     };
 
@@ -123,6 +135,7 @@ public class MetaMensal
         IndicadorMeta.Faturamento => "R$",
         IndicadorMeta.Sessoes => "sessões",
         IndicadorMeta.Ocupacao => "%",
+        IndicadorMeta.Retornos => "pacientes",
         _ => string.Empty
     };
 }

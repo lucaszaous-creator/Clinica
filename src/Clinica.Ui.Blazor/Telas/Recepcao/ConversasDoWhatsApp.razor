@@ -2,7 +2,7 @@
   WHATSAPP DA CLÍNICA — A TELA NATIVA DA RECEPÇÃO (out/2026, PR 3 e PR 4 de
   docs/whatsapp-nativo-implementacao.md; o desenho aprovado é docs/mockups/whatsapp-nativo/).
 
-  Três colunas e dois modos: a LISTA (Conversas, do CRM; Retenção, o Acompanhamento do app), a
+  Três colunas: a LISTA (as conversas, do CRM — a retenção mora na Fila 360 desde nov/2026), a
   CONVERSA (do CRM) e o PACIENTE (ficha, horários, confirmação e o caso — lidos do APP, nunca do
   CRM). Tudo o que a tela afirma — selo, janela de 24 h, o que pede ação, a linha do tempo, os
   grupos da retenção, o modelo — vem de ConversasNaTela, RetencaoNaTela e ModeloDoWhatsApp; a
@@ -63,117 +63,55 @@ else if (_painel is not { } painel)
 else
 {
     var agora = WhatsAppDaRecepcaoService.Agora;
-    var (contaConversas, contaRetencao) = WhatsAppDaRecepcaoService.Contagens(painel, agora);
+    var contaConversas = WhatsAppDaRecepcaoService.Contagens(painel);
     <div class="pagina wa @ClasseAoLado @(SemConversaNoCentro ? "sem-conversa" : null)">
         @* ---------------- coluna 1: a lista ---------------- *@
         <aside class="wa-lista" aria-label="Conversas">
             <div class="wa-lista-topo">
                 <h1 class="wa-sr">WhatsApp da clínica · @contaConversas.Todas abertas</h1>
-                <div class="segmentado wa-modo" role="group" aria-label="O que a lista mostra">
-                    <button type="button" aria-pressed="@Bool(_modo == Modo.Conversas)" @onclick="() => TrocarModo(Modo.Conversas)">Conversas @if (contaConversas.NaoLidas > 0) { <b>@contaConversas.NaoLidas</b> }</button>
-                    <button type="button" aria-pressed="@Bool(_modo == Modo.Retencao)" @onclick="() => TrocarModo(Modo.Retencao)"
-                            title="O Acompanhamento: quem está em tratamento e não vem, e os indicados ao BSV">Retenção @if (painel.RetencaoPermitida && contaRetencao.ParaHoje > 0) { <b>@contaRetencao.ParaHoje</b> }</button>
-                </div>
+                @* O modo Retenção saiu (nov/2026): a retenção é a Fila 360 — uma porta por pergunta. *@
+                <p class="wa-lista-titulo">Conversas @if (contaConversas.NaoLidas > 0) { <b>@contaConversas.NaoLidas</b> }</p>
                 <button type="button" class="botao icone" title="Nova conversa" aria-label="Nova conversa" disabled="@(!PodeEscrever)" @onclick="AbrirNovaConversa"><Icone Nome="mais" /></button>
             </div>
             <div class="wa-filtros">
                 <div class="segmentado" role="group" aria-label="Quais conversas">
-                    @if (_modo == Modo.Conversas)
+                    @foreach (var f in FiltrosDasConversas)
                     {
-                        @foreach (var f in FiltrosDasConversas)
-                        {
-                            var n = ConversasNaTela.ContagemDoFiltro(f, contaConversas);
-                            <button type="button" aria-pressed="@Bool(_filtro == f)" @onclick="() => _filtro = f">@ConversasNaTela.Rotulo(f) @if (n is not null) { <b>@n</b> }</button>
-                        }
-                    }
-                    else
-                    {
-                        @foreach (var f in FiltrosDaRetencao)
-                        {
-                            var n = f switch { FiltroDaRetencao.ParaHoje => contaRetencao.ParaHoje, FiltroDaRetencao.Aguardando => contaRetencao.Aguardando, _ => contaRetencao.Fechados };
-                            <button type="button" aria-pressed="@Bool(_filtroRet == f)" @onclick="() => _filtroRet = f">@RetencaoNaTela.Rotulo(f) <b>@n</b></button>
-                        }
+                        var n = ConversasNaTela.ContagemDoFiltro(f, contaConversas);
+                        <button type="button" aria-pressed="@Bool(_filtro == f)" @onclick="() => _filtro = f">@ConversasNaTela.Rotulo(f) @if (n is not null) { <b>@n</b> }</button>
                     }
                 </div>
                 <div class="wa-filtros-linha">
-                    <div class="busca"><Icone Nome="busca" /><input class="campo" type="search" placeholder="@(_modo == Modo.Retencao ? "Nome do paciente" : "Nome ou telefone")"
+                    <div class="busca"><Icone Nome="busca" /><input class="campo" type="search" placeholder="Nome ou telefone"
                                                                    aria-label="Buscar" autocomplete="off" value="@_busca" @oninput="e => _busca = e.Value?.ToString() ?? string.Empty" /></div>
-                    @if (_modo == Modo.Conversas)
-                    {
-                        <button type="button" class="chip" aria-pressed="@Bool(_soNaoLidas)" title="Só as não lidas" @onclick="() => _soNaoLidas = !_soNaoLidas">Não lidas</button>
-                    }
-                    else
-                    {
-                        <button type="button" class="botao icone fantasma wa-quem-aparece" title="Quem aparece aqui?" aria-label="Quem aparece aqui?" aria-expanded="@Bool(_quemAparece)"
-                                @onclick="() => _quemAparece = !_quemAparece" @onkeydown="TeclaDoQuemAparece"><Icone Nome="info" /></button>
-                    }
+                    <button type="button" class="chip" aria-pressed="@Bool(_soNaoLidas)" title="Só as não lidas" @onclick="() => _soNaoLidas = !_soNaoLidas">Não lidas</button>
                 </div>
-                @if (_modo == Modo.Retencao && _quemAparece)
-                {
-                    <p class="wa-quem-aparece-texto" role="note">@RetencaoNaTela.QuemApareceAqui</p>
-                }
             </div>
-            @if (_modo == Modo.Conversas && _filtro == FiltroDasConversas.Minhas) { @BarraDoTurno() }
+            @if (_filtro == FiltroDasConversas.Minhas) { @BarraDoTurno() }
             @if (!_avisoSemDorFechado && SemDorNaTela.AvisoDaGestao(painel.SemDor) is { } avisoSemDor)
             {
                 <div class="wa-semdor-aviso" role="status"><span aria-hidden="true">✨</span><span>@avisoSemDor</span>
                     <button type="button" class="botao icone fantasma" aria-label="Fechar o aviso do @@SemDor" @onclick="() => _avisoSemDorFechado = true"><Icone Nome="x" /></button></div>
             }
             <div class="wa-linhas" role="listbox" aria-label="Lista de conversas">
-                @if (_modo == Modo.Conversas)
+                @{ var linhas = WhatsAppDaRecepcaoService.Linhas(painel, _filtro, _busca, _soNaoLidas, agora); }
+                @if (linhas.Count == 0)
                 {
-                    var linhas = WhatsAppDaRecepcaoService.Linhas(painel, _filtro, _busca, _soNaoLidas, agora);
-                    if (linhas.Count == 0)
-                    {
-                        var (titulo, texto) = ConversasNaTela.Vazio(_filtro, !string.IsNullOrWhiteSpace(_busca));
-                        <EstadoVazio Titulo="@titulo" Descricao="@texto" />
-                    }
-                    @foreach (var l in linhas)
-                    {
-                        <button type="button" role="option" @key="l.Id" class="wa-linha @(l.NaoLidas > 0 ? "nao-lida" : null) @(_menuDaConversa is not null && _conversaDoMenu == l.Id ? "no-menu" : null)" aria-current="@Bool(_aberta?.Id == l.Id)" aria-selected="@Bool(_aberta?.Id == l.Id)"
-                                @onclick="() => AbrirConversaAsync(l.Id, l.NaoLidas, null)" @oncontextmenu="e => AbrirMenuDaConversa(l.Id, e)" @oncontextmenu:preventDefault="true">
-                            @Avatar(l.PacienteId, l.Iniciais, l.TomDoAvatar, @<span class="wa-canal @(l.Sms ? "sms" : null)" title="@(l.Sms ? "SMS" : "WhatsApp")"><Icone Nome="@(l.Sms ? "sms" : "chat")" /></span>)
-                            <span class="wa-linha-corpo">
-                                <span class="wa-linha-topo"><span class="wa-linha-nome">@l.Nome</span>@if (l.Espera is { } espera) { <span class="wa-linha-hora wa-espera tom-@espera.Tom" title="@($"{espera.Texto} (a última mensagem: {l.Hora})")" aria-label="@espera.Texto">@espera.Curto</span> } else { <span class="wa-linha-hora">@l.Hora</span> }</span>
-                                <span class="wa-linha-previa">@if (l.Tick is { } t) { @Tick(t) }@if (l.SemDor is { } etiqueta) { @SeloDoSemDor(etiqueta) }<span class="texto">@l.Previa</span>@if (l.NaoLidas > 0) { <b class="wa-nao-lidas" aria-label="@($"{l.NaoLidas} não lidas")">@l.NaoLidas</b> }</span>
-                                <span class="wa-linha-rodape"><span class="selo tom-@l.Selo.Tom">@l.Selo.Texto</span>
-                                    @if (l.TemResponsavel) { <span class="wa-linha-quem @(l.Minha ? "minha" : null)" title="@l.Responsavel"><Icone Nome="pessoa" /><span>@l.Responsavel</span></span> }</span>
-                            </span>
-                        </button>
-                    }
+                    var (titulo, texto) = ConversasNaTela.Vazio(_filtro, !string.IsNullOrWhiteSpace(_busca));
+                    <EstadoVazio Titulo="@titulo" Descricao="@texto" />
                 }
-                else if (!painel.RetencaoPermitida)
+                @foreach (var l in linhas)
                 {
-                    <EstadoVazio Titulo="Seu acesso não alcança o Acompanhamento" Icone="cadeado"
-                                 Descricao="A retenção é a fila do Acompanhamento. Fale com a direção para liberar o acesso." />
-                }
-                else
-                {
-                    var grupos = WhatsAppDaRecepcaoService.Grupos(painel, _filtroRet, _busca, agora);
-                    if (grupos.Count == 0)
-                    {
-                        var (titulo, texto) = RetencaoNaTela.Vazio(_filtroRet, !string.IsNullOrWhiteSpace(_busca));
-                        <EstadoVazio Titulo="@titulo" Descricao="@texto" Icone="check" />
-                    }
-                    @foreach (var g in grupos)
-                    {
-                        <div class="wa-grupo-bloco" role="group" aria-label="@g.Titulo" @key="g.Chave">
-                        <div class="wa-grupo" title="@g.Titulo"><b>@g.Titulo</b><span>@g.Linhas.Count</span></div>
-                        @foreach (var r in g.Linhas)
-                        {
-                            <button type="button" role="option" @key="r.Caso.Id" class="wa-linha @(r.NaoLida ? "nao-lida" : null)" aria-current="@Bool(_aberta?.Caso?.Id == r.Caso.Id)"
-                                    @onclick="() => AbrirCasoAsync(r.Caso)">
-                                @Avatar(r.Caso.PacienteId, r.Iniciais, r.TomDoAvatar)
-                                <span class="wa-linha-corpo">
-                                    <span class="wa-linha-topo"><span class="wa-linha-nome">@r.Caso.Paciente</span><span class="wa-dias tom-@r.TomDosDias">@r.Dias</span></span>
-                                    <span class="wa-linha-tratamento">@r.Detalhe</span>
-                                    <span class="wa-linha-rodape"><span class="selo tom-@r.Selo.Tom">@r.Selo.Texto</span>
-                                        <span class="wa-linha-quem @(r.Minha ? "minha" : null)" title="@r.Responsavel"><span>@r.Responsavel</span></span></span>
-                                </span>
-                            </button>
-                        }
-                        </div>
-                    }
+                    <button type="button" role="option" @key="l.Id" class="wa-linha @(l.NaoLidas > 0 ? "nao-lida" : null) @(_menuDaConversa is not null && _conversaDoMenu == l.Id ? "no-menu" : null)" aria-current="@Bool(_aberta?.Id == l.Id)" aria-selected="@Bool(_aberta?.Id == l.Id)"
+                            @onclick="() => AbrirConversaAsync(l.Id, l.NaoLidas, null)" @oncontextmenu="e => AbrirMenuDaConversa(l.Id, e)" @oncontextmenu:preventDefault="true">
+                        @Avatar(l.PacienteId, l.Iniciais, l.TomDoAvatar, @<span class="wa-canal @(l.Sms ? "sms" : null)" title="@(l.Sms ? "SMS" : "WhatsApp")"><Icone Nome="@(l.Sms ? "sms" : "chat")" /></span>)
+                        <span class="wa-linha-corpo">
+                            <span class="wa-linha-topo"><span class="wa-linha-nome">@l.Nome</span>@if (l.Espera is { } espera) { <span class="wa-linha-hora wa-espera tom-@espera.Tom" title="@($"{espera.Texto} (a última mensagem: {l.Hora})")" aria-label="@espera.Texto">@espera.Curto</span> } else { <span class="wa-linha-hora">@l.Hora</span> }</span>
+                            <span class="wa-linha-previa">@if (l.Tick is { } t) { @Tick(t) }@if (l.SemDor is { } etiqueta) { @SeloDoSemDor(etiqueta) }<span class="texto">@l.Previa</span>@if (l.NaoLidas > 0) { <b class="wa-nao-lidas" aria-label="@($"{l.NaoLidas} não lidas")">@l.NaoLidas</b> }</span>
+                            <span class="wa-linha-rodape"><span class="selo tom-@l.Selo.Tom">@l.Selo.Texto</span>
+                                @if (l.TemResponsavel) { <span class="wa-linha-quem @(l.Minha ? "minha" : null)" title="@l.Responsavel"><Icone Nome="pessoa" /><span>@l.Responsavel</span></span> }</span>
+                        </span>
+                    </button>
                 }
             </div>
             <div class="wa-lista-rodape">
@@ -201,8 +139,8 @@ else
                 else if (AoLado is { } semConversa) { <SemConversaAoLado Nome="@semConversa.Nome" Pode="@PodeEscrever" Chegou="@(DoPacienteAoLado.Escolhida is not null)" AoComecar="ComecarAoLado" AoAbrir="AbrirChegadaAoLadoAsync" /> }
                 else
                 {
-                    var (tituloDoVazio, textoDoVazio) = ConversasNaTela.SemConversaAberta(_modo == Modo.Retencao);
-                    <div class="wa-vazia"><EstadoVazio Titulo="@tituloDoVazio" Icone="@(_modo == Modo.Retencao ? "coracao" : "chat")" Descricao="@textoDoVazio" /></div>
+                    var (tituloDoVazio, textoDoVazio) = ConversasNaTela.SemConversaAberta();
+                    <div class="wa-vazia"><EstadoVazio Titulo="@tituloDoVazio" Icone="chat" Descricao="@textoDoVazio" /></div>
                 }
             }
             else
@@ -357,7 +295,8 @@ else
                 }
                 @if (c.Acao is { } acao && !c.Encerrada)
                 {
-                    <div class="aviso @acao.Tom wa-acao" role="status">
+                    @* Só "Como foi?" (todos os botões são desfecho): a Fila 360 o mostra na coluna da direita e o tira daqui. *@
+                    <div class="aviso @acao.Tom wa-acao @(acao.Botoes.Count > 0 && acao.Botoes.All(b => b.Acao == BotaoDaAcao.Desfecho) ? "wa-acao-desfecho" : null)" role="status">
                         <Icone Nome="@(acao.Tom == "sucesso" ? "check" : acao.Tom == "atencao" ? "alerta" : "info")" />
                         <div class="wa-acao-texto"><strong>@acao.Titulo</strong>@acao.Frase</div>
                         <div class="botoes-linha">@foreach (var b in acao.Botoes) { @Botao(c, b, mini: true) }</div>
@@ -662,13 +601,11 @@ else
 }
 
 @code {
-    private enum Modo { Conversas, Retencao }
     private enum Popover { Nenhum, Modelos, Rapidas }
     private enum Form { Nenhum, Transferir, Encerrar, ConferirFicha, Cancelar, ComoFoi, Nova }
 
     // Sem a aba "Novas": a conversa sem dona já aparece em "Todas" com o selo, e o que falta ler o chip "Não lidas" separa.
     private static readonly FiltroDasConversas[] FiltrosDasConversas = [FiltroDasConversas.Todas, FiltroDasConversas.Minhas, FiltroDasConversas.Encerradas];
-    private static readonly FiltroDaRetencao[] FiltrosDaRetencao = [FiltroDaRetencao.ParaHoje, FiltroDaRetencao.Aguardando, FiltroDaRetencao.Fechados];
 
     /// <summary>A releitura silenciosa: o que mudou no CRM, a cada 7 s.</summary>
     private static readonly TimeSpan Batida = TimeSpan.FromSeconds(7);
@@ -681,9 +618,7 @@ else
     // Os rascunhos são da JANELA (RascunhosDoWhatsApp): a aba e a conversa ao lado dividem o mesmo, e fechar a gaveta não apaga.
     private RascunhosDoWhatsApp? _rascunhosDaJanela;
     private RascunhosDoWhatsApp _rascunhos => _rascunhosDaJanela ??= Servicos.GetService<RascunhosDoWhatsApp>() ?? new RascunhosDoWhatsApp();
-    private Modo _modo = Modo.Conversas;
     private FiltroDasConversas _filtro = FiltroDasConversas.Todas;
-    private FiltroDaRetencao _filtroRet = FiltroDaRetencao.ParaHoje;
     private string _busca = "";
     private bool _soNaoLidas;
     private string? _buscaConversa;
@@ -871,7 +806,6 @@ else
     private async Task ConsumirPedidoAsync()
     {
         if (_painel is not { } painel || Servicos.GetService<PedidoDeConversaNoCrm>()?.Consumir() is not { } pedido) return;
-        _modo = Modo.Conversas;
         // O aviso do @SemDor no sino já sabe a conversa: abre ela, mesmo fora do filtro da lista.
         if (pedido.ConversaId is { Length: > 0 } exata)
         {
@@ -904,13 +838,7 @@ else
         }
     }
 
-    private void TrocarModo(Modo modo)
-    {
-        if (_modo == modo) return;
-        _modo = modo;
-        _busca = "";
-    }
-
+    /// <summary>O caso da retenção sem conversa ainda (a conversa ao lado, pedida pela Fila 360): abre a abertura do convite.</summary>
     private Task AbrirCasoAsync(LinhaAcompanhamento caso) => AbrirConversaAsync(null, 0, caso);
 
     /// <summary>Abre uma conversa (ou o caso da retenção). Contador de geração: clicar rápido em duas não mistura as colunas.</summary>
@@ -1166,7 +1094,6 @@ else
             var c = await escopo.ServiceProvider.GetRequiredService<WhatsAppDaRecepcaoService>().NovaConversaAsync(remetente, telefone, nome, ficha?.Id, ficha?.Nome);
             if (Descartada) return null;
             FecharForm();
-            _modo = Modo.Conversas;
             _filtro = FiltroDasConversas.Minhas;
             await LerTudoAsync(silencioso: true);
             await AbrirConversaAsync(c.Id, 0, null);

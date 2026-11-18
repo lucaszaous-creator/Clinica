@@ -15,13 +15,6 @@ public sealed record LinhaDaConversa(string Id, string Nome, string Iniciais, st
     string Previa, TickDaMensagem? Tick, int NaoLidas, SeloDoWhatsApp Selo, string Responsavel, bool Minha, bool TemResponsavel,
     EtiquetaDoSemDor? SemDor = null, int? PacienteId = null, EsperaNaLinha? Espera = null);
 
-/// <summary>Uma linha do modo Retenção (um caso do Acompanhamento), pronta para desenhar.</summary>
-public sealed record LinhaDaRetencao(LinhaAcompanhamento Caso, string Iniciais, string TomDoAvatar, string Dias, string TomDosDias,
-    string Detalhe, SeloDoWhatsApp Selo, string Responsavel, bool Minha, bool NaoLida, string? ConversaId);
-
-/// <summary>Um grupo do modo Retenção, com as linhas já compostas.</summary>
-public sealed record GrupoNaTela(string Chave, string Titulo, string Tom, IReadOnlyList<LinhaDaRetencao> Linhas);
-
 /// <summary>
 /// A FOTOGRAFIA da aba: o que o CRM e o app responderam na última leitura inteira (ou na
 /// última releitura de 7 s, juntada por cima). A tela guarda UMA e desenha a lista a partir
@@ -29,12 +22,13 @@ public sealed record GrupoNaTela(string Chave, string Titulo, string Tom, IReadO
 /// </summary>
 /// <param name="LidoEm">O <c>Now</c> do CRM na última leitura: é o <c>desde</c> da próxima releitura.</param>
 /// <param name="FichasPorConversa">Conversa sem ficha conferida → as fichas que têm aquele telefone.</param>
-/// <param name="RetencaoPermitida">O acesso de quem entrou alcança o Acompanhamento (sem ele, o modo Retenção diz por quê).</param>
+/// <param name="Retencao">Os casos do Acompanhamento: ligam a conversa ao caso (a etiqueta, o "Como foi?", o convite).</param>
+/// <param name="RetencaoPermitida">O acesso de quem entrou alcança o Acompanhamento (sem ele, a conversa não mostra o caso).</param>
 public sealed record PainelDoWhatsApp(
     AppSession Sessao, AppWorkspace Area, IReadOnlyList<AppConversationSummary> Conversas, DateTimeOffset LidoEm,
     IReadOnlyList<AvisoDeConfirmacao> Avisos, IReadOnlyDictionary<int, int> PacienteDoAgendamento,
     IReadOnlyDictionary<string, IReadOnlyList<FichaComTelefone>> FichasPorConversa,
-    IReadOnlyList<LinhaAcompanhamento> Retencao, bool RetencaoPermitida, IReadOnlyList<int> LimitesDeDias)
+    IReadOnlyList<LinhaAcompanhamento> Retencao, bool RetencaoPermitida)
 {
     /// <summary>Os nomes da equipe do CRM (id → nome), para a linha do tempo e o responsável.</summary>
     public IReadOnlyDictionary<string, string> Agentes { get; } =
@@ -198,7 +192,7 @@ public sealed partial class WhatsAppDaRecepcaoService(
         var fichas = await FichasDasConversasAsync(conversas, ct);
         var dias = await parametros.ObterDiasInatividadeRecallAsync(ct);
         var (retencao, permitida) = await RetencaoAsync(dias, DateOnly.FromDateTime(agora.DateTime), ct);
-        return new PainelDoWhatsApp(sessao, area, conversas, agora, lista, donos, fichas, retencao, permitida, [dias]) { SemDor = semdor };
+        return new PainelDoWhatsApp(sessao, area, conversas, agora, lista, donos, fichas, retencao, permitida) { SemDor = semdor };
     }
 
     /// <summary>
@@ -254,6 +248,24 @@ public sealed partial class WhatsAppDaRecepcaoService(
     /// duplica caso (o caso que já está no ciclo da última sessão fica como está). O dia é marcado em
     /// <see cref="RecallDoDia"/>, dividido com a tela Acompanhamento.
     /// </summary>
+    /// <summary>
+    /// Os casos da Fila 360 cujo paciente respondeu depois do último contato (o grupo "Responderam" da aba Hoje).
+    /// Sem o CRM configurado, vazio. A falha do CRM chega a quem chamou: a Fila 360 abre sem o grupo e registra no log.
+    /// </summary>
+    public async Task<IReadOnlySet<int>> QueResponderamAsync(IReadOnlyList<LinhaAcompanhamento> linhas, CancellationToken ct = default)
+        => (await ConversasDaFilaAsync(linhas, ct)).Where(c => c.Respondeu).Select(c => c.Linha.Id).ToHashSet();
+
+    /// <summary>
+    /// As conversas dos casos abertos da Fila 360 (a página Conversas e o grupo "Responderam"), numa leitura só do
+    /// CRM. Sem o CRM configurado, vazio; a falha do CRM chega a quem chamou (a Fila 360 segue sem elas e registra).
+    /// </summary>
+    public async Task<IReadOnlyList<ConversaDaFila>> ConversasDaFilaAsync(IReadOnlyList<LinhaAcompanhamento> linhas, CancellationToken ct = default)
+    {
+        if (linhas.Count == 0 || !await crm.ConfiguradoAsync(ct)) return [];
+        var conversas = await crm.ListarConversasAsync(UsuarioId, ct);
+        return Fila360NaTela.ConversasDaFila(linhas, conversas, Agora);
+    }
+
     private async Task<(IReadOnlyList<LinhaAcompanhamento> Linhas, bool Permitida)> RetencaoAsync(int dias, DateOnly hoje, CancellationToken ct)
     {
         await RenovarRecallDoDiaAsync(dias, hoje, ct);
@@ -470,27 +482,9 @@ public sealed partial class WhatsAppDaRecepcaoService(
             SemDorNaTela.EtiquetaNaLinha(SemDorNaTela.Etiqueta(painel.SemDor, c), selo), c.PatientId, ConversasNaTela.Espera(c, agora));
     }
 
-    /// <summary>Os números do seletor e dos filtros dos dois modos.</summary>
-    public static (ContagemDasConversas Conversas, ContagemDaRetencao Retencao) Contagens(PainelDoWhatsApp painel, DateTimeOffset agora)
-        => (ConversasNaTela.Contagens(painel.Conversas, painel.Sessao.AgentId),
-            RetencaoNaTela.Contagens(painel.Retencao, ConversasNaTela.UltimaRecebidaPorPaciente(painel.Conversas), agora));
-
-    /// <summary>Os grupos do modo Retenção, com os dias do Gerente, e cada linha composta.</summary>
-    public static IReadOnlyList<GrupoNaTela> Grupos(PainelDoWhatsApp painel, FiltroDaRetencao filtro, string? busca, DateTimeOffset agora)
-    {
-        var ultimas = ConversasNaTela.UltimaRecebidaPorPaciente(painel.Conversas);
-        var usuario = UsuarioId;
-        return RetencaoNaTela.Agrupar(painel.Retencao, filtro, painel.LimitesDeDias, ultimas, agora, busca)
-            .Select(g => new GrupoNaTela(g.Chave, g.Titulo, g.Tom, g.Linhas.Select(l =>
-            {
-                var conversa = ConversaDoCaso(painel, l);
-                DateTimeOffset? ultima = ultimas.TryGetValue(l.PacienteId, out var x) ? x : null;
-                return new LinhaDaRetencao(l, Iniciais(l.Paciente), TomDoAvatar("caso-" + l.Id), RetencaoNaTela.Dias(l),
-                    g.Chave == "novo-bsv" ? "info" : g.Tom, RetencaoNaTela.Detalhe(l), RetencaoNaTela.Selo(l, ultima, agora),
-                    l.ResponsavelId is null ? "Sem responsável" : ConversaDoAcompanhamento.Dono(l, usuario),
-                    l.ResponsavelId is not null && l.ResponsavelId == usuario, conversa is { Unread: > 0 }, conversa?.Id);
-            }).ToList())).ToList();
-    }
+    /// <summary>Os números dos filtros da lista.</summary>
+    public static ContagemDasConversas Contagens(PainelDoWhatsApp painel)
+        => ConversasNaTela.Contagens(painel.Conversas, painel.Sessao.AgentId);
 
     // ======================================================================== peças puras
 

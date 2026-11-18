@@ -1,0 +1,25 @@
+@*
+  O anel do risco da Ficha 360 (nov/2026): a nota de 0 a 100 no meio, a faixa embaixo, o arco na cor
+  da faixa. Número de SVG em cultura invariante; o texto lido sai em pt-BR.
+*@
+@using System.Globalization
+@using Clinica.Application.Servicos
+
+<svg class="f360-anel tom-@Risco.Tom" style="width:@N(Tamanho)px;height:@N(Tamanho)px" viewBox="0 0 92 92" role="img"
+     aria-label="@($"Risco {Risco.Pontos.ToString(Formato.PtBr)} de 100, {Risco.Rotulo.ToLowerInvariant()}")">
+    <circle class="f360-anel-fundo" cx="46" cy="46" r="38" />
+    @if (Risco.Pontos > 0)
+    {
+        <circle class="f360-anel-arco" cx="46" cy="46" r="38" stroke-dasharray="@N(Circunferencia * Risco.Pontos / 100.0) @N(Circunferencia)" transform="rotate(-90 46 46)" />
+    }
+    <text class="f360-anel-nota" x="46" y="49" text-anchor="middle">@Risco.Pontos.ToString(CultureInfo.InvariantCulture)</text>
+    <text class="f360-anel-faixa" x="46" y="65" text-anchor="middle">@Risco.Rotulo.ToLowerInvariant()</text>
+</svg>
+
+@code {
+    [Parameter, EditorRequired] public RiscoDoPaciente Risco { get; set; } = default!;
+    [Parameter] public int Tamanho { get; set; } = 92;
+
+    private const double Circunferencia = 2 * Math.PI * 38;
+    private static string N(double v) => v.ToString("0.##", CultureInfo.InvariantCulture);
+}

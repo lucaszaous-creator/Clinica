@@ -12,7 +12,7 @@
 // memória da prévia), e a segunda rodada fotografaria os estados já com a mensagem enviada, o
 // convite feito e a conversa assumida — e os fluxos 24 e 25 não achariam mais o que clicar.
 // Reprova (lista em "falhas") o que nenhuma rede vê: página que rola para o lado, filho que vaza
-// da borda do grupo — foi assim que apareceu o "Retenção 15" por baixo do "+" — e selo cortado na lista.
+// da borda do grupo e selo cortado na lista.
 const { chromium } = require('playwright');
 const path = require('path');
 const DIR = path.join(__dirname, '../../docs/mockups/whatsapp-nativo/tela-real');
@@ -33,7 +33,7 @@ const botao = (p, nome) => p.getByRole('button', { name: nome }).first();
 async function clicar(p, nome) { await botao(p, nome).click({ timeout: 8000 }); await pausa(900); }
 async function linha(p, texto) { await p.locator('.wa-linha', { hasText: texto }).first().click({ timeout: 8000 }); await pausa(1500); }
 async function filtro(p, nome) { await p.locator('.wa-filtros button', { hasText: nome }).first().click({ timeout: 8000 }); await pausa(900); }
-async function modo(p, nome) { await p.locator('.wa-modo button', { hasText: nome }).first().click({ timeout: 8000 }); await pausa(1200); }
+// O modo Retenção saiu da aba em nov/2026 (a retenção é a Fila 360): as fotos 14–19, 24, 66 e 67 eram dele.
 
 const ROTEIRO = [
   ['01-lista', async p => {}],
@@ -52,12 +52,6 @@ const ROTEIRO = [
       if (p.viewportSize().width <= 1180) await clicar(p, 'Abrir a ficha do paciente');
       await p.locator('.wa-horario button', { hasText: 'Cancelar' }).first().click(); await pausa(900); }],
   ['13-nova-conversa', async p => { await clicar(p, 'Nova conversa'); }],
-  ['14-retencao', async p => { await modo(p, 'Retenção'); }],
-  ['15-retencao-convite', async p => { await modo(p, 'Retenção'); await linha(p, 'Sebastião'); }],
-  ['16-retencao-convite-modelo', async p => { await modo(p, 'Retenção'); await linha(p, 'Sebastião'); await clicar(p, /Preparar convite/); }],
-  ['17-retencao-respondeu', async p => { await modo(p, 'Retenção'); await linha(p, 'Alzira'); }],
-  ['18-retencao-sem-autorizacao', async p => { await modo(p, 'Retenção'); await p.locator('.wa-linha', { hasText: 'Sem autorização' }).first().click(); await pausa(1500); }],
-  ['19-como-foi-a-ligacao', async p => { await modo(p, 'Retenção'); await p.locator('.wa-linha', { hasText: 'Sem autorização' }).first().click(); await pausa(1500); await clicar(p, /Já liguei/); }],
   ['21-busca-na-conversa', async p => { await filtro(p, 'Minhas'); await linha(p, 'Maria das Graças'); await clicar(p, 'Buscar nesta conversa');
       await p.locator('.wa-conversa input[type=search], .wa-conversa input').first().fill('terça'); await pausa(900); }],
   // A mídia (24/10): a foto e a nota de voz do Roberto, o PDF que a Ana mandou, a foto ampliada, o
@@ -92,8 +86,6 @@ const ROTEIRO = [
   ['63-sem-resposta-uma-palavra', async p => { await filtro(p, 'Minhas'); await linha(p, 'Carlos Eduardo'); }],
   ['64-para-resolver', async p => { await filtro(p, 'Minhas'); await linha(p, 'Maria das Graças'); await fichaAoLado(p); await mostrar(p, '.wa-resolver'); await pausa(900); }],
   ['65-nome-no-whatsapp', async p => { await linha(p, 'Terezinha'); }],
-  ['66-retencao-sem-telefone', async p => { await modo(p, 'Retenção'); await linha(p, 'Helena Martins'); }],
-  ['67-retencao-responsavel', async p => { await modo(p, 'Retenção'); await linha(p, 'Alzira'); }],
   // O botão direito (out/2026): o menu numa conversa da lista e num balão, o "Responder citando" com a barra acima do
   // campo, e o menu aberto rente ao canto de baixo à direita — o menu-de-contexto.js o puxa para dentro da janela
   // (em 1024 a conversa vai até a borda direita; em 1366 a ficha fica ao lado e o que se prova é a borda de baixo).
@@ -190,11 +182,6 @@ const balaoServeSim = p => p.locator('.wa-m.recebida .wa-balao', { hasText: 'Ser
     await p.locator('.wa-escrever textarea').first().fill('Combinado, Maria! Fica para quarta às 14h com a Dra. Helena.');
     await clicar(p, 'Enviar'); await pausa(1500); await p.screenshot({ path: `${DIR}/23-enviou-1366.png` }); feitas.push('23'); }
   catch (e) { falhas.push('23: ' + e.message.split('\n')[0]); } await p.close(); }
-  if (quer('24')) { p = await abrir(b, 1366, 900);
-  try { await modo(p, 'Retenção'); await linha(p, 'Sebastião'); await clicar(p, /Preparar convite/);
-    await p.locator('.wa-popover button.primario, .wa-modelo-form button.primario').last().click({ timeout: 8000 }); await pausa(2500);
-    await p.screenshot({ path: `${DIR}/24-convite-enviado-1366.png` }); feitas.push('24'); }
-  catch (e) { falhas.push('24: ' + e.message.split('\n')[0]); } await p.close(); }
   if (quer('25')) { p = await abrir(b, 1366, 900);
   try { await linha(p, 'Terezinha'); await clicar(p, /^Assumir/); await clicar(p, 'Nota interna');
     await p.locator('.wa-escrever textarea').first().fill('Conferir com a Terezinha se o Pedro vem com ela ou com o pai.');

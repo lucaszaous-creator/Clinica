@@ -89,6 +89,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<ConsentimentoLgpd> Consentimentos => Set<ConsentimentoLgpd>();
     public DbSet<MedidaClinica> MedidasClinicas => Set<MedidaClinica>();
     public DbSet<ResultadoExame> ResultadosExame => Set<ResultadoExame>();
+    public DbSet<EscutaPosSessao> EscutasPosSessao => Set<EscutaPosSessao>();
     public DbSet<ArquivoResultadoExame> ArquivosResultadoExame => Set<ArquivoResultadoExame>();
     public DbSet<AnexoPaciente> AnexosPaciente => Set<AnexoPaciente>();
     public DbSet<ArquivoAnexoPaciente> ArquivosAnexoPaciente => Set<ArquivoAnexoPaciente>();
@@ -1046,6 +1047,34 @@ public class ClinicaDbContext : DbContext
             e.Ignore(x => x.ValorComUnidade);
             e.Ignore(x => x.TemArquivo);
             e.Ignore(x => x.ResumoDoResultado);
+        });
+
+        // ---- Escuta pós-sessão (nov/2026, Fila 360): dado de saúde, raiz clínica ----
+        b.Entity<EscutaPosSessao>(e =>
+        {
+            e.ToTable("EscutasPosSessao");
+            e.HasKey(x => x.Id);
+            // Enum como TEXTO: a linha tem de ser legível daqui a 20 anos, sem o código do enum ao lado.
+            e.Property(x => x.Modalidade).HasConversion<string>().HasMaxLength(40);
+            e.Property(x => x.Motivo).HasConversion<string>().HasMaxLength(30);
+            e.Property(x => x.Como).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Canal).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Relato).HasMaxLength(1000);
+            e.Property(x => x.RegistradoPor).IsRequired().HasMaxLength(80);
+            e.Property(x => x.CanceladaPor).HasMaxLength(80);
+            e.Property(x => x.MotivoCancelamento).HasMaxLength(500);
+            // Hora de PAREDE (o Npgsql recusa Kind=Local em "with time zone").
+            e.Property(x => x.RegistradoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.CanceladaEm).HasColumnType("timestamp without time zone");
+
+            // Cascata como as outras raízes: a ficha com escuta NÃO é removível (PacienteTemRegistroClinicoAsync).
+            e.HasOne(x => x.Paciente).WithMany().HasForeignKey(x => x.PacienteId);
+
+            e.HasIndex(x => new { x.PacienteId, x.SessaoEm });
+            // UMA escuta vigente por sessão: o segundo clique (ou a outra máquina) não cria a segunda.
+            e.HasIndex(x => x.AtendimentoId).IsUnique().HasFilter("\"CanceladaEm\" IS NULL");
+
+            e.Ignore(x => x.Cancelada);
         });
 
         // Os BYTES do laudo, à parte — o padrão do retrato do paciente (PacientesFotos):

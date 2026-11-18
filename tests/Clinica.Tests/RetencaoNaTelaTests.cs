@@ -8,13 +8,12 @@ using static Clinica.Tests.WhatsAppDeTeste;
 namespace Clinica.Tests;
 
 /// <summary>
-/// O modo Retenção da tela do WhatsApp (PR 2): a fila do Acompanhamento nos grupos do mockup,
-/// com os dias do Gerente, só quem trata, e nenhum caminho de envio para quem não autorizou.
+/// A retenção dentro da conversa do WhatsApp: o selo, a etiqueta, o convite e o "Como foi?" do caso,
+/// só para quem trata, e nenhum caminho de envio para quem não autorizou. (A LISTA da retenção, com os
+/// grupos, saiu da aba WhatsApp em nov/2026: é a Fila 360, testada em Fila360NaTelaTests.)
 /// </summary>
 public sealed class RetencaoNaTelaTests
 {
-    private static readonly int[] LimitesDoMockup = [15, 20, 30];
-
     private static readonly LinhaAcompanhamento Sebastiao = Caso(1, 1, "Sebastião Ramos", telefone: "(22) 99555-1234", dias: 32);
     private static readonly LinhaAcompanhamento Helena = Caso(2, 2, "Helena Marques", modalidade: ModalidadeAtendimento.AcupunturaSimples, dias: 30, consentimento: false);
     private static readonly LinhaAcompanhamento Marcos = Caso(3, 3, "Marcos Vinícius Teles", modalidade: ModalidadeAtendimento.BsvComAcupuntura, dias: 21);
@@ -41,76 +40,13 @@ public sealed class RetencaoNaTelaTests
         [9] = Em(4, 10, 20), // Fernanda escreveu muito antes do convite
     };
 
-    private static IReadOnlyList<(string Chave, string Titulo, string Tom, string Pacientes)> Grupos(FiltroDaRetencao filtro,
-        IEnumerable<int>? limites = null, string? busca = null, IEnumerable<LinhaAcompanhamento>? fila = null)
-        => RetencaoNaTela.Agrupar(fila ?? Fila, filtro, limites ?? LimitesDoMockup, Respostas, Agora, busca)
-            .Select(g => (g.Chave, g.Titulo, g.Tom, string.Join(", ", g.Linhas.Select(l => l.Paciente)))).ToList();
-
     [Fact]
-    public void Para_hoje_quem_respondeu_vem_primeiro_depois_30_20_15_dias_e_os_novos_no_BSV()
+    public void So_quem_trata_esta_em_tratamento_e_quem_so_consultou_nao_recebe_convite()
     {
-        Assert.Equal(
-        [
-            ("respondeu", "Responderam · decidir", "sucesso", "Alzira Pinto"),
-            ("dias-30", "Sem vir há 30 dias", "perigo", "Sebastião Ramos, Helena Marques"),
-            ("dias-20", "Sem vir há 20 dias", "aviso", "Marcos Vinícius Teles"),
-            ("dias-15", "Sem vir há 15 dias", "neutro", "Rita de Cássia Lopes"),
-            ("dias-abaixo", "Sem vir há menos de 15 dias", "neutro", "Breno Dias"),
-            ("novo-bsv", "Novos no BSV · sem a 1ª sessão", "info", "Felipe Arantes"),
-        ], Grupos(FiltroDaRetencao.ParaHoje));
-    }
-
-    [Fact]
-    public void So_entra_quem_trata_e_quem_so_consultou_nao_aparece_em_filtro_nenhum()
-    {
-        foreach (var filtro in Enum.GetValues<FiltroDaRetencao>())
-            Assert.DoesNotContain(Grupos(filtro), g => g.Pacientes.Contains("Quem só consultou"));
+        Assert.False(RetencaoNaTela.PodeConvidar(SoConsulta));
         Assert.False(RetencaoNaTela.EmTratamento(SoConsulta));
         Assert.True(RetencaoNaTela.EmTratamento(Felipe));
         Assert.True(RetencaoNaTela.EmTratamento(ModalidadeAtendimento.AcupunturaComEletro));
-    }
-
-    [Fact]
-    public void Aguardando_e_fechados_da_semana_sao_um_grupo_cada()
-    {
-        Assert.Equal([("aguardando", "Aguardando", "neutro", "Fernanda Nogueira")], Grupos(FiltroDaRetencao.Aguardando));
-        // Semana de segunda (19/10) a hoje: o caso que voltou em 10/10 já não é "desta semana".
-        Assert.Equal([("fechado", "Fechados esta semana", "neutro", "Inês Barreto, Geraldo Nunes")], Grupos(FiltroDaRetencao.Fechados));
-        Assert.Equal(new ContagemDaRetencao(7, 1, 2), RetencaoNaTela.Contagens(Fila, Respostas, Agora));
-        Assert.Equal(["Para hoje", "Aguardando", "Fechados"], Enum.GetValues<FiltroDaRetencao>().Select(RetencaoNaTela.Rotulo));
-    }
-
-    [Fact]
-    public void Os_dias_sao_os_do_Gerente_e_nenhum_numero_mora_aqui()
-    {
-        // Hoje o Gerente guarda UM número ("Recall: dias sem vir", padrão 60): a lista sai com ele.
-        var comSessenta = Grupos(FiltroDaRetencao.ParaHoje, [60]);
-        Assert.Equal(["respondeu", "dias-abaixo", "novo-bsv"], comSessenta.Select(g => g.Chave));
-        Assert.Equal("Sem vir há menos de 60 dias", comSessenta[1].Titulo);
-        Assert.Equal(5, comSessenta[1].Pacientes.Split(", ").Length);
-
-        // Repetido, fora de ordem ou zero: o mesmo que os três limites limpos.
-        Assert.Equal(Grupos(FiltroDaRetencao.ParaHoje), Grupos(FiltroDaRetencao.ParaHoje, [20, 15, 30, 20, 0]));
-
-        var semLimite = Grupos(FiltroDaRetencao.ParaHoje, []);
-        Assert.Equal(("recall", "Sem vir"), (semLimite[1].Chave, semLimite[1].Titulo));
-    }
-
-    [Fact]
-    public void Dentro_do_grupo_o_contato_atrasado_vem_antes_de_quem_esta_ha_mais_tempo()
-    {
-        var fila = new[] { Sebastiao, Helena with { Atrasado = true } };
-        Assert.Equal("Helena Marques, Sebastião Ramos", Grupos(FiltroDaRetencao.ParaHoje, fila: fila).Single().Pacientes);
-    }
-
-    [Fact]
-    public void A_busca_acha_pelo_nome_sem_acento_e_pelo_telefone()
-    {
-        Assert.Equal([("dias-30", "Sem vir há 30 dias", "perigo", "Sebastião Ramos")], Grupos(FiltroDaRetencao.ParaHoje, busca: "sebastiao"));
-        Assert.Single(Grupos(FiltroDaRetencao.ParaHoje, busca: "99555 1234"));
-        Assert.Empty(Grupos(FiltroDaRetencao.ParaHoje, busca: "ninguém"));
-        Assert.Equal(("Ninguém com esse nome", "Confira o nome."), RetencaoNaTela.Vazio(FiltroDaRetencao.ParaHoje, true));
-        Assert.Equal("Ninguém para hoje", RetencaoNaTela.Vazio(FiltroDaRetencao.ParaHoje, false).Titulo);
     }
 
     [Fact]
@@ -155,12 +91,8 @@ public sealed class RetencaoNaTelaTests
     }
 
     [Fact]
-    public void O_detalhe_e_os_dias_da_linha()
+    public void Os_dias_do_caso()
     {
-        Assert.Equal("BSV · última 22/09 · 6 sessões", RetencaoNaTela.Detalhe(Sebastiao));
-        Assert.Equal("BSV e acupuntura · última 22/09 · 1 sessão · pacote com saldo",
-            RetencaoNaTela.Detalhe(Marcos with { TotalSessoes = 1, PacoteComSaldo = true }));
-        Assert.Equal("BSV · indicado em 21/10 por Dr. Marcos", RetencaoNaTela.Detalhe(Felipe));
         Assert.Equal("32 dias", RetencaoNaTela.Dias(Sebastiao));
         Assert.Equal("indicado há 3 dias", RetencaoNaTela.Dias(Felipe));
     }
@@ -269,12 +201,5 @@ public sealed class RetencaoNaTelaTests
         var aviso = new AcaoPedida(TipoDaAcaoPedida.RetencaoRespondeu, "sucesso", "", "", RetencaoNaTela.BotoesDoComoFoi());
         Assert.False(RetencaoNaTela.ComoFoiNaColuna(convidado, aviso));
         Assert.False(RetencaoNaTela.ComoFoiNaColuna(convidado with { Pendente = false }, null));
-    }
-
-    [Fact]
-    public void O_rodape_diz_quem_entra_e_que_nao_ha_disparo_em_massa()
-    {
-        Assert.Contains("BSV, acupuntura ou os dois", RetencaoNaTela.QuemApareceAqui);
-        Assert.Contains("não há disparo em massa", RetencaoNaTela.QuemApareceAqui);
     }
 }

@@ -49,6 +49,60 @@ public sealed class AcompanhamentoPacienteTests : IDisposable
         db.Consentimentos.Add(new() { PacienteId = paciente.Id, Finalidade = FinalidadeConsentimento.ComunicacaoEMarketing, Concedido = true }); await db.SaveChangesAsync();
     }
 
+    /// <summary>A jornada da Ficha 360 (nov/2026): a consulta EXECUTADA, filtrada no banco e com a barreira do acompanhamento.</summary>
+    [Fact] public async Task A_jornada_traz_os_horarios_do_paciente_desde_a_data_e_recusa_quem_nao_acompanha()
+    {
+        await svc.IndicarBsvAsync(medico.Id, consulta.Id);
+        var linha = await Linha();
+        db.Agendamentos.AddRange(
+            new Agendamento { PacienteId = paciente.Id, DataHora = DateTime.Today.AddMonths(-2), Status = StatusAgendamento.Faltou, ModalidadePrevista = ModalidadeAtendimento.BsvApenas },
+            new Agendamento { PacienteId = paciente.Id, DataHora = DateTime.Today.AddMonths(-9), Status = StatusAgendamento.Realizado, ModalidadePrevista = ModalidadeAtendimento.BsvApenas });
+        await db.SaveChangesAsync();
+
+        var jornada = await svc.JornadaAsync(gestora.Id, linha.Id, DateOnly.FromDateTime(DateTime.Today.AddMonths(-6)));
+
+        Assert.Equal([StatusAgendamento.Faltou, StatusAgendamento.Agendado], jornada.Select(j => j.Status));
+        Assert.True(jornada[0].Quando < jornada[1].Quando);
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => svc.JornadaAsync(medico.Id, linha.Id, DateOnly.MinValue));
+    }
+
+    /// <summary>
+    /// A meta "Voltaram (retenção)" (nov/2026) conta com a MESMA regra da fila: a primeira sessão da modalidade depois
+    /// da indicação, no período pedido. A consulta é EXECUTADA (tradução em runtime).
+    /// </summary>
+    [Fact] public async Task Voltaram_no_periodo_usa_a_volta_da_fila_e_so_conta_dentro_do_periodo()
+    {
+        await svc.IndicarBsvAsync(medico.Id, consulta.Id);
+        Atendimento(ModalidadeAtendimento.Consulta, 1);   // outra modalidade: não é volta
+        Atendimento(ModalidadeAtendimento.BsvApenas, 2);  // a volta
+        Atendimento(ModalidadeAtendimento.BsvApenas, 9);  // depois da volta: não conta de novo
+        var linha = await Linha();
+        var volta = linha.VoltouEm!.Value;
+        Assert.Equal(DateOnly.FromDateTime(DateTime.Today.AddDays(2)), volta);
+
+        Assert.Equal(1, await svc.VoltaramNoPeriodoAsync(volta, volta));
+        Assert.Equal(1, await svc.VoltaramNoPeriodoAsync(volta.AddDays(-30), volta.AddDays(30)));
+        Assert.Equal(0, await svc.VoltaramNoPeriodoAsync(volta.AddDays(1), volta.AddDays(30)));
+        Assert.Equal(0, await svc.VoltaramNoPeriodoAsync(volta.AddDays(-30), volta.AddDays(-1)));
+    }
+
+    /// <summary>Os contatos da taxa mês a mês: só os com canal (assumir não é contato), desde a data, com a barreira.</summary>
+    [Fact] public async Task Os_contatos_da_taxa_sao_os_com_canal_desde_a_data_e_pedem_o_acesso_do_acompanhamento()
+    {
+        await svc.IndicarBsvAsync(medico.Id, consulta.Id);
+        var linha = await Linha();
+        db.ContatosAcompanhamento.AddRange(
+            new ContatoAcompanhamento { AcompanhamentoPacienteId = linha.Id, Idempotencia = Guid.NewGuid(), Em = DateTime.Today.AddDays(-2), Canal = CanalContato.WhatsApp, Resultado = "Sem resposta" },
+            new ContatoAcompanhamento { AcompanhamentoPacienteId = linha.Id, Idempotencia = Guid.NewGuid(), Em = DateTime.Today.AddDays(-200), Canal = CanalContato.WhatsApp, Resultado = "Antigo" });
+        await db.SaveChangesAsync();
+
+        var contatos = await svc.ContatosDesdeAsync(gestora.Id, DateOnly.FromDateTime(DateTime.Today.AddDays(-30)));
+
+        var c = Assert.Single(contatos);
+        Assert.Equal(linha.Id, c.AcompanhamentoId);
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => svc.ContatosDesdeAsync(medico.Id, DateOnly.MinValue));
+    }
+
     [Fact] public async Task Indicacao_repetida_nao_duplica_e_preserva_responsavel()
     {
         await svc.IndicarBsvAsync(medico.Id, consulta.Id); await svc.IndicarBsvAsync(medico.Id, consulta.Id);

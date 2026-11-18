@@ -74,7 +74,14 @@ public enum NaturezaRegistroClinico
     /// PESSOA e não a uma sessão — o acervo do sistema anterior entra aqui. Diferente de
     /// <see cref="Anexo"/>, que pende da evolução. Imutável; cancela-se com motivo.
     /// </summary>
-    ArquivoDaFicha
+    ArquivoDaFicha,
+
+    /// <summary>
+    /// A ESCUTA PÓS-SESSÃO (nov/2026, Fila 360): como o paciente disse que está depois da primeira sessão
+    /// do tratamento ou da sessão de volta — melhor, igual, pior — nas palavras dele. Imutável; cancela-se
+    /// com motivo.
+    /// </summary>
+    EscutaPosSessao
 }
 
 /// <summary>O que o sistema sabe sobre uma natureza: como se chama e quem pode lê-la.</summary>
@@ -131,7 +138,9 @@ public static class CatalogoRegistroClinico
         new(NaturezaRegistroClinico.MapaCorporal,
             "mapa corporal", "mapas corporais", Permissao.VerProntuario),
         new(NaturezaRegistroClinico.Anamnese,
-            "anamnese", "anamneses", Permissao.VerProntuario)
+            "anamnese", "anamneses", Permissao.VerProntuario),
+        new(NaturezaRegistroClinico.EscutaPosSessao,
+            "escuta pós-sessão", "escutas pós-sessão", Permissao.VerProntuario)
     ];
 
     /// <summary>Todas as naturezas, na ordem em que se lê o prontuário.</summary>

@@ -1,0 +1,110 @@
+@*
+  CONVERSAS da Fila 360 (nov/2026, desenho aprovado): a caixa de quem cuida da retenção, longe da aba
+  WhatsApp da recepção. À esquerda, as conversas dos casos abertos (quem respondeu primeiro —
+  Fila360NaTela.ConversasDaFila); no meio, a MESMA conversa do WhatsApp nativo, no modo painel (a que a
+  gaveta "ao lado" já usa: enviar, modelos fora da janela de 24 h, anexos); à direita, o risco e as ações.
+  Conversa sem ficha conferida não entra: o telefone não é identidade.
+*@
+@using Clinica.Application.Abstracoes
+@using Clinica.Application.Servicos
+
+<div class="f360-conversas">
+    <div class="f360-conv-lista">
+        <div class="f360-conv-topo">
+            <div class="segmentado" role="group" aria-label="Quais conversas">
+                <button type="button" aria-pressed="@Bool(!_soResponderam)" @onclick="() => _soResponderam = false">Todas · <b>@Conversas.Count.ToString(Formato.PtBr)</b></button>
+                <button type="button" aria-pressed="@Bool(_soResponderam)" @onclick="() => _soResponderam = true">Responderam · <b>@Conversas.Count(c => c.Respondeu).ToString(Formato.PtBr)</b></button>
+            </div>
+        </div>
+        @if (Falhou)
+        {
+            <p class="f360-conv-aviso">Sem ligação com o WhatsApp da clínica agora: as conversas não puderam ser lidas. A fila continua funcionando.</p>
+        }
+        else if (Lista.Count == 0)
+        {
+            <p class="f360-conv-aviso">@(Conversas.Count == 0 ? "Nenhum paciente da fila tem conversa ainda. A primeira mensagem sai pela Ficha 360 ou pela Fila de hoje." : "Ninguém respondeu ainda.")</p>
+        }
+        else
+        {
+            @foreach (var c in Lista)
+            {
+                <button type="button" class="f360-conv-item @(c.Linha.Id == Selecionada?.Linha.Id ? "ativo" : null)" @key="c.Conversa.Id" @onclick="() => AoEscolher.InvokeAsync(c)">
+                    <span class="avatar acomp-avatar">@ConversaDoAcompanhamento.Iniciais(c.Linha.Paciente)</span>
+                    <span class="f360-conv-texto"><b>@c.Linha.Paciente</b><span class="secundario">@Previa(c)</span></span>
+                    <span class="f360-conv-hora">@Hora(c.Conversa.UpdatedAt)@if (c.Respondeu) { <span class="f360-conv-nova" title="Respondeu ao convite">respondeu</span> }</span>
+                </button>
+            }
+        }
+        <div class="f360-conv-rodape"><p>Só os pacientes da Fila 360 com ficha conferida. A recepção não vê estas conversas.</p>
+            <button type="button" class="botao icone" @onclick="() => AoAtualizar.InvokeAsync()" title="Atualizar (F5)" aria-label="Atualizar"><Icone Nome="atualizar" /></button></div>
+    </div>
+
+    <div class="f360-conv-fio">
+        @if (Selecionada is { } s)
+        {
+            <Clinica.Ui.Blazor.Telas.ConversasDoWhatsApp @key="s.Conversa.Id" AoLado="@(new PedidoDeConversa(s.Linha.Telefone ?? s.Conversa.Contact, s.Linha.Paciente, s.Linha.PacienteId, null, s.Conversa.Id))" />
+        }
+        else
+        {
+            <EstadoVazio Titulo="Escolha uma conversa" Descricao="Ela abre aqui, com o risco e as ações do paciente ao lado." Icone="chat" />
+        }
+    </div>
+
+    <aside class="f360-conv-lado">
+        @if (Selecionada is { } a)
+        {
+            var risco = Fila360NaTela.Risco(a.Linha);
+            <div class="f360-conv-risco">
+                <AnelDeRisco Risco="risco" Tamanho="64" />
+                <div><p class="acomp-rotulo">Por que está em risco</p>
+                    @foreach (var m in risco.Motivos.Where(m => m.Pontos > 0).Take(3)) { <span class="f360-conv-motivo">@m.Texto</span> }
+                </div>
+            </div>
+            <dl class="pares f360-pares">
+                <dt>Situação</dt><dd>@AcompanhamentoNaTela.Selo(a.Linha, DateOnly.FromDateTime(DateTime.Today)).Texto</dd>
+                <dt>Responsável</dt><dd>@ConversaDoAcompanhamento.Dono(a.Linha, UsuarioId)</dd>
+                <dt>Fila</dt><dd>@a.Linha.ModalidadeTexto</dd>
+            </dl>
+            @* O "Como foi?" mora AQUI, não no meio da conversa (a clínica: "pode ir para a tela da direita, fica mais
+               clean"). Cada botão abre o "Registrar como foi" já com o desfecho escolhido — a mesma porta de sempre. *@
+            <div class="f360-comofoi @(a.Respondeu ? "respondeu" : null)">
+                <p class="f360-comofoi-tit">@if (a.Respondeu) { <Icone Nome="check" /> }@(a.Respondeu ? $"{PrimeiroNome(a.Linha.Paciente)} respondeu. Como foi?" : "Como foi?")</p>
+                @foreach (var b in RetencaoNaTela.BotoesDoComoFoi())
+                {
+                    <button type="button" class="botao mini @(b.Perigo ? "contorno-perigo" : null)" disabled="@(!PodeAcompanhar)"
+                            title="@(PodeAcompanhar ? null : "Seu acesso não permite registrar o acompanhamento.")"
+                            @onclick="() => AoRegistrar.InvokeAsync((a.Linha, b.Desfecho))">@if (b.Desfecho == DesfechoContato.QuerMarcar) { <Icone Nome="calendario" /> }@b.Rotulo</button>
+                }
+            </div>
+            <button type="button" class="botao" @onclick="() => AoAbrirFicha.InvokeAsync(a.Linha)"><Icone Nome="ficha" />Ficha 360</button>
+        }
+    </aside>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<ConversaDaFila> Conversas { get; set; } = [];
+    [Parameter] public ConversaDaFila? Selecionada { get; set; }
+    [Parameter] public bool Falhou { get; set; }
+    [Parameter] public int UsuarioId { get; set; }
+    [Parameter] public bool PodeAcompanhar { get; set; }
+    [Parameter] public EventCallback<ConversaDaFila> AoEscolher { get; set; }
+    [Parameter] public EventCallback<LinhaAcompanhamento> AoAbrirFicha { get; set; }
+    [Parameter] public EventCallback<(LinhaAcompanhamento Linha, DesfechoContato? Desfecho)> AoRegistrar { get; set; }
+    [Parameter] public EventCallback AoAtualizar { get; set; }
+
+    private bool _soResponderam;
+    private IReadOnlyList<ConversaDaFila> Lista => _soResponderam ? Conversas.Where(c => c.Respondeu).ToList() : Conversas;
+
+    private static string Previa(ConversaDaFila c)
+        => (c.Conversa.PreviewDirection == "out" ? "Você: " : "") + (string.IsNullOrWhiteSpace(c.Conversa.Preview) ? "—" : c.Conversa.Preview);
+
+    private static string Hora(DateTimeOffset quando)
+    {
+        var local = quando.ToLocalTime();
+        return local.Date == DateTime.Today ? local.ToString("HH:mm", Formato.PtBr) : local.ToString("dd/MM", Formato.PtBr);
+    }
+
+    private static string PrimeiroNome(string nome) => nome.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? nome;
+
+    private static string Bool(bool v) => v ? "true" : "false";
+}

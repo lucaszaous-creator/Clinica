@@ -68,6 +68,7 @@ public sealed class RelacionamentoBlazorParidadeTests : IClassFixture<BancoDasTe
         var tela = Abrir(ctx);
         Linha(tela, "Paulo Sérgio Nunes").Click();
         Assentar(tela);
+        Clicar(tela, tela.FindAll(".f360-ficha button").Single(b => b.TextContent.Trim() == "Registrar como foi"));
         Clicar(tela, tela.FindAll(".acomp-desfecho").Single(b => b.QuerySelector("b")!.TextContent == "Não respondeu"));
         Clicar(tela, tela.FindAll(".acomp-canais button").Single(b => b.TextContent.Trim() == "WhatsApp"));
         Clicar(tela, tela.FindAll(".modal-rodape button").Single(b => b.TextContent.Contains("Registrar")));
@@ -91,6 +92,7 @@ public sealed class RelacionamentoBlazorParidadeTests : IClassFixture<BancoDasTe
         Clicar(tela, tela.FindAll(".segmentado button").Single(b => b.TextContent.Trim() == "Toda a equipe"));
         Linha(tela, "Lúcia Prado").Click();
         Assentar(tela);
+        Clicar(tela, tela.FindAll(".f360-ficha button").Single(b => b.TextContent.Trim() == "Registrar como foi"));
         Clicar(tela, tela.FindAll(".acomp-desfecho").Single(b => b.QuerySelector("b")!.TextContent == "Não respondeu"));
         Clicar(tela, tela.FindAll(".modal-rodape button").Single(b => b.TextContent.Contains("Registrar")));
 
@@ -134,8 +136,10 @@ public sealed class RelacionamentoBlazorParidadeTests : IClassFixture<BancoDasTe
 
     private static IRenderedComponent<Raiz> Abrir(TestContext ctx)
     {
-        var r = ctx.RenderComponent<Raiz>(p => p.Add(x => x.Tela, typeof(Clinica.Ui.Blazor.Telas.AcompanhamentoDePacientes)));
+        var r = ctx.RenderComponent<Raiz>(p => p.Add(x => x.Tela, typeof(Clinica.Ui.Blazor.Telas.Fila360)));
         Assentar(r);
+        // A Fila 360 abre na Fila de hoje; a paridade com a tela WPF é a da fila inteira, que mora na Carteira (menu lateral).
+        Clicar(r, r.FindAll(".f360-item").Single(b => b.TextContent.Trim().StartsWith("Carteira")));
         return r;
     }
 

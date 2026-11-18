@@ -897,6 +897,8 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
            // que a entidade nasceu — a regra que a parcela 60 fixou depois de a oitava
            // ter sido esquecida com o cenário descrito logo acima.
            || await _db.ResultadosExame.AnyAsync(r => r.PacienteId == pacienteId, ct)
+           // A Escuta pós-sessão (nov/2026) — raiz clínica com FK cascata, no MESMO commit em que nasceu.
+           || await _db.EscutasPosSessao.AnyAsync(x => x.PacienteId == pacienteId, ct)
            // A DÉCIMA raiz: o arquivo da ficha (set/2026) — a receita do sistema anterior é o
            // único registro clínico de muita ficha importada, e a FK dele é cascata.
            || await _db.AnexosPaciente.AnyAsync(a => a.PacienteId == pacienteId, ct)
@@ -1854,6 +1856,10 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     }
 
     // ---- Resultados de exame estruturados (ago/2026) ----
+
+    public async Task<IReadOnlyList<EscutaPosSessao>> EscutasDoPacienteAsync(int pacienteId, CancellationToken ct = default)
+        => await _db.EscutasPosSessao.AsNoTracking().Where(x => x.PacienteId == pacienteId)
+            .OrderByDescending(x => x.SessaoEm).ThenByDescending(x => x.Id).ToListAsync(ct);
 
     public async Task AdicionarResultadoExameAsync(ResultadoExame resultado, CancellationToken ct = default)
         => await _db.ResultadosExame.AddAsync(resultado, ct);

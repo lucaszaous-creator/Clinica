@@ -298,7 +298,7 @@ public sealed class ModuloRecepcao : IModuloApp
             Abas =
             [
                 new AbaMenu("Confirma\u00E7\u00F5es", ChaveConfirmacoes),
-                new AbaMenu("Acompanhamento", ChaveRetorno),
+                new AbaMenu("Fila 360", ChaveRetorno),
                 // Os pedidos da enfermagem (out/2026, pedido da clínica): a recepção os
                 // atende como atende o paciente que liga — é conversa, não agenda.
                 new AbaMenu("Pedidos da enfermagem", ChavesSuite.PedidosEnfermagem)
@@ -463,7 +463,7 @@ public sealed class ModuloRecepcao : IModuloApp
         // Direção está carregada.
         new ItemMenuModulo
         {
-            Chave = ChaveRetorno, Rotulo = "Acompanhamento de pacientes", Glifo = "\uE8AF", Icone = "volta",
+            Chave = ChaveRetorno, Rotulo = "Fila 360", Glifo = "\uE8AF", Icone = "volta",
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerFichaPaciente,
             RequerAlgum = Permissao.GerenciarCampanhas | Permissao.VerFaturamento
         },
@@ -526,7 +526,7 @@ public sealed class ModuloRecepcao : IModuloApp
         ChaveMarcarHorario => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.MarcarAtendimento), servicos),
         ChaveConsultas => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ConsultasDeConvenio), servicos),
         ChaveLancamentos => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.LancamentosDoBalcao), servicos),
-        ChaveRetorno => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.AcompanhamentoDePacientes), servicos),
+        ChaveRetorno => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.Fila360), servicos),
         // A tela nativa do WhatsApp da clínica (fase 3, 24/10: a moldura do CRM saiu inteira).
         ChaveWhatsAppCrm => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.ConversasDoWhatsApp), servicos),
         ChaveSalaInfusao => HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.SalaDeInfusao), servicos),

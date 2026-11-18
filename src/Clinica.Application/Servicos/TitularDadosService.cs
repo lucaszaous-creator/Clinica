@@ -83,7 +83,8 @@ public sealed class TitularDadosService
             [NaturezaRegistroClinico.ProblemaPaciente] = "== PROBLEMAS, DIAGNÓSTICOS E ALERGIAS ==",
             [NaturezaRegistroClinico.Anexo] = "== ANEXOS E MAPAS CORPORAIS ==",
             [NaturezaRegistroClinico.MapaCorporal] = "== ANEXOS E MAPAS CORPORAIS ==",
-            [NaturezaRegistroClinico.Anamnese] = "== ANAMNESE =="
+            [NaturezaRegistroClinico.Anamnese] = "== ANAMNESE ==",
+            [NaturezaRegistroClinico.EscutaPosSessao] = "== ESCUTA PÓS-SESSÃO =="
         };
 
     /// <summary>
@@ -296,6 +297,15 @@ public sealed class TitularDadosService
                 $"- {a.Data.ToString("dd/MM/yyyy", Brasil)} · {a.Titulo}: {a.NomeArquivo} ({a.Tamanho} bytes)"
                 + (string.IsNullOrWhiteSpace(a.Observacoes) ? string.Empty : $" · {a.Observacoes}")
                 + (a.Cancelado ? " (CANCELADO)" : string.Empty));
+        texto.AppendLine();
+
+        // A ESCUTA PÓS-SESSÃO (nov/2026): o que o paciente disse sobre como estava depois da sessão. Cancelada
+        // vem marcada, com o motivo — o documento entrega o que a clínica GUARDA.
+        texto.AppendLine("== ESCUTA PÓS-SESSÃO ==");
+        var escutas = await _repo.EscutasDoPacienteAsync(pacienteId, ct);
+        if (escutas.Count == 0) texto.AppendLine("(nenhuma)");
+        foreach (var e in escutas.OrderBy(e => e.SessaoEm).ThenBy(e => e.Id))
+            texto.AppendLine("- " + EscutaNaTela.Linha(e));
         texto.AppendLine();
 
         // A ANAMNESE (parcela 75) — antecedentes, história familiar, hábitos. Entra pelo

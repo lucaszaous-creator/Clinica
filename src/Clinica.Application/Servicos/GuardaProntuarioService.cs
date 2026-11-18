@@ -155,6 +155,8 @@ public sealed class GuardaProntuarioService
         // O arquivo da FICHA (set/2026): a receita do sistema anterior é, para muita ficha
         // importada, o ÚNICO registro clínico — e ele move o prazo pela data do documento.
         var arquivosDaFicha = await _repo.AnexosDaFichaAsync(pacienteId, incluirCancelados: true, ct);
+        // A escuta pós-sessão (nov/2026): dado de saúde dito pelo paciente; as canceladas também ficam sob guarda.
+        var escutas = await _repo.EscutasDoPacienteAsync(pacienteId, ct);
         var documentos = await _repo.DocumentosDoPacienteAsync(pacienteId, ct);
         // A lista de problemas também é registro datado do prontuário: um paciente cujo
         // último fato clínico é um problema anotado (uma alergia descoberta, um
@@ -202,6 +204,7 @@ public sealed class GuardaProntuarioService
         // O resultado entra pela data do EXAME (a data clínica) — é ela que a guarda usa.
         foreach (var r in resultadosExame) candidatos.Add((r.Data, "resultado de exame"));
         foreach (var a in arquivosDaFicha) candidatos.Add((a.Data, "arquivo da ficha"));
+        foreach (var e in escutas) candidatos.Add((DateOnly.FromDateTime(e.RegistradoEm), "escuta pós-sessão"));
         // DocumentoClinico.Data é a data do ato (a do atestado, a da receita) — é ela
         // que interessa à guarda, e não o carimbo de criação da linha.
         foreach (var d in documentos) candidatos.Add((d.Data, "documento emitido"));
@@ -255,7 +258,8 @@ public sealed class GuardaProntuarioService
             // 0 ou 1: é a natureza que existe uma vez por PESSOA. A contagem entra assim
             // mesmo porque a pergunta do catálogo é "que naturezas este paciente tem", e
             // anamnese ausente da lista se leria como paciente sem antecedentes.
-            [NaturezaRegistroClinico.Anamnese] = anamnese is null ? 0 : 1
+            [NaturezaRegistroClinico.Anamnese] = anamnese is null ? 0 : 1,
+            [NaturezaRegistroClinico.EscutaPosSessao] = escutas.Count
         };
 
         return new SituacaoGuarda(

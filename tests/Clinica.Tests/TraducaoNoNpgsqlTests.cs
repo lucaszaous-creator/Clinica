@@ -542,6 +542,31 @@ public class TraducaoNoNpgsqlTests
     /// arrastar os PDFs dos laudos — é por isso que os bytes moram em tabela 1:1
     /// (o padrão do retrato do paciente; a lição da parcela 74).
     /// </summary>
+    /// <summary>
+    /// A Escuta pós-sessão (nov/2026): a leitura por paciente (enum como texto) e a conferência das sessões já
+    /// escutadas (Contains + o filtro da escuta vigente) traduzem no Npgsql.
+    /// </summary>
+    [Fact]
+    public void As_consultas_da_escuta_pos_sessao_traduzem_no_postgres()
+    {
+        using var db = Postgres();
+
+        var pioras = db.EscutasPosSessao.AsNoTracking()
+            .Where(e => e.PacienteId == 1 && e.Como == ComoEstaPaciente.Pior && e.CanceladaEm == null)
+            .OrderByDescending(e => e.SessaoEm)
+            .ToQueryString();
+        pioras.Should().Contain("'Pior'", "o enum é gravado como TEXTO — a linha tem de ser legível em 20 anos");
+
+        var ids = new List<int> { 1, 2 };
+        var escutadas = db.EscutasPosSessao.AsNoTracking().Where(e => e.CanceladaEm == null && ids.Contains(e.AtendimentoId))
+            .Select(e => e.AtendimentoId).ToQueryString();
+        escutadas.Should().Contain("AtendimentoId");
+
+        var contatos = db.ContatosAcompanhamento.AsNoTracking().Where(c => c.Canal != null && c.Em >= new DateTime(2026, 6, 1))
+            .Select(c => new Clinica.Application.Abstracoes.ContatoNoTempo(c.AcompanhamentoPacienteId, c.Em)).ToQueryString();
+        contatos.Should().Contain("ContatosAcompanhamento");
+    }
+
     [Fact]
     public void A_lista_de_resultados_NAO_traz_os_bytes_do_laudo()
     {
