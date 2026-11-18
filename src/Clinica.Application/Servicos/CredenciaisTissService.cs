@@ -61,7 +61,19 @@ public sealed class CredenciaisTissService
     }
 
     public static string ChaveLogin(string convenioCodigo) => Chave("TissLogin:", convenioCodigo);
-    public static string ChaveSenha(string convenioCodigo) => Chave("TissSenha:", convenioCodigo);
+    public static string ChaveSenha(string convenioCodigo) => Chave(PrefixoSenha, convenioCodigo);
+
+    /// <summary>O prefixo da senha do web service: a única chave que este serviço CIFRA.</summary>
+    public const string PrefixoSenha = "TissSenha:";
+
+    /// <summary>
+    /// As chaves que este serviço grava cifradas ("enc:") e que só o CONECTOR abre (com a chave dele).
+    /// A publicação do portal (<c>deploy/tablet/regras_publicacao.py</c>, PREFIXOS_CIFRADOS_DO_CONECTOR_TISS)
+    /// recusa qualquer credencial cifrada na base, EXCETO estas: o portal e a /gestao nunca as abrem
+    /// (<see cref="ParaATelaAsync"/> só pergunta se existe). As duas listas são a mesma — um teste confere — e
+    /// cifrar uma chave nova aqui sem pô-la nas duas faz o teste falhar.
+    /// </summary>
+    public static readonly IReadOnlyList<string> PrefixosCifradosForaDoPortal = [PrefixoSenha];
     public static string ChaveEnvio(string convenioCodigo) => Chave("TissEnvio:", convenioCodigo);
 
     /// <summary>

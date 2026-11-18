@@ -1,3 +1,4 @@
+import sqlite3
 import tempfile
 import subprocess
 import sys
@@ -6,6 +7,10 @@ from pathlib import Path
 
 from regras_publicacao import (
     FLAG_CRIPTOGRAFIA,
+    MENSAGEM_CREDENCIAIS_CIFRADAS,
+    PREFIXOS_CIFRADOS_DO_CONECTOR_TISS,
+    consulta_credenciais_cifradas,
+    verificar_sem_credenciais_cifradas,
     incluir_flag_false_se_ausente,
     verificar_criptografia_desativada,
     verificar_flag_desativada_no_processo,
@@ -131,6 +136,58 @@ class RegrasPublicacaoTests(unittest.TestCase):
         self.assertNotEqual(resultado.returncode, 0)
         self.assertIn("PYTHONOPTIMIZE", resultado.stderr)
 
+
+
+class TravaDasCredenciaisCifradasTests(unittest.TestCase):
+    """A consulta de verdade, sobre uma tabela "Configuracoes" em memória (valores fictícios)."""
+
+    def base(self, linhas):
+        conexao = sqlite3.connect(":memory:")
+        conexao.execute('CREATE TABLE "Configuracoes" ("Chave" TEXT PRIMARY KEY, "Valor" TEXT NOT NULL)')
+        conexao.executemany('INSERT INTO "Configuracoes" VALUES (?, ?)', linhas)
+        self.addCleanup(conexao.close)
+        return lambda consulta: str(conexao.execute(consulta).fetchone()[0])
+
+    def test_so_a_senha_cifrada_do_conector_tiss_passa(self):
+        executar = self.base([
+            ("TissSenha:Petrobras", "enc:v1:ficticio-1"),
+            ("TissSenha:Amil", "enc:v1:ficticio-2"),
+            ("TissLogin:Amil", "000123"),
+            ("PublicacaoBucket", "bucket-de-teste"),
+        ])
+        verificar_sem_credenciais_cifradas(executar)
+
+    def test_outra_chave_cifrada_recusa_com_a_mesma_frase(self):
+        for chave in ("PublicacaoSecretKey", "SafeIDClientSecret", "TissLogin:Amil", "XTissSenha:Amil", "tisssenha:Amil"):
+            with self.subTest(chave=chave):
+                executar = self.base([(chave, "enc:v1:ficticio")])
+                with self.assertRaises(RuntimeError) as erro:
+                    verificar_sem_credenciais_cifradas(executar)
+                self.assertEqual(str(erro.exception), MENSAGEM_CREDENCIAIS_CIFRADAS)
+                self.assertNotIn("ficticio", str(erro.exception))
+
+    def test_mistura_da_senha_do_conector_com_outra_cifrada_recusa(self):
+        executar = self.base([
+            ("TissSenha:Petrobras", "enc:v1:ficticio-1"),
+            ("PublicacaoSecretKey", "enc:v1:ficticio-2"),
+        ])
+        with self.assertRaises(RuntimeError) as erro:
+            verificar_sem_credenciais_cifradas(executar)
+        self.assertEqual(str(erro.exception), MENSAGEM_CREDENCIAIS_CIFRADAS)
+
+    def test_base_sem_nada_cifrado_passa(self):
+        verificar_sem_credenciais_cifradas(self.base([("PublicacaoBucket", "bucket-de-teste")]))
+
+    def test_a_lista_de_excecoes_e_so_a_senha_do_conector(self):
+        self.assertEqual(PREFIXOS_CIFRADOS_DO_CONECTOR_TISS, ("TissSenha:",))
+        consulta = consulta_credenciais_cifradas()
+        self.assertIn("\"Valor\" LIKE 'enc:%'", consulta)
+        self.assertNotIn("TissLogin", consulta)
+
+    def test_o_atualizador_usa_a_regra_daqui(self):
+        atualizador = (Path(__file__).parent / "atualizar-posto.py").read_text(encoding="utf-8")
+        self.assertIn("_verificar_sem_credenciais_cifradas(sql)", atualizador)
+        self.assertNotIn("LIKE 'enc:%'", atualizador)
 
 if __name__ == "__main__":
     unittest.main()

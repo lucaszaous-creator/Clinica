@@ -326,6 +326,13 @@ configuração inteira, então **um conector comprometido alcançaria as outras 
 Separar isso pede uma chave própria para o TISS ou uma tabela própria — fica registrado como
 melhoria, não está feito.
 
+**O deploy do portal e a senha cifrada (nov/2026).** A publicação do portal sem homologação recusa
+credenciais cifradas na base, porque publica sem a chave. As senhas do conector (`TissSenha:<convênio>`)
+são a única exceção: só o conector as abre, e a tela só pergunta se existem. A lista mora em
+`CredenciaisTissService.PrefixosCifradosForaDoPortal` e em `deploy/tablet/regras_publicacao.py` — **se o
+conector passar a cifrar outra chave, ponha o prefixo nas duas** (o teste `CredenciaisCifradasForaDoPortalTests`
+obriga). Detalhes em `docs/deploy-automatico.md`, "A exceção do conector TISS".
+
 ## O que entra na integração (para quem liga as telas)
 
 Assinaturas públicas:

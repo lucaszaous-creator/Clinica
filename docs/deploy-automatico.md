@@ -66,6 +66,28 @@ em nada.
 - **Voltar uma versão:** reverta o commit na `main` (o deploy publica o revert) ou, no console,
   aponte `current` para o release anterior e reinicie o serviço.
 - **Desligar o deploy automático:** apague o secret `VPS_DEPLOY`.
+- **"A base contém credenciais protegidas; dispensa recusada sem exibir valores."** A publicação
+  em produção sem homologação (`--pular-hml`) roda com a cifra de credenciais DESLIGADA e sem a
+  chave, então recusa qualquer valor `enc:` em `Configuracoes` que o portal precisaria abrir. A
+  regra mora em `deploy/tablet/regras_publicacao.py` (`verificar_sem_credenciais_cifradas`).
+
+### A exceção do conector TISS (nov/2026)
+
+O deploy de 18/11/2026 (run 44372401783) parou nesse passo por causa de `TissSenha:Amil` e
+`TissSenha:Petrobras`, gravadas cifradas pelo conector TISS. Desde então a trava **dispensa só os
+prefixos de `PREFIXOS_CIFRADOS_DO_CONECTOR_TISS`** — hoje **`TissSenha:`**, a única chave que o
+`CredenciaisTissService` cifra (o login `TissLogin:` fica em claro) — e continua recusando qualquer
+outra credencial cifrada, inclusive a mistura das duas.
+
+- **Por que é seguro:** quem abre `TissSenha:*` é só o conector (`AbrirParaEnvioAsync`), no servidor
+  dele, com a chave dele. O portal (`Clinica.Assinaturas.Api`) não referencia nada do TISS; a /gestao
+  hospeda telas que só perguntam se a senha EXISTE (`ParaATelaAsync`: `!IsNullOrEmpty`, sem decifrar);
+  `deploy/tablet` não lê essas chaves.
+- **Um lugar só:** a lista é a mesma no C# (`CredenciaisTissService.PrefixosCifradosForaDoPortal`) e no
+  Python; `CredenciaisCifradasForaDoPortalTests` falha se as duas divergirem, se o serviço cifrar uma
+  chave fora delas ou se surgir um método que grava sem entrar no teste.
+- **Testes:** `python3 -m unittest discover -s deploy/tablet -p 'test_*.py'` (a consulta de verdade, em
+  SQLite: só `TissSenha:` passa; outra cifrada recusa com a mesma frase; a mistura recusa).
 
 ## UX · DX · CX
 

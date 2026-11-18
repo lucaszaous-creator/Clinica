@@ -6,6 +6,40 @@ import shlex
 
 FLAG_CRIPTOGRAFIA = "CLINICA_CREDENCIAIS_CRIPTOGRAFIA_HABILITADA"
 
+# A TRAVA DAS CREDENCIAIS CIFRADAS (publicação com --pular-hml): o portal publica com a cifra de
+# credenciais DESLIGADA e sem a chave (CLINICA_CREDENCIAIS_CHAVE); um valor "enc:" que ele precise
+# abrir quebraria a leitura depois do deploy. Por isso qualquer "enc:%" em "Configuracoes" recusa.
+#
+# A ÚNICA exceção são as chaves do CONECTOR TISS: quem as grava e as abre é só o conector, no servidor
+# dele, com a chave dele (CredenciaisTissService.AbrirParaEnvioAsync). O portal e a /gestao nunca as
+# abrem: a tela só pergunta se a senha EXISTE (ParaATelaAsync, sem decifrar). Hoje o conector cifra
+# um só prefixo — a senha do web service; o login fica em claro. A lista é a MESMA do C#
+# (CredenciaisTissService.PrefixosCifradosForaDoPortal), e um teste do C# falha se as duas divergirem
+# ou se o serviço passar a cifrar uma chave fora dela.
+PREFIXOS_CIFRADOS_DO_CONECTOR_TISS = ("TissSenha:",)
+
+MENSAGEM_CREDENCIAIS_CIFRADAS = "A base contém credenciais protegidas; dispensa recusada sem exibir valores."
+
+for _prefixo in PREFIXOS_CIFRADOS_DO_CONECTOR_TISS:
+    # O prefixo entra no SQL literal: só letras, números e dois-pontos.
+    if not re.fullmatch(r"[A-Za-z0-9]+:", _prefixo):
+        raise ValueError("Prefixo de credencial do conector inválido.")
+
+
+def consulta_credenciais_cifradas() -> str:
+    """Conta os valores cifrados que o portal não pode ter, sem nunca ler o valor."""
+    excecoes = "".join(
+        f' AND substr("Chave", 1, {len(p)}) <> \'{p}\'' for p in PREFIXOS_CIFRADOS_DO_CONECTOR_TISS
+    )
+    return 'SELECT count(*) FROM "Configuracoes" WHERE "Valor" LIKE \'enc:%\'' + excecoes
+
+
+def verificar_sem_credenciais_cifradas(executar_sql) -> None:
+    """Recusa a publicação se houver credencial cifrada fora das do conector TISS. Não exibe valores."""
+    if str(executar_sql(consulta_credenciais_cifradas())).strip() != "0":
+        raise RuntimeError(MENSAGEM_CREDENCIAIS_CIFRADAS)
+
+
 
 def incluir_flag_false_se_ausente(conteudo: bytes) -> bytes:
     """Acrescenta a desativação explícita sem sobrescrever configuração existente."""
