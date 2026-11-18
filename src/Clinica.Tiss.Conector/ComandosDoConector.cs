@@ -32,6 +32,7 @@ public static class ComandosDoConector
           Clinica.Tiss.Conector ambiente CONVENIO homologacao|producao --operador NOME
               aponta TODOS os serviços do convênio para a homologação da operadora (ou de volta)
           Clinica.Tiss.Conector testar-elegibilidade CONVENIO --carteira N [--operador NOME]
+              na Saúde Petrobras (que não tem homologação) roda em PRODUÇÃO: uma consulta, nada gravado
           Clinica.Tiss.Conector testar-lote CONVENIO --guias ID[,ID...] --operador NOME
           Clinica.Tiss.Conector testar-lote CONVENIO --exemplo --carteira N [--senha S] [--token T] [--cpf-profissional CPF] [--procedimento TUSS] [--valor 1,00] --operador NOME
           Clinica.Tiss.Conector testar-protocolo CONVENIO --protocolo N --operador NOME
@@ -41,6 +42,7 @@ public static class ComandosDoConector
               Fora da janela de envio da operadora, testar-lote avisa e não chama; --mesmo-assim chama.
 
         CONVENIO é o código do convênio no cadastro (ex.: Petrobras, Amil). NOME é quem está fazendo a mudança: vai para a trilha.
+        "padrao" no lugar do https://… apaga o endereço cadastrado e volta ao do catálogo (um ou "todos").
         "todos" grava o mesmo endereço para todos os serviços (o "link único" que a operadora fornece).
         "codigo" escolhe o que vai em codigoPrestadorNaOperadora: o CNPJ da clínica, o login do web service,
         um código de até 14 caracteres, ou "padrao" para voltar à regra da operadora (Petrobras: CNPJ; Amil: login).
@@ -95,11 +97,15 @@ public static class ComandosDoConector
                 case "endereco" when args.Length >= 4 && args[2] == "todos":
                     foreach (var cada in TiposComEndereco)
                         await credenciais.DefinirEnderecoAsync(args[1], cada, args[3], Opcao(args, "--operador") ?? "", default);
-                    saida.WriteLine($"O mesmo endereço gravado para os {TiposComEndereco.Length} serviços de {args[1]}.");
+                    saida.WriteLine(string.Equals(args[3], CredenciaisTissService.EnderecoPadraoDoCatalogo, StringComparison.OrdinalIgnoreCase)
+                        ? $"Os {TiposComEndereco.Length} serviços de {args[1]} voltaram aos endereços do catálogo."
+                        : $"O mesmo endereço gravado para os {TiposComEndereco.Length} serviços de {args[1]}.");
                     return 0;
                 case "endereco" when args.Length >= 4 && Tipo(args[2]) is { } tipo:
                     await credenciais.DefinirEnderecoAsync(args[1], tipo, args[3], Opcao(args, "--operador") ?? "", default);
-                    saida.WriteLine($"Endereço de {tipo} gravado para {args[1]}.");
+                    saida.WriteLine(string.Equals(args[3], CredenciaisTissService.EnderecoPadraoDoCatalogo, StringComparison.OrdinalIgnoreCase)
+                        ? $"Endereço de {tipo} de {args[1]} de volta ao do catálogo."
+                        : $"Endereço de {tipo} gravado para {args[1]}.");
                     return 0;
                 case "codigo" when args.Length >= 3:
                 {
@@ -220,6 +226,16 @@ public static class ComandosDoConector
                         saida.WriteLine($"  operadora {(operadora is null ? "fora do catálogo (só vale o cadastrado)" : $"{operadora.Nome}, registro ANS {operadora.RegistroAns} no catálogo")}; "
                                         + $"código do prestador: {DescreverCodigo(regra)}; "
                                         + $"elegibilidade em {(endereco is null ? "nenhum endereço" : endereco.ToString())} ({(cadastrado is null ? "padrão do catálogo" : "cadastrado")}).");
+                        // Cada serviço, com a versão do padrão e de onde vem o endereço: um "cadastrado" antigo
+                        // (ex.: o 4.01.00 da Petrobras) vence o catálogo — "endereco CONV todos padrao" o apaga.
+                        foreach (var tipoDoServico in TiposComEndereco)
+                        {
+                            var doServico = await credenciais.EnderecoAsync(convenio, tipoDoServico);
+                            if (doServico is null) continue;
+                            var cadastradoDoServico = await credenciais.EnderecoCadastradoAsync(convenio, tipoDoServico);
+                            saida.WriteLine($"  {tipoDoServico}: TISS {operadora?.VersaoTiss(tipoDoServico) ?? OperadorasTiss.VersaoPadrao} em {doServico} "
+                                            + $"({(cadastradoDoServico is null ? "padrão do catálogo" : "CADASTRADO — vence o catálogo")}).");
+                        }
                     }
                     // Só o que não identifica paciente: número, tipo, convênio, estado e tentativas.
                     foreach (var t in await fila.RecentesAsync(convenio, 20))

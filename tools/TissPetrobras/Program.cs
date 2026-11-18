@@ -80,6 +80,8 @@ try
         CodigoPrestadorNaOperadora = new string(codigo.Where(char.IsLetterOrDigit).ToArray()),
         NumeroCarteira = carteira.Trim(),
         ValidadeCarteira = validade,
+        // A versão da Saúde Petrobras no catálogo (4.03.00 desde 01/08/2026; a 4.01.00 é recusada).
+        VersaoTiss = OperadorasTiss.SaudePetrobras.VersaoTiss(Clinica.Domain.Entities.TipoTransacaoTiss.Elegibilidade),
         Login = login.Trim(),
         SenhaMd5 = TissElegibilidadeWs.SenhaEmMd5(senha),
         // Dentro dos 12 caracteres do padrão: ano, mês, dia, hora, minuto e segundo. Duas consultas

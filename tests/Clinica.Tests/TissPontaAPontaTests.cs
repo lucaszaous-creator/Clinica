@@ -194,7 +194,8 @@ public sealed class TissPontaAPontaTests : IDisposable
         ida.Endereco.Should().Be(TissWebserviceCliente.LoteGuiasSaudePetrobras, "ligar o envio não exige digitar URL");
         var mensagem = MensagemEnviada(ida.Corpo);
         mensagem.Name.LocalName.Should().Be("loteGuiasWS");
-        TissWsDeTeste.ValidarNoXsd(mensagem).Should().BeEmpty("o XML que sai do conector é válido no XSD 4.01.00");
+        TissWsDeTeste.ValidarNoXsd(mensagem, "4.03.00").Should().BeEmpty("o XML que sai do conector é válido no XSD 4.03.00 (a Petrobras recusa a 4.01.00)");
+        mensagem.Descendants(TissWsDeTeste.Ans + "Padrao").Single().Value.Should().Be("4.03.00");
         mensagem.Descendants(TissWsDeTeste.Ans + "guiaConsulta").Should().HaveCount(2);
         mensagem.Descendants(TissWsDeTeste.Ans + "numeroGuiaPrestador").Select(e => e.Value).Should().Equal($"C{ids[0]}", $"C{ids[1]}");
         mensagem.Descendants(TissWsDeTeste.Ans + "numeroLote").Single().Value.Should().Be(DadosDoConvenio.NumeroDoLote(pedido)).And.MatchRegex("^9[0-9]{11}$");
@@ -242,7 +243,7 @@ public sealed class TissPontaAPontaTests : IDisposable
 
         var idaDoStatus = _rede.Idas[1];
         idaDoStatus.Endereco.Should().Be(TissWebserviceCliente.StatusProtocoloSaudePetrobras);
-        TissWsDeTeste.ValidarNoXsd(MensagemEnviada(idaDoStatus.Corpo)).Should().BeEmpty();
+        TissWsDeTeste.ValidarNoXsd(MensagemEnviada(idaDoStatus.Corpo), "4.03.00").Should().BeEmpty();
         MensagemEnviada(idaDoStatus.Corpo).Descendants(TissWsDeTeste.Ans + "numeroProtocolo").Single().Value.Should().Be(Protocolo);
         (await GravadaAsync(status.Id)).Should().Match<TransacaoTiss>(t => t.Estado == EstadoTransacaoTiss.Concluida && t.Resultado!.Contains(Protocolo));
         var atualizado = (await GravadaAsync(pedido.Id)).Guias.Single(g => g.CodigoId == ids[1]);
@@ -502,7 +503,7 @@ public sealed class TissPontaAPontaTests : IDisposable
 
         var ida = _rede.Idas[1];
         ida.Endereco.Should().Be(TissWebserviceCliente.CancelaGuiaSaudePetrobras);
-        TissWsDeTeste.ValidarNoXsd(MensagemEnviada(ida.Corpo)).Should().BeEmpty();
+        TissWsDeTeste.ValidarNoXsd(MensagemEnviada(ida.Corpo), "4.03.00").Should().BeEmpty();
         (await GravadaAsync(cancelamento.Id)).Estado.Should().Be(EstadoTransacaoTiss.Concluida);
         var item = (await GravadaAsync(lote.Id)).Guias.Single();
         item.Situacao.Should().Be(SituacaoGuiaTiss.Cancelada);

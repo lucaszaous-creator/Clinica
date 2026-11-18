@@ -28,7 +28,7 @@ namespace Clinica.Tests;
 public class GuiaAnsNaBaixaTests : IDisposable
 {
     private static readonly XNamespace Ans = "http://www.ans.gov.br/padroes/tiss/schemas";
-    private static readonly string PastaXsd = Path.Combine(AppContext.BaseDirectory, "Tiss", "xsd-4.01.00");
+    private static readonly string PastaXsd = Path.Combine(AppContext.BaseDirectory, "Tiss", "xsd-4.03.00");
 
     private readonly SqliteConnection _conn;
     private readonly ClinicaDbContext _db;
@@ -139,7 +139,7 @@ public class GuiaAnsNaBaixaTests : IDisposable
     private static HashSet<string> EnumeracaoDoXsd(string tipo)
     {
         XNamespace xs = "http://www.w3.org/2001/XMLSchema";
-        var doc = XDocument.Load(Path.Combine(PastaXsd, "tissSimpleTypesV4_01_00.xsd"));
+        var doc = XDocument.Load(Path.Combine(PastaXsd, "tissSimpleTypesV4_03_00.xsd"));
         return doc.Descendants(xs + "simpleType").Single(t => (string?)t.Attribute("name") == tipo)
             .Descendants(xs + "enumeration").Select(e => (string)e.Attribute("value")!).ToHashSet();
     }
@@ -805,7 +805,9 @@ public class GuiaAnsNaBaixaTests : IDisposable
     private static List<string> ValidarNoXsd(XDocument doc)
     {
         var schemas = new XmlSchemaSet { XmlResolver = new XmlUrlResolver() };
-        schemas.Add(Ans.NamespaceName, Path.Combine(PastaXsd, "tissV4_01_00.xsd"));
+        // O lote sai na versão do registro ANS dele (Petrobras 4.03.00; os outros 4.01.00): valida no XSD dela.
+        var versao = doc.Descendants(Ans + "Padrao").Single().Value;
+        schemas.Add(Ans.NamespaceName, Path.Combine(AppContext.BaseDirectory, "Tiss", "xsd-" + versao, $"tissV{versao.Replace('.', '_')}.xsd"));
         schemas.Compile();
         var problemas = new List<string>();
         doc.Validate(schemas, (_, e) => problemas.Add(e.Message));
