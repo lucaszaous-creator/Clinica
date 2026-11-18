@@ -32,7 +32,9 @@ public sealed class SementeBase : ISemente
         db.Add(new Profissional
         {
             Nome = "Dr. Marcos Vieira", NomeCurto = "Dr. Marcos", RegistroConselho = "CRM-RJ 61.9876",
-            ConselhoProfissional = "06", NumeroConselho = "619876", UfConselho = "33", Cbos = "225133"
+            ConselhoProfissional = "06", NumeroConselho = "619876", UfConselho = "33", Cbos = "225133",
+            // Conclusão automática por profissional (nov/2026): quem não usa o sistema.
+            ConcluirAutomaticamenteHoras = 10
         });
         db.Add(new Profissional
         {
