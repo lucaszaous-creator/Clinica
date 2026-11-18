@@ -126,7 +126,12 @@ public sealed class ConclusaoAutomaticaService(ClinicaDbContext db, IClinicaRepo
         // Com chegada (concluir): desde a DATA do cadastro, sem outro corte — gravar 01/11 em 18/11 conclui
         // os horários de novembro que ficaram abertos (pedido do dono). Sem chegada (o aviso do sino): a data
         // E os últimos dias, para o sino não virar o arquivo morto do mês inteiro.
-        if (comChegada) abertos = abertos.Where(a => a.ChegadaEm != null);
+        if (comChegada)
+        {
+            // Teto de segurança (120 dias): data "a partir de" antiga não reabre a agenda de meses atrás.
+            var retroativoDesde = agora.Date.AddDays(-ConclusaoPorProfissional.DiasMaximoRetroativo);
+            abertos = abertos.Where(a => a.ChegadaEm != null && a.DataHora >= retroativoDesde);
+        }
         else
         {
             var avisoDesde = agora.AddDays(-ConclusaoPorProfissional.DiasDoAvisoSemChegada);
@@ -158,6 +163,7 @@ public sealed class ConclusaoAutomaticaService(ClinicaDbContext db, IClinicaRepo
         if (a is not { Status: StatusAgendamento.Agendado, ChegadaEm: not null, Profissional: { } profissional }
             || ConclusaoPorProfissional.Horas(profissional) is not { } horas
             || !ConclusaoPorProfissional.NoAlcance(profissional, a.DataHora)
+            || a.DataHora < agora.Date.AddDays(-ConclusaoPorProfissional.DiasMaximoRetroativo)
             || !ConclusaoPorProfissional.Venceu(a.DataHora, horas, agora))
             return false;
 

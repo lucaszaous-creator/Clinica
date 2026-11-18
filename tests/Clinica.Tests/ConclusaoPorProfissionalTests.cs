@@ -174,6 +174,43 @@ public sealed class ConclusaoPorProfissionalTests : IDisposable
     }
 
     [Fact]
+    public async Task Data_em_outubro_gravada_em_novembro_conclui_desde_a_data_e_nada_antes()
+    {
+        // Mais velho que os 30 dias do sino: a conclusão vai até a data "a partir de" (teto de 120 dias).
+        var hoje = new DateTime(2026, 11, 18, 10, 0, 0);
+        var medica = new Profissional { Nome = "Dra. Fictícia da Silva", NomeCurto = "Dra. Fictícia", Ativo = true,
+            ConcluirAutomaticamenteHoras = 10, ConcluirAutomaticamenteDesde = new DateTime(2026, 10, 1) };
+        _db.Profissionais.Add(medica);
+        await _db.SaveChangesAsync();
+        var antes = await NovoHorarioAsync(medica.Id, new DateTime(2026, 9, 30, 9, 0, 0));
+        var depois = await NovoHorarioAsync(medica.Id, new DateTime(2026, 10, 2, 9, 0, 0));
+        _db.ChangeTracker.Clear();
+
+        Assert.Equal([depois.Id], await Servico.CandidatosPorProfissionalAsync(hoje));
+        Assert.True(await Servico.ConcluirPorProfissionalAsync(depois.Id, hoje));
+        Assert.False(await Servico.ConcluirPorProfissionalAsync(antes.Id, hoje));
+        Assert.Equal(StatusAgendamento.Realizado, (await RelerAsync(depois.Id)).Status);
+        Assert.Equal(StatusAgendamento.Agendado, (await RelerAsync(antes.Id)).Status);
+    }
+
+    [Fact]
+    public async Task Teto_de_120_dias_vale_mesmo_com_data_mais_antiga()
+    {
+        var hoje = new DateTime(2026, 11, 18, 10, 0, 0);
+        var medica = new Profissional { Nome = "Dra. Fictícia da Silva", Ativo = true,
+            ConcluirAutomaticamenteHoras = 10, ConcluirAutomaticamenteDesde = new DateTime(2026, 1, 1) };
+        _db.Profissionais.Add(medica);
+        await _db.SaveChangesAsync();
+        var velho = await NovoHorarioAsync(medica.Id, hoje.Date.AddDays(-ConclusaoPorProfissional.DiasMaximoRetroativo - 1).AddHours(9));
+        var dentro = await NovoHorarioAsync(medica.Id, hoje.Date.AddDays(-ConclusaoPorProfissional.DiasMaximoRetroativo).AddHours(9));
+        _db.ChangeTracker.Clear();
+
+        Assert.Equal([dentro.Id], await Servico.CandidatosPorProfissionalAsync(hoje));
+        Assert.False(await Servico.ConcluirPorProfissionalAsync(velho.Id, hoje));
+        Assert.Equal(StatusAgendamento.Agendado, (await RelerAsync(velho.Id)).Status);
+    }
+
+    [Fact]
     public async Task Primeiro_de_novembro_as_9h_com_chegada_conclui_as_19h()
     {
         var (_, h) = await CenarioAsync(horario: new DateTime(2026, 11, 1, 9, 0, 0));

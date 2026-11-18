@@ -70,6 +70,13 @@ public static class ConclusaoPorProfissional
     /// </summary>
     public const int MaximoPorVolta = 50;
 
+    /// <summary>
+    /// Teto de segurança da conclusão retroativa: mesmo com a data "a partir de" mais antiga, o relógio não
+    /// conclui horário com mais de 120 dias — a mesma janela da conferência de horários parados
+    /// (<c>ConciliacaoAgendaService.JanelaPadraoDias</c>), onde o que ficou de fora continua visível.
+    /// </summary>
+    public const int DiasMaximoRetroativo = 120;
+
     /// <summary>Até quantos dias para trás o sino cobra: horário mais velho que isso já saiu do dia a dia da recepção.</summary>
     public const int DiasDoAvisoSemChegada = 30;
 

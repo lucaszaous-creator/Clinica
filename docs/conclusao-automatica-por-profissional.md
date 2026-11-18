@@ -20,6 +20,8 @@ esquecimento): não se cobra consulta que não aconteceu.
   os horários de novembro com chegada que ficaram abertos. Sem data na tela, o serviço grava o **dia da
   gravação** (nunca para trás); salvar de novo não avança a data; desligar (0) apaga a data. Horas sem
   data (gravadas por fora do serviço) não concluem nada.
+- **Teto de segurança retroativo: 120 dias.** A conclusão vai até a data "a partir de" (01/10 gravada em
+  18/11 alcança 02/10), mas nunca além de 120 dias — a mesma janela da conferência de horários parados.
 - **Teto por volta:** 50 conclusões por volta do relógio (uma volta por minuto), cada uma numa transação
   curta. Um mês retroativo de agenda cheia anda em poucos minutos sem prender o portal.
 - **Conclui pelo mesmo serviço do "Concluir".** `AgendaService.ConcluirAtendimentoClinicoAsync`, o
@@ -42,7 +44,10 @@ esquecimento): não se cobra consulta que não aconteceu.
 - **Sem chegada vira aviso.** Passado o prazo, o horário sem chegada aparece no **sino** da Recepção e
   do Gerente (quem edita a agenda), seção "Horários sem chegada": *"3 horários sem chegada na agenda
   de Dra. Ana: confirme falta ou presença."* O clique abre a agenda. Registrar a chegada ali faz a
-  próxima volta do relógio concluir; registrar a falta tira o aviso. O sino cobra os últimos 30 dias, e nunca antes da data "a partir de".
+  próxima volta do relógio concluir; registrar a falta tira o aviso. O sino cobra os últimos 30 dias, e nunca antes da data "a partir de". Os horários sem chegada mais velhos
+  que isso (outubro, gravado em novembro) aparecem na **Agenda → Conferir atendimentos (horários
+  parados)…** (`ConciliacaoAgendaService`, 120 dias, todos os profissionais), onde a recepção marca a falta,
+  confirma a presença ou liga a uma sessão lançada por fora.
 - **Cancelado, falta, substituído ou já concluído:** nada acontece.
 - Remarcar ou estornar limpa o carimbo, como todo carimbo da fila.
 
