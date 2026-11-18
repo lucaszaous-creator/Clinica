@@ -135,8 +135,7 @@ public static class RodadaDeConfirmacao
     /// <summary>
     /// A palavra do WhatsApp da Recepção para o lembrete que ficou sem resposta (25/10): a mesma na linha da lista, no
     /// horário da coluna e no aviso da conversa, e a mesma do CRM ("sem resposta"). A agenda ainda diz
-    /// <see cref="SeloSemResposta"/> — as videoaulas e o catálogo de treinamento mostram aquela palavra, e trocá-la sem
-    /// regravá-las faria a aula ensinar uma tela que não existe mais.
+    /// <see cref="SeloSemResposta"/>: são palavras de lugares diferentes, e cada uma tem o seu teste.
     /// </summary>
     public const string SemResposta = "Sem resposta";
 

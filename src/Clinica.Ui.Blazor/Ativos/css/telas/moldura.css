@@ -23,13 +23,12 @@
 .moldura-nav{display:flex;align-items:center;gap:var(--space-1);flex:none}
 .moldura-nav > ul{display:flex;flex-wrap:wrap;align-items:center;gap:2px;list-style:none;margin:0;padding:0}
 .moldura-grupo{position:relative}
-.moldura-grupo > button,.moldura-treinamento{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 var(--space-3);
+.moldura-grupo > button{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 var(--space-3);
   border:0;border-radius:var(--radius-control);background:transparent;color:var(--texto-primario);font-weight:500;cursor:pointer;
   white-space:nowrap;transition:background var(--duracao-rapida),color var(--duracao-rapida)}
-.moldura-grupo > button:hover,.moldura-treinamento:hover,.moldura-grupo > button[aria-expanded="true"]{background:var(--superficie-hover)}
+.moldura-grupo > button:hover,.moldura-grupo > button[aria-expanded="true"]{background:var(--superficie-hover)}
 .moldura-grupo.ativo > button{color:var(--acento);background:var(--acento-suave)}
 .moldura-grupo > button svg.icone{width:14px;height:14px;color:var(--texto-secundario)}
-.moldura-treinamento{color:var(--texto-secundario);font-weight:400}
 .moldura-submenu{position:absolute;left:0;top:100%;z-index:40;min-width:240px;max-width:340px;list-style:none;margin:0;
   padding:var(--space-1);background:var(--superficie);border:1px solid var(--borda);border-radius:var(--radius-control);
   box-shadow:var(--sombra-popup)}

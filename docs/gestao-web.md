@@ -57,7 +57,7 @@ profissional que o gerente NÃO deva ver, aí uma política RLS por `Profissiona
 - **Assinatura digital** (área congelada, `docs/safeid-congelado.md`): a gestão web não assina —
   `AssinaturaForaDaGestao` responde "no aplicativo do computador ou no Consultório do portal".
 - **Escolher uma pasta** (backup, exportação do prontuário em pasta): "só no aplicativo".
-- **Sino e videoaulas**: o vigia dos pedidos e respostas é do shell do app; a moldura da web os esconde.
+- **Sino**: o vigia dos pedidos e respostas é do shell do app; a moldura da web o esconde.
 - **Assinar, renovar o link e tirar do ar um documento emitido**: passam pela área congelada
   (assinatura e `PublicacaoDocumentoService`); o menu da linha não os oferece no portal. A 2ª via,
   o envio, a nova versão e o cancelamento funcionam.

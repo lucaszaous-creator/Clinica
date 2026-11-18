@@ -12,7 +12,7 @@ namespace Clinica.Gestao.Web.Hospedagem;
 ///
 /// O que depende da máquina da clínica ou do shell WPF fica quieto aqui, e a tela diz isso
 /// quando é o caso: o sino (pedidos e respostas são vigiados pelo ShellViewModel do app),
-/// a fila de assinaturas e as videoaulas.
+/// e a fila de assinaturas.
 /// </summary>
 public sealed class MolduraDaGestao : IMolduraDoApp
 {
@@ -164,7 +164,6 @@ public sealed class MolduraDaGestao : IMolduraDoApp
         Mostrar(abas[indice].Chave);
     }
 
-    public void AbrirTreinamento() => _notificacoes?.Info("As videoaulas ficam no aplicativo do computador.");
 
     // ----- o que mora no shell do app: quieto na web -----
     public int AssinaturasPendentes => 0;
@@ -190,7 +189,6 @@ public sealed class MolduraDaGestao : IMolduraDoApp
 
     public void Ligar(Dialogos dialogos, Notificacoes notificacoes) => _notificacoes = notificacoes;
 
-    public bool TemTreinamento => false;
     public bool TemSino => false;
     public TextosDeSaida Saida { get; } = new("Sair", "Sair da gestão",
         "Sua sessão no portal será encerrada. Salve o que estiver editando antes de continuar.", "Sair");

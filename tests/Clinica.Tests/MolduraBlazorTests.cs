@@ -264,7 +264,6 @@ public sealed class MolduraBlazorTests : IDisposable
         public void FecharPesquisa() => TextoPesquisa = "";
         public void Navegar(string chave) => Navegou.Add(chave);
         public void SelecionarAba(int indice) => Abriu.Add(indice);
-        public void AbrirTreinamento() => Navegou.Add("treinamento");
         public int AssinaturasPendentes => 0;
         public string ResumoAssinaturas => "";
         public void AbrirFilaDeInfusao() { }
@@ -315,8 +314,8 @@ public sealed class MolduraBlazorTests : IDisposable
         Assert.Contains("caixa", moldura.Navegou);
         Assert.Empty(tela.FindAll(".moldura-submenu")); // navegar fecha o submenu
 
-        tela.FindAll("button").Single(b => b.TextContent.Trim() == "Treinamento").Click();
-        Assert.Contains("treinamento", moldura.Navegou);
+        // As videoaulas saíram (nov/2026): não sobra botão "Treinamento" na moldura.
+        Assert.DoesNotContain(tela.FindAll("button"), b => b.TextContent.Trim() == "Treinamento");
     }
 
     [Fact]

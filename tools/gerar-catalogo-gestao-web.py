@@ -193,7 +193,7 @@ def gerar():
         lista = [i['chave'] for i in visiveis if area_de[i['chave']] == area and i['chave'] not in abas_de_visiveis]
         barra.append({'rotulo': area, 'direto': None, 'itens': lista})
     return [{
-        'app': 'gestao', 'nome': 'Gestão', 'perfil': 'Gerente', 'barra': barra, 'telasTreinamento': [],
+        'app': 'gestao', 'nome': 'Gestão', 'perfil': 'Gerente', 'barra': barra,
         'itens': sorted(itens.values(), key=lambda i: i['chave']),
     }]
 

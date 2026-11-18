@@ -43,7 +43,7 @@ builder.Services.AddScoped<IHostDaTela>(sp => new HostDaPrevia(sp.GetRequiredSer
 builder.Services.AddScoped<IPostoDoConsultorio, PreviaBlazor.PostoDaAula>();
 builder.Services.AddScoped<IJanelasDaAgenda, PreviaBlazor.JanelasDaAgendaDaAula>();
 builder.Services.AddScoped<IMarcacaoDeHorario, PreviaBlazor.MarcacaoDaAula>();
-// A navegação real dos apps (navegacao.json), para a página da aula — as videoaulas.
+// A navegação de um app (navegacao.json), para a página da aula: a tela dentro da moldura, com o menu.
 builder.Services.AddSingleton<PreviaBlazor.NavegacaoDaPrevia>();
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 

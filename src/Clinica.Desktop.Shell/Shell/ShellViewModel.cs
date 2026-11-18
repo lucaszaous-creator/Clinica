@@ -35,8 +35,6 @@ public sealed partial class ShellViewModel : ObservableObject
     private readonly SessaoUsuario? _sessaoClinica;
     private readonly System.Windows.Threading.DispatcherTimer? _releituraInfusoes;
     private bool _consultandoInfusoes;
-    private readonly HashSet<string> _telasTreinamento;
-    private readonly ItemMenuModulo _itemTreinamento = new(){Chave="treinamento",Rotulo="Treinamento",Glifo="\uE8F1",Oculto=true};
 
     /// <summary>
     /// O item cuja tela está montada. Guardado para que voltar ao MESMO item composto
@@ -85,13 +83,6 @@ public sealed partial class ShellViewModel : ObservableObject
 
     /// <summary>Todos os itens, em ordem — usado para achar o item por chave.</summary>
     public ObservableCollection<ItemMenuModulo> Itens { get; } = [];
-
-    /// <summary>
-    /// As chaves que o Treinamento deste executável oferece (as telas publicadas, com as abas
-    /// dos itens compostos). Público para a ferramenta das videoaulas ler o MESMO recorte que
-    /// o catálogo usa — uma segunda lista divergiria na primeira tela nova.
-    /// </summary>
-    public IReadOnlyCollection<string> TelasDoTreinamento => _telasTreinamento;
 
     [ObservableProperty]
     private object? _telaAtual;
@@ -207,20 +198,6 @@ public sealed partial class ShellViewModel : ObservableObject
             }
         }
 
-        // Aulas seguem o recorte do executável. Dependências contextuais não liberam
-        // cursos de outros módulos; apenas suas abas efetivamente publicadas entram.
-        _telasTreinamento = _modulos.SelectMany(m=>m.Itens
-            .Where(i=>m is not ModuloContextual || !i.Oculto))
-            .Select(i=>i.Chave).Where(k=>Itens.Any(i=>i.Chave==k)).ToHashSet(StringComparer.Ordinal);
-        bool mudou;
-        do
-        {
-            mudou=false;
-            foreach(var chave in Itens.Where(i=>_telasTreinamento.Contains(i.Chave)).SelectMany(i=>i.Abas).Select(a=>a.Chave).ToArray())
-                if(Itens.Any(i=>i.Chave==chave))mudou|=_telasTreinamento.Add(chave);
-        } while(mudou);
-        Itens.Add(_itemTreinamento);
-        servicos.GetService<Treinamento.TreinamentoDaSuite>()?.Definir(_telasTreinamento, SessaoUsuario.Atual.UsuarioId);
 
         // Agrupa por SEÇÃO TEMÁTICA, não por módulo: no Gerente, que carrega os três,
         // agrupar por módulo daria cabeçalhos que explicam a arquitetura em vez do
@@ -486,9 +463,6 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <summary>Monta a tela de um item simples pedindo ao módulo dono.</summary>
     private object? MontarTela(ItemMenuModulo item)
     {
-        // O Treinamento é tela do SHELL (out/2026, Blazor): o recorte das aulas pelas telas deste
-        // executável já foi entregue ao TreinamentoDaSuite na construção.
-        if(item.Chave=="treinamento")return new TelaDoNavegador(typeof(Clinica.Ui.Blazor.Telas.Treinamento));
         foreach (var modulo in _modulos)
         {
             if (modulo.Nome != item.ModuloNome) continue;
@@ -505,9 +479,6 @@ public sealed partial class ShellViewModel : ObservableObject
         }
         return null;
     }
-
-    [RelayCommand]
-    private void AbrirTreinamento()=>Navegar(_itemTreinamento);
 
     /// <summary>
     /// Monta um item COMPOSTO: uma aba por sub-tela, cada uma criada só quando aberta.
