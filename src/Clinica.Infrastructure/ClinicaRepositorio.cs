@@ -1416,6 +1416,61 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         return linhas.Select(l => l.Agendamento).ToList();
     }
 
+    /// <summary>
+    /// A consulta do relatório de atendimentos, exposta para a rede de tradução do Npgsql. Cada filtro vira
+    /// WHERE; o enum embutido entra pelo VALOR (a coluna guarda o nome) e o código do catálogo pela coluna de
+    /// código — o horário antigo, sem código, casa pelo enum da família.
+    /// </summary>
+    internal IQueryable<LinhaBrutaRelatorioAtendimento> ConsultaRelatorioDeAtendimentos(FiltroRelatorioAtendimentos f)
+    {
+        var inicio = f.Inicio.ToDateTime(TimeOnly.MinValue);
+        var fim = f.Fim.AddDays(1).ToDateTime(TimeOnly.MinValue);
+        var situacoes = f.SituacoesEfetivas.ToList();
+        var q = _db.Agendamentos.AsNoTracking()
+            .Where(a => a.DataHora >= inicio && a.DataHora < fim && situacoes.Contains(a.Status));
+        if (f.ProfissionalId is { } prof) q = q.Where(a => a.ProfissionalId == prof);
+        if (!string.IsNullOrWhiteSpace(f.Modalidade))
+        {
+            var codigo = f.Modalidade.Trim();
+            q = Enum.TryParse<ModalidadeAtendimento>(codigo, out var familia) && familia.ToString() == codigo
+                ? q.Where(a => a.ModalidadeCodigo == codigo || (a.ModalidadeCodigo == null && a.ModalidadePrevista == familia))
+                : q.Where(a => a.ModalidadeCodigo == codigo);
+        }
+        if (!string.IsNullOrWhiteSpace(f.Especialidade))
+        {
+            var codigo = f.Especialidade.Trim();
+            q = Enum.TryParse<Especialidade>(codigo, out var esp) && esp.ToString() == codigo
+                ? q.Where(a => a.EspecialidadeConsultaCodigo == codigo || (a.EspecialidadeConsultaCodigo == null && a.EspecialidadeConsulta == esp))
+                : q.Where(a => a.EspecialidadeConsultaCodigo == codigo);
+        }
+        if (!string.IsNullOrWhiteSpace(f.Convenio) && f.Convenio != RelatorioDeAtendimentosRegras.Particular)
+        {
+            var codigo = f.Convenio.Trim();
+            q = Enum.TryParse<Convenio>(codigo, out var conv) && conv.ToString() == codigo
+                ? q.Where(a => a.Paciente!.ConvenioCodigo == codigo || (a.Paciente.ConvenioCodigo == null && a.Paciente.Convenio == conv))
+                : q.Where(a => a.Paciente!.ConvenioCodigo == codigo);
+        }
+        if (!string.IsNullOrWhiteSpace(f.Paciente))
+        {
+            var nome = f.Paciente.Trim().ToLower();
+            q = q.Where(a => a.Paciente!.Nome.ToLower().Contains(nome));
+        }
+        return q.OrderBy(a => a.DataHora).ThenBy(a => a.Id)
+            .Select(a => new LinhaBrutaRelatorioAtendimento(
+                a.Id, a.DataHora, a.PacienteId, a.Paciente!.Nome, a.Paciente.Convenio, a.Paciente.ConvenioCodigo,
+                a.Paciente.Carteirinha, a.Particular, a.ModalidadePrevista, a.ModalidadeCodigo,
+                a.EspecialidadeConsulta, a.EspecialidadeConsultaCodigo,
+                a.Profissional == null ? null : (a.Profissional.NomeCurto ?? a.Profissional.Nome),
+                a.Status,
+                a.Atendimento == null ? null : a.Atendimento.Numero,
+                a.Atendimento == null
+                    ? new List<GuiaDoRelatorio>()
+                    : a.Atendimento.Codigos.Select(c => new GuiaDoRelatorio(c.Tipo, c.Ordem, c.Status, c.NumeroGuiaReal, c.DataBaixa)).ToList()));
+    }
+
+    public async Task<IReadOnlyList<LinhaBrutaRelatorioAtendimento>> RelatorioDeAtendimentosAsync(FiltroRelatorioAtendimentos filtro, CancellationToken ct = default)
+        => await ConsultaRelatorioDeAtendimentos(filtro).ToListAsync(ct);
+
     public async Task<IReadOnlyList<Agendamento>> AgendamentosNoPeriodoAsync(DateTime inicio, DateTime fim, CancellationToken ct = default)
         => await _db.Agendamentos
             .Include(a => a.Paciente)
