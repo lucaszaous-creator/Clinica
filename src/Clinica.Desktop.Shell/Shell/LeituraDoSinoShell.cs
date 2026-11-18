@@ -20,21 +20,22 @@ public sealed partial class ShellViewModel
     private bool _marcasCarregadas;
     // Primeiro uso deste usuário: o que já estava no sino entra como visto e lido em silêncio,
     // uma vez por lista — estrear com o dia inteiro piscando ensinaria a ignorar o sino.
-    private bool _semearPedidos, _semearRespostas, _semearSemDor, _semearEspera;
+    private bool _semearPedidos, _semearRespostas, _semearSemDor, _semearEspera, _semearSemChegada;
     private List<string> _chavesPedidosNovos = [];
     private List<string> _chavesRespostas = [];
     private List<string> _chavesSemDor = [];
     private List<string> _chavesEspera = [];
+    private List<string> _chavesSemChegada = [];
 
     /// <summary>Respostas e pedidos que este usuário ainda não viu — a parte "nova" do número do sino.</summary>
-    public int AvisosNaoVistos => _marcasCarregadas ? _marcas.NaoVistas(_chavesPedidosNovos.Concat(_chavesRespostas).Concat(_chavesSemDor).Concat(_chavesEspera)) : 0;
+    public int AvisosNaoVistos => _marcasCarregadas ? _marcas.NaoVistas(_chavesPedidosNovos.Concat(_chavesRespostas).Concat(_chavesSemDor).Concat(_chavesEspera).Concat(_chavesSemChegada)) : 0;
 
     /// <summary>Há algo no sino ainda não lido (o "Marcar todas como lidas" fica aceso).</summary>
     public bool TemNaoLidas => NaoLidas > 0;
 
     /// <summary>Quantos avisos do sino estão sem leitura — o número da aba "Não lidas".</summary>
     public int NaoLidas => PedidosNoSino.Count(p => PedidoNaoLido(p.Id)) + RespostasNoSino.Count(RespostaNaoLida) + AvisosDoSemDor.Count(a => AvisoDoSemDorNaoLido(a.Chave))
-        + EsperasNoWhatsApp.Count(e => EsperaNaoLida(e.Chave));
+        + EsperasNoWhatsApp.Count(e => EsperaNaoLida(e.Chave)) + HorariosSemChegada.Count(h => SemChegadaNaoLida(h.Chave));
 
     public bool PedidoNaoLido(int pedidoId)
         => _marcasCarregadas && _chavesPedidosNovos.Contains(LeituraDoSino.ChavePedido(pedidoId))
@@ -49,6 +50,9 @@ public sealed partial class ShellViewModel
     /// <summary>Uma espera no WhatsApp sem leitura (a chave é a da espera, "wa-espera:…": a mensagem nova é outra chave).</summary>
     public bool EsperaNaoLida(string chave) => _marcasCarregadas && !_marcas.Lido(chave);
 
+    /// <summary>Horários sem chegada sem leitura (a chave "SC:…" muda quando entra ou sai horário).</summary>
+    public bool SemChegadaNaoLida(string chave) => _marcasCarregadas && !_marcas.Lido(chave);
+
     private async Task CarregarMarcasAsync()
     {
         if (_sessaoClinica is not { Autenticado: true } sessao) return;
@@ -56,7 +60,7 @@ public sealed partial class ShellViewModel
         {
             using var scope = _servicos.CreateScope();
             var gravadas = await scope.ServiceProvider.GetRequiredService<LeituraDoSinoService>().ObterAsync(sessao.UsuarioId);
-            _semearPedidos = _semearRespostas = _semearSemDor = _semearEspera = gravadas is null;
+            _semearPedidos = _semearRespostas = _semearSemDor = _semearEspera = _semearSemChegada = gravadas is null;
             _marcas = gravadas ?? MarcasDoSino.Vazias;
             _marcasCarregadas = true;
         }
@@ -102,7 +106,15 @@ public sealed partial class ShellViewModel
         NotificarSino();
     }
 
-    private IReadOnlyList<string> ChavesDoSino => _chavesPedidosNovos.Concat(_chavesRespostas).Concat(_chavesSemDor).Concat(_chavesEspera).Distinct().ToList();
+    /// <summary>Os horários sem chegada mudaram (chaves). No primeiro uso, entram como lidos.</summary>
+    private void SemChegadaMudou(IEnumerable<string> chaves)
+    {
+        _chavesSemChegada = chaves.ToList();
+        if (_semearSemChegada && _marcasCarregadas) { _semearSemChegada = false; Persistir(s => s.LerAsync(Usuario, _chavesSemChegada), m => m.LerTodas(_chavesSemChegada)); }
+        NotificarSino();
+    }
+
+    private IReadOnlyList<string> ChavesDoSino => _chavesPedidosNovos.Concat(_chavesRespostas).Concat(_chavesSemDor).Concat(_chavesEspera).Concat(_chavesSemChegada).Distinct().ToList();
 
     /// <summary>Abrir o sino: tudo o que está nele passa a VISTO — o número some.</summary>
     private void VerSino()

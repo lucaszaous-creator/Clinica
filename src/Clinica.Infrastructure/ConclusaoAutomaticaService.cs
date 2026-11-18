@@ -102,21 +102,25 @@ public sealed class ConclusaoAutomaticaService(ClinicaDbContext db, IClinicaRepo
     private async Task<List<(Agendamento Horario, Profissional Profissional, int Horas)>> VencidosPorProfissionalAsync(
         DateTime agora, bool comChegada, int depois, CancellationToken ct)
     {
-        var desde = agora.AddDays(-ConclusaoPorProfissional.DiasDoAvisoSemChegada);
-        var ultimoPossivel = agora.AddHours(-1);
-        var linhas = await db.Agendamentos.AsNoTracking()
-            .Where(a => a.Id > depois && a.Status == StatusAgendamento.Agendado
-                && (comChegada ? a.ChegadaEm != null : a.ChegadaEm == null)
-                && a.DataHora >= desde && a.DataHora <= ultimoPossivel
-                && a.Profissional != null && a.Profissional.ConcluirAutomaticamenteHoras > 0)
-            .OrderBy(a => a.Id)
-            .Select(a => new { Horario = a, Profissional = a.Profissional! })
-            .Take(500).ToListAsync(ct);
+        var linhas = await ConsultaAbertosDosProfissionaisComPrazo(agora, comChegada, depois).ToListAsync(ct);
         return linhas
-            .Select(l => (l.Horario, l.Profissional, Horas: ConclusaoPorProfissional.Horas(l.Profissional)))
+            .Select(a => (Horario: a, Profissional: a.Profissional!, Horas: ConclusaoPorProfissional.Horas(a.Profissional)))
             .Where(l => l.Horas is { } h && ConclusaoPorProfissional.Venceu(l.Horario.DataHora, h, agora))
             .Select(l => (l.Horario, l.Profissional, l.Horas!.Value))
             .ToList();
+    }
+
+    /// <summary>O recorte do banco (estado, chegada, profissional com a regra, janela de dias) — público para a rede de tradução.</summary>
+    public IQueryable<Agendamento> ConsultaAbertosDosProfissionaisComPrazo(DateTime agora, bool comChegada, int depois)
+    {
+        var desde = agora.AddDays(-ConclusaoPorProfissional.DiasDoAvisoSemChegada);
+        var ultimoPossivel = agora.AddHours(-1);
+        var abertos = db.Agendamentos.AsNoTracking().Include(a => a.Profissional)
+            .Where(a => a.Id > depois && a.Status == StatusAgendamento.Agendado
+                && a.DataHora >= desde && a.DataHora <= ultimoPossivel
+                && a.Profissional != null && a.Profissional.ConcluirAutomaticamenteHoras > 0);
+        abertos = comChegada ? abertos.Where(a => a.ChegadaEm != null) : abertos.Where(a => a.ChegadaEm == null);
+        return abertos.OrderBy(a => a.Id).Take(500);
     }
 
     /// <summary>Os horários com chegada e prazo vencido — os que <see cref="ConcluirPorProfissionalAsync"/> conclui.</summary>
