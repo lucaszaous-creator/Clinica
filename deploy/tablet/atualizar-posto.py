@@ -6,6 +6,7 @@ Produção exige relatórios HML do mesmo pacote, salvo dispensa explícita regi
 import hashlib, json, os, pathlib, pwd, re, shutil, stat, subprocess, sys, tarfile, time
 from regras_publicacao import (
     incluir_flag_false_se_ausente,
+    verificar_sem_credenciais_cifradas as _verificar_sem_credenciais_cifradas,
     verificar_criptografia_desativada,
     verificar_flag_desativada_no_processo,
 )
@@ -82,12 +83,9 @@ def sql(query):
 def status(s):
     return run(['systemctl','show',s,'-p','MainPID','--value'])
 
-consulta_credenciais_cifradas='''SELECT count(*) FROM "Configuracoes"
-    WHERE "Valor" LIKE 'enc:%' '''
-
 def verificar_sem_credenciais_cifradas():
-    if sql(consulta_credenciais_cifradas)!='0':
-        raise RuntimeError('A base contém credenciais protegidas; dispensa recusada sem exibir valores.')
+    # A regra (e a única exceção: as chaves do conector TISS) mora em regras_publicacao.py.
+    _verificar_sem_credenciais_cifradas(sql)
 
 if ambiente=='producao' and pular_hml:
     # Registrar a tentativa antes de qualquer consulta de elegibilidade, migration,
