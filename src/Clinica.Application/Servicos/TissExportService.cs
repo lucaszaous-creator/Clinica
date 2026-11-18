@@ -109,8 +109,20 @@ public sealed class TissExportService
                     new XElement(Ans + "codigoPrestadorNaOperadora", prestador.CodigoNaOperadora ?? string.Empty))),
             new XElement(Ans + "destino",
                 new XElement(Ans + "registroANS", prestador.RegistroAnsOperadora ?? string.Empty)),
-            new XElement(Ans + "Padrao", VersaoPadrao));
+            new XElement(Ans + "Padrao", VersaoDoArquivo(prestador.RegistroAnsOperadora)));
     }
+
+    /// <summary>
+    /// A versão do arquivo (lote e recurso), pelo registro ANS do destino — o lote já sai separado por
+    /// operadora. A operadora do catálogo marcada com <see cref="OperadoraTiss.ArquivoNaVersaoDoWebService"/>
+    /// (Saúde Petrobras: recusa a 4.01.00 desde 01/08/2026) recebe o arquivo na versão do web service dela;
+    /// as outras continuam em <see cref="VersaoPadrao"/> (a Amil, segurada, inclusive). A estrutura da guia
+    /// de consulta, do lote e do recurso é a mesma nas duas versões.
+    /// </summary>
+    public static string VersaoDoArquivo(string? registroAnsOperadora)
+        => OperadorasTiss.Todas.FirstOrDefault(o => o.ArquivoNaVersaoDoWebService && o.RegistroAns == registroAnsOperadora?.Trim())
+               ?.VersaoTiss(TipoTransacaoTiss.EnvioGuia)
+           ?? VersaoPadrao;
 
     /// <summary>Consulta (de qualquer tipo) — o que sai em guia de consulta, e não SP/SADT.</summary>
     public static bool EhConsulta(TipoCodigo tipo) => tipo is TipoCodigo.Consulta or TipoCodigo.ConsultaEspecialidade;

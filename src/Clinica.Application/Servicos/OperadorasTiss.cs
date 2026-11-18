@@ -59,6 +59,12 @@ public enum ModeloDaGuiaTiss
 /// </summary>
 public sealed record JanelaDeEnvioTiss(int PrimeiroDiaUtil, int UltimoDiaUtil, TimeOnly Abre, TimeOnly Fecha);
 
+/// <summary>
+/// Os dias do MÊS (corridos) em que a operadora recebe lotes, segundo o manual dela — só AVISO: ao
+/// contrário da <see cref="JanelaDeEnvioTiss"/>, a fila não segura o lote. Ex.: Saúde Petrobras, 1 a 20.
+/// </summary>
+public sealed record DiasDeEnvioNoMesTiss(int PrimeiroDia, int UltimoDia);
+
 /// <summary>Uma operadora com web service TISS que o sistema conhece sem ninguém digitar nada.</summary>
 /// <param name="Familia">A família do convênio no catálogo (o convênio cadastrado aponta para ela).</param>
 /// <param name="Nome">Como a operadora aparece nas frases.</param>
@@ -115,7 +121,9 @@ public sealed record OperadoraTiss(
     bool EntregaConfirmadaNoPortal = false,
     bool EquipeComProfissional = false,
     bool PrazoDeCobrancaBloqueia = false,
-    bool RecusaDuplicidade = false)
+    bool RecusaDuplicidade = false,
+    DiasDeEnvioNoMesTiss? DiasDeEnvioNoMes = null,
+    bool ArquivoNaVersaoDoWebService = false)
 {
     public Uri? Endereco(TipoTransacaoTiss tipo) => Enderecos.TryGetValue(tipo, out var uri) ? uri : null;
 
@@ -136,17 +144,34 @@ public sealed record OperadoraTiss(
 public static class OperadorasTiss
 {
     /// <summary>
-    /// Saúde Petrobras (conectividade CRC), do "Manual de Utilização Webservice TISS 4.01.00" da
-    /// operadora. O manual não traz endereço de homologação: toda chamada é em produção.
+    /// Saúde Petrobras (conectividade CRC) em TISS 4.03.00 (nov/2026). Fonte: o canal oficial da
+    /// operadora no Telegram (post 499, 06/07/2026): "A partir de 01/08/2026, não aceitaremos o envio da
+    /// versão 4.01.00 … os lotes … serão rejeitados integralmente com a justificativa: Mensagem eletrônica
+    /// fora do padrão." Os manuais do portal ainda falam de 4.01.00 e estão DESATUALIZADOS. O web service
+    /// 4.03.00 não está documentado: a base é <c>tiss40300/ws/40300/&lt;serviço&gt;</c> (o WSDL abre com
+    /// ".wsdl"); o <c>soap:address</c> do WSDL (<c>http://…:80/tiss/ws/40300/…</c>) dá 404 por HTTPS e
+    /// NÃO é usado. Continua ISO-8859-1: é o que o próprio demonstrativo 4.03.00 dela declara. Sem
+    /// homologação: toda chamada é em produção. Lotes do dia 1 ao 20 do mês (manual; aviso).
     /// </summary>
     public static readonly OperadoraTiss SaudePetrobras = new(
         Convenio.Petrobras, "Saúde Petrobras", "422631", CodigoDoPrestadorTiss.CnpjDaClinica, EnvioDeGuiaNasTelas: true,
         Enderecos(
-            "https://webservices.crc.com.br/tiss/ws/40100/",
+            "https://webservices.crc.com.br/tiss40300/ws/40300/",
             (TipoTransacaoTiss.Elegibilidade, "tissVerificaElegibilidade"),
             (TipoTransacaoTiss.EnvioGuia, "tissLoteGuias"),
             (TipoTransacaoTiss.StatusProtocolo, "tissSolicitacaoStatusProtocolo"),
-            (TipoTransacaoTiss.CancelamentoGuia, "tissCancelaGuia")));
+            (TipoTransacaoTiss.CancelamentoGuia, "tissCancelaGuia")),
+        Versoes: new Dictionary<TipoTransacaoTiss, string>
+        {
+            [TipoTransacaoTiss.Elegibilidade] = Versao403,
+            [TipoTransacaoTiss.EnvioGuia] = Versao403,
+            [TipoTransacaoTiss.StatusProtocolo] = Versao403,
+            [TipoTransacaoTiss.CancelamentoGuia] = Versao403
+        },
+        EnderecoDemonstrativo: new Uri("https://webservices.crc.com.br/tiss40300/ws/40300/tissSolicitacaoDemonstrativoRetorno"),
+        DiasDeEnvioNoMes: new DiasDeEnvioNoMesTiss(1, 20),
+        // O arquivo de lote que sobe no portal também em 4.03.00: a recusa da 4.01.00 vale para os dois.
+        ArquivoNaVersaoDoWebService: true);
 
     /// <summary>A versão do padrão que o sistema escreve quando a operadora não pede outra.</summary>
     public const string VersaoPadrao = "4.01.00";

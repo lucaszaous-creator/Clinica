@@ -39,11 +39,29 @@ public sealed class TestesNaHomologacao(
     public static string FraseSoEmHomologacao(string convenio)
         => $"{convenio} está em PRODUÇÃO: os testes só rodam na homologação. Use antes: comando.sh ambiente {convenio} homologacao --operador NOME.";
 
-    private sealed record Destino(RemetenteTissWs Remetente, Uri Endereco, string SenhaMd5, CodificacaoTissWs Codificacao, OperadoraTiss Operadora);
+    private sealed record Destino(RemetenteTissWs Remetente, Uri Endereco, string SenhaMd5, CodificacaoTissWs Codificacao, OperadoraTiss Operadora,
+        bool Producao = false);
 
-    private async Task<(Destino? Destino, string? Recusa)> PrepararAsync(string convenio, TipoTransacaoTiss tipo, CancellationToken ct)
+    /// <param name="consultaEmProducao">
+    /// Só a ELEGIBILIDADE (uma consulta, não escreve nada na operadora) e só da operadora que NÃO tem
+    /// homologação (Saúde Petrobras): o teste vai ao endereço de produção. Lote e protocolo, nunca.
+    /// </param>
+    private async Task<(Destino? Destino, string? Recusa)> PrepararAsync(string convenio, TipoTransacaoTiss tipo, CancellationToken ct,
+        bool consultaEmProducao = false)
     {
-        if (!await credenciais.EmHomologacaoAsync(convenio, ct)) return (null, FraseSoEmHomologacao(convenio));
+        if (!await credenciais.EmHomologacaoAsync(convenio, ct))
+        {
+            var semHomologacao = await credenciais.OperadoraAsync(convenio, ct);
+            if (!(consultaEmProducao && tipo == TipoTransacaoTiss.Elegibilidade && semHomologacao is { EnderecoHomologacao: null }))
+                return (null, FraseSoEmHomologacao(convenio));
+            var credencialProducao = await credenciais.AbrirParaEnvioAsync(convenio, ct);
+            if (credencialProducao is null)
+                return (null, $"Não há login do web service cadastrado para {convenio}: comando.sh credencial {convenio} --senha-na-entrada --operador NOME.");
+            var producao = await DadosDoConvenio.LerAsync(repo, parametros, credenciais, convenio, tipo, credencialProducao, ct);
+            if (producao.Pendencia is { } pendenciaProducao) return (null, pendenciaProducao);
+            return (new Destino(producao.Remetente(credencialProducao), producao.Endereco!, credencialProducao.SenhaMd5,
+                OperadorasTiss.CodificacaoDe(semHomologacao), semHomologacao, Producao: true), null);
+        }
         var operadora = await credenciais.OperadoraAsync(convenio, ct);
         if (operadora?.EnderecoHomologacao is not { } homologacao)
             return (null, $"O sistema não conhece a homologação de {convenio}.");
@@ -61,7 +79,7 @@ public sealed class TestesNaHomologacao(
     /// <summary>Uma consulta de elegibilidade na homologação (padrão da operadora para elegibilidade).</summary>
     public async Task<ResultadoDoTesteTiss> ElegibilidadeAsync(string convenio, string carteira, string operador, string? soapAction = null, CancellationToken ct = default)
     {
-        var (d, recusa) = await PrepararAsync(convenio, TipoTransacaoTiss.Elegibilidade, ct);
+        var (d, recusa) = await PrepararAsync(convenio, TipoTransacaoTiss.Elegibilidade, ct, consultaEmProducao: true);
         if (d is null) return Recusado(recusa!);
         string envelope;
         try
@@ -69,19 +87,19 @@ public sealed class TestesNaHomologacao(
             envelope = TissElegibilidadeWs.MontarEnvelope(new PedidoElegibilidadeTiss
             {
                 RegistroAnsOperadora = d.Remetente.RegistroAnsOperadora, CodigoPrestadorNaOperadora = d.Remetente.CodigoPrestadorNaOperadora,
-                NumeroCarteira = carteira.Trim(), Login = d.Remetente.Login, SenhaMd5 = d.SenhaMd5,
+                NumeroCarteira = carteira.Trim(), Login = d.Remetente.Login, SenhaMd5 = d.SenhaMd5, VersaoTiss = d.Remetente.VersaoTiss,
                 Sequencial = Sequencial(), Momento = agora()
             });
         }
         catch (ArgumentException ex) { return Recusado("Dados recusados antes do envio: " + ex.Message); }
 
         var bruta = await Enviar(d, envelope, soapAction, ct);
-        var linhas = Cabecalho("elegibilidade", d, OperadorasTiss.VersaoPadrao);
+        var linhas = Cabecalho("elegibilidade", d, d.Remetente.VersaoTiss);
         string desfecho;
         if (bruta.Corpo is null) desfecho = Ocultar(bruta.Falha ?? "sem resposta", d);
         else desfecho = TissElegibilidadeWs.LerResposta(bruta.Corpo).Resumo;
         linhas.AddRange(Resposta(bruta, desfecho, d));
-        await TrilhaAsync(operador, $"Teste de elegibilidade na homologação ({convenio}): {Curto(desfecho)}", ct);
+        await TrilhaAsync(operador, $"Teste de elegibilidade {(d.Producao ? "em PRODUÇÃO (só consulta)" : "na homologação")} ({convenio}): {Curto(desfecho)}", ct);
         return new(bruta.Corpo is not null, linhas);
     }
 
@@ -274,7 +292,9 @@ public sealed class TestesNaHomologacao(
             TissWebserviceCliente.ComDeclaracao(envelope, TissWebserviceCliente.NomeDa(d.Codificacao)), ct, d.Codificacao, soapAction);
 
     private static List<string> Cabecalho(string oQue, Destino d, string versao)
-        => [$"HOMOLOGAÇÃO {d.Operadora.Nome}: {oQue}, TISS {versao}, em {d.Endereco}"];
+        => [d.Producao
+            ? $"PRODUÇÃO {d.Operadora.Nome} (não tem homologação; elegibilidade só consulta, não grava nada): {oQue}, TISS {versao}, em {d.Endereco}"
+            : $"HOMOLOGAÇÃO {d.Operadora.Nome}: {oQue}, TISS {versao}, em {d.Endereco}"];
 
     private static IEnumerable<string> Resposta(RespostaBrutaTissWs bruta, string desfecho, Destino d)
     {

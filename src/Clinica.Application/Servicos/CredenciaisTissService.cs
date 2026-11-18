@@ -287,10 +287,26 @@ public sealed class CredenciaisTissService
     }
 
     /// <summary>Grava o endereço do web service (HTTPS) deste tipo de transação para o convênio, com trilha.</summary>
+    /// <summary>O valor do comando <c>endereco</c> que apaga o cadastrado e volta ao catálogo.</summary>
+    public const string EnderecoPadraoDoCatalogo = "padrao";
+
     public async Task DefinirEnderecoAsync(
         string convenioCodigo, TipoTransacaoTiss tipo, string endereco, string operador, CancellationToken ct = default)
     {
         var quem = Operador(operador);
+        // "padrao": apaga o endereço cadastrado e volta ao do catálogo (OperadorasTiss) — é como um
+        // endereço antigo (ex.: o 4.01.00 da Petrobras) deixa de vencer o catálogo novo.
+        if (string.Equals((endereco ?? string.Empty).Trim(), EnderecoPadraoDoCatalogo, StringComparison.OrdinalIgnoreCase))
+        {
+            await _repo.SalvarConfiguracaoAsync(ChaveEndereco(convenioCodigo, tipo), string.Empty, ct);
+            await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+            {
+                Operador = quem, Acao = "EnderecoTissAlterado",
+                Detalhe = $"Endereço do web service de {tipo} de volta ao padrão do catálogo ({convenioCodigo.Trim()})"
+            }, ct);
+            await _repo.SalvarAsync(ct);
+            return;
+        }
         if (!Uri.TryCreate((endereco ?? string.Empty).Trim(), UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps
             || uri.UserInfo.Length > 0)
             throw new InvalidOperationException("O endereço do web service TISS é https://… e não leva usuário nem senha.");

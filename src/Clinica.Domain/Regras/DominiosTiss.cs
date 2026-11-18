@@ -18,8 +18,11 @@ public sealed record ValorTiss(string Codigo, string Termo)
 /// </summary>
 public static class DominiosTiss
 {
-    /// <summary>Versão do padrão de onde estas listas saíram.</summary>
-    public const string Versao = "4.01.00";
+    /// <summary>
+    /// Versão do padrão de onde estas listas saíram. Desde nov/2026 toda guia sai em 4.03.00 (Saúde
+    /// Petrobras e Amil); da 4.01 para a 4.03 estes domínios só ganharam o CBO 223575.
+    /// </summary>
+    public const string Versao = "4.03.00";
 
     /// <summary><c>dm_indicadorAcidente</c> — campo 17 da guia de consulta.</summary>
     public static readonly IReadOnlyList<ValorTiss> IndicacaoAcidente =
@@ -294,6 +297,7 @@ public static class DominiosTiss
         new("223710", "Nutricionista"),
         new("223910", "Ortoptista"),
         new("223570", "Perfusionista"),
+        new("223575", "Obstetriz"), // entrou no dm_CBOS da 4.03.00 (CBO de 2022)
         new("203015", "Pesquisador em biologia de microorganismos e parasitas"),
         new("251550", "Psicanalista"),
         new("239425", "Psicopedagogo"),
