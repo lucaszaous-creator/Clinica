@@ -30,6 +30,13 @@ public static class ConclusaoPorProfissional
     public static int? Horas(Profissional? profissional)
         => profissional?.ConcluirAutomaticamenteHoras is { } h and > 0 and <= Profissional.ConcluirAutomaticamenteHorasMaximo ? h : null;
 
+    /// <summary>
+    /// O horário está no alcance da regra? Só a partir da data do cadastro (<see cref="Profissional.ConcluirAutomaticamenteDesde"/>);
+    /// sem data, nada — a regra nunca anda para trás.
+    /// </summary>
+    public static bool NoAlcance(Profissional profissional, DateTime horario)
+        => profissional.ConcluirAutomaticamenteDesde is { } desde && horario >= desde.Date;
+
     /// <summary>O prazo venceu? Consulta às 09:00 com 10 horas → às 19:00 (inclusive).</summary>
     public static bool Venceu(DateTime horario, int horas, DateTime agora) => horario.AddHours(horas) <= agora;
 
@@ -56,6 +63,12 @@ public static class ConclusaoPorProfissional
         => quantos == 1
             ? $"1 horário sem chegada na agenda de {profissional}: confirme falta ou presença."
             : $"{quantos} horários sem chegada na agenda de {profissional}: confirme falta ou presença.";
+
+    /// <summary>
+    /// Quantos horários o relógio conclui por volta (1 por minuto): cada um é uma transação curta; 50 por
+    /// minuto dão conta de um mês retroativo de uma agenda cheia em poucos minutos sem segurar o portal.
+    /// </summary>
+    public const int MaximoPorVolta = 50;
 
     /// <summary>Até quantos dias para trás o sino cobra: horário mais velho que isso já saiu do dia a dia da recepção.</summary>
     public const int DiasDoAvisoSemChegada = 30;

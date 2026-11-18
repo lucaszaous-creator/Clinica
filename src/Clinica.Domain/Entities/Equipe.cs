@@ -130,6 +130,14 @@ public class Profissional
     /// </summary>
     public int? ConcluirAutomaticamenteHoras { get; set; }
 
+    /// <summary>
+    /// A partir de quando a conclusão automática vale (meia-noite do dia; pedido do dono, nov/2026: "só
+    /// as consultas a partir de 01/12"). O relógio só olha horários com <c>DataHora</c> igual ou depois
+    /// dela — NUNCA para trás. Sem data na tela, o serviço grava o dia em que a regra foi ligada; nulo
+    /// com horas preenchidas (gravado por fora do serviço) não conclui nada.
+    /// </summary>
+    public DateTime? ConcluirAutomaticamenteDesde { get; set; }
+
     /// <summary>Trava compartilhada: impede sobreposição, bloqueios e marcação fora da jornada.</summary>
     public bool AgendaProtegida { get; set; }
 

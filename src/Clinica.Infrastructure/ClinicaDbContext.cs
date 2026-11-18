@@ -645,6 +645,7 @@ public class ClinicaDbContext : DbContext
         // é quem entra quando um deles vaga.
         b.Entity<Profissional>(e =>
         {
+            e.Property(p => p.ConcluirAutomaticamenteDesde).HasColumnType("timestamp without time zone");
             e.HasKey(p => p.Id);
             e.Property(p => p.Nome).IsRequired().HasMaxLength(120);
             e.Property(p => p.NomeCurto).HasMaxLength(40);

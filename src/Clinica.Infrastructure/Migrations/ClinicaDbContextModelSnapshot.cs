@@ -6329,6 +6329,9 @@ namespace Clinica.Infrastructure.Migrations
                         .HasMaxLength(6)
                         .HasColumnType("character varying(6)");
 
+                    b.Property<DateTime?>("ConcluirAutomaticamenteDesde")
+                        .HasColumnType("timestamp without time zone");
+
                     b.Property<int?>("ConcluirAutomaticamenteHoras")
                         .HasColumnType("integer");
 

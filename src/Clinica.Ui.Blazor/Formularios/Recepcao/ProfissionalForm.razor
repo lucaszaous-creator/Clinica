@@ -128,6 +128,8 @@
                     <Campo Rotulo="Preventivos por dia" Dica="@($"Teto de coletas de preventivo num dia. Vazio = {Profissional.LimitePreventivoPadrao}; 0 = não faz.")">
                         <input class="campo valor" @bind="_limitePreventivo" maxlength="3" inputmode="numeric" />
                     </Campo>
+                </div>
+                <div class="campos tres">
                     @* CONCLUIR AUTOMATICAMENTE (nov/2026 — quem não usa o sistema): a regra mora em
                        ConclusaoPorProfissional; aqui só o número. Vazio vai como 0 (desligado), porque nulo
                        no serviço é "não sei" e preservaria o que estava. *@
@@ -135,6 +137,10 @@
                            Dica="@($"Horas depois do horário marcado. Só conclui quem teve chegada registrada; sem chegada vira aviso no sino. Vazio ou 0 = desligado (máx. {Profissional.ConcluirAutomaticamenteHorasMaximo}).")">
                         <input id="pf-ConcluirAutomaticamente" class="campo valor" @bind="_concluirHoras" maxlength="2" inputmode="numeric"
                                aria-label="Concluir automaticamente, horas após o horário" />
+                    </Campo>
+                    <Campo Rotulo="A partir de" Dica="Só horários deste dia em diante. Vazio = a partir do dia em que você salvar; nunca para trás.">
+                        <input id="pf-ConcluirAutomaticamenteDesde" type="date" class="campo" @bind="_concluirDesde"
+                               aria-label="Conclusão automática a partir de" />
                     </Campo>
                 </div>
             </div>
@@ -251,6 +257,7 @@
 
     private string? _nome, _nomeCurto, _registro, _cpf, _especialidade, _telefone, _email, _cor, _observacoes;
     private string? _duracao, _limitePreventivo, _concluirHoras, _ordem = "0";
+    private DateTime? _concluirDesde;
     // O registro para guias: nunca nulo aqui. Vazio = "sem valor", e é vazio (não nulo) que vai
     // ao serviço quando a pessoa apaga o campo — nulo lá quer dizer "não mexa".
     private string _conselho = string.Empty, _numeroConselho = string.Empty, _ufConselho = string.Empty, _cbos = string.Empty;
@@ -332,6 +339,7 @@
                 _duracao = p.DuracaoPadraoMinutos?.ToString(CultureInfo.InvariantCulture);
                 _limitePreventivo = p.LimitePreventivoPorDia?.ToString(CultureInfo.InvariantCulture);
                 _concluirHoras = p.ConcluirAutomaticamenteHoras?.ToString(CultureInfo.InvariantCulture);
+                _concluirDesde = p.ConcluirAutomaticamenteDesde;
                 GuardarHorario(p);
                 _ordem = p.Ordem.ToString(CultureInfo.InvariantCulture);
                 _ativo = p.Ativo;
@@ -534,6 +542,7 @@
                 DuracaoPadraoMinutos = duracao,
                 LimitePreventivoPorDia = limitePreventivo,
                 ConcluirAutomaticamenteHoras = concluirHoras,
+                ConcluirAutomaticamenteDesde = _concluirDesde,
                 // Vazio (e não nulo) quando nada está marcado: nulo é "não sei" e preservaria o antigo.
                 ConveniosNaoAtendidos = string.Join(';', _naoAtende),
                 DiasDeAtendimento = _diasLidos,

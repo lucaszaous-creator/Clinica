@@ -11,6 +11,12 @@ namespace Clinica.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.AddColumn<DateTime>(
+                name: "ConcluirAutomaticamenteDesde",
+                table: "Profissionais",
+                type: "timestamp without time zone",
+                nullable: true);
+
             migrationBuilder.AddColumn<int>(
                 name: "ConcluirAutomaticamenteHoras",
                 table: "Profissionais",
@@ -27,6 +33,10 @@ namespace Clinica.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropColumn(
+                name: "ConcluirAutomaticamenteDesde",
+                table: "Profissionais");
+
             migrationBuilder.DropColumn(
                 name: "ConcluirAutomaticamenteHoras",
                 table: "Profissionais");

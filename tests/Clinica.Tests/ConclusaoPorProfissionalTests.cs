@@ -34,23 +34,35 @@ public sealed class ConclusaoPorProfissionalTests : IDisposable
 
     private ConclusaoAutomaticaService Servico => new(_db, _repo, new(_repo, new(_repo)), new(_repo));
 
+    private static readonly DateTime APartirDe = new(2026, 11, 1);
+
     private async Task<(Profissional Medica, Agendamento Horario)> CenarioAsync(
-        int? horas = 10, bool chegou = true, StatusAgendamento status = StatusAgendamento.Agendado)
+        int? horas = 10, bool chegou = true, StatusAgendamento status = StatusAgendamento.Agendado,
+        DateTime? horario = null, bool semData = false)
     {
-        var medica = new Profissional { Nome = "Dra. Fictícia da Silva", NomeCurto = "Dra. Fictícia", Ativo = true, ConcluirAutomaticamenteHoras = horas };
+        var medica = new Profissional { Nome = "Dra. Fictícia da Silva", NomeCurto = "Dra. Fictícia", Ativo = true,
+            ConcluirAutomaticamenteHoras = horas, ConcluirAutomaticamenteDesde = semData ? null : APartirDe };
         _db.Profissionais.Add(medica);
         await _db.SaveChangesAsync();
+        var quando = horario ?? Horario;
+        var h = await NovoHorarioAsync(medica.Id, quando, chegou, status);
+        _db.ChangeTracker.Clear();
+        return (medica, h);
+    }
+
+    private async Task<Agendamento> NovoHorarioAsync(int profissionalId, DateTime quando, bool chegou = true,
+        StatusAgendamento status = StatusAgendamento.Agendado)
+    {
         var horario = new Agendamento
         {
             Paciente = new Paciente { Nome = "Paciente Exemplo", Convenio = Convenio.UnimedPadrao },
-            ProfissionalId = medica.Id, DataHora = Horario, Status = status,
+            ProfissionalId = profissionalId, DataHora = quando, Status = status,
             ModalidadePrevista = ModalidadeAtendimento.AcupunturaComEletro,
-            ChegadaEm = chegou ? Horario.AddMinutes(-10) : null
+            ChegadaEm = chegou ? quando.AddMinutes(-10) : null
         };
         _db.Agendamentos.Add(horario);
         await _db.SaveChangesAsync();
-        _db.ChangeTracker.Clear();
-        return (medica, horario);
+        return horario;
     }
 
     private Task<Agendamento> RelerAsync(int id) => _db.Agendamentos.AsNoTracking().SingleAsync(a => a.Id == id);
@@ -141,6 +153,66 @@ public sealed class ConclusaoPorProfissionalTests : IDisposable
     }
 
     [Fact]
+    public async Task Antes_da_data_nao_conclui_nem_avisa_e_depois_dela_conclui_na_primeira_volta()
+    {
+        // A gerente grava 10 h a partir de 01/11 em 18/11: 30/10 fica intocado; 05/11 conclui na primeira volta.
+        var gravadaEm = new DateTime(2026, 11, 18, 10, 0, 0);
+        var (medica, antes) = await CenarioAsync(horario: new DateTime(2026, 10, 30, 9, 0, 0));
+        var semChegadaAntes = await NovoHorarioAsync(medica.Id, new DateTime(2026, 10, 31, 9, 0, 0), chegou: false);
+        var depois = await NovoHorarioAsync(medica.Id, new DateTime(2026, 11, 5, 9, 0, 0));
+        _db.ChangeTracker.Clear();
+
+        Assert.Equal([depois.Id], await Servico.CandidatosPorProfissionalAsync(gravadaEm));
+        Assert.False(await Servico.ConcluirPorProfissionalAsync(antes.Id, gravadaEm));
+        Assert.True(await Servico.ConcluirPorProfissionalAsync(depois.Id, gravadaEm));
+
+        Assert.Equal(StatusAgendamento.Agendado, (await RelerAsync(antes.Id)).Status);
+        Assert.Null((await RelerAsync(antes.Id)).ConcluidoAutomaticamenteEm);
+        Assert.Equal(StatusAgendamento.Realizado, (await RelerAsync(depois.Id)).Status);
+        Assert.Empty(await Servico.SemChegadaAsync(gravadaEm)); // 31/10 sem chegada: antes da data, sem aviso
+        Assert.Equal(StatusAgendamento.Agendado, (await RelerAsync(semChegadaAntes.Id)).Status);
+    }
+
+    [Fact]
+    public async Task Primeiro_de_novembro_as_9h_com_chegada_conclui_as_19h()
+    {
+        var (_, h) = await CenarioAsync(horario: new DateTime(2026, 11, 1, 9, 0, 0));
+        Assert.False(await Servico.ConcluirPorProfissionalAsync(h.Id, new DateTime(2026, 11, 1, 18, 59, 0)));
+        Assert.True(await Servico.ConcluirPorProfissionalAsync(h.Id, new DateTime(2026, 11, 1, 19, 0, 0)));
+    }
+
+    [Fact]
+    public async Task Sem_data_gravada_a_regra_nao_anda_para_tras()
+    {
+        // Horas preenchidas sem data (gravado por fora do serviço): nada, nem aviso.
+        var (_, h) = await CenarioAsync(semData: true);
+        Assert.Empty(await Servico.CandidatosPorProfissionalAsync(DezHorasDepois));
+        Assert.False(await Servico.ConcluirPorProfissionalAsync(h.Id, DezHorasDepois));
+        Assert.Empty(await Servico.SemChegadaAsync(DezHorasDepois));
+    }
+
+    [Fact]
+    public async Task Cadastro_sem_data_grava_o_dia_da_gravacao_e_nao_conclui_o_que_veio_antes()
+    {
+        var medica = new Profissional { Nome = "Dra. Fictícia da Silva", NomeCurto = "Dra. Fictícia", Ativo = true };
+        _db.Profissionais.Add(medica);
+        await _db.SaveChangesAsync();
+        var ontem = DateTime.Today.AddDays(-1).AddHours(9);
+        var h = await NovoHorarioAsync(medica.Id, ontem);
+        _db.ChangeTracker.Clear();
+
+        await new EquipeService(_repo).SalvarProfissionalAsync(
+            new Profissional { Id = medica.Id, Nome = medica.Nome, Ativo = true, ConcluirAutomaticamenteHoras = 10 });
+        var gravado = await _db.Profissionais.AsNoTracking().SingleAsync(p => p.Id == medica.Id);
+        Assert.Equal(DateTime.Today, gravado.ConcluirAutomaticamenteDesde);
+
+        _db.ChangeTracker.Clear();
+        Assert.Empty(await Servico.CandidatosPorProfissionalAsync(DateTime.Now.AddHours(1)));
+        Assert.False(await Servico.ConcluirPorProfissionalAsync(h.Id, DateTime.Now.AddHours(1)));
+        Assert.Equal(StatusAgendamento.Agendado, (await RelerAsync(h.Id)).Status);
+    }
+
+    [Fact]
     public void Sessao_concluida_pelo_sistema_nao_e_pendencia_de_evolucao_da_medica()
     {
         var dia = PoliticaRegistroPendente.DataInicio.AddDays(30).ToDateTime(new TimeOnly(9, 0));
@@ -161,8 +233,16 @@ public sealed class ConclusaoPorProfissionalTests : IDisposable
         await equipe.SalvarProfissionalAsync(new Profissional { Id = medica.Id, Nome = lida.Nome, Ativo = true });
         Assert.Equal(10, (await _db.Profissionais.AsNoTracking().SingleAsync(p => p.Id == medica.Id)).ConcluirAutomaticamenteHoras);
 
+        Assert.Equal(APartirDe, (await _db.Profissionais.AsNoTracking().SingleAsync(p => p.Id == medica.Id)).ConcluirAutomaticamenteDesde);
+
+        // A tela manda horas sem data: a data que já estava fica (não avança a cada salvar).
+        await equipe.SalvarProfissionalAsync(new Profissional { Id = medica.Id, Nome = lida.Nome, Ativo = true, ConcluirAutomaticamenteHoras = 12 });
+        Assert.Equal(APartirDe, (await _db.Profissionais.AsNoTracking().SingleAsync(p => p.Id == medica.Id)).ConcluirAutomaticamenteDesde);
+
         await equipe.SalvarProfissionalAsync(new Profissional { Id = medica.Id, Nome = lida.Nome, Ativo = true, ConcluirAutomaticamenteHoras = 0 });
-        Assert.Null((await _db.Profissionais.AsNoTracking().SingleAsync(p => p.Id == medica.Id)).ConcluirAutomaticamenteHoras);
+        var desligado = await _db.Profissionais.AsNoTracking().SingleAsync(p => p.Id == medica.Id);
+        Assert.Null(desligado.ConcluirAutomaticamenteHoras);
+        Assert.Null(desligado.ConcluirAutomaticamenteDesde);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => equipe.SalvarProfissionalAsync(
             new Profissional { Id = medica.Id, Nome = lida.Nome, Ativo = true, ConcluirAutomaticamenteHoras = Profissional.ConcluirAutomaticamenteHorasMaximo + 1 }));

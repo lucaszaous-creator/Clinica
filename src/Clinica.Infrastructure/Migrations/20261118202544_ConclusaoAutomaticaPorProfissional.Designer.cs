@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Clinica.Infrastructure.Migrations
 {
     [DbContext(typeof(ClinicaDbContext))]
-    [Migration("20261118194409_ConclusaoAutomaticaPorProfissional")]
+    [Migration("20261118202544_ConclusaoAutomaticaPorProfissional")]
     partial class ConclusaoAutomaticaPorProfissional
     {
         /// <inheritdoc />
@@ -6331,6 +6331,9 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<string>("Cbos")
                         .HasMaxLength(6)
                         .HasColumnType("character varying(6)");
+
+                    b.Property<DateTime?>("ConcluirAutomaticamenteDesde")
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<int?>("ConcluirAutomaticamenteHoras")
                         .HasColumnType("integer");

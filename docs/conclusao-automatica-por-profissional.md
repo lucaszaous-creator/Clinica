@@ -14,6 +14,14 @@ esquecimento): não se cobra consulta que não aconteceu.
   Profissionais e salas → Editar) → **Concluir automaticamente (h)**: de 1 a 72; vazio ou 0 =
   desligado. Quem grava é quem edita o profissional (mesma tela, mesma permissão). A médica fica com
   10 quando a gerente gravar; nenhum valor vem pronto.
+- **A partir de (data)** — pedido do dono: a gerente grava 10 h e **01/11/2026**. O relógio só olha
+  horários com `DataHora` igual ou depois dessa data; **nada antes dela é tocado**, nem pelo aviso do
+  sino. Data no passado é **retroativa** de propósito: gravar 01/11 em 18/11 conclui, na primeira volta,
+  os horários de novembro com chegada que ficaram abertos. Sem data na tela, o serviço grava o **dia da
+  gravação** (nunca para trás); salvar de novo não avança a data; desligar (0) apaga a data. Horas sem
+  data (gravadas por fora do serviço) não concluem nada.
+- **Teto por volta:** 50 conclusões por volta do relógio (uma volta por minuto), cada uma numa transação
+  curta. Um mês retroativo de agenda cheia anda em poucos minutos sem prender o portal.
 - **Conclui pelo mesmo serviço do "Concluir".** `AgendaService.ConcluirAtendimentoClinicoAsync`, o
   núcleo do botão: cria o atendimento e os códigos de faturamento (as guias pendentes de baixa),
   com particular e pacote como no clique, e grava a trilha `PresencaConfirmada`. A trava de consulta
@@ -34,7 +42,7 @@ esquecimento): não se cobra consulta que não aconteceu.
 - **Sem chegada vira aviso.** Passado o prazo, o horário sem chegada aparece no **sino** da Recepção e
   do Gerente (quem edita a agenda), seção "Horários sem chegada": *"3 horários sem chegada na agenda
   de Dra. Ana: confirme falta ou presença."* O clique abre a agenda. Registrar a chegada ali faz a
-  próxima volta do relógio concluir; registrar a falta tira o aviso. O sino cobra os últimos 30 dias.
+  próxima volta do relógio concluir; registrar a falta tira o aviso. O sino cobra os últimos 30 dias, e nunca antes da data "a partir de".
 - **Cancelado, falta, substituído ou já concluído:** nada acontece.
 - Remarcar ou estornar limpa o carimbo, como todo carimbo da fila.
 
@@ -67,8 +75,9 @@ prazo e roda **na API do portal na VPS** (`Clinica.Assinaturas.Api`, serviço 24
 
 ## O que precisa ser publicado
 
-- **Migration aditiva** `20261118194409_ConclusaoAutomaticaPorProfissional`: duas colunas anuláveis
-  (`Profissionais.ConcluirAutomaticamenteHoras`, `Agendamentos.ConcluidoAutomaticamenteEm`). Os apps a
+- **Migration aditiva** `20261118202544_ConclusaoAutomaticaPorProfissional`: três colunas anuláveis
+  (`Profissionais.ConcluirAutomaticamenteHoras`, `Profissionais.ConcluirAutomaticamenteDesde`,
+  `Agendamentos.ConcluidoAutomaticamenteEm`). Os apps a
   aplicam na abertura.
 - **API do portal na VPS** (`Clinica.Assinaturas.Api`) atualizada e ativa: é ela que conclui com todos
   os computadores desligados. O papel do banco do portal precisa ler a coluna nova de `Profissionais`
@@ -81,7 +90,8 @@ prazo e roda **na API do portal na VPS** (`Clinica.Assinaturas.Api`, serviço 24
 ## Evidências
 
 Testes: `tests/Clinica.Tests/ConclusaoPorProfissionalTests.cs` (com chegada conclui às 19:00 e gera
-os códigos; sem chegada não conclui e avisa; cancelado e falta nada; duas vezes conclui uma; sem a
+os códigos; 30/10 com a data 01/11 não conclui nem avisa e 05/11 conclui na primeira volta; 01/11 09:00
+conclui às 19:00; sem data nada para trás; sem chegada não conclui e avisa; cancelado e falta nada; duas vezes conclui uma; sem a
 configuração nada; cadastro 0/nulo/fora da faixa; frases e operador) e a tradução para o Postgres em
 `TraducaoNoNpgsqlTests`. Fotos do cadastro em `docs/evidencias/conclusao-automatica-por-profissional/`.
 

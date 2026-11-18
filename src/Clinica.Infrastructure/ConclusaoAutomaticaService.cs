@@ -105,7 +105,8 @@ public sealed class ConclusaoAutomaticaService(ClinicaDbContext db, IClinicaRepo
         var linhas = await ConsultaAbertosDosProfissionaisComPrazo(agora, comChegada, depois).ToListAsync(ct);
         return linhas
             .Select(a => (Horario: a, Profissional: a.Profissional!, Horas: ConclusaoPorProfissional.Horas(a.Profissional)))
-            .Where(l => l.Horas is { } h && ConclusaoPorProfissional.Venceu(l.Horario.DataHora, h, agora))
+            .Where(l => l.Horas is { } h && ConclusaoPorProfissional.NoAlcance(l.Profissional, l.Horario.DataHora)
+                && ConclusaoPorProfissional.Venceu(l.Horario.DataHora, h, agora))
             .Select(l => (l.Horario, l.Profissional, l.Horas!.Value))
             .ToList();
     }
@@ -113,13 +114,24 @@ public sealed class ConclusaoAutomaticaService(ClinicaDbContext db, IClinicaRepo
     /// <summary>O recorte do banco (estado, chegada, profissional com a regra, janela de dias) — público para a rede de tradução.</summary>
     public IQueryable<Agendamento> ConsultaAbertosDosProfissionaisComPrazo(DateTime agora, bool comChegada, int depois)
     {
-        var desde = agora.AddDays(-ConclusaoPorProfissional.DiasDoAvisoSemChegada);
         var ultimoPossivel = agora.AddHours(-1);
         var abertos = db.Agendamentos.AsNoTracking().Include(a => a.Profissional)
             .Where(a => a.Id > depois && a.Status == StatusAgendamento.Agendado
-                && a.DataHora >= desde && a.DataHora <= ultimoPossivel
-                && a.Profissional != null && a.Profissional.ConcluirAutomaticamenteHoras > 0);
-        abertos = comChegada ? abertos.Where(a => a.ChegadaEm != null) : abertos.Where(a => a.ChegadaEm == null);
+                && a.DataHora <= ultimoPossivel
+                && a.Profissional != null && a.Profissional.ConcluirAutomaticamenteHoras > 0
+                // A DATA do cadastro barra tudo o que é anterior (pedido do dono: só a partir de 01/12/2026).
+                // Sem data, nada: a regra nunca anda para trás.
+                && a.Profissional.ConcluirAutomaticamenteDesde != null
+                && a.DataHora >= a.Profissional.ConcluirAutomaticamenteDesde);
+        // Com chegada (concluir): desde a DATA do cadastro, sem outro corte — gravar 01/11 em 18/11 conclui
+        // os horários de novembro que ficaram abertos (pedido do dono). Sem chegada (o aviso do sino): a data
+        // E os últimos dias, para o sino não virar o arquivo morto do mês inteiro.
+        if (comChegada) abertos = abertos.Where(a => a.ChegadaEm != null);
+        else
+        {
+            var avisoDesde = agora.AddDays(-ConclusaoPorProfissional.DiasDoAvisoSemChegada);
+            abertos = abertos.Where(a => a.ChegadaEm == null && a.DataHora >= avisoDesde);
+        }
         return abertos.OrderBy(a => a.Id).Take(500);
     }
 
@@ -145,6 +157,7 @@ public sealed class ConclusaoAutomaticaService(ClinicaDbContext db, IClinicaRepo
         var a = await db.Agendamentos.Include(x => x.Profissional).SingleOrDefaultAsync(x => x.Id == id, ct);
         if (a is not { Status: StatusAgendamento.Agendado, ChegadaEm: not null, Profissional: { } profissional }
             || ConclusaoPorProfissional.Horas(profissional) is not { } horas
+            || !ConclusaoPorProfissional.NoAlcance(profissional, a.DataHora)
             || !ConclusaoPorProfissional.Venceu(a.DataHora, horas, agora))
             return false;
 
@@ -351,17 +364,20 @@ public sealed class ConclusaoAutomaticaService(ClinicaDbContext db, IClinicaRepo
                 }
                 // 3) A regra do PROFISSIONAL (nov/2026): horário com chegada, N horas depois.
                 // Em try próprio, pela mesma razão da etapa 1: falhar aqui não para as outras.
+                // Teto por volta (ConclusaoPorProfissional.MaximoPorVolta): um lote retroativo (a data gravada no
+                // passado) anda em fatias de 1 minuto, sem prender o portal; o resto fica para a volta seguinte.
                 try
                 {
-                    int profDepois = 0;
-                    while (!ct.IsCancellationRequested)
+                    int profDepois = 0, feitas = 0;
+                    while (!ct.IsCancellationRequested && feitas < ConclusaoPorProfissional.MaximoPorVolta)
                     {
                         int[] ids;
                         using (var scope = scopes.CreateScope())
                             ids = await scope.ServiceProvider.GetRequiredService<ConclusaoAutomaticaService>().CandidatosPorProfissionalAsync(Agora, profDepois, ct);
                         if (ids.Length == 0) break;
-                        foreach (var id in ids)
+                        foreach (var id in ids.Take(ConclusaoPorProfissional.MaximoPorVolta - feitas))
                         {
+                            feitas++;
                             try
                             {
                                 using var scope = scopes.CreateScope();

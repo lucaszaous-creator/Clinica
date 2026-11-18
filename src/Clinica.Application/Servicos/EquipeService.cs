@@ -131,7 +131,14 @@ public sealed class EquipeService
         // Concluir automaticamente (nov/2026). NULO = "o chamador não sabe" e fica o que estava (a tela
         // de Acessos regrava o profissional sem este campo — quem não edita, PRESERVA); 0 = desligado.
         if (dados.ConcluirAutomaticamenteHoras is { } concluirEm)
+        {
             destino.ConcluirAutomaticamenteHoras = concluirEm == 0 ? null : concluirEm;
+            // "A partir de" (pedido do dono): a data que a tela mandou; sem data, a que já estava; sem
+            // nenhuma, o DIA DA GRAVAÇÃO — a regra nunca anda para trás. Desligar apaga a data, para
+            // religar começar de novo do dia em que se religou.
+            destino.ConcluirAutomaticamenteDesde = destino.ConcluirAutomaticamenteHoras is null ? null
+                : (dados.ConcluirAutomaticamenteDesde ?? destino.ConcluirAutomaticamenteDesde ?? DateTime.Today).Date;
+        }
         // Os convênios que NÃO atende (nov/2026). NULO = "o chamador não sabe" e fica o que
         // estava (a tela de Acessos regrava o profissional só para o CPF — quem não edita,
         // PRESERVA); vazio = atende todos. Guardado limpo: sem repetido, sem espaço.
