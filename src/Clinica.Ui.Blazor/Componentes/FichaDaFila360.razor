@@ -1,0 +1,253 @@
+@*
+  A FICHA 360 (nov/2026, desenho aprovado — o protótipo "Sistema de Retenção SemDor"): tudo de um
+  paciente numa página. O cabeçalho com os selos e as ações, os cinco fatos, por que está em risco
+  (o anel e cada motivo com os pontos), a jornada (sessões, faltas e o que está marcado), as
+  mensagens e acontecimentos (o histórico do caso) e, à direita, a próxima mensagem.
+
+  Nada de regra aqui: o risco, a jornada, o selo, o passo e a mensagem vêm da Application
+  (Fila360NaTela, AcompanhamentoNaTela, ConversaDoAcompanhamento). Os atos (escrever no WhatsApp,
+  registrar como foi, assumir, marcar, abrir a ficha) são da tela da Fila 360, com as duas barreiras.
+*@
+@using System.Globalization
+@using Clinica.Application.Abstracoes
+@using Clinica.Application.Servicos
+@inject IServiceScopeFactory Escopos
+
+<div class="f360-ficha">
+    <div class="f360-voltar"><button type="button" class="botao fantasma mini" @onclick="AoVoltar"><Icone Nome="esquerda" />@RotuloVoltar</button><span class="texto-secundario">/ @Linha.Paciente</span></div>
+
+    <section class="cartao f360-cab">
+        <div class="f360-cab-topo">
+            <span class="avatar f360-avatar-g">@ConversaDoAcompanhamento.Iniciais(Linha.Paciente)</span>
+            <div class="f360-cab-nome">
+                <h2>@Linha.Paciente</h2>
+                <div class="f360-chips">
+                    <Selo Tom="info">@Linha.ModalidadeTexto</Selo>
+                    @if (Linha.TratamentoLongo) { <Selo Tom="neutro">Tratamento longo · @Linha.TotalSessoes.ToString(Formato.PtBr) sessões</Selo> }
+                    @if (Linha.PacoteComSaldo) { <Selo Tom="sucesso">Pacote com saldo</Selo> }
+                    @if (Linha.Consentimento && !string.IsNullOrWhiteSpace(Linha.Telefone)) { <Selo Tom="sucesso">Autorizou mensagens</Selo> }
+                    else { <Selo Tom="neutro">@ConversaDoAcompanhamento.Autorizacao(Linha)</Selo> }
+                </div>
+            </div>
+            <div class="f360-cab-acoes">
+                @if (TemConversa) { <button type="button" class="botao" @onclick="() => AoAbrirConversa.InvokeAsync(Linha)"><Icone Nome="chat" />Conversa</button> }
+                <button type="button" class="botao" disabled="@(!PodeVerFicha)" @onclick="() => AoAbrirFicha.InvokeAsync(Linha)"><Icone Nome="ficha" />Abrir ficha</button>
+                <button type="button" class="botao" disabled="@(!PodeAgenda)" title="@(PodeAgenda ? "Marcar horário já com o paciente" : "A marcação exige acesso à agenda da recepção.")"
+                        @onclick="() => AoMarcar.InvokeAsync(Linha)"><Icone Nome="calendario" />Marcar horário</button>
+            </div>
+        </div>
+        <dl class="f360-fatos">
+            <div><dt>@(Linha.Tipo == TipoAcompanhamento.Recall ? "Sem vir há" : "Indicado há")</dt><dd class="@(Linha.Tipo == TipoAcompanhamento.Recall && Linha.Dias > 30 ? "negativo" : null)">@ConversaDoAcompanhamento.TempoTexto(Linha)</dd></div>
+            <div><dt>@(Linha.Tipo == TipoAcompanhamento.Recall ? "Última sessão" : "Indicação")</dt><dd>@Formato.Data(DateOnly.FromDateTime(Linha.ReferenciaEm)) · @Linha.Profissional</dd></div>
+            <div><dt>Convênio</dt><dd>@Linha.Convenio</dd></div>
+            <div><dt>Situação</dt><dd><Selo Tom="@(string.IsNullOrEmpty(_selo.Tom) ? "neutro" : _selo.Tom)">@_selo.Texto</Selo></dd></div>
+            <div><dt>Responsável</dt><dd>@ConversaDoAcompanhamento.Dono(Linha, UsuarioId)</dd></div>
+        </dl>
+    </section>
+
+    <div class="f360-ficha-corpo">
+        <div class="f360-ficha-esq">
+            <section class="cartao">
+                <header class="cartao-titulo"><h3>Por que está em risco</h3></header>
+                <div class="f360-risco-corpo">
+                    <AnelDeRisco Risco="_risco" />
+                    @if (_risco.Motivos.Count == 0)
+                    {
+                        <p class="texto-secundario">@(Linha.Pendente ? "Nenhum sinal de risco agora." : "O caso está fora da fila: o risco só é medido nos casos abertos.")</p>
+                    }
+                    else
+                    {
+                        <ul class="f360-motivos">
+                            @foreach (var m in _risco.Motivos)
+                            {
+                                <li><span>@m.Texto</span><b class="@(m.Pontos > 0 ? "f360-soma" : "f360-tira")">@(m.Pontos > 0 ? "+" : "")@m.Pontos.ToString(Formato.PtBr)</b></li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </section>
+
+            <section class="cartao">
+                <header class="cartao-titulo"><h3>Jornada no tratamento</h3><span class="texto-secundario pequeno">últimos @Fila360NaTela.MesesDaJornada meses</span></header>
+                <div class="cartao-corpo">
+                    @if (_jornadaFalhou) { <p class="texto-secundario pequeno">Não foi possível ler a agenda do paciente agora.</p> }
+                    else if (_jornada is null) { <Esqueleto Altura="70" /> }
+                    else { @Jornada(_jornada) }
+                </div>
+            </section>
+
+            <section class="cartao">
+                <header class="cartao-titulo"><h3>Mensagens e acontecimentos</h3></header>
+                <div class="cartao-corpo">
+                    @if (_historicoFalhou) { <p class="texto-secundario pequeno">Não foi possível ler o histórico agora.</p> }
+                    else if (_historico is null) { <Esqueleto Altura="120" /> }
+                    else if (_historico.Count == 0) { <p class="texto-secundario pequeno">Nenhum contato registrado ainda.</p> }
+                    else
+                    {
+                        <ul class="f360-tempo">
+                            @foreach (var h in _historico)
+                            {
+                                <li class="@(h.Canal == CanalContato.WhatsApp ? "msg" : h.Canal is null ? "sis" : null)">
+                                    <span class="f360-tempo-quando">@Formato.DataHora(h.Em)@(h.Canal is { } c ? " · " + RotulosEnum.De(c) : "") · @h.Operador</span>
+                                    <span>@h.Resultado</span>
+                                    @if (!string.IsNullOrWhiteSpace(h.Observacao)) { <span class="f360-tempo-bal">@h.Observacao</span> }
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </section>
+        </div>
+
+        <aside class="f360-ficha-dir">
+            @if (Linha.Pendente && Linha.ResponsavelId is null)
+            {
+                <section class="cartao f360-pegar">
+                    <p>Ninguém pegou este paciente ainda. A mensagem e o resultado ficam no nome de quem pega.</p>
+                    <button type="button" class="botao primario" disabled="@(!PodeAcompanhar)" @onclick="() => AoAssumir.InvokeAsync(Linha)"><Icone Nome="pessoa" />Assumir</button>
+                </section>
+            }
+            <section class="cartao">
+                <header class="cartao-titulo"><h3>Próxima mensagem</h3>@if (Linha.Pendente) { <Selo Tom="@(Linha.Atrasado ? "perigo" : "aviso")">@Prazo</Selo> }</header>
+                <div class="cartao-corpo f360-proxima">
+                    @if (!Linha.Pendente)
+                    {
+                        <p class="texto-secundario">O caso não está na fila. Pela conversa dá para ler a justificativa e reabrir.</p>
+                    }
+                    else if (Linha.PodeContatar)
+                    {
+                        <div class="f360-previa">@AcompanhamentoNaTela.Mensagem(Linha, NomeClinica)<small>sai pelo WhatsApp da clínica · você revisa antes de enviar · a resposta volta para a Fila 360</small></div>
+                        <button type="button" class="botao primario" disabled="@(!PodeAcompanhar)" @onclick="() => AoEscrever.InvokeAsync(Linha)"><Icone Nome="enviar" />Escrever no WhatsApp</button>
+                    }
+                    else
+                    {
+                        <p class="f360-sem-mensagem">@SemMensagem</p>
+                    }
+                    <button type="button" class="botao" disabled="@(!PodeAcompanhar)" @onclick="() => AoRegistrar.InvokeAsync(Linha)"><Icone Nome="check" />@(Linha.Pendente ? "Registrar como foi" : "Ver e reabrir")</button>
+                </div>
+            </section>
+            <section class="cartao">
+                <header class="cartao-titulo"><h3>O caso</h3></header>
+                <dl class="pares f360-pares">
+                    <dt>Fila</dt><dd>@(Linha.Tipo == TipoAcompanhamento.Recall ? "Recall" : "Novos BSV")</dd>
+                    <dt>Sessões</dt><dd>@Linha.TotalSessoes.ToString(Formato.PtBr)</dd>
+                    <dt>Tentativas</dt><dd>@Linha.Tentativas.ToString(Formato.PtBr)</dd>
+                    <dt>Próximo contato</dt><dd>@(Linha.Pendente ? Formato.Data(Linha.ProximoContato) : "—")</dd>
+                    @if (Linha.AgendadoPara is { } ag) { <dt>Próxima sessão</dt><dd>@Formato.DataHora(ag)</dd> }
+                    @if (!string.IsNullOrWhiteSpace(Linha.Motivo)) { <dt>Motivo</dt><dd>@Linha.Motivo</dd> }
+                </dl>
+            </section>
+        </aside>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public LinhaAcompanhamento Linha { get; set; } = default!;
+    [Parameter] public int UsuarioId { get; set; }
+    [Parameter] public string? NomeClinica { get; set; }
+    [Parameter] public string RotuloVoltar { get; set; } = "Voltar";
+    [Parameter] public bool TemConversa { get; set; }
+    [Parameter] public bool PodeAcompanhar { get; set; }
+    [Parameter] public bool PodeAgenda { get; set; }
+    [Parameter] public bool PodeVerFicha { get; set; }
+    [Parameter] public EventCallback AoVoltar { get; set; }
+    [Parameter] public EventCallback<LinhaAcompanhamento> AoEscrever { get; set; }
+    [Parameter] public EventCallback<LinhaAcompanhamento> AoRegistrar { get; set; }
+    [Parameter] public EventCallback<LinhaAcompanhamento> AoAssumir { get; set; }
+    [Parameter] public EventCallback<LinhaAcompanhamento> AoMarcar { get; set; }
+    [Parameter] public EventCallback<LinhaAcompanhamento> AoAbrirFicha { get; set; }
+    [Parameter] public EventCallback<LinhaAcompanhamento> AoAbrirConversa { get; set; }
+
+    private RiscoDoPaciente _risco = new(0, FaixaDeRisco.Baixo, []);
+    private (string Texto, string Tom) _selo;
+    private IReadOnlyList<ContatoAcompanhamento>? _historico;
+    private IReadOnlyList<MarcaNaJornada>? _jornada;
+    private bool _historicoFalhou, _jornadaFalhou;
+    private int? _lido;
+    private Guid _versaoLida;
+    private int _geracao;
+
+    private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
+
+    private string Prazo => Linha.Atrasado ? "Atrasado"
+        : Linha.ProximoContato <= Hoje ? "Hoje" : "Em " + Formato.Data(Linha.ProximoContato);
+
+    private string SemMensagem => string.IsNullOrWhiteSpace(Linha.Telefone)
+        ? "Sem telefone no cadastro: nenhuma mensagem sai daqui. A recepção atualiza a ficha na próxima visita."
+        : "Não autorizou mensagens: a lei e a Meta não deixam escrever. A recepção pede a autorização na próxima visita ao balcão; registrada, a mensagem passa a sair por aqui.";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _risco = Fila360NaTela.Risco(Linha);
+        _selo = AcompanhamentoNaTela.Selo(Linha, Hoje);
+        // Relê o histórico e a jornada quando muda o caso OU ele foi gravado (versão nova): o "Como foi?" acabou de entrar.
+        if (_lido == Linha.Id && _versaoLida == Linha.Versao) return;
+        _lido = Linha.Id; _versaoLida = Linha.Versao;
+        var g = ++_geracao;
+        IReadOnlyList<ContatoAcompanhamento>? historico = null;
+        IReadOnlyList<MarcaNaJornada>? jornada = null;
+        bool historicoFalhou = false, jornadaFalhou = false;
+        using var escopo = Escopos.CreateScope();
+        var servico = escopo.ServiceProvider.GetRequiredService<IAcompanhamentoPacienteService>();
+        // Em fila, no mesmo escopo (o mesmo DbContext não aceita duas operações ao mesmo tempo).
+        try { historico = await servico.HistoricoAsync(UsuarioId, Linha.Id); }
+        catch (Exception ex) { historicoFalhou = true; Clinica.Application.Diagnostico.Registrar("Blazor — Ficha 360: histórico não pôde ser lido", ex); }
+        try
+        {
+            var desde = new DateOnly(Hoje.Year, Hoje.Month, 1).AddMonths(-(Fila360NaTela.MesesDaJornada - 1));
+            jornada = Fila360NaTela.Jornada(await servico.JornadaAsync(UsuarioId, Linha.Id, desde), DateTime.Now);
+        }
+        catch (Exception ex) { jornadaFalhou = true; Clinica.Application.Diagnostico.Registrar("Blazor — Ficha 360: jornada não pôde ser lida", ex); }
+        if (g != _geracao) return;
+        (_historico, _jornada, _historicoFalhou, _jornadaFalhou) = (historico, jornada, historicoFalhou, jornadaFalhou);
+    }
+
+    // ==================== a jornada (SVG; número em cultura invariante) ====================
+
+    private const double W = 640, H = 74, Esq = 8, Dir = 8, Y0 = 30;
+
+    private RenderFragment Jornada(IReadOnlyList<MarcaNaJornada> marcas)
+    {
+        var inicio = new DateTime(Hoje.Year, Hoje.Month, 1).AddMonths(-(Fila360NaTela.MesesDaJornada - 1));
+        var fim = new[] { DateTime.Today.AddDays(7) }.Concat(marcas.Select(m => m.Quando.Date.AddDays(3))).Max();
+        double X(DateTime d) => Esq + (d - inicio).TotalDays / Math.Max(1, (fim - inicio).TotalDays) * (W - Esq - Dir);
+        var ultima = marcas.LastOrDefault(m => m.Tipo == TipoNaJornada.Realizada)?.Quando;
+        var vao = ultima is { } u && (DateTime.Today - u.Date).TotalDays >= 21 ? (Ini: X(u.Date) + 8, Fim: X(DateTime.Today)) : ((double Ini, double Fim)?)null;
+        var meses = Enumerable.Range(0, Fila360NaTela.MesesDaJornada + 1).Select(i => inicio.AddMonths(i)).Where(m => m <= fim).ToList();
+        return @<div class="f360-jornada">
+            <svg viewBox="0 0 @N(W) @N(H)" role="img" aria-label="@Fila360NaTela.ResumoDaJornada(marcas)">
+                @foreach (var m in meses)
+                {
+                    <line class="f360-j-grade" x1="@N(X(m))" x2="@N(X(m))" y1="8" y2="@N(H - 18)" />
+                    @Texto(X(m) + 3, H - 4, "start", "f360-j-mes", m.ToString("MMM", Formato.PtBr).TrimEnd('.'))
+                }
+                @if (vao is { } v && v.Fim - v.Ini > 50)
+                {
+                    <rect class="f360-j-vao" x="@N(v.Ini)" y="@N(Y0 - 10)" width="@N(v.Fim - v.Ini)" height="20" rx="4" />
+                    @Texto((v.Ini + v.Fim) / 2, Y0 + 4, "middle", "f360-j-vao-texto", $"{(DateTime.Today - ultima!.Value.Date).Days.ToString(Formato.PtBr)} dias sem vir")
+                }
+                @if (ultima is { } fimLinha) { <line class="f360-j-linha" x1="@N(Esq)" x2="@N(X(fimLinha))" y1="@N(Y0)" y2="@N(Y0)" /> }
+                @foreach (var m in marcas)
+                {
+                    <circle class="f360-j-@(m.Tipo switch { TipoNaJornada.Realizada => "sessao", TipoNaJornada.Falta => "falta", _ => "marcada" })"
+                            cx="@N(X(m.Quando))" cy="@N(Y0)" r="5"><title>@(m.Tipo switch { TipoNaJornada.Realizada => "Sessão em ", TipoNaJornada.Falta => "Falta em ", _ => "Marcado para " })@Formato.Data(DateOnly.FromDateTime(m.Quando))</title></circle>
+                }
+            </svg>
+            <p class="f360-j-legenda"><span><i class="f360-j-sessao"></i>Sessão realizada</span><span><i class="f360-j-falta"></i>Falta</span><span><i class="f360-j-marcada"></i>Marcado</span><span class="texto-secundario">@Fila360NaTela.ResumoDaJornada(marcas)</span></p>
+        </div>;
+    }
+
+    private static string N(double v) => v.ToString("0.##", CultureInfo.InvariantCulture);
+
+    /// <summary>O &lt;text&gt; do SVG (dentro de bloco de código o Razor reserva a palavra) — o mesmo do GraficoLinha.</summary>
+    private static RenderFragment Texto(double x, double y, string ancora, string classe, string conteudo) => b =>
+    {
+        b.OpenElement(0, "text");
+        b.AddAttribute(1, "x", N(x));
+        b.AddAttribute(2, "y", N(y));
+        b.AddAttribute(3, "text-anchor", ancora);
+        b.AddAttribute(4, "class", classe);
+        b.AddContent(5, conteudo);
+        b.CloseElement();
+    };
+}

@@ -12,15 +12,22 @@ a mesma chave de antes (`retorno-pacientes`): a Fila 360 **substituiu** o "Acomp
 pacientes" (uma porta por pergunta). O "Ver caso" do WhatsApp e os atalhos que levavam ao
 Acompanhamento continuam chegando nela.
 
-## O que ela faz
+## O que ela faz (igual ao protótipo)
 
-| Parte | O que mostra | Onde mora a regra |
+Um módulo com **menu lateral próprio**: Painel, Fila de hoje, Conversas, Carteira e, em Configurar, Gerar
+recall, Por responsável e Configurar. No rodapé do menu fica quem voltou em 30 dias.
+
+| Página | O que mostra | Onde mora a regra |
 |---|---|---|
-| **Hoje** (abre nela) | Só o que pede ação hoje, agrupado pela ação (Responderam, Ninguém pegou ainda, Mandar mensagem, Querem marcar, Acompanhar o plano, Conferir na agenda, Pedir autorização no balcão), do maior risco para o menor | `Fila360NaTela.Hoje` |
-| **Responderam** | Quem escreveu depois do convite; vem antes de tudo | `Fila360NaTela.QueResponderam`, a mesma regra do "Respondeu" da conversa (`RetencaoNaTela.Respondeu`) |
-| **Risco** | Nota de 0 a 100, faixa (baixo, médio, alto) e o motivo que mais pesou; todos os motivos com os pontos no title e na ficha | `Fila360NaTela.Risco` |
-| **Carteira** | A fila inteira de antes (funil, filtros, CSV), com a coluna Risco no lugar do trilho e o atalho "Risco alto" | `AcompanhamentoNaTela` + `Fila360NaTela` |
-| **Ficha 360** | A conversa do paciente (trilho, "Como foi?", histórico) com o painel "Por que está em risco" | `ConversaDoPacienteForm` |
+| **Painel** | Casos abertos, risco alto, para hoje, quem respondeu e quem voltou em 30 dias (com a taxa); o gráfico "Voltaram, mês a mês"; o resumo de hoje; por que pararam; a equipe | `Fila360NaTela.Numeros`, `VoltaramPorMes`, `Equipe` |
+| **Fila de hoje** (abre nela) | O progresso do dia ("3 de 12 feitos") e só o que pede ação hoje, agrupado pela ação (Responderam, Ninguém pegou ainda, Mandar mensagem, Querem marcar, Acompanhar o plano, Conferir na agenda, Pedir autorização no balcão), do maior risco para o menor, com a resposta do paciente ou o motivo do risco | `Fila360NaTela.Hoje`, `ProgressoDeHoje` |
+| **Conversas** | A caixa da retenção: as conversas dos casos abertos com ficha conferida, quem respondeu primeiro; a conversa do WhatsApp nativo no meio (o mesmo modo painel da gaveta); o risco e as ações à direita | `Fila360NaTela.ConversasDaFila` |
+| **Carteira** | Todos os casos, do maior risco para o menor, com o "Por quê", as visões (Todos, Risco alto, Novos no BSV, Sem autorização de mensagem, Encerrados), a busca, "Mais filtros" e o CSV | `Fila360NaTela.Carteira` |
+| **Ficha 360** (página) | Cabeçalho com os selos e as ações, os cinco fatos, por que está em risco (o anel e cada motivo com os pontos), a jornada (sessões, faltas e o que está marcado nos últimos 6 meses), as mensagens e acontecimentos e a próxima mensagem | `Fila360NaTela.Risco`, `Jornada`; `IAcompanhamentoPacienteService.JornadaAsync` |
+
+O "Como foi?" continua sendo o mesmo formulário (`ConversaDoPacienteForm`), aberto pelo
+"Registrar como foi". Ele ganhou o bloco do risco e perdeu o "Copiar o telefone para ligar": a
+retenção é só por mensagem.
 
 **O risco é explicável:** cada sinal soma pontos, e a tela mostra quais.
 
@@ -66,6 +73,6 @@ paciente volta para quem convidou, na fila Retenção, longe da recepção.
 ## O que não está nesta fase, e por quê
 
 - **"Como está" (sentimento) e a Escuta pós-sessão.** O "Como está" é dado de saúde: exige coluna nova, a permissão do prontuário e a trilha de acesso. Entra na Fase 3, com a Escuta e o alerta ao profissional.
-- **Réguas de cuidado** (sequências automáticas por fato da agenda): Fase 2.
-- **Painel com metas e taxa de retenção mês a mês:** Fase 3. O funil da Carteira já mostra quem voltou em 30 dias e a taxa.
-- **A tela de conversas própria da Patrycia** e a saída do modo Retenção da aba WhatsApp: próximo PR. Até lá, a conversa abre na gaveta ao lado, e o modo antigo continua existindo.
+- **Metas e a taxa de retenção mês a mês:** Fase 3. Elas pedem histórico guardado e meta cadastrada. O Painel já mostra quem voltou, mês a mês, e a taxa dos contatados em 30 dias.
+- **As Réguas de cuidado e a Escuta** não estão no menu ainda. Elas entram quando tiverem banco e regras de verdade: nenhum botão para função que não existe.
+- **A saída do modo Retenção da aba WhatsApp:** próximo PR. A Fila 360 já faz o trabalho dele.

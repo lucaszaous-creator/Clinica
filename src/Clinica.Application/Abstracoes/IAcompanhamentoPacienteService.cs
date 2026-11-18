@@ -47,8 +47,16 @@ public sealed record LinhaAcompanhamento(int Id, int PacienteId, string Paciente
         !Consentimento ? "Pediu para não receber mensagens" : null, Motivo }.Where(x => x != null));
 }
 
+/// <summary>Um horário do paciente na jornada da Fila 360: quando e como ficou (só a agenda, nada do prontuário).</summary>
+public sealed record SessaoDaJornada(DateTime Quando, StatusAgendamento Status);
+
 public interface IAcompanhamentoPacienteService
 {
+    /// <summary>
+    /// Os horários do paciente do caso desde <paramref name="desde"/> — a jornada da Ficha 360 (nov/2026). A mesma
+    /// barreira do resto do acompanhamento; só data e situação do horário, nenhum texto clínico.
+    /// </summary>
+    Task<IReadOnlyList<SessaoDaJornada>> JornadaAsync(int usuarioId, int id, DateOnly desde, CancellationToken ct = default);
     Task<EstadoIndicacaoBsv> EstadoBsvAsync(int usuarioId, int agendamentoId, CancellationToken ct = default);
     Task IndicarBsvAsync(int usuarioId, int agendamentoId, CancellationToken ct = default);
     Task<ConfiguracaoAcompanhamento> ConfiguracaoAsync(int usuarioId, CancellationToken ct = default);

@@ -49,6 +49,23 @@ public sealed class AcompanhamentoPacienteTests : IDisposable
         db.Consentimentos.Add(new() { PacienteId = paciente.Id, Finalidade = FinalidadeConsentimento.ComunicacaoEMarketing, Concedido = true }); await db.SaveChangesAsync();
     }
 
+    /// <summary>A jornada da Ficha 360 (nov/2026): a consulta EXECUTADA, filtrada no banco e com a barreira do acompanhamento.</summary>
+    [Fact] public async Task A_jornada_traz_os_horarios_do_paciente_desde_a_data_e_recusa_quem_nao_acompanha()
+    {
+        await svc.IndicarBsvAsync(medico.Id, consulta.Id);
+        var linha = await Linha();
+        db.Agendamentos.AddRange(
+            new Agendamento { PacienteId = paciente.Id, DataHora = DateTime.Today.AddMonths(-2), Status = StatusAgendamento.Faltou, ModalidadePrevista = ModalidadeAtendimento.BsvApenas },
+            new Agendamento { PacienteId = paciente.Id, DataHora = DateTime.Today.AddMonths(-9), Status = StatusAgendamento.Realizado, ModalidadePrevista = ModalidadeAtendimento.BsvApenas });
+        await db.SaveChangesAsync();
+
+        var jornada = await svc.JornadaAsync(gestora.Id, linha.Id, DateOnly.FromDateTime(DateTime.Today.AddMonths(-6)));
+
+        Assert.Equal([StatusAgendamento.Faltou, StatusAgendamento.Agendado], jornada.Select(j => j.Status));
+        Assert.True(jornada[0].Quando < jornada[1].Quando);
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => svc.JornadaAsync(medico.Id, linha.Id, DateOnly.MinValue));
+    }
+
     [Fact] public async Task Indicacao_repetida_nao_duplica_e_preserva_responsavel()
     {
         await svc.IndicarBsvAsync(medico.Id, consulta.Id); await svc.IndicarBsvAsync(medico.Id, consulta.Id);

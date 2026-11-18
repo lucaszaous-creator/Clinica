@@ -78,14 +78,12 @@
                     {
                         <Aviso Tom="atencao" Texto="@(string.IsNullOrWhiteSpace(Linha.Telefone)
                             ? "Sem telefone no cadastro — atualize a ficha do paciente antes de falar com ele."
-                            : !Linha.Consentimento ? "A mensagem não está autorizada (LGPD) — colha a autorização na ficha; ligar ou falar no balcão continua possível."
+                            : !Linha.Consentimento ? "A mensagem não está autorizada (LGPD) — a recepção colhe a autorização na próxima visita ao balcão."
                             : "Este caso não pede contato agora.")" />
                     }
                     <div class="acomp-acoes">
                         <button type="button" class="botao acomp-whats" disabled="@(!Linha.PodeContatar || _ocupado)" @onclick="WhatsappAsync"
                                 title="@(Linha.PodeContatar ? "Abre a conversa no WhatsApp da clínica com a mensagem pronta para você revisar e enviar" : "Sem telefone ou sem autorização de mensagem")"><Icone Nome="enviar" />Escrever no WhatsApp</button>
-                        <button type="button" class="botao" disabled="@string.IsNullOrWhiteSpace(Linha.Telefone)" @onclick="CopiarTelefoneAsync"
-                                title="Copiar o número para ligar"><Icone Nome="copiar" />Copiar o telefone para ligar</button>
                         <button type="button" class="botao primario" disabled="@(!PodeMarcar || _ocupado)" @onclick="MarcarAsync"
                                 title="@(PodeMarcar ? "Abrir a marcação já com o paciente" : "A marcação exige acesso à agenda da recepção.")"><Icone Nome="calendario" />Marcar horário</button>
                     </div>
@@ -236,7 +234,9 @@
         [DesfechoContato.NaoRespondeu, DesfechoContato.PediuOutraData, DesfechoContato.QuerMarcar, DesfechoContato.AguardandoPlano, DesfechoContato.NaoQuerVoltar];
 
     private static readonly (CanalContato? Canal, string Rotulo)[] Canais =
-        [(CanalContato.WhatsApp, "WhatsApp"), (CanalContato.Telefone, "Telefone"), (CanalContato.Presencial, "Presencial"), (CanalContato.Email, "E-mail"), (null, "Sem contato")];
+        // A retenção é só por mensagem (nov/2026, decisão da direção): sem "Telefone" para o contato novo. O que já foi
+        // gravado por telefone continua aparecendo no histórico, com o nome do canal.
+        [(CanalContato.WhatsApp, "WhatsApp"), (CanalContato.Presencial, "Presencial"), (CanalContato.Email, "E-mail"), (null, "Sem contato")];
 
     // Uma idempotência por ABERTURA: o segundo clique no Registrar (ou a volta depois de uma
     // falha de rede) não grava o mesmo contato duas vezes.
@@ -379,13 +379,6 @@
         _mensagem = copiou
             ? "Não foi possível abrir o WhatsApp — o endereço da conversa foi copiado; cole-o no navegador."
             : "Não foi possível abrir o WhatsApp neste computador.";
-    }
-
-    private async Task CopiarTelefoneAsync()
-    {
-        if (string.IsNullOrWhiteSpace(Linha.Telefone)) return;
-        _mensagem = await Host.CopiarAsync(Linha.Telefone) ? null : "A área de transferência não aceitou agora. Tente de novo.";
-        if (_mensagem is null) _canal ??= CanalContato.Telefone;
     }
 
     private async Task MarcarAsync()

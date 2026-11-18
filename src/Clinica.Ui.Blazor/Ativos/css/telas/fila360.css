@@ -1,0 +1,210 @@
+/* FILA 360 (nov/2026): o sistema de retenção, igual ao protótipo aprovado. Prefixo f360- (a lição do
+   prefixo, docs/agentes/convencoes.md). Só tokens: cor, raio, espaço e fonte vêm de tokens/*.css. */
+
+/* ---------- a casca: menu lateral próprio + conteúdo ---------- */
+.f360-casca{display:grid;grid-template-columns:220px minmax(0,1fr);gap:var(--space-4);align-items:start}
+.f360-lateral{position:sticky;top:0;display:flex;flex-direction:column;gap:2px;padding:var(--space-4) var(--space-3);
+  background:var(--superficie);border:1px solid var(--borda);border-radius:var(--radius-card);min-height:520px}
+.f360-mod{padding:2px var(--space-2) var(--space-3)}
+.f360-mod small{display:block;font-size:var(--text-secao-size);letter-spacing:var(--text-secao-tracking);text-transform:uppercase;color:var(--texto-secundario);font-weight:600}
+.f360-mod b{font-size:var(--text-h3-size)}
+.f360-item{display:flex;align-items:center;gap:var(--space-2);width:100%;min-height:38px;padding:0 var(--space-2);border:0;border-radius:var(--radius-control);
+  background:transparent;color:var(--cinza-700);font:inherit;font-weight:600;text-align:left;cursor:pointer;transition:background var(--duracao-rapida)}
+.f360-item:hover{background:var(--superficie-hover)}
+.f360-item.ativo{background:var(--acento-suave);color:var(--acento)}
+.f360-item:disabled{opacity:.55;cursor:not-allowed}
+.f360-n{margin-left:auto;min-width:22px;height:20px;padding:0 6px;border-radius:var(--radius-pilula);display:grid;place-items:center;
+  font-size:var(--text-small-size);font-weight:700;background:var(--superficie-hover);color:var(--cinza-700);font-variant-numeric:tabular-nums}
+.f360-item.ativo .f360-n{background:var(--acento);color:var(--texto-invertido)}
+.f360-n.urgente{background:var(--sucesso-suave);color:var(--sucesso-forte)}
+.f360-sep{height:1px;background:var(--borda);margin:var(--space-3) var(--space-2)}
+.f360-rot{margin:0;padding:var(--space-1) var(--space-2);font-size:var(--text-secao-size);letter-spacing:var(--text-secao-tracking);text-transform:uppercase;color:var(--texto-secundario);font-weight:600}
+.f360-meta{margin-top:auto;padding:var(--space-3);border:1px solid var(--borda);border-radius:var(--radius-control);background:var(--fundo);display:flex;flex-direction:column;gap:2px}
+.f360-meta small{font-size:var(--text-small-size);color:var(--texto-secundario)}
+.f360-meta > div{display:flex;align-items:baseline;gap:var(--space-2);flex-wrap:wrap}
+.f360-meta-num{font-size:var(--text-h2-size);font-variant-numeric:tabular-nums}
+.f360-trilho{height:6px;border-radius:var(--radius-pilula);background:var(--cinza-200);overflow:hidden;margin-top:var(--space-1)}
+.f360-trilho i{display:block;height:100%;border-radius:var(--radius-pilula);background:var(--acento)}
+.f360-trilho.grande{height:8px;flex:1;max-width:320px;margin:0}
+.f360-conteudo{display:flex;flex-direction:column;gap:var(--space-4);min-width:0}
+.f360 .cartao-titulo h3{font-size:var(--text-body-size);font-weight:700;margin:0}
+.f360 .cartao-titulo span{min-width:0}
+
+/* ---------- Painel ---------- */
+.f360-kpis{grid-template-columns:repeat(5,minmax(0,1fr))}
+.f360-g2{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(0,1fr);gap:var(--space-4)}
+.f360-g2.iguais{grid-template-columns:repeat(2,minmax(0,1fr))}
+.f360-hoje-resumo{display:flex;flex-direction:column;gap:var(--space-2)}
+.f360-resumo-linha{display:grid;grid-template-columns:30px 1fr auto;align-items:center;gap:var(--space-3);padding:var(--space-2) var(--space-3);
+  border:1px solid var(--borda);border-radius:var(--radius-control);background:var(--superficie);font:inherit;text-align:left;cursor:pointer}
+.f360-resumo-linha:hover{border-color:var(--acento-tint)}
+.f360-resumo-n{font-size:var(--text-h3-size);font-weight:700;font-variant-numeric:tabular-nums}
+.f360-tipo{width:30px;height:30px;border-radius:var(--radius-control);display:grid;place-items:center;flex:none}
+.f360-tipo.tom-sucesso{background:var(--sucesso-suave);color:var(--sucesso-forte)}
+.f360-tipo.tom-info{background:var(--acento-suave);color:var(--acento)}
+.f360-tipo.tom-aviso{background:var(--aviso-suave);color:var(--aviso-texto)}
+.f360-tipo.tom-neutro{background:var(--superficie-hover);color:var(--cinza-700)}
+.f360-barras{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--space-2)}
+.f360-barras li{display:grid;grid-template-columns:minmax(0,150px) 1fr 34px;align-items:center;gap:var(--space-3);font-size:var(--text-table-size)}
+.f360-barras li span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.f360-barras b{text-align:right;font-variant-numeric:tabular-nums}
+.f360-barra{height:12px;background:var(--superficie-hover);border-radius:0 var(--radius-pequeno) var(--radius-pequeno) 0}
+.f360-barra i{display:block;height:100%;background:var(--acento);border-radius:0 var(--radius-pequeno) var(--radius-pequeno) 0}
+
+/* ---------- Fila de hoje ---------- */
+.f360-progresso{display:flex;align-items:center;gap:var(--space-6);padding:var(--space-3) var(--space-4);flex-wrap:wrap}
+.f360-progresso .acomp-rotulo{margin:0}
+.f360-progresso b{font-size:var(--text-h3-size)}
+.f360-grupo{display:flex;flex-direction:column;gap:var(--space-2)}
+.f360-grupo h4{margin:0;display:flex;align-items:baseline;gap:var(--space-2);flex-wrap:wrap;font-size:var(--text-secao-size);letter-spacing:var(--text-secao-tracking);text-transform:uppercase;color:var(--cinza-700)}
+.f360-grupo-n{color:var(--texto-secundario)}
+.f360-grupo-dica{font-size:var(--text-small-size);letter-spacing:0;text-transform:none;font-weight:400;color:var(--texto-secundario)}
+.f360-tarefa{display:grid;grid-template-columns:30px minmax(0,1.5fr) minmax(0,1fr) 200px 100px auto;align-items:center;gap:var(--space-3);
+  padding:var(--space-2) var(--space-3);background:var(--superficie);border:1px solid var(--borda);border-radius:var(--radius-control);cursor:pointer;
+  transition:border-color var(--duracao-rapida)}
+.f360-tarefa:hover,.f360-tarefa:focus-visible{border-color:var(--acento-tint)}
+.f360-tarefa:focus-visible{outline:2px solid var(--foco);outline-offset:2px}
+.f360-tarefa-pac{display:flex;align-items:center;gap:var(--space-2);min-width:0}
+.f360-tarefa-nome{display:flex;flex-direction:column;min-width:0}
+.f360-tarefa-nome .principal{font-weight:600}
+.f360-tarefa-nome .secundario{font-size:var(--text-small-size);color:var(--texto-secundario);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.f360-cit{font-size:var(--text-small-size);color:var(--cinza-700);font-style:italic;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.f360-prazo{display:inline-flex;align-items:center;gap:var(--space-1);font-size:var(--text-small-size);font-weight:600;white-space:nowrap}
+.f360-prazo.atrasado{color:var(--erro-texto)}
+
+/* ---------- o risco numa linha ---------- */
+.f360-risco{display:flex;flex-direction:column;gap:2px;min-width:0}
+.f360-risco-linha{display:flex;align-items:center;gap:var(--space-2);white-space:nowrap}
+.f360-nota{font-family:var(--font-num);font-variant-numeric:tabular-nums;font-weight:700;min-width:2ch;text-align:right}
+.f360-medidor{display:block;width:52px;height:6px;border-radius:var(--radius-pilula);background:var(--cinza-200);overflow:hidden;flex:none}
+.f360-medidor i{display:block;height:100%;border-radius:var(--radius-pilula);background:var(--sucesso)}
+.f360-medidor.tom-aviso i{background:var(--aviso)}
+.f360-medidor.tom-perigo i{background:var(--erro)}
+
+/* ---------- Carteira ---------- */
+.f360-barra{align-items:center}
+.f360-visoes{display:flex;flex-wrap:wrap;gap:var(--space-2);width:100%}
+.f360-busca{flex:1;min-width:200px}
+.f360-explica{margin:0;padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--borda);font-size:var(--text-table-size);color:var(--cinza-700);background:var(--fundo)}
+.f360-carteira td .secundario{display:block;font-size:var(--text-small-size);color:var(--texto-secundario)}
+.f360-sinais{display:flex;flex-wrap:wrap;gap:var(--space-1)}
+
+/* ---------- Conversas ---------- */
+.f360-conversas{display:grid;grid-template-columns:270px minmax(0,1fr) 250px;height:640px;border:1px solid var(--borda);border-radius:var(--radius-card);
+  overflow:hidden;background:var(--superficie)}
+.f360-conv-lista{display:flex;flex-direction:column;border-right:1px solid var(--borda);min-height:0;overflow:auto}
+.f360-conv-topo{padding:var(--space-3);border-bottom:1px solid var(--borda)}
+.f360-conv-topo .segmentado{width:100%}
+.f360-conv-topo .segmentado button{flex:1;white-space:nowrap}
+.f360-conv-aviso{margin:0;padding:var(--space-4);font-size:var(--text-table-size);color:var(--texto-secundario)}
+.f360-conv-item{display:grid;grid-template-columns:32px minmax(0,1fr) auto;gap:var(--space-2);align-items:center;width:100%;padding:var(--space-2) var(--space-3);
+  border:0;border-bottom:1px solid var(--borda);background:transparent;font:inherit;text-align:left;cursor:pointer}
+.f360-conv-item:hover{background:var(--fundo)}
+.f360-conv-item.ativo{background:var(--acento-suave);box-shadow:inset 3px 0 0 var(--acento)}
+.f360-conv-texto{display:flex;flex-direction:column;min-width:0}
+.f360-conv-texto .secundario{font-size:var(--text-small-size);color:var(--texto-secundario);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.f360-conv-hora{display:flex;flex-direction:column;align-items:flex-end;gap:2px;font-size:var(--text-small-size);color:var(--texto-secundario)}
+.f360-conv-nova{padding:0 6px;border-radius:var(--radius-pilula);background:var(--sucesso-suave);color:var(--sucesso-forte);font-weight:600}
+.f360-conv-rodape{margin:auto 0 0;padding:var(--space-3);border-top:1px solid var(--borda);font-size:var(--text-small-size);color:var(--texto-secundario);background:var(--fundo)}
+.f360-conv-fio{min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.f360-conv-fio > .pagina.wa.wa-ao-lado{height:100%;padding:0}
+.f360-conv-lado{border-left:1px solid var(--borda);padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-3);overflow:auto}
+.f360-conv-risco{display:flex;gap:var(--space-3);align-items:center}
+.f360-conv-risco .acomp-rotulo{margin:0 0 var(--space-1)}
+.f360-conv-motivo{display:block;font-size:var(--text-small-size);color:var(--cinza-700)}
+.f360-pares{margin:0}
+
+/* ---------- Ficha 360 ---------- */
+.f360-ficha{display:flex;flex-direction:column;gap:var(--space-4)}
+.f360-voltar{display:flex;align-items:center;gap:var(--space-2)}
+.f360-cab{padding:0;overflow:hidden}
+.f360-cab-topo{display:flex;align-items:center;gap:var(--space-4);padding:var(--space-4);flex-wrap:wrap}
+.f360-avatar-g{width:56px;height:56px;font-size:var(--text-h3-size)}
+.f360-cab-nome{flex:1;min-width:220px}
+.f360-cab-nome h2{margin:0;font-size:var(--text-h2-size)}
+.f360-chips{display:flex;flex-wrap:wrap;gap:var(--space-1);margin-top:var(--space-1)}
+.f360-cab-acoes{display:flex;gap:var(--space-2);flex-wrap:wrap}
+.f360-fatos{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));margin:0;border-top:1px solid var(--borda)}
+.f360-fatos > div{padding:var(--space-3) var(--space-4);border-right:1px solid var(--borda);min-width:0}
+.f360-fatos > div:last-child{border-right:0}
+.f360-fatos dt{font-size:var(--text-small-size);color:var(--texto-secundario)}
+.f360-fatos dd{margin:2px 0 0;font-weight:700;overflow:hidden;text-overflow:ellipsis}
+.f360-fatos dd.negativo{color:var(--erro-texto)}
+.f360-ficha-corpo{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:var(--space-4);align-items:start}
+.f360-ficha-esq,.f360-ficha-dir{display:flex;flex-direction:column;gap:var(--space-4);min-width:0}
+.f360-risco-corpo{display:flex;align-items:center;gap:var(--space-6);padding:0 var(--space-4) var(--space-4)}
+.f360-motivos{list-style:none;margin:0;padding:0;flex:1;display:flex;flex-direction:column;gap:var(--space-2);font-size:var(--text-table-size)}
+.f360-motivos li{display:flex;justify-content:space-between;gap:var(--space-3)}
+.f360-motivos b{font-variant-numeric:tabular-nums;white-space:nowrap}
+.f360-soma{color:var(--erro-texto)}
+.f360-tira{color:var(--sucesso-forte)}
+.f360-anel{flex:none}
+.f360-anel-fundo{fill:none;stroke:var(--cinza-200);stroke-width:9}
+.f360-anel-arco{fill:none;stroke:var(--sucesso);stroke-width:9;stroke-linecap:round}
+.f360-anel.tom-aviso .f360-anel-arco{stroke:var(--aviso)}
+.f360-anel.tom-perigo .f360-anel-arco{stroke:var(--erro)}
+.f360-anel-nota{font-family:var(--font-num);font-size:24px;font-weight:700;fill:var(--texto-primario)}
+.f360-anel-faixa{font-size:10px;fill:var(--texto-secundario)}
+.f360-jornada svg{display:block;width:100%;height:auto}
+.f360-j-grade{stroke:var(--cinza-200)}
+.f360-j-mes{font-size:10px;fill:var(--texto-secundario)}
+.f360-j-vao{fill:var(--erro-suave)}
+.f360-j-vao-texto{font-size:11px;font-weight:700;fill:var(--erro-texto)}
+.f360-j-linha{stroke:var(--acento-tint);stroke-width:2}
+circle.f360-j-sessao{fill:var(--acento);stroke:var(--superficie);stroke-width:2}
+circle.f360-j-falta{fill:var(--superficie);stroke:var(--aviso);stroke-width:2}
+circle.f360-j-marcada{fill:var(--superficie);stroke:var(--acento);stroke-width:2;stroke-dasharray:3 2}
+.f360-j-legenda{display:flex;flex-wrap:wrap;gap:var(--space-4);margin:var(--space-2) 0 0;font-size:var(--text-small-size);color:var(--cinza-700)}
+.f360-j-legenda span{display:inline-flex;align-items:center;gap:var(--space-1)}
+.f360-j-legenda i{width:10px;height:10px;border-radius:50%;display:inline-block}
+.f360-j-legenda i.f360-j-sessao{background:var(--acento)}
+.f360-j-legenda i.f360-j-falta{border:2px solid var(--aviso)}
+.f360-j-legenda i.f360-j-marcada{border:2px dashed var(--acento)}
+.f360-tempo{list-style:none;margin:0;padding:0 0 0 var(--space-6);border-left:2px solid var(--borda);display:flex;flex-direction:column;gap:var(--space-3)}
+.f360-tempo li{position:relative;display:flex;flex-direction:column;gap:2px;font-size:var(--text-table-size)}
+.f360-tempo li::before{content:"";position:absolute;left:calc(-1 * var(--space-6) - 7px);top:3px;width:12px;height:12px;border-radius:50%;background:var(--superficie);border:2px solid var(--borda-hover)}
+.f360-tempo li.msg::before{border-color:var(--sucesso)}
+.f360-tempo li.sis::before{background:var(--superficie-hover)}
+.f360-tempo-quando{font-size:var(--text-small-size);color:var(--texto-secundario);font-variant-numeric:tabular-nums}
+.f360-tempo-bal{margin-top:var(--space-1);padding:var(--space-2) var(--space-3);border-radius:var(--radius-control);background:var(--fundo);border:1px solid var(--borda);max-width:560px}
+.f360-pegar{display:flex;flex-direction:column;gap:var(--space-3);padding:var(--space-4);border-color:var(--acento-tint);background:var(--acento-suave)}
+.f360-pegar p{margin:0;font-size:var(--text-table-size)}
+.f360-proxima{display:flex;flex-direction:column;gap:var(--space-3)}
+.f360-previa{padding:var(--space-3);border-radius:var(--radius-card) var(--radius-card) var(--radius-pequeno) var(--radius-card);background:var(--sucesso-suave);
+  color:var(--texto-primario);font-size:var(--text-table-size);white-space:pre-line}
+.f360-previa small{display:block;margin-top:var(--space-2);font-size:var(--text-small-size);color:var(--sucesso-forte);white-space:normal}
+.f360-sem-mensagem{margin:0;font-size:var(--text-table-size);color:var(--cinza-700)}
+
+/* ---------- o risco dentro da conversa do paciente (o formulário) ---------- */
+.f360-ficha-risco{display:flex;flex-direction:column;gap:var(--space-2);padding-bottom:var(--space-3);margin-bottom:var(--space-3);border-bottom:1px solid var(--borda)}
+.f360-ficha-risco .acomp-rotulo{margin:0}
+.f360-ficha-nota{display:flex;align-items:baseline;gap:var(--space-2)}
+.f360-ficha-nota .f360-nota{font-size:var(--text-h2-size);text-align:left}
+
+/* ---------- larguras menores ---------- */
+@media (max-width:1280px){
+  .f360-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .f360-tarefa{grid-template-columns:30px minmax(0,1.4fr) minmax(0,1fr) 180px auto}
+  .f360-tarefa .f360-prazo{display:none}
+  .f360-ficha-corpo{grid-template-columns:minmax(0,1fr) 300px}
+  .f360-fatos{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .f360-conversas{grid-template-columns:240px minmax(0,1fr)}
+  .f360-conv-lado{display:none}
+}
+@media (max-width:1100px){
+  .f360-casca{grid-template-columns:minmax(0,1fr)}
+  .f360-lateral{position:static;min-height:0;flex-direction:row;flex-wrap:wrap;align-items:center;padding:var(--space-2)}
+  .f360-lateral .f360-item{width:auto}
+  .f360-mod,.f360-sep,.f360-rot,.f360-meta{display:none}
+  .f360-g2,.f360-g2.iguais,.f360-ficha-corpo{grid-template-columns:minmax(0,1fr)}
+  .f360-tarefa{grid-template-columns:30px minmax(0,1fr) 170px auto}
+  .f360-tarefa .f360-cit{display:none}
+}
+@media (max-width:760px){
+  .f360-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .f360-tarefa{grid-template-columns:minmax(0,1fr) auto}
+  .f360-tarefa .f360-tipo,.f360-tarefa .f360-risco{display:none}
+  .f360-fatos{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .f360-conversas{grid-template-columns:minmax(0,1fr);height:auto}
+  .f360-conv-fio{height:560px}
+}

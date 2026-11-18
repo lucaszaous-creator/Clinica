@@ -268,6 +268,16 @@ public sealed class AcompanhamentoPacienteService(ClinicaDbContext db, IClinicaR
         return contatos;
     }
 
+    public async Task<IReadOnlyList<SessaoDaJornada>> JornadaAsync(int usuarioId, int id, DateOnly desde, CancellationToken ct = default)
+    {
+        await Usuario(usuarioId, Permissao.GerenciarCampanhas, ct);
+        var paciente = await db.Acompanhamentos.Where(c => c.Id == id).Select(c => c.PacienteId).SingleAsync(ct);
+        var inicio = desde.ToDateTime(TimeOnly.MinValue);
+        // Projeção curta, filtrada no banco: um tratamento longo tem dezenas de horários, e a ficha só desenha meses recentes.
+        return await db.Agendamentos.AsNoTracking().Where(a => a.PacienteId == paciente && a.DataHora >= inicio)
+            .OrderBy(a => a.DataHora).Select(a => new SessaoDaJornada(a.DataHora, a.Status)).ToListAsync(ct);
+    }
+
     public async Task ValidarContatoAsync(int usuarioId, int id, CancellationToken ct = default)
     {
         await Usuario(usuarioId, Permissao.GerenciarCampanhas, ct);

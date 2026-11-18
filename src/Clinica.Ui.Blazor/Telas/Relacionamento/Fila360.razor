@@ -1,183 +1,92 @@
 @*
-  FILA 360 (nov/2026, pedido da direção — docs/fila-360.md): o sistema de retenção. Evoluiu o
-  Acompanhamento de pacientes (out/2026, desenho A: docs/mockups/relacionamento-dois-desenhos.html)
-  sem tirar nada dele, e acrescentou:
-  - a aba HOJE: só o que pede ação hoje, agrupado pela ação, do maior risco para o menor
-    (Fila360NaTela.Hoje), com "Responderam" no topo — quem escreveu depois do convite;
-  - o RISCO de cada paciente, explicável (Fila360NaTela.Risco): a nota, a faixa e o motivo que mais
-    pesou, na Carteira e na Ficha 360 (a conversa do paciente, ConversaDoPacienteForm);
-  - o atalho "Risco alto" na Carteira.
-  A aba CARTEIRA é a fila de antes, com o funil, os filtros e o CSV.
+  FILA 360 (nov/2026, pedido da direção — docs/fila-360.md): o sistema de retenção, IGUAL ao protótipo
+  aprovado ("Sistema de Retenção SemDor"). Um módulo com menu lateral próprio:
+  - PAINEL: os números da retenção, quem voltou mês a mês, o que pede ação hoje, por que pararam e a equipe;
+  - FILA DE HOJE: só o que pede ação hoje, agrupado pela ação, do maior risco para o menor (Responderam no topo);
+  - CONVERSAS: a caixa da retenção, com a conversa do WhatsApp nativo no meio (longe da aba da recepção);
+  - CARTEIRA: todos os casos, com o risco e o porquê, as visões (risco alto, novos no BSV, sem autorização,
+    encerrados), a busca, "Mais filtros" e o CSV;
+  - FICHA 360: o paciente numa página (FichaDaFila360).
+  Substituiu o Acompanhamento de pacientes (mesma chave, mesmo serviço, nenhuma função a menos).
 
-  A pergunta da cliente era "como a usuária assume, atende, manda mensagem, vê progresso?".
-  A resposta é a FILA COM A PRÓXIMA AÇÃO: cada linha tem UM botão — o passo seguinte daquele
-  paciente (assumir, falar no WhatsApp, marcar horário…) —, e o FUNIL em cima mostra o
-  progresso da equipe e serve de filtro (clicar de novo limpa). Clicar na linha abre a
-  CONVERSA do paciente por cima da fila: a mensagem que vai sair, o trilho de cinco degraus,
-  o "Como foi?" em cartões e o histórico.
-
-  Nada de regra aqui: o passo, a faixa, o degrau, o selo, o que cada desfecho grava e o que
-  a tela diz quando está vazia moram em AcompanhamentoNaTela e ConversaDoAcompanhamento, na
-  Application, com teste. O serviço é o MESMO da tela WPF (IAcompanhamentoPacienteService).
-  A lista de paridade (cada comando, filtro e mensagem do WPF → onde ficou) está em
-  docs/relacionamento-blazor.md.
+  Nada de regra aqui: o risco, os grupos, os números, a carteira, a jornada e as conversas moram em
+  Fila360NaTela; o passo, o selo e a mensagem em AcompanhamentoNaTela/ConversaDoAcompanhamento — com teste.
+  As Réguas de cuidado e a Escuta entram no menu quando tiverem banco e regras: sem botão para função que não existe.
 *@
-@* Mora numa pasta própria, mas no MESMO namespace das telas: a prévia e os testes acham as telas por ele. *@
 @namespace Clinica.Ui.Blazor.Telas
 @using Clinica.Application.Abstracoes
 @inherits TelaBase
 
-<div class="pagina acompanhamento fila360 @(Carregando && _todos.Count > 0 ? "carregando" : null)">
-    <CabecalhoPagina Sobretitulo="Relacionamento · Retenção" Titulo="Fila 360"
-                     Subtitulo="Quem pode parar o tratamento, por quê e o que fazer hoje — do primeiro contato até a volta.">
-        @if (_tipo == TipoAcompanhamento.Recall)
-        {
-            <button type="button" class="botao" disabled="@(!PodeAcompanhar)" @onclick="AbrirGerarRecall"
-                    title="@(PodeAcompanhar ? "Buscar quem está há N dias ou mais sem retornar e pôr na fila" : SemAcesso)">
-                <Icone Nome="atualizar" />Gerar recall (@_diasRecall dias)
-            </button>
-        }
-        <button type="button" class="botao" disabled="@(!PodeAcompanhar)" @onclick="ExportarAsync" title="A lista à vista, com a coluna de quem pode receber mensagem (Ctrl+P)">
-            <Icone Nome="baixar" />Exportar CSV
-        </button>
-        <button type="button" class="botao icone" @onclick="() => CarregarAsync()" title="Atualizar (F5)" aria-label="Atualizar a lista"><Icone Nome="atualizar" /></button>
-        @if (Gestor)
-        {
-            <button type="button" class="botao" @onclick="AbrirEquipe" title="O que cada responsável tem nas mãos e os encerramentos por motivo"><Icone Nome="pessoas" />Por responsável</button>
-            <button type="button" class="botao" @onclick="AbrirConfigurar" title="Profissional das indicações de BSV, responsável padrão e motivos"><Icone Nome="ajustes" />Configurar</button>
-        }
-    </CabecalhoPagina>
-
+<div class="pagina f360 @(Carregando && _carregou ? "carregando" : null)">
     @if (!PodeAcompanhar)
     {
         <section class="cartao lista-cartao">
-            <EstadoVazio Titulo="Seu acesso não alcança o acompanhamento" Descricao="@SemAcesso" Icone="cadeado" />
+            <EstadoVazio Titulo="Seu acesso não alcança a Fila 360" Descricao="@SemAcesso" Icone="cadeado" />
         </section>
-    }
-    else if (_naoVerificado)
-    {
-        <section class="cartao lista-cartao">
-            <FalhaDeLeitura Titulo="Não foi possível ler a fila de acompanhamento" Detalhe="@_erroLeitura" AoTentarDeNovo="() => CarregarAsync()" />
-        </section>
-    }
-    else if (!_carregou)
-    {
-        <section class="cartao acomp-funil"><Esqueleto Altura="72" /></section>
-        <section class="cartao lista-cartao"><div class="cartao-corpo"><Esqueleto Altura="260" /></div></section>
     }
     else
     {
-        <section class="cartao acomp-funil" aria-label="Progresso da fila — clique para filtrar">
-            @Faixa(FaixaAcompanhamento.AAssumir, "A assumir", _funil.AAssumir.ToString(Formato.PtBr), "ninguém pegou ainda", null)
-            @Faixa(FaixaAcompanhamento.ContatarHoje, "Para contatar hoje", _funil.ContatarHoje.ToString(Formato.PtBr),
-                   _funil.Atrasados == 0 ? "nenhum atrasado" : _funil.Atrasados == 1 ? "1 atrasado" : $"{_funil.Atrasados} atrasados",
-                   _funil.Atrasados > 0 ? "perigo" : null)
-            @Faixa(FaixaAcompanhamento.EmConversa, "Em conversa", _funil.EmConversa.ToString(Formato.PtBr), "aguardando resposta ou data", null)
-            @Faixa(FaixaAcompanhamento.Agendado, "Agendados", _funil.Agendados.ToString(Formato.PtBr), "próxima sessão marcada", null)
-            @Faixa(FaixaAcompanhamento.Voltou, $"Voltaram em {AcompanhamentoNaTela.DiasDoPeriodo} dias", _funil.Voltaram.ToString(Formato.PtBr),
-                   _funil.TaxaDeRetorno is { } taxa ? $"de {_funil.ContatadosNoPeriodo} contatados · {taxa}%" : "nenhum contato no período", "sucesso")
-        </section>
-
-        <section class="cartao lista-cartao">
-            <div class="filtros acomp-barra">
-                <div class="segmentado f360-abas" role="group" aria-label="O que ver">
-                    <button type="button" aria-pressed="@Bool(_aba == Aba.Hoje)" @onclick="() => TrocarAba(Aba.Hoje)"
-                            title="Só o que pede ação hoje, agrupado pela ação, do maior risco para o menor">Hoje · <b>@_naHoje</b></button>
-                    <button type="button" aria-pressed="@Bool(_aba == Aba.Carteira)" @onclick="() => TrocarAba(Aba.Carteira)"
-                            title="Todos os casos da fila, com o funil, os filtros e o risco">Carteira</button>
+        <div class="f360-casca">
+            <nav class="f360-lateral" aria-label="Fila 360">
+                <div class="f360-mod"><small>Relacionamento</small><b>Fila 360</b></div>
+                @Item(Pagina.Painel, "grafico", "Painel", null, false)
+                @Item(Pagina.Hoje, "lista", "Fila de hoje", _numeros.ParaHoje, false)
+                @Item(Pagina.Conversas, "chat", "Conversas", Responderam > 0 ? Responderam : null, true)
+                @Item(Pagina.Carteira, "pessoas", "Carteira", _numeros.Abertos, false)
+                <div class="f360-sep"></div>
+                <p class="f360-rot">Configurar</p>
+                <button type="button" class="f360-item" disabled="@(!PodeAcompanhar)" @onclick="AbrirGerarRecall"
+                        title="Buscar quem está há @_diasRecall dias ou mais sem retornar e pôr na fila"><Icone Nome="atualizar" />Gerar recall (@_diasRecall dias)</button>
+                @if (Gestor)
+                {
+                    <button type="button" class="f360-item" @onclick="AbrirEquipe" title="O que cada responsável tem nas mãos e os encerramentos por motivo"><Icone Nome="pessoa" />Por responsável</button>
+                    <button type="button" class="f360-item" @onclick="AbrirConfigurar" title="Profissional das indicações de BSV, responsável padrão e motivos"><Icone Nome="ajustes" />Configurar</button>
+                }
+                <div class="f360-meta">
+                    <small>Voltaram em @AcompanhamentoNaTela.DiasDoPeriodo dias</small>
+                    <div><b class="f360-meta-num">@_numeros.Voltaram.ToString(Formato.PtBr)</b>
+                        <span class="texto-secundario">@(_numeros.TaxaDeRetorno is { } t ? $"{t}% dos contatados" : "sem contato no período")</span></div>
+                    <div class="f360-trilho"><i style="width:@((_numeros.TaxaDeRetorno ?? 0).ToString(System.Globalization.CultureInfo.InvariantCulture))%"></i></div>
                 </div>
-                @Filas
-                <div class="segmentado" role="group" aria-label="De quem">
-                    <button type="button" aria-pressed="@Bool(_minha)" @onclick="() => TrocarEscopo(true)" title="O que é seu e o que ninguém assumiu ainda">Minha fila</button>
-                    <button type="button" aria-pressed="@Bool(!_minha)" @onclick="() => TrocarEscopo(false)" title="A fila de toda a equipe">Toda a equipe</button>
-                </div>
-                <label class="busca acomp-busca">
-                    <Icone Nome="busca" />
-                    <input class="campo" type="search" placeholder="Nome, telefone ou convênio" aria-label="Buscar por nome, telefone ou convênio"
-                           value="@_busca" @oninput="Buscar" />
-                </label>
-                <button type="button" class="botao @(Extras > 0 ? "acomp-com-filtro" : null)" @onclick="AbrirFiltros"
-                        title="Modalidade, convênio, profissional, responsável, motivo, tentativas, último contato, dias sem vir…">
-                    <Icone Nome="filtro" />Mais filtros@(Extras > 0 ? $" ({Extras})" : "")
-                </button>
-            </div>
+            </nav>
 
-            <div class="cartao-titulo acomp-resumo">
-                <p>@(_aba == Aba.Hoje ? Fila360NaTela.Resumo(_grupos) : _resumo)
-                    @if (_ultimaLeitura is { } em) { <span class="texto-secundario"> · lista atualizada às @em.ToString("HH:mm", Formato.PtBr)</span> }
-                </p>
-                <div class="acoes">
-                    <button type="button" class="botao fantasma mini" aria-pressed="@Bool(_soRiscoAlto)" @onclick="AlternarRiscoAlto"
-                            title="Só os casos abertos com risco alto (60 pontos ou mais)">Risco alto (@_riscoAlto)</button>
-                    @if (_faixa is not null || Filtrada || _soRiscoAlto)
+            <main class="f360-conteudo">
+                @if (_naoVerificado)
+                {
+                    <section class="cartao lista-cartao">
+                        <FalhaDeLeitura Titulo="Não foi possível ler a Fila 360" Detalhe="@_erroLeitura" AoTentarDeNovo="() => CarregarAsync()" />
+                    </section>
+                }
+                else if (!_carregou)
+                {
+                    <section class="cartao"><div class="cartao-corpo"><Esqueleto Altura="320" /></div></section>
+                }
+                else
+                {
+                    switch (_pagina)
                     {
-                        <button type="button" class="botao fantasma mini" @onclick="LimparFiltros">Limpar filtros</button>
-                    }
-                    <button type="button" class="botao fantasma mini" aria-pressed="@Bool(_faixa == FaixaAcompanhamento.Encerrado)"
-                            @onclick="() => EscolherFaixa(FaixaAcompanhamento.Encerrado)"
-                            title="Os casos encerrados com motivo — dá para ler a justificativa e reabrir">Encerrados (@_encerrados)</button>
-                </div>
-            </div>
-
-            @if (_aba == Aba.Hoje)
-            {
-                @AbaHoje
-            }
-            else if (_linhas.Count == 0)
-            {
-                var (titulo, descricao) = ConversaDoAcompanhamento.Vazio(_naFila, Filtrada, _faixa);
-                <EstadoVazio Titulo="@titulo" Descricao="@descricao" Icone="@(Filtrada && _naFila > 0 ? "filtro" : "ok")" />
-            }
-            else
-            {
-                <div class="tabela-rolagem">
-                    <table class="lista acomp-lista">
-                        <thead>
-                            <tr>
-                                <th>Paciente</th>
-                                <th class="nao-quebra">@(_tipo == TipoAcompanhamento.Recall ? "Sem vir" : "Indicado há")</th>
-                                <th>Risco</th>
-                                <th>Situação</th>
-                                <th>Responsável</th>
-                                <th class="direita">Próximo passo</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var l in _linhas)
+                        case Pagina.Painel: @Painel break;
+                        case Pagina.Hoje: @Hoje break;
+                        case Pagina.Conversas: @Conversas break;
+                        case Pagina.Carteira: @Carteira break;
+                        case Pagina.Ficha:
+                            if (FichaAberta is { } f)
                             {
-                                var passo = AcompanhamentoNaTela.Passo(l);
-                                var (selo, tom) = AcompanhamentoNaTela.Selo(l, Hoje);
-                                <tr @key="l.Id" class="acomp-linha" @onclick="() => AbrirConversa(l, null)" title="Abrir a conversa com @l.Paciente">
-                                    <td>
-                                        <span class="principal">@l.Paciente</span>
-                                        <span class="secundario">@AcompanhamentoNaTela.Contexto(l)@(string.IsNullOrWhiteSpace(l.Telefone) ? " · sem telefone" : "")</span>
-                                    </td>
-                                    <td class="nao-quebra">@ConversaDoAcompanhamento.TempoTexto(l)</td>
-                                    <td>@Risco(l)</td>
-                                    <td><Selo Tom="@(string.IsNullOrEmpty(tom) ? "neutro" : tom)">@selo</Selo></td>
-                                    <td class="nao-quebra">
-                                        @if (l.ResponsavelId is null)
-                                        {
-                                            <span class="texto-secundario">ninguém</span>
-                                        }
-                                        else
-                                        {
-                                            <span class="acomp-dono" title="@l.Responsavel"><span class="avatar acomp-avatar">@ConversaDoAcompanhamento.Iniciais(l.Responsavel)</span>@ConversaDoAcompanhamento.Dono(l, UsuarioId)</span>
-                                        }
-                                    </td>
-                                    <td class="direita nao-quebra" @onclick:stopPropagation="true"><span class="botoes-linha acomp-acoes">@if (passo is not (PassoAcompanhamento.Contatar or PassoAcompanhamento.TentarDeNovo)) { <BotaoDaConversaAoLado PacienteId="l.PacienteId" Nome="@l.Paciente" Telefone="@l.Telefone" /> }@Botao(l, passo)</span></td>
-                                </tr>
+                                <FichaDaFila360 Linha="f" UsuarioId="UsuarioId" NomeClinica="@_nomeClinica" RotuloVoltar="@Rotulo(_voltarPara)"
+                                                TemConversa="@_conversas.Any(c => c.Linha.PacienteId == f.PacienteId)"
+                                                PodeAcompanhar="PodeAcompanhar" PodeAgenda="@Pode(Permissao.EditarAgenda)" PodeVerFicha="@Pode(Permissao.VerFichaPaciente)"
+                                                AoVoltar="() => Ir(_voltarPara)" AoEscrever="WhatsappAsync" AoRegistrar="l => AbrirConversa(l, null)"
+                                                AoAssumir="AssumirAsync" AoMarcar="MarcarAsync" AoAbrirFicha="AbrirFichaAsync" AoAbrirConversa="AbrirConversaDoPaciente" />
                             }
-                        </tbody>
-                    </table>
-                </div>
-                <details class="rodape-lista acomp-legenda">
-                    <summary>Clicar na linha abre a conversa do paciente; o botão da direita faz o passo direto. Entenda as situações</summary>
-                    <p><b>A contatar</b>: primeira tentativa · <b>Sem resposta</b>: tentar de novo no prazo · <b>Retornar em…</b>: a data combinada com o paciente · <b>Aguardando o plano</b>: acompanhar a autorização · <b>Quer marcar</b>: escolher o horário · <b>Agendado</b>: sai dos pendentes até a sessão · <b>Cancelou / Faltou</b>: retomar o contato · <b>Conferir comparecimento</b>: ver na agenda se a sessão passada aconteceu · <b>Encerrado</b>: justificativa registrada, pode ser reaberto.</p>
-                    <p><b>Atrasado</b> é o próximo contato que venceu — diferente de estar há muitos dias sem vir. <b>Sem telefone</b> e <b>mensagem não autorizada</b> se resolvem na ficha do paciente. As cores sempre vêm com o texto.</p>
-                </details>
-            }
-        </section>
+                            else
+                            {
+                                <EstadoVazio Titulo="Este caso não está mais na fila" Descricao="Volte à Carteira para ver os casos abertos." Icone="ok" />
+                            }
+                            break;
+                    }
+                }
+            </main>
+        </div>
     }
 </div>
 
@@ -201,50 +110,43 @@
 }
 @if (_equipe)
 {
-    <EquipeAcompanhamentoForm Linhas="_todos" Tipo="_tipo" AoFechar="() => _equipe = false" />
+    <EquipeAcompanhamentoForm Linhas="_todos" Tipo="TipoAcompanhamento.Recall" AoFechar="() => _equipe = false" />
 }
 
 @code {
-    private const string SemAcesso = "O acompanhamento pede a ficha do paciente e o acesso às campanhas ou ao faturamento. Fale com a direção da clínica.";
+    private const string SemAcesso = "A Fila 360 pede a ficha do paciente e o acesso às campanhas ou ao faturamento. Fale com a direção da clínica.";
 
+    private enum Pagina { Painel, Hoje, Conversas, Carteira, Ficha }
+    private Pagina _pagina = Pagina.Hoje;
+    private Pagina _voltarPara = Pagina.Hoje;
+    private int? _fichaId;
+
+    // O que a leitura traz.
     private IReadOnlyList<LinhaAcompanhamento> _todos = [];
-    private List<LinhaAcompanhamento> _linhas = [];
     private IReadOnlyList<OpcaoAcompanhamento> _motivos = [];
     private IReadOnlyList<OpcaoAcompanhamento> _responsaveis = [];
-    private FunilAcompanhamento _funil = new(0, 0, 0, 0, 0, 0, 0, 0);
-    private string _resumo = string.Empty;
-    private int _naFila, _encerrados, _pendentesRecall, _pendentesBsv;
+    private IReadOnlyList<ConversaDaFila> _conversas = [];
+    private bool _conversasFalharam;
+    private ConversaDaFila? _conversaAberta;
+    private int _diasRecall = 60;
+    private string? _nomeClinica;
+    private bool _recallGerado;
     private DateTime? _ultimaLeitura;
 
-    // A Fila 360: a aba (Hoje é a porta de entrada), os grupos do dia, o atalho do risco alto e quem respondeu ao convite.
-    private enum Aba { Hoje, Carteira }
-    private Aba _aba = Aba.Hoje;
+    // O que a tela calcula a cada recorte (tudo na Fila360NaTela).
     private IReadOnlyList<GrupoDaFila> _grupos = [];
-    private IReadOnlySet<int> _responderam = new HashSet<int>();
-    private int _naHoje, _riscoAlto;
-    private bool _soRiscoAlto;
-    private string? _nomeClinica;
-    private int _diasRecall = 60;
-    private bool _recallGerado;
+    private IReadOnlyList<LinhaAcompanhamento> _carteira = [];
+    private NumerosDaFila _numeros = new(0, 0, 0, 0, 0, 0, 0);
+    private (int Feitos, int Total) _progresso;
+    private (IReadOnlyList<CargaDoResponsavel> Responsaveis, IReadOnlyList<EncerramentosPorMotivo> Encerramentos) _equipeNumeros = ([], []);
+    private IReadOnlyList<PontoDaSerie> _voltaram = [];
 
-    /// <summary>As duas filas (a terceira, dos retornos pedidos, saiu com o "Retorno sugerido" em 26/10/2026).</summary>
-    private RenderFragment Filas => __builder =>
-    {
-        <div class="segmentado" role="group" aria-label="Qual fila">
-            <button type="button" aria-pressed="@Bool(_tipo == TipoAcompanhamento.Recall)" @onclick="() => TrocarTipo(TipoAcompanhamento.Recall)"
-                    title="Quem parou de vir — por modalidade">Recall · <b>@_pendentesRecall</b></button>
-            <button type="button" aria-pressed="@Bool(_tipo == TipoAcompanhamento.NovoBsv)" @onclick="() => TrocarTipo(TipoAcompanhamento.NovoBsv)"
-                    title="As indicações de BSV do profissional configurado, até a 1ª sessão">Novos BSV · <b>@_pendentesBsv</b></button>
-        </div>
-    };
-
-    // O recorte: a fila (Recall/BSV), de quem (minha/equipe), a faixa do funil, a busca e "Mais filtros".
-    private TipoAcompanhamento _tipo = TipoAcompanhamento.Recall;
+    // O recorte: de quem, a busca, "Mais filtros" e a visão da Carteira.
     private bool _minha = true;
-    private FaixaAcompanhamento? _faixa;
     private string _busca = string.Empty;
     private FiltroAcompanhamento _extrasFiltro = new(TipoAcompanhamento.Recall, true);
     private FiltroExtraAcompanhamento _extra = FiltroExtraAcompanhamento.Nenhum;
+    private VisaoDaCarteira _visao = VisaoDaCarteira.Todos;
 
     private bool Carregando;
     private bool _carregou;
@@ -258,7 +160,7 @@
     private CanalContato? _canalInicial;
     private bool _maisFiltros, _gerarRecall, _configurar, _equipe;
 
-    private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
+    private static DateOnly HojeData => DateOnly.FromDateTime(DateTime.Today);
     private static int UsuarioId => SessaoUsuario.Atual.UsuarioId;
 
     /// <summary>A permissão do SERVIÇO: a ficha do paciente E (as campanhas OU o faturamento).</summary>
@@ -269,8 +171,9 @@
 
     private int Extras => _extrasFiltro.Extras + _extra.Contagem;
     private bool Filtrada => !string.IsNullOrWhiteSpace(_busca) || Extras > 0;
-
-    private FiltroAcompanhamento FiltroAtual => _extrasFiltro with { Tipo = _tipo, SoMinhaFila = _minha, Faixa = _faixa, Busca = _busca };
+    private FiltroAcompanhamento FiltroAtual => _extrasFiltro with { SoMinhaFila = _minha, Busca = _busca };
+    private int Responderam => _conversas.Count(c => c.Respondeu);
+    private LinhaAcompanhamento? FichaAberta => _fichaId is { } id ? _todos.FirstOrDefault(l => l.Id == id) : null;
 
     protected override Task OnInitializedAsync()
     {
@@ -285,9 +188,7 @@
         return CarregarAsync(silencioso: true);
     }
 
-    /// <summary>
-    /// O "Ver caso" do WhatsApp pede o caso de uma pessoa, que abre DEPOIS da leitura (é ela que traz a linha) — ver <see cref="AbrirCasoPedido"/>.
-    /// </summary>
+    /// <summary>O "Ver caso" do WhatsApp pede o caso de uma pessoa, que abre DEPOIS da leitura (é ela que traz a linha).</summary>
     private void AtenderPedido()
     {
         var pedido = Servicos.GetService<PedidoDoAcompanhamento>();
@@ -295,17 +196,14 @@
         if (pedido.ConsumirCaso() is { } caso) _casoPedido = caso;
     }
 
-    /// <summary>
-    /// Abre a conversa do caso pedido, já na fila do tipo dele. Não passa por cima de formulário aberto
-    /// (pode haver texto digitado); o caso que saiu da fila avisa em vez de abrir nada.
-    /// </summary>
+    /// <summary>Abre a conversa do caso pedido. Não passa por cima de formulário aberto; o caso que saiu da fila avisa.</summary>
     private void AbrirCasoPedido()
     {
         if (_casoPedido is not { } id) return;
         _casoPedido = null;
         if (_todos.FirstOrDefault(x => x.Id == id) is not { } l)
         {
-            Notificacoes.Info("Este caso não está mais na fila do acompanhamento.");
+            Notificacoes.Info("Este caso não está mais na fila.");
             return;
         }
         if (FormularioAberto && _conversa?.Id != id)
@@ -313,9 +211,7 @@
             Notificacoes.Info($"Feche o que está aberto para ver o caso de {l.Paciente}.");
             return;
         }
-        _tipo = l.Tipo;
-        _faixa = null;
-        Refiltrar();
+        AbrirFicha(l);
         if (_conversa?.Id != id) AbrirConversa(l, null);
     }
 
@@ -331,11 +227,9 @@
     private bool FormularioAberto => _conversa is not null || _maisFiltros || _gerarRecall || _configurar || _equipe;
 
     /// <summary>
-    /// A fila, a configuração (motivos e responsáveis), os dias do recall e o nome da clínica —
-    /// SEQUENCIAL no mesmo escopo, com contador de geração e tudo publicado depois do último
-    /// await. Na primeira abertura gera o recall com os dias da CONFIGURAÇÃO (como a tela WPF):
-    /// sem isso, quem sumiu desde ontem só entraria na fila no clique de alguém. Uma vez por dia no
-    /// app: a aba WhatsApp renova a mesma fila ao ler a Retenção (RecallDoDia, 25/10).
+    /// A fila, a configuração, os dias do recall, as conversas da fila e o nome da clínica — SEQUENCIAL no mesmo
+    /// escopo, com contador de geração e tudo publicado depois do último await. Na primeira abertura do dia gera o
+    /// recall (RecallDoDia, dividido com a aba WhatsApp). As conversas são ajuda: sem o CRM, a fila abre igual.
     /// </summary>
     private async Task CarregarAsync(bool silencioso = false)
     {
@@ -351,9 +245,8 @@
             var dias = await parametros.ObterDiasInatividadeRecallAsync();
             if (!_recallGerado)
             {
-                // Uma vez por dia neste app, dividida com a aba WhatsApp (RecallDoDia): é a mesma renovação, e ela não duplica caso.
                 var doDia = sp.GetRequiredService<RecallDoDia>();
-                var hoje = DateOnly.FromDateTime(DateTime.Today);
+                var hoje = HojeData;
                 if (doDia.Reservar(hoje))
                 {
                     try { await servico.GerarRecallAsync(UsuarioId, dias); }
@@ -363,13 +256,13 @@
             }
             var config = await servico.ConfiguracaoAsync(UsuarioId);
             var linhas = await servico.ListarAsync(UsuarioId);
-            // Quem respondeu ao convite (o grupo do topo da aba Hoje) vem das conversas do CRM. É ajuda: sem
-            // o CRM, ou com ele fora do ar, a fila abre igual, sem o grupo, e a falha vai ao log.
-            var responderam = _responderam;
-            try { responderam = await sp.GetRequiredService<WhatsAppDaRecepcaoService>().QueResponderamAsync(linhas.Where(l => l.Pendente).ToList()); }
+            var conversas = _conversas;
+            var conversasFalharam = false;
+            try { conversas = await sp.GetRequiredService<WhatsAppDaRecepcaoService>().ConversasDaFilaAsync(linhas.Where(l => l.Pendente).ToList()); }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                Clinica.Application.Diagnostico.Registrar("Blazor — Fila 360: as respostas do WhatsApp não puderam ser lidas (a fila abre sem o grupo Responderam)", ex);
+                conversasFalharam = true;
+                Clinica.Application.Diagnostico.Registrar("Blazor — Fila 360: as conversas do WhatsApp não puderam ser lidas (a fila abre sem elas)", ex);
             }
             string? nome = _nomeClinica;
             if (nome is null)
@@ -380,7 +273,8 @@
             if (geracao != _geracao || Descartada) return;
 
             _todos = linhas;
-            _responderam = responderam;
+            _conversas = conversas;
+            _conversasFalharam = conversasFalharam;
             _motivos = config.Motivos;
             _responsaveis = config.Responsaveis;
             _diasRecall = dias;
@@ -388,19 +282,18 @@
             _ultimaLeitura = DateTime.Now;
             _naoVerificado = false;
             _carregou = true;
+            if (_conversaAberta is { } aberta) _conversaAberta = _conversas.FirstOrDefault(x => x.Linha.PacienteId == aberta.Linha.PacienteId);
             Refiltrar();
             AbrirCasoPedido();
         }
         catch (Exception ex)
         {
             if (geracao != _geracao) return;
-            Clinica.Application.Diagnostico.Registrar("Blazor — fila de acompanhamento não pôde ser lida", ex);
-            // A releitura de fundo não pinta a tela de erro por cima do que já estava certo.
+            Clinica.Application.Diagnostico.Registrar("Blazor — Fila 360 não pôde ser lida", ex);
             if (silencioso && _carregou) return;
             _naoVerificado = true;
             _erroLeitura = ex.Message;
             _todos = [];
-            _linhas = [];
         }
         finally
         {
@@ -408,47 +301,54 @@
         }
     }
 
+    /// <summary>Recalcula tudo o que a tela mostra sobre o recorte atual (de quem, busca, "Mais filtros", visão).</summary>
     private void Refiltrar()
     {
-        var hoje = Hoje;
-        _linhas = AcompanhamentoNaTela.Filtrar(_todos, FiltroAtual, UsuarioId, hoje).Where(_extra.Aceita)
-            .Where(l => !_soRiscoAlto || Fila360NaTela.Risco(l).Faixa == FaixaDeRisco.Alto).ToList();
-        // A aba Hoje: a mesma fila (tipo, de quem, busca, "Mais filtros"), sem a faixa do funil.
-        _grupos = Fila360NaTela.Hoje(AcompanhamentoNaTela.Filtrar(_todos, FiltroAtual with { Faixa = null }, UsuarioId, hoje).Where(_extra.Aceita), hoje, _responderam);
-        _naHoje = _grupos.Sum(g => g.Linhas.Count);
-        _riscoAlto = Fila360NaTela.RiscoAlto(AcompanhamentoNaTela.Filtrar(_todos, new FiltroAcompanhamento(_tipo, _minha), UsuarioId, hoje));
-        _naFila = AcompanhamentoNaTela.Filtrar(_todos, new FiltroAcompanhamento(_tipo, _minha, _faixa), UsuarioId, hoje).Count;
-        _encerrados = AcompanhamentoNaTela.Filtrar(_todos, new FiltroAcompanhamento(_tipo, _minha, FaixaAcompanhamento.Encerrado), UsuarioId, hoje).Count;
-        _funil = AcompanhamentoNaTela.Funil(_todos, _tipo, _minha, UsuarioId, hoje);
-        _pendentesRecall = AcompanhamentoNaTela.Filtrar(_todos, new FiltroAcompanhamento(TipoAcompanhamento.Recall, _minha), UsuarioId, hoje).Count;
-        _pendentesBsv = AcompanhamentoNaTela.Filtrar(_todos, new FiltroAcompanhamento(TipoAcompanhamento.NovoBsv, _minha), UsuarioId, hoje).Count;
-        _resumo = ConversaDoAcompanhamento.Resumo(_linhas.Count, _naFila, Filtrada);
+        var hoje = HojeData;
+        var doRecorte = new[] { TipoAcompanhamento.Recall, TipoAcompanhamento.NovoBsv }
+            .SelectMany(t => AcompanhamentoNaTela.Filtrar(_todos, FiltroAtual with { Tipo = t, Faixa = null }, UsuarioId, hoje))
+            .Where(_extra.Aceita).ToList();
+        _grupos = Fila360NaTela.Hoje(doRecorte, hoje, _conversas.Where(c => c.Respondeu).Select(c => c.Linha.Id).ToHashSet());
+        _carteira = Fila360NaTela.Carteira(_todos, FiltroAtual, _visao, UsuarioId, hoje).Where(_extra.Aceita).ToList();
+        _numeros = Fila360NaTela.Numeros(_todos, _grupos, _minha, UsuarioId, hoje);
+        _progresso = Fila360NaTela.ProgressoDeHoje(_todos.Where(l => !_minha || AcompanhamentoNaTela.DaMinhaFila(l, UsuarioId)), _grupos, hoje);
+        var daEquipe = _todos.Where(l => !_minha || AcompanhamentoNaTela.DaMinhaFila(l, UsuarioId)).ToList();
+        _equipeNumeros = Fila360NaTela.Equipe(daEquipe, hoje);
+        _voltaram = Fila360NaTela.VoltaramPorMes(daEquipe, hoje)
+            .Select(m => new PontoDaSerie(m.Mes.ToString("MMM", Formato.PtBr).TrimEnd('.'), m.Voltaram)).ToList();
     }
 
-    private void TrocarTipo(TipoAcompanhamento tipo) { _tipo = tipo; _faixa = null; Refiltrar(); }
-    private void TrocarAba(Aba aba) { _aba = aba; Refiltrar(); }
+    // ==================== navegação ====================
 
-    /// <summary>O atalho do risco alto filtra a Carteira (é ela que lista todos os casos).</summary>
-    private void AlternarRiscoAlto() { _soRiscoAlto = !_soRiscoAlto; _aba = Aba.Carteira; Refiltrar(); }
+    private void Ir(Pagina p) { _pagina = p; if (p != Pagina.Ficha) _fichaId = null; }
+    private void AbrirFicha(LinhaAcompanhamento l)
+    {
+        if (_pagina != Pagina.Ficha) _voltarPara = _pagina;
+        _fichaId = l.Id;
+        _pagina = Pagina.Ficha;
+    }
+    private void AbrirConversaDoPaciente(LinhaAcompanhamento l)
+    {
+        _conversaAberta = _conversas.FirstOrDefault(c => c.Linha.PacienteId == l.PacienteId);
+        Ir(Pagina.Conversas);
+    }
+    private static string Rotulo(Pagina p) => p switch
+    {
+        Pagina.Painel => "Painel", Pagina.Conversas => "Conversas", Pagina.Carteira => "Carteira", _ => "Fila de hoje"
+    };
+
     private void TrocarEscopo(bool minha) { _minha = minha; Refiltrar(); }
-
-    /// <summary>O funil é o filtro: clicar escolhe a faixa; clicar de novo limpa.</summary>
-    private void EscolherFaixa(FaixaAcompanhamento faixa) { _faixa = _faixa == faixa ? null : faixa; _aba = Aba.Carteira; Refiltrar(); }
-
+    private void TrocarVisao(VisaoDaCarteira v) { _visao = v; Refiltrar(); }
     private void Buscar(ChangeEventArgs e) { _busca = e.Value?.ToString() ?? string.Empty; Refiltrar(); }
-
     private void LimparFiltros()
     {
-        _faixa = null;
         _busca = string.Empty;
-        _soRiscoAlto = false;
-        _extrasFiltro = new(_tipo, _minha);
+        _visao = VisaoDaCarteira.Todos;
+        _extrasFiltro = new(TipoAcompanhamento.Recall, _minha);
         _extra = FiltroExtraAcompanhamento.Nenhum;
         Refiltrar();
     }
-
     private void AbrirFiltros() => _maisFiltros = true;
-
     private void AplicarFiltros((FiltroAcompanhamento Filtro, FiltroExtraAcompanhamento Extra) escolha)
     {
         _maisFiltros = false;
@@ -457,7 +357,7 @@
         Refiltrar();
     }
 
-    // ==================== o passo da linha ====================
+    // ==================== os atos (as duas barreiras em cada um) ====================
 
     private async Task ExecutarPassoAsync(LinhaAcompanhamento l, PassoAcompanhamento passo)
     {
@@ -468,7 +368,7 @@
             case PassoAcompanhamento.MarcarHorario: await MarcarAsync(l); break;
             case PassoAcompanhamento.AtualizarFicha or PassoAcompanhamento.ColherAutorizacao: await AbrirFichaAsync(l); break;
             case PassoAcompanhamento.ConferirAgenda: await ConferirAgendaAsync(); break;
-            default: AbrirConversa(l, null); break;
+            default: AbrirFicha(l); break;
         }
     }
 
@@ -489,29 +389,25 @@
     }
 
     /// <summary>
-    /// Falar no WhatsApp: confere telefone e autorização NO SERVIÇO, abre a conversa do
-    /// WhatsApp com a mensagem e, em seguida, a conversa do paciente já no "Como foi?".
+    /// Escrever no WhatsApp: confere telefone e autorização NO SERVIÇO e abre a conversa da clínica ao lado, com a
+    /// mensagem pronta (sem conversa ainda, o convite por modelo, que grava o contato no caso e — com o CRM novo —
+    /// leva a conversa para a fila Retenção). Sem a tela nativa, o wa.me e o "Como foi?" daqui.
     /// </summary>
     private async Task WhatsappAsync(LinhaAcompanhamento l)
     {
         if (!Exigir(Permissao.VerFichaPaciente, "contatar o paciente")
             || !ExigirAlgum(Permissao.GerenciarCampanhas | Permissao.VerFaturamento, "contatar o paciente")) return;
-        var abriu = false;
         var conferido = await RecusaOuFalhaAsync(async () =>
         {
             using var escopo = Escopo();
             await escopo.ServiceProvider.GetRequiredService<IAcompanhamentoPacienteService>().ValidarContatoAsync(UsuarioId, l.Id);
         }, "Blazor — contato do acompanhamento não pôde ser conferido");
         if (!conferido) return;
-        // Fase 2 (24/10): com a tela nativa do WhatsApp, a conversa abre AO LADO da fila, com a mensagem
-        // como rascunho (sem conversa ainda, o convite por modelo, que grava o contato no caso ao sair). O
-        // "Como foi?" aparece na conversa quando a pessoa responde; antes, pela linha daqui. Sem a tela
-        // nativa, o wa.me e a conversa daqui, como antes.
         if (await ConversaAoLado.AbrirAsync(Servicos, Host, new PedidoDeConversa(l.Telefone ?? "", l.Paciente, l.PacienteId, AcompanhamentoNaTela.Mensagem(l, _nomeClinica))))
             return;
         var link = PainelPendenciasFaturamento.LinkWhatsApp(l.Telefone, AcompanhamentoNaTela.Mensagem(l, null), _nomeClinica);
         if (link is null) { await Dialogos.AvisoAsync("WhatsApp", PainelPendenciasFaturamento.SemTelefone(l.Paciente)); return; }
-        abriu = await Host.AbrirEnderecoAsync(link);
+        var abriu = await Host.AbrirEnderecoAsync(link);
         if (!abriu)
         {
             var copiou = await Host.CopiarAsync(link);
@@ -543,6 +439,7 @@
             Notificacoes.Erro("A agenda não está disponível neste aplicativo — confira a presença pela Agenda da Recepção.");
     }
 
+    /// <summary>"Registrar como foi": a conversa do paciente (o "Como foi?", o trilho e o histórico).</summary>
     private void AbrirConversa(LinhaAcompanhamento l, CanalContato? canal)
     {
         _canalInicial = canal;
@@ -562,28 +459,23 @@
         await CarregarAsync();
     }
 
-    // ==================== topo ====================
-
     private void AbrirGerarRecall()
     {
         if (Exigir(Permissao.VerFichaPaciente, "gerar o recall") && ExigirAlgum(Permissao.GerenciarCampanhas | Permissao.VerFaturamento, "gerar o recall"))
             _gerarRecall = true;
     }
 
-    /// <summary>
-    /// Depois de gerar, a fila mostra o que a busca achou — como a tela WPF: os filtros se
-    /// limpam e ficam só a modalidade e os dias pedidos, senão o filtro anterior esconderia o recall novo.
-    /// </summary>
+    /// <summary>Depois de gerar, a Carteira mostra o que a busca achou: os filtros se limpam e ficam a modalidade e os dias pedidos.</summary>
     private async Task RecallGeradoAsync((int Novos, int Dias, ModalidadeAtendimento? Modalidade) r)
     {
         _gerarRecall = false;
-        _tipo = TipoAcompanhamento.Recall;
-        _faixa = null;
         _busca = string.Empty;
-        _extrasFiltro = new(_tipo, _minha, Modalidade: r.Modalidade);
+        _visao = VisaoDaCarteira.Todos;
+        _extrasFiltro = new(TipoAcompanhamento.Recall, _minha, Modalidade: r.Modalidade);
         _extra = FiltroExtraAcompanhamento.Nenhum with { DiasMinimos = r.Dias };
+        Ir(Pagina.Carteira);
         await CarregarAsync();
-        Notificacoes.Sucesso($"{_linhas.Count} paciente(s) sem retornar há {r.Dias} dias ou mais na fila · {r.Novos} novo(s) acompanhamento(s).");
+        Notificacoes.Sucesso($"{_carteira.Count} paciente(s) sem retornar há {r.Dias} dias ou mais na Carteira · {r.Novos} novo(s) acompanhamento(s).");
     }
 
     private void AbrirConfigurar()
@@ -605,33 +497,33 @@
     }
 
     /// <summary>
-    /// A lista À VISTA em CSV. Sai nome e TELEFONE de paciente: a segunda barreira é a MESMA da
-    /// tela, e a coluna "Pode receber mensagem" leva o impedimento junto — sem ela a planilha
-    /// viraria lista de disparo para quem não consentiu.
+    /// A Carteira À VISTA em CSV. Sai nome e TELEFONE de paciente: a segunda barreira é a MESMA da tela, e a coluna
+    /// "Pode receber mensagem" leva o impedimento junto — sem ela a planilha viraria lista de disparo.
     /// </summary>
     private async Task ExportarAsync()
     {
-        if (!Exigir(Permissao.VerFichaPaciente, "exportar a lista de acompanhamento")
-            || !ExigirAlgum(Permissao.GerenciarCampanhas | Permissao.VerFaturamento, "exportar a lista de acompanhamento")) return;
-        if (_linhas.Count == 0) { await Dialogos.AvisoAsync("Exportar CSV", "Não há ninguém na lista para exportar."); return; }
+        if (!Exigir(Permissao.VerFichaPaciente, "exportar a Fila 360")
+            || !ExigirAlgum(Permissao.GerenciarCampanhas | Permissao.VerFaturamento, "exportar a Fila 360")) return;
+        if (_carteira.Count == 0) { await Dialogos.AvisoAsync("Exportar CSV", "Não há ninguém na Carteira para exportar."); return; }
+        var hoje = HojeData;
         var cabecalho = new[] { "Paciente", "Telefone", "Convênio", "Modalidade", "Situação", "Próximo contato", "Responsável",
             "Dias", "Tentativas", "Sessões realizadas", "Pacote com saldo", "Pode receber mensagem", "Risco", "Por quê" };
-        var linhas = _linhas.Select(x => (IReadOnlyList<string>)new[]
+        var linhas = _carteira.Select(x =>
         {
-            x.Paciente, x.Telefone ?? "—", x.Convenio, x.ModalidadeTexto, AcompanhamentoNaTela.Selo(x, Hoje).Texto,
-            x.ProximoContato.ToString("dd/MM/yyyy", Formato.PtBr), x.Responsavel, x.Dias.ToString(Formato.PtBr), x.Tentativas.ToString(Formato.PtBr),
-            x.TotalSessoes.ToString(Formato.PtBr), x.PacoteComSaldo ? "sim" : "não", ConversaDoAcompanhamento.PodeReceberMensagem(x),
-            $"{Fila360NaTela.Risco(x).Pontos.ToString(Formato.PtBr)} · {Fila360NaTela.Risco(x).Rotulo}", string.Join(" · ", Fila360NaTela.Risco(x).Motivos.Select(m => m.Texto))
+            var r = Fila360NaTela.Risco(x);
+            return (IReadOnlyList<string>)new[]
+            {
+                x.Paciente, x.Telefone ?? "—", x.Convenio, x.ModalidadeTexto, AcompanhamentoNaTela.Selo(x, hoje).Texto,
+                x.ProximoContato.ToString("dd/MM/yyyy", Formato.PtBr), x.Responsavel, x.Dias.ToString(Formato.PtBr), x.Tentativas.ToString(Formato.PtBr),
+                x.TotalSessoes.ToString(Formato.PtBr), x.PacoteComSaldo ? "sim" : "não", ConversaDoAcompanhamento.PodeReceberMensagem(x),
+                $"{r.Pontos.ToString(Formato.PtBr)} · {r.Rotulo}", string.Join(" · ", r.Motivos.Select(m => m.Texto))
+            };
         }).ToList();
-        var erro = await Host.ExportarCsvAsync(cabecalho, linhas,
-            $"fila-360-{(_tipo == TipoAcompanhamento.Recall ? "recall" : "bsv")}-{DateTime.Today:yyyy-MM-dd}.csv");
+        var erro = await Host.ExportarCsvAsync(cabecalho, linhas, $"fila-360-{DateTime.Today:yyyy-MM-dd}.csv");
         if (erro is not null) Notificacoes.Erro(erro);
     }
 
-    /// <summary>
-    /// Recusa de regra (versão desatualizada, sem telefone, sem autorização) vira a frase do
-    /// serviço numa notificação, sem log — é a tela funcionando. O resto vai ao log.
-    /// </summary>
+    /// <summary>Recusa de regra vira a frase do serviço numa notificação, sem log — é a tela funcionando. O resto vai ao log.</summary>
     private async Task<bool> RecusaOuFalhaAsync(Func<Task> acao, string contexto)
     {
         try { await acao(); return true; }
@@ -649,73 +541,210 @@
 
     // ==================== desenho ====================
 
-    private RenderFragment Faixa(FaixaAcompanhamento faixa, string rotulo, string numero, string nota, string? tom) => @<button type="button"
-        class="acomp-faixa @(tom is null ? null : "tom-" + tom)" aria-pressed="@Bool(_faixa == faixa)" @onclick="() => EscolherFaixa(faixa)"
-        title="@(_faixa == faixa ? "Clique de novo para ver a fila inteira" : $"Mostrar só: {rotulo}")">
-        <span class="acomp-faixa-rotulo">@rotulo</span>
-        <span class="acomp-faixa-numero">@numero</span>
-        <span class="acomp-faixa-nota">@nota</span>
-    </button>;
-
-    /// <summary>
-    /// A célula do risco: a nota, o medidor, a faixa (cor sempre com o texto) e o motivo que mais pesou; todos os
-    /// motivos com os pontos vão no title. Quem decide a nota é a Application (Fila360NaTela.Risco).
-    /// </summary>
-    private RenderFragment Risco(LinhaAcompanhamento l)
+    private RenderFragment Item(Pagina p, string icone, string rotulo, int? numero, bool urgente)
     {
-        var r = Fila360NaTela.Risco(l);
-        var motivos = string.Join(" · ", r.Motivos.Select(m => $"{m.Texto} ({(m.Pontos > 0 ? "+" : "")}{m.Pontos.ToString(Formato.PtBr)})"));
-        return @<span class="f360-risco" title="@(motivos.Length == 0 ? "Sem sinal de risco" : motivos)">
-            <span class="f360-risco-linha">
-                <b class="f360-nota">@r.Pontos.ToString(Formato.PtBr)</b>
-                <span class="f360-medidor tom-@r.Tom" aria-hidden="true"><i style="width:@(r.Pontos.ToString(System.Globalization.CultureInfo.InvariantCulture))%"></i></span>
-                <Selo Tom="@r.Tom">@r.Rotulo</Selo>
-            </span>
-            @if (r.Principal.Length > 0) { <span class="secundario">@r.Principal</span> }
-        </span>;
+        var ativa = _pagina == p || (_pagina == Pagina.Ficha && _voltarPara == p);
+        return @<button type="button" class="f360-item @(ativa ? "ativo" : null)" aria-current="@(ativa ? "page" : null)" @onclick="() => Ir(p)">
+            <Icone Nome="@icone" />@rotulo
+            @if (numero is { } n) { <span class="f360-n @(urgente ? "urgente" : null)">@n.ToString(Formato.PtBr)</span> }
+        </button>;
     }
 
-    /// <summary>A aba Hoje: os grupos da Fila360NaTela.Hoje, cada um com o que fazer, a linha e o botão do passo.</summary>
-    private RenderFragment AbaHoje => __builder =>
+    private RenderFragment DeQuem => @<div class="segmentado" role="group" aria-label="De quem">
+        <button type="button" aria-pressed="@Bool(_minha)" @onclick="() => TrocarEscopo(true)" title="O que é seu e o que ninguém assumiu ainda">Minha fila</button>
+        <button type="button" aria-pressed="@Bool(!_minha)" @onclick="() => TrocarEscopo(false)" title="A fila de toda a equipe">Toda a equipe</button>
+    </div>;
+
+    // ---------- Painel ----------
+    private RenderFragment Painel => __builder =>
     {
-        if (_grupos.Count == 0)
-        {
-            <EstadoVazio Titulo="Nada pede ação hoje" Descricao="Os casos com o próximo contato marcado para outro dia estão na Carteira." Icone="ok" />
-            return;
-        }
-        <div class="f360-hoje">
-            @foreach (var g in _grupos)
-            {
-                <section class="f360-grupo @(g.Grupo == GrupoDeHoje.Responder ? "f360-responderam" : null)" aria-label="@g.Titulo" @key="g.Grupo">
-                    <header class="f360-grupo-cab">
-                        <h3>@g.Titulo <span class="f360-grupo-n">@g.Linhas.Count.ToString(Formato.PtBr)</span></h3>
-                        <p>@g.Dica</p>
-                    </header>
-                    <div class="tabela-rolagem">
-                        <table class="lista acomp-lista f360-lista">
-                            <tbody>
-                                @foreach (var l in g.Linhas)
-                                {
-                                    var passo = AcompanhamentoNaTela.Passo(l);
-                                    <tr @key="l.Id" class="acomp-linha" @onclick="() => AbrirConversa(l, null)" title="Abrir a Ficha 360 de @l.Paciente">
-                                        <td>
-                                            <span class="principal">@l.Paciente</span>
-                                            <span class="secundario">@AcompanhamentoNaTela.Contexto(l) · @ConversaDoAcompanhamento.TempoTexto(l)</span>
-                                        </td>
-                                        <td class="f360-col-risco">@Risco(l)</td>
-                                        <td class="nao-quebra">
-                                            @if (l.ResponsavelId is null) { <span class="texto-secundario">ninguém</span> }
-                                            else { <span class="acomp-dono" title="@l.Responsavel"><span class="avatar acomp-avatar">@ConversaDoAcompanhamento.Iniciais(l.Responsavel)</span>@ConversaDoAcompanhamento.Dono(l, UsuarioId)</span> }
-                                        </td>
-                                        <td class="direita nao-quebra" @onclick:stopPropagation="true"><span class="botoes-linha acomp-acoes">@if (passo is not (PassoAcompanhamento.Contatar or PassoAcompanhamento.TentarDeNovo)) { <BotaoDaConversaAoLado PacienteId="l.PacienteId" Nome="@l.Paciente" Telefone="@l.Telefone" /> }@Botao(l, passo)</span></td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
-            }
+        <CabecalhoPagina Sobretitulo="Relacionamento · Fila 360" Titulo="Painel" Subtitulo="Como está a retenção: quem pode parar, quem voltou e por quê.">
+            @DeQuem
+            <button type="button" class="botao icone" @onclick="() => CarregarAsync()" title="Atualizar (F5)" aria-label="Atualizar"><Icone Nome="atualizar" /></button>
+        </CabecalhoPagina>
+        <section class="kpis f360-kpis">
+            <Kpi Rotulo="Casos abertos" Valor="@_numeros.Abertos.ToString(Formato.PtBr)" Nota="recall e novos no BSV" Icone="pessoas" />
+            <Kpi Rotulo="Risco alto" Valor="@_numeros.RiscoAlto.ToString(Formato.PtBr)" Nota="@($"{_numeros.RiscoMedio.ToString(Formato.PtBr)} com risco médio")" Icone="alerta" Tom="@(_numeros.RiscoAlto > 0 ? "perigo" : "")" />
+            <Kpi Rotulo="Para hoje" Valor="@_numeros.ParaHoje.ToString(Formato.PtBr)" Nota="@($"{_progresso.Feitos.ToString(Formato.PtBr)} feitos hoje")" Icone="lista" />
+            <Kpi Rotulo="Responderam" Valor="@(_conversasFalharam ? "—" : Responderam.ToString(Formato.PtBr))" Nota="@(_conversasFalharam ? "sem ligação com o WhatsApp" : "esperando a clínica")" Icone="chat" Tom="@(Responderam > 0 ? "sucesso" : "")" />
+            <Kpi Rotulo="@($"Voltaram em {AcompanhamentoNaTela.DiasDoPeriodo} dias")" Valor="@_numeros.Voltaram.ToString(Formato.PtBr)"
+                 Nota="@(_numeros.TaxaDeRetorno is { } t ? $"{t}% de {_numeros.Contatados.ToString(Formato.PtBr)} contatados" : "nenhum contato no período")" Icone="coracao" Tom="sucesso" />
+        </section>
+        <div class="f360-g2">
+            <section class="cartao">
+                <header class="cartao-titulo"><h3>Voltaram, mês a mês</h3><span class="texto-secundario pequeno">pacientes da fila que fizeram sessão de novo</span></header>
+                <div class="cartao-corpo"><GraficoLinha Pontos="_voltaram" Tom="sucesso" Descricao="@DescricaoVoltaram" Formatar="@(v => v.ToString("0", Formato.PtBr))" /></div>
+            </section>
+            <section class="cartao">
+                <header class="cartao-titulo"><h3>Hoje</h3></header>
+                <div class="cartao-corpo f360-hoje-resumo">
+                    @if (_grupos.Count == 0) { <p class="texto-secundario">Nada pede ação hoje.</p> }
+                    @foreach (var g in _grupos)
+                    {
+                        <button type="button" class="f360-resumo-linha" @onclick="() => Ir(Pagina.Hoje)"><span class="f360-tipo @Tom(g.Grupo)"><Icone Nome="@IconeDo(g.Grupo)" /></span><b>@g.Titulo</b><span class="f360-resumo-n">@g.Linhas.Count.ToString(Formato.PtBr)</span></button>
+                    }
+                    <button type="button" class="botao primario" @onclick="() => Ir(Pagina.Hoje)">Abrir a fila de hoje <Icone Nome="direita" /></button>
+                </div>
+            </section>
         </div>
+        <div class="f360-g2 iguais">
+            <section class="cartao">
+                <header class="cartao-titulo"><h3>Por que pararam</h3><span class="texto-secundario pequeno">casos encerrados com motivo</span></header>
+                <div class="cartao-corpo">
+                    @if (_equipeNumeros.Encerramentos.Count == 0) { <p class="texto-secundario">Nenhum caso encerrado com motivo ainda.</p> }
+                    else
+                    {
+                        var maior = Math.Max(1, _equipeNumeros.Encerramentos.Max(e => e.Quantidade));
+                        <ul class="f360-barras">
+                            @foreach (var e in _equipeNumeros.Encerramentos)
+                            {
+                                <li title="@($"{e.Motivo}: {e.Quantidade.ToString(Formato.PtBr)}")"><span>@e.Motivo</span><span class="f360-barra"><i style="width:@((100.0 * e.Quantidade / maior).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))%"></i></span><b>@e.Quantidade.ToString(Formato.PtBr)</b></li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </section>
+            <section class="cartao">
+                <header class="cartao-titulo"><h3>Equipe</h3><span class="texto-secundario pequeno">o que cada responsável tem nas mãos</span></header>
+                <div class="tabela-rolagem">
+                    <table class="lista">
+                        <thead><tr><th>Responsável</th><th class="direita">Abertos</th><th class="direita">Atrasados</th><th class="direita">Agendados</th><th class="direita">Voltaram</th></tr></thead>
+                        <tbody>
+                            @foreach (var r in _equipeNumeros.Responsaveis)
+                            {
+                                <tr><td>@(string.IsNullOrWhiteSpace(r.Responsavel) ? "Ninguém (a assumir)" : r.Responsavel)</td><td class="direita">@r.Pendentes.ToString(Formato.PtBr)</td>
+                                    <td class="direita @(r.Atrasados > 0 ? "negativo" : null)">@r.Atrasados.ToString(Formato.PtBr)</td><td class="direita">@r.Agendados.ToString(Formato.PtBr)</td><td class="direita"><b>@r.Voltaram.ToString(Formato.PtBr)</b></td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    };
+
+    private string DescricaoVoltaram => "Pacientes da fila que voltaram, mês a mês: "
+        + string.Join(", ", _voltaram.Select(p => $"{p.Rotulo} {(p.Valor ?? 0).ToString("0", Formato.PtBr)}")) + ".";
+
+    // ---------- Fila de hoje ----------
+    private RenderFragment Hoje => __builder =>
+    {
+        var dia = DateTime.Today.ToString("dddd, d 'de' MMMM", Formato.PtBr);
+        <CabecalhoPagina Sobretitulo="Relacionamento · Fila 360" Titulo="Fila de hoje" Subtitulo="Só o que pede ação hoje, agrupado pela ação, do maior risco para o menor.">
+            @DeQuem
+            <button type="button" class="botao icone" @onclick="() => CarregarAsync()" title="Atualizar (F5)" aria-label="Atualizar"><Icone Nome="atualizar" /></button>
+        </CabecalhoPagina>
+        <section class="cartao f360-progresso">
+            <div><p class="acomp-rotulo">@(char.ToUpper(dia[0]) + dia[1..])</p><b>@_progresso.Feitos.ToString(Formato.PtBr) de @_progresso.Total.ToString(Formato.PtBr) feitos</b></div>
+            <div class="f360-trilho grande"><i style="width:@((_progresso.Total == 0 ? 0 : 100.0 * _progresso.Feitos / _progresso.Total).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))%"></i></div>
+            <span class="texto-secundario">@Fila360NaTela.Resumo(_grupos)@(_ultimaLeitura is { } em ? $" Lista de {em.ToString("HH:mm", Formato.PtBr)}." : "")</span>
+        </section>
+        @if (_grupos.Count == 0)
+        {
+            <section class="cartao"><EstadoVazio Titulo="Nada pede ação hoje" Descricao="Os casos com o próximo contato marcado para outro dia estão na Carteira." Icone="ok" /></section>
+        }
+        @foreach (var g in _grupos)
+        {
+            <section class="f360-grupo" aria-label="@g.Titulo" @key="g.Grupo">
+                <h4>@g.Titulo <span class="f360-grupo-n">@g.Linhas.Count.ToString(Formato.PtBr)</span><span class="f360-grupo-dica">@g.Dica</span></h4>
+                @foreach (var l in g.Linhas)
+                {
+                    var passo = AcompanhamentoNaTela.Passo(l);
+                    var resposta = g.Grupo == GrupoDeHoje.Responder ? _conversas.FirstOrDefault(c => c.Linha.Id == l.Id)?.Conversa.Preview : null;
+                    <div class="f360-tarefa acomp-linha" role="button" tabindex="0" @key="l.Id" title="Abrir a Ficha 360 de @l.Paciente"
+                         @onclick="() => AbrirFicha(l)" @onkeydown="e => TeclaNaTarefa(e, l)">
+                        <span class="f360-tipo @Tom(g.Grupo)"><Icone Nome="@IconeDo(g.Grupo)" /></span>
+                        <span class="f360-tarefa-pac"><span class="avatar acomp-avatar">@ConversaDoAcompanhamento.Iniciais(l.Paciente)</span>
+                            <span class="f360-tarefa-nome"><span class="principal">@l.Paciente</span><span class="secundario">@AcompanhamentoNaTela.Contexto(l)</span></span></span>
+                        <span class="f360-cit">@(resposta is { Length: > 0 } ? $"“{resposta}”" : Fila360NaTela.Risco(l).Principal)</span>
+                        <RiscoNaLinha Linha="l" MostrarMotivo="false" />
+                        <span class="f360-prazo @(l.Atrasado ? "atrasado" : null)"><Icone Nome="relogio" />@(l.Atrasado ? "Atrasado" : l.ProximoContato <= HojeData ? "Hoje" : Formato.Data(l.ProximoContato))</span>
+                        <span class="botoes-linha" @onclick:stopPropagation="true">@Botao(l, passo)</span>
+                    </div>
+                }
+            </section>
+        }
+    };
+
+    // ---------- Conversas ----------
+    private RenderFragment Conversas => __builder =>
+    {
+        <CabecalhoPagina Sobretitulo="Relacionamento · Fila 360" Titulo="Conversas" Subtitulo="A caixa da retenção: as conversas dos pacientes da fila, separadas da recepção.">
+            <button type="button" class="botao icone" @onclick="() => CarregarAsync()" title="Atualizar (F5)" aria-label="Atualizar"><Icone Nome="atualizar" /></button>
+        </CabecalhoPagina>
+        <ConversasDaFila360 Conversas="_conversas" Selecionada="@(_conversaAberta ?? _conversas.FirstOrDefault())" Falhou="_conversasFalharam" UsuarioId="UsuarioId" PodeAcompanhar="PodeAcompanhar"
+                            AoEscolher="c => _conversaAberta = c" AoAbrirFicha="AbrirFicha" AoRegistrar="l => AbrirConversa(l, CanalContato.WhatsApp)" />
+    };
+
+    // ---------- Carteira ----------
+    private RenderFragment Carteira => __builder =>
+    {
+        <CabecalhoPagina Sobretitulo="Relacionamento · Fila 360" Titulo="Carteira de pacientes" Subtitulo="Todos os casos, com o risco e o porquê.">
+            <button type="button" class="botao" disabled="@(!PodeAcompanhar)" @onclick="ExportarAsync" title="A lista à vista, com quem pode receber mensagem e o risco (Ctrl+P)"><Icone Nome="baixar" />Exportar CSV</button>
+            <button type="button" class="botao icone" @onclick="() => CarregarAsync()" title="Atualizar (F5)" aria-label="Atualizar"><Icone Nome="atualizar" /></button>
+        </CabecalhoPagina>
+        <section class="cartao lista-cartao">
+            <div class="filtros f360-barra">
+                <div class="f360-visoes" role="group" aria-label="Visão">
+                    @Visao(VisaoDaCarteira.Todos, "Todos em tratamento")
+                    @Visao(VisaoDaCarteira.RiscoAlto, "Risco alto")
+                    @Visao(VisaoDaCarteira.NovosBsv, "Novos no BSV")
+                    @Visao(VisaoDaCarteira.SemAutorizacao, "Sem autorização de mensagem")
+                    @Visao(VisaoDaCarteira.Encerrados, "Encerrados")
+                </div>
+                @DeQuem
+                <label class="busca f360-busca"><Icone Nome="busca" />
+                    <input class="campo" type="search" placeholder="Nome, telefone ou convênio" aria-label="Buscar por nome, telefone ou convênio" value="@_busca" @oninput="Buscar" /></label>
+                <button type="button" class="botao @(Extras > 0 ? "acomp-com-filtro" : null)" @onclick="AbrirFiltros" title="Modalidade, convênio, profissional, responsável, motivo, tentativas, último contato, dias sem vir…">
+                    <Icone Nome="filtro" />Mais filtros@(Extras > 0 ? $" ({Extras})" : "")</button>
+                @if (Filtrada || _visao != VisaoDaCarteira.Todos) { <button type="button" class="botao fantasma mini" @onclick="LimparFiltros">Limpar filtros</button> }
+            </div>
+            @if (_visao == VisaoDaCarteira.SemAutorizacao)
+            {
+                <p class="f360-explica">Estes pacientes não autorizaram mensagens (ou estão sem telefone), e a lei não deixa escrever para eles. A recepção pede a autorização na próxima visita ao balcão; registrada na ficha, o paciente volta a receber pela Fila 360.</p>
+            }
+            @if (_carteira.Count == 0)
+            {
+                <EstadoVazio Titulo="Ninguém nesta visão" Descricao="@(Filtrada ? "Há pacientes na fila, mas nenhum com este recorte. Limpe os filtros para ver todos." : "Nenhum caso aqui agora.")" Icone="@(Filtrada ? "filtro" : "ok")" />
+            }
+            else
+            {
+                <div class="tabela-rolagem">
+                    <table class="lista acomp-lista f360-carteira">
+                        <thead><tr><th>Paciente</th><th>Risco</th><th>Por quê</th><th class="direita">@(_visao == VisaoDaCarteira.NovosBsv ? "Indicado há" : "Sem vir")</th><th>Situação</th><th class="direita">Próxima ação</th></tr></thead>
+                        <tbody>
+                            @foreach (var l in _carteira)
+                            {
+                                var passo = AcompanhamentoNaTela.Passo(l);
+                                var (selo, tom) = AcompanhamentoNaTela.Selo(l, HojeData);
+                                var risco = Fila360NaTela.Risco(l);
+                                <tr @key="l.Id" class="acomp-linha" @onclick="() => AbrirFicha(l)" title="Abrir a Ficha 360 de @l.Paciente">
+                                    <td><span class="principal">@l.Paciente</span><span class="secundario">@AcompanhamentoNaTela.Contexto(l) · @ConversaDoAcompanhamento.Dono(l, UsuarioId)</span></td>
+                                    <td class="nao-quebra"><RiscoNaLinha Linha="l" MostrarMotivo="false" /></td>
+                                    <td><span class="f360-sinais">@foreach (var m in risco.Motivos.Where(m => m.Pontos > 0).Take(3)) { <Selo Tom="@(m.Pontos >= 15 ? "perigo" : "aviso")">@m.Texto</Selo> }</span></td>
+                                    <td class="direita nao-quebra">@ConversaDoAcompanhamento.TempoTexto(l)</td>
+                                    <td><Selo Tom="@(string.IsNullOrEmpty(tom) ? "neutro" : tom)">@selo</Selo></td>
+                                    <td class="direita nao-quebra" @onclick:stopPropagation="true"><span class="botoes-linha acomp-acoes">@if (passo is not (PassoAcompanhamento.Contatar or PassoAcompanhamento.TentarDeNovo)) { <BotaoDaConversaAoLado PacienteId="l.PacienteId" Nome="@l.Paciente" Telefone="@l.Telefone" /> }@Botao(l, passo)</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <p class="rodape-lista">@($"{_carteira.Count.ToString(Formato.PtBr)} {(_carteira.Count == 1 ? "paciente" : "pacientes")}") · o risco é a soma dos sinais de cada paciente (passe o mouse para ver os pontos).</p>
+            }
+        </section>
+    };
+
+    private RenderFragment Visao(VisaoDaCarteira v, string rotulo) => @<button type="button" class="botao mini @(_visao == v ? "primario" : null)" aria-pressed="@Bool(_visao == v)" @onclick="() => TrocarVisao(v)">@rotulo</button>;
+
+    private static string IconeDo(GrupoDeHoje g) => g switch
+    {
+        GrupoDeHoje.Responder => "check", GrupoDeHoje.Pegar => "pessoa", GrupoDeHoje.Mensagem => "mensagem", GrupoDeHoje.Marcar => "calendario",
+        GrupoDeHoje.Plano => "historico", GrupoDeHoje.Agenda => "calendario", _ => "cadeado"
+    };
+
+    private static string Tom(GrupoDeHoje g) => g switch
+    {
+        GrupoDeHoje.Responder => "tom-info", GrupoDeHoje.Mensagem => "tom-sucesso", GrupoDeHoje.Marcar => "tom-info", GrupoDeHoje.Balcao => "tom-neutro", _ => "tom-aviso"
     };
 
     private RenderFragment Botao(LinhaAcompanhamento l, PassoAcompanhamento passo)
@@ -724,17 +753,20 @@
         var (classe, icone, pode, dica) = passo switch
         {
             PassoAcompanhamento.Assumir => ("primario", "pessoa", PodeAcompanhar, "Pegar este paciente para você"),
-            PassoAcompanhamento.Contatar or PassoAcompanhamento.TentarDeNovo => ("acomp-whats", "enviar", PodeAcompanhar, "Abrir o WhatsApp com a mensagem e, em seguida, registrar como foi"),
+            PassoAcompanhamento.Contatar or PassoAcompanhamento.TentarDeNovo => ("acomp-whats", "enviar", PodeAcompanhar, "Abrir o WhatsApp da clínica com a mensagem pronta"),
             PassoAcompanhamento.MarcarHorario => ("primario", "calendario", Pode(Permissao.EditarAgenda),
                 Pode(Permissao.EditarAgenda) ? "Abrir a marcação já com o paciente" : "A marcação exige acesso à agenda da recepção."),
             PassoAcompanhamento.AtualizarFicha => ("", "editar", Pode(Permissao.VerFichaPaciente), "Sem telefone no cadastro — abrir a ficha"),
             PassoAcompanhamento.ColherAutorizacao => ("", "cadeado", Pode(Permissao.VerFichaPaciente), "A mensagem não está autorizada — ver na ficha"),
             PassoAcompanhamento.ConferirAgenda => ("", "calendario", true, "Ver na agenda se a sessão passada aconteceu"),
             PassoAcompanhamento.AcompanharPlano => ("", "historico", PodeAcompanhar, "Registrar a resposta do plano"),
-            _ => ("", "abrir", true, "Abrir a conversa e o histórico")
+            _ => ("", "abrir", true, "Abrir a Ficha 360")
         };
         return @<button type="button" class="botao mini @classe" disabled="@(!pode)" title="@dica" @onclick="() => ExecutarPassoAsync(l, passo)"><Icone Nome="@icone" />@rotulo</button>;
     }
+
+    /// <summary>A linha da tarefa é um botão para o teclado também: Enter e espaço abrem a Ficha 360.</summary>
+    private void TeclaNaTarefa(KeyboardEventArgs e, LinhaAcompanhamento l) { if (e.Key is "Enter" or " ") AbrirFicha(l); }
 
     private static string Bool(bool v) => v ? "true" : "false";
 }

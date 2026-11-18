@@ -259,10 +259,17 @@ public sealed partial class WhatsAppDaRecepcaoService(
     /// Sem o CRM configurado, vazio. A falha do CRM chega a quem chamou: a Fila 360 abre sem o grupo e registra no log.
     /// </summary>
     public async Task<IReadOnlySet<int>> QueResponderamAsync(IReadOnlyList<LinhaAcompanhamento> linhas, CancellationToken ct = default)
+        => (await ConversasDaFilaAsync(linhas, ct)).Where(c => c.Respondeu).Select(c => c.Linha.Id).ToHashSet();
+
+    /// <summary>
+    /// As conversas dos casos abertos da Fila 360 (a página Conversas e o grupo "Responderam"), numa leitura só do
+    /// CRM. Sem o CRM configurado, vazio; a falha do CRM chega a quem chamou (a Fila 360 segue sem elas e registra).
+    /// </summary>
+    public async Task<IReadOnlyList<ConversaDaFila>> ConversasDaFilaAsync(IReadOnlyList<LinhaAcompanhamento> linhas, CancellationToken ct = default)
     {
-        if (linhas.Count == 0 || !await crm.ConfiguradoAsync(ct)) return new HashSet<int>();
+        if (linhas.Count == 0 || !await crm.ConfiguradoAsync(ct)) return [];
         var conversas = await crm.ListarConversasAsync(UsuarioId, ct);
-        return Fila360NaTela.QueResponderam(linhas, ConversasNaTela.UltimaRecebidaPorPaciente(conversas), Agora);
+        return Fila360NaTela.ConversasDaFila(linhas, conversas, Agora);
     }
 
     private async Task<(IReadOnlyList<LinhaAcompanhamento> Linhas, bool Permitida)> RetencaoAsync(int dias, DateOnly hoje, CancellationToken ct)

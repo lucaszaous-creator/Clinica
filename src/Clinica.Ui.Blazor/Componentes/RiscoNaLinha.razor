@@ -1,0 +1,29 @@
+@*
+  O risco de um paciente numa linha da Fila 360 (nov/2026): a nota, o medidor, a faixa (a cor vem
+  SEMPRE com o texto) e o motivo que mais pesou; todos os motivos, com os pontos, vão no title.
+  Quem decide a nota é a Application (Fila360NaTela.Risco), não este componente.
+*@
+@using Clinica.Application.Abstracoes
+@using Clinica.Application.Servicos
+
+<span class="f360-risco" title="@Dica">
+    <span class="f360-risco-linha">
+        <b class="f360-nota">@_risco.Pontos.ToString(Formato.PtBr)</b>
+        <span class="f360-medidor tom-@_risco.Tom" aria-hidden="true"><i style="width:@(_risco.Pontos.ToString(System.Globalization.CultureInfo.InvariantCulture))%"></i></span>
+        <Selo Tom="@_risco.Tom">@_risco.Rotulo</Selo>
+    </span>
+    @if (MostrarMotivo && _risco.Principal.Length > 0) { <span class="secundario">@_risco.Principal</span> }
+</span>
+
+@code {
+    [Parameter, EditorRequired] public LinhaAcompanhamento Linha { get; set; } = default!;
+    /// <summary>Sem o motivo embaixo (a Carteira já tem a coluna "Por quê").</summary>
+    [Parameter] public bool MostrarMotivo { get; set; } = true;
+
+    private RiscoDoPaciente _risco = new(0, FaixaDeRisco.Baixo, []);
+
+    protected override void OnParametersSet() => _risco = Fila360NaTela.Risco(Linha);
+
+    private string Dica => _risco.Motivos.Count == 0 ? "Sem sinal de risco"
+        : string.Join(" · ", _risco.Motivos.Select(m => $"{m.Texto} ({(m.Pontos > 0 ? "+" : "")}{m.Pontos.ToString(Formato.PtBr)})"));
+}

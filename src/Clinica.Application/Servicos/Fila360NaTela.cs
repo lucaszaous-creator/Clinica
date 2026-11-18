@@ -1,5 +1,6 @@
 using System.Globalization;
 using Clinica.Application.Abstracoes;
+using Clinica.Crm.Contracts;
 using Clinica.Domain.Entities;
 
 namespace Clinica.Application.Servicos;
@@ -19,6 +20,25 @@ public sealed record RiscoDoPaciente(int Pontos, FaixaDeRisco Faixa, IReadOnlyLi
     /// <summary>O motivo que mais pesou, para a linha da lista ("" sem motivo).</summary>
     public string Principal => Motivos.FirstOrDefault(m => m.Pontos > 0)?.Texto ?? "";
 }
+
+/// <summary>O que aconteceu num horário da jornada.</summary>
+public enum TipoNaJornada { Realizada, Falta, Marcada }
+
+/// <summary>Uma marca no desenho da jornada da Ficha 360.</summary>
+public sealed record MarcaNaJornada(DateTime Quando, TipoNaJornada Tipo);
+
+/// <summary>Uma conversa da página Conversas: o caso aberto, a conversa da ficha dele e se ele respondeu ao convite.</summary>
+public sealed record ConversaDaFila(LinhaAcompanhamento Linha, AppConversationSummary Conversa, bool Respondeu);
+
+/// <summary>Os números do Painel da Fila 360, sobre as duas filas juntas (Recall e Novos BSV).</summary>
+public sealed record NumerosDaFila(int Abertos, int RiscoAlto, int RiscoMedio, int ParaHoje, int Voltaram, int Contatados, int VoltaramDosContatados)
+{
+    /// <summary>Dos contatados no período, quantos voltaram — nulo sem base (0% e "não medido" são coisas diferentes).</summary>
+    public int? TaxaDeRetorno => Contatados == 0 ? null : (int)Math.Round(100.0 * VoltaramDosContatados / Contatados);
+}
+
+/// <summary>As visões da Carteira (os botões de cima).</summary>
+public enum VisaoDaCarteira { Todos, RiscoAlto, NovosBsv, SemAutorizacao, Encerrados }
 
 /// <summary>Os grupos da aba "Hoje", na ordem em que o trabalho é feito.</summary>
 public enum GrupoDeHoje { Responder, Pegar, Mensagem, Marcar, Plano, Agenda, Balcao }
@@ -144,6 +164,141 @@ public static class Fila360NaTela
         IReadOnlyDictionary<int, DateTimeOffset> ultimaRecebidaPorPaciente, DateTimeOffset agora)
         => linhas.Where(l => RetencaoNaTela.Respondeu(l, ultimaRecebidaPorPaciente.TryGetValue(l.PacienteId, out var u) ? u : null, agora))
             .Select(l => l.Id).ToHashSet();
+
+    // ---------------------------------------------------------------- a jornada da Ficha 360
+
+    /// <summary>Quantos meses a jornada desenha.</summary>
+    public const int MesesDaJornada = 6;
+
+    /// <summary>
+    /// A jornada do paciente nos últimos meses: as sessões realizadas, as faltas e o que está marcado. Cancelado
+    /// e substituído não entram (não são presença nem ausência); horário passado ainda "Agendado" também não —
+    /// é o "conferir comparecimento", que a fila já mostra.
+    /// </summary>
+    public static IReadOnlyList<MarcaNaJornada> Jornada(IEnumerable<SessaoDaJornada> horarios, DateTime agora)
+        => horarios.Select(h => h.Status switch
+            {
+                StatusAgendamento.Realizado => new MarcaNaJornada(h.Quando, TipoNaJornada.Realizada),
+                StatusAgendamento.Faltou => new MarcaNaJornada(h.Quando, TipoNaJornada.Falta),
+                StatusAgendamento.Agendado when h.Quando >= agora => new MarcaNaJornada(h.Quando, TipoNaJornada.Marcada),
+                _ => null
+            })
+            .OfType<MarcaNaJornada>().OrderBy(m => m.Quando).ToList();
+
+    /// <summary>A frase da jornada, para quem não vê o desenho (leitor de tela) e para o title.</summary>
+    public static string ResumoDaJornada(IReadOnlyList<MarcaNaJornada> marcas)
+    {
+        if (marcas.Count == 0) return "Nenhum horário nos últimos meses.";
+        int Conta(TipoNaJornada t) => marcas.Count(m => m.Tipo == t);
+        var partes = new List<string>();
+        var r = Conta(TipoNaJornada.Realizada);
+        var f = Conta(TipoNaJornada.Falta);
+        var m = Conta(TipoNaJornada.Marcada);
+        if (r > 0) partes.Add(r == 1 ? "1 sessão realizada" : $"{r.ToString(PtBr)} sessões realizadas");
+        if (f > 0) partes.Add(f == 1 ? "1 falta" : $"{f.ToString(PtBr)} faltas");
+        if (m > 0) partes.Add(m == 1 ? "1 horário marcado" : $"{m.ToString(PtBr)} horários marcados");
+        return string.Join(" · ", partes) + ".";
+    }
+
+    // ---------------------------------------------------------------- o Painel
+
+    /// <summary>
+    /// Quantos voltaram em cada um dos últimos <paramref name="meses"/> meses (o mês corrente por último), pela
+    /// data em que o caso viu a sessão realizada (<see cref="LinhaAcompanhamento.VoltouEm"/>). Mês sem ninguém
+    /// aparece com zero: buraco no gráfico é dado, não falha.
+    /// </summary>
+    public static IReadOnlyList<(DateOnly Mes, int Voltaram)> VoltaramPorMes(IEnumerable<LinhaAcompanhamento> linhas, DateOnly hoje, int meses = 6)
+    {
+        var inicio = new DateOnly(hoje.Year, hoje.Month, 1).AddMonths(-(meses - 1));
+        var voltas = linhas.Where(l => l.VoltouEm is { } v && v >= inicio && v <= hoje).Select(l => l.VoltouEm!.Value).ToList();
+        return Enumerable.Range(0, meses).Select(i => inicio.AddMonths(i))
+            .Select(mes => (mes, voltas.Count(v => v.Year == mes.Year && v.Month == mes.Month))).ToList();
+    }
+
+    // ---------------------------------------------------------------- as conversas e o progresso do dia
+
+    /// <summary>
+    /// A página Conversas: a conversa da FICHA de cada caso aberto (a mais recente, se houver mais de uma), quem
+    /// respondeu primeiro e depois a conversa mais recente. Conversa sem ficha conferida não entra — o telefone
+    /// não é identidade (regra 4 da tela): quem confere a ficha é a recepção, na conversa. Um paciente com dois
+    /// casos aparece uma vez, pelo caso de maior risco.
+    /// </summary>
+    public static IReadOnlyList<ConversaDaFila> ConversasDaFila(IEnumerable<LinhaAcompanhamento> linhas,
+        IEnumerable<AppConversationSummary> conversas, DateTimeOffset agora)
+    {
+        var lista = conversas.ToList();
+        var porPaciente = lista.Where(c => c.PatientId is not null).GroupBy(c => c.PatientId!.Value)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(c => c.UpdatedAt).First());
+        var ultimas = ConversasNaTela.UltimaRecebidaPorPaciente(lista);
+        return linhas.Where(l => l.Pendente && porPaciente.ContainsKey(l.PacienteId))
+            .GroupBy(l => l.PacienteId).Select(g => g.OrderByDescending(l => Risco(l).Pontos).First())
+            .Select(l => new ConversaDaFila(l, porPaciente[l.PacienteId],
+                RetencaoNaTela.Respondeu(l, ultimas.TryGetValue(l.PacienteId, out var u) ? u : null, agora)))
+            .OrderByDescending(x => x.Respondeu).ThenByDescending(x => x.Conversa.UpdatedAt).ToList();
+    }
+
+    /// <summary>Quantos casos tiveram contato registrado hoje — o "feitos" do progresso da Fila de hoje.</summary>
+    public static int FeitosHoje(IEnumerable<LinhaAcompanhamento> linhas, DateOnly hoje)
+        => linhas.Count(l => l.UltimoContato is { } u && DateOnly.FromDateTime(u) == hoje);
+
+    /// <summary>"3 de 12 feitos" — o que já foi feito hoje sobre o que foi feito mais o que ainda pede ação.</summary>
+    public static (int Feitos, int Total) ProgressoDeHoje(IEnumerable<LinhaAcompanhamento> linhas, IReadOnlyList<GrupoDaFila> grupos, DateOnly hoje)
+    {
+        var naFila = grupos.SelectMany(g => g.Linhas).Select(l => l.Id).ToHashSet();
+        var feitos = linhas.Count(l => !naFila.Contains(l.Id) && l.UltimoContato is { } u && DateOnly.FromDateTime(u) == hoje);
+        return (feitos, feitos + naFila.Count);
+    }
+
+    // ---------------------------------------------------------------- Painel e Carteira (as duas filas juntas)
+
+    /// <summary>Os números do topo do Painel, sobre as duas filas e o escopo pedido (minha fila ou a equipe).</summary>
+    public static NumerosDaFila Numeros(IEnumerable<LinhaAcompanhamento> linhas, IReadOnlyList<GrupoDaFila> hoje, bool soMinhaFila, int usuarioId, DateOnly dia)
+    {
+        var lista = linhas.Where(l => !soMinhaFila || AcompanhamentoNaTela.DaMinhaFila(l, usuarioId)).ToList();
+        var abertos = lista.Where(l => l.Pendente).ToList();
+        var funis = new[] { TipoAcompanhamento.Recall, TipoAcompanhamento.NovoBsv }
+            .Select(t => AcompanhamentoNaTela.Funil(lista, t, false, usuarioId, dia)).ToList();
+        return new(abertos.Count, abertos.Count(l => Risco(l).Faixa == FaixaDeRisco.Alto), abertos.Count(l => Risco(l).Faixa == FaixaDeRisco.Medio),
+            hoje.Sum(g => g.Linhas.Count), funis.Sum(f => f.Voltaram), funis.Sum(f => f.ContatadosNoPeriodo), funis.Sum(f => f.VoltaramDosContatados));
+    }
+
+    /// <summary>A equipe e os motivos de encerramento, sobre as duas filas (a mesma conta da visão por responsável).</summary>
+    public static (IReadOnlyList<CargaDoResponsavel> Responsaveis, IReadOnlyList<EncerramentosPorMotivo> Encerramentos) Equipe(
+        IEnumerable<LinhaAcompanhamento> linhas, DateOnly hoje)
+    {
+        var partes = new[] { TipoAcompanhamento.Recall, TipoAcompanhamento.NovoBsv }
+            .Select(t => ConversaDoAcompanhamento.VisaoDaEquipe(linhas, t, hoje)).ToList();
+        var responsaveis = partes.SelectMany(p => p.Responsaveis).GroupBy(r => r.Responsavel)
+            .Select(g => new CargaDoResponsavel(g.Key, g.Sum(x => x.Pendentes), g.Sum(x => x.Atrasados), g.Sum(x => x.Agendados), g.Sum(x => x.Voltaram)))
+            .OrderByDescending(c => c.Pendentes).ThenBy(c => c.Responsavel, StringComparer.CurrentCultureIgnoreCase).ToList();
+        var encerramentos = partes.SelectMany(p => p.Encerramentos).GroupBy(e => e.Motivo)
+            .Select(g => new EncerramentosPorMotivo(g.Key, g.Sum(x => x.Quantidade)))
+            .OrderByDescending(e => e.Quantidade).ThenBy(e => e.Motivo, StringComparer.CurrentCultureIgnoreCase).ToList();
+        return (responsaveis, encerramentos);
+    }
+
+    /// <summary>
+    /// A Carteira: as duas filas pela regra de sempre (<see cref="AcompanhamentoNaTela.Filtrar"/> — busca, "Mais filtros",
+    /// minha fila), recortadas pela visão. "Todos" e as outras visões são os casos ABERTOS; "Encerrados", os fechados com motivo.
+    /// Do maior risco para o menor; empate, pela ordem de trabalho de sempre.
+    /// </summary>
+    public static IReadOnlyList<LinhaAcompanhamento> Carteira(IEnumerable<LinhaAcompanhamento> linhas, FiltroAcompanhamento filtro,
+        VisaoDaCarteira visao, int usuarioId, DateOnly hoje)
+    {
+        var faixa = visao == VisaoDaCarteira.Encerrados ? FaixaAcompanhamento.Encerrado : (FaixaAcompanhamento?)null;
+        var tipos = visao == VisaoDaCarteira.NovosBsv ? new[] { TipoAcompanhamento.NovoBsv } : new[] { TipoAcompanhamento.Recall, TipoAcompanhamento.NovoBsv };
+        var lista = linhas.ToList();
+        var ordem = 0;
+        return tipos.SelectMany(t => AcompanhamentoNaTela.Filtrar(lista, filtro with { Tipo = t, Faixa = faixa }, usuarioId, hoje))
+            .Where(l => visao switch
+            {
+                VisaoDaCarteira.RiscoAlto => Risco(l).Faixa == FaixaDeRisco.Alto,
+                VisaoDaCarteira.SemAutorizacao => string.IsNullOrWhiteSpace(l.Telefone) || !l.Consentimento,
+                _ => true
+            })
+            .Select(l => (Linha: l, Ordem: ordem++))
+            .OrderByDescending(x => Risco(x.Linha).Pontos).ThenBy(x => x.Ordem).Select(x => x.Linha).ToList();
+    }
 
     /// <summary>Quantos casos abertos estão com risco alto (o atalho do topo).</summary>
     public static int RiscoAlto(IEnumerable<LinhaAcompanhamento> linhas) => linhas.Count(l => Risco(l).Faixa == FaixaDeRisco.Alto);
