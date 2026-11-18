@@ -144,7 +144,8 @@ public class ConformidadeProntuarioTests : IDisposable
             // DE NOMES, e um método novo que ela não conhece a faria responder "está limpo"
             // — o ponto cego que a parcela 60 pagou caro para descobrir.
             "RemoverEvolucaoEnfermagemAsync",
-            "RemoverResultadoExameAsync"
+            "RemoverResultadoExameAsync",
+            "RemoverEscutaAsync", "RemoverEscutaPosSessaoAsync"
         };
 
         var metodos = typeof(Clinica.Application.Abstracoes.IClinicaRepositorio)
@@ -153,6 +154,27 @@ public class ConformidadeProntuarioTests : IDisposable
         metodos.Should().NotIntersectWith(proibidos,
             "registro clínico se CANCELA com motivo; enquanto o método existir, "
             + "alguma tela futura vai chamá-lo");
+
+        // A Escuta pós-sessão (nov/2026) tem serviço próprio: ele cancela, nunca apaga nem edita.
+        typeof(Clinica.Application.Abstracoes.IEscutaPosSessaoService).GetMethods().Select(m => m.Name)
+            .Should().NotContain(n => n.StartsWith("Remover") || n.StartsWith("Excluir") || n.StartsWith("Apagar") || n.StartsWith("Editar") || n.StartsWith("Alterar"));
+    }
+
+    [Fact]
+    public async Task Excluir_paciente_cuja_unica_raiz_e_a_escuta_pos_sessao_e_RECUSADO()
+    {
+        // A raiz nova entra em PacienteTemRegistroClinicoAsync no MESMO commit (a lição da parcela 75).
+        var pacienteId = await CriarPacienteAsync();
+        _db.EscutasPosSessao.Add(new EscutaPosSessao
+        {
+            PacienteId = pacienteId, AtendimentoId = 999, SessaoEm = Dia, Modalidade = ModalidadeAtendimento.AcupunturaSimples,
+            Motivo = MotivoDaEscuta.PrimeiraSessao, Como = ComoEstaPaciente.Melhor, Canal = CanalContato.WhatsApp,
+            RegistradoEm = new DateTime(2026, 11, 18, 10, 0, 0), RegistradoPor = "patrycia"
+        });
+        await _db.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => new PacienteService(_repo).RemoverAsync(pacienteId));
+        (await _db.EscutasPosSessao.AnyAsync(e => e.PacienteId == pacienteId)).Should().BeTrue();
     }
 
     [Fact]

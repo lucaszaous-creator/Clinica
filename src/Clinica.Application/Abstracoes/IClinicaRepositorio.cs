@@ -684,6 +684,13 @@ public interface IClinicaRepositorio
     Task AdicionarResultadoExameAsync(ResultadoExame resultado, CancellationToken ct = default);
 
     /// <summary>
+    /// As escutas pós-sessão do paciente (nov/2026), canceladas incluídas e marcadas, da sessão mais recente para a
+    /// mais antiga — o que a exportação, a guarda e o documento do titular leem. Dado de saúde: quem chama já exigiu
+    /// <c>VerProntuario</c>.
+    /// </summary>
+    Task<IReadOnlyList<EscutaPosSessao>> EscutasDoPacienteAsync(int pacienteId, CancellationToken ct = default);
+
+    /// <summary>
     /// Guarda os BYTES do laudo do resultado (tabela 1:1, o padrão do retrato do
     /// paciente). Separado do resultado de propósito: a lista de resultados é lida a
     /// cada abertura de tela e não pode arrastar os PDFs (a lição da parcela 74).

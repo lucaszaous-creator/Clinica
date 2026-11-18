@@ -15,7 +15,7 @@ public sealed class AcompanhamentoPacienteService(ClinicaDbContext db, IClinicaR
     private static DateTime Agora => DateTime.SpecifyKind(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,
         TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo")), DateTimeKind.Unspecified);
     private static DateOnly Hoje => DateOnly.FromDateTime(Agora);
-    private static bool PodeAcompanhar(UsuarioSistema u) => u.Pode(Permissao.VerFichaPaciente)
+    internal static bool PodeAcompanhar(UsuarioSistema u) => u.Pode(Permissao.VerFichaPaciente)
         && (u.Pode(Permissao.GerenciarCampanhas) || u.Pode(Permissao.VerFaturamento));
 
     private Task<UsuarioSistema> Usuario(int id, Permissao permissao, CancellationToken ct)
