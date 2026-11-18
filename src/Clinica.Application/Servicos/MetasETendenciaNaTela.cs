@@ -55,6 +55,7 @@ public static class MetasNaTela
     {
         IndicadorMeta.Faturamento => valor.ToString("C", PtBr),
         IndicadorMeta.Ocupacao => valor.ToString("0.#", PtBr) + "%",
+        IndicadorMeta.Retornos => valor.ToString("0", PtBr) + (valor == 1 ? " paciente" : " pacientes"),
         _ => valor.ToString("0.#", PtBr) + (valor == 1 ? " sessão" : " sessões")
     };
 
@@ -62,6 +63,7 @@ public static class MetasNaTela
     public static string Recorte(IndicadorMeta indicador, string? modalidadeCodigo, string? especialidadeCodigo)
     {
         if (indicador == IndicadorMeta.Ocupacao) return "Agenda inteira";
+        if (indicador == IndicadorMeta.Retornos) return "Clínica inteira";
         var seg = MetaService.DescreverSegmento(modalidadeCodigo, especialidadeCodigo).TrimStart(' ', '·').Trim();
         return seg.Length > 0 ? seg : "Todas as modalidades";
     }
@@ -92,6 +94,11 @@ public static class MetasNaTela
         if (indicador == IndicadorMeta.Ocupacao && valor > 100)
         {
             erro = "Ocupação é percentual: o máximo é 100.";
+            return false;
+        }
+        if (indicador == IndicadorMeta.Retornos && valor != decimal.Truncate(valor))
+        {
+            erro = "Use um número inteiro de pacientes.";
             return false;
         }
         return true;

@@ -108,6 +108,11 @@
 {
     <ConfigurarAcompanhamentoForm AoFechar="() => _configurar = false" AoConcluir="ConfiguradoAsync" />
 }
+@if (_metaAberta)
+{
+    @* A MESMA porta das Metas da clínica (MetaForm + MetaService), já no indicador da retenção. *@
+    <MetaForm Ano="HojeData.Year" Mes="HojeData.Month" Indicador="IndicadorMeta.Retornos" AoFechar="() => _metaAberta = false" AoConcluir="MetaDefinidaAsync" />
+}
 @if (_equipe)
 {
     <EquipeAcompanhamentoForm Linhas="_todos" Tipo="TipoAcompanhamento.Recall" AoFechar="() => _equipe = false" />
@@ -139,7 +144,9 @@
     private NumerosDaFila _numeros = new(0, 0, 0, 0, 0, 0, 0);
     private (int Feitos, int Total) _progresso;
     private (IReadOnlyList<CargaDoResponsavel> Responsaveis, IReadOnlyList<EncerramentosPorMotivo> Encerramentos) _equipeNumeros = ([], []);
-    private IReadOnlyList<PontoDaSerie> _voltaram = [];
+    private IReadOnlyList<ContatoNoTempo> _contatos = [];
+    private IReadOnlyDictionary<DateOnly, decimal> _metas = new Dictionary<DateOnly, decimal>();
+    private IReadOnlyList<MesDaRetencao> _meses = [];
 
     // O recorte: de quem, a busca, "Mais filtros" e a visão da Carteira.
     private bool _minha = true;
@@ -159,7 +166,7 @@
     private int? _casoPedido;
     private CanalContato? _canalInicial;
     private DesfechoContato? _desfechoInicial;
-    private bool _maisFiltros, _gerarRecall, _configurar, _equipe;
+    private bool _maisFiltros, _gerarRecall, _configurar, _equipe, _metaAberta;
 
     private static DateOnly HojeData => DateOnly.FromDateTime(DateTime.Today);
     private static int UsuarioId => SessaoUsuario.Atual.UsuarioId;
@@ -225,7 +232,7 @@
         _ => Task.CompletedTask
     };
 
-    private bool FormularioAberto => _conversa is not null || _maisFiltros || _gerarRecall || _configurar || _equipe;
+    private bool FormularioAberto => _conversa is not null || _maisFiltros || _gerarRecall || _configurar || _equipe || _metaAberta;
 
     /// <summary>
     /// A fila, a configuração, os dias do recall, as conversas da fila e o nome da clínica — SEQUENCIAL no mesmo
@@ -257,6 +264,14 @@
             }
             var config = await servico.ConfiguracaoAsync(UsuarioId);
             var linhas = await servico.ListarAsync(UsuarioId);
+            // A retenção mês a mês: os contatos dos últimos meses e as metas de quem voltou (da clínica inteira).
+            var primeiroMes = new DateOnly(HojeData.Year, HojeData.Month, 1).AddMonths(-(Fila360NaTela.MesesDaJornada - 1));
+            var contatos = await servico.ContatosDesdeAsync(UsuarioId, primeiroMes);
+            var metasService = sp.GetRequiredService<MetaService>();
+            var metas = new Dictionary<DateOnly, decimal>();
+            foreach (var ano in new[] { primeiroMes.Year, HojeData.Year }.Distinct())
+                foreach (var m in (await metasService.DoAnoAsync(ano)).Where(m => m.Indicador == IndicadorMeta.Retornos && !m.Segmentada))
+                    metas[new DateOnly(m.Ano, m.Mes, 1)] = m.Valor;
             var conversas = _conversas;
             var conversasFalharam = false;
             try { conversas = await sp.GetRequiredService<WhatsAppDaRecepcaoService>().ConversasDaFilaAsync(linhas.Where(l => l.Pendente).ToList()); }
@@ -274,6 +289,8 @@
             if (geracao != _geracao || Descartada) return;
 
             _todos = linhas;
+            _contatos = contatos;
+            _metas = metas;
             _conversas = conversas;
             _conversasFalharam = conversasFalharam;
             _motivos = config.Motivos;
@@ -315,8 +332,8 @@
         _progresso = Fila360NaTela.ProgressoDeHoje(_todos.Where(l => !_minha || AcompanhamentoNaTela.DaMinhaFila(l, UsuarioId)), _grupos, hoje);
         var daEquipe = _todos.Where(l => !_minha || AcompanhamentoNaTela.DaMinhaFila(l, UsuarioId)).ToList();
         _equipeNumeros = Fila360NaTela.Equipe(daEquipe, hoje);
-        _voltaram = Fila360NaTela.VoltaramPorMes(daEquipe, hoje)
-            .Select(m => new PontoDaSerie(m.Mes.ToString("MMM", Formato.PtBr).TrimEnd('.'), m.Voltaram)).ToList();
+        // A meta é da clínica: o mês a mês é sempre da equipe inteira, mesmo com "minha fila" (senão a meta não compara).
+        _meses = Fila360NaTela.RetencaoPorMes(_todos, _contatos, _metas, hoje);
     }
 
     // ==================== navegação ====================
@@ -579,10 +596,7 @@
                  Nota="@(_numeros.TaxaDeRetorno is { } t ? $"{t}% de {_numeros.Contatados.ToString(Formato.PtBr)} contatados" : "nenhum contato no período")" Icone="coracao" Tom="sucesso" />
         </section>
         <div class="f360-g2">
-            <section class="cartao">
-                <header class="cartao-titulo"><h3>Voltaram, mês a mês</h3><span class="texto-secundario pequeno">pacientes da fila que fizeram sessão de novo</span></header>
-                <div class="cartao-corpo"><GraficoLinha Pontos="_voltaram" Tom="sucesso" Descricao="@DescricaoVoltaram" Formatar="@(v => v.ToString("0", Formato.PtBr))" /></div>
-            </section>
+            @RetencaoMesAMes
             <section class="cartao">
                 <header class="cartao-titulo"><h3>Hoje</h3></header>
                 <div class="cartao-corpo f360-hoje-resumo">
@@ -630,8 +644,66 @@
         </div>
     };
 
-    private string DescricaoVoltaram => "Pacientes da fila que voltaram, mês a mês: "
-        + string.Join(", ", _voltaram.Select(p => $"{p.Rotulo} {(p.Valor ?? 0).ToString("0", Formato.PtBr)}")) + ".";
+    /// <summary>
+    /// A retenção mês a mês (nov/2026): quem voltou em cada mês contra a meta, e a taxa dos contatados. A meta do mês
+    /// corrente fica em cima, com o progresso e o "Definir meta" (a mesma porta das Metas da clínica).
+    /// </summary>
+    private RenderFragment RetencaoMesAMes => __builder =>
+    {
+        var atual = _meses.Count > 0 ? _meses[^1] : null;
+        var maior = Math.Max(1m, _meses.Select(m => Math.Max(m.Voltaram, m.Meta ?? 0)).DefaultIfEmpty(1).Max());
+        <section class="cartao">
+            <header class="cartao-titulo"><h3>Retenção, mês a mês</h3><span class="texto-secundario pequeno">quem voltou, a meta e a taxa dos contatados</span></header>
+            <div class="cartao-corpo f360-mesames">
+                @if (atual is not null)
+                {
+                    <div class="f360-meta-mes">
+                        @if (atual.Meta is { } meta)
+                        {
+                            <div><b class="f360-meta-num">@atual.Voltaram.ToString(Formato.PtBr)</b><span class="texto-secundario"> de @meta.ToString("0", Formato.PtBr) na meta de @Formato.Mes(atual.Mes).ToLowerInvariant()</span>
+                                @if (atual.BateuAMeta) { <Selo Tom="sucesso" Texto="Meta batida" /> }</div>
+                            <div class="f360-trilho grande"><i style="width:@((atual.DaMeta ?? 0).ToString(System.Globalization.CultureInfo.InvariantCulture))%"></i></div>
+                        }
+                        else
+                        {
+                            <div><b class="f360-meta-num">@atual.Voltaram.ToString(Formato.PtBr)</b><span class="texto-secundario"> voltaram em @Formato.Mes(atual.Mes).ToLowerInvariant() · sem meta definida</span></div>
+                        }
+                        <button type="button" class="botao" disabled="@(!Pode(Permissao.DefinirMetas))" @onclick="AbrirMeta"
+                                title="@(Pode(Permissao.DefinirMetas) ? "A meta de quem voltou, nas Metas da clínica" : "Definir metas pede o acesso de metas. Fale com a direção.")"><Icone Nome="grafico" />@(atual.Meta is null ? "Definir meta" : "Corrigir meta")</button>
+                    </div>
+                }
+                <table class="lista f360-meses" aria-label="Retenção mês a mês">
+                    <thead><tr><th>Mês</th><th>Voltaram</th><th class="direita">Meta</th><th class="direita" title="Dos contatados no mês, quantos voltaram em até @Fila360NaTela.DiasParaVoltar dias">Taxa</th></tr></thead>
+                    <tbody>
+                        @foreach (var m in _meses)
+                        {
+                            <tr>
+                                <td>@m.Mes.ToString("MMM/yy", Formato.PtBr).Replace(".", "")</td>
+                                <td><span class="f360-mes-barra" title="@($"{m.Voltaram} voltaram")"><i class="@(m.BateuAMeta ? "batida" : null)" style="width:@((100m * m.Voltaram / maior).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))%"></i>
+                                    @if (m.Meta is { } mm) { <s class="f360-mes-alvo" style="left:@((100m * mm / maior).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))%" title="@($"Meta: {mm:0}")"></s> }</span>
+                                    <b>@m.Voltaram.ToString(Formato.PtBr)</b></td>
+                                <td class="direita">@(m.Meta is { } v ? v.ToString("0", Formato.PtBr) : "—")</td>
+                                <td class="direita">@(m.Taxa is { } t ? $"{t}%" : "—")<span class="texto-secundario pequeno">@(m.Contatados > 0 ? $" de {m.Contatados}" : "")</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    };
+
+    private void AbrirMeta()
+    {
+        if (!Exigir(Permissao.DefinirMetas, "definir a meta de quem voltou")) return;
+        _metaAberta = true;
+    }
+
+    private async Task MetaDefinidaAsync()
+    {
+        _metaAberta = false;
+        Notificacoes.Sucesso("Meta gravada.");
+        await CarregarAsync(silencioso: true);
+    }
 
     // ---------- Fila de hoje ----------
     private RenderFragment Hoje => __builder =>

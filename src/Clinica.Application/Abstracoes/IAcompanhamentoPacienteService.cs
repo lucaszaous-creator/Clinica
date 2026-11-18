@@ -50,8 +50,24 @@ public sealed record LinhaAcompanhamento(int Id, int PacienteId, string Paciente
 /// <summary>Um horário do paciente na jornada da Fila 360: quando e como ficou (só a agenda, nada do prontuário).</summary>
 public sealed record SessaoDaJornada(DateTime Quando, StatusAgendamento Status);
 
+/// <summary>Um contato registrado num caso (com canal: tentativa real, não "assumiu"), para a taxa de retenção mês a mês.</summary>
+public sealed record ContatoNoTempo(int AcompanhamentoId, DateTime Em);
+
 public interface IAcompanhamentoPacienteService
 {
+    /// <summary>
+    /// Quantos casos VOLTARAM entre <paramref name="inicio"/> e <paramref name="fim"/> (inclusive) — a meta
+    /// "Voltaram (retenção)". A mesma regra do <see cref="LinhaAcompanhamento.VoltouEm"/> da fila. Só um número,
+    /// sem paciente nenhum: é a apuração da meta, e a tela de Metas já exige o acesso dela.
+    /// </summary>
+    Task<int> VoltaramNoPeriodoAsync(DateOnly inicio, DateOnly fim, CancellationToken ct = default);
+
+    /// <summary>
+    /// Os contatos com canal registrados desde <paramref name="desde"/> (a taxa de retenção mês a mês da Fila 360):
+    /// o caso e o quando, nenhum texto. A mesma barreira do resto do acompanhamento.
+    /// </summary>
+    Task<IReadOnlyList<ContatoNoTempo>> ContatosDesdeAsync(int usuarioId, DateOnly desde, CancellationToken ct = default);
+
     /// <summary>
     /// Os horários do paciente do caso desde <paramref name="desde"/> — a jornada da Ficha 360 (nov/2026). A mesma
     /// barreira do resto do acompanhamento; só data e situação do horário, nenhum texto clínico.

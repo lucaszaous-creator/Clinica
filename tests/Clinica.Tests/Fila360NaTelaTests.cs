@@ -147,22 +147,47 @@ public sealed class Fila360NaTelaTests
     }
 
     [Fact]
-    public void Voltaram_por_mes_conta_cada_mes_e_mostra_o_mes_vazio_com_zero()
+    public void Retencao_por_mes_conta_quem_voltou_a_taxa_dos_contatados_e_a_meta()
     {
+        // Hoje é 24/10/2026: a janela vai de maio a outubro.
         var linhas = new[]
         {
-            Caso(1, pendente: false) with { VoltouEm = new DateOnly(2026, 10, 3) },
-            Caso(2, pendente: false) with { VoltouEm = new DateOnly(2026, 10, 20) },
-            Caso(3, pendente: false) with { VoltouEm = new DateOnly(2026, 8, 2) },
-            Caso(4, pendente: false) with { VoltouEm = new DateOnly(2026, 3, 2) },   // fora da janela de 6 meses
-            Caso(5)
+            Caso(1, pendente: false) with { VoltouEm = new DateOnly(2026, 10, 3) },   // contatado em 25/09, voltou 8 dias depois
+            Caso(2, pendente: false) with { VoltouEm = new DateOnly(2026, 10, 20) },  // contatado em 01/10
+            Caso(3, pendente: false) with { VoltouEm = new DateOnly(2026, 8, 2) },    // contatado em 01/06: voltou tarde demais
+            Caso(4, pendente: false) with { VoltouEm = new DateOnly(2026, 3, 2) },    // fora da janela de 6 meses
+            Caso(5),                                                                  // contatado em 10/10, não voltou
         };
+        var contatos = new[]
+        {
+            new ContatoNoTempo(1, new DateTime(2026, 9, 25, 10, 0, 0)),
+            new ContatoNoTempo(2, new DateTime(2026, 10, 1, 9, 0, 0)),
+            new ContatoNoTempo(2, new DateTime(2026, 10, 15, 9, 0, 0)),               // segundo contato no mês: conta uma vez
+            new ContatoNoTempo(3, new DateTime(2026, 6, 1, 9, 0, 0)),
+            new ContatoNoTempo(5, new DateTime(2026, 10, 10, 9, 0, 0)),
+            new ContatoNoTempo(99, new DateTime(2026, 10, 10, 9, 0, 0)),              // caso fora da lista: ignorado
+        };
+        var metas = new Dictionary<DateOnly, decimal> { [new DateOnly(2026, 10, 1)] = 2, [new DateOnly(2026, 9, 1)] = 4 };
 
-        var meses = Fila360NaTela.VoltaramPorMes(linhas, Hoje);
+        var meses = Fila360NaTela.RetencaoPorMes(linhas, contatos, metas, Hoje);
 
         Assert.Equal(6, meses.Count);
         Assert.Equal(new DateOnly(2026, 5, 1), meses[0].Mes);
         Assert.Equal([0, 0, 0, 1, 0, 2], meses.Select(m => m.Voltaram));
+        // Junho: um contatado, que voltou 62 dias depois — fora dos 30 dias, a taxa é 0%.
+        Assert.Equal((1, 0, 0), (meses[1].Contatados, meses[1].VoltaramDosContatados, meses[1].Taxa));
+        // Setembro: um contatado e ele voltou (em outubro, dentro dos 30 dias): 100%, mas a meta de 4 não foi batida.
+        Assert.Equal((1, 1, 100), (meses[4].Contatados, meses[4].VoltaramDosContatados, meses[4].Taxa));
+        Assert.False(meses[4].BateuAMeta);
+        Assert.Equal(0, meses[4].DaMeta);
+        // Outubro: dois contatados, um voltou — 50%; 2 voltaram no mês e a meta de 2 foi batida.
+        Assert.Equal((2, 1, 50), (meses[5].Contatados, meses[5].VoltaramDosContatados, meses[5].Taxa));
+        Assert.True(meses[5].BateuAMeta);
+        Assert.Equal(100, meses[5].DaMeta);
+        // Mês sem contato fica sem taxa, e sem meta fica sem meta (nunca zero).
+        Assert.Null(meses[0].Taxa);
+        Assert.Null(meses[0].Meta);
+        Assert.Null(meses[0].DaMeta);
     }
 
     [Fact]

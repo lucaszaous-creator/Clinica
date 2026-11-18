@@ -31,6 +31,18 @@ public sealed record MarcaNaJornada(DateTime Quando, TipoNaJornada Tipo);
 public sealed record ConversaDaFila(LinhaAcompanhamento Linha, AppConversationSummary Conversa, bool Respondeu);
 
 /// <summary>Os números do Painel da Fila 360, sobre as duas filas juntas (Recall e Novos BSV).</summary>
+/// <summary>Um mês da retenção: quem voltou, quem foi contatado, quantos dos contatados voltaram e a meta, se houver.</summary>
+public sealed record MesDaRetencao(DateOnly Mes, int Contatados, int VoltaramDosContatados, int Voltaram, decimal? Meta)
+{
+    /// <summary>Dos contatados no mês, quantos por cento voltaram. Sem contato, sem taxa.</summary>
+    public int? Taxa => Contatados == 0 ? null : (int)Math.Round(100.0 * VoltaramDosContatados / Contatados);
+
+    /// <summary>Quanto da meta foi alcançado, de 0 a 100 (passou da meta = 100). Sem meta ou meta zero, nulo.</summary>
+    public int? DaMeta => Meta is { } m && m > 0 ? (int)Math.Min(100, Math.Round(100m * Voltaram / m)) : null;
+
+    public bool BateuAMeta => Meta is { } m && Voltaram >= m;
+}
+
 public sealed record NumerosDaFila(int Abertos, int RiscoAlto, int RiscoMedio, int ParaHoje, int Voltaram, int Contatados, int VoltaramDosContatados)
 {
     /// <summary>Dos contatados no período, quantos voltaram — nulo sem base (0% e "não medido" são coisas diferentes).</summary>
@@ -215,17 +227,37 @@ public static class Fila360NaTela
 
     // ---------------------------------------------------------------- o Painel
 
+    /// <summary>Dias depois do contato em que a volta ainda conta para a taxa (o mesmo período do Painel).</summary>
+    public const int DiasParaVoltar = AcompanhamentoNaTela.DiasDoPeriodo;
+
     /// <summary>
-    /// Quantos voltaram em cada um dos últimos <paramref name="meses"/> meses (o mês corrente por último), pela
-    /// data em que o caso viu a sessão realizada (<see cref="LinhaAcompanhamento.VoltouEm"/>). Mês sem ninguém
-    /// aparece com zero: buraco no gráfico é dado, não falha.
+    /// A retenção mês a mês (nov/2026), os últimos <paramref name="meses"/> meses com o corrente por último:
+    /// <list type="bullet">
+    /// <item><b>Voltaram</b>: casos cuja sessão de volta (<see cref="LinhaAcompanhamento.VoltouEm"/>) caiu no mês — o
+    /// mesmo número que a meta "Voltaram (retenção)" apura.</item>
+    /// <item><b>Contatados</b>: casos com contato registrado COM CANAL no mês (assumir não é contato).</item>
+    /// <item><b>Taxa</b>: dos contatados no mês, quantos voltaram até <see cref="DiasParaVoltar"/> dias depois do
+    /// primeiro contato daquele mês. Mês sem contato fica sem taxa ("—"), nunca 0%.</item>
+    /// <item><b>Meta</b>: a meta do mês, quando a direção definiu (ausente é "não decidimos").</item>
+    /// </list>
+    /// Nada aqui é foto guardada: os contatos são histórico que não se sobrescreve, e a volta vem da agenda.
     /// </summary>
-    public static IReadOnlyList<(DateOnly Mes, int Voltaram)> VoltaramPorMes(IEnumerable<LinhaAcompanhamento> linhas, DateOnly hoje, int meses = 6)
+    public static IReadOnlyList<MesDaRetencao> RetencaoPorMes(IEnumerable<LinhaAcompanhamento> linhas, IEnumerable<ContatoNoTempo> contatos,
+        IReadOnlyDictionary<DateOnly, decimal> metas, DateOnly hoje, int meses = MesesDaJornada)
     {
+        var lista = linhas.ToList();
+        var porId = lista.ToDictionary(l => l.Id);
         var inicio = new DateOnly(hoje.Year, hoje.Month, 1).AddMonths(-(meses - 1));
-        var voltas = linhas.Where(l => l.VoltouEm is { } v && v >= inicio && v <= hoje).Select(l => l.VoltouEm!.Value).ToList();
-        return Enumerable.Range(0, meses).Select(i => inicio.AddMonths(i))
-            .Select(mes => (mes, voltas.Count(v => v.Year == mes.Year && v.Month == mes.Month))).ToList();
+        var doPeriodo = contatos.Where(c => porId.ContainsKey(c.AcompanhamentoId) && DateOnly.FromDateTime(c.Em) >= inicio && DateOnly.FromDateTime(c.Em) <= hoje).ToList();
+        return Enumerable.Range(0, meses).Select(i => inicio.AddMonths(i)).Select(mes =>
+        {
+            bool NoMes(DateOnly d) => d.Year == mes.Year && d.Month == mes.Month;
+            var primeiros = doPeriodo.Where(c => NoMes(DateOnly.FromDateTime(c.Em)))
+                .GroupBy(c => c.AcompanhamentoId).Select(g => (Caso: porId[g.Key], Primeiro: DateOnly.FromDateTime(g.Min(c => c.Em)))).ToList();
+            var voltaramDosContatados = primeiros.Count(p => p.Caso.VoltouEm is { } v && v >= p.Primeiro && v <= p.Primeiro.AddDays(DiasParaVoltar));
+            var voltaram = lista.Count(l => l.VoltouEm is { } v && v <= hoje && NoMes(v));
+            return new MesDaRetencao(mes, primeiros.Count, voltaramDosContatados, voltaram, metas.TryGetValue(mes, out var m) ? m : null);
+        }).ToList();
     }
 
     // ---------------------------------------------------------------- as conversas e o progresso do dia

@@ -96,6 +96,49 @@ public class MetasTests : IDisposable
     }
 
     [Fact]
+    public async Task Meta_de_quem_voltou_e_da_clinica_inteira_e_sem_o_servico_o_realizado_e_nulo()
+    {
+        var prof = new Profissional { Nome = "Dra. Fictícia", Ativo = true };
+        _db.Profissionais.Add(prof);
+        await _db.SaveChangesAsync();
+
+        await FluentActions.Awaiting(() => _metas.DefinirAsync(2026, 8, IndicadorMeta.Retornos, 10m, profissionalId: prof.Id))
+            .Should().ThrowAsync<InvalidOperationException>().WithMessage("*clínica inteira*");
+        await FluentActions.Awaiting(() => _metas.DefinirAsync(2026, 8, IndicadorMeta.Retornos, 10m, modalidadeCodigo: "BSV"))
+            .Should().ThrowAsync<InvalidOperationException>().WithMessage("*clínica inteira*");
+
+        await _metas.DefinirAsync(2026, 8, IndicadorMeta.Retornos, 10m);
+        // Este MetaService não tem o serviço do acompanhamento: "não medido", nunca zero (que pareceria meta perdida).
+        var apurada = (await _metas.ApurarMesAsync(Hoje)).Single(m => m.Indicador == IndicadorMeta.Retornos);
+        apurada.Realizado.Should().BeNull();
+        MetasNaTela.Formatar(IndicadorMeta.Retornos, 1m).Should().Be("1 paciente");
+        MetasNaTela.Formatar(IndicadorMeta.Retornos, 15m).Should().Be("15 pacientes");
+        MetasNaTela.Recorte(IndicadorMeta.Retornos, null, null).Should().Be("Clínica inteira");
+        MetasNaTela.TentarLerAlvo("7,5", IndicadorMeta.Retornos, out _, out var erro).Should().BeFalse();
+        erro.Should().Contain("inteiro");
+    }
+
+    [Fact]
+    public async Task Meta_de_quem_voltou_e_apurada_pelo_servico_do_acompanhamento()
+    {
+        var paciente = new Paciente { Nome = "Paciente fictício", Telefone = "21999999999", Convenio = Convenio.UnimedPadrao };
+        _db.Pacientes.Add(paciente);
+        await _db.SaveChangesAsync();
+        _db.Acompanhamentos.Add(new AcompanhamentoPaciente { PacienteId = paciente.Id, Tipo = TipoAcompanhamento.Recall,
+            Modalidade = ModalidadeAtendimento.AcupunturaSimples, ReferenciaEm = new DateTime(2026, 6, 1), ProximoContato = new DateOnly(2026, 6, 1), CriadoEm = new DateTime(2026, 6, 1) });
+        _db.Atendimentos.Add(new Atendimento { PacienteId = paciente.Id, Modalidade = ModalidadeAtendimento.AcupunturaSimples,
+            Data = new DateOnly(2026, 8, 4), RealizadoEm = new DateTime(2026, 8, 4, 10, 0, 0) });
+        await _db.SaveChangesAsync();
+        var acompanhamento = new AcompanhamentoPacienteService(_db, _repo, new PacoteService(_repo));
+        var metas = new MetaService(_repo, _financeiro, new IndicadoresService(_repo, new ParametrosService(_repo)), acompanhamento);
+
+        await metas.DefinirAsync(2026, 8, IndicadorMeta.Retornos, 3m);
+        var apurada = (await metas.ApurarMesAsync(Hoje)).Single(m => m.Indicador == IndicadorMeta.Retornos);
+
+        apurada.Realizado.Should().Be(1m);
+    }
+
+    [Fact]
     public async Task Metas_de_profissionais_diferentes_convivem_no_mesmo_mes()
     {
         var ana = new Profissional { Nome = "Ana", RegistroConselho = "CRM-SP 1" };
