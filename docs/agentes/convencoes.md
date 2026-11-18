@@ -5372,3 +5372,8 @@ laço (`TelasAnunciadas` na verificação).
   estava certo (`Found newer remote release` em cada volta), quem falhava era a troca de pasta.
   O faturamento (`UpdateService`, fora da suíte) tem o mesmo desenho e já registrou dois `apply`
   simultâneos para o mesmo processo em set/2026; não foi mexido aqui porque está em produção.
+  ⚠️ **Nov/2026 — a atualização ANTES DO LOGIN reaproveita o mesmo `ApplyUpdatesAndRestart` na abertura**, agora
+  com a janela "Atualizando…" por cima: a regra (`AtualizacaoNaAbertura`) consulta `MotivoParaNaoInstalar` ANTES de
+  mostrar a janela e `RegistrarTentativa` ANTES de entregar ao Velopack — senão o laço volta, com a nossa tela no
+  lugar da do Velopack. Só a versão OBRIGATÓRIA (marca nas notas da release) segura a abertura, e por no máximo
+  2 min; a janela é WPF nativo (antes do WebView2 existir, sem flash preto). Ver `docs/atualizacao-antes-do-login.md`.

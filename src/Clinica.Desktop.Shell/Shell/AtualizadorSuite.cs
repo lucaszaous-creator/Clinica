@@ -53,12 +53,17 @@ public static class AtualizadorSuite
     }
 
     /// <summary>
-    /// Havendo versão nova, baixa e aplica na hora, reiniciando o app já atualizado.
-    /// Retorna <c>true</c> quando o reinício foi disparado — o chamador deve abortar a
-    /// abertura. O limite de tempo garante que rede lenta/offline não trave o app.
+    /// A ATUALIZAÇÃO ANTES DO LOGIN (nov/2026, "como nos jogos"). A regra mora em
+    /// <see cref="Clinica.Atualizacao.AtualizacaoNaAbertura"/>, com teste: sem internet ou sem novidade segue
+    /// direto; versão comum baixa por trás e instala ao fechar; versão OBRIGATÓRIA mostra a
+    /// <see cref="JanelaDeAtualizacao"/>, baixa, instala e reabre — com 2 min de limite. O limite de tentativas
+    /// (<see cref="Tentativas"/>, PR #324) vale antes de qualquer instalação.
+    /// Retorna <c>true</c> quando o Velopack está reabrindo o app: o chamador aborta a abertura.
+    /// Chamar na thread da interface (a janela nasce nela).
     /// </summary>
-    public static async Task<bool> AtualizarNaAberturaAsync(TimeSpan limite)
+    public static async Task<bool> AtualizarAntesDoLoginAsync(string nomeApp)
     {
+        JanelaDeAtualizacao? janela = null;
         try
         {
             var mgr = new UpdateManager(new Clinica.Atualizacao.FonteAtualizacaoGithub());
@@ -67,34 +72,48 @@ public static class AtualizadorSuite
             if (!mgr.IsInstalled)
                 return false;
 
-            var novidade = await Clinica.Atualizacao.DownloadComPrazo.AguardarAsync(
-                ChecarEBaixarAsync(mgr), limite,
-                pronta => Agendar(mgr, pronta),
-                ex => LogSuite.Registrar("Atualização — download após abertura falhou", ex));
-            if (novidade is null)
-                return false;
-
-            // A instalação que falha reabre ESTE app na versão antiga, e ele chegaria aqui de
-            // novo com a mesma novidade: sem o limite, a tela de atualização não sai mais.
-            var alvo = novidade.TargetFullRelease.Version.ToString();
-            if (Tentativas.MotivoParaNaoAplicar(alvo, DateTime.UtcNow) is { } motivo)
-            {
-                LogSuite.Registrar("Atualização — instalação suspensa para não repetir a tela",
-                    new InvalidOperationException(motivo));
-                return false;
-            }
-            Tentativas.Registrar(alvo, DateTime.UtcNow);
-
-            mgr.ApplyUpdatesAndRestart(novidade); // encerra este processo e reabre atualizado
-            return true;
+            janela = new JanelaDeAtualizacao(nomeApp);
+            var desfecho = await Clinica.Atualizacao.AtualizacaoNaAbertura.ExecutarAsync(
+                new PassosVelopack(mgr), janela, (frase, ex) => LogSuite.Registrar(frase, ex ?? new InvalidOperationException(frase)));
+            if (desfecho == Clinica.Atualizacao.DesfechoDaAbertura.Reiniciando) return true;
+            janela.Fechar();
+            return false;
         }
         catch (Exception ex)
         {
             // Abre normalmente na versão atual — mas registrada, senão "por que não
             // atualizou?" vira adivinhação.
+            janela?.Fechar();
             LogSuite.Registrar("Atualização — verificação na abertura falhou", ex);
             return false;
         }
+    }
+
+    /// <summary>Os passos de verdade da regra: o Velopack e a memória de tentativas.</summary>
+    private sealed class PassosVelopack(UpdateManager mgr) : Clinica.Atualizacao.IPassosDaAtualizacao
+    {
+        private UpdateInfo? _novidade;
+
+        public async Task<Clinica.Atualizacao.NovidadeNaAbertura?> ProcurarAsync(CancellationToken ct)
+        {
+            if (Volatile.Read(ref _agendada) != 0) return null;
+            _novidade = await mgr.CheckForUpdatesAsync().WaitAsync(ct).ConfigureAwait(false);
+            if (_novidade is null) return null;
+            var alvo = _novidade.TargetFullRelease;
+            return new(alvo.Version.ToString(), Clinica.Atualizacao.AtualizacaoNaAbertura.EhObrigatoria(alvo.NotesMarkdown));
+        }
+
+        public async Task BaixarAsync(IProgress<int> progresso, CancellationToken ct)
+        {
+            await Exclusao.WaitAsync(ct).ConfigureAwait(false);
+            try { await mgr.DownloadUpdatesAsync(_novidade!, progresso.Report, ct).ConfigureAwait(false); }
+            finally { Exclusao.Release(); }
+        }
+
+        public void InstalarEReabrir() => mgr.ApplyUpdatesAndRestart(_novidade!); // encerra este processo
+        public void InstalarAoFechar() => Agendar(mgr, _novidade!);
+        public string? MotivoParaNaoInstalar(string versao) => Tentativas.MotivoParaNaoAplicar(versao, DateTime.UtcNow);
+        public void RegistrarTentativa(string versao) => Tentativas.Registrar(versao, DateTime.UtcNow);
     }
 
     private static async Task<UpdateInfo?> ChecarEBaixarAsync(UpdateManager mgr)
