@@ -182,11 +182,15 @@ public sealed class ConclusaoPorProfissionalTests : IDisposable
             ConcluirAutomaticamenteHoras = 10, ConcluirAutomaticamenteDesde = new DateTime(2026, 10, 1) };
         _db.Profissionais.Add(medica);
         await _db.SaveChangesAsync();
-        var antes = await NovoHorarioAsync(medica.Id, new DateTime(2026, 9, 30, 9, 0, 0));
+        var antes = await NovoHorarioAsync(medica.Id, new DateTime(2026, 9, 30, 23, 59, 0));
+        var primeiroDia = await NovoHorarioAsync(medica.Id, new DateTime(2026, 10, 1, 8, 0, 0));
         var depois = await NovoHorarioAsync(medica.Id, new DateTime(2026, 10, 2, 9, 0, 0));
         _db.ChangeTracker.Clear();
 
-        Assert.Equal([depois.Id], await Servico.CandidatosPorProfissionalAsync(hoje));
+        // O próprio dia da data entra: DataHora >= 01/10 00:00 (hora da clínica, sem fuso).
+        Assert.Equal([primeiroDia.Id, depois.Id], await Servico.CandidatosPorProfissionalAsync(hoje));
+        Assert.True(await Servico.ConcluirPorProfissionalAsync(primeiroDia.Id, hoje));
+        Assert.Equal(StatusAgendamento.Realizado, (await RelerAsync(primeiroDia.Id)).Status);
         Assert.True(await Servico.ConcluirPorProfissionalAsync(depois.Id, hoje));
         Assert.False(await Servico.ConcluirPorProfissionalAsync(antes.Id, hoje));
         Assert.Equal(StatusAgendamento.Realizado, (await RelerAsync(depois.Id)).Status);
