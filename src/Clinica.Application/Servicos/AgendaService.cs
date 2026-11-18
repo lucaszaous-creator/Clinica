@@ -54,14 +54,16 @@ public sealed class AgendaService
     private readonly IClinicaRepositorio _repo;
     private readonly AtendimentoService _atendimentos;
     private readonly ParametrosService? _parametros;
+    private readonly AutorizacaoTissService? _autorizacoes;
 
     public AgendaService(
         IClinicaRepositorio repo, AtendimentoService atendimentos,
-        ParametrosService? parametros = null)
+        ParametrosService? parametros = null, AutorizacaoTissService? autorizacoes = null)
     {
         _repo = repo;
         _atendimentos = atendimentos;
         _parametros = parametros;
+        _autorizacoes = autorizacoes;
     }
 
     /// <summary>O regime "guia no agendamento" está ligado? (parcela 70, atrás da chave.)</summary>
@@ -925,6 +927,7 @@ public sealed class AgendaService
             // que chegava à rodada bloqueante e, num convênio com intervalo mínimo (Sul
             // América), ainda empurrava as guias reais para depois de sessões que não houve.
             await _atendimentos.RefletirStatusDoHorarioAsync(a, operador, ct);
+            await AutorizacaoTissService.CancelarDoHorarioAsync(_repo, a, operador, HoraDaClinica.Agora(), ct);
             cancelados++;
         }
 
@@ -1023,6 +1026,13 @@ public sealed class AgendaService
         if (mudou) await AuditarFilaAsync(ag, operador, "FilaChegada",
             $"Check-in às {ag.ChegadaEm:HH:mm} — horário de {ag.DataHora:dd/MM/yyyy HH:mm}", ct);
         await _repo.SalvarAsync(ct);
+
+        // AUTORIZAÇÃO PELO SISTEMA (nov/2026): o paciente chegou → o pedido vai à fila do conector,
+        // sozinho, quando a chave do convênio está ligada. Aqui, e não nas telas: são três portas de
+        // check-in (aba Dia, Início, formulário do horário). Recusa (chave desligada, falta carteira
+        // ou CBO) não impede a chegada: o botão "Pedir autorização" da linha diz o porquê.
+        if (mudou && _autorizacoes is not null && !string.IsNullOrWhiteSpace(operador))
+            await _autorizacoes.PedirAsync(ag.Id, operador, ct);
         return ag;
     }
 
@@ -1844,6 +1854,10 @@ public sealed class AgendaService
         // no-show viraria pendência eterna e, dez dias depois, rodada bloqueante por uma
         // guia que nunca vai a operadora nenhuma.
         var avisos = await _atendimentos.RefletirStatusDoHorarioAsync(ag, operador, ct);
+
+        // AUTORIZAÇÃO PELO SISTEMA (nov/2026): a senha emitida para um horário que não aconteceu é
+        // cancelada na operadora (pela fila do conector); o pedido ainda na fila nem sai.
+        await AutorizacaoTissService.CancelarDoHorarioAsync(_repo, ag, operador, HoraDaClinica.Agora(), ct);
 
         // HORÁRIO PAGO AO MARCAR (nov/2026): o dinheiro NÃO é devolvido sozinho — devolver é
         // decisão de quem está com o paciente, e ato de quem mexe no Financeiro. O que não pode

@@ -13,7 +13,21 @@ public enum TipoTransacaoTiss
     StatusProtocolo,
 
     /// <summary>Cancelar uma guia já enviada (<c>tissCancelaGuia</c>). Escreve na operadora.</summary>
-    CancelamentoGuia
+    CancelamentoGuia,
+
+    /// <summary>
+    /// Pedir a AUTORIZAÇÃO de um atendimento (<c>tissSolicitacaoProcedimento</c>, nov/2026, Amil) e, enquanto
+    /// ela estiver em análise, perguntar a situação dela (<c>tissSolicitacaoStatusAutorizacao</c>) — a mesma
+    /// transação, reagendada com intervalo e teto. Cria uma senha na operadora: não se repete sozinha
+    /// depois de sair (<see cref="TransacaoTiss.NaoRepeteDepoisDeSair"/>).
+    /// </summary>
+    Autorizacao,
+
+    /// <summary>Cancelar na operadora a autorização de um horário desmarcado (<c>tissCancelaGuia</c>, guia de solicitação).</summary>
+    CancelaAutorizacao,
+
+    /// <summary>Só para o ENDEREÇO e a versão da situação da autorização no catálogo: nunca é o tipo de uma transação.</summary>
+    StatusAutorizacao
 }
 
 /// <summary>Onde a transação está na fila.</summary>
@@ -157,6 +171,17 @@ public class TransacaoTiss
     /// É esta diferença que decide se uma transação pode ser repetida sozinha.
     /// </summary>
     public bool EscreveNaOperadora => Tipo is TipoTransacaoTiss.EnvioGuia or TipoTransacaoTiss.CancelamentoGuia;
+
+    /// <summary>
+    /// A transação CRIA ou MUDA algo na operadora (guia, lote, senha de autorização): depois que a mensagem
+    /// saiu sem resposta em que confiar, ela não volta sozinha para a fila — repetir arrisca duplicar.
+    /// <see cref="EscreveNaOperadora"/> continua sendo só o que depende das chaves de ENVIO.
+    /// </summary>
+    public bool NaoRepeteDepoisDeSair => EscreveNaOperadora || Tipo is TipoTransacaoTiss.Autorizacao or TipoTransacaoTiss.CancelaAutorizacao;
+
+    /// <summary>A autorização pedida por esta transação (tipos <c>Autorizacao</c> e <c>CancelaAutorizacao</c>).</summary>
+    public int? AutorizacaoId { get; set; }
+    public AutorizacaoTiss? Autorizacao { get; set; }
 
     /// <summary>Concluída, falhou ou cancelada: não muda mais.</summary>
     public bool Encerrada => Estado is EstadoTransacaoTiss.Concluida or EstadoTransacaoTiss.Falhou or EstadoTransacaoTiss.Cancelada;

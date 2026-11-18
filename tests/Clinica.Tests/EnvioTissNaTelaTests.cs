@@ -234,8 +234,9 @@ public sealed class EnvioTissNaTelaTests
     {
         EnvioTissNaTela.PerguntaDoEnvio(3, "Petrobras").Should()
             .Contain("3 guia(s)").And.Contain("Petrobras").And.Contain("COBRANÇA").And.Contain("não há como desfazer");
-        EnvioTissNaTela.ImpedimentoDaMarcacao(100).Should().BeNull();
-        EnvioTissNaTela.ImpedimentoDaMarcacao(101).Should().Contain("100").And.Contain("101");
+        // Acima de 100, a pergunta diz em quantos lotes o envio vai (a divisão é sozinha).
+        EnvioTissNaTela.PerguntaDoEnvio(100, "Amil").Should().NotContain("lotes");
+        EnvioTissNaTela.PerguntaDoEnvio(250, "Amil").Should().Contain("em 3 lotes de até 100");
         EnvioTissNaTela.AvisoDeEnvioDesligado(true, "Petrobras").Should().BeNull();
         EnvioTissNaTela.AvisoDeEnvioDesligado(false, "Petrobras").Should().Contain("desligado").And.Contain("Configurações do faturamento");
     }

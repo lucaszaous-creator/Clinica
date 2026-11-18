@@ -98,7 +98,11 @@ public class GuiaAnsNaBaixaTests : IDisposable
         ["dm_UF", DominiosTiss.Uf],
         ["dm_cobEsp", DominiosTiss.CoberturaEspecial],
         ["dm_saudeOcupacional", DominiosTiss.SaudeOcupacional],
-        ["dm_CBOS", DominiosTiss.Cbos]
+        ["dm_CBOS", DominiosTiss.Cbos],
+        ["dm_tipoAtendimento", DominiosTiss.TipoAtendimento],
+        ["dm_caraterAtendimento", DominiosTiss.CaraterAtendimento],
+        ["dm_ausenciaCodValidacao", DominiosTiss.AusenciaCodigoValidacao],
+        ["dm_grauPart", DominiosTiss.GrauParticipacao]
     ];
 
     [Theory]
@@ -301,7 +305,10 @@ public class GuiaAnsNaBaixaTests : IDisposable
         salvo.NumeroGuiaReal.Should().Be("PB123");
         var guia = salvo.GuiaAns;
         Assert.NotNull(guia);
-        guia.Should().BeEquivalentTo(GuiaCompleta(), o => o.ExcludingMissingMembers());
+        // Os campos da SP/SADT (Amil) ficam nulos na guia de consulta: não entram na comparação.
+        guia.Should().BeEquivalentTo(GuiaCompleta(), o => o.ExcludingMissingMembers().Excluding(d => d.AnexosNoPortal));
+        guia.AnexosNoPortal.Should().BeNull();
+        guia.FormaConfirmacao.Should().BeNull();
         guia.ValorProcedimento.Should().Be(139.00m);
         guia.ConferidaPor.Should().Be("secretaria");
         guia.ConferidaEm.Should().BeCloseTo(DateTime.Now, TimeSpan.FromMinutes(1));
@@ -487,7 +494,8 @@ public class GuiaAnsNaBaixaTests : IDisposable
 
     // ==================== a proposta que o formulário recebe ====================
 
-    private GuiaAnsNaBaixaService Proposta() => new(_repo, new ParametrosService(_repo), new PrecoConvenioService(_repo));
+    private GuiaAnsNaBaixaService Proposta() => new(_repo, new ParametrosService(_repo), new PrecoConvenioService(_repo),
+        new CredenciaisTissService(_repo, new ProtecaoSegredoGlobal(Convert.ToBase64String(new byte[32]))));
 
     [Fact]
     public async Task Guia_que_nao_exige_recebe_proposta_vazia()
@@ -525,9 +533,12 @@ public class GuiaAnsNaBaixaTests : IDisposable
         d.NomeProfissional.Should().BeEmpty();
         d.CodigoProcedimento.Should().BeEmpty();
         d.ValorProcedimento.Should().BeNull();
+        // O registro ANS da operadora é dado PÚBLICO do catálogo (nov/2026): sem o do cadastro do
+        // convênio, vem o do catálogo — a mesma regra do conector — e não falta mais.
+        d.RegistroAns.Should().Be(OperadorasTiss.SaudePetrobras.RegistroAns);
         proposta.Avisos.Should().Contain(a => a.Contains("profissional"))
             .And.Contain(a => a.Contains("CNPJ"))
-            .And.Contain(a => a.Contains("registro ANS"))
+            .And.NotContain(a => a.Contains("registro ANS"))
             .And.Contain(a => a.Contains("código do procedimento"))
             .And.Contain(a => a.Contains("preço"))
             .And.Contain(a => a.Contains("carteira"));

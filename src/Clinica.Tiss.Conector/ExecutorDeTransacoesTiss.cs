@@ -35,6 +35,16 @@ public sealed class ExecutorDeTransacoesTiss(
     public const string FraseEnvioDesligadoNoServidor =
         "O envio pelo web service está desligado neste servidor (TISS_ENVIO_HABILITADO). Nada foi enviado à operadora.";
 
+    /// <summary>
+    /// A fila de PRODUÇÃO não vai à homologação: com o convênio em homologação, o pedido das telas é
+    /// recusado (nada sai). Quem testa a homologação são os comandos <c>testar-*</c> do servidor.
+    /// </summary>
+    public static string FraseConvenioEmHomologacao(string convenio)
+        => $"{convenio} está em HOMOLOGAÇÃO no servidor (comando ambiente): os pedidos das telas não vão à operadora até voltar para produção. Nada foi enviado.";
+
+    public static string FraseAutorizacaoDesligada(string convenio)
+        => $"O pedido de autorização pelo web service está desligado para {convenio}. Nada foi à operadora.";
+
     public static string FraseEnvioDesligadoNoConvenio(string convenio)
         => $"O envio pelo web service está desligado para {convenio}. Nada foi enviado à operadora.";
 
@@ -47,6 +57,11 @@ public sealed class ExecutorDeTransacoesTiss(
         IReadOnlyList<string> segredos = [];
         try
         {
+            if (await credenciais.EmHomologacaoAsync(t.ConvenioCodigo, ct))
+            {
+                await RecusarAsync(t, FraseConvenioEmHomologacao(t.ConvenioCodigo), ct);
+                return true;
+            }
             if (t.EscreveNaOperadora)
             {
                 if (!opcoes.EnvioHabilitado)
@@ -59,6 +74,22 @@ public sealed class ExecutorDeTransacoesTiss(
                     await RecusarAsync(t, FraseEnvioDesligadoNoConvenio(t.ConvenioCodigo), ct);
                     return true;
                 }
+            }
+            // A autorização tem chave PRÓPRIA por convênio, separada do envio de guias (nov/2026).
+            if (t.Tipo is TipoTransacaoTiss.Autorizacao or TipoTransacaoTiss.CancelaAutorizacao
+                && !await credenciais.AutorizacaoLigadaAsync(t.ConvenioCodigo, ct))
+            {
+                await RecusarAsync(t, FraseAutorizacaoDesligada(t.ConvenioCodigo), ct);
+                return true;
+            }
+
+            // A JANELA de envio da operadora (catálogo): lote fora dela volta à fila agendado, sem
+            // gastar tentativa e sem sair nada (Amil: do 1º ao 5º dia útil, 7h–19h; recusa 3091).
+            if (t.Tipo == TipoTransacaoTiss.EnvioGuia
+                && await fila.AgendarNaJanelaAsync(t.Id, await credenciais.OperadoraAsync(t.ConvenioCodigo, ct), ct: ct))
+            {
+                log.LogInformation("Transação TISS {Id} ({Tipo}, {Convenio}) fora da janela de envio da operadora: agendada.", t.Id, t.Tipo, t.ConvenioCodigo);
+                return true;
             }
 
             if (t.Tipo == TipoTransacaoTiss.Elegibilidade
@@ -120,6 +151,13 @@ public sealed class ExecutorDeTransacoesTiss(
             }
 
             var desfecho = processador.Ler(t, resposta);
+            if (desfecho.RecusaForaDaJanela
+                && await fila.AgendarNaJanelaAsync(t.Id, await credenciais.OperadoraAsync(t.ConvenioCodigo, ct), Ocultar(desfecho.Falha ?? "", segredos), ct))
+            {
+                log.LogWarning("Transação TISS {Id} ({Tipo}, {Convenio}): a operadora recusou fora da janela de envio. Agendada para a próxima, sem gastar tentativa.",
+                    t.Id, t.Tipo, t.ConvenioCodigo);
+                return true;
+            }
             if (desfecho.Conclusao is { } conclusao)
             {
                 await fila.ConcluirAsync(t.Id, conclusao with
@@ -142,7 +180,7 @@ public sealed class ExecutorDeTransacoesTiss(
                     log.LogWarning("Transação TISS {Id} ({Tipo}, {Convenio}): HTTP {Status} sem mensagem TISS. Corpo: {Trecho}",
                         t.Id, t.Tipo, t.ConvenioCodigo, resposta.StatusHttp,
                         Ocultar(TissWebserviceCliente.Trecho(resposta.Corpo!), [.. segredos, t.NumeroCarteira ?? string.Empty]));
-                if (desfecho.Incerto && t.EscreveNaOperadora) motivo += " " + FilaTiss.FraseSemNovaTentativa;
+                if (desfecho.Incerto && t.NaoRepeteDepoisDeSair) motivo += " " + FilaTiss.FraseSemNovaTentativa;
                 await FalharAsync(t, motivo, podeTentarDeNovo: false, resposta.Corpo, segredos, ct);
             }
         }

@@ -48,6 +48,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<CodigoFaturamento> Codigos => Set<CodigoFaturamento>();
     public DbSet<GuiaTissConsulta> GuiasTissConsulta => Set<GuiaTissConsulta>();
     public DbSet<TransacaoTiss> TransacoesTiss => Set<TransacaoTiss>();
+    public DbSet<AutorizacaoTiss> AutorizacoesTiss => Set<AutorizacaoTiss>();
     public DbSet<TransacaoTissGuia> TransacoesTissGuias => Set<TransacaoTissGuia>();
     public DbSet<Agendamento> Agendamentos => Set<Agendamento>();
     public DbSet<ParametroConvenio> Parametros => Set<ParametroConvenio>();
@@ -404,6 +405,8 @@ public class ClinicaDbContext : DbContext
             e.HasOne<Paciente>().WithMany().HasForeignKey(t => t.PacienteId).OnDelete(DeleteBehavior.SetNull);
             // O conector pergunta "o que há para fazer?" a cada poucos segundos.
             e.HasIndex(t => new { t.Estado, t.PedidoEm });
+            // A autorização pedida por esta transação (nov/2026): a linha da autorização não se apaga.
+            e.HasOne(t => t.Autorizacao).WithMany().HasForeignKey(t => t.AutorizacaoId).OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(t => t.CodigoId);
             // A consulta de status aponta para o envio que ela consulta; apagar um não apaga o outro.
             e.HasOne<TransacaoTiss>().WithMany().HasForeignKey(t => t.TransacaoDeEnvioId).OnDelete(DeleteBehavior.SetNull);
@@ -455,6 +458,17 @@ public class ClinicaDbContext : DbContext
             // st_decimal8-2 do padrão: 8 dígitos no total, 2 decimais.
             e.Property(g => g.ValorProcedimento).HasPrecision(8, 2);
             e.Property(g => g.Observacao).HasMaxLength(500);
+            // Guia SP/SADT (nov/2026, Amil): tamanhos do XSD 4.01.00. Nulos nas guias de consulta.
+            e.Property(g => g.ModeloGuia).HasMaxLength(10);
+            e.Property(g => g.Senha).HasMaxLength(20);
+            e.Property(g => g.CodigoValidacao).HasMaxLength(10);
+            e.Property(g => g.AusenciaCodigoValidacao).HasMaxLength(2);
+            e.Property(g => g.TipoAtendimento).HasMaxLength(2);
+            e.Property(g => g.CaraterAtendimento).HasMaxLength(1);
+            e.Property(g => g.DescricaoProcedimento).HasMaxLength(150);
+            e.Property(g => g.FormaConfirmacao).HasMaxLength(10);
+            e.Property(g => g.EquipeCpf).HasMaxLength(11);
+            e.Property(g => g.GrauParticipacao).HasMaxLength(2);
             e.Property(g => g.ConferidaPor).HasMaxLength(80);
             e.Property(g => g.ConferidaEm).HasColumnType("timestamp without time zone");
             // A guia do sistema não se apaga (só é estornada); a cascata existe para a exclusão de
@@ -464,6 +478,37 @@ public class ClinicaDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
             // "A última guia deste profissional" pré-preenche conselho, UF e CBO da próxima.
             e.HasIndex(g => new { g.NomeProfissional, g.ConferidaEm });
+        });
+
+        // A autorização de um atendimento na operadora (nov/2026, Amil). Tamanhos do XSD 4.03.00.
+        b.Entity<AutorizacaoTiss>(e =>
+        {
+            e.ToTable("AutorizacoesTiss");
+            e.HasKey(a => a.Id);
+            e.Property(a => a.ConvenioCodigo).HasMaxLength(40);
+            e.Property(a => a.Situacao).HasConversion<string>().HasMaxLength(20);
+            e.Property(a => a.NumeroCarteira).HasMaxLength(20);
+            e.Property(a => a.CodigoTabela).HasMaxLength(2);
+            e.Property(a => a.CodigoProcedimento).HasMaxLength(10);
+            e.Property(a => a.DescricaoProcedimento).HasMaxLength(150);
+            e.Property(a => a.CaraterAtendimento).HasMaxLength(1);
+            e.Property(a => a.ProfissionalNome).HasMaxLength(70);
+            e.Property(a => a.ConselhoProfissional).HasMaxLength(2);
+            e.Property(a => a.NumeroConselho).HasMaxLength(15);
+            e.Property(a => a.UfConselho).HasMaxLength(2);
+            e.Property(a => a.Cbos).HasMaxLength(6);
+            e.Property(a => a.NumeroGuiaPrestador).HasMaxLength(20);
+            e.Property(a => a.NumeroGuiaOperadora).HasMaxLength(20);
+            e.Property(a => a.Senha).HasMaxLength(20);
+            e.Property(a => a.Motivo).HasMaxLength(500);
+            e.Property(a => a.PedidaPor).HasMaxLength(80);
+            e.Property(a => a.PedidaEm).HasColumnType("timestamp without time zone");
+            e.Property(a => a.AtualizadaEm).HasColumnType("timestamp without time zone");
+            e.Property(a => a.Token).HasMaxLength(20);
+            e.Property(a => a.AusenciaToken).HasMaxLength(2);
+            e.Property(a => a.TokenRegistradoPor).HasMaxLength(80);
+            e.Property(a => a.TokenRegistradoEm).HasColumnType("timestamp without time zone");
+            e.HasIndex(a => a.AgendamentoId);
         });
 
         b.Entity<LoteTiss>(e =>

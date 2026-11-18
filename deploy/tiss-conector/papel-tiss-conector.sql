@@ -9,10 +9,10 @@
 -- não apaga nada; não cria nem altera tabela; não é dono de nada. Diferente do papel da ponte
 -- do CRM, ele NÃO recebe leitura de tabela nova: o que não está na lista, ele não vê.
 --
--- ⚠️ Esta lista foi escrita a partir do código e NÃO foi medida contra um Postgres de verdade
--- (o papel da ponte tem PontePapelRestritoTests; este ainda não tem o equivalente). Se o conector
--- registrar "42501" (permissão negada) no log, falta uma linha aqui — e é para faltar mesmo,
--- até alguém decidir que ele deve alcançar aquela tabela.
+-- Esta lista é MEDIDA (nov/2026): PapeisDoConectorTissTests roda o serviço e cada comando do
+-- comando.sh sobre um banco que anota o SQL e compara as tabelas e operações usadas com os GRANTs
+-- daqui, nos dois sentidos. Ainda não foi rodada contra um Postgres de verdade: se o conector
+-- registrar "42501" (permissão negada) no log, falta uma linha aqui e o teste deixou passar.
 --
 -- Para ENVIAR o lote ele lê a guia e a conferência dela (Codigos e GuiasTissConsulta), e só:
 -- tudo o que vai à operadora já está na guia conferida. A ficha do paciente (Pacientes) e o
@@ -50,6 +50,9 @@ BEGIN
       -- A guia e a guia ANS conferida: o que o lote leva. A carteira e o nome do beneficiário que
       -- estão na conferência são dado pessoal — é o mínimo que o envio precisa ler.
       ['Codigos','SELECT'], ['GuiasTissConsulta','SELECT'],
+      -- A autorização pedida pelo sistema (nov/2026): o conector lê a FOTOGRAFIA do pedido (carteira,
+      -- procedimento, profissional) e grava a resposta (situação, senha, validade). Não lê agenda nem ficha.
+      ['AutorizacoesTiss','SELECT, UPDATE'],
       -- A trilha não se lê nem se edita daqui: só se acrescenta (envio e cancelamento concluídos).
       ['Auditoria','INSERT']] LOOP
     EXECUTE format('GRANT %s ON public.%I TO tiss_conector', g[2], g[1]);

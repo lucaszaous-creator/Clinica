@@ -120,6 +120,8 @@
                                 </div>
                             </section>
                         }
+                        @* O prazo de cobrança GRAVE (venceu, ou vence antes da próxima janela): vermelho, à parte. *@
+                        <Aviso Tom="erro" Texto="@(_leitura is null ? _alertaDePrazo : null)" />
                         <Aviso Tom="info" Texto="@(_leitura is null ? AvisoDaGuia : null)" />
                         <fieldset class="fat-guia-campos" disabled="@GuiaSoLeitura">
 
@@ -156,10 +158,81 @@
                             }
                         </section>
 
+                        @if (_guia.EhSpSadt)
+                        {
+                            @* GUIA SP/SADT (nov/2026, Amil): a senha de autorização, a data dela e o TOKEN que o
+                               beneficiário confirmou. Desde a autorização pelo sistema, a senha, a data e a validade
+                               vêm do pedido que o sistema fez no Chegou, e o token vem da RECEPÇÃO (colhido com o
+                               paciente presente): os dois chegam TRAVADOS. Digitar a senha é a exceção (autorização
+                               feita fora do sistema); corrigir o token aqui vai para a trilha. *@
+                            <section class="secao-form" aria-label="Autorização e confirmação do atendimento" data-guia-sp-sadt>
+                                <h3>Autorização e confirmação do atendimento
+                                    @if (_guia.RotuloDaAutorizacao is { } rotuloAut) { <Selo Tom="sucesso" Dica="Senha, data e validade do pedido feito pelo sistema">@rotuloAut</Selo> }
+                                </h3>
+                                @if (!_guia.SenhaTravada)
+                                {
+                                    <Aviso Tom="atencao" Texto="Autorização feita fora do sistema: confira a senha, a data e a validade antes de confirmar." />
+                                }
+                                <div class="campos tres">
+                                    <Campo Rotulo="Senha de autorização" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.Senha))">
+                                        <input id="ga-Senha" class="campo numero-guia" maxlength="20" autocomplete="off" readonly="@_guia.SenhaTravada"
+                                               value="@_guia.Senha" @oninput="e => _guia.Senha = Texto(e)" />
+                                    </Campo>
+                                    <Campo Rotulo="Data da autorização" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.DataAutorizacao))">
+                                        <input type="date" id="ga-DataAutorizacao" class="campo" readonly="@_guia.SenhaTravada" value="@(_guia.DataAutorizacao?.ToString("yyyy-MM-dd"))"
+                                               @onchange="e => _guia.DataAutorizacao = DateOnly.TryParse(e.Value?.ToString(), out var d) ? d : null" />
+                                    </Campo>
+                                    <Campo Rotulo="Validade da senha" Erro="@Erro(nameof(DadosGuiaConsultaAns.ValidadeSenha))">
+                                        <input type="date" id="ga-ValidadeSenha" class="campo" readonly="@_guia.SenhaTravada" value="@(_guia.ValidadeSenha?.ToString("yyyy-MM-dd"))"
+                                               @onchange="e => _guia.ValidadeSenha = DateOnly.TryParse(e.Value?.ToString(), out var d) ? d : null" />
+                                    </Campo>
+                                    @* COMO O PACIENTE CONFIRMOU (nov/2026, decisão do dono): a Amil é faturada só pelo sistema,
+                                       com o TOKEN de 6 dígitos que o paciente vê no app Amil Clientes — a recepção não confirma no
+                                       portal (lá a confirmação cria uma guia sozinha). Sem token, o motivo e os anexos no portal. *@
+                                    <Campo Rotulo="Como o paciente confirmou" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.FormaConfirmacao))">
+                                        <select id="ga-FormaConfirmacao" class="campo" disabled="@_guia.ConfirmacaoTravada" value="@(_guia.FormaEscolhida ?? string.Empty)"
+                                                @onchange="e => _guia.FormaConfirmacao = TextoOuNulo(e)">
+                                            <option value="">Selecione</option>
+                                            @foreach (var v in GuiaAnsNaBaixa.FormasDeConfirmacao) { <option value="@v.Codigo">@v.Termo</option> }
+                                        </select>
+                                    </Campo>
+                                    @switch (_guia.FormaEscolhida)
+                                    {
+                                        case GuiaAnsNaBaixa.ConfirmacaoToken:
+                                            <Campo Rotulo="Token" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.CodigoValidacao))"
+                                                   Dica="Os 6 dígitos que o paciente mostra no app Amil Clientes.">
+                                                <input id="ga-CodigoValidacao" class="campo numero-guia" maxlength="6" inputmode="numeric" autocomplete="off"
+                                                       readonly="@_guia.ConfirmacaoTravada" value="@_guia.CodigoValidacao" @oninput="e => _guia.CodigoValidacao = Texto(e)" />
+                                            </Campo>
+                                            break;
+                                        case GuiaAnsNaBaixa.ConfirmacaoNenhuma:
+                                            <Campo Rotulo="Por que não confirmou" Obrigatorio="true" Classe="largo" Erro="@Erro(nameof(DadosGuiaConsultaAns.AusenciaCodigoValidacao))">
+                                                <select id="ga-AusenciaCodigoValidacao" class="campo" disabled="@_guia.ConfirmacaoTravada" value="@(_guia.AusenciaCodigoValidacao ?? string.Empty)"
+                                                        @onchange="e => _guia.AusenciaCodigoValidacao = TextoOuNulo(e)">
+                                                    <option value="">Selecione</option>
+                                                    @foreach (var v in GuiaAnsNaBaixa.MotivosSemToken) { <option value="@v.Codigo">@v.Rotulo</option> }
+                                                </select>
+                                            </Campo>
+                                            <Campo Rotulo="Anexos no portal" Obrigatorio="true" Classe="largo" Erro="@Erro(nameof(DadosGuiaConsultaAns.AnexosNoPortal))">
+                                                <label class="marcar"><input type="checkbox" id="ga-AnexosNoPortal" checked="@_guia.AnexosNoPortal"
+                                                       @onchange="e => _guia.AnexosNoPortal = e.Value is true" /> Guia assinada e documento com foto anexados no portal hoje</label>
+                                            </Campo>
+                                            break;
+                                    }
+                                </div>
+                                @if (_guia.ConfirmacaoTravada)
+                                {
+                                    <p class="secundario ga-confirmacao-da-recepcao">Token colhido na recepção, com o paciente presente.
+                                        <button type="button" class="botao fantasma mini" data-corrigir-token @onclick="() => _guia.CorrigindoConfirmacao = true"
+                                                title="Exceção: a correção vai para a trilha (quem e quando)">Corrigir</button></p>
+                                }
+                            </section>
+                        }
+
                         <section class="secao-form" aria-label="Dados do contratado">
                             <h3>Dados do contratado</h3>
                             <div class="campos tres">
-                                <Campo Rotulo="9 - Código na operadora (CNPJ)" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.CodigoPrestadorNaOperadora))">
+                                <Campo Rotulo="9 - Código na operadora" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.CodigoPrestadorNaOperadora))">
                                     <input id="ga-CodigoPrestadorNaOperadora" class="campo numero-guia" maxlength="14" autocomplete="off"
                                            value="@_guia.CodigoPrestadorNaOperadora" @oninput="e => _guia.CodigoPrestadorNaOperadora = Texto(e)" />
                                 </Campo>
@@ -202,6 +275,20 @@
                                         @foreach (var v in DominiosTiss.Cbos) { <option value="@v.Codigo">@v.Rotulo</option> }
                                     </select>
                                 </Campo>
+                                @if (_guia.ExigeEquipe)
+                                {
+                                    @* A EQUIPE (Amil): o profissional executante pelo CPF — é por ele que a Amil o identifica. *@
+                                    <Campo Rotulo="CPF do profissional" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.EquipeCpf))" Dica="Do cadastro da equipe. É por ele que a operadora identifica o profissional.">
+                                        <input id="ga-EquipeCpf" class="campo numero-guia" maxlength="14" inputmode="numeric" autocomplete="off"
+                                               value="@_guia.EquipeCpf" @oninput="e => _guia.EquipeCpf = Texto(e)" />
+                                    </Campo>
+                                    <Campo Rotulo="Grau de participação" Erro="@Erro(nameof(DadosGuiaConsultaAns.GrauParticipacao))">
+                                        <select id="ga-GrauParticipacao" class="campo" value="@(_guia.GrauParticipacao ?? string.Empty)" @onchange="e => _guia.GrauParticipacao = TextoOuNulo(e)">
+                                            <option value="">(não informar)</option>
+                                            @foreach (var v in DominiosTiss.GrauParticipacao) { <option value="@v.Codigo">@v.Rotulo</option> }
+                                        </select>
+                                    </Campo>
+                                }
                             </div>
                         </section>
 
@@ -236,12 +323,30 @@
                                     <input type="date" id="ga-DataAtendimento" class="campo" value="@_guia.DataAtendimento.ToString("yyyy-MM-dd")"
                                            @onchange="e => _guia.DataAtendimento = DateOnly.TryParse(e.Value?.ToString(), out var d) ? d : _guia.DataAtendimento" />
                                 </Campo>
-                                <Campo Rotulo="20 - Tipo de consulta" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.TipoConsulta))">
-                                    <select id="ga-TipoConsulta" class="campo" value="@_guia.TipoConsulta" @onchange="e => _guia.TipoConsulta = Texto(e)">
-                                        <option value="">Selecione</option>
-                                        @foreach (var v in DominiosTiss.TipoConsulta) { <option value="@v.Codigo">@v.Rotulo</option> }
-                                    </select>
-                                </Campo>
+                                @if (_guia.EhSpSadt)
+                                {
+                                    <Campo Rotulo="Tipo de atendimento" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.TipoAtendimento))">
+                                        <select id="ga-TipoAtendimento" class="campo" value="@(_guia.TipoAtendimento ?? string.Empty)" @onchange="e => _guia.TipoAtendimento = TextoOuNulo(e)">
+                                            <option value="">Selecione</option>
+                                            @foreach (var v in DominiosTiss.TipoAtendimento) { <option value="@v.Codigo">@v.Rotulo</option> }
+                                        </select>
+                                    </Campo>
+                                    <Campo Rotulo="Caráter do atendimento" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.CaraterAtendimento))">
+                                        <select id="ga-CaraterAtendimento" class="campo" value="@(_guia.CaraterAtendimento ?? string.Empty)" @onchange="e => _guia.CaraterAtendimento = TextoOuNulo(e)">
+                                            <option value="">Selecione</option>
+                                            @foreach (var v in DominiosTiss.CaraterAtendimento) { <option value="@v.Codigo">@v.Rotulo</option> }
+                                        </select>
+                                    </Campo>
+                                }
+                                @if (_guia.PedeTipoConsulta)
+                                {
+                                    <Campo Rotulo="20 - Tipo de consulta" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.TipoConsulta))">
+                                        <select id="ga-TipoConsulta" class="campo" value="@_guia.TipoConsulta" @onchange="e => _guia.TipoConsulta = Texto(e)">
+                                            <option value="">Selecione</option>
+                                            @foreach (var v in DominiosTiss.TipoConsulta) { <option value="@v.Codigo">@v.Rotulo</option> }
+                                        </select>
+                                    </Campo>
+                                }
                                 <Campo Rotulo="19 - Tabela" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.CodigoTabela))">
                                     <select id="ga-CodigoTabela" class="campo" value="@_guia.CodigoTabela" @onchange="e => _guia.CodigoTabela = Texto(e)">
                                         <option value="">Selecione</option>
@@ -252,6 +357,21 @@
                                     <input id="ga-CodigoProcedimento" class="campo numero-guia" maxlength="10" inputmode="numeric" autocomplete="off"
                                            value="@_guia.CodigoProcedimento" @oninput="e => _guia.CodigoProcedimento = Texto(e)" />
                                 </Campo>
+                                @if (_guia.EhSpSadt)
+                                {
+                                    <Campo Rotulo="Hora inicial" Erro="@Erro(nameof(DadosGuiaConsultaAns.HoraInicial))">
+                                        <input type="time" id="ga-HoraInicial" class="campo" value="@(_guia.HoraInicial?.ToString("HH:mm"))"
+                                               @onchange="e => _guia.HoraInicial = TimeOnly.TryParse(e.Value?.ToString(), out var h) ? h : null" />
+                                    </Campo>
+                                    <Campo Rotulo="Hora final" Erro="@Erro(nameof(DadosGuiaConsultaAns.HoraFinal))">
+                                        <input type="time" id="ga-HoraFinal" class="campo" value="@(_guia.HoraFinal?.ToString("HH:mm"))"
+                                               @onchange="e => _guia.HoraFinal = TimeOnly.TryParse(e.Value?.ToString(), out var h) ? h : null" />
+                                    </Campo>
+                                    <Campo Rotulo="Descrição do procedimento" Obrigatorio="true" Classe="largo" Erro="@Erro(nameof(DadosGuiaConsultaAns.DescricaoProcedimento))">
+                                        <input id="ga-DescricaoProcedimento" class="campo" maxlength="150" autocomplete="off"
+                                               value="@_guia.DescricaoProcedimento" @oninput="e => _guia.DescricaoProcedimento = Texto(e)" />
+                                    </Campo>
+                                }
                                 <Campo Rotulo="22 - Valor do procedimento (R$)" Obrigatorio="true" Erro="@Erro(nameof(DadosGuiaConsultaAns.ValorProcedimento))">
                                     <input id="ga-ValorProcedimento" class="campo numero-guia" maxlength="12" inputmode="decimal" autocomplete="off" placeholder="0,00"
                                            value="@_guia.ValorTexto" @oninput="e => _guia.ValorTexto = Texto(e)" />
@@ -264,6 +384,11 @@
                             </div>
                         </section>
                         </fieldset>
+                        @* Glosas de ALERTA: não impedem gravar; a operadora pode glosar depois. *@
+                        @foreach (var alerta in _guia.Alertas())
+                        {
+                            <Aviso Tom="atencao" Texto="@alerta" />
+                        }
 
                         @if (MostraBaixa) { <h3 class="fat-guia-ans-baixa">Baixa no sistema</h3> }
                     </div>
@@ -381,7 +506,7 @@
     private string SubtituloDoFormulario
         => _guia is null ? "Confirme a guia no sistema do convênio antes de dar baixa."
             : EnviaPelaBaixa ? BaixaComEnvioNaTela.Subtitulo(_convenio ?? "a operadora")
-            : "Confira a guia de consulta com a do portal da operadora e informe o número que ele gerou.";
+            : $"Confira a guia {(_guia.EhSpSadt ? "SP/SADT" : "de consulta")} com a do portal da operadora e informe o número que ele gerou.";
 
     private string DicaDoConfirmar
         => !PodeBaixar ? "Seu acesso não permite dar baixa na guia." : !GuiaServe ? "Complete os campos da guia ANS marcados em vermelho."
@@ -404,6 +529,7 @@
     /// <summary>A guia ANS em conferência — nula quando esta guia não a pede (baixa comum).</summary>
     private GuiaAnsEmEdicao? _guia;
     private IReadOnlyList<string> _avisosDaGuia = [];
+    private string? _alertaDePrazo;
 
     /// <summary>O que merece conferência nesta guia, numa caixa só (nulo = nada a dizer, e a caixa não aparece).</summary>
     private string? AvisoDaGuia => _avisosDaGuia.Count switch
@@ -469,6 +595,7 @@
             var proposta = await escopo.ServiceProvider.GetRequiredService<GuiaAnsNaBaixaService>().PrepararAsync(CodigoId);
             _guia = proposta.Exige && proposta.Dados is not null ? GuiaAnsEmEdicao.De(proposta.Dados) : null;
             _avisosDaGuia = proposta.Avisos;
+            _alertaDePrazo = proposta.AlertaDePrazo;
             // O envio pelo web service: só se pergunta para a guia que pede a guia ANS, e antes de
             // publicar o código — o rodapé não pode ganhar um botão depois de desenhado.
             _convenioCodigo = paciente is null ? null : paciente.ConvenioCodigo ?? paciente.Convenio.ToString();

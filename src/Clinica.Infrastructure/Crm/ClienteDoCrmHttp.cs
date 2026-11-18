@@ -113,8 +113,21 @@ public sealed class ClienteDoCrmHttp : IClienteDoCrm, IDisposable
     public async Task<bool> ConfiguradoAsync(CancellationToken ct = default)
         => await EnderecoAsync(forcar: true, ct) is not null;
 
-    public Task<AppSession> SessaoAsync(int usuarioId, CancellationToken ct = default)
-        => LerAsync<AppSession>(usuarioId, "/api/session", ct);
+    /// <summary>
+    /// A sessão de quem está usando. ⚠️ O CRM responde /api/session com 200 ANÔNIMO (sem AgentId, sem Inboxes) quando
+    /// o cookie dele venceu (2 h) — não com 401, que é o que renova as outras rotas. Sem esta conferência a tela
+    /// guardava a sessão anônima: as listas seguiam (elas tomam 401 e renovam), e "Nova conversa" dizia que o
+    /// CRM não tem caixa de saída. Aqui a sessão anônima vale como a 401: entra de novo UMA vez e relê.
+    /// </summary>
+    public async Task<AppSession> SessaoAsync(int usuarioId, CancellationToken ct = default)
+    {
+        var lida = await LerAsync<AppSession>(usuarioId, "/api/session", ct);
+        if (!string.IsNullOrEmpty(lida.AgentId)) return lida;
+        var sessao = await SessaoDoUsuarioAsync(usuarioId, ct);
+        await EntrarAsync(sessao, sessao.Atual, ct);
+        lida = await LerAsync<AppSession>(usuarioId, "/api/session", ct);
+        return string.IsNullOrEmpty(lida.AgentId) ? throw new CrmIndisponivel(CrmIndisponivel.AcessoRecusado) : lida;
+    }
 
     public Task<AppConversationSummary[]> ListarConversasAsync(int usuarioId, CancellationToken ct = default)
         => LerAsync<AppConversationSummary[]>(usuarioId, "/api/conversations", ct);

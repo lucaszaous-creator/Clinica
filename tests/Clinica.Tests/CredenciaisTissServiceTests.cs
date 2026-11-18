@@ -208,8 +208,10 @@ public sealed class CredenciaisTissServiceTests : IDisposable
         (await credenciais.EnderecoAsync(TissBancoDeTeste.Petrobras, TipoTransacaoTiss.EnvioGuia)).Should().Be(TissWebserviceCliente.LoteGuiasSaudePetrobras);
         (await credenciais.EnderecoAsync(TissBancoDeTeste.Petrobras, TipoTransacaoTiss.StatusProtocolo)).Should().Be(TissWebserviceCliente.StatusProtocoloSaudePetrobras);
         (await credenciais.EnderecoAsync(TissBancoDeTeste.Petrobras, TipoTransacaoTiss.CancelamentoGuia)).Should().Be(TissWebserviceCliente.CancelaGuiaSaudePetrobras);
-        foreach (var tipo in Enum.GetValues<TipoTransacaoTiss>())
+        foreach (var tipo in new[] { TipoTransacaoTiss.Elegibilidade, TipoTransacaoTiss.EnvioGuia, TipoTransacaoTiss.StatusProtocolo, TipoTransacaoTiss.CancelamentoGuia })
             CredenciaisTissService.EnderecoPadrao(Clinica.Domain.Convenio.Petrobras, tipo)!.Scheme.Should().Be(Uri.UriSchemeHttps);
+        // A autorização pelo web service é só da Amil: a Petrobras não tem endereço (nem chave) para ela.
+        CredenciaisTissService.EnderecoPadrao(Clinica.Domain.Convenio.Petrobras, TipoTransacaoTiss.Autorizacao).Should().BeNull();
 
         // E continua podendo ser trocado.
         await credenciais.DefinirEnderecoAsync(TissBancoDeTeste.Petrobras, TipoTransacaoTiss.EnvioGuia, "https://exemplo.invalid/outro", TissBancoDeTeste.Operador);
@@ -235,6 +237,7 @@ public sealed class CredenciaisTissServiceTests : IDisposable
         CredenciaisTissService.ChaveLogin(maior).Length.Should().BeLessOrEqualTo(60);
         CredenciaisTissService.ChaveSenha(maior).Length.Should().BeLessOrEqualTo(60);
         CredenciaisTissService.ChaveEnvio(maior).Length.Should().BeLessOrEqualTo(60);
+        CredenciaisTissService.ChaveAutorizacao(maior).Length.Should().BeLessOrEqualTo(60);
         foreach (var tipo in Enum.GetValues<TipoTransacaoTiss>())
             CredenciaisTissService.ChaveEndereco(maior, tipo).Length.Should().BeLessOrEqualTo(60);
         var grande = () => CredenciaisTissService.ChaveLogin(new string('C', 41));

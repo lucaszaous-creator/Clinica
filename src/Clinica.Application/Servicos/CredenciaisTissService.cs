@@ -152,8 +152,69 @@ public sealed class CredenciaisTissService
     /// dois. Só HTTPS é aceito ao gravar; quem envia confere de novo antes de usar.
     /// </summary>
     public async Task<Uri?> EnderecoAsync(string convenioCodigo, TipoTransacaoTiss tipo, CancellationToken ct = default)
-        => await EnderecoCadastradoAsync(convenioCodigo, tipo, ct)
-           ?? OperadorasTiss.EnderecoPadrao(await FamiliaAsync(convenioCodigo, ct), tipo);
+    {
+        // Em homologação (comando "ambiente"), TODO serviço vai ao ponto único de homologação da
+        // operadora — por cima até do endereço cadastrado, para nenhum teste cair em produção.
+        if (await EmHomologacaoAsync(convenioCodigo, ct) && (await OperadoraAsync(convenioCodigo, ct))?.EnderecoHomologacao is { } homologacao)
+            return homologacao;
+        return await EnderecoCadastradoAsync(convenioCodigo, tipo, ct)
+               ?? OperadorasTiss.EnderecoPadrao(await FamiliaAsync(convenioCodigo, ct), tipo);
+    }
+
+    // ==================== o pedido de autorização: chave própria por convênio ====================
+
+    public static string ChaveAutorizacao(string convenioCodigo) => Chave("TissAutorizacao:", convenioCodigo);
+
+    /// <summary>
+    /// O sistema pede a autorização à operadora sozinho (no "Chegou") e pelo botão? Desligado por padrão,
+    /// e SEPARADO do envio de guias: pedir senha não é cobrança, e as duas coisas se ligam em dias diferentes.
+    /// </summary>
+    public async Task<bool> AutorizacaoLigadaAsync(string convenioCodigo, CancellationToken ct = default)
+        => string.Equals(await _repo.ObterConfiguracaoAsync(ChaveAutorizacao(convenioCodigo), ct), "true", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Liga ou desliga o pedido de autorização pelo web service para o convênio, com trilha.</summary>
+    public async Task DefinirAutorizacaoAsync(string convenioCodigo, bool ligada, string operador, CancellationToken ct = default)
+    {
+        var quem = Operador(operador);
+        if (ligada && !OperadorasTiss.TemAutorizacao(await FamiliaAsync(convenioCodigo, ct)))
+            throw new InvalidOperationException($"O sistema não conhece o pedido de autorização de {convenioCodigo.Trim()}.");
+        await _repo.SalvarConfiguracaoAsync(ChaveAutorizacao(convenioCodigo), ligada ? "true" : "false", ct);
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = quem, Acao = ligada ? "AutorizacaoTissLigada" : "AutorizacaoTissDesligada",
+            Detalhe = $"Pedido de autorização pelo web service {(ligada ? "ligado" : "desligado")} ({convenioCodigo.Trim()})"
+        }, ct);
+        await _repo.SalvarAsync(ct);
+    }
+
+    // ==================== o ambiente: produção ou homologação ====================
+
+    public static string ChaveAmbiente(string convenioCodigo) => Chave("TissAmbiente:", convenioCodigo);
+
+    /// <summary>O valor gravado que quer dizer "homologação". Qualquer outro (ou nada) é produção.</summary>
+    public const string Homologacao = "homologacao";
+
+    /// <summary>O convênio está apontado para a homologação da operadora?</summary>
+    public async Task<bool> EmHomologacaoAsync(string convenioCodigo, CancellationToken ct = default)
+        => string.Equals((await _repo.ObterConfiguracaoAsync(ChaveAmbiente(convenioCodigo), ct))?.Trim(), Homologacao, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Aponta o convênio para a homologação ou de volta para a produção, com trilha. Homologação só
+    /// existe para operadora que tem o endereço dela no catálogo (<see cref="OperadoraTiss.EnderecoHomologacao"/>).
+    /// </summary>
+    public async Task DefinirAmbienteAsync(string convenioCodigo, bool homologacao, string operador, CancellationToken ct = default)
+    {
+        var quem = Operador(operador);
+        if (homologacao && (await OperadoraAsync(convenioCodigo, ct))?.EnderecoHomologacao is null)
+            throw new InvalidOperationException($"O sistema não conhece o endereço de homologação de {convenioCodigo.Trim()}.");
+        await _repo.SalvarConfiguracaoAsync(ChaveAmbiente(convenioCodigo), homologacao ? Homologacao : "producao", ct);
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = quem, Acao = homologacao ? "AmbienteTissHomologacao" : "AmbienteTissProducao",
+            Detalhe = $"Web service de {convenioCodigo.Trim()} apontado para a {(homologacao ? "HOMOLOGAÇÃO" : "produção")}"
+        }, ct);
+        await _repo.SalvarAsync(ct);
+    }
 
     /// <summary>O endereço cadastrado para o convênio (nulo = vale o do catálogo).</summary>
     public async Task<Uri?> EnderecoCadastradoAsync(string convenioCodigo, TipoTransacaoTiss tipo, CancellationToken ct = default)
@@ -248,7 +309,9 @@ public sealed class CredenciaisTissService
         TipoTransacaoTiss.Elegibilidade => "TissUrl:E:",
         TipoTransacaoTiss.EnvioGuia => "TissUrl:G:",
         TipoTransacaoTiss.StatusProtocolo => "TissUrl:S:",
-        TipoTransacaoTiss.CancelamentoGuia => "TissUrl:C:",
+        TipoTransacaoTiss.CancelamentoGuia or TipoTransacaoTiss.CancelaAutorizacao => "TissUrl:C:",
+        TipoTransacaoTiss.Autorizacao => "TissUrl:A:",
+        TipoTransacaoTiss.StatusAutorizacao => "TissUrl:T:",
         _ => throw new InvalidOperationException("Tipo de transação TISS sem endereço previsto.")
     }, convenioCodigo);
 

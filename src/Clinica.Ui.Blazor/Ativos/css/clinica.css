@@ -328,7 +328,7 @@ svg.icone{width:16px;height:16px;flex:none}
   background:var(--superficie);transition:border-color var(--duracao-rapida)}
 .campo:hover{border-color:var(--borda-hover)}
 .campo:focus{outline:none;border-color:var(--foco);box-shadow:0 0 0 3px var(--acento-tint)}
-.campo:disabled{background:var(--cinza-100);color:var(--texto-secundario)}
+.campo:disabled,.campo[readonly]{background:var(--cinza-100);color:var(--texto-secundario)}
 textarea.campo{resize:vertical;min-height:72px;line-height:1.45}
 select.campo{appearance:none;padding-right:32px;cursor:pointer;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");

@@ -4255,6 +4255,35 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Take(1)
             .Select(ResumoDaTransacaoTiss);
 
+    public Task<AutorizacaoTiss?> ObterAutorizacaoTissAsync(int id, CancellationToken ct = default)
+        => _db.AutorizacoesTiss.FirstOrDefaultAsync(a => a.Id == id, ct);
+
+    public async Task<IReadOnlyList<AutorizacaoTiss>> AutorizacoesDoAgendamentoAsync(int agendamentoId, CancellationToken ct = default)
+        => await _db.AutorizacoesTiss.Where(a => a.AgendamentoId == agendamentoId).OrderBy(a => a.Id).ToListAsync(ct);
+
+    public async Task<IReadOnlyList<AutorizacaoTiss>> AutorizacoesDosAgendamentosAsync(IReadOnlyCollection<int> agendamentoIds, CancellationToken ct = default)
+        => await ConsultaAutorizacoesDosAgendamentos(agendamentoIds).ToListAsync(ct);
+
+    /// <summary>A consulta das autorizações dos horários, exposta para <c>TraducaoNoNpgsqlTests</c>.</summary>
+    public IQueryable<AutorizacaoTiss> ConsultaAutorizacoesDosAgendamentos(IReadOnlyCollection<int> agendamentoIds)
+        => _db.AutorizacoesTiss.AsNoTracking().Where(a => agendamentoIds.Contains(a.AgendamentoId)).OrderBy(a => a.Id);
+
+    public async Task<IReadOnlyList<int>> GuiasIguaisJaEnviadasAsync(string carteira, string procedimento, DateOnly data,
+        IReadOnlyCollection<int> exceto, CancellationToken ct = default)
+        => await ConsultaGuiasIguaisJaEnviadas(carteira, procedimento, data, exceto).ToListAsync(ct);
+
+    /// <summary>A consulta da duplicidade, exposta para <c>TraducaoNoNpgsqlTests</c>. Uma ida, só números.</summary>
+    public IQueryable<int> ConsultaGuiasIguaisJaEnviadas(string carteira, string procedimento, DateOnly data, IReadOnlyCollection<int> exceto)
+        => _db.TransacoesTissGuias.AsNoTracking()
+            .Where(i => i.CodigoId != null && !exceto.Contains(i.CodigoId.Value)
+                        && (i.Transacao!.Estado == EstadoTransacaoTiss.Pendente || i.Transacao.Estado == EstadoTransacaoTiss.EmEnvio
+                            || (i.Transacao.Estado == EstadoTransacaoTiss.Concluida
+                                && (i.Situacao == SituacaoGuiaTiss.Recebida || i.Situacao == SituacaoGuiaTiss.Pendente)))
+                        && _db.GuiasTissConsulta.Any(g => g.CodigoId == i.CodigoId && g.NumeroCarteira == carteira
+                                                          && g.CodigoProcedimento == procedimento && g.DataAtendimento == data))
+            .Select(i => i.CodigoId!.Value)
+            .Distinct();
+
     public async Task<IReadOnlyList<TransacaoTiss>> ElegibilidadesTissDoDiaAsync(DateTime desde, DateTime ate, CancellationToken ct = default)
         => await ConsultaElegibilidadesTissDoDia(desde, ate).ToListAsync(ct);
 

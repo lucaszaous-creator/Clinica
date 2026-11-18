@@ -38,7 +38,8 @@
         @if (leitura.Terminou && EnvioTissNaTela.ConferenciaDoNome(leitura.Texto, NomeDaFicha) is { } nome)
         {
             @* O nome que a operadora devolveu, AO LADO do da ficha: conferência — a ficha nunca é alterada. *@
-            <span class="@(nome.Confere ? "campo-dica" : "campo-erro")" data-conferencia-do-nome>@nome.Texto</span>
+            @* Vermelho só quando DIVERGE da ficha; sem ficha para comparar (avulso), neutro. *@
+            <span class="@(nome.Diverge ? "campo-erro" : "campo-dica")" data-conferencia-do-nome data-diverge="@(nome.Diverge ? "true" : null)">@nome.Texto</span>
         }
         else if (leitura.Terminou && !string.IsNullOrWhiteSpace(NomeDaFicha))
         {

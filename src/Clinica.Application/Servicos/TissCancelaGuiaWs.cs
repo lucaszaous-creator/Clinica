@@ -13,6 +13,10 @@ public sealed record GuiaACancelarTiss
 
     /// <summary>O protocolo em que a guia foi recebida, quando se sabe.</summary>
     public string? NumeroProtocolo { get; init; }
+
+    /// <summary><c>dm_tipoGuia</c>: 2 = faturamento (o padrão); 1 = SOLICITAÇÃO — o cancelamento de uma
+    /// autorização, já que o <c>cancelaGuia</c> não tem cancelamento por senha.</summary>
+    public string TipoGuia { get; init; } = TissCancelaGuiaWs.TipoGuiaFaturamento;
 }
 
 /// <summary>
@@ -113,6 +117,9 @@ public static class TissCancelaGuiaWs
     /// <summary><c>dm_tipoGuia</c> 2 = guia de faturamento (1 é solicitação, 3 é recurso de glosa).</summary>
     public const string TipoGuiaFaturamento = "2";
 
+    /// <summary><c>dm_tipoGuia</c> 1 = guia de solicitação (a autorização).</summary>
+    public const string TipoGuiaSolicitacao = "1";
+
     /// <summary><c>dm_statusCancelamento</c> 1 = cancelado com sucesso.</summary>
     public const string StatusCancelado = "1";
 
@@ -148,13 +155,14 @@ public static class TissCancelaGuiaWs
                 TissMensagemWs.ExigirTamanho(guia.NumeroGuiaPrestador, 20, "número da guia no prestador");
                 TissMensagemWs.ExigirTamanhoOpcional(guia.NumeroGuiaOperadora, 20, "número da guia na operadora");
                 TissMensagemWs.ExigirTamanhoOpcional(guia.NumeroProtocolo, 12, "protocolo da guia");
+                TissMensagemWs.Exigir(guia.TipoGuia is TipoGuiaSolicitacao or TipoGuiaFaturamento, "Tipo de guia a cancelar inválido.");
             }
             TissMensagemWs.Exigir(pedido.Guias.Select(g => g.NumeroGuiaPrestador).Distinct().Count() == pedido.Guias.Count,
                 "Há guia repetida no pedido de cancelamento.");
 
             tipo = new XElement(Ans + "tipoCancelamento",
                 pedido.Guias.Select(g => new XElement(Ans + "tipoCancelamentoGuia",
-                    new XElement(Ans + "tipoGuia", TipoGuiaFaturamento),
+                    new XElement(Ans + "tipoGuia", g.TipoGuia),
                     new XElement(Ans + "numeroGuiaPrestador", g.NumeroGuiaPrestador),
                     Opcional("numeroGuiaOperadora", g.NumeroGuiaOperadora),
                     Opcional("numeroProtocolo", g.NumeroProtocolo))));

@@ -40,6 +40,51 @@ public static class DominiosTiss
         new("1", "Primeira"), new("2", "Seguimento"), new("3", "Pré-natal"), new("4", "Por encaminhamento"),
     ];
 
+    /// <summary>
+    /// <c>dm_tipoAtendimento</c> — guia SP/SADT (nov/2026, Amil). A consulta é "04" e pede o tipo de
+    /// consulta; a acupuntura e as outras sessões são "03". O "23" está na enumeração do XSD sem
+    /// descrição no comentário dele: o termo diz isso, em vez de inventar um.
+    /// </summary>
+    public static readonly IReadOnlyList<ValorTiss> TipoAtendimento =
+    [
+        new("04", "Consulta"), new("03", "Outras terapias"), new("13", "Pequenos atendimentos"),
+        new("02", "Pequena cirurgia"), new("01", "Remoção"), new("08", "Quimioterapia"),
+        new("09", "Radioterapia"), new("10", "Terapia renal substitutiva"), new("23", "Código 23 (sem descrição no XSD)"),
+    ];
+
+    /// <summary>O tipo de atendimento "Consulta": é o único que leva o tipo de consulta na SP/SADT.</summary>
+    public const string TipoAtendimentoConsulta = "04";
+
+    /// <summary><c>dm_caraterAtendimento</c> — guia SP/SADT.</summary>
+    public static readonly IReadOnlyList<ValorTiss> CaraterAtendimento =
+    [
+        new("1", "Eletivo"), new("2", "Urgência/emergência"),
+    ];
+
+    /// <summary>
+    /// <c>dm_ausenciaCodValidacao</c> — por que a guia vai SEM o código de validação (o token da Amil).
+    /// Termos do comentário do XSD.
+    /// </summary>
+    public static readonly IReadOnlyList<ValorTiss> AusenciaCodigoValidacao =
+    [
+        new("01", "Beneficiário internado"), new("02", "Urgência/emergência"),
+        new("03", "Sistema instável; regularizado depois da saída do beneficiário"),
+        new("04", "Beneficiário se negou a informar o token"), new("05", "Coleta domiciliar"),
+        new("06", "Material de exame enviado por terceiros"), new("07", "Beneficiário não tem celular"),
+    ];
+
+    /// <summary><c>dm_grauPart</c> — grau de participação na equipe da SP/SADT (campo 49). Termos do XSD.</summary>
+    public static readonly IReadOnlyList<ValorTiss> GrauParticipacao =
+    [
+        new("12", "Clínico"), new("00", "Cirurgião"), new("01", "Primeiro auxiliar"), new("02", "Segundo auxiliar"),
+        new("03", "Terceiro auxiliar"), new("04", "Quarto auxiliar"), new("05", "Instrumentador"), new("06", "Anestesista"),
+        new("07", "Auxiliar de anestesista"), new("08", "Consultor"), new("09", "Perfusionista"),
+        new("10", "Pediatra na sala de parto"), new("11", "Auxiliar SADT"), new("13", "Intensivista"),
+    ];
+
+    /// <summary>O grau de quem atende sozinho no consultório (consulta, acupuntura): "12 - Clínico".</summary>
+    public const string GrauClinico = "12";
+
     /// <summary><c>dm_conselhoProfissional</c> — campo 13.</summary>
     public static readonly IReadOnlyList<ValorTiss> ConselhoProfissional =
     [

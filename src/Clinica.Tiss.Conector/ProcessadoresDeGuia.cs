@@ -6,7 +6,8 @@ using Clinica.Domain.Entities;
 namespace Clinica.Tiss.Conector;
 
 /// <summary>
-/// ENVIO DE LOTE (<c>tissLoteGuias</c>): uma guia de consulta por item da transação, cada uma com
+/// ENVIO DE LOTE (<c>tissLoteGuias</c>): uma guia conferida por item da transação (consulta na
+/// Petrobras, SP/SADT na Amil — <see cref="TissExportService.GuiaConferida"/>), cada uma com
 /// o número que a fila reservou para ela (<c>TransacaoTissGuia.NumeroGuiaPrestador</c>) — é por
 /// esse número que a resposta acha a guia de volta.
 ///
@@ -40,6 +41,9 @@ public sealed class ProcessadorDeEnvioDeGuia(
 
         // Entre o pedido e o envio a guia pode ter mudado noutra máquina (baixa manual, estorno da
         // conferência): confere de novo ANTES de qualquer coisa sair. Uma guia fora recusa o lote.
+        // E o lote AGENDADO pode ter passado do prazo de cobrança enquanto esperava a janela.
+        var operadora = await credenciais.OperadoraAsync(transacao.ConvenioCodigo, ct);
+        var hoje = DateOnly.FromDateTime(agora());
         var guias = new List<System.Xml.Linq.XElement>();
         foreach (var item in transacao.Guias.OrderBy(g => g.Id))
         {
@@ -49,9 +53,12 @@ public sealed class ProcessadorDeEnvioDeGuia(
                 return PreparoTiss.Recusar($"A guia {item.NumeroGuiaPrestador} recebeu baixa depois do pedido. Nada foi enviado: monte o lote de novo.");
             if (codigo.GuiaAns is null)
                 return PreparoTiss.Recusar($"A guia {item.NumeroGuiaPrestador} está sem a conferência no padrão ANS. Nada foi enviado: confira e monte o lote de novo.");
+            if (PrazosTiss.BloqueadaPeloPrazo(operadora, codigo.GuiaAns.DataAtendimento, hoje))
+                return PreparoTiss.Recusar($"A guia {item.NumeroGuiaPrestador}: {PrazosTiss.FraseBloqueadaPeloPrazo(operadora!, codigo.GuiaAns.DataAtendimento)} "
+                                           + "Nada foi enviado: monte o lote de novo sem ela.");
             try
             {
-                guias.Add(TissExportService.GuiaConsultaConferida(codigo, item.NumeroGuiaPrestador));
+                guias.Add(TissExportService.GuiaConferida(codigo, item.NumeroGuiaPrestador));
             }
             catch (ArgumentException ex)
             {
@@ -90,6 +97,7 @@ public sealed class ProcessadorDeEnvioDeGuia(
                 XmlRecebido = bruta.Corpo,
                 Guias = ResultadosPorGuia.De(resposta.Guias)
             }),
+            false when resposta.GlosasDoLote.Any(g => g.Codigo == FilaTiss.GlosaForaDaJanela) => DesfechoTiss.ForaDaJanela(resposta.Resumo),
             false => DesfechoTiss.Falhar(resposta.Resumo),
             null => DesfechoTiss.NaoSeSabe(resposta.Resumo)
         };

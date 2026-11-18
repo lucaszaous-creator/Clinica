@@ -549,7 +549,8 @@ public sealed class ConectorTissTests : IDisposable
         using var escopo = provedor.CreateScope();
 
         escopo.ServiceProvider.GetServices<IProcessadorTransacaoTiss>().Select(p => p.Tipo)
-            .Should().BeEquivalentTo(Enum.GetValues<TipoTransacaoTiss>());
+            // A situação da autorização não é transação própria: é a MESMA transação do pedido, em análise.
+            .Should().BeEquivalentTo(Enum.GetValues<TipoTransacaoTiss>().Where(t => t != TipoTransacaoTiss.StatusAutorizacao));
         escopo.ServiceProvider.GetRequiredService<ExecutorDeTransacoesTiss>().Should().NotBeNull();
         provedor.GetRequiredService<OpcoesDoConector>().EnvioHabilitado.Should().BeFalse("o envio nasce desligado no servidor");
     }
