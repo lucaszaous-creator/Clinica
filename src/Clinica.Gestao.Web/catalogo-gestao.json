@@ -1564,7 +1564,7 @@
       "chave": "agenda-confirmacoes"
      },
      {
-      "rotulo": "Acompanhamento",
+      "rotulo": "Fila 360",
       "chave": "retorno-pacientes"
      },
      {
@@ -1615,7 +1615,7 @@
    },
    {
     "chave": "retorno-pacientes",
-    "rotulo": "Acompanhamento de pacientes",
+    "rotulo": "Fila 360",
     "descricao": null,
     "oculto": false,
     "requer": [
@@ -1627,7 +1627,7 @@
     ],
     "perfilExclusivo": null,
     "abas": [],
-    "componente": "AcompanhamentoDePacientes"
+    "componente": "Fila360"
    },
    {
     "chave": "taxas",

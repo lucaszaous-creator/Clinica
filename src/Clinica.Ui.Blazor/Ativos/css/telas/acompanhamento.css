@@ -109,3 +109,41 @@
 
 /* O selo da situação não quebra: duas linhas de selo numa linha de tabela se leem como dois selos. */
 .acompanhamento .acomp-lista .selo{white-space:nowrap}
+
+/* ---------- Fila 360 (nov/2026): a aba Hoje, a célula do risco e o risco na Ficha 360 ---------- */
+.fila360 .f360-abas b{font-weight:700}
+.f360-hoje{display:flex;flex-direction:column;gap:var(--space-4);padding:var(--space-3) var(--space-4) var(--space-4)}
+.f360-grupo{border:1px solid var(--borda);border-radius:var(--radius-control);overflow:hidden}
+.f360-grupo-cab{display:flex;align-items:baseline;flex-wrap:wrap;gap:var(--space-1) var(--space-3);padding:var(--space-2) var(--space-3);
+  background:var(--superficie-hover);border-bottom:1px solid var(--borda)}
+.f360-grupo-cab h3{margin:0;font-size:var(--text-secao-size);letter-spacing:var(--text-secao-tracking);text-transform:uppercase;color:var(--cinza-700)}
+.f360-grupo-cab p{margin:0;font-size:var(--text-small-size);color:var(--texto-secundario);min-width:0}
+.f360-grupo-n{margin-left:var(--space-1);color:var(--texto-secundario)}
+.f360-responderam{border-color:var(--sucesso)}
+.f360-responderam .f360-grupo-cab{background:var(--sucesso-suave)}
+.f360-responderam .f360-grupo-cab h3{color:var(--sucesso-forte)}
+.f360-lista{margin:0}
+.f360-lista tr:last-child td{border-bottom:0}
+.f360-col-risco{width:1%}
+
+.f360-risco{display:flex;flex-direction:column;gap:2px;min-width:0}
+.f360-risco-linha{display:flex;align-items:center;gap:var(--space-2);white-space:nowrap}
+.f360-nota{font-family:var(--font-num);font-variant-numeric:tabular-nums;font-weight:700;min-width:2ch;text-align:right}
+.f360-medidor{display:block;width:56px;height:6px;border-radius:var(--radius-pilula);background:var(--cinza-200);overflow:hidden;flex:none}
+.f360-medidor i{display:block;height:100%;border-radius:var(--radius-pilula);background:var(--sucesso)}
+.f360-medidor.tom-aviso i{background:var(--aviso)}
+.f360-medidor.tom-perigo i{background:var(--erro)}
+
+.f360-ficha-risco{display:flex;flex-direction:column;gap:var(--space-2);padding-bottom:var(--space-3);margin-bottom:var(--space-3);border-bottom:1px solid var(--borda)}
+.f360-ficha-risco .acomp-rotulo{margin:0}
+.f360-ficha-nota{display:flex;align-items:baseline;gap:var(--space-2)}
+.f360-ficha-nota .f360-nota{font-size:var(--text-h2-size);text-align:left}
+.f360-motivos{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--space-1);font-size:var(--text-small-size)}
+.f360-motivos li{display:flex;justify-content:space-between;gap:var(--space-3)}
+.f360-motivos b{font-variant-numeric:tabular-nums;white-space:nowrap}
+.f360-soma{color:var(--erro-texto)}
+.f360-tira{color:var(--sucesso-forte)}
+@media (max-width:760px){
+  .f360-hoje{padding:var(--space-2)}
+  .f360-medidor{width:40px}
+}

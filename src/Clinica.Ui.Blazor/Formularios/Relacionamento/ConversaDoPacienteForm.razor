@@ -23,7 +23,7 @@
 @inject IHostDaTela Host
 @inject IServiceProvider Servicos
 
-<Modal Titulo="@Linha.Paciente" Subtitulo="@ConversaDoAcompanhamento.Cabecalho(Linha)" Largura="largo" AoFechar="AoFechar">
+<Modal Titulo="@Linha.Paciente" Subtitulo="@("Ficha 360 · " + ConversaDoAcompanhamento.Cabecalho(Linha))" Largura="largo" AoFechar="AoFechar">
     <ChildContent>
         <div class="acomp-conversa">
             <div class="acomp-conversa-principal">
@@ -141,6 +141,32 @@
             </div>
 
             <aside class="acomp-conversa-lado">
+                @if (Linha.Pendente)
+                {
+                    @* O risco da Fila 360 (Fila360NaTela.Risco): a nota, a faixa e CADA motivo com os pontos — sem caixa-preta. *@
+                    var risco = Fila360NaTela.Risco(Linha);
+                    <section class="f360-ficha-risco" aria-label="Por que está em risco">
+                        <p class="acomp-rotulo">Por que está em risco</p>
+                        <div class="f360-ficha-nota">
+                            <b class="f360-nota">@risco.Pontos.ToString(Formato.PtBr)</b>
+                            <span class="texto-secundario pequeno">de 100</span>
+                            <Selo Tom="@risco.Tom">@risco.Rotulo</Selo>
+                        </div>
+                        @if (risco.Motivos.Count == 0)
+                        {
+                            <p class="texto-secundario pequeno">Nenhum sinal de risco agora.</p>
+                        }
+                        else
+                        {
+                            <ul class="f360-motivos">
+                                @foreach (var m in risco.Motivos)
+                                {
+                                    <li><span>@m.Texto</span><b class="@(m.Pontos > 0 ? "f360-soma" : "f360-tira")">@(m.Pontos > 0 ? "+" : "")@m.Pontos.ToString(Formato.PtBr)</b></li>
+                                }
+                            </ul>
+                        }
+                    </section>
+                }
                 <dl class="pares acomp-ficha">
                     <dt>Convênio</dt><dd>@Linha.Convenio</dd>
                     <dt>Sessões</dt><dd>@Linha.TotalSessoes.ToString(Formato.PtBr)@(Linha.TratamentoLongo ? " · tratamento longo" : "")</dd>

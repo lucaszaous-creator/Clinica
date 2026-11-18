@@ -54,7 +54,7 @@ public sealed class VerCasoDoWhatsAppTests : IClassFixture<BancoDasTelas>, IDisp
 
     private IRenderedComponent<Raiz> AbrirAcompanhamento()
     {
-        var tipo = typeof(IHostDaTela).Assembly.GetType("Clinica.Ui.Blazor.Telas.AcompanhamentoDePacientes")!;
+        var tipo = typeof(IHostDaTela).Assembly.GetType("Clinica.Ui.Blazor.Telas.Fila360")!;
         return _ctx.RenderComponent<Raiz>(p => p.Add(r => r.Tela, tipo));
     }
 

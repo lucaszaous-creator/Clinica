@@ -54,7 +54,7 @@ const ROTEIRO = [
   ['confirmacoes', 'ConfirmacoesDeAgenda', 'Pelo telefone da ficha', async p => {
     await linhaDe(p, 'tr', 'Pedro Henrique').locator('.conf-whats').click({ timeout: 10000 }); }],
   // O Acompanhamento (toda a equipe): a Alzira respondeu ao convite (o "Como foi?" está na conversa).
-  ['acompanhamento', 'AcompanhamentoDePacientes', 'Alzira', async p => {
+  ['acompanhamento', 'Fila360', 'Alzira', async p => {
     await p.getByRole('button', { name: 'Toda a equipe' }).click({ timeout: 10000 }); await pausa(1500);
     await linhaDe(p, 'tr.acomp-linha', 'Alzira').locator('.wa-lado-abrir, .acomp-whats').first().click({ timeout: 10000 }); }],
 ];

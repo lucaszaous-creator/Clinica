@@ -134,8 +134,10 @@ public sealed class RelacionamentoBlazorParidadeTests : IClassFixture<BancoDasTe
 
     private static IRenderedComponent<Raiz> Abrir(TestContext ctx)
     {
-        var r = ctx.RenderComponent<Raiz>(p => p.Add(x => x.Tela, typeof(Clinica.Ui.Blazor.Telas.AcompanhamentoDePacientes)));
+        var r = ctx.RenderComponent<Raiz>(p => p.Add(x => x.Tela, typeof(Clinica.Ui.Blazor.Telas.Fila360)));
         Assentar(r);
+        // A Fila 360 abre na aba Hoje; a paridade com a tela WPF é a da fila inteira, que mora na Carteira.
+        Clicar(r, r.FindAll(".f360-abas button").Single(b => b.TextContent.Trim() == "Carteira"));
         return r;
     }
 

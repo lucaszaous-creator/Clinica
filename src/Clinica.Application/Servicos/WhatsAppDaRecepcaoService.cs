@@ -254,6 +254,17 @@ public sealed partial class WhatsAppDaRecepcaoService(
     /// duplica caso (o caso que já está no ciclo da última sessão fica como está). O dia é marcado em
     /// <see cref="RecallDoDia"/>, dividido com a tela Acompanhamento.
     /// </summary>
+    /// <summary>
+    /// Os casos da Fila 360 cujo paciente respondeu depois do último contato (o grupo "Responderam" da aba Hoje).
+    /// Sem o CRM configurado, vazio. A falha do CRM chega a quem chamou: a Fila 360 abre sem o grupo e registra no log.
+    /// </summary>
+    public async Task<IReadOnlySet<int>> QueResponderamAsync(IReadOnlyList<LinhaAcompanhamento> linhas, CancellationToken ct = default)
+    {
+        if (linhas.Count == 0 || !await crm.ConfiguradoAsync(ct)) return new HashSet<int>();
+        var conversas = await crm.ListarConversasAsync(UsuarioId, ct);
+        return Fila360NaTela.QueResponderam(linhas, ConversasNaTela.UltimaRecebidaPorPaciente(conversas), Agora);
+    }
+
     private async Task<(IReadOnlyList<LinhaAcompanhamento> Linhas, bool Permitida)> RetencaoAsync(int dias, DateOnly hoje, CancellationToken ct)
     {
         await RenovarRecallDoDiaAsync(dias, hoje, ct);

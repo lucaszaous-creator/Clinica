@@ -1,6 +1,13 @@
 @*
-  ACOMPANHAMENTO DE PACIENTES (out/2026, desenho A aprovado pela cliente:
-  docs/mockups/relacionamento-dois-desenhos.html — migrado do AcompanhamentoView WPF).
+  FILA 360 (nov/2026, pedido da direção — docs/fila-360.md): o sistema de retenção. Evoluiu o
+  Acompanhamento de pacientes (out/2026, desenho A: docs/mockups/relacionamento-dois-desenhos.html)
+  sem tirar nada dele, e acrescentou:
+  - a aba HOJE: só o que pede ação hoje, agrupado pela ação, do maior risco para o menor
+    (Fila360NaTela.Hoje), com "Responderam" no topo — quem escreveu depois do convite;
+  - o RISCO de cada paciente, explicável (Fila360NaTela.Risco): a nota, a faixa e o motivo que mais
+    pesou, na Carteira e na Ficha 360 (a conversa do paciente, ConversaDoPacienteForm);
+  - o atalho "Risco alto" na Carteira.
+  A aba CARTEIRA é a fila de antes, com o funil, os filtros e o CSV.
 
   A pergunta da cliente era "como a usuária assume, atende, manda mensagem, vê progresso?".
   A resposta é a FILA COM A PRÓXIMA AÇÃO: cada linha tem UM botão — o passo seguinte daquele
@@ -20,9 +27,9 @@
 @using Clinica.Application.Abstracoes
 @inherits TelaBase
 
-<div class="pagina acompanhamento @(Carregando && _todos.Count > 0 ? "carregando" : null)">
-    <CabecalhoPagina Sobretitulo="Relacionamento · Acompanhamento" Titulo="Acompanhamento de pacientes"
-                     Subtitulo="Quem sumiu e as indicações de BSV — do primeiro contato até a sessão realizada.">
+<div class="pagina acompanhamento fila360 @(Carregando && _todos.Count > 0 ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Relacionamento · Retenção" Titulo="Fila 360"
+                     Subtitulo="Quem pode parar o tratamento, por quê e o que fazer hoje — do primeiro contato até a volta.">
         @if (_tipo == TipoAcompanhamento.Recall)
         {
             <button type="button" class="botao" disabled="@(!PodeAcompanhar)" @onclick="AbrirGerarRecall"
@@ -73,6 +80,12 @@
 
         <section class="cartao lista-cartao">
             <div class="filtros acomp-barra">
+                <div class="segmentado f360-abas" role="group" aria-label="O que ver">
+                    <button type="button" aria-pressed="@Bool(_aba == Aba.Hoje)" @onclick="() => TrocarAba(Aba.Hoje)"
+                            title="Só o que pede ação hoje, agrupado pela ação, do maior risco para o menor">Hoje · <b>@_naHoje</b></button>
+                    <button type="button" aria-pressed="@Bool(_aba == Aba.Carteira)" @onclick="() => TrocarAba(Aba.Carteira)"
+                            title="Todos os casos da fila, com o funil, os filtros e o risco">Carteira</button>
+                </div>
                 @Filas
                 <div class="segmentado" role="group" aria-label="De quem">
                     <button type="button" aria-pressed="@Bool(_minha)" @onclick="() => TrocarEscopo(true)" title="O que é seu e o que ninguém assumiu ainda">Minha fila</button>
@@ -90,11 +103,13 @@
             </div>
 
             <div class="cartao-titulo acomp-resumo">
-                <p>@_resumo
+                <p>@(_aba == Aba.Hoje ? Fila360NaTela.Resumo(_grupos) : _resumo)
                     @if (_ultimaLeitura is { } em) { <span class="texto-secundario"> · lista atualizada às @em.ToString("HH:mm", Formato.PtBr)</span> }
                 </p>
                 <div class="acoes">
-                    @if (_faixa is not null || Filtrada)
+                    <button type="button" class="botao fantasma mini" aria-pressed="@Bool(_soRiscoAlto)" @onclick="AlternarRiscoAlto"
+                            title="Só os casos abertos com risco alto (60 pontos ou mais)">Risco alto (@_riscoAlto)</button>
+                    @if (_faixa is not null || Filtrada || _soRiscoAlto)
                     {
                         <button type="button" class="botao fantasma mini" @onclick="LimparFiltros">Limpar filtros</button>
                     }
@@ -104,7 +119,11 @@
                 </div>
             </div>
 
-            @if (_linhas.Count == 0)
+            @if (_aba == Aba.Hoje)
+            {
+                @AbaHoje
+            }
+            else if (_linhas.Count == 0)
             {
                 var (titulo, descricao) = ConversaDoAcompanhamento.Vazio(_naFila, Filtrada, _faixa);
                 <EstadoVazio Titulo="@titulo" Descricao="@descricao" Icone="@(Filtrada && _naFila > 0 ? "filtro" : "ok")" />
@@ -117,7 +136,7 @@
                             <tr>
                                 <th>Paciente</th>
                                 <th class="nao-quebra">@(_tipo == TipoAcompanhamento.Recall ? "Sem vir" : "Indicado há")</th>
-                                <th>Progresso</th>
+                                <th>Risco</th>
                                 <th>Situação</th>
                                 <th>Responsável</th>
                                 <th class="direita">Próximo passo</th>
@@ -134,7 +153,7 @@
                                         <span class="secundario">@AcompanhamentoNaTela.Contexto(l)@(string.IsNullOrWhiteSpace(l.Telefone) ? " · sem telefone" : "")</span>
                                     </td>
                                     <td class="nao-quebra">@ConversaDoAcompanhamento.TempoTexto(l)</td>
-                                    <td>@Passos(l)</td>
+                                    <td>@Risco(l)</td>
                                     <td><Selo Tom="@(string.IsNullOrEmpty(tom) ? "neutro" : tom)">@selo</Selo></td>
                                     <td class="nao-quebra">
                                         @if (l.ResponsavelId is null)
@@ -196,6 +215,14 @@
     private string _resumo = string.Empty;
     private int _naFila, _encerrados, _pendentesRecall, _pendentesBsv;
     private DateTime? _ultimaLeitura;
+
+    // A Fila 360: a aba (Hoje é a porta de entrada), os grupos do dia, o atalho do risco alto e quem respondeu ao convite.
+    private enum Aba { Hoje, Carteira }
+    private Aba _aba = Aba.Hoje;
+    private IReadOnlyList<GrupoDaFila> _grupos = [];
+    private IReadOnlySet<int> _responderam = new HashSet<int>();
+    private int _naHoje, _riscoAlto;
+    private bool _soRiscoAlto;
     private string? _nomeClinica;
     private int _diasRecall = 60;
     private bool _recallGerado;
@@ -336,6 +363,14 @@
             }
             var config = await servico.ConfiguracaoAsync(UsuarioId);
             var linhas = await servico.ListarAsync(UsuarioId);
+            // Quem respondeu ao convite (o grupo do topo da aba Hoje) vem das conversas do CRM. É ajuda: sem
+            // o CRM, ou com ele fora do ar, a fila abre igual, sem o grupo, e a falha vai ao log.
+            var responderam = _responderam;
+            try { responderam = await sp.GetRequiredService<WhatsAppDaRecepcaoService>().QueResponderamAsync(linhas.Where(l => l.Pendente).ToList()); }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                Clinica.Application.Diagnostico.Registrar("Blazor — Fila 360: as respostas do WhatsApp não puderam ser lidas (a fila abre sem o grupo Responderam)", ex);
+            }
             string? nome = _nomeClinica;
             if (nome is null)
             {
@@ -345,6 +380,7 @@
             if (geracao != _geracao || Descartada) return;
 
             _todos = linhas;
+            _responderam = responderam;
             _motivos = config.Motivos;
             _responsaveis = config.Responsaveis;
             _diasRecall = dias;
@@ -375,7 +411,12 @@
     private void Refiltrar()
     {
         var hoje = Hoje;
-        _linhas = AcompanhamentoNaTela.Filtrar(_todos, FiltroAtual, UsuarioId, hoje).Where(_extra.Aceita).ToList();
+        _linhas = AcompanhamentoNaTela.Filtrar(_todos, FiltroAtual, UsuarioId, hoje).Where(_extra.Aceita)
+            .Where(l => !_soRiscoAlto || Fila360NaTela.Risco(l).Faixa == FaixaDeRisco.Alto).ToList();
+        // A aba Hoje: a mesma fila (tipo, de quem, busca, "Mais filtros"), sem a faixa do funil.
+        _grupos = Fila360NaTela.Hoje(AcompanhamentoNaTela.Filtrar(_todos, FiltroAtual with { Faixa = null }, UsuarioId, hoje).Where(_extra.Aceita), hoje, _responderam);
+        _naHoje = _grupos.Sum(g => g.Linhas.Count);
+        _riscoAlto = Fila360NaTela.RiscoAlto(AcompanhamentoNaTela.Filtrar(_todos, new FiltroAcompanhamento(_tipo, _minha), UsuarioId, hoje));
         _naFila = AcompanhamentoNaTela.Filtrar(_todos, new FiltroAcompanhamento(_tipo, _minha, _faixa), UsuarioId, hoje).Count;
         _encerrados = AcompanhamentoNaTela.Filtrar(_todos, new FiltroAcompanhamento(_tipo, _minha, FaixaAcompanhamento.Encerrado), UsuarioId, hoje).Count;
         _funil = AcompanhamentoNaTela.Funil(_todos, _tipo, _minha, UsuarioId, hoje);
@@ -385,10 +426,14 @@
     }
 
     private void TrocarTipo(TipoAcompanhamento tipo) { _tipo = tipo; _faixa = null; Refiltrar(); }
+    private void TrocarAba(Aba aba) { _aba = aba; Refiltrar(); }
+
+    /// <summary>O atalho do risco alto filtra a Carteira (é ela que lista todos os casos).</summary>
+    private void AlternarRiscoAlto() { _soRiscoAlto = !_soRiscoAlto; _aba = Aba.Carteira; Refiltrar(); }
     private void TrocarEscopo(bool minha) { _minha = minha; Refiltrar(); }
 
     /// <summary>O funil é o filtro: clicar escolhe a faixa; clicar de novo limpa.</summary>
-    private void EscolherFaixa(FaixaAcompanhamento faixa) { _faixa = _faixa == faixa ? null : faixa; Refiltrar(); }
+    private void EscolherFaixa(FaixaAcompanhamento faixa) { _faixa = _faixa == faixa ? null : faixa; _aba = Aba.Carteira; Refiltrar(); }
 
     private void Buscar(ChangeEventArgs e) { _busca = e.Value?.ToString() ?? string.Empty; Refiltrar(); }
 
@@ -396,6 +441,7 @@
     {
         _faixa = null;
         _busca = string.Empty;
+        _soRiscoAlto = false;
         _extrasFiltro = new(_tipo, _minha);
         _extra = FiltroExtraAcompanhamento.Nenhum;
         Refiltrar();
@@ -569,15 +615,16 @@
             || !ExigirAlgum(Permissao.GerenciarCampanhas | Permissao.VerFaturamento, "exportar a lista de acompanhamento")) return;
         if (_linhas.Count == 0) { await Dialogos.AvisoAsync("Exportar CSV", "Não há ninguém na lista para exportar."); return; }
         var cabecalho = new[] { "Paciente", "Telefone", "Convênio", "Modalidade", "Situação", "Próximo contato", "Responsável",
-            "Dias", "Tentativas", "Sessões realizadas", "Pacote com saldo", "Pode receber mensagem" };
+            "Dias", "Tentativas", "Sessões realizadas", "Pacote com saldo", "Pode receber mensagem", "Risco", "Por quê" };
         var linhas = _linhas.Select(x => (IReadOnlyList<string>)new[]
         {
             x.Paciente, x.Telefone ?? "—", x.Convenio, x.ModalidadeTexto, AcompanhamentoNaTela.Selo(x, Hoje).Texto,
             x.ProximoContato.ToString("dd/MM/yyyy", Formato.PtBr), x.Responsavel, x.Dias.ToString(Formato.PtBr), x.Tentativas.ToString(Formato.PtBr),
-            x.TotalSessoes.ToString(Formato.PtBr), x.PacoteComSaldo ? "sim" : "não", ConversaDoAcompanhamento.PodeReceberMensagem(x)
+            x.TotalSessoes.ToString(Formato.PtBr), x.PacoteComSaldo ? "sim" : "não", ConversaDoAcompanhamento.PodeReceberMensagem(x),
+            $"{Fila360NaTela.Risco(x).Pontos.ToString(Formato.PtBr)} · {Fila360NaTela.Risco(x).Rotulo}", string.Join(" · ", Fila360NaTela.Risco(x).Motivos.Select(m => m.Texto))
         }).ToList();
         var erro = await Host.ExportarCsvAsync(cabecalho, linhas,
-            $"acompanhamento-{(_tipo == TipoAcompanhamento.Recall ? "recall" : "bsv")}-{DateTime.Today:yyyy-MM-dd}.csv");
+            $"fila-360-{(_tipo == TipoAcompanhamento.Recall ? "recall" : "bsv")}-{DateTime.Today:yyyy-MM-dd}.csv");
         if (erro is not null) Notificacoes.Erro(erro);
     }
 
@@ -610,18 +657,66 @@
         <span class="acomp-faixa-nota">@nota</span>
     </button>;
 
-    /// <summary>O trilho compacto da linha: um traço por degrau a partir do 2º, cheio até onde o caso chegou.</summary>
-    private RenderFragment Passos(LinhaAcompanhamento l)
+    /// <summary>
+    /// A célula do risco: a nota, o medidor, a faixa (cor sempre com o texto) e o motivo que mais pesou; todos os
+    /// motivos com os pontos vão no title. Quem decide a nota é a Application (Fila360NaTela.Risco).
+    /// </summary>
+    private RenderFragment Risco(LinhaAcompanhamento l)
     {
-        var degrau = AcompanhamentoNaTela.Degrau(l);
-        var rotulos = AcompanhamentoNaTela.Degraus(l.Tipo);
-        return @<span class="acomp-passos" role="img" aria-label="@($"Progresso: {rotulos[degrau]}")" title="@($"Chegou em: {rotulos[degrau]}")">
-            @for (var i = 1; i < rotulos.Count; i++)
-            {
-                <i class="@(i <= degrau ? (degrau == 4 ? "voltou" : "feito") : null)"></i>
-            }
+        var r = Fila360NaTela.Risco(l);
+        var motivos = string.Join(" · ", r.Motivos.Select(m => $"{m.Texto} ({(m.Pontos > 0 ? "+" : "")}{m.Pontos.ToString(Formato.PtBr)})"));
+        return @<span class="f360-risco" title="@(motivos.Length == 0 ? "Sem sinal de risco" : motivos)">
+            <span class="f360-risco-linha">
+                <b class="f360-nota">@r.Pontos.ToString(Formato.PtBr)</b>
+                <span class="f360-medidor tom-@r.Tom" aria-hidden="true"><i style="width:@(r.Pontos.ToString(System.Globalization.CultureInfo.InvariantCulture))%"></i></span>
+                <Selo Tom="@r.Tom">@r.Rotulo</Selo>
+            </span>
+            @if (r.Principal.Length > 0) { <span class="secundario">@r.Principal</span> }
         </span>;
     }
+
+    /// <summary>A aba Hoje: os grupos da Fila360NaTela.Hoje, cada um com o que fazer, a linha e o botão do passo.</summary>
+    private RenderFragment AbaHoje => __builder =>
+    {
+        if (_grupos.Count == 0)
+        {
+            <EstadoVazio Titulo="Nada pede ação hoje" Descricao="Os casos com o próximo contato marcado para outro dia estão na Carteira." Icone="ok" />
+            return;
+        }
+        <div class="f360-hoje">
+            @foreach (var g in _grupos)
+            {
+                <section class="f360-grupo @(g.Grupo == GrupoDeHoje.Responder ? "f360-responderam" : null)" aria-label="@g.Titulo" @key="g.Grupo">
+                    <header class="f360-grupo-cab">
+                        <h3>@g.Titulo <span class="f360-grupo-n">@g.Linhas.Count.ToString(Formato.PtBr)</span></h3>
+                        <p>@g.Dica</p>
+                    </header>
+                    <div class="tabela-rolagem">
+                        <table class="lista acomp-lista f360-lista">
+                            <tbody>
+                                @foreach (var l in g.Linhas)
+                                {
+                                    var passo = AcompanhamentoNaTela.Passo(l);
+                                    <tr @key="l.Id" class="acomp-linha" @onclick="() => AbrirConversa(l, null)" title="Abrir a Ficha 360 de @l.Paciente">
+                                        <td>
+                                            <span class="principal">@l.Paciente</span>
+                                            <span class="secundario">@AcompanhamentoNaTela.Contexto(l) · @ConversaDoAcompanhamento.TempoTexto(l)</span>
+                                        </td>
+                                        <td class="f360-col-risco">@Risco(l)</td>
+                                        <td class="nao-quebra">
+                                            @if (l.ResponsavelId is null) { <span class="texto-secundario">ninguém</span> }
+                                            else { <span class="acomp-dono" title="@l.Responsavel"><span class="avatar acomp-avatar">@ConversaDoAcompanhamento.Iniciais(l.Responsavel)</span>@ConversaDoAcompanhamento.Dono(l, UsuarioId)</span> }
+                                        </td>
+                                        <td class="direita nao-quebra" @onclick:stopPropagation="true"><span class="botoes-linha acomp-acoes">@if (passo is not (PassoAcompanhamento.Contatar or PassoAcompanhamento.TentarDeNovo)) { <BotaoDaConversaAoLado PacienteId="l.PacienteId" Nome="@l.Paciente" Telefone="@l.Telefone" /> }@Botao(l, passo)</span></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            }
+        </div>
+    };
 
     private RenderFragment Botao(LinhaAcompanhamento l, PassoAcompanhamento passo)
     {
