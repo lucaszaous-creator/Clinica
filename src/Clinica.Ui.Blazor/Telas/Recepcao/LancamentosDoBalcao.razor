@@ -23,17 +23,31 @@
 *@
 @namespace Clinica.Ui.Blazor.Telas
 @using Clinica.Application.Abstracoes
+@using Clinica.Application.Modelos
 @inherits TelaBase
 
 <div class="pagina rec-lancamentos @(Carregando && _carregadas.Count > 0 ? "carregando" : null)">
     <CabecalhoPagina Sobretitulo="Recepção · Atendimento" Titulo="Lançamentos"
                      Subtitulo="O que foi marcado e o que foi atendido no período — a conferência antes de fechar o balcão. Quem marcou, quem lançou, quantas guias saíram e o que ainda não liberou.">
-        <div class="rec-lanc-periodo" role="group" aria-label="Período">
-            <label><span>De</span><input type="date" class="campo" value="@_de.ToString("yyyy-MM-dd")" @onchange="DeMudouAsync" /></label>
-            <label><span>Até</span><input type="date" class="campo" value="@_ate.ToString("yyyy-MM-dd")" @onchange="AteMudouAsync" /></label>
-        </div>
-        <button type="button" class="botao" @onclick="HojeAsync" disabled="@(EhHoje)" title="Voltar a conferir só o dia de hoje">Hoje</button>
-        <button type="button" class="botao icone" @onclick="() => CarregarAsync()" title="Atualizar (F5)" aria-label="Atualizar a lista"><Icone Nome="atualizar" /></button>
+        @if (VendoRelatorio)
+        {
+            <div class="rec-lanc-periodo" role="group" aria-label="Período do relatório">
+                <label><span>De</span><input type="date" class="campo" value="@_relFiltro.Inicio.ToString("yyyy-MM-dd")" @onchange="RelDeAsync" /></label>
+                <label><span>Até</span><input type="date" class="campo" value="@_relFiltro.Fim.ToString("yyyy-MM-dd")" @onchange="RelAteAsync" /></label>
+            </div>
+            <button type="button" class="botao" @onclick="() => RelPeriodoAsync(RelatorioDeAtendimentosRegras.EsteMes(Hoje))">Este mês</button>
+            <button type="button" class="botao" @onclick="() => RelPeriodoAsync(RelatorioDeAtendimentosRegras.MesPassado(Hoje))">Mês passado</button>
+            <button type="button" class="botao icone" @onclick="CarregarRelatorioAsync" title="Atualizar o relatório" aria-label="Atualizar o relatório"><Icone Nome="atualizar" /></button>
+        }
+        else
+        {
+            <div class="rec-lanc-periodo" role="group" aria-label="Período">
+                <label><span>De</span><input type="date" class="campo" value="@_de.ToString("yyyy-MM-dd")" @onchange="DeMudouAsync" /></label>
+                <label><span>Até</span><input type="date" class="campo" value="@_ate.ToString("yyyy-MM-dd")" @onchange="AteMudouAsync" /></label>
+            </div>
+            <button type="button" class="botao" @onclick="HojeAsync" disabled="@(EhHoje)" title="Voltar a conferir só o dia de hoje">Hoje</button>
+            <button type="button" class="botao icone" @onclick="() => CarregarAsync()" title="Atualizar (F5)" aria-label="Atualizar a lista"><Icone Nome="atualizar" /></button>
+        }
     </CabecalhoPagina>
 
     @if (_recusa is not null)
@@ -41,7 +55,7 @@
         <Aviso Tom="atencao" Texto="@_recusa" />
     }
 
-    @if (!_naoVerificado && _lido)
+    @if (!VendoRelatorio && !_naoVerificado && _lido)
     {
         <section class="kpis" aria-label="Resumo do período">
             <Kpi Rotulo="Horários marcados" Valor="@_marcacoes.Count.ToString(Formato.PtBr)" Icone="calendario"
@@ -60,9 +74,18 @@
         <div class="segmentado rec-lanc-vista" role="group" aria-label="O que conferir">
             <button type="button" class="@(VendoMarcacoes ? "ativo" : null)" aria-pressed="@(VendoMarcacoes ? "true" : "false")"
                     title="Os horários marcados no período, com quem marcou" @onclick="() => _vista = VistaMarcacoes">Horários marcados (@_marcacoes.Count)</button>
-            <button type="button" class="@(!VendoMarcacoes ? "ativo" : null)" aria-pressed="@(!VendoMarcacoes ? "true" : "false")"
+            <button type="button" class="@(_vista == VistaAtendimentos ? "ativo" : null)" aria-pressed="@(_vista == VistaAtendimentos ? "true" : "false")"
                     title="Os atendimentos finalizados no período, com as guias" @onclick="() => _vista = VistaAtendimentos">Atendimentos (@_carregadas.Count)</button>
+            <button type="button" class="@(VendoRelatorio ? "ativo" : null)" aria-pressed="@(VendoRelatorio ? "true" : "false")"
+                    title="Os horários do período por modalidade, especialidade, convênio, profissional e situação — e a planilha do Excel"
+                    @onclick="AbrirRelatorioAsync">Relatório</button>
         </div>
+        @if (VendoRelatorio)
+        {
+            @VistaDoRelatorio
+        }
+        else
+        {
         <div class="filtros">
             @* À vista nas DUAS listas: quem chega em "Horários marcados" com um número na mão não
                tem de adivinhar que a busca mora na outra. Digitar leva para Atendimentos. *@
@@ -216,6 +239,7 @@
             </div>
             <div class="rodape-lista">O estorno nunca apaga: o atendimento fica marcado e as guias ficam no histórico, com o motivo na trilha.</div>
         }
+        }
     </section>
 </div>
 
@@ -230,6 +254,129 @@
 }
 
 @code {
+    /// <summary>A vista "Relatório" (o código em LancamentosDoBalcao.Relatorio.cs; as regras em RelatorioDeAtendimentosRegras).</summary>
+    private RenderFragment VistaDoRelatorio => @<text>
+        <div class="filtros rec-rel-filtros">
+            <Campo Rotulo="Modalidade / tipo">
+                <select class="campo" value="@(_relFiltro.Modalidade ?? "")" @onchange="e => FiltrarRelatorioAsync(_relFiltro with { Modalidade = Valor(e) })">
+                    <option value="">Todas</option>
+                    @foreach (var o in _relModalidades) { <option value="@o.Valor">@o.Rotulo</option> }
+                </select>
+            </Campo>
+            <Campo Rotulo="Especialidade">
+                <select class="campo" value="@(_relFiltro.Especialidade ?? "")" @onchange="e => FiltrarRelatorioAsync(_relFiltro with { Especialidade = Valor(e) })">
+                    <option value="">Todas</option>
+                    @foreach (var o in _relEspecialidades) { <option value="@o.Valor">@o.Rotulo</option> }
+                </select>
+            </Campo>
+            <Campo Rotulo="Convênio">
+                <select class="campo" value="@(_relFiltro.Convenio ?? "")" @onchange="e => FiltrarRelatorioAsync(_relFiltro with { Convenio = Valor(e) })">
+                    <option value="">Todos</option>
+                    @foreach (var o in _relConvenios) { <option value="@o.Valor">@o.Rotulo</option> }
+                </select>
+            </Campo>
+            <Campo Rotulo="Profissional">
+                <select class="campo" value="@(_relFiltro.ProfissionalId?.ToString() ?? "")"
+                        @onchange="e => FiltrarRelatorioAsync(_relFiltro with { ProfissionalId = int.TryParse(Valor(e), out var id) ? id : null })">
+                    <option value="">Todos</option>
+                    @foreach (var o in _relProfissionais) { <option value="@o.Valor">@o.Rotulo</option> }
+                </select>
+            </Campo>
+            <Campo Rotulo="Paciente">
+                <input class="campo" type="search" value="@_relFiltro.Paciente" placeholder="Parte do nome" autocomplete="off" spellcheck="false"
+                       aria-label="Buscar pelo nome do paciente" @onchange="e => FiltrarRelatorioAsync(_relFiltro with { Paciente = Valor(e) })" />
+            </Campo>
+            <div class="rec-rel-situacoes" role="group" aria-label="Situação">
+                @foreach (var s in RelatorioDeAtendimentosRegras.SituacoesDoFiltro)
+                {
+                    var situacao = s;
+                    <label class="alternar">
+                        <input type="checkbox" checked="@RelSituacaoMarcada(situacao)" @onchange="e => RelAlternarSituacaoAsync(situacao, e.Value is true)" />
+                        @RelatorioDeAtendimentosRegras.Situacao(situacao)
+                    </label>
+                }
+            </div>
+            @if (RelFiltroAtivo)
+            {
+                <button type="button" class="botao fantasma" @onclick="LimparFiltroDoRelatorioAsync">Limpar filtros</button>
+            }
+            @if (_relatorio is { } r)
+            {
+                <span class="resumo-filtro">@RelatorioDeAtendimentosRegras.Resumo(r)</span>
+            }
+            <button type="button" class="botao mini" @onclick="ExportarRelatorioAsync"
+                    disabled="@(!PodeExportarRelatorio || _relExportando || _relatorio is not { Atendimentos: > 0 })"
+                    title="@(PodeExportarRelatorio ? "Exportar a lista com o filtro para o Excel (.xlsx, com o filtro do Excel ligado)" : "Seu acesso não permite exportar a lista de pacientes.")">
+                <Icone Nome="baixar" />@(_relExportando ? "Gerando…" : "Exportar para Excel")
+            </button>
+        </div>
+
+        @if (_relRecusa is not null)
+        {
+            <Aviso Tom="atencao" Texto="@_relRecusa" />
+        }
+        @if (_relAviso is not null)
+        {
+            <Aviso Tom="atencao" Texto="@_relAviso" />
+        }
+
+        @if (_relFalhou)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler o relatório" Detalhe="@_relErro" AoTentarDeNovo="CarregarRelatorioAsync" />
+        }
+        else if (_relatorio is null)
+        {
+            <div class="cartao-corpo"><Esqueleto Altura="220" /></div>
+        }
+        else if (_relatorio.Linhas.Count == 0)
+        {
+            <EstadoVazio Titulo="Nenhum atendimento bate com o filtro" Icone="filtro"
+                         Descricao="Mude o período ou limpe os filtros. Entram os horários pela data do horário: realizados, faltas e cancelados." />
+        }
+        else
+        {
+            <div class="tabela-rolagem @(_relCarregando ? "carregando" : null)">
+                <table class="lista rec-rel-lista">
+                    <thead>
+                        <tr>
+                            <th class="nao-quebra" style="width:96px">Data</th>
+                            <th>Paciente · convênio</th>
+                            <th>Modalidade · especialidade</th>
+                            <th style="width:150px">Profissional</th>
+                            <th class="nao-quebra" style="width:110px">Situação</th>
+                            <th class="nao-quebra" style="width:120px">Atendimento</th>
+                            <th style="width:220px">Guias · baixa</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var l in _relatorio.Linhas)
+                        {
+                            <tr @key="l.AgendamentoId">
+                                <td class="nao-quebra numero">@l.DataHora.ToString("dd/MM/yy HH:mm", Formato.PtBr)</td>
+                                <td>
+                                    <span class="principal">@l.Paciente</span>
+                                    <span class="secundario">@l.Convenio@(l.Carteirinha is { } c ? $" · cart. {c}" : null)</span>
+                                </td>
+                                <td>
+                                    <span>@l.Modalidade</span>
+                                    @if (l.Especialidade is { } esp) { <span class="secundario">@esp</span> }
+                                </td>
+                                <td>@(l.Profissional ?? "—")</td>
+                                <td><Selo Tom="@(l.Situacao switch { StatusAgendamento.Realizado => "sucesso", StatusAgendamento.Faltou => "aviso", StatusAgendamento.Cancelado => "neutro", _ => "info" })">@l.SituacaoTexto</Selo></td>
+                                <td class="nao-quebra numero">@(l.NumeroAtendimento ?? "—")</td>
+                                <td>
+                                    <span>@(l.GuiasTexto.Length > 0 ? l.GuiasTexto : "—")</span>
+                                    @if (l.BaixaTexto.Length > 0) { <span class="secundario">@l.BaixaTexto</span> }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="rodape-lista">A planilha leva exatamente o que a lista mostra, sem nada do prontuário. Cada exportação fica na trilha de auditoria.</div>
+        }
+    </text>;
+
     private static readonly FiltroLancamentos FiltroInicial = new(LancamentosNaTela.Todos, LancamentosNaTela.Todos, LancamentosNaTela.Todos, false);
 
     private DateOnly _de = Hoje;

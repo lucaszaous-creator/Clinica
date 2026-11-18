@@ -412,6 +412,14 @@ public interface IClinicaRepositorio
     /// </summary>
     Task<IReadOnlyList<Agendamento>> AgendamentosMarcadosNoPeriodoAsync(DateTime inicio, DateTime fimExclusivo, CancellationToken ct = default);
 
+    /// <summary>
+    /// O RELATÓRIO DE ATENDIMENTOS (nov/2026): os horários do período (pela data do horário) que batem com
+    /// o filtro — situação, profissional, modalidade, especialidade, convênio da ficha e parte do nome —,
+    /// TUDO filtrado no banco, com as guias do atendimento. Só colunas de cadastro e faturamento: nada clínico.
+    /// O "Particular" (que depende do catálogo) é conferido depois, em <c>RelatorioDeAtendimentosRegras</c>.
+    /// </summary>
+    Task<IReadOnlyList<LinhaBrutaRelatorioAtendimento>> RelatorioDeAtendimentosAsync(FiltroRelatorioAtendimentos filtro, CancellationToken ct = default);
+
     Task<IReadOnlyList<Agendamento>> AgendamentosQueSobrepoemAsync(DateTime inicio, DateTime fim, CancellationToken ct = default);
 
     /// <summary>

@@ -47,6 +47,20 @@ public class TraducaoNoNpgsqlTests
         sql.Should().Contain("ConcluirAutomaticamenteHoras").And.Contain("ChegadaEm").And.Contain("LIMIT");
     }
 
+    [Fact]
+    public void Relatorio_de_atendimentos_traduz_todos_os_filtros_no_banco()
+    {
+        using var db = Postgres();
+        var sql = new ClinicaRepositorio(db).ConsultaRelatorioDeAtendimentos(new FiltroRelatorioAtendimentos(
+            new DateOnly(2026, 11, 1), new DateOnly(2026, 11, 30), Modalidade: "BsvApenas", Especialidade: "Psiquiatria",
+            Convenio: "Amil", ProfissionalId: 3, Paciente: "ana")).ToQueryString();
+        sql.Should().Contain("ModalidadeCodigo").And.Contain("EspecialidadeConsultaCodigo").And.Contain("ConvenioCodigo")
+            .And.Contain("ProfissionalId").And.Contain("lower(").And.Contain("Codigos");
+        new ClinicaRepositorio(db).ConsultaRelatorioDeAtendimentos(new FiltroRelatorioAtendimentos(
+            new DateOnly(2026, 11, 1), new DateOnly(2026, 11, 30), Modalidade: "MODALIDADE-PERSONALIZADA", Convenio: "CVsulamerica"))
+            .ToQueryString().Should().Contain("ModalidadeCodigo");
+    }
+
     [Theory]
     [InlineData(FiltroListaPacientes.Todos)]
     [InlineData(FiltroListaPacientes.EmTratamento)]

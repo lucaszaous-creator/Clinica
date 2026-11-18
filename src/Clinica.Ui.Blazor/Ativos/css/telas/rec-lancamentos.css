@@ -24,3 +24,9 @@
 .rec-atd-ficha .rec-atd-resumo{margin:0}
 .rec-atd-ficha .rec-atd-resumo .selo{white-space:normal;max-width:100%}
 .rec-atd-ficha .rec-atd-lista{margin:0;padding-left:var(--space-4)}
+/* A vista "Relatório" (nov/2026): situações como caixas de marcar, numa linha que quebra. */
+.rec-lancamentos .rec-rel-situacoes{display:inline-flex;flex-wrap:wrap;align-items:center;gap:var(--space-2) var(--space-3);
+  min-height:36px}
+.rec-lancamentos .rec-rel-situacoes .alternar{white-space:nowrap}
+.rec-lancamentos .rec-rel-lista td .secundario{display:block}
+.rec-lancamentos .tabela-rolagem.carregando{opacity:.6}
