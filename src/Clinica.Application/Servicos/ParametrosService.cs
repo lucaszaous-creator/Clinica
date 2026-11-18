@@ -20,6 +20,18 @@ public sealed class ParametrosSnapshot
     public int? ValidadeConsultaDias(Convenio c)
         => _map.TryGetValue(c, out var p) ? p.ValidadeConsultaDias : ConvenioInfo.ValidadeConsultaDias(c);
 
+    /// <summary>
+    /// O prazo da TRAVA DE CONSULTA (e do aviso de glosa na baixa) para a família — o intervalo que a
+    /// OPERADORA cobra entre duas consultas, que não é a mesma pergunta da renovação.
+    /// <see cref="ValidadeConsultaDias"/> responde "a clínica acompanha a renovação?", e nulo ali é
+    /// "Não renova" na tela de regras. Aqui nulo NÃO desliga nada: vale o prazo do convênio no código
+    /// (<see cref="ConvenioInfo.ValidadeConsultaDias"/>, 30 na Saúde Petrobras). Só um número na linha
+    /// muda o prazo; 0 desliga a trava daquele convênio. (Nov/2026: a linha da Petrobras gravada com
+    /// "Não renova" deixava passar consulta a 15 dias da anterior, e a operadora glosou.)
+    /// </summary>
+    public int? PrazoDaTravaDeConsulta(Convenio c)
+        => _map.TryGetValue(c, out var p) && p.ValidadeConsultaDias is { } dias ? dias : ConvenioInfo.ValidadeConsultaDias(c);
+
     public int DiasSegundoCodigo(Convenio c)
         => _map.TryGetValue(c, out var p) ? p.DiasSegundoCodigo : 1;
 

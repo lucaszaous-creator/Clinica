@@ -539,7 +539,10 @@ O que deve aparecer: `Conector TISS no ar. Envio de guias neste servidor: deslig
 /opt/clinica-tiss-conector/current/deploy/comando.sh situacao Petrobras
 # Petrobras: login cadastrado, senha cadastrada, envio desligado, hoje 0 de 300 consultas.
 #   operadora Saúde Petrobras, registro ANS 422631 no catálogo; código do prestador: o CNPJ da clínica;
-#   elegibilidade em https://webservices.crc.com.br/tiss/ws/40100/tissVerificaElegibilidade (padrão do catálogo).
+#   elegibilidade em https://webservices.crc.com.br/tiss40300/ws/40300/tissVerificaElegibilidade (padrão do catálogo).
+#   Elegibilidade: TISS 4.03.00 em https://webservices.crc.com.br/tiss40300/ws/40300/tissVerificaElegibilidade (padrão do catálogo).
+#   EnvioGuia: TISS 4.03.00 em https://webservices.crc.com.br/tiss40300/ws/40300/tissLoteGuias (padrão do catálogo).
+#   …
 ```
 
 Depois, peça uma elegibilidade por uma tela (quando houver) e veja a linha passar de `Pendente`
@@ -558,11 +561,13 @@ outro arquivo do conector, da fila ou das telas conhece nome de operadora.
 |---|---|---|
 | Registro ANS (público) | 422631 | 326305 |
 | `codigoPrestadorNaOperadora` | CNPJ da clínica | **login do web service** (o login do portal é o código do credenciado) |
-| Endereços padrão | `https://webservices.crc.com.br/tiss/ws/40100/…` | APIM: `https://api.servicos.grupoamil.com.br/api-tiss-…/v4.01.00` |
-| Padrão | TISS 4.01.00, SOAP, login e senha (MD5) no cabeçalho | o mesmo |
-| Versão do padrão | 4.01.00 em tudo | **4.03.00** no lote, no status do protocolo e no demonstrativo (`api-tiss-…/v4.03.00`); elegibilidade e cancelamento em 4.01.00 |
+| Endereços padrão | `https://webservices.crc.com.br/tiss40300/ws/40300/…` (desde nov/2026; antes `tiss/ws/40100`) | APIM: `https://api.servicos.grupoamil.com.br/api-tiss-…/v4.01.00` |
+| Padrão | TISS SOAP, login e senha (MD5) no cabeçalho | o mesmo |
+| Versão do padrão | **4.03.00 em tudo**, inclusive o arquivo de lote do portal (a 4.01.00 é recusada desde 01/08/2026) | **4.03.00** no lote, no status do protocolo e no demonstrativo (`api-tiss-…/v4.03.00`); elegibilidade e cancelamento em 4.01.00 |
 | Codificação da mensagem na rede | ISO-8859-1 (a do padrão) | **UTF-8** (o APIM é WCF/basicHttpBinding: respondeu HTTP 415 a `charset=ISO-8859-1`) |
-| Elegibilidade | sim | **sim** |
+| Elegibilidade | sim (4.03.00) | **sim** (4.01.00) |
+| Dias de envio no mês | 1 a 20 (manual; **aviso**, a fila não segura) | 1º ao 5º dia útil, 7h às 19h (a fila segura até a abertura) |
+| Homologação | não tem (`testar-elegibilidade` roda em produção, só consulta) | ponto único `api-tiss-servico-test` |
 | Guia em que a consulta vai | guia de consulta (inclusive o BSV) | **guia SP/SADT**, com senha de autorização e token (o Manual do Credenciado manda cobrar consulta "exclusivamente em guias de SP/SADT") |
 | Envio de guias nas telas | sim (a guia passa pela conferência ANS na baixa) | **pronto e desligado** (nov/2026): conferência SP/SADT, lote e arquivo prontos e testados; `EnvioDeGuiaNasTelas` falso deixa a Amil fora das telas de envio e da conferência na baixa — ver "Amil: o envio de guias" |
 | Prazos | — | envio do 1º ao 5º dia útil, das 7h às 19h — **regra da fila** (o lote fora dela fica agendado; a Amil recusa com 3091 até na homologação); cobrança em até 90 dias do atendimento — aviso, vermelho quando a guia vence antes da próxima janela |
@@ -946,6 +951,71 @@ e CBO): `--cpf-profissional` é conferido e citado na saída, mas não vai na me
    `RemetenteInvalido` pede `comando.sh codigo Amil cnpj` ou o código do credenciado; resposta que não
    é XML, HTTP 404 ou 405 pede o "link único" do Núcleo TISS (`comando.sh endereco Amil todos …`).
 
+## Saúde Petrobras em TISS 4.03.00 (nov/2026)
+
+**Fonte.** Canal oficial da Saúde Petrobras no Telegram, **post 499, de 06/07/2026**: "A partir de
+01/08/2026, não aceitaremos o envio da versão 4.01.00. Sendo assim, os lotes enviados nestas versões
+serão rejeitados integralmente com a justificativa: Mensagem eletrônica fora do padrão." (em 14/11/2025
+já tinham exigido a 4.02.00). ⚠️ **Os manuais do portal estão desatualizados**: o `manual_web_service.pdf`
+e o Manual Portal TISS ainda falam de 4.01.00 — não use os endereços nem a versão deles.
+
+**Endereços (não documentados pela operadora).** Base `https://webservices.crc.com.br/tiss40300/ws/40300/<serviço>`;
+o WSDL abre com o sufixo `.wsdl` (namespace `…/v40300`) e o GET no serviço sem `.wsdl` dá 405 (existe e
+aceita POST). ⚠️ O `soap:address` dentro do WSDL (`http://webservices.crc.com.br:80/tiss/ws/40300/…`)
+dá 404 por HTTPS: **não é usado**.
+
+| Serviço | Endereço (catálogo) | Visto aberto |
+|---|---|---|
+| Elegibilidade | `tiss40300/ws/40300/tissVerificaElegibilidade` | sim (WSDL) |
+| Lote de guias | `tiss40300/ws/40300/tissLoteGuias` | sim (WSDL) |
+| Situação do protocolo | `tiss40300/ws/40300/tissSolicitacaoStatusProtocolo` | sim (WSDL) |
+| Cancelamento de guia | `tiss40300/ws/40300/tissCancelaGuia` | **não conferido** (mesmo padrão; confira o `.wsdl` na VPS) |
+| Demonstrativo de retorno | `tiss40300/ws/40300/tissSolicitacaoDemonstrativoRetorno` | **não conferido** (só o endereço; o sistema ainda não pede demonstrativo) |
+
+**Codificação.** Continua **ISO-8859-1**: é o que o próprio demonstrativo 4.03.00 da Petrobras declara
+no XML, e o WSDL 4.03.00 oficial é `document` com `soapAction=""`.
+
+**O que muda da 4.01.00 para a 4.03.00** (XSD oficiais em `tests/Clinica.Tests/Tiss/xsd-*`, comparados
+elemento a elemento):
+
+- **Guia de consulta (`ctm_consultaGuia`)**: mesma estrutura, mesma ordem e mesmos obrigatórios. Mudam
+  três domínios: o CNPJ passa a aceitar letras (`[A-Z0-9]{12}[0-9]{2}`, o CNPJ alfanumérico), o
+  `dm_CBOS` ganha **223575 (Obstetriz)** e o `valorProcedimento` vai de 8 para **10 dígitos**
+  (`st_decimal10-2`). Nenhum campo novo e nenhum obrigatório novo. O sistema continua limitando o valor
+  a 999.999,99 (cabe nas duas) e o CNPJ da clínica é numérico (cabe nas duas).
+- **Mensagens do web service** (elegibilidade, lote, situação do protocolo, cancelamento, recurso):
+  mesma estrutura; muda o `Padrao` (a lista aceita 4.02.00 e 4.03.00), o CNPJ alfanumérico e a tabela
+  de glosas (`dm_tipoGlosa`).
+
+**O que o sistema faz agora.** Todas as transações da Petrobras em 4.03.00 (catálogo
+`OperadorasTiss.SaudePetrobras`); a elegibilidade deixou de ter a versão fixa (a da Amil continua
+4.01.00); o **arquivo de lote e de recurso** da Petrobras (o que sobe no portal) sai em 4.03.00 — os
+das outras operadoras, Amil inclusive, não mudam; os dias **1 a 20** do mês viram aviso na conferência
+do lote e na baixa (a fila não segura o lote). Testes: `TissPetrobras403Tests`, `TissPontaAPontaTests`
+(o lote enviado valida no XSD 4.03.00), `GuiaAnsNaBaixaTests` (domínios iguais ao XSD 4.03.00).
+
+**Atualizar o conector na VPS e provar o endereço novo** (como root; `C=/opt/clinica-tiss-conector/current/deploy/comando.sh`):
+
+1. **Não mande lote antes do passo 6.** Pedidos de envio feitos antes da atualização sairiam em 4.01.00.
+2. Publicar e instalar este commit (seção "Instalação na VPS": `publicar.sh` na máquina de trabalho,
+   `sudo bash instalar.sh Petrobras Amil` na VPS). O banco não muda (sem migration).
+3. Conferir os endereços: `sudo $C situacao Petrobras`. Cada serviço deve dizer
+   `TISS 4.03.00 em https://webservices.crc.com.br/tiss40300/ws/40300/… (padrão do catálogo)`.
+   Se algum disser **`CADASTRADO — vence o catálogo`** (um endereço 4.01.00 gravado antes), apague:
+   `sudo $C endereco Petrobras todos padrao --operador 'Seu Nome'` e confira de novo.
+4. (Opcional) Conferir que os serviços existem, sem mandar mensagem:
+   `curl -s -o /dev/null -w '%{http_code}\n' https://webservices.crc.com.br/tiss40300/ws/40300/tissCancelaGuia.wsdl`
+   (200 = existe; faça o mesmo para `tissSolicitacaoDemonstrativoRetorno.wsdl`).
+5. A consulta inofensiva, em PRODUÇÃO (a Petrobras não tem homologação):
+   `sudo $C testar-elegibilidade Petrobras --carteira CARTEIRA_DE_UM_PACIENTE --operador 'Seu Nome'`.
+   A primeira linha diz `PRODUÇÃO Saúde Petrobras … TISS 4.03.00 em https://webservices.crc.com.br/tiss40300/…`.
+   Leitura: "Elegível"/"Não elegível" = o endereço e a versão funcionam; `VersaoInvalida` ou "Mensagem
+   eletrônica fora do padrão" = a versão (avise); `LoginInvalido` = credencial (não repita); HTTP 404/405/415
+   ou "não reconhece o serviço" = endereço ou SOAPAction (`--soap-action` muda o cabeçalho). Uma ida só,
+   nada na fila; vai uma linha `TesteTissHomologacao` à trilha, sem a carteira.
+6. Com "Elegível"/"Não elegível", o próximo lote pode sair pela tela — **do dia 1 ao 20**. A guia C1649
+   (protocolo 13963964, enviada em 4.01.00): confira no portal se foi processada; **não reenvie sozinho**.
+
 ## Operação
 
 ### Girar a credencial (a senha do portal mudou, ou alguém saiu da clínica)
@@ -1079,9 +1149,13 @@ Dito sem enfeite:
   hora, se devolve o número da guia dela (e em que formato), se aceita número de guia com letra
   ("C12") e número de lote escolhido pela clínica, e o que faz no cancelamento: **não se sabe**.
   A lista completa está em `docs/tiss-webservice-petrobras.md`.
-- **A versão.** As mensagens são 4.01.00, a do manual do web service dela e a da elegibilidade
-  que funcionou. Há registro de que ela exige 4.03.00 no faturamento pelo portal; qual vale no
-  web service de lote só o primeiro envio dirá.
+- **A versão (resolvido em nov/2026).** A Saúde Petrobras recusa a 4.01.00 desde 01/08/2026 (canal
+  oficial, post 499); o sistema escreve 4.03.00 para ela. A primeira guia real (C1649, protocolo
+  13963964, 17/11/2026) foi em 4.01.00: "Sucesso" no portal, mas pode ser rejeitada no
+  processamento — não reenviar sozinho; conferir no portal.
+- **O web service 4.03.00 da Petrobras nunca foi chamado por este código.** O endereço, o WSDL e o
+  405 do GET foram vistos pela coordenação (18/11/2026); se a resposta segue o XSD 4.03.00 e se o
+  `soapAction` vazio é aceito ali, o primeiro `testar-elegibilidade Petrobras` dirá.
 - **O número do lote** ("9" + o número da transação, 12 dígitos) é escolha nossa para não colidir
   com os lotes em arquivo; não foi conferido com a operadora.
 - **Nenhuma chamada real** foi feita por este código: todos os testes usam rede de mentira. A

@@ -1,5 +1,9 @@
 # Web service TISS da Saúde Petrobras — primeiro passo: elegibilidade
 
+> ⚠️ **Desatualizado quanto à versão (nov/2026).** A Saúde Petrobras recusa a 4.01.00 desde 01/08/2026
+> (canal oficial, post 499) e o sistema fala com ela em **4.03.00**, em `https://webservices.crc.com.br/tiss40300/ws/40300/<serviço>`.
+> Endereços, mudanças da guia e o passo a passo da VPS: `docs/tiss-conector.md`, seção "Saúde Petrobras em TISS 4.03.00".
+
 **Pedido da direção (11/11/2026):** parar de digitar no Portal TISS da Saúde Petrobras o que o
 sistema já sabe. Hoje a secretária abre o portal, marca "Não" em "Você possui o Número da Guia do
 Prestador?", preenche a guia de consulta inteira, salva, copia o número que o portal gerou e cola

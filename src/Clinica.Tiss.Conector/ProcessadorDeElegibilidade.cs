@@ -34,6 +34,7 @@ public sealed class ProcessadorDeElegibilidade(
             CodigoPrestadorNaOperadora = destino.CodigoPrestador!,
             NumeroCarteira = transacao.NumeroCarteira.Trim(),
             ValidadeCarteira = transacao.ValidadeCarteira,
+            VersaoTiss = destino.VersaoTiss,
             Login = credencial.Login,
             SenhaMd5 = credencial.SenhaMd5,
             Sequencial = DadosDoConvenio.Sequencial(transacao),

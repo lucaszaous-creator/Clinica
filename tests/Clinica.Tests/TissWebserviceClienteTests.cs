@@ -70,11 +70,12 @@ public class TissWebserviceClienteTests
 
         enderecos.Should().OnlyContain(e => e.Scheme == Uri.UriSchemeHttps && e.Host == "webservices.crc.com.br");
         enderecos.Select(e => e.AbsolutePath).Should().Equal(
-            "/tiss/ws/40100/tissVerificaElegibilidade",
-            "/tiss/ws/40100/tissLoteGuias",
-            "/tiss/ws/40100/tissSolicitacaoStatusProtocolo",
-            "/tiss/ws/40100/tissCancelaGuia",
-            "/tiss/ws/40100/tissSolicitacaoDemonstrativoRetorno");
+            // TISS 4.03.00 (a 4.01.00 é recusada desde 01/08/2026): o caminho do serviço, não o soap:address do WSDL.
+            "/tiss40300/ws/40300/tissVerificaElegibilidade",
+            "/tiss40300/ws/40300/tissLoteGuias",
+            "/tiss40300/ws/40300/tissSolicitacaoStatusProtocolo",
+            "/tiss40300/ws/40300/tissCancelaGuia",
+            "/tiss40300/ws/40300/tissSolicitacaoDemonstrativoRetorno");
     }
 
     [Fact]

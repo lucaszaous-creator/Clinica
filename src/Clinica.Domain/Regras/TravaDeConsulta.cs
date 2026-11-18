@@ -1,5 +1,15 @@
 namespace Clinica.Domain.Regras;
 
+/// <summary>O que disputa o prazo da trava de consulta num convênio (<see cref="ConvenioInfo.JanelaDaTravaDeConsulta"/>).</summary>
+public enum JanelaDaTravaDeConsulta
+{
+    /// <summary>Mesma especialidade com o mesmo médico (o critério original, nov/2026).</summary>
+    PorEspecialidadeEProfissional,
+
+    /// <summary>Mesma especialidade, com qualquer médico (Saúde Petrobras).</summary>
+    PorEspecialidade
+}
+
 /// <summary>Uma consulta pelo convênio que pode acender a trava: quando foi (ou será) e o atendimento dela.</summary>
 /// <param name="EspecialidadeCodigo">A especialidade da consulta (código do catálogo, ou o enum das antigas).</param>
 /// <param name="ProfissionalId">Quem atende(u) a consulta.</param>

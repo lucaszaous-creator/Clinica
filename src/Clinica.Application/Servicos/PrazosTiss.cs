@@ -31,6 +31,7 @@ public static class PrazosTiss
     /// <summary>O aviso da janela de envio do mês (nulo = dentro dela, ou a operadora não tem janela).</summary>
     public static string? JanelaDeEnvio(OperadoraTiss? operadora, DateTime agora)
     {
+        if (DiasDeEnvio(operadora, agora) is { } dias) return dias;
         if (operadora?.JanelaDeEnvio is not { } janela) return null;
         var hoje = DateOnly.FromDateTime(agora);
         var diaUtil = DiaUtilDoMes(hoje);
@@ -42,6 +43,22 @@ public static class PrazosTiss
                + $"das {janela.Abre:HH\\:mm} às {janela.Fecha:HH\\:mm}"
                + (diaUtil is { } d ? $" (hoje é o {d}º dia útil)." : " (hoje não é dia útil).")
                + " Fora dela, o envio é recusado. Dia útil aqui é de segunda a sexta, sem os feriados nacionais.";
+    }
+
+    /// <summary>
+    /// O aviso dos dias do mês em que a operadora recebe lotes (Saúde Petrobras: 1 a 20). Só aviso — a
+    /// fila não segura o lote. Nulo = dentro dos dias, ou a operadora não os define.
+    /// </summary>
+    public static string? DiasDeEnvio(OperadoraTiss? operadora, DateTime agora)
+    {
+        if (operadora?.DiasDeEnvioNoMes is not { } dias) return null;
+        var hoje = DateOnly.FromDateTime(agora);
+        if (hoje.Day >= dias.PrimeiroDia && hoje.Day <= dias.UltimoDia) return null;
+        var proximo = hoje.Day < dias.PrimeiroDia
+            ? new DateOnly(hoje.Year, hoje.Month, dias.PrimeiroDia)
+            : new DateOnly(hoje.Year, hoje.Month, 1).AddMonths(1).AddDays(dias.PrimeiroDia - 1);
+        return $"Pelo manual, a {operadora.Nome} recebe lotes do dia {dias.PrimeiroDia} ao dia {dias.UltimoDia} de cada mês "
+               + $"(hoje é dia {hoje.Day}; o próximo período abre em {proximo:dd/MM}). O envio não é bloqueado: confira antes de mandar.";
     }
 
     /// <summary>Os avisos de uma guia na baixa: o prazo de cobrança e a janela do mês.</summary>

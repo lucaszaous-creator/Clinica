@@ -59,8 +59,9 @@ public sealed class TissAmilTests : IDisposable
         amil.VersaoTiss(TipoTransacaoTiss.StatusProtocolo).Should().Be("4.03.00");
         amil.VersaoTiss(TipoTransacaoTiss.Elegibilidade).Should().Be("4.01.00", "funcionou em produção assim");
         amil.VersaoTiss(TipoTransacaoTiss.CancelamentoGuia).Should().Be("4.03.00");
-        foreach (var tipo in Enum.GetValues<TipoTransacaoTiss>())
-            OperadorasTiss.SaudePetrobras.VersaoTiss(tipo).Should().Be("4.01.00", "a Saúde Petrobras não muda");
+        // A Saúde Petrobras recusa a 4.01.00 desde 01/08/2026 (canal oficial, post 499): tudo em 4.03.00.
+        foreach (var tipo in new[] { TipoTransacaoTiss.Elegibilidade, TipoTransacaoTiss.EnvioGuia, TipoTransacaoTiss.StatusProtocolo, TipoTransacaoTiss.CancelamentoGuia })
+            OperadorasTiss.SaudePetrobras.VersaoTiss(tipo).Should().Be("4.03.00");
     }
 
     [Fact]
@@ -71,11 +72,15 @@ public sealed class TissAmilTests : IDisposable
         petrobras.RegistroAns.Should().Be(TissWebserviceCliente.RegistroAnsSaudePetrobras).And.Be("422631");
         petrobras.CodigoDoPrestador.Should().Be(CodigoDoPrestadorTiss.CnpjDaClinica);
         petrobras.EnvioDeGuiaNasTelas.Should().BeTrue();
-        // Os mesmos endereços de antes do catálogo, escritos por extenso.
-        petrobras.Endereco(TipoTransacaoTiss.Elegibilidade).Should().Be(new Uri("https://webservices.crc.com.br/tiss/ws/40100/tissVerificaElegibilidade"));
-        petrobras.Endereco(TipoTransacaoTiss.EnvioGuia).Should().Be(new Uri("https://webservices.crc.com.br/tiss/ws/40100/tissLoteGuias"));
-        petrobras.Endereco(TipoTransacaoTiss.StatusProtocolo).Should().Be(new Uri("https://webservices.crc.com.br/tiss/ws/40100/tissSolicitacaoStatusProtocolo"));
-        petrobras.Endereco(TipoTransacaoTiss.CancelamentoGuia).Should().Be(new Uri("https://webservices.crc.com.br/tiss/ws/40100/tissCancelaGuia"));
+        // Os endereços 4.03.00, escritos por extenso (base tiss40300/ws/40300, não o soap:address do WSDL).
+        petrobras.Endereco(TipoTransacaoTiss.Elegibilidade).Should().Be(new Uri("https://webservices.crc.com.br/tiss40300/ws/40300/tissVerificaElegibilidade"));
+        petrobras.Endereco(TipoTransacaoTiss.EnvioGuia).Should().Be(new Uri("https://webservices.crc.com.br/tiss40300/ws/40300/tissLoteGuias"));
+        petrobras.Endereco(TipoTransacaoTiss.StatusProtocolo).Should().Be(new Uri("https://webservices.crc.com.br/tiss40300/ws/40300/tissSolicitacaoStatusProtocolo"));
+        petrobras.Endereco(TipoTransacaoTiss.CancelamentoGuia).Should().Be(new Uri("https://webservices.crc.com.br/tiss40300/ws/40300/tissCancelaGuia"));
+        petrobras.Codificacao.Should().Be(CodificacaoTissWs.Iso88591, "o próprio demonstrativo 4.03.00 dela declara ISO-8859-1");
+        petrobras.EnderecoHomologacao.Should().BeNull("a Saúde Petrobras não tem homologação");
+        petrobras.DiasDeEnvioNoMes.Should().Be(new DiasDeEnvioNoMesTiss(1, 20));
+        petrobras.JanelaDeEnvio.Should().BeNull("os dias 1 a 20 são aviso: a fila não segura o lote da Petrobras");
     }
 
     [Fact]

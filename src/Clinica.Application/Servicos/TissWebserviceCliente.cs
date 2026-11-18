@@ -20,8 +20,6 @@ public sealed class TissWebserviceCliente(HttpClient http)
     /// <summary>Registro ANS da Saúde Petrobras (APS), o destino das mensagens.</summary>
     public const string RegistroAnsSaudePetrobras = "422631";
 
-    private const string BaseSaudePetrobras = "https://webservices.crc.com.br/tiss/ws/40100/";
-
     /// <summary>Envio de lote de guias da Saúde Petrobras (<see cref="TissLoteGuiasWs"/>).</summary>
     public static readonly Uri LoteGuiasSaudePetrobras = OperadorasTiss.SaudePetrobras.Endereco(Clinica.Domain.Entities.TipoTransacaoTiss.EnvioGuia)!;
 
@@ -35,7 +33,7 @@ public sealed class TissWebserviceCliente(HttpClient http)
     /// Demonstrativo de retorno (análise de conta e pagamento) da Saúde Petrobras. Só o endereço:
     /// a mensagem desta transação ainda não tem classe que a monte e leia.
     /// </summary>
-    public static readonly Uri DemonstrativoRetornoSaudePetrobras = new(BaseSaudePetrobras + "tissSolicitacaoDemonstrativoRetorno");
+    public static readonly Uri DemonstrativoRetornoSaudePetrobras = OperadorasTiss.SaudePetrobras.EnderecoDemonstrativo!;
 
     /// <summary>
     /// Verifica a elegibilidade de uma carteira. Falha de rede e resposta HTTP de erro sem corpo
