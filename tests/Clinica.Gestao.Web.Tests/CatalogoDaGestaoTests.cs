@@ -37,7 +37,6 @@ public sealed class CatalogoDaGestaoTests
         Assert.Equal(4, m.Barra.Count);
         Assert.Equal("painel-direcao", m.ChaveAtual);
         Assert.Null(m.FalhaDaTela);
-        Assert.False(m.TemTreinamento);
         Assert.Equal("Sair", m.Saida.Botao);
     }
 

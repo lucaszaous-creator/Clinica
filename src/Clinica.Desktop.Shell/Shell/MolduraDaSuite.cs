@@ -108,7 +108,6 @@ public sealed class MolduraDaSuite : IMolduraDoApp, IDisposable
 
     public void SelecionarAba(int indice) => (_vm.TelaAtual as TelaComAbas)?.Selecionar(indice);
 
-    public void AbrirTreinamento() => _vm.AbrirTreinamentoCommand.Execute(null);
 
     // ----- infusão -----
     public int AssinaturasPendentes => _vm.TotalAssinaturasInfusao;

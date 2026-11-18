@@ -102,7 +102,6 @@
 /* A moldura dos apps e a entrada (out/2026): o que era a ShellWindow, a LoginWindow e a SetupWindow. */
 @import url("telas/moldura.css");
 @import url("telas/chat-equipe.css");
-@import url("telas/treinamento.css");
 @import url("telas/assinatura.css");
 /* A conversa do WhatsApp ao lado das telas da Recepção (fase 2, 24/10): a gaveta e o modo painel. */
 @import url("telas/conversa-ao-lado.css");
