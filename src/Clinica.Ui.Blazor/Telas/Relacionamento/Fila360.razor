@@ -598,7 +598,7 @@
                         <ul class="f360-barras">
                             @foreach (var e in _equipeNumeros.Encerramentos)
                             {
-                                <li title="@($"{e.Motivo}: {e.Quantidade.ToString(Formato.PtBr)}")"><span>@e.Motivo</span><span class="f360-barra"><i style="width:@((100.0 * e.Quantidade / maior).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))%"></i></span><b>@e.Quantidade.ToString(Formato.PtBr)</b></li>
+                                <li title="@($"{e.Motivo}: {e.Quantidade.ToString(Formato.PtBr)}")"><span>@e.Motivo</span><span class="f360-barra-trilho"><i style="width:@((100.0 * e.Quantidade / maior).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))%"></i></span><b>@e.Quantidade.ToString(Formato.PtBr)</b></li>
                             }
                         </ul>
                     }

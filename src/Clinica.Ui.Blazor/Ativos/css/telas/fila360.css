@@ -27,11 +27,14 @@
 .f360-trilho i{display:block;height:100%;border-radius:var(--radius-pilula);background:var(--acento)}
 .f360-trilho.grande{height:8px;flex:1;max-width:320px;margin:0}
 .f360-conteudo{display:flex;flex-direction:column;gap:var(--space-4);min-width:0}
+/* Os cartões da Fila 360 têm título e corpo com o mesmo respiro (o título sem padding encostava na borda). */
+.f360 .cartao > .cartao-titulo{padding:var(--space-4) var(--space-4) var(--space-2)}
+.f360-ficha-dir .f360-pares{padding:0 var(--space-4) var(--space-4)}
 .f360 .cartao-titulo h3{font-size:var(--text-body-size);font-weight:700;margin:0}
 .f360 .cartao-titulo span{min-width:0}
 
 /* ---------- Painel ---------- */
-.f360-kpis{grid-template-columns:repeat(5,minmax(0,1fr))}
+.f360 .kpis.f360-kpis{grid-template-columns:repeat(5,minmax(0,1fr))}
 .f360-g2{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(0,1fr);gap:var(--space-4)}
 .f360-g2.iguais{grid-template-columns:repeat(2,minmax(0,1fr))}
 .f360-hoje-resumo{display:flex;flex-direction:column;gap:var(--space-2)}
@@ -48,8 +51,8 @@
 .f360-barras li{display:grid;grid-template-columns:minmax(0,150px) 1fr 34px;align-items:center;gap:var(--space-3);font-size:var(--text-table-size)}
 .f360-barras li span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .f360-barras b{text-align:right;font-variant-numeric:tabular-nums}
-.f360-barra{height:12px;background:var(--superficie-hover);border-radius:0 var(--radius-pequeno) var(--radius-pequeno) 0}
-.f360-barra i{display:block;height:100%;background:var(--acento);border-radius:0 var(--radius-pequeno) var(--radius-pequeno) 0}
+.f360-barra-trilho{height:12px;background:var(--superficie-hover);border-radius:0 var(--radius-pequeno) var(--radius-pequeno) 0}
+.f360-barra-trilho i{display:block;height:100%;background:var(--acento);border-radius:0 var(--radius-pequeno) var(--radius-pequeno) 0}
 
 /* ---------- Fila de hoje ---------- */
 .f360-progresso{display:flex;align-items:center;gap:var(--space-6);padding:var(--space-3) var(--space-4);flex-wrap:wrap}
@@ -86,7 +89,7 @@
 .f360-visoes{display:flex;flex-wrap:wrap;gap:var(--space-2);width:100%}
 .f360-busca{flex:1;min-width:200px}
 .f360-explica{margin:0;padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--borda);font-size:var(--text-table-size);color:var(--cinza-700);background:var(--fundo)}
-.f360-carteira td .secundario{display:block;font-size:var(--text-small-size);color:var(--texto-secundario)}
+.f360-carteira td .secundario{font-size:var(--text-small-size);color:var(--texto-secundario);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .f360-sinais{display:flex;flex-wrap:wrap;gap:var(--space-1)}
 
 /* ---------- Conversas ---------- */
@@ -183,7 +186,7 @@ circle.f360-j-marcada{fill:var(--superficie);stroke:var(--acento);stroke-width:2
 
 /* ---------- larguras menores ---------- */
 @media (max-width:1280px){
-  .f360-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .f360 .kpis.f360-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
   .f360-tarefa{grid-template-columns:30px minmax(0,1.4fr) minmax(0,1fr) 180px auto}
   .f360-tarefa .f360-prazo{display:none}
   .f360-ficha-corpo{grid-template-columns:minmax(0,1fr) 300px}
@@ -199,9 +202,11 @@ circle.f360-j-marcada{fill:var(--superficie);stroke:var(--acento);stroke-width:2
   .f360-g2,.f360-g2.iguais,.f360-ficha-corpo{grid-template-columns:minmax(0,1fr)}
   .f360-tarefa{grid-template-columns:30px minmax(0,1fr) 170px auto}
   .f360-tarefa .f360-cit{display:none}
+  /* Em 1024 a coluna "Por quê" fica com o motivo principal; os outros estão no title do risco e na Ficha 360. */
+  .f360-sinais .selo:nth-child(n+2){display:none}
 }
 @media (max-width:760px){
-  .f360-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .f360 .kpis.f360-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
   .f360-tarefa{grid-template-columns:minmax(0,1fr) auto}
   .f360-tarefa .f360-tipo,.f360-tarefa .f360-risco{display:none}
   .f360-fatos{grid-template-columns:repeat(2,minmax(0,1fr))}
