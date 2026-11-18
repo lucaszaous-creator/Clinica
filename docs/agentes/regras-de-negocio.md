@@ -514,6 +514,12 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   horário passa a disputá-la (virou consulta pelo convênio, mudou de DIA, voltou de cancelado).
   Concluir, confirmar presença e lançar sobre o horário que já existe NÃO conferem — senão a
   consulta marcada antes de a chave ligar ficaria presa na Fila.
+  ⚠️ **18/11/2026**: lançar sobre o horário (`LancarNoHorarioAsync`) CONFERE quando o lançamento
+  muda o que a trava compara (médico, especialidade, particular, modalidade) — foi a porta que
+  faltava. E **validade em branco na linha da família NÃO desliga a trava** (cai no prazo do
+  `ConvenioInfo`; 0 desliga): a linha da Petrobras em branco deixou passar três consultas em 22
+  dias. A janela (especialidade, ou especialidade + médico) é dado do convênio
+  (`ConvenioInfo.JanelaDaTravaDeConsulta`), nunca `if` de operadora. Ver `docs/trava-de-consulta.md`.
   ⚠️ **Quem aprova é COLUNA do usuário, não bit de `Permissao`**
   (`UsuarioSistema.AprovaLiberacaoDeTrava`, só perfil Gerente — `PodeAprovarLiberacao`): há mais
   de um gerente e a direção escolhe quais; e o enum está no último bit de um `int` de produção.
