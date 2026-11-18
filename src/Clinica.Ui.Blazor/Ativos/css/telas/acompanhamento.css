@@ -122,9 +122,13 @@
 .f360-responderam{border-color:var(--sucesso)}
 .f360-responderam .f360-grupo-cab{background:var(--sucesso-suave)}
 .f360-responderam .f360-grupo-cab h3{color:var(--sucesso-forte)}
-.f360-lista{margin:0}
+.f360-lista{margin:0;table-layout:fixed;width:100%}
+/* Todos os grupos alinham as colunas: cada grupo é uma tabela, e sem largura fixa o risco "andava" de um para o outro. */
+.f360-lista td:nth-child(2){width:210px}
+.f360-lista td:nth-child(3){width:130px}
+.f360-lista td:nth-child(4){width:230px}
+.f360-lista td:first-child .secundario{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .f360-lista tr:last-child td{border-bottom:0}
-.f360-col-risco{width:1%}
 
 .f360-risco{display:flex;flex-direction:column;gap:2px;min-width:0}
 .f360-risco-linha{display:flex;align-items:center;gap:var(--space-2);white-space:nowrap}
@@ -143,6 +147,11 @@
 .f360-motivos b{font-variant-numeric:tabular-nums;white-space:nowrap}
 .f360-soma{color:var(--erro-texto)}
 .f360-tira{color:var(--sucesso-forte)}
+@media (max-width:1100px){
+  .f360-lista td:nth-child(2){width:180px}
+  .f360-lista td:nth-child(3){width:110px}
+  .f360-lista td:nth-child(4){width:200px}
+}
 @media (max-width:760px){
   .f360-hoje{padding:var(--space-2)}
   .f360-medidor{width:40px}
