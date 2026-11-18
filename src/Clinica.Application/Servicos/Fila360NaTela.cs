@@ -146,6 +146,19 @@ public static class Fila360NaTela
         _ => "Sem telefone ou sem autorização de mensagens: a recepção resolve na próxima visita, na ficha do paciente."
     };
 
+    /// <summary>
+    /// Quantas linhas cada grupo da Fila de hoje mostra antes do "Mostrar mais" (nov/2026, a clínica: "lista
+    /// infinita"). As de maior risco ficam à vista; o resto abre num clique.
+    /// </summary>
+    public const int LinhasPorGrupo = 5;
+
+    /// <summary>As linhas à vista de um grupo: todas quando aberto, senão as <see cref="LinhasPorGrupo"/> primeiras (as de maior risco).</summary>
+    public static IReadOnlyList<LinhaAcompanhamento> Visiveis(GrupoDaFila grupo, bool expandido)
+        => expandido || grupo.Linhas.Count <= LinhasPorGrupo ? grupo.Linhas : grupo.Linhas.Take(LinhasPorGrupo).ToList();
+
+    /// <summary>"Mostrar mais 12" — quantas ficaram escondidas (0: o grupo cabe inteiro, sem botão).</summary>
+    public static int Escondidas(GrupoDaFila grupo) => Math.Max(0, grupo.Linhas.Count - LinhasPorGrupo);
+
     /// <summary>A frase do topo da aba Hoje.</summary>
     public static string Resumo(IReadOnlyList<GrupoDaFila> grupos)
     {

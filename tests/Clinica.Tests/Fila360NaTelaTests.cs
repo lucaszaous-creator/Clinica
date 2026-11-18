@@ -110,6 +110,22 @@ public sealed class Fila360NaTelaTests
     }
 
     [Fact]
+    public void Cada_grupo_mostra_os_de_maior_risco_e_o_resto_abre_num_clique()
+    {
+        var linhas = Enumerable.Range(1, 8).Select(i => Caso(i, nome: $"P{i}", dias: 30 + i * 15, totalSessoes: 1)).ToList();
+        var grupo = Fila360NaTela.Hoje(linhas, Hoje).Single();
+
+        var visiveis = Fila360NaTela.Visiveis(grupo, expandido: false);
+        Assert.Equal(grupo.Linhas.Take(Fila360NaTela.LinhasPorGrupo), visiveis);
+        // Ninguém escondido tem risco maior que alguém à vista.
+        Assert.True(visiveis.Min(l => Fila360NaTela.Risco(l).Pontos) >= grupo.Linhas.Skip(Fila360NaTela.LinhasPorGrupo).Max(l => Fila360NaTela.Risco(l).Pontos));
+        Assert.Equal(8, Fila360NaTela.Visiveis(grupo, expandido: true).Count);
+        Assert.Equal(3, Fila360NaTela.Escondidas(grupo));
+        var pequeno = Fila360NaTela.Hoje(linhas.Take(3), Hoje).Single();
+        Assert.Equal((3, 0), (Fila360NaTela.Visiveis(pequeno, false).Count, Fila360NaTela.Escondidas(pequeno)));
+    }
+
+    [Fact]
     public void Sem_nada_para_hoje_a_frase_diz_isso()
         => Assert.Equal("Nada pede ação hoje.", Fila360NaTela.Resumo(Fila360NaTela.Hoje([Caso(proximo: Hoje.AddDays(2))], Hoje)));
 

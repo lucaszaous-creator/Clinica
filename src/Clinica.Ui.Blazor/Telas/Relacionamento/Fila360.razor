@@ -338,6 +338,12 @@
     };
 
     private void TrocarEscopo(bool minha) { _minha = minha; Refiltrar(); }
+
+    // Os grupos da Fila de hoje: os de maior risco à vista, o resto num clique; o título recolhe o grupo inteiro.
+    private readonly HashSet<GrupoDeHoje> _expandidos = [];
+    private readonly HashSet<GrupoDeHoje> _recolhidos = [];
+    private void AlternarMais(GrupoDeHoje g) { if (!_expandidos.Remove(g)) _expandidos.Add(g); }
+    private void AlternarGrupo(GrupoDeHoje g) { if (!_recolhidos.Remove(g)) _recolhidos.Add(g); }
     private void TrocarVisao(VisaoDaCarteira v) { _visao = v; Refiltrar(); }
     private void Buscar(ChangeEventArgs e) { _busca = e.Value?.ToString() ?? string.Empty; Refiltrar(); }
     private void LimparFiltros()
@@ -644,9 +650,15 @@
         }
         @foreach (var g in _grupos)
         {
+            var recolhido = _recolhidos.Contains(g.Grupo);
+            var aberto = _expandidos.Contains(g.Grupo);
             <section class="f360-grupo" aria-label="@g.Titulo" @key="g.Grupo">
-                <h4>@g.Titulo <span class="f360-grupo-n">@g.Linhas.Count.ToString(Formato.PtBr)</span><span class="f360-grupo-dica">@g.Dica</span></h4>
-                @foreach (var l in g.Linhas)
+                <h4><button type="button" class="f360-grupo-titulo" aria-expanded="@Bool(!recolhido)" @onclick="() => AlternarGrupo(g.Grupo)"
+                            title="@(recolhido ? "Mostrar o grupo" : "Recolher o grupo")"><Icone Nome="@(recolhido ? "direita" : "abaixo")" />@g.Titulo
+                    <span class="f360-grupo-n">@g.Linhas.Count.ToString(Formato.PtBr)</span></button><span class="f360-grupo-dica">@g.Dica</span></h4>
+                @if (!recolhido)
+                {
+                @foreach (var l in Fila360NaTela.Visiveis(g, aberto))
                 {
                     var passo = AcompanhamentoNaTela.Passo(l);
                     var resposta = g.Grupo == GrupoDeHoje.Responder ? _conversas.FirstOrDefault(c => c.Linha.Id == l.Id)?.Conversa.Preview : null;
@@ -661,6 +673,12 @@
                         <span class="botoes-linha" @onclick:stopPropagation="true">@Botao(l, passo)</span>
                     </div>
                 }
+                @if (Fila360NaTela.Escondidas(g) is > 0 and var escondidas)
+                {
+                    <button type="button" class="botao fantasma mini f360-mais" @onclick="() => AlternarMais(g.Grupo)">
+                        <Icone Nome="@(aberto ? "reduzir" : "abaixo")" />@(aberto ? "Mostrar menos" : $"Mostrar mais {escondidas.ToString(Formato.PtBr)}")</button>
+                }
+                }
             </section>
         }
     };
@@ -668,7 +686,7 @@
     // ---------- Conversas ----------
     private RenderFragment Conversas => __builder =>
     {
-        <CabecalhoPagina Sobretitulo="Relacionamento · Fila 360" Titulo="Conversas" Subtitulo="A caixa da retenção: as conversas dos pacientes da fila, separadas da recepção.">
+        <CabecalhoPagina Sobretitulo="Relacionamento · Fila 360" Titulo="Conversas">
             <button type="button" class="botao icone" @onclick="() => CarregarAsync()" title="Atualizar (F5)" aria-label="Atualizar"><Icone Nome="atualizar" /></button>
         </CabecalhoPagina>
         <ConversasDaFila360 Conversas="_conversas" Selecionada="@(_conversaAberta ?? _conversas.FirstOrDefault())" Falhou="_conversasFalharam" UsuarioId="UsuarioId" PodeAcompanhar="PodeAcompanhar"

@@ -61,6 +61,10 @@
 .f360-grupo{display:flex;flex-direction:column;gap:var(--space-2)}
 .f360-grupo h4{margin:0;display:flex;align-items:baseline;gap:var(--space-2);flex-wrap:wrap;font-size:var(--text-secao-size);letter-spacing:var(--text-secao-tracking);text-transform:uppercase;color:var(--cinza-700)}
 .f360-grupo-n{color:var(--texto-secundario)}
+.f360-grupo-titulo{display:inline-flex;align-items:center;gap:var(--space-1);padding:0;border:0;background:transparent;font:inherit;color:inherit;
+  letter-spacing:inherit;text-transform:inherit;cursor:pointer}
+.f360-grupo-titulo:hover{color:var(--acento)}
+.f360-mais{align-self:flex-start}
 .f360-grupo-dica{font-size:var(--text-small-size);letter-spacing:0;text-transform:none;font-weight:400;color:var(--texto-secundario)}
 .f360-tarefa{display:grid;grid-template-columns:30px minmax(0,1.5fr) minmax(0,1fr) 200px 100px auto;align-items:center;gap:var(--space-3);
   padding:var(--space-2) var(--space-3);background:var(--superficie);border:1px solid var(--borda);border-radius:var(--radius-control);cursor:pointer;
@@ -93,7 +97,8 @@
 .f360-sinais{display:flex;flex-wrap:wrap;gap:var(--space-1)}
 
 /* ---------- Conversas ---------- */
-.f360-conversas{display:grid;grid-template-columns:270px minmax(0,1fr) 250px;height:640px;border:1px solid var(--borda);border-radius:var(--radius-card);
+/* A altura da JANELA menos o cabeçalho da página (a clínica: "a conversa ficou pequena" com 640 px fixos). */
+.f360-conversas{display:grid;grid-template-columns:250px minmax(0,1fr) 230px;height:calc(100vh - 120px);min-height:600px;border:1px solid var(--borda);border-radius:var(--radius-card);
   overflow:hidden;background:var(--superficie)}
 .f360-conv-lista{display:flex;flex-direction:column;border-right:1px solid var(--borda);min-height:0;overflow:auto}
 .f360-conv-topo{padding:var(--space-3);border-bottom:1px solid var(--borda)}
@@ -111,6 +116,11 @@
 .f360-conv-rodape{margin:auto 0 0;padding:var(--space-3);border-top:1px solid var(--borda);font-size:var(--text-small-size);color:var(--texto-secundario);background:var(--fundo)}
 .f360-conv-fio{min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden}
 .f360-conv-fio > .pagina.wa.wa-ao-lado{height:100%;padding:0}
+/* O cartão do que a conversa pede ("Como foi?", "Não vem → Remarcar"…) fica COMPACTO aqui: as mensagens precisam
+   da altura, e o "Registrar como foi" completo está na coluna da direita. Nada some — só encolhe. */
+.f360-conv-fio .wa-acao{padding:var(--space-2) var(--space-3);gap:var(--space-2)}
+.f360-conv-fio .wa-acao-texto{font-size:var(--text-small-size);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.f360-conv-fio .wa-acao .botao{min-height:28px;padding:2px var(--space-2);font-size:var(--text-small-size)}
 .f360-conv-lado{border-left:1px solid var(--borda);padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-3);overflow:auto}
 .f360-conv-risco{display:flex;gap:var(--space-3);align-items:center}
 .f360-conv-risco .acomp-rotulo{margin:0 0 var(--space-1)}
@@ -191,7 +201,7 @@ circle.f360-j-marcada{fill:var(--superficie);stroke:var(--acento);stroke-width:2
   .f360-tarefa .f360-prazo{display:none}
   .f360-ficha-corpo{grid-template-columns:minmax(0,1fr) 300px}
   .f360-fatos{grid-template-columns:repeat(3,minmax(0,1fr))}
-  .f360-conversas{grid-template-columns:240px minmax(0,1fr)}
+  .f360-conversas{grid-template-columns:230px minmax(0,1fr)}
   .f360-conv-lado{display:none}
   /* Até 1280 a coluna "Por quê" fica com o motivo principal; os outros estão no title do risco e na Ficha 360. */
   .f360-sinais .selo:nth-child(n+2){display:none}
@@ -210,6 +220,6 @@ circle.f360-j-marcada{fill:var(--superficie);stroke:var(--acento);stroke-width:2
   .f360-tarefa{grid-template-columns:minmax(0,1fr) auto}
   .f360-tarefa .f360-tipo,.f360-tarefa .f360-risco{display:none}
   .f360-fatos{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .f360-conversas{grid-template-columns:minmax(0,1fr);height:auto}
-  .f360-conv-fio{height:560px}
+  .f360-conversas{grid-template-columns:minmax(0,1fr);height:auto;min-height:0}
+  .f360-conv-fio{height:calc(100vh - 120px);min-height:520px}
 }
