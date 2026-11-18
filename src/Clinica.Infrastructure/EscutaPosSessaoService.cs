@@ -29,15 +29,6 @@ public sealed class EscutaPosSessaoService(ClinicaDbContext db, IClinicaReposito
         return u;
     }
 
-    /// <summary>O profissional que lê o aviso: login ativo com o prontuário (não precisa do acesso do acompanhamento).</summary>
-    private async Task<UsuarioSistema> Leitor(int id, CancellationToken ct)
-    {
-        var u = await db.Usuarios.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, ct);
-        if (u is not { Ativo: true } || u.Travado(Agora) || !u.Pode(Permissao.VerProntuario))
-            throw new UnauthorizedAccessException(SemAcesso);
-        return u;
-    }
-
     public async Task<IReadOnlyList<SessaoParaEscutar>> ParaEscutarAsync(int usuarioId, CancellationToken ct = default)
     {
         await Usuario(usuarioId, prontuario: false, ct);
@@ -187,36 +178,6 @@ public sealed class EscutaPosSessaoService(ClinicaDbContext db, IClinicaReposito
         {
             DataHora = agora, Operador = u.Login, Acao = "EscutaCancelada", PacienteId = e.PacienteId,
             Detalhe = $"Escuta da sessão de {e.SessaoEm:dd/MM/yyyy} cancelada: {texto}"
-        });
-        await db.SaveChangesAsync(ct);
-    }
-
-    public async Task<IReadOnlyList<AvisoDePiora>> AvisosDoProfissionalAsync(int usuarioId, CancellationToken ct = default)
-    {
-        var u = await Leitor(usuarioId, ct);
-        if (u.ProfissionalId is not { } profissional) return [];
-        return await db.EscutasPosSessao.AsNoTracking()
-            .Where(e => e.ProfissionalId == profissional && e.Como == ComoEstaPaciente.Pior && e.CanceladaEm == null && e.CienteEm == null)
-            .OrderByDescending(e => e.RegistradoEm)
-            .Select(e => new AvisoDePiora(e.Id, e.PacienteId, e.Paciente!.Nome, e.SessaoEm, e.Modalidade, e.Relato, e.RegistradoEm, e.RegistradoPor))
-            .ToListAsync(ct);
-    }
-
-    public async Task CienteAsync(int usuarioId, int escutaId, CancellationToken ct = default)
-    {
-        var u = await Leitor(usuarioId, ct);
-        var e = await db.EscutasPosSessao.SingleOrDefaultAsync(x => x.Id == escutaId, ct)
-            ?? throw new InvalidOperationException("A escuta não foi encontrada.");
-        if (e.ProfissionalId != u.ProfissionalId && u.Perfil != PerfilAcesso.Gerente)
-            throw new UnauthorizedAccessException("Só o profissional da sessão (ou a gerência) marca o aviso como lido.");
-        if (e.CienteEm is not null) return;
-        var agora = Agora;
-        e.CienteEm = agora;
-        e.CientePor = u.Login;
-        db.Auditoria.Add(new EventoAuditoria
-        {
-            DataHora = agora, Operador = u.Login, Acao = "EscutaCiente", PacienteId = e.PacienteId,
-            Detalhe = $"Ciente da piora relatada na escuta da sessão de {e.SessaoEm:dd/MM/yyyy}"
         });
         await db.SaveChangesAsync(ct);
     }

@@ -1063,11 +1063,9 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.RegistradoPor).IsRequired().HasMaxLength(80);
             e.Property(x => x.CanceladaPor).HasMaxLength(80);
             e.Property(x => x.MotivoCancelamento).HasMaxLength(500);
-            e.Property(x => x.CientePor).HasMaxLength(80);
             // Hora de PAREDE (o Npgsql recusa Kind=Local em "with time zone").
             e.Property(x => x.RegistradoEm).HasColumnType("timestamp without time zone");
             e.Property(x => x.CanceladaEm).HasColumnType("timestamp without time zone");
-            e.Property(x => x.CienteEm).HasColumnType("timestamp without time zone");
 
             // Cascata como as outras raízes: a ficha com escuta NÃO é removível (PacienteTemRegistroClinicoAsync).
             e.HasOne(x => x.Paciente).WithMany().HasForeignKey(x => x.PacienteId);
@@ -1075,8 +1073,6 @@ public class ClinicaDbContext : DbContext
             e.HasIndex(x => new { x.PacienteId, x.SessaoEm });
             // UMA escuta vigente por sessão: o segundo clique (ou a outra máquina) não cria a segunda.
             e.HasIndex(x => x.AtendimentoId).IsUnique().HasFilter("\"CanceladaEm\" IS NULL");
-            // O aviso do profissional: as pioras sem "Ciente".
-            e.HasIndex(x => new { x.ProfissionalId, x.CienteEm });
 
             e.Ignore(x => x.Cancelada);
         });

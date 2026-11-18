@@ -9,7 +9,7 @@ public enum ComoEstaPaciente
     /// <summary>Disse que está igual.</summary>
     Igual,
 
-    /// <summary>Disse que piorou: vira AVISO ao profissional da sessão (Meu dia).</summary>
+    /// <summary>Disse que piorou.</summary>
     Pior,
 
     /// <summary>A clínica perguntou e o paciente não respondeu. Fecha a escuta sem dado de saúde nenhum.</summary>
@@ -38,8 +38,6 @@ public enum MotivoDaEscuta
 /// só tem o cadastro vê a fila de sessões a escutar (dado de agenda) e não vê como o paciente está.</item>
 /// <item><b>É raiz clínica</b>: entra em <c>PacienteTemRegistroClinicoAsync</c>, na exportação, na guarda e no
 /// documento do titular (<see cref="Clinica.Domain.Prontuario.NaturezaRegistroClinico.EscutaPosSessao"/>).</item>
-/// <item><b>"Piorou" vira aviso ao profissional da sessão</b> (Meu dia), até ele marcar "Ciente" — o que
-/// pede ação não pode depender de alguém lembrar de abrir uma tela.</item>
 /// </list>
 /// </summary>
 public class EscutaPosSessao
@@ -57,7 +55,7 @@ public class EscutaPosSessao
 
     public ModalidadeAtendimento Modalidade { get; set; }
 
-    /// <summary>O profissional da sessão — quem recebe o aviso quando o paciente piorou. Nulo: sessão sem profissional.</summary>
+    /// <summary>O profissional da sessão (contexto da escuta). Nulo: sessão sem profissional.</summary>
     public int? ProfissionalId { get; set; }
 
     public MotivoDaEscuta Motivo { get; set; }
@@ -78,10 +76,6 @@ public class EscutaPosSessao
     public DateTime? CanceladaEm { get; set; }
     public string? CanceladaPor { get; set; }
     public string? MotivoCancelamento { get; set; }
-
-    /// <summary>Quando o profissional marcou "Ciente" no aviso de piora. Nulo: aviso pendente (só em <see cref="ComoEstaPaciente.Pior"/>).</summary>
-    public DateTime? CienteEm { get; set; }
-    public string? CientePor { get; set; }
 
     /// <summary>Derivada — nunca use em consulta traduzida (use a coluna <see cref="CanceladaEm"/>).</summary>
     public bool Cancelada => CanceladaEm is not null;

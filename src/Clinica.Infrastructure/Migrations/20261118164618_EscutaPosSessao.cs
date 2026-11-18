@@ -31,9 +31,7 @@ namespace Clinica.Infrastructure.Migrations
                     RegistradoPor = table.Column<string>(type: "character varying(80)", maxLength: 80, nullable: false),
                     CanceladaEm = table.Column<DateTime>(type: "timestamp without time zone", nullable: true),
                     CanceladaPor = table.Column<string>(type: "character varying(80)", maxLength: 80, nullable: true),
-                    MotivoCancelamento = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
-                    CienteEm = table.Column<DateTime>(type: "timestamp without time zone", nullable: true),
-                    CientePor = table.Column<string>(type: "character varying(80)", maxLength: 80, nullable: true)
+                    MotivoCancelamento = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -57,11 +55,6 @@ namespace Clinica.Infrastructure.Migrations
                 name: "IX_EscutasPosSessao_PacienteId_SessaoEm",
                 table: "EscutasPosSessao",
                 columns: new[] { "PacienteId", "SessaoEm" });
-
-            migrationBuilder.CreateIndex(
-                name: "IX_EscutasPosSessao_ProfissionalId_CienteEm",
-                table: "EscutasPosSessao",
-                columns: new[] { "ProfissionalId", "CienteEm" });
         }
 
         /// <inheritdoc />

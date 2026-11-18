@@ -164,7 +164,7 @@ public sealed class ExportacaoProntuarioService
         // continua rastreável se o que foi substituído acompanhar o que vale.
         // A ESCUTA PÓS-SESSÃO (nov/2026): o que o paciente disse depois da sessão. As canceladas vão junto, marcadas.
         var escutas = Cabecalho("PacienteId", "Paciente", "SessaoEm", "Modalidade", "Motivo", "Como", "Relato",
-            "Canal", "RegistradaEm", "RegistradaPor", "Situacao", "MotivoCancelamento", "CienteEm", "CientePor");
+            "Canal", "RegistradaEm", "RegistradaPor", "Situacao", "MotivoCancelamento");
         var anamnese = Cabecalho("PacienteId", "Paciente", "Versao", "Situacao",
             "AntecedentesPessoais", "AntecedentesFamiliares", "HabitosDeVida",
             "HistoriaObstetrica", "RevisaoDeSistemas", "Observacoes",
@@ -278,7 +278,7 @@ public sealed class ExportacaoProntuarioService
             foreach (var e in (await _repo.EscutasDoPacienteAsync(p.Id, ct)).OrderBy(e => e.SessaoEm).ThenBy(e => e.Id))
                 Linha(escutas, p.Id, p.Nome, Data(e.SessaoEm), RotulosEnum.De(e.Modalidade), EscutaNaTela.Rotulo(e.Motivo),
                     EscutaNaTela.Rotulo(e.Como), e.Relato, e.Canal.ToString(), e.RegistradoEm.ToString("O", Fixa), e.RegistradoPor,
-                    e.Cancelada ? "Cancelada" : "Vigente", e.MotivoCancelamento, e.CienteEm?.ToString("O", Fixa), e.CientePor);
+                    e.Cancelada ? "Cancelada" : "Vigente", e.MotivoCancelamento);
 
             if (await _repo.AnamneseDoPacienteAsync(p.Id, ct) is { } an)
             {

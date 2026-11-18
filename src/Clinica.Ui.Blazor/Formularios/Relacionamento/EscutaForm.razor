@@ -1,8 +1,7 @@
 @*
   COMO ESTÁ — registrar a ESCUTA PÓS-SESSÃO (nov/2026, Fila 360): o que o paciente respondeu a "como você está
   depois da sessão?". Dado de saúde: o botão nasce desabilitado sem VerProntuario e o serviço recusa de novo.
-  Piorou pede o relato (é o que o profissional lê no aviso do Meu dia). A regra da recusa é EscutaNaTela.Recusa,
-  a MESMA do serviço, dita antes do clique.
+  A regra da recusa é EscutaNaTela.Recusa, a MESMA do serviço, dita antes do clique.
 *@
 @namespace Clinica.Ui.Blazor.Formularios
 @using Clinica.Application.Abstracoes
@@ -27,8 +26,7 @@
         @if (_como is { } escolhido && escolhido != ComoEstaPaciente.NaoRespondeu)
         {
             <div class="campos">
-                <Campo Rotulo="@(escolhido == ComoEstaPaciente.Pior ? "O que piorou" : "O que o paciente disse")" Obrigatorio="@(escolhido == ComoEstaPaciente.Pior)"
-                       Dica="@(escolhido == ComoEstaPaciente.Pior ? "Nas palavras dele: é o que o profissional da sessão vai ler no aviso." : "Opcional.")">
+                <Campo Rotulo="@(escolhido == ComoEstaPaciente.Pior ? "O que piorou" : "O que o paciente disse")" Dica="Opcional, nas palavras dele.">
                     <textarea class="campo" rows="3" maxlength="@EscutaNaTela.RelatoMaximo" @bind="_relato" @bind:event="oninput"
                               placeholder="@(escolhido == ComoEstaPaciente.Pior ? "Ex.: a dor no ombro aumentou depois da sessão" : "Ex.: dormiu melhor, a dor diminuiu")"></textarea>
                 </Campo>
@@ -39,10 +37,6 @@
                     </select>
                 </Campo>
             </div>
-        }
-        @if (_como == ComoEstaPaciente.Pior)
-        {
-            <Aviso Tom="atencao" Texto="@($"O profissional da sessão ({Sessao.Profissional}) recebe um aviso no Meu dia até marcar \"Ciente\".")" />
         }
         <Aviso Tom="erro" Texto="@_erro" />
     </ChildContent>
@@ -76,7 +70,7 @@
     {
         ComoEstaPaciente.Melhor => "A dor ou o sintoma diminuiu",
         ComoEstaPaciente.Igual => "Nada mudou ainda",
-        ComoEstaPaciente.Pior => "Avisa o profissional da sessão",
+        ComoEstaPaciente.Pior => "Algo piorou depois da sessão",
         _ => "Perguntei e não houve resposta"
     };
 

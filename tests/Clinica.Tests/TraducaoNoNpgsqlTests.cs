@@ -543,20 +543,19 @@ public class TraducaoNoNpgsqlTests
     /// (o padrão do retrato do paciente; a lição da parcela 74).
     /// </summary>
     /// <summary>
-    /// A Escuta pós-sessão (nov/2026): o aviso de piora do profissional (navegação ao paciente, enum como texto) e a
-    /// conferência das sessões já escutadas (Contains + o filtro da escuta vigente) traduzem no Npgsql.
+    /// A Escuta pós-sessão (nov/2026): a leitura por paciente (enum como texto) e a conferência das sessões já
+    /// escutadas (Contains + o filtro da escuta vigente) traduzem no Npgsql.
     /// </summary>
     [Fact]
     public void As_consultas_da_escuta_pos_sessao_traduzem_no_postgres()
     {
         using var db = Postgres();
 
-        var avisos = db.EscutasPosSessao.AsNoTracking()
-            .Where(e => e.ProfissionalId == 1 && e.Como == ComoEstaPaciente.Pior && e.CanceladaEm == null && e.CienteEm == null)
-            .Select(e => new { e.Id, e.Paciente!.Nome, e.Relato })
+        var pioras = db.EscutasPosSessao.AsNoTracking()
+            .Where(e => e.PacienteId == 1 && e.Como == ComoEstaPaciente.Pior && e.CanceladaEm == null)
+            .OrderByDescending(e => e.SessaoEm)
             .ToQueryString();
-        avisos.Should().Contain("'Pior'", "o enum é gravado como TEXTO — a linha tem de ser legível em 20 anos");
-        avisos.Should().Contain("Pacientes");
+        pioras.Should().Contain("'Pior'", "o enum é gravado como TEXTO — a linha tem de ser legível em 20 anos");
 
         var ids = new List<int> { 1, 2 };
         var escutadas = db.EscutasPosSessao.AsNoTracking().Where(e => e.CanceladaEm == null && ids.Contains(e.AtendimentoId))

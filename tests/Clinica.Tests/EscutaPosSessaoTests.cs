@@ -10,7 +10,7 @@ namespace Clinica.Tests;
 
 /// <summary>
 /// A ESCUTA PÓS-SESSÃO (nov/2026, Fila 360): quem pede escuta, as barreiras do dado de saúde, o registro que não se
-/// duplica nem se apaga, e o aviso de piora que chega ao profissional da sessão. Consultas EXECUTADAS (SQLite).
+/// duplica nem se apaga. Consultas EXECUTADAS (SQLite).
 /// </summary>
 public sealed class EscutaPosSessaoTests : IDisposable
 {
@@ -23,7 +23,6 @@ public sealed class EscutaPosSessaoTests : IDisposable
     private readonly UsuarioSistema patrycia = new() { Nome = "Patrycia", Login = "patrycia", Perfil = PerfilAcesso.Gerente };
     private readonly UsuarioSistema semProntuario = new() { Nome = "Sem prontuário", Login = "semprontuario", Perfil = PerfilAcesso.Gerente, PermissoesNegadas = Permissao.VerProntuario };
     private readonly UsuarioSistema medica = new() { Nome = "Dra. Ana", Login = "dra.ana", Perfil = PerfilAcesso.Profissional };
-    private readonly UsuarioSistema outroMedico = new() { Nome = "Dr. Beto", Login = "dr.beto", Perfil = PerfilAcesso.Profissional };
     private readonly Paciente alzira = new() { Nome = "Alzira Pinto", Telefone = "22995012020", Convenio = Convenio.UnimedPadrao };
     private readonly Paciente bento = new() { Nome = "Bento Lima", Telefone = "22995013030", Convenio = Convenio.UnimedPadrao };
 
@@ -34,22 +33,21 @@ public sealed class EscutaPosSessaoTests : IDisposable
         db.Database.EnsureCreated();
         svc = new(db, new ClinicaRepositorio(db), () => Agora);
         medica.Profissional = new() { Nome = "Dra. Ana", Ativo = true };
-        outroMedico.Profissional = new() { Nome = "Dr. Beto", Ativo = true };
-        db.Usuarios.AddRange(patrycia, semProntuario, medica, outroMedico);
+        db.Usuarios.AddRange(patrycia, semProntuario, medica);
         db.Pacientes.AddRange(alzira, bento);
         db.SaveChanges();
     }
 
     public void Dispose() { db.Dispose(); conexao.Dispose(); }
 
-    private int Sessao(Paciente p, ModalidadeAtendimento m, int diasAtras, UsuarioSistema? profissional = null)
+    private int Sessao(Paciente p, ModalidadeAtendimento m, int diasAtras)
     {
         var data = Hoje.AddDays(-diasAtras);
         var a = new Atendimento { PacienteId = p.Id, Modalidade = m, Data = data, RealizadoEm = data.ToDateTime(new TimeOnly(9, 0)) };
         db.Atendimentos.Add(a);
         db.SaveChanges();
         db.Agendamentos.Add(new Agendamento { PacienteId = p.Id, DataHora = data.ToDateTime(new TimeOnly(9, 0)), ModalidadePrevista = m,
-            Status = StatusAgendamento.Realizado, AtendimentoId = a.Id, ProfissionalId = (profissional ?? medica).ProfissionalId });
+            Status = StatusAgendamento.Realizado, AtendimentoId = a.Id, ProfissionalId = medica.ProfissionalId });
         db.SaveChanges();
         return a.Id;
     }
@@ -106,12 +104,9 @@ public sealed class EscutaPosSessaoTests : IDisposable
     }
 
     [Fact]
-    public async Task Piora_sem_relato_e_recusada_e_cancelar_pede_motivo_e_deixa_a_linha()
+    public async Task Cancelar_pede_motivo_e_deixa_a_linha()
     {
         var sessao = Sessao(alzira, ModalidadeAtendimento.AcupunturaSimples, 1);
-        var semRelato = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            svc.RegistrarAsync(patrycia.Id, new(sessao, ComoEstaPaciente.Pior, "dor", CanalContato.WhatsApp)));
-        Assert.Contains("o que piorou", semRelato.Message);
 
         var errada = await svc.RegistrarAsync(patrycia.Id, new(sessao, ComoEstaPaciente.Igual, null, CanalContato.WhatsApp));
         await Assert.ThrowsAsync<InvalidOperationException>(() => svc.CancelarAsync(patrycia.Id, errada.Id, "ops"));
@@ -125,23 +120,6 @@ public sealed class EscutaPosSessaoTests : IDisposable
     }
 
     [Fact]
-    public async Task A_piora_vira_aviso_do_profissional_da_sessao_ate_ele_marcar_ciente()
-    {
-        var sessao = Sessao(alzira, ModalidadeAtendimento.AcupunturaSimples, 1);
-        var escuta = await svc.RegistrarAsync(patrycia.Id, new(sessao, ComoEstaPaciente.Pior, "A dor no ombro aumentou", CanalContato.WhatsApp));
-
-        var aviso = Assert.Single(await svc.AvisosDoProfissionalAsync(medica.Id));
-        Assert.Equal(("Alzira Pinto", "A dor no ombro aumentou"), (aviso.Paciente, aviso.Relato));
-        Assert.Empty(await svc.AvisosDoProfissionalAsync(outroMedico.Id));
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => svc.CienteAsync(outroMedico.Id, escuta.Id));
-
-        await svc.CienteAsync(medica.Id, escuta.Id);
-
-        Assert.Empty(await svc.AvisosDoProfissionalAsync(medica.Id));
-        Assert.Single(await db.Auditoria.Where(a => a.Acao == "EscutaCiente").ToListAsync());
-    }
-
-    [Fact]
     public void O_motivo_e_a_recusa_sao_regras_puras()
     {
         var s = new SessaoRealizada(10, 1, Hoje, ModalidadeAtendimento.BsvComAcupuntura);
@@ -151,7 +129,7 @@ public sealed class EscutaPosSessaoTests : IDisposable
         Assert.Equal(MotivoDaEscuta.VoltouPelaRetencao, EscutaNaTela.Motivo(s, [s, new(9, 1, Hoje.AddDays(-90), ModalidadeAtendimento.BsvApenas)], [Hoje]));
         Assert.Null(EscutaNaTela.Motivo(s with { Modalidade = ModalidadeAtendimento.Consulta }, [], []));
         Assert.Null(EscutaNaTela.Recusa(ComoEstaPaciente.NaoRespondeu, null));
-        Assert.NotNull(EscutaNaTela.Recusa(ComoEstaPaciente.Pior, "  "));
+        Assert.Null(EscutaNaTela.Recusa(ComoEstaPaciente.Pior, null));
         Assert.NotNull(EscutaNaTela.Recusa(ComoEstaPaciente.Melhor, new string('a', EscutaNaTela.RelatoMaximo + 1)));
         Assert.Contains("primeira sessão", EscutaNaTela.Pergunta("Alzira Pinto", MotivoDaEscuta.PrimeiraSessao, "SemDor"));
         Assert.StartsWith("Oi, Alzira!", EscutaNaTela.Pergunta("Alzira Pinto", MotivoDaEscuta.VoltouPelaRetencao, null));

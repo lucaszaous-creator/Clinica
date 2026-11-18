@@ -82,15 +82,9 @@ sempre da equipe inteira (a meta é da clínica), mesmo com "Minha fila".
 **Escuta pós-sessão** (página nova no menu da Fila 360). Os dois momentos em que um tratamento se perde: a **1ª sessão
 do tratamento** (BSV ou acupuntura) e a **sessão de volta** de quem a retenção trouxe. A sessão fica na lista por 7 dias.
 "Perguntar" abre a conversa ao lado com a pergunta pronta (quem envia revisa); "Como está" registra a resposta
-(melhorou, igual, piorou, não respondeu). **Piorou** pede o relato e vira **aviso no Meu dia** do profissional da sessão,
-até ele marcar "Ciente". A Ficha 360 ganhou o bloco **Como está**. As regras moram em `EscutaNaTela`; a leitura e a
+(melhorou, igual, piorou, não respondeu), com o que o paciente disse, se quiser. A Ficha 360 ganhou o bloco **Como está**.
+Não há aviso ao médico: a direção decidiu que a escuta é da retenção e não gera notificação para o Consultório. As regras moram em `EscutaNaTela`; a leitura e a
 gravação, em `IEscutaPosSessaoService`. A LGPD dela está em `docs/conformidade-lgpd.md` (é dado de saúde).
-
-| Comparação feita antes de escolher | UX | DX | CX |
-|---|---|---|---|
-| **Escuta na Fila 360, aviso no Meu dia** (escolhida) | a Patrycia trabalha num lugar só; o médico vê a piora onde abre o dia | um serviço, uma entidade, quatro leitores já cobrados por teste | dado de saúde com as mesmas garantias do prontuário |
-| Escuta como campo do "Como foi?" do acompanhamento | menos uma página | campo de saúde numa tabela que não é clínica: sem guarda, sem exportação | quebraria a promessa de conformidade |
-| Aviso no sino do app | aparece em qualquer tela | o sino é WPF (ShellViewModel), sem teste de tela em Linux | mais risco no app que está em produção |
 
 ## 🧑‍💻 UX
 
@@ -100,7 +94,6 @@ gravação, em `IEscutaPosSessaoService`. A LGPD dela está em `docs/conformidad
 - Nada que a tela fazia sumiu: assumir, filtros, gerar recall, configurar, a visão por responsável e o CSV (que agora leva o risco e o motivo).
 - A Patrycia vê no Painel quantos voltaram no mês contra a meta e a taxa dos contatados, e define a meta dali mesmo.
 - A Escuta mostra 5 por grupo ("Mostrar mais"), diz há quantos dias foi a sessão e tira da lista quem já foi escutado.
-- O médico vê no Meu dia, em vermelho, quem disse que piorou, com as palavras do paciente, até clicar "Ciente".
 
 ## 🛠️ DX
 
@@ -122,6 +115,6 @@ gravação, em `IEscutaPosSessaoService`. A LGPD dela está em `docs/conformidad
 
 - **As Réguas de cuidado.** Dependem dos modelos aprovados na Meta para cada passo; serão feitas numa sessão local.
   Não há botão para elas no menu: nenhum botão para função que não existe.
-- **A escuta na linha do tempo do prontuário.** O profissional a vê pelo aviso de piora no Meu dia; levar à linha do
-  tempo é a próxima porta, se a clínica pedir.
+- **Aviso ao médico.** Saiu por decisão da direção (nov/2026): a escuta fica na Fila 360 e na Ficha 360, sem
+  notificação para o Consultório, e também não aparece no prontuário do Consultório.
 - **A pergunta automática.** A pergunta da escuta sai pela conversa, revisada por quem envia — nada de disparo.

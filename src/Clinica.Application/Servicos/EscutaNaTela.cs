@@ -12,10 +12,6 @@ public sealed record SessaoRealizada(int AtendimentoId, int PacienteId, DateOnly
 public sealed record SessaoParaEscutar(int AtendimentoId, int PacienteId, string Paciente, string? Telefone, DateOnly Data,
     ModalidadeAtendimento Modalidade, int? ProfissionalId, string Profissional, MotivoDaEscuta Motivo, bool PodeMensagem = false);
 
-/// <summary>O aviso de piora para o profissional da sessão (o Meu dia).</summary>
-public sealed record AvisoDePiora(int EscutaId, int PacienteId, string Paciente, DateOnly SessaoEm, ModalidadeAtendimento Modalidade,
-    string? Relato, DateTime RegistradoEm, string RegistradoPor);
-
 /// <summary>O que a tela manda registrar.</summary>
 public sealed record RegistrarEscuta(int AtendimentoId, ComoEstaPaciente Como, string? Relato, CanalContato Canal);
 
@@ -29,9 +25,6 @@ public static class EscutaNaTela
 
     /// <summary>Dias depois da sessão em que ela ainda aparece para escutar: passou disso, a pergunta perde o sentido.</summary>
     public const int DiasParaEscutar = 7;
-
-    /// <summary>Relato mínimo quando o paciente piorou: o profissional precisa saber O QUE piorou.</summary>
-    public const int RelatoMinimoDaPiora = 5;
 
     public const int RelatoMaximo = 1000;
 
@@ -75,8 +68,6 @@ public static class EscutaNaTela
         if (!Enum.IsDefined(como)) return "Escolha como o paciente disse que está.";
         var texto = relato?.Trim() ?? string.Empty;
         if (texto.Length > RelatoMaximo) return $"O relato passa de {RelatoMaximo} caracteres.";
-        if (como == ComoEstaPaciente.Pior && texto.Length < RelatoMinimoDaPiora)
-            return "Conte o que piorou, nas palavras do paciente: é o que o profissional vai ler no aviso.";
         return null;
     }
 

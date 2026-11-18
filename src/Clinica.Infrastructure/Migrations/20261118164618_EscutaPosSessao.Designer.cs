@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Clinica.Infrastructure.Migrations
 {
     [DbContext(typeof(ClinicaDbContext))]
-    [Migration("20261118161320_EscutaPosSessao")]
+    [Migration("20261118164618_EscutaPosSessao")]
     partial class EscutaPosSessao
     {
         /// <inheritdoc />
@@ -2805,13 +2805,6 @@ namespace Clinica.Infrastructure.Migrations
                         .HasMaxLength(80)
                         .HasColumnType("character varying(80)");
 
-                    b.Property<DateTime?>("CienteEm")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<string>("CientePor")
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)");
-
                     b.Property<string>("Como")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -2859,8 +2852,6 @@ namespace Clinica.Infrastructure.Migrations
                         .HasFilter("\"CanceladaEm\" IS NULL");
 
                     b.HasIndex("PacienteId", "SessaoEm");
-
-                    b.HasIndex("ProfissionalId", "CienteEm");
 
                     b.ToTable("EscutasPosSessao", (string)null);
                 });

@@ -39,14 +39,14 @@ pelas mesmas portas das outras naturezas:
 - **Ler e registrar pedem `VerProntuario`**, além do acesso do acompanhamento. Quem só tem o cadastro vê a
   fila de sessões a escutar (dado de agenda) e não vê o que o paciente respondeu.
 - **Trilha**: a Ficha 360 registra o acesso (`OrigemAcessoProntuario.EscutaPosSessao`) na troca de paciente;
-  registrar, cancelar e o "Ciente" do profissional gravam auditoria no mesmo `SaveChanges`.
+  registrar e cancelar gravam auditoria no mesmo `SaveChanges`.
 - **Raiz clínica**: `PacienteTemRegistroClinicoAsync` (a ficha com escuta não é removível), a **guarda**
   (conta e move o prazo), a **exportação** (`prontuario-escuta-pos-sessao.csv`) e o **documento do titular**
   (seção *ESCUTA PÓS-SESSÃO*). `ConjuntoClinicoTests` cobra os quatro leitores.
 - **Não vai a serviço externo**: a pergunta sai pelo WhatsApp da clínica (o texto, sem dado de saúde); a
   resposta é registrada no app, não no CRM.
-- O que **não** está: a escuta não aparece na linha do tempo do prontuário do Consultório. O profissional a vê
-  pelo **aviso de piora** no Meu dia (até o "Ciente"); a linha do tempo é a próxima porta, se a clínica pedir.
+- O que **não** está: a escuta não aparece no Consultório — nem aviso ao médico (decisão da direção, nov/2026),
+  nem a linha do tempo do prontuário. Ela é lida na Fila 360 e na Ficha 360.
 
 ## Placar
 
