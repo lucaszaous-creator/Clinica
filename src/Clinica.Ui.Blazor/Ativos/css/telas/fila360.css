@@ -193,6 +193,8 @@ circle.f360-j-marcada{fill:var(--superficie);stroke:var(--acento);stroke-width:2
   .f360-fatos{grid-template-columns:repeat(3,minmax(0,1fr))}
   .f360-conversas{grid-template-columns:240px minmax(0,1fr)}
   .f360-conv-lado{display:none}
+  /* Até 1280 a coluna "Por quê" fica com o motivo principal; os outros estão no title do risco e na Ficha 360. */
+  .f360-sinais .selo:nth-child(n+2){display:none}
 }
 @media (max-width:1100px){
   .f360-casca{grid-template-columns:minmax(0,1fr)}
@@ -202,8 +204,6 @@ circle.f360-j-marcada{fill:var(--superficie);stroke:var(--acento);stroke-width:2
   .f360-g2,.f360-g2.iguais,.f360-ficha-corpo{grid-template-columns:minmax(0,1fr)}
   .f360-tarefa{grid-template-columns:30px minmax(0,1fr) 170px auto}
   .f360-tarefa .f360-cit{display:none}
-  /* Em 1024 a coluna "Por quê" fica com o motivo principal; os outros estão no title do risco e na Ficha 360. */
-  .f360-sinais .selo:nth-child(n+2){display:none}
 }
 @media (max-width:760px){
   .f360 .kpis.f360-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
