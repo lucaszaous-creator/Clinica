@@ -11,7 +11,7 @@ namespace Clinica.Infrastructure;
 /// As regras (quem pede escuta, o que o registro exige) são de <see cref="EscutaNaTela"/>; aqui moram as barreiras,
 /// as leituras e a gravação, com a auditoria no MESMO SaveChanges do ato.
 /// </summary>
-public sealed class EscutaPosSessaoService(ClinicaDbContext db, Func<DateTime>? relogio = null) : IEscutaPosSessaoService
+public sealed class EscutaPosSessaoService(ClinicaDbContext db, IClinicaRepositorio repo, Func<DateTime>? relogio = null) : IEscutaPosSessaoService
 {
     private DateTime Agora => relogio?.Invoke() ?? DateTime.SpecifyKind(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,
         TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo")), DateTimeKind.Unspecified);
@@ -68,6 +68,8 @@ public sealed class EscutaPosSessaoService(ClinicaDbContext db, Func<DateTime>? 
             .GroupBy(a => a.AtendimentoId!.Value).ToDictionary(g => g.Key, g => g.Select(x => x.ProfissionalId).FirstOrDefault(p => p != null));
         var idsProf = profissionalDaSessao.Values.Where(p => p != null).Select(p => p!.Value).Distinct().ToList();
         var nomes = await db.Profissionais.AsNoTracking().Where(p => idsProf.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Nome, ct);
+        // Só quem RECUSOU fica sem mensagem (a mesma regra da fila do acompanhamento).
+        var liberados = (await repo.PacientesComMensagensLiberadasAsync(idsPacientes, ct)).ToHashSet();
 
         return pedem
             .Where(s => pacientes.ContainsKey(s.PacienteId))
@@ -76,7 +78,8 @@ public sealed class EscutaPosSessaoService(ClinicaDbContext db, Func<DateTime>? 
                 var p = pacientes[s.PacienteId];
                 var prof = profissionalDaSessao.GetValueOrDefault(s.AtendimentoId);
                 return new SessaoParaEscutar(s.AtendimentoId, s.PacienteId, p.Nome, p.Telefone, s.Data, s.Modalidade,
-                    prof, prof is { } id && nomes.TryGetValue(id, out var nome) ? nome : "—", motivos[s.AtendimentoId]);
+                    prof, prof is { } id && nomes.TryGetValue(id, out var nome) ? nome : "—", motivos[s.AtendimentoId],
+                    !string.IsNullOrWhiteSpace(p.Telefone) && liberados.Contains(s.PacienteId));
             })
             .OrderBy(s => s.Motivo == MotivoDaEscuta.VoltouPelaRetencao ? 0 : 1).ThenBy(s => s.Data).ThenBy(s => s.Paciente)
             .ToList();

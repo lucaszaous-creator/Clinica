@@ -256,3 +256,21 @@ circle.f360-j-marcada{fill:var(--superficie);stroke:var(--acento);stroke-width:2
 .f360-mes-barra i{display:block;height:100%;border-radius:var(--radius-pilula);background:var(--acento)}
 .f360-mes-barra i.batida{background:var(--sucesso)}
 .f360-mes-alvo{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;background:var(--cinza-700);text-decoration:none}
+
+/* ---------- Escuta pós-sessão (nov/2026) ---------- */
+.f360-tarefa.f360-escuta{grid-template-columns:30px minmax(0,1fr) auto;cursor:default}
+.f360-escuta .f360-tarefa-nome .secundario{white-space:normal}
+.f360-escuta-sem{color:var(--aviso-texto)}
+.f360-escuta-respostas{grid-template-columns:repeat(2,minmax(0,1fr))}
+.f360-como{display:flex;flex-direction:column;gap:0;list-style:none;margin:0;padding:0}
+.f360-como li{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:var(--space-2) 0;border-bottom:1px solid var(--borda)}
+.f360-como li:first-child{padding-top:0}
+.f360-como li:last-child{border-bottom:0}
+.f360-como li.cancelada{opacity:.6}
+.f360-como .f360-como-relato{font-size:var(--text-small-size);color:var(--cinza-700)}
+.f360-como .f360-como-quando{font-size:var(--text-small-size);color:var(--texto-secundario)}
+@media (max-width:760px){
+  .f360-tarefa.f360-escuta{grid-template-columns:minmax(0,1fr)}
+  .f360-escuta .f360-tipo{display:none}
+  .f360-escuta-respostas{grid-template-columns:minmax(0,1fr)}
+}

@@ -32,7 +32,7 @@ public sealed class EscutaPosSessaoTests : IDisposable
         conexao.Open();
         db = new(new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(conexao).Options);
         db.Database.EnsureCreated();
-        svc = new(db, () => Agora);
+        svc = new(db, new ClinicaRepositorio(db), () => Agora);
         medica.Profissional = new() { Nome = "Dra. Ana", Ativo = true };
         outroMedico.Profissional = new() { Nome = "Dr. Beto", Ativo = true };
         db.Usuarios.AddRange(patrycia, semProntuario, medica, outroMedico);
@@ -74,6 +74,7 @@ public sealed class EscutaPosSessaoTests : IDisposable
         Assert.DoesNotContain(fila, s => s.AtendimentoId == antiga);
         Assert.Equal("Dra. Ana", fila[0].Profissional);
         Assert.Equal("Bento Lima", fila[0].Paciente);
+        Assert.True(fila[0].PodeMensagem, "sem recusa registrada, a mensagem está liberada");
     }
 
     [Fact]

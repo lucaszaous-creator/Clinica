@@ -28,6 +28,26 @@ A direção mandou retirar "os avisos e o termo" de LGPD dos módulos:
 - ⚠️ O que isso muda na prova: a autorização volta a ser **declarada pela equipe** (ônus da
   prova do art. 8º, §2º, com a trilha como evidência), em vez de assinada pelo titular.
 
+## Nov/2026 — a Escuta pós-sessão (Fila 360) é dado de saúde
+
+A Fila 360 passou a registrar **como o paciente disse que está** depois da 1ª sessão do tratamento e da sessão
+de volta (`EscutaPosSessao`). É dado de saúde (art. 5º, II) e registro clínico (Lei 13.787/2018), e entrou
+pelas mesmas portas das outras naturezas:
+
+- **Não se apaga nem se edita**: errou, cancela com motivo escrito (a linha fica, marcada).
+  `ConformidadeProntuarioTests` recusa `Remover*`/`Editar*` no serviço dela.
+- **Ler e registrar pedem `VerProntuario`**, além do acesso do acompanhamento. Quem só tem o cadastro vê a
+  fila de sessões a escutar (dado de agenda) e não vê o que o paciente respondeu.
+- **Trilha**: a Ficha 360 registra o acesso (`OrigemAcessoProntuario.EscutaPosSessao`) na troca de paciente;
+  registrar, cancelar e o "Ciente" do profissional gravam auditoria no mesmo `SaveChanges`.
+- **Raiz clínica**: `PacienteTemRegistroClinicoAsync` (a ficha com escuta não é removível), a **guarda**
+  (conta e move o prazo), a **exportação** (`prontuario-escuta-pos-sessao.csv`) e o **documento do titular**
+  (seção *ESCUTA PÓS-SESSÃO*). `ConjuntoClinicoTests` cobra os quatro leitores.
+- **Não vai a serviço externo**: a pergunta sai pelo WhatsApp da clínica (o texto, sem dado de saúde); a
+  resposta é registrada no app, não no CRM.
+- O que **não** está: a escuta não aparece na linha do tempo do prontuário do Consultório. O profissional a vê
+  pelo **aviso de piora** no Meu dia (até o "Ciente"); a linha do tempo é a próxima porta, se a clínica pedir.
+
 ## Placar
 
 Duas colunas de propósito. **Motor** é a regra existir, estar testada e valer para quem

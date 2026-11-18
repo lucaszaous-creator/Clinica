@@ -39,3 +39,13 @@
 /* Chamada demorada: quem está parado esperando é o profissional. */
 .con-demorada{color:var(--marca-navy);font-weight:600}
 .con-pendente{color:var(--acento);font-weight:600}
+
+/* ---------- A piora relatada na escuta pós-sessão (nov/2026): aviso até o "Ciente" ---------- */
+.con-pioras{border-color:var(--erro);background:var(--erro-suave)}
+.con-pioras .cartao-titulo{padding:var(--space-3) var(--space-4) var(--space-2)}
+.con-pioras .cartao-titulo h3{display:flex;align-items:center;gap:var(--space-2);margin:0;font-size:var(--text-body-size);color:var(--erro-texto)}
+.con-pioras-lista{list-style:none;margin:0;padding:0 var(--space-4) var(--space-3)}
+.con-pioras-lista li{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);padding:var(--space-2) 0;border-top:1px solid var(--borda)}
+.con-pioras-lista li > div{min-width:0}
+.con-pioras-relato{margin:2px 0;color:var(--cinza-700)}
+@media (max-width:760px){.con-pioras-lista li{flex-direction:column;align-items:stretch}}

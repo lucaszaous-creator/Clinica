@@ -37,6 +37,26 @@
         <p class="con-fechada">@fechada</p>
     }
 
+    @if (_pioras.Count > 0)
+    {
+        @* A ESCUTA PÓS-SESSÃO (nov/2026): o paciente disse que piorou depois da sessão. É aviso (pede ação) e fica
+           aqui até o "Ciente" — o profissional não precisa lembrar de abrir outra tela. *@
+        <section class="cartao con-pioras" aria-label="Pacientes que disseram que pioraram">
+            <header class="cartao-titulo"><h3><Icone Nome="alerta" />@(_pioras.Count == 1 ? "1 paciente disse que piorou depois da sessão" : $"{_pioras.Count} pacientes disseram que pioraram depois da sessão")</h3></header>
+            <ul class="con-pioras-lista">
+                @foreach (var p in _pioras)
+                {
+                    <li @key="p.EscutaId">
+                        <div><b>@p.Paciente</b><span class="texto-secundario"> · sessão de @Formato.Data(p.SessaoEm) · @RotulosEnum.De(p.Modalidade)</span>
+                            @if (!string.IsNullOrWhiteSpace(p.Relato)) { <p class="con-pioras-relato">“@p.Relato”</p> }
+                            <small class="texto-secundario">Escuta de @p.RegistradoPor em @Formato.DataHora(p.RegistradoEm)</small></div>
+                        <button type="button" class="botao" disabled="@(!Pode(Permissao.VerProntuario))" @onclick="() => CienteAsync(p)"><Icone Nome="check" />Ciente</button>
+                    </li>
+                }
+            </ul>
+        </section>
+    }
+
     <section class="cartao con-navegador" aria-label="Dia da agenda">
         <button type="button" class="botao icone" @onclick="() => IrParaAsync(_dia.AddDays(-1))" title="Dia anterior" aria-label="Dia anterior"><Icone Nome="esquerda" /></button>
         <div class="con-dia-titulo">
@@ -270,6 +290,17 @@
                 if (geracao != _geracao || Descartada) return;
             }
 
+            // A piora relatada na escuta pós-sessão (nov/2026): só para o profissional da sessão, com o prontuário.
+            // Aviso: falhar não derruba o dia — fica no log e o quadro some.
+            IReadOnlyList<AvisoDePiora> pioras = [];
+            if (sessao.Pode(Permissao.VerProntuario) && sessao.UsuarioId > 0)
+            {
+                try { pioras = await escopo.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IEscutaPosSessaoService>().AvisosDoProfissionalAsync(sessao.UsuarioId); }
+                catch (Exception ex) { Clinica.Application.Diagnostico.Registrar("Consultório — os avisos de piora da escuta não puderam ser lidos", ex); }
+                if (geracao != _geracao || Descartada) return;
+            }
+
+            _pioras = pioras;
             _linhas = MeuDiaNaTela.Montar(doDia, perfilEnfermagem, Hoje, consultas);
             _profissional = doDia.ProfissionalNome;
             _listaDaClinica = profissionalId is null;
@@ -292,6 +323,30 @@
         finally
         {
             if (geracao == _geracao) _carregando = false;
+        }
+    }
+
+    private IReadOnlyList<AvisoDePiora> _pioras = [];
+
+    /// <summary>"Ciente": o profissional leu a piora. A trilha grava quem e quando; o aviso sai do quadro.</summary>
+    private async Task CienteAsync(AvisoDePiora p)
+    {
+        if (!Exigir(Permissao.VerProntuario, "marcar o aviso como lido")) return;
+        try
+        {
+            using var escopo = Escopo();
+            await escopo.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IEscutaPosSessaoService>().CienteAsync(SessaoUsuario.Atual.UsuarioId, p.EscutaId);
+            _pioras = _pioras.Where(x => x.EscutaId != p.EscutaId).ToList();
+            Notificacoes.Sucesso($"Ciente: {p.Paciente}.");
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or UnauthorizedAccessException)
+        {
+            Notificacoes.Erro(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Consultório — o \"Ciente\" da escuta não pôde ser gravado", ex);
+            Notificacoes.Erro("Não foi possível gravar agora. Tente de novo.");
         }
     }
 

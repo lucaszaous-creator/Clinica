@@ -126,6 +126,7 @@
                     <button type="button" class="botao" disabled="@(!PodeAcompanhar)" @onclick="() => AoRegistrar.InvokeAsync(Linha)"><Icone Nome="check" />@(Linha.Pendente ? "Registrar como foi" : "Ver e reabrir")</button>
                 </div>
             </section>
+            @ComoEsta
             <section class="cartao">
                 <header class="cartao-titulo"><h3>O caso</h3></header>
                 <dl class="pares f360-pares">
@@ -163,6 +164,10 @@
     private IReadOnlyList<ContatoAcompanhamento>? _historico;
     private IReadOnlyList<MarcaNaJornada>? _jornada;
     private bool _historicoFalhou, _jornadaFalhou;
+    private IReadOnlyList<EscutaPosSessao>? _escutas;
+    private bool _escutasFalharam;
+    private int? _acessoRegistradoDe;
+    private static bool PodeVerProntuario => SessaoUsuario.Atual.Pode(Permissao.VerProntuario);
     private int? _lido;
     private Guid _versaoLida;
     private int _geracao;
@@ -198,9 +203,67 @@
             jornada = Fila360NaTela.Jornada(await servico.JornadaAsync(UsuarioId, Linha.Id, desde), DateTime.Now);
         }
         catch (Exception ex) { jornadaFalhou = true; Clinica.Application.Diagnostico.Registrar("Blazor — Ficha 360: jornada não pôde ser lida", ex); }
+        // "Como está" é dado de saúde: só com o prontuário, e a leitura entra na trilha de acesso UMA vez por paciente
+        // (na troca de paciente, nunca a cada recarga — AcessoProntuarioService tem a janela de silêncio também).
+        IReadOnlyList<EscutaPosSessao>? escutas = null;
+        var escutasFalharam = false;
+        if (PodeVerProntuario)
+        {
+            try
+            {
+                escutas = await escopo.ServiceProvider.GetRequiredService<IEscutaPosSessaoService>().DoPacienteAsync(UsuarioId, Linha.PacienteId);
+                if (escutas.Count > 0 && _acessoRegistradoDe != Linha.PacienteId)
+                {
+                    _acessoRegistradoDe = Linha.PacienteId;
+                    await escopo.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                        .RegistrarAsync(Linha.PacienteId, SessaoUsuario.Atual.Operador, OrigemAcessoProntuario.EscutaPosSessao);
+                }
+            }
+            catch (Exception ex) { escutasFalharam = true; Clinica.Application.Diagnostico.Registrar("Blazor — Ficha 360: a escuta pós-sessão não pôde ser lida", ex); }
+        }
         if (g != _geracao) return;
         (_historico, _jornada, _historicoFalhou, _jornadaFalhou) = (historico, jornada, historicoFalhou, jornadaFalhou);
+        (_escutas, _escutasFalharam) = (escutas, escutasFalharam);
     }
+
+    /// <summary>"Como está": as escutas pós-sessão do paciente (a mais recente primeiro; a cancelada aparece riscada).</summary>
+    private RenderFragment ComoEsta => __builder =>
+    {
+        <section class="cartao">
+            <header class="cartao-titulo"><h3>Como está</h3><span class="texto-secundario pequeno">escuta pós-sessão</span></header>
+            <div class="cartao-corpo">
+                @if (!PodeVerProntuario)
+                {
+                    <p class="texto-secundario pequeno">Como o paciente está é dado de saúde: ver pede o acesso ao prontuário.</p>
+                }
+                else if (_escutasFalharam)
+                {
+                    <p class="texto-secundario pequeno">Não foi possível ler a escuta agora.</p>
+                }
+                else if (_escutas is null)
+                {
+                    <Esqueleto Altura="60" />
+                }
+                else if (_escutas.Count == 0)
+                {
+                    <p class="texto-secundario pequeno">Nenhuma escuta registrada. Ela aparece na página Escuta depois da 1ª sessão ou da volta.</p>
+                }
+                else
+                {
+                    <ul class="f360-como">
+                        @foreach (var e in _escutas.Take(4))
+                        {
+                            <li class="@(e.Cancelada ? "cancelada" : null)" @key="e.Id">
+                                <span><Selo Tom="@EscutaNaTela.Tom(e.Como)">@EscutaNaTela.Rotulo(e.Como)</Selo>@if (e.Cancelada) { <span class="texto-secundario pequeno"> cancelada</span> }</span>
+                                @if (!string.IsNullOrWhiteSpace(e.Relato)) { <span class="f360-como-relato">“@e.Relato”</span> }
+                                <span class="f360-como-quando">Sessão de @Formato.Data(e.SessaoEm) · @EscutaNaTela.Rotulo(e.Motivo).ToLowerInvariant() · por @e.RegistradoPor</span>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        </section>
+    };
 
     // ==================== a jornada (SVG; número em cultura invariante) ====================
 

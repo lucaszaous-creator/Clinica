@@ -8,8 +8,9 @@ namespace Clinica.Application.Servicos;
 public sealed record SessaoRealizada(int AtendimentoId, int PacienteId, DateOnly Data, ModalidadeAtendimento Modalidade);
 
 /// <summary>Uma sessão que pede escuta: o paciente, a sessão e por quê. Nada do prontuário.</summary>
+/// <param name="PodeMensagem">Tem telefone e não recusou mensagens: a pergunta pode sair pelo WhatsApp.</param>
 public sealed record SessaoParaEscutar(int AtendimentoId, int PacienteId, string Paciente, string? Telefone, DateOnly Data,
-    ModalidadeAtendimento Modalidade, int? ProfissionalId, string Profissional, MotivoDaEscuta Motivo);
+    ModalidadeAtendimento Modalidade, int? ProfissionalId, string Profissional, MotivoDaEscuta Motivo, bool PodeMensagem = false);
 
 /// <summary>O aviso de piora para o profissional da sessão (o Meu dia).</summary>
 public sealed record AvisoDePiora(int EscutaId, int PacienteId, string Paciente, DateOnly SessaoEm, ModalidadeAtendimento Modalidade,

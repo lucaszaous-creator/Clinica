@@ -32,6 +32,7 @@
                 @Item(Pagina.Painel, "grafico", "Painel", null, false)
                 @Item(Pagina.Hoje, "lista", "Fila de hoje", _numeros.ParaHoje, false)
                 @Item(Pagina.Conversas, "chat", "Conversas", Responderam > 0 ? Responderam : null, true)
+                @Item(Pagina.Escuta, "coracao", "Escuta", _escutar.Count > 0 ? _escutar.Count : null, false)
                 @Item(Pagina.Carteira, "pessoas", "Carteira", _numeros.Abertos, false)
                 <div class="f360-sep"></div>
                 <p class="f360-rot">Configurar</p>
@@ -68,6 +69,7 @@
                         case Pagina.Painel: @Painel break;
                         case Pagina.Hoje: @Hoje break;
                         case Pagina.Conversas: @Conversas break;
+                        case Pagina.Escuta: @Escuta break;
                         case Pagina.Carteira: @Carteira break;
                         case Pagina.Ficha:
                             if (FichaAberta is { } f)
@@ -108,6 +110,10 @@
 {
     <ConfigurarAcompanhamentoForm AoFechar="() => _configurar = false" AoConcluir="ConfiguradoAsync" />
 }
+@if (_escutaAberta is { } escutar)
+{
+    <EscutaForm Sessao="escutar" UsuarioId="UsuarioId" AoFechar="() => _escutaAberta = null" AoConcluir="EscutaGravadaAsync" />
+}
 @if (_metaAberta)
 {
     @* A MESMA porta das Metas da clínica (MetaForm + MetaService), já no indicador da retenção. *@
@@ -121,7 +127,7 @@
 @code {
     private const string SemAcesso = "A Fila 360 pede a ficha do paciente e o acesso às campanhas ou ao faturamento. Fale com a direção da clínica.";
 
-    private enum Pagina { Painel, Hoje, Conversas, Carteira, Ficha }
+    private enum Pagina { Painel, Hoje, Conversas, Escuta, Carteira, Ficha }
     private Pagina _pagina = Pagina.Hoje;
     private Pagina _voltarPara = Pagina.Hoje;
     private int? _fichaId;
@@ -147,6 +153,8 @@
     private IReadOnlyList<ContatoNoTempo> _contatos = [];
     private IReadOnlyDictionary<DateOnly, decimal> _metas = new Dictionary<DateOnly, decimal>();
     private IReadOnlyList<MesDaRetencao> _meses = [];
+    private IReadOnlyList<SessaoParaEscutar> _escutar = [];
+    private bool _escutarFalhou;
 
     // O recorte: de quem, a busca, "Mais filtros" e a visão da Carteira.
     private bool _minha = true;
@@ -167,6 +175,7 @@
     private CanalContato? _canalInicial;
     private DesfechoContato? _desfechoInicial;
     private bool _maisFiltros, _gerarRecall, _configurar, _equipe, _metaAberta;
+    private SessaoParaEscutar? _escutaAberta;
 
     private static DateOnly HojeData => DateOnly.FromDateTime(DateTime.Today);
     private static int UsuarioId => SessaoUsuario.Atual.UsuarioId;
@@ -232,7 +241,7 @@
         _ => Task.CompletedTask
     };
 
-    private bool FormularioAberto => _conversa is not null || _maisFiltros || _gerarRecall || _configurar || _equipe || _metaAberta;
+    private bool FormularioAberto => _conversa is not null || _maisFiltros || _gerarRecall || _configurar || _equipe || _metaAberta || _escutaAberta is not null;
 
     /// <summary>
     /// A fila, a configuração, os dias do recall, as conversas da fila e o nome da clínica — SEQUENCIAL no mesmo
@@ -280,6 +289,15 @@
                 conversasFalharam = true;
                 Clinica.Application.Diagnostico.Registrar("Blazor — Fila 360: as conversas do WhatsApp não puderam ser lidas (a fila abre sem elas)", ex);
             }
+            // A Escuta pós-sessão é ajuda: se ela falhar, a fila abre igual e a página diz que não leu.
+            var escutar = _escutar;
+            var escutarFalhou = false;
+            try { escutar = await sp.GetRequiredService<IEscutaPosSessaoService>().ParaEscutarAsync(UsuarioId); }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                escutarFalhou = true;
+                Clinica.Application.Diagnostico.Registrar("Blazor — Fila 360: a escuta pós-sessão não pôde ser lida (a fila abre sem ela)", ex);
+            }
             string? nome = _nomeClinica;
             if (nome is null)
             {
@@ -290,6 +308,8 @@
 
             _todos = linhas;
             _contatos = contatos;
+            _escutar = escutar;
+            _escutarFalhou = escutarFalhou;
             _metas = metas;
             _conversas = conversas;
             _conversasFalharam = conversasFalharam;
@@ -352,7 +372,7 @@
     }
     private static string Rotulo(Pagina p) => p switch
     {
-        Pagina.Painel => "Painel", Pagina.Conversas => "Conversas", Pagina.Carteira => "Carteira", _ => "Fila de hoje"
+        Pagina.Painel => "Painel", Pagina.Conversas => "Conversas", Pagina.Escuta => "Escuta", Pagina.Carteira => "Carteira", _ => "Fila de hoje"
     };
 
     private void TrocarEscopo(bool minha) { _minha = minha; Refiltrar(); }
@@ -661,7 +681,7 @@
                         @if (atual.Meta is { } meta)
                         {
                             <div><b class="f360-meta-num">@atual.Voltaram.ToString(Formato.PtBr)</b><span class="texto-secundario"> de @meta.ToString("0", Formato.PtBr) na meta de @Formato.Mes(atual.Mes).ToLowerInvariant()</span>
-                                @if (atual.BateuAMeta) { <Selo Tom="sucesso" Texto="Meta batida" /> }</div>
+                                @if (atual.BateuAMeta) { <Selo Tom="sucesso">Meta batida</Selo> }</div>
                             <div class="f360-trilho grande"><i style="width:@((atual.DaMeta ?? 0).ToString(System.Globalization.CultureInfo.InvariantCulture))%"></i></div>
                         }
                         else
@@ -765,6 +785,100 @@
         <ConversasDaFila360 AoAtualizar="() => CarregarAsync()" Conversas="_conversas" Selecionada="@(_conversaAberta ?? _conversas.FirstOrDefault())" Falhou="_conversasFalharam" UsuarioId="UsuarioId" PodeAcompanhar="PodeAcompanhar"
                             AoEscolher="c => _conversaAberta = c" AoAbrirFicha="AbrirFicha" AoRegistrar="r => AbrirConversa(r.Linha, CanalContato.WhatsApp, r.Desfecho)" />
     };
+
+    // ---------- Escuta pós-sessão ----------
+    private RenderFragment Escuta => __builder =>
+    {
+        <CabecalhoPagina Sobretitulo="Relacionamento · Fila 360" Titulo="Escuta pós-sessão"
+                         Subtitulo="@($"Pergunte como o paciente está depois da 1ª sessão do tratamento e da sessão de volta. Ficam aqui por {EscutaNaTela.DiasParaEscutar} dias.")">
+            <button type="button" class="botao icone" @onclick="() => CarregarAsync()" title="Atualizar (F5)" aria-label="Atualizar"><Icone Nome="atualizar" /></button>
+        </CabecalhoPagina>
+        @if (!Pode(Permissao.VerProntuario))
+        {
+            <Aviso Tom="info" Texto="Você vê quem pede escuta (dado de agenda). Registrar como o paciente está é dado de saúde e pede o acesso ao prontuário: fale com a direção." />
+        }
+        @if (_escutarFalhou)
+        {
+            <section class="cartao"><FalhaDeLeitura Titulo="Não foi possível ler a escuta pós-sessão" Detalhe="A Fila 360 continua funcionando." AoTentarDeNovo="() => CarregarAsync()" /></section>
+        }
+        else if (_escutar.Count == 0)
+        {
+            <section class="cartao"><EstadoVazio Titulo="Ninguém para escutar agora" Descricao="Quando alguém fizer a 1ª sessão do tratamento ou voltar pela retenção, aparece aqui no dia seguinte." Icone="coracao" /></section>
+        }
+        else
+        {
+            @foreach (var grupo in _escutar.GroupBy(s => s.Motivo).OrderBy(g => g.Key == MotivoDaEscuta.VoltouPelaRetencao ? 0 : 1))
+            {
+                var abertoE = _escutaAberto.Contains(grupo.Key);
+                var escondidasE = Math.Max(0, grupo.Count() - Fila360NaTela.LinhasPorGrupo);
+                <section class="f360-grupo" aria-label="@EscutaNaTela.Rotulo(grupo.Key)" @key="grupo.Key">
+                    <h4><span class="f360-grupo-titulo">@(grupo.Key == MotivoDaEscuta.VoltouPelaRetencao ? "Voltaram pela retenção" : "Fizeram a 1ª sessão")
+                        <span class="f360-grupo-n">@grupo.Count().ToString(Formato.PtBr)</span></span>
+                        <span class="f360-grupo-dica">@(grupo.Key == MotivoDaEscuta.VoltouPelaRetencao ? "É quando se vê se ele fica" : "É quando o paciente decide se continua")</span></h4>
+                    @foreach (var s in abertoE ? grupo : grupo.Take(Fila360NaTela.LinhasPorGrupo))
+                    {
+                        <div class="f360-tarefa f360-escuta acomp-linha" @key="s.AtendimentoId">
+                            <span class="f360-tipo @(grupo.Key == MotivoDaEscuta.VoltouPelaRetencao ? "sucesso" : "info")"><Icone Nome="coracao" /></span>
+                            <span class="f360-tarefa-pac"><span class="avatar acomp-avatar">@ConversaDoAcompanhamento.Iniciais(s.Paciente)</span>
+                                <span class="f360-tarefa-nome"><span class="principal">@s.Paciente</span>
+                                    <span class="secundario">@DiaDaSessao(s.Data) · @RotulosEnum.De(s.Modalidade)@(s.Profissional is "—" or "" ? "" : $" · {s.Profissional}")</span>
+                                    @if (!s.PodeMensagem) { <span class="secundario f360-escuta-sem">@(string.IsNullOrWhiteSpace(s.Telefone) ? "Sem telefone no cadastro" : "Não autorizou mensagens")</span> }</span></span>
+                            <span class="botoes-linha">
+                                <button type="button" class="botao wa-lado-abrir" disabled="@(!s.PodeMensagem || !PodeAcompanhar)" @onclick="() => PerguntarAsync(s)"
+                                        title="@(s.PodeMensagem ? "Abre a conversa com a pergunta pronta para você revisar e enviar" : "Sem telefone ou sem autorização de mensagem")"><Icone Nome="chat" />Perguntar</button>
+                                <button type="button" class="botao primario" disabled="@(!Pode(Permissao.VerProntuario))" @onclick="() => AbrirEscuta(s)"
+                                        title="@(Pode(Permissao.VerProntuario) ? "Registrar o que o paciente respondeu" : "Dado de saúde: pede o acesso ao prontuário")"><Icone Nome="check" />Como está</button>
+                            </span>
+                        </div>
+                    }
+                    @if (escondidasE > 0)
+                    {
+                        <button type="button" class="botao fantasma mini f360-mais" @onclick="() => AlternarEscuta(grupo.Key)">
+                            <Icone Nome="@(abertoE ? "reduzir" : "abaixo")" />@(abertoE ? "Mostrar menos" : $"Mostrar mais {escondidasE.ToString(Formato.PtBr)}")</button>
+                    }
+                </section>
+            }
+        }
+    };
+
+    private readonly HashSet<MotivoDaEscuta> _escutaAberto = [];
+    private void AlternarEscuta(MotivoDaEscuta m) { if (!_escutaAberto.Remove(m)) _escutaAberto.Add(m); }
+
+    /// <summary>"Ontem", "há 3 dias" — a escuta vale enquanto a sessão está fresca.</summary>
+    private static string DiaDaSessao(DateOnly d)
+    {
+        var dias = HojeData.DayNumber - d.DayNumber;
+        var quando = dias switch { 0 => "hoje", 1 => "ontem", _ => $"há {dias} dias" };
+        return $"Sessão {quando} ({d.ToString("dd/MM", Formato.PtBr)})";
+    }
+
+    private async Task PerguntarAsync(SessaoParaEscutar s)
+    {
+        if (!Exigir(Permissao.VerFichaPaciente, "contatar o paciente")
+            || !ExigirAlgum(Permissao.GerenciarCampanhas | Permissao.VerFaturamento, "contatar o paciente")) return;
+        if (!s.PodeMensagem) { Notificacoes.Info("Sem telefone ou sem autorização de mensagem: a pergunta não sai por aqui."); return; }
+        var texto = EscutaNaTela.Pergunta(s.Paciente, s.Motivo, _nomeClinica);
+        if (await ConversaAoLado.AbrirAsync(Servicos, Host, new PedidoDeConversa(s.Telefone ?? "", s.Paciente, s.PacienteId, texto))) return;
+        var link = PainelPendenciasFaturamento.LinkWhatsApp(s.Telefone, texto, _nomeClinica);
+        if (link is null) { await Dialogos.AvisoAsync("WhatsApp", PainelPendenciasFaturamento.SemTelefone(s.Paciente)); return; }
+        if (!await Host.AbrirEnderecoAsync(link))
+            Notificacoes.Erro(await Host.CopiarAsync(link)
+                ? "Não foi possível abrir o WhatsApp — o endereço da conversa foi copiado; cole-o no navegador."
+                : "Não foi possível abrir o WhatsApp neste computador.");
+    }
+
+    private void AbrirEscuta(SessaoParaEscutar s)
+    {
+        if (!Exigir(Permissao.VerProntuario, "registrar como o paciente está")) return;
+        _escutaAberta = s;
+    }
+
+    private async Task EscutaGravadaAsync(string frase)
+    {
+        _escutaAberta = null;
+        Notificacoes.Sucesso(frase);
+        await CarregarAsync(silencioso: true);
+    }
 
     // ---------- Carteira ----------
     private RenderFragment Carteira => __builder =>

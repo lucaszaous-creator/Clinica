@@ -2,8 +2,8 @@
 
 Pedido da direção: um sistema de retenção de verdade, fora da tela do WhatsApp. A Patrycia
 (gerente) cuida de quem está em tratamento antes que desista e traz de volta quem parou, **só por
-mensagem de WhatsApp**. O protótipo aprovado está no artefato "Sistema de Retenção SemDor". Esta é
-a **Fase 1**.
+mensagem de WhatsApp**. O protótipo aprovado está no artefato "Sistema de Retenção SemDor". Fase 1 e
+Fase 2 (meta, mês a mês e Escuta pós-sessão).
 
 ## Onde fica
 
@@ -67,27 +67,61 @@ O que **fica**, porque é da conversa e não da lista: o caso ligado à conversa
 Patrycia"), o "Como foi?", o convite da primeira mensagem e o "Já liguei". Quem chega a uma conversa de retenção
 pela Fila 360 (o botão da mensagem abre a conversa ao lado) encontra tudo isso igual.
 
+## Fase 2 (nov/2026): a meta, a retenção mês a mês e a Escuta pós-sessão
+
+**Meta de quem voltou.** As Metas da clínica ganharam o indicador **"Voltaram (retenção)"** (`IndicadorMeta.Retornos`):
+pacientes cujo caso teve a sessão de volta no mês, pela MESMA regra da fila (`AcompanhamentoPacienteService.PrimeiraVolta`).
+É só da clínica inteira (sem profissional nem categoria). Define-se pela mesma porta das Metas (`MetaForm`); a Fila 360
+abre o mesmo formulário pelo botão "Definir meta" do Painel.
+
+**Retenção, mês a mês** (Painel). Os últimos 6 meses: quem voltou contra a meta (a barra e o traço do alvo) e a **taxa**:
+dos contatados no mês, quantos voltaram em até 30 dias depois do primeiro contato daquele mês. Nada é foto guardada: os
+contatos são histórico que não se sobrescreve, e a volta vem da agenda (`Fila360NaTela.RetencaoPorMes`). O mês a mês é
+sempre da equipe inteira (a meta é da clínica), mesmo com "Minha fila".
+
+**Escuta pós-sessão** (página nova no menu da Fila 360). Os dois momentos em que um tratamento se perde: a **1ª sessão
+do tratamento** (BSV ou acupuntura) e a **sessão de volta** de quem a retenção trouxe. A sessão fica na lista por 7 dias.
+"Perguntar" abre a conversa ao lado com a pergunta pronta (quem envia revisa); "Como está" registra a resposta
+(melhorou, igual, piorou, não respondeu). **Piorou** pede o relato e vira **aviso no Meu dia** do profissional da sessão,
+até ele marcar "Ciente". A Ficha 360 ganhou o bloco **Como está**. As regras moram em `EscutaNaTela`; a leitura e a
+gravação, em `IEscutaPosSessaoService`. A LGPD dela está em `docs/conformidade-lgpd.md` (é dado de saúde).
+
+| Comparação feita antes de escolher | UX | DX | CX |
+|---|---|---|---|
+| **Escuta na Fila 360, aviso no Meu dia** (escolhida) | a Patrycia trabalha num lugar só; o médico vê a piora onde abre o dia | um serviço, uma entidade, quatro leitores já cobrados por teste | dado de saúde com as mesmas garantias do prontuário |
+| Escuta como campo do "Como foi?" do acompanhamento | menos uma página | campo de saúde numa tabela que não é clínica: sem guarda, sem exportação | quebraria a promessa de conformidade |
+| Aviso no sino do app | aparece em qualquer tela | o sino é WPF (ShellViewModel), sem teste de tela em Linux | mais risco no app que está em produção |
+
 ## 🧑‍💻 UX
 
 - A Patrycia abre a Fila 360 e vê só o que é de hoje, já na ordem de quem mais pode parar.
 - Quem respondeu aparece em verde, no topo.
 - O risco diz o porquê: "Sem vir há 99 dias", "Pacote com saldo parado". Ninguém precisa adivinhar a nota.
 - Nada que a tela fazia sumiu: assumir, filtros, gerar recall, configurar, a visão por responsável e o CSV (que agora leva o risco e o motivo).
+- A Patrycia vê no Painel quantos voltaram no mês contra a meta e a taxa dos contatados, e define a meta dali mesmo.
+- A Escuta mostra 5 por grupo ("Mostrar mais"), diz há quantos dias foi a sessão e tira da lista quem já foi escutado.
+- O médico vê no Meu dia, em vermelho, quem disse que piorou, com as palavras do paciente, até clicar "Ciente".
 
 ## 🛠️ DX
 
 - Uma classe pura nova (`Fila360NaTela`) com testes (`Fila360NaTelaTests`).
+- Fase 2: `EscutaNaTela` (regras puras) + `IEscutaPosSessaoService`/`EscutaPosSessaoService` (barreiras, leitura e
+  gravação), com `EscutaPosSessaoTests`; a natureza `EscutaPosSessao` no catálogo clínico, cobrada pelos quatro leitores
+  em `ConjuntoClinicoTests`; as consultas novas em `TraducaoNoNpgsqlTests` e rodadas no Postgres local.
 - A tela é a do Acompanhamento evoluída (`git mv`), e o formulário é o mesmo, com um bloco a mais.
 - O "Responderam" lê as conversas do CRM em fila, no mesmo escopo. Se o CRM falhar, a fila abre sem o grupo e a falha vai ao log.
 - O catálogo do portal foi regenerado por `tools/gerar-catalogo-gestao-web.py`.
 
 ## 🤝 CX
 
-- Sem migration, sem dado novo e sem custo novo.
+- Fase 1: sem migration, sem dado novo e sem custo novo. Fase 2: **uma migration aditiva** (a tabela
+  `EscutasPosSessao`), e a meta nova reaproveita a tabela de metas (o indicador é texto).
 - O nome muda no menu de quatro apps e do portal. O Faturamento só muda quando for republicado, e não precisa ser agora.
 
-## O que não está nesta fase, e por quê
+## O que não está, e por quê
 
-- **"Como está" (sentimento) e a Escuta pós-sessão.** O "Como está" é dado de saúde: exige coluna nova, a permissão do prontuário e a trilha de acesso. Entra na Fase 3, com a Escuta e o alerta ao profissional.
-- **Metas e a taxa de retenção mês a mês:** Fase 3. Elas pedem histórico guardado e meta cadastrada. O Painel já mostra quem voltou, mês a mês, e a taxa dos contatados em 30 dias.
-- **As Réguas de cuidado e a Escuta** não estão no menu ainda. Elas entram quando tiverem banco e regras de verdade: nenhum botão para função que não existe.
+- **As Réguas de cuidado.** Dependem dos modelos aprovados na Meta para cada passo; serão feitas numa sessão local.
+  Não há botão para elas no menu: nenhum botão para função que não existe.
+- **A escuta na linha do tempo do prontuário.** O profissional a vê pelo aviso de piora no Meu dia; levar à linha do
+  tempo é a próxima porta, se a clínica pedir.
+- **A pergunta automática.** A pergunta da escuta sai pela conversa, revisada por quem envia — nada de disparo.
