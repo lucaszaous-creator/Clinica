@@ -13,7 +13,8 @@ namespace Clinica.Desktop;
 /// </summary>
 public static class UpdateService
 {
-    private const string RepoUrl = "https://github.com/lucaszaous-creator/Clinica";
+    // De onde vem a atualização: Clinica.Atualizacao.FonteAtualizacaoGithub (repositório público só de
+    // instaladores desde nov/2026, com o Clinica como reserva na transição — docs/atualizacoes.md).
 
     private static bool _atualizacaoAgendada;
 

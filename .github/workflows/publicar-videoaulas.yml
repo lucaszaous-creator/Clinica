@@ -5,17 +5,51 @@ name: Publicar videoaulas
 # sobrescrever nenhum já publicado e grava o catálogo no app, no próprio branch.
 # Dispara quando publicar-videoaulas.txt (o número da rodada) muda no push.
 
+#
+# Nov/2026 (o código vai para repositório privado — docs/atualizacoes.md): os MP4 vão para o
+# repositório PÚBLICO de atualizações (secret ATUALIZACOES_TOKEN), de onde o app baixa, e também para o
+# Clinica enquanto a ponte da transição estiver ligada. O disparo manual COPIA os vídeos já publicados
+# no Clinica para o repositório novo (uma vez, na transição).
+
 on:
   push:
     paths:
       - '.github/publicar-videoaulas.txt'
+  workflow_dispatch:
 
 permissions:
   contents: write
   actions: read
 
 jobs:
+  copiar-para-o-repositorio-de-atualizacoes:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Copiar os MP4 do Clinica para o repositório de atualizações (sem sobrescrever)
+        env:
+          GH_TOKEN: ${{ secrets.ATUALIZACOES_TOKEN }}
+          GH_TOKEN_ORIGEM: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          test -n "$GH_TOKEN" || { echo "::error::Crie o secret ATUALIZACOES_TOKEN (docs/atualizacoes.md)."; exit 1; }
+          TAG=$(grep -o 'ReleaseDosVideos *= *"[^"]*"' src/Clinica.Desktop.Shell/Treinamento/AcervoTreinamento.cs | sed 's/.*"\(.*\)"/\1/')
+          DESTINO=lucaszaous-creator/clinica-atualizacoes
+          mkdir -p copia
+          GH_TOKEN="$GH_TOKEN_ORIGEM" gh release download "$TAG" --repo lucaszaous-creator/Clinica --pattern '*.mp4' --dir copia --skip-existing
+          gh release view "$TAG" --repo "$DESTINO" > /dev/null 2>&1 || gh release create "$TAG" --repo "$DESTINO" --title "Videoaulas do Treinamento" --notes "Vídeos da aba Treinamento dos apps, pelo SHA-256. Não apague: o app baixa por este nome." --latest=false
+          ja=$(gh release view "$TAG" --repo "$DESTINO" --json assets --jq '.assets[].name')
+          n=0
+          for f in copia/*.mp4; do
+            b=$(basename "$f")
+            if echo "$ja" | grep -qx "$b"; then continue; fi
+            gh release upload "$TAG" "$f" --repo "$DESTINO"; n=$((n+1))
+          done
+          echo "$n vídeo(s) copiado(s) para $DESTINO"
+
   publicar:
+    if: github.event_name == 'push'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -32,20 +66,28 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Subir os MP4 na release (sem sobrescrever)
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TOKEN_ATUALIZACOES: ${{ secrets.ATUALIZACOES_TOKEN }}
+          TOKEN_CLINICA: ${{ secrets.GITHUB_TOKEN }}
+          PONTE: ${{ vars.ATUALIZACOES_PONTE }}
           TAG: ${{ steps.cfg.outputs.tag }}
         run: |
           set -e
           test -n "$TAG"
-          gh release view "$TAG" > /dev/null 2>&1 || gh release create "$TAG" --title "Videoaulas do Treinamento" --notes "Vídeos da aba Treinamento dos apps, pelo SHA-256. Não apague: o app baixa por este nome." --latest=false
-          ja=$(gh release view "$TAG" --json assets --jq '.assets[].name')
-          n=0
-          for f in videoaulas/release/*.mp4; do
-            b=$(basename "$f")
-            if echo "$ja" | grep -qx "$b"; then continue; fi
-            gh release upload "$TAG" "$f"; n=$((n+1))
-          done
-          echo "$n vídeo(s) novo(s) na release $TAG"
+          publicar() {
+            local repo="$1"; export GH_TOKEN="$2"
+            gh release view "$TAG" --repo "$repo" > /dev/null 2>&1 || gh release create "$TAG" --repo "$repo" --title "Videoaulas do Treinamento" --notes "Vídeos da aba Treinamento dos apps, pelo SHA-256. Não apague: o app baixa por este nome." --latest=false
+            ja=$(gh release view "$TAG" --repo "$repo" --json assets --jq '.assets[].name')
+            n=0
+            for f in videoaulas/release/*.mp4; do
+              b=$(basename "$f")
+              if echo "$ja" | grep -qx "$b"; then continue; fi
+              gh release upload "$TAG" "$f" --repo "$repo"; n=$((n+1))
+            done
+            echo "$n vídeo(s) novo(s) na release $TAG de $repo"
+          }
+          if [ -n "$TOKEN_ATUALIZACOES" ]; then publicar lucaszaous-creator/clinica-atualizacoes "$TOKEN_ATUALIZACOES"
+          else echo "::warning::Secret ATUALIZACOES_TOKEN ausente: vídeos só no Clinica (ponte)."; fi
+          if [ "$PONTE" != "desligada" ]; then publicar "${{ github.repository }}" "$TOKEN_CLINICA"; fi
       - name: Catálogo no app
         run: |
           cp videoaulas/catalogo.json src/Clinica.Desktop.Shell/Treinamento/catalogo.json

@@ -25,10 +25,23 @@ name: Release (instalador + auto-update)
 # Funciona porque o Velopack separa os apps por CANAL: cada um grava seu
 # releases.<canal>.json, e o GetReleaseFeed percorre as releases procurando o canal
 # do app instalado, em vez de olhar só a mais recente.
+#
+# ONDE PUBLICA (nov/2026 — o código vai para repositório privado; docs/atualizacoes.md):
+#   1. no repositório PÚBLICO só de instaladores (lucaszaous-creator/clinica-atualizacoes), com o
+#      secret ATUALIZACOES_TOKEN — é de lá que os apps leem (FonteAtualizacaoGithub);
+#   2. e, enquanto a variável ATUALIZACOES_PONTE não for "desligada", TAMBÉM aqui no Clinica —
+#      a PONTE para as máquinas que ainda rodam a versão que lê daqui. Desligar só depois de todas
+#      atualizarem, e só então tornar o Clinica privado.
+#   Sem o secret, publica só pela ponte e avisa (a release não para enquanto o dono cria o repositório).
 
 on:
   workflow_dispatch:
     inputs:
+      obrigatoria:
+        description: 'Atualização OBRIGATÓRIA (a abertura espera baixar e instalar antes do login). Versão com migration já sai obrigatória sozinha.'
+        required: false
+        type: boolean
+        default: false
       app:
         description: 'Qual app publicar'
         required: true
@@ -51,8 +64,13 @@ permissions:
 jobs:
   release:
     runs-on: windows-latest
+    env:
+      REPO_ATUALIZACOES: lucaszaous-creator/clinica-atualizacoes
     steps:
       - uses: actions/checkout@v5
+        with:
+          # O histórico inteiro: "esta versão tem migration?" compara com a tag anterior do app.
+          fetch-depth: 0
 
       - name: Setup .NET 8
         uses: actions/setup-dotnet@v5
@@ -138,12 +156,15 @@ jobs:
 
           # No disparo por push a própria tag já existe; só uma release publicada
           # torna a versão indisponível. Não confundir tag com instalador entregue.
+          # Nos DOIS lugares: o repositório de atualizações (de onde os apps leem) e o Clinica (a ponte).
           $publicada = $false
-          try {
-            $release = Invoke-RestMethod -Headers $cabecalho "https://api.github.com/repos/lucaszaous-creator/Clinica/releases/tags/$tag"
-            $publicada = $true
-          } catch {
-            if ([int]$_.Exception.Response.StatusCode -ne 404) { throw }
+          foreach ($repo in @("$env:REPO_ATUALIZACOES", "lucaszaous-creator/Clinica")) {
+            try {
+              $release = Invoke-RestMethod -Headers @{ "User-Agent" = "clinica-release" } "https://api.github.com/repos/$repo/releases/tags/$tag"
+              $publicada = $true
+            } catch {
+              if ([int]$_.Exception.Response.StatusCode -ne 404) { throw }
+            }
           }
           if ($publicada) {
             throw "A versão '$tag' JÁ FOI PUBLICADA. Uma release não se sobrescreve — o " +
@@ -171,6 +192,36 @@ jobs:
       - name: Publicar (pasta self-contained)
         run: dotnet publish ${{ steps.alvo.outputs.projeto }} -c Release -r win-x64 --self-contained true -p:Version=${{ steps.alvo.outputs.version }} -o publish
 
+      # OBRIGATÓRIA ou não (nov/2026): a abertura dos apps só ESPERA (tela "Atualizando…" antes do
+      # login) pela versão marcada como obrigatória; as outras baixam em segundo plano e entram no
+      # próximo reinício. A marca vai nas NOTAS da versão (o Velopack as entrega ao app no
+      # releases.<canal>.json) como a linha `<!-- clinica:obrigatoria -->` — a regra que a lê é
+      # Clinica.Atualizacao.AtualizacaoNaAbertura.EhObrigatoria. Sai obrigatória quando pedida no
+      # disparo manual OU quando, desde a última versão DESTE app, entrou migration (o banco muda e a
+      # versão antiga pode não entender as colunas novas).
+      - name: Notas da versão (obrigatória?)
+        id: notas
+        shell: pwsh
+        run: |
+          $prefixo = "${{ steps.alvo.outputs.prefixo }}"
+          $anterior = git tag --list "$prefixo*" --sort=-v:refname |
+            Where-Object { $_ -match ("^" + [regex]::Escape($prefixo) + "\d+\.\d+\.\d+$") -and $_ -ne "${{ steps.alvo.outputs.tag }}" } |
+            Select-Object -First 1
+          $temMigration = $false
+          if ($anterior) {
+            $mudou = git diff --name-only "$anterior" HEAD -- src/Clinica.Infrastructure/Migrations
+            $temMigration = [bool]$mudou
+            Write-Host "Desde $anterior, migrations mudadas: $(@($mudou).Count)"
+          }
+          $pedida = "${{ github.event.inputs.obrigatoria }}" -eq "true"
+          $obrigatoria = $pedida -or $temMigration
+          $motivo = if ($pedida) { "marcada no disparo" } elseif ($temMigration) { "a versão tem migration" } else { "" }
+          $linhas = @("${{ steps.alvo.outputs.titulo }} ${{ steps.alvo.outputs.version }}")
+          if ($obrigatoria) { $linhas += "<!-- clinica:obrigatoria -->"; $linhas += "Atualização obrigatória: $motivo." }
+          Set-Content -Path notas.md -Value $linhas -Encoding utf8
+          "obrigatoria=$obrigatoria" >> $env:GITHUB_OUTPUT
+          Write-Host "Obrigatória: $obrigatoria $motivo"
+
       # O faturamento fica no canal padrão (win) e por isso NÃO recebe --channel:
       # passá-lo mudaria o nome do feed e quebraria o auto-update já instalado.
       - name: Empacotar com Velopack
@@ -183,13 +234,40 @@ jobs:
             "--packVersion", "${{ steps.alvo.outputs.version }}",
             "--packDir",     "publish",
             "--mainExe",     "${{ steps.alvo.outputs.mainExe }}",
-            "--packTitle",   "${{ steps.alvo.outputs.titulo }}"
+            "--packTitle",   "${{ steps.alvo.outputs.titulo }}",
+            "--releaseNotes", "notas.md"
           )
           if ($canal -ne "win") { $args += @("--channel", $canal) }
           & vpk @args
           if ($LASTEXITCODE -ne 0) { throw "vpk pack falhou" }
 
-      - name: Publicar no GitHub Releases
+      # 1) O repositório de atualizações (público, sem código): é de lá que os apps leem.
+      - name: Publicar no repositório de atualizações
+        shell: pwsh
+        env:
+          ATUALIZACOES_TOKEN: ${{ secrets.ATUALIZACOES_TOKEN }}
+        run: |
+          if (-not $env:ATUALIZACOES_TOKEN) {
+            Write-Host "::warning::Secret ATUALIZACOES_TOKEN ausente: a versão sai só pela ponte (Clinica). Ver docs/atualizacoes.md."
+            exit 0
+          }
+          $canal = "${{ steps.alvo.outputs.canal }}"
+          $args = @(
+            "upload", "github",
+            "--repoUrl",     "https://github.com/$env:REPO_ATUALIZACOES",
+            "--publish",
+            "--releaseName", "${{ steps.alvo.outputs.titulo }} ${{ steps.alvo.outputs.version }}",
+            "--tag",         "${{ steps.alvo.outputs.tag }}",
+            "--token",       "$env:ATUALIZACOES_TOKEN"
+          )
+          if ($canal -ne "win") { $args += @("--channel", $canal) }
+          & vpk @args
+          if ($LASTEXITCODE -ne 0) { throw "vpk upload (repositório de atualizações) falhou" }
+
+      # 2) A PONTE: as máquinas que ainda rodam a versão que lê do Clinica só acham a nova aqui.
+      #    Desligar (variável ATUALIZACOES_PONTE = desligada) só depois de TODAS atualizarem.
+      - name: Publicar no Clinica (ponte da transição)
+        if: vars.ATUALIZACOES_PONTE != 'desligada'
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -206,12 +284,13 @@ jobs:
           )
           if ($canal -ne "win") { $args += @("--channel", $canal) }
           & vpk @args
-          if ($LASTEXITCODE -ne 0) { throw "vpk upload falhou" }
+          if ($LASTEXITCODE -ne 0) { throw "vpk upload (ponte no Clinica) falhou" }
 
   # A entrega aos clientes antigos faz parte da própria release. Assim a publicação
   # não fica verde antes de os cinco canais estarem disponíveis para descoberta.
   sincronizar-canais:
     needs: release
     uses: ./.github/workflows/sincronizar-atualizacoes.yml
+    secrets: inherit
     permissions:
       contents: write
