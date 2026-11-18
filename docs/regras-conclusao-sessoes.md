@@ -23,6 +23,13 @@ Configuração persistida em `Configuracoes`, chave `PoliticaConclusaoClinicaV1`
 
 A conclusão roda em transação serializável e usa o bloqueio de agendamento já adotado pelo tablet no PostgreSQL. Repetir a operação não cria outro atendimento ou outras guias. Antes de produção, executar testes SQLite/PostgreSQL, interface do portal e layout Windows; implantar API e interface primeiro em homologação. Habilitar a opção no Gerente somente após conferir o prazo e as modalidades desejadas.
 
+## Por profissional, para quem não usa o sistema (nov/2026)
+
+O mesmo relógio tem uma terceira etapa, independente da política acima: no cadastro do profissional,
+**Concluir automaticamente (h)**. O horário com **chegada registrada** se conclui N horas depois do
+horário marcado, pelo mesmo núcleo, sem evolução, assinado `Conclusão automática (Nome, Nh)`; sem
+chegada vira aviso no sino. Ver `docs/conclusao-automatica-por-profissional.md`.
+
 ## O texto escrito e não salvo (out/2026, "como no Excel")
 
 Pedido da direção em 22/10/2026: o médico escreveu e não clicou em **Salvar sessão**, o texto não pode se perder, e a sessão encerra sozinha no prazo, gerando a guia.

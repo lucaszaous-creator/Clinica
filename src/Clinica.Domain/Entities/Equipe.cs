@@ -117,6 +117,27 @@ public class Profissional
     /// <summary>O teto que vale de fato — o que a agenda confere ao marcar.</summary>
     public int LimitePreventivoEfetivo => LimitePreventivoPorDia ?? LimitePreventivoPadrao;
 
+    /// <summary>Teto da conclusão automática, em horas (3 dias): passou disso, a recepção resolve.</summary>
+    public const int ConcluirAutomaticamenteHorasMaximo = 72;
+
+    /// <summary>
+    /// CONCLUIR AUTOMATICAMENTE N horas depois do horário marcado (nov/2026 — pedido da gerência
+    /// para quem não usa o sistema: ninguém concluía as sessões, e as guias não nasciam). Só conclui
+    /// o horário que teve CHEGADA registrada (decisão do dono: não se cobra consulta que não
+    /// aconteceu); o que ficou sem chegada vira aviso no sino da recepção. Nulo = desligado
+    /// (0 na tela desliga e é gravado como nulo). Quem grava é quem edita o profissional.
+    /// A regra: <c>ConclusaoPorProfissional</c>; quem roda: <c>ConclusaoAutomaticaService</c>.
+    /// </summary>
+    public int? ConcluirAutomaticamenteHoras { get; set; }
+
+    /// <summary>
+    /// A partir de quando a conclusão automática vale (meia-noite do dia; pedido do dono, nov/2026: "só
+    /// as consultas a partir de 01/12"). O relógio só olha horários com <c>DataHora</c> igual ou depois
+    /// dela — NUNCA para trás. Sem data na tela, o serviço grava o dia em que a regra foi ligada; nulo
+    /// com horas preenchidas (gravado por fora do serviço) não conclui nada.
+    /// </summary>
+    public DateTime? ConcluirAutomaticamenteDesde { get; set; }
+
     /// <summary>Trava compartilhada: impede sobreposição, bloqueios e marcação fora da jornada.</summary>
     public bool AgendaProtegida { get; set; }
 

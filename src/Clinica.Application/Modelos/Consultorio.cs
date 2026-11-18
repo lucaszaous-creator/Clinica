@@ -71,6 +71,9 @@ public sealed record SessaoDoDia(
     public DateTime? InicioAtendimentoEm { get; init; }
     public DateTime? FimAtendimentoEm { get; init; }
 
+    /// <summary>Concluída SOZINHA pela regra do profissional (nov/2026): não é pendência dele.</summary>
+    public DateTime? ConcluidoAutomaticamenteEm { get; init; }
+
     /// <summary>
     /// O recado que a recepção escreveu no horário ("chega 10 min atrasada", "trazer o
     /// laudo"). Nulo quando não há. Viajava até o balcão e nunca chegava a quem atende —
@@ -102,11 +105,15 @@ public sealed record SessaoDoDia(
     /// O horário já aconteceu, é a partir do início do controle e continua sem evolução
     /// escrita — a pendência do consultório. O corte preserva o histórico anterior sem
     /// transformá-lo em cobrança recorrente. Cancelado e falta não entram.
+    /// A sessão concluída pela regra do profissional (nov/2026, quem não usa o sistema) também não:
+    /// foi o sistema que a concluiu, ninguém esqueceu de escrever — cobrar a médica por isso seria
+    /// cobrar o que a direção decidiu não exigir dela.
     /// </summary>
     public bool RegistroPendente
         => Status == StatusAgendamento.Realizado
            && DateOnly.FromDateTime(DataHora) >= PoliticaRegistroPendente.DataInicio
-           && EvolucaoId is null;
+           && EvolucaoId is null
+           && ConcluidoAutomaticamenteEm is null;
 }
 
 /// <summary>

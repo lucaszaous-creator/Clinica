@@ -36,6 +36,18 @@ namespace Clinica.Tests;
 public class TraducaoNoNpgsqlTests
 {
     [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Conclusao_por_profissional_traduz_o_recorte_com_o_prazo_do_cadastro(bool comChegada)
+    {
+        using var db = Postgres();
+        var repo = new ClinicaRepositorio(db);
+        var sql = new ConclusaoAutomaticaService(db, repo, new(repo, new(repo)), new(repo))
+            .ConsultaAbertosDosProfissionaisComPrazo(new DateTime(2026, 11, 10, 19, 0, 0), comChegada, 0).ToQueryString();
+        sql.Should().Contain("ConcluirAutomaticamenteHoras").And.Contain("ChegadaEm").And.Contain("LIMIT");
+    }
+
+    [Theory]
     [InlineData(FiltroListaPacientes.Todos)]
     [InlineData(FiltroListaPacientes.EmTratamento)]
     [InlineData(FiltroListaPacientes.CadastroIncompleto)]

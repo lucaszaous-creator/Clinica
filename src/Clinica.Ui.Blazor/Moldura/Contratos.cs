@@ -71,6 +71,13 @@ public sealed record AvisoDoSemDorNoSino(object Alvo, string Paciente, string As
 /// </summary>
 public sealed record EsperaNoSino(object Alvo, string Nome, string Quando, bool NaoLida = false);
 
+/// <summary>
+/// Os horários de um profissional com a conclusão automática ligada que passaram do prazo SEM chegada
+/// (nov/2026): <paramref name="Frase"/> é "3 horários sem chegada na agenda de Dra. Ana: confirme falta ou
+/// presença"; <paramref name="Desde"/>, "desde 10/11 09:00". O clique abre a agenda.
+/// </summary>
+public sealed record SemChegadaNoSino(object Alvo, string Frase, string Desde, bool NaoLida = false);
+
 /// <summary>Uma seção do sino: só aparece para quem a tela que resolve existe.</summary>
 public sealed record SecaoDoSino<T>(bool Visivel, string Contador, IReadOnlyList<T> Linhas, string Situacao)
 {
@@ -148,6 +155,10 @@ public interface IMolduraDoApp
     SecaoDoSino<EsperaNoSino> EsperasNoWhatsApp => SecaoDoSino<EsperaNoSino>.Oculta;
     /// <summary>Abre a conversa que espera na aba WhatsApp e marca a leitura. Padrão: não faz nada.</summary>
     void AbrirEspera(EsperaNoSino espera) { }
+    /// <summary>Horários sem chegada da conclusão automática por profissional (nov/2026). Padrão: oculta.</summary>
+    SecaoDoSino<SemChegadaNoSino> HorariosSemChegada => SecaoDoSino<SemChegadaNoSino>.Oculta;
+    /// <summary>Abre a agenda para a recepção confirmar falta ou presença, e marca a leitura. Padrão: não faz nada.</summary>
+    void AbrirSemChegada(SemChegadaNoSino aviso) { }
     void AbrirConfirmacoes();
 
     /// <summary>

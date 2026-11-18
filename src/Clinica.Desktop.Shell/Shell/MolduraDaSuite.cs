@@ -46,6 +46,7 @@ public sealed class MolduraDaSuite : IMolduraDoApp, IDisposable
         _vm.RespostasNoSino.CollectionChanged += MudouColecao;
         _vm.AvisosDoSemDor.CollectionChanged += MudouColecao;
         _vm.EsperasNoWhatsApp.CollectionChanged += MudouColecao;
+        _vm.HorariosSemChegada.CollectionChanged += MudouColecao;
         foreach (var item in _vm.Itens) item.PropertyChanged += MudouNoViewModel;
         if (_snackbar is not null)
         {
@@ -152,6 +153,17 @@ public sealed class MolduraDaSuite : IMolduraDoApp, IDisposable
     public void AbrirEspera(EsperaNoSino espera)
     {
         if (espera.Alvo is EsperaNoWhatsAppShell original) _vm.AbrirEsperaNoWhatsApp(original);
+    }
+
+    public SecaoDoSino<SemChegadaNoSino> HorariosSemChegada => _vm.PodeVerSemChegada
+        ? new(true, _vm.HorariosSemChegada.Count == 0 ? "" : _vm.HorariosSemChegada.Sum(h => h.Quantos).ToString(),
+            _vm.HorariosSemChegada.Select(h => new SemChegadaNoSino(h, h.Frase, $"desde {h.MaisAntigo:dd/MM HH:mm}", _vm.SemChegadaNaoLida(h.Chave))).ToList(),
+            _vm.SituacaoSemChegada)
+        : SecaoDoSino<SemChegadaNoSino>.Oculta;
+
+    public void AbrirSemChegada(SemChegadaNoSino aviso)
+    {
+        if (aviso.Alvo is Clinica.Application.Modelos.HorariosSemChegada original) _vm.AbrirSemChegada(original);
     }
 
     private static string Tom(Clinica.Application.Modelos.TipoAvisoConfirmacao tipo) => tipo switch
@@ -278,6 +290,7 @@ public sealed class MolduraDaSuite : IMolduraDoApp, IDisposable
         _vm.RespostasNoSino.CollectionChanged -= MudouColecao;
         _vm.AvisosDoSemDor.CollectionChanged -= MudouColecao;
         _vm.EsperasNoWhatsApp.CollectionChanged -= MudouColecao;
+        _vm.HorariosSemChegada.CollectionChanged -= MudouColecao;
         foreach (var item in _vm.Itens) item.PropertyChanged -= MudouNoViewModel;
         if (_snackbar is not null)
         {

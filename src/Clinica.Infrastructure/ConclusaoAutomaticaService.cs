@@ -84,6 +84,119 @@ public sealed class ConclusaoAutomaticaService(ClinicaDbContext db, IClinicaRepo
         return true;
     }
 
+    // ==================== Conclusão automática POR PROFISSIONAL (nov/2026) ====================
+    //
+    // Pedido da gerência: a médica que não usa o sistema. Ninguém conclui as sessões dela, então
+    // as guias não nascem e o faturamento não dá baixa. Com o prazo no cadastro do profissional
+    // (Profissional.ConcluirAutomaticamenteHoras), o horário com CHEGADA registrada se conclui
+    // sozinho N horas depois do horário marcado, pelo MESMO núcleo do "Concluir". Não depende da
+    // política de conclusão por prazo acima (essa conta da evolução salva; esta, do horário) e não
+    // escreve prontuário. A regra e as frases: Application/Modelos/ConclusaoPorProfissional.
+
+    /// <summary>
+    /// Os horários vencidos dos profissionais com a regra ligada, ainda em aberto. <paramref name="comChegada"/>:
+    /// os que se concluem (chegada registrada) ou os que viram aviso (sem chegada). A conta do prazo
+    /// (horário + N horas, N por profissional) é feita aqui na memória, sobre um recorte pequeno: o banco
+    /// filtra estado, chegada, profissional ligado e uma janela de dias.
+    /// </summary>
+    private async Task<List<(Agendamento Horario, Profissional Profissional, int Horas)>> VencidosPorProfissionalAsync(
+        DateTime agora, bool comChegada, int depois, CancellationToken ct)
+    {
+        var linhas = await ConsultaAbertosDosProfissionaisComPrazo(agora, comChegada, depois).ToListAsync(ct);
+        return linhas
+            .Select(a => (Horario: a, Profissional: a.Profissional!, Horas: ConclusaoPorProfissional.Horas(a.Profissional)))
+            .Where(l => l.Horas is { } h && ConclusaoPorProfissional.NoAlcance(l.Profissional, l.Horario.DataHora)
+                && ConclusaoPorProfissional.Venceu(l.Horario.DataHora, h, agora))
+            .Select(l => (l.Horario, l.Profissional, l.Horas!.Value))
+            .ToList();
+    }
+
+    /// <summary>O recorte do banco (estado, chegada, profissional com a regra, janela de dias) — público para a rede de tradução.</summary>
+    public IQueryable<Agendamento> ConsultaAbertosDosProfissionaisComPrazo(DateTime agora, bool comChegada, int depois)
+    {
+        var ultimoPossivel = agora.AddHours(-1);
+        var abertos = db.Agendamentos.AsNoTracking().Include(a => a.Profissional)
+            .Where(a => a.Id > depois && a.Status == StatusAgendamento.Agendado
+                && a.DataHora <= ultimoPossivel
+                && a.Profissional != null && a.Profissional.ConcluirAutomaticamenteHoras > 0
+                // A DATA do cadastro barra tudo o que é anterior (pedido do dono: só a partir de 01/12/2026).
+                // Sem data, nada: a regra nunca anda para trás.
+                && a.Profissional.ConcluirAutomaticamenteDesde != null
+                && a.DataHora >= a.Profissional.ConcluirAutomaticamenteDesde);
+        // Com chegada (concluir): desde a DATA do cadastro, sem outro corte — gravar 01/11 em 18/11 conclui
+        // os horários de novembro que ficaram abertos (pedido do dono). Sem chegada (o aviso do sino): a data
+        // E os últimos dias, para o sino não virar o arquivo morto do mês inteiro.
+        if (comChegada)
+        {
+            // Teto de segurança (120 dias): data "a partir de" antiga não reabre a agenda de meses atrás.
+            var retroativoDesde = agora.Date.AddDays(-ConclusaoPorProfissional.DiasMaximoRetroativo);
+            abertos = abertos.Where(a => a.ChegadaEm != null && a.DataHora >= retroativoDesde);
+        }
+        else
+        {
+            var avisoDesde = agora.AddDays(-ConclusaoPorProfissional.DiasDoAvisoSemChegada);
+            abertos = abertos.Where(a => a.ChegadaEm == null && a.DataHora >= avisoDesde);
+        }
+        return abertos.OrderBy(a => a.Id).Take(500);
+    }
+
+    /// <summary>Os horários com chegada e prazo vencido — os que <see cref="ConcluirPorProfissionalAsync"/> conclui.</summary>
+    public async Task<int[]> CandidatosPorProfissionalAsync(DateTime agora, int depois = 0, CancellationToken ct = default)
+        => (await VencidosPorProfissionalAsync(agora, comChegada: true, depois, ct)).Select(l => l.Horario.Id).Take(100).ToArray();
+
+    /// <summary>
+    /// Conclui UM horário pela regra do profissional, se ele ainda está em aberto, com chegada e vencido.
+    /// Mesma transação serializável e mesmo bloqueio do horário que a conclusão por prazo (as duas, o
+    /// médico e a outra estação disputam o mesmo horário): rodar duas vezes, ou em dois lugares ao mesmo
+    /// tempo, conclui uma vez só — a releitura dentro da transação vê o Realizado da primeira.
+    /// </summary>
+    public Task<bool> ConcluirPorProfissionalAsync(int id, DateTime agora, CancellationToken ct = default)
+        => db.Database.CreateExecutionStrategy().ExecuteAsync(c => ConcluirPorProfissionalNaTransacaoAsync(id, agora, c), ct);
+
+    private async Task<bool> ConcluirPorProfissionalNaTransacaoAsync(int id, DateTime agora, CancellationToken ct)
+    {
+        await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+        if (db.Database.IsNpgsql())
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(20260916, {id})", ct);
+        db.ChangeTracker.Clear();
+        var a = await db.Agendamentos.Include(x => x.Profissional).SingleOrDefaultAsync(x => x.Id == id, ct);
+        if (a is not { Status: StatusAgendamento.Agendado, ChegadaEm: not null, Profissional: { } profissional }
+            || ConclusaoPorProfissional.Horas(profissional) is not { } horas
+            || !ConclusaoPorProfissional.NoAlcance(profissional, a.DataHora)
+            || a.DataHora < agora.Date.AddDays(-ConclusaoPorProfissional.DiasMaximoRetroativo)
+            || !ConclusaoPorProfissional.Venceu(a.DataHora, horas, agora))
+            return false;
+
+        var operador = ConclusaoPorProfissional.Operador(profissional, horas);
+        a.ConcluidoAutomaticamenteEm = agora;
+        await repo.RegistrarAuditoriaAsync(new EventoAuditoria { Operador = operador,
+            Acao = "ConclusaoAutomaticaPorProfissional", PacienteId = a.PacienteId,
+            Detalhe = ConclusaoPorProfissional.Detalhe(a, horas, agora) }, ct);
+        // O MESMO núcleo do botão Concluir: atendimento, códigos (as guias pendentes de baixa),
+        // particular, pacote e a trilha "PresencaConfirmada" — num SaveChanges só, com o carimbo acima.
+        await agenda.ConcluirAtendimentoClinicoAsync(id, operador, ct);
+        await tx.CommitAsync(ct);
+        return true;
+    }
+
+    /// <summary>
+    /// Os horários SEM chegada que passaram do prazo, por profissional — o aviso do sino da recepção
+    /// ("3 horários sem chegada na agenda de Dra. Ana: confirme falta ou presença"). Dos últimos
+    /// <see cref="ConclusaoPorProfissional.DiasDoAvisoSemChegada"/> dias.
+    /// </summary>
+    public async Task<IReadOnlyList<HorariosSemChegada>> SemChegadaAsync(DateTime agora, CancellationToken ct = default)
+        => (await VencidosPorProfissionalAsync(agora, comChegada: false, 0, ct))
+            .GroupBy(l => l.Profissional.Id)
+            .Select(g =>
+            {
+                var p = g.First().Profissional;
+                var nome = string.IsNullOrWhiteSpace(p.NomeCurto) ? p.Nome : p.NomeCurto!;
+                return new HorariosSemChegada(p.Id, nome, g.Count(), g.Min(l => l.Horario.DataHora),
+                    ConclusaoPorProfissional.ChaveSemChegada(p.Id, g.Max(l => l.Horario.Id), g.Count()));
+            })
+            .OrderBy(h => h.MaisAntigo)
+            .ToList();
+
     /// <summary>Os rascunhos abertos cuja última alteração passou do prazo (depois de ativar a regra).</summary>
     public async Task<int[]> RascunhosVencidosAsync(DateTime agora, int depois = 0, CancellationToken ct = default)
     {
@@ -255,6 +368,37 @@ public sealed class ConclusaoAutomaticaService(ClinicaDbContext db, IClinicaRepo
                     }
                     depois = ids[^1];
                 }
+                // 3) A regra do PROFISSIONAL (nov/2026): horário com chegada, N horas depois.
+                // Em try próprio, pela mesma razão da etapa 1: falhar aqui não para as outras.
+                // Teto por volta (ConclusaoPorProfissional.MaximoPorVolta): um lote retroativo (a data gravada no
+                // passado) anda em fatias de 1 minuto, sem prender o portal; o resto fica para a volta seguinte.
+                try
+                {
+                    int profDepois = 0, feitas = 0;
+                    while (!ct.IsCancellationRequested && feitas < ConclusaoPorProfissional.MaximoPorVolta)
+                    {
+                        int[] ids;
+                        using (var scope = scopes.CreateScope())
+                            ids = await scope.ServiceProvider.GetRequiredService<ConclusaoAutomaticaService>().CandidatosPorProfissionalAsync(Agora, profDepois, ct);
+                        if (ids.Length == 0) break;
+                        foreach (var id in ids.Take(ConclusaoPorProfissional.MaximoPorVolta - feitas))
+                        {
+                            feitas++;
+                            try
+                            {
+                                using var scope = scopes.CreateScope();
+                                await scope.ServiceProvider.GetRequiredService<ConclusaoAutomaticaService>().ConcluirPorProfissionalAsync(id, Agora, ct);
+                            }
+                            catch (Exception ex) when (!ct.IsCancellationRequested)
+                            { Clinica.Application.Diagnostico.Registrar($"Conclusão automática do profissional pendente no horário {id}; será reavaliada", ex); }
+                        }
+                        profDepois = ids[^1];
+                    }
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
+                catch (Exception ex) when (!ct.IsCancellationRequested)
+                { Clinica.Application.Diagnostico.Registrar("Conclusão automática por profissional indisponível; as outras etapas seguem", ex); }
+
                 if (avisar is not null)
                 {
                     using var scope = scopes.CreateScope();
