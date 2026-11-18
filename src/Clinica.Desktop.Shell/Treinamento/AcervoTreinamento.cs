@@ -15,6 +15,8 @@ public sealed class AcervoTreinamento
     /// sobrescrevem: o app antigo continua baixando da release antiga, que fica no ar.
     /// </summary>
     public const string ReleaseDosVideos="treinamento-desktop-20261020";
+    /// <summary>De onde baixar, em ordem: o repositório público de atualizações e, na transição, o Clinica.</summary>
+    public static readonly IReadOnlyList<string> OrigensDosVideos=[Clinica.Atualizacao.FonteAtualizacaoGithub.Repositorio,Clinica.Atualizacao.FonteAtualizacaoGithub.RepositorioAnterior];
     private readonly string _raiz;
     private readonly HttpClient _http;
     private readonly string _midia;
@@ -54,8 +56,17 @@ public sealed class AcervoTreinamento
         var temporario=cache+"."+Guid.NewGuid().ToString("N")+".tmp";
         try
         {
-            using var response=await _http.GetAsync($"https://github.com/lucaszaous-creator/Clinica/releases/download/{ReleaseDosVideos}/"+aula.Sha256.ToLowerInvariant()+".mp4",HttpCompletionOption.ResponseHeadersRead,ct);
-            response.EnsureSuccessStatusCode();
+            // Nov/2026: os vídeos moram no repositório PÚBLICO de atualizações; o Clinica (o de antes) só
+            // responde enquanto a transição não termina (docs/atualizacoes.md). 404 no novo = tenta o antigo.
+            HttpResponseMessage? response=null;
+            foreach(var origem in OrigensDosVideos)
+            {
+                response?.Dispose();
+                response=await _http.GetAsync($"{origem}/releases/download/{ReleaseDosVideos}/"+aula.Sha256.ToLowerInvariant()+".mp4",HttpCompletionOption.ResponseHeadersRead,ct);
+                if(response.StatusCode!=System.Net.HttpStatusCode.NotFound)break;
+            }
+            using var _resposta=response!;
+            response!.EnsureSuccessStatusCode();
             if(response.Content.Headers.ContentLength is > 150_000_000)throw new IOException("Vídeo maior que o tamanho permitido.");
             await using(var input=await response.Content.ReadAsStreamAsync(ct))
             await using(var dest=File.Create(temporario))

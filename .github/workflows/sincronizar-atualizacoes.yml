@@ -1,4 +1,7 @@
 name: Manter canais de atualização compatíveis
+# Nos DOIS repositórios que servem atualização (nov/2026, docs/atualizacoes.md):
+#   - clinica-atualizacoes (público, só instaladores), com o secret ATUALIZACOES_TOKEN;
+#   - o Clinica, enquanto a ponte da transição estiver ligada (variável ATUALIZACOES_PONTE ≠ desligada).
 on:
   workflow_call:
   workflow_dispatch:
@@ -11,6 +14,11 @@ jobs:
   sincronizar:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        repositorio: [lucaszaous-creator/clinica-atualizacoes, lucaszaous-creator/Clinica]
     steps:
       - uses: actions/checkout@v5
         with:
@@ -20,5 +28,14 @@ jobs:
           python-version: '3.12'
       - name: Publicar índices e pacotes para clientes antigos
         env:
-          GH_TOKEN: ${{ github.token }}
-        run: python tools/sincronizar-atualizacoes.py
+          REPOSITORIO_ATUALIZACOES: ${{ matrix.repositorio }}
+          GH_TOKEN: ${{ matrix.repositorio == 'lucaszaous-creator/Clinica' && github.token || secrets.ATUALIZACOES_TOKEN }}
+          PONTE: ${{ vars.ATUALIZACOES_PONTE }}
+        run: |
+          if [ "$REPOSITORIO_ATUALIZACOES" = "lucaszaous-creator/Clinica" ] && [ "$PONTE" = "desligada" ]; then
+            echo "Ponte desligada: o Clinica não serve mais atualização."; exit 0
+          fi
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::warning::Sem token para $REPOSITORIO_ATUALIZACOES (secret ATUALIZACOES_TOKEN) — nada a sincronizar."; exit 0
+          fi
+          python tools/sincronizar-atualizacoes.py

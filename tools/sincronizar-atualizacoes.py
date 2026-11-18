@@ -1,13 +1,16 @@
 """Mantém os cinco canais visíveis também para o atualizador antigo (primeiras 10 releases)."""
 import hashlib
 import json
+import os
 import pathlib
 import re
 import subprocess
 import time
 import urllib.request
 
-REPO = 'lucaszaous-creator/Clinica'
+# Nov/2026: o repositório que serve a atualização vem do workflow (o público só de instaladores, ou o
+# Clinica enquanto a ponte da transição estiver ligada — docs/atualizacoes.md).
+REPO = os.environ.get('REPOSITORIO_ATUALIZACOES', 'lucaszaous-creator/clinica-atualizacoes')
 CANAIS = {'win': ('v', 'Clinica.Faturamento'), 'clinico': ('clinico-v', 'Clinica.Clinico'),
           'gerente': ('gerente-v', 'Clinica.Gerente'), 'recepcao': ('recepcao-v', 'Clinica.Recepcao'),
           'financeiro': ('financeiro-v', 'Clinica.Financeiro')}
@@ -29,15 +32,19 @@ def principais(releases):
             if m and not r['draft'] and not r['prerelease']:
                 candidatas.append((tuple(map(int, m.groups())), r))
         if not candidatas:
-            raise RuntimeError('Canal sem release publicada: ' + canal)
+            # Repositório novo na transição: o app ainda não foi publicado lá. Os outros canais seguem.
+            print('aviso: canal sem release publicada em ' + REPO + ': ' + canal, flush=True)
+            continue
         resultado[canal] = max(candidatas, key=lambda par: par[0])[1]
+    if not resultado:
+        raise RuntimeError('Nenhum canal com release publicada em ' + REPO)
     return resultado
 
 def escolher_ancora(atuais, primeiras):
     """Usa uma release atual que o cliente antigo consegue descobrir."""
     visiveis = {r['id'] for r in primeiras if not r['draft'] and not r['prerelease']}
-    faturamento = atuais['win']
-    if faturamento['id'] in visiveis:
+    faturamento = atuais.get('win')
+    if faturamento and faturamento['id'] in visiveis:
         return faturamento
     ids_atuais = {r['id'] for r in atuais.values()}
     for release in primeiras:

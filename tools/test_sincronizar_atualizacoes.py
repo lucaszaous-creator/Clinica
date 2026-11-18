@@ -35,5 +35,24 @@ class AncoraTests(unittest.TestCase):
             sync.escolher_ancora({'win': release(1)}, [release(99)])
 
 
+
+class PrincipaisTests(unittest.TestCase):
+    def tag(self, id, nome):
+        return {'id': id, 'tag_name': nome, 'draft': False, 'prerelease': False}
+
+    def test_repositorio_novo_sem_algum_canal_segue_com_os_outros(self):
+        atuais = sync.principais([self.tag(1, 'recepcao-v1.2.3'), self.tag(2, 'recepcao-v1.2.4')])
+        self.assertEqual(list(atuais), ['recepcao'])
+        self.assertEqual(atuais['recepcao']['id'], 2)
+
+    def test_sem_canal_nenhum_recusa(self):
+        with self.assertRaisesRegex(RuntimeError, 'Nenhum canal'):
+            sync.principais([self.tag(1, 'treinamento-desktop-20261020')])
+
+    def test_ancora_sem_faturamento_usa_app_visivel(self):
+        recepcao = {'id': 5, 'draft': False, 'prerelease': False}
+        self.assertEqual(sync.escolher_ancora({'recepcao': recepcao}, [recepcao]), recepcao)
+
+
 if __name__ == '__main__':
     unittest.main()
