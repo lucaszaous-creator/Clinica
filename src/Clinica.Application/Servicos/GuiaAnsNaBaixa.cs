@@ -445,6 +445,16 @@ public sealed class GuiaAnsNaBaixaService(IClinicaRepositorio repo, ParametrosSe
         var profissional = horario?.ProfissionalId is { } id ? await repo.ObterProfissionalAsync(id, ct) : null;
         var preco = await precos.ResolverAsync(convenioCodigo, codigo.Tipo, atendimento.Data, codigo.Especialidade, ct);
 
+        // ---- consulta a menos do prazo da anterior (nov/2026): o que já entrou ----
+        // A trava barra a MARCAÇÃO; o que passou antes dela (chave desligada, liberação da gerência,
+        // a linha do convênio com "Não renova") a operadora ainda glosa. A mesma conta da trava,
+        // sem a chave e sem a liberação: aqui é aviso para quem vai mandar a guia, não recusa.
+        if (horario is { ModalidadePrevista: ModalidadeAtendimento.Consulta, Particular: false }
+            && (horario.EspecialidadeConsultaCodigo ?? horario.EspecialidadeConsulta?.ToString()) is { Length: > 0 } especialidade
+            && await ConsultaNoPrazoDoConvenio.ProcurarAsync(repo, await parametros.ObterAsync(ct), paciente, horario.DataHora,
+                especialidade, horario.ProfissionalId, horario.Id, soAnteriores: true, ct) is { } noPrazo)
+            avisos.Insert(0, ConsultaNoPrazoDoConvenio.AvisoDeGlosa(paciente.ConvenioNome, noPrazo));
+
         // Baixa refeita (depois de um estorno): parte do que já tinha sido conferido.
         if (codigo.GuiaAns is { } anterior)
         {
