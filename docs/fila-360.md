@@ -56,6 +56,17 @@ traz: nenhuma consulta a mais no banco.
 ao lado (a gaveta), e o convite marca o caso. Com o CRM novo (semdor-crm#50), a resposta do
 paciente volta para quem convidou, na fila Retenção, longe da recepção.
 
+## O modo Retenção saiu da aba WhatsApp
+
+A aba WhatsApp mostrava duas listas: Conversas e Retenção. A Retenção era a mesma fila da Fila 360, com menos
+informação. Seguindo "uma porta por pergunta" e "função que saiu, sai inteira", ela saiu por completo: o
+seletor, os filtros (Para hoje, Aguardando, Fechados), os grupos, o "Quem aparece aqui?", o CSS, as regras
+(`RetencaoNaTela.Agrupar`, `Contagens`, `Vazio`, `Detalhe`), os testes e as fotos dela.
+
+O que **fica**, porque é da conversa e não da lista: o caso ligado à conversa (a etiqueta "Retenção · … · com
+Patrycia"), o "Como foi?", o convite da primeira mensagem e o "Já liguei". Quem chega a uma conversa de retenção
+pela Fila 360 (o botão da mensagem abre a conversa ao lado) encontra tudo isso igual.
+
 ## 🧑‍💻 UX
 
 - A Patrycia abre a Fila 360 e vê só o que é de hoje, já na ordem de quem mais pode parar.
@@ -80,4 +91,3 @@ paciente volta para quem convidou, na fila Retenção, longe da recepção.
 - **"Como está" (sentimento) e a Escuta pós-sessão.** O "Como está" é dado de saúde: exige coluna nova, a permissão do prontuário e a trilha de acesso. Entra na Fase 3, com a Escuta e o alerta ao profissional.
 - **Metas e a taxa de retenção mês a mês:** Fase 3. Elas pedem histórico guardado e meta cadastrada. O Painel já mostra quem voltou, mês a mês, e a taxa dos contatados em 30 dias.
 - **As Réguas de cuidado e a Escuta** não estão no menu ainda. Elas entram quando tiverem banco e regras de verdade: nenhum botão para função que não existe.
-- **A saída do modo Retenção da aba WhatsApp:** próximo PR. A Fila 360 já faz o trabalho dele.

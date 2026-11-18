@@ -163,22 +163,15 @@ public sealed class AcabamentoDoWhatsAppNaTelaTests : IClassFixture<BancoDasTela
     }
 
     [Fact]
-    public void Sem_conversa_aberta_a_ficha_nao_ocupa_lugar_e_o_vazio_e_um_por_modo()
+    public void Sem_conversa_aberta_a_ficha_nao_ocupa_lugar_e_a_retencao_nao_mora_mais_aqui()
     {
         var tela = Abrir();
         tela.Find(".pagina.wa").ClassList.Should().Contain("sem-conversa");
         tela.Find(".wa-vazia").TextContent.Should().Contain("Escolha uma conversa").And.NotContain("segundos");
+        // O modo Retenção saiu (nov/2026): a retenção é a Fila 360. Nenhum botão leva a ele.
+        tela.FindAll(".wa-lista button").Should().NotContain(b => b.TextContent.Contains("Retenção"));
+        tela.Find(".wa-lista-titulo").TextContent.Should().Contain("Conversas");
 
-        tela.Clicar(() => tela.FindAll(".wa-modo button").First(b => b.TextContent.Contains("Retenção")));
-        tela.WaitForAssertion(() => tela.Find(".wa-vazia").TextContent.Should().Contain("Escolha um paciente para preparar o convite"), Prazo);
-        // O rodapé é do estado da ligação também na Retenção; a explicação vai para o ⓘ, e o Esc a fecha.
-        tela.Find(".wa-lista-rodape").TextContent.Should().Contain("Conectado");
-        tela.Clicar(() => tela.Find(".wa-quem-aparece"));
-        tela.Find(".wa-quem-aparece-texto").TextContent.Should().Contain("não há disparo em massa");
-        Tecla(tela, () => tela.Find(".wa-quem-aparece"), "Escape");
-        tela.FindAll(".wa-quem-aparece-texto").Should().BeEmpty();
-
-        tela.Clicar(() => tela.FindAll(".wa-modo button").First(b => b.TextContent.Contains("Conversas")));
         AbrirConversa(tela, "Maria das Graças");
         tela.Find(".pagina.wa").ClassList.Should().NotContain("sem-conversa");
     }

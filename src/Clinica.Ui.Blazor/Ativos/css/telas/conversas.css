@@ -42,31 +42,20 @@
 .wa-canal.sms{background:var(--cinza-500)}
 .wa-canal svg{width:9px;height:9px}
 
-/* ---------- Coluna 1: a lista — dois modos: Conversas e Retenção (o Acompanhamento, de onde se escreve) ---------- */
+/* ---------- Coluna 1: a lista (a retenção saiu daqui em nov/2026: é a Fila 360) ---------- */
 .wa-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);margin:-1px}
-/* Sem ícone: a coluna tem largura fixa (340/300 px) e ícone + nome + contagem de dois dígitos não
-   cabem nos dois botões — o "Retenção 15" passava por baixo do "+". */
-.wa-modo{flex:1;min-width:0}
-.segmentado.wa-modo button{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:6px 10px;font-weight:600}
-.wa-modo button b{font-weight:700;font-variant-numeric:tabular-nums;min-width:18px;height:18px;padding:0 5px;border-radius:var(--radius-pilula);
-  background:var(--acento-suave);color:var(--acento);font-size:11px;display:inline-flex;align-items:center;justify-content:center}
-.wa-modo button[aria-pressed="true"] b{background:rgba(255,255,255,.22);color:var(--texto-invertido)}
 .wa-resumo{padding:0 var(--space-4) var(--space-2);font-size:var(--text-small-size);color:var(--texto-secundario);line-height:1.4}
 .wa-resumo b{color:var(--texto-primario)}
-.wa-grupo{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);padding:6px var(--space-4);
-  background:var(--cinza-50);border-bottom:1px solid var(--borda);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:var(--text-secao-tracking);color:var(--texto-secundario)}
-.wa-grupo span{font-variant-numeric:tabular-nums}
-/* Uma linha só: o título fixo que quebra em duas fica com a segunda linha por baixo do grupo seguinte (300 px). */
-.wa-grupo b{font-weight:inherit;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wa-dias{font-size:var(--text-small-size);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
 .wa-dias.tom-perigo{color:var(--erro-texto)}
 .wa-dias.tom-aviso{color:var(--aviso-texto)}
 .wa-dias.tom-neutro{color:var(--texto-secundario)}
 .wa-dias.tom-sucesso{color:var(--sucesso-forte)}
-.wa-linha-tratamento{font-size:var(--text-table-size);color:var(--texto-secundario);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.wa-linha-tratamento b{color:var(--texto-primario);font-weight:600}
 
-/* ---------- Coluna 1: a lista (comum aos dois modos) ---------- */
+/* ---------- Coluna 1: a lista ---------- */
+.wa-lista-titulo{flex:1;min-width:0;margin:0;display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-h3-size);font-weight:var(--text-h3-weight)}
+.wa-lista-titulo b{font-size:var(--text-small-size);font-weight:700;font-variant-numeric:tabular-nums;min-width:20px;height:20px;padding:0 6px;border-radius:var(--radius-pilula);
+  background:var(--acento-suave);color:var(--acento);display:inline-flex;align-items:center;justify-content:center}
 .wa-lista-topo{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-3) var(--space-3) var(--space-2) var(--space-4)}
 .wa-lista-topo h1{font-size:var(--text-h3-size);font-weight:var(--text-h3-weight);margin:0;flex:1;min-width:0;display:flex;align-items:baseline;gap:var(--space-2)}
 .wa-lista-topo h1 small{font-size:var(--text-small-size);font-weight:500;color:var(--texto-secundario)}
@@ -265,7 +254,7 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px;fon
 .wa-modelo-previa var{font-style:normal;color:var(--acento);font-weight:600;text-decoration:underline dotted;text-underline-offset:3px}
 .wa-modelo-form .botoes-linha{justify-content:flex-end}
 
-/* ---------- Coluna 3, no modo Retenção: o CASO do Acompanhamento vem antes da ficha ---------- */
+/* ---------- Coluna 3, conversa de um caso da retenção: o CASO do Acompanhamento vem antes da ficha ---------- */
 .wa-caso{background:var(--superficie)}
 .wa-caso h4{margin:var(--space-2) 0 0;font-size:var(--text-small-size);font-weight:700;color:var(--texto-secundario);text-transform:uppercase;letter-spacing:var(--text-secao-tracking)}
 .wa-desfechos{display:flex;flex-wrap:wrap;gap:var(--space-1)}
@@ -337,8 +326,7 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px;fon
   .wa-popover{left:var(--space-4);right:var(--space-4)}
   /* Sem a coluna da ficha, a bolinha do chat da equipe cai sobre o canto do Enviar: o rodapé deixa o lugar dela. */
   .wa-escrever-rodape,.wa-convite,.wa-janela-fechada{padding-right:calc(var(--space-12) + var(--space-8))}
-  /* A lista tem 300 px: o seletor de modo e os filtros apertam. */
-  .segmentado.wa-modo button{padding:6px 4px;gap:4px;font-size:var(--text-table-size)}
+  /* A lista tem 300 px: os filtros apertam. */
   .wa-filtros .segmentado button{padding:5px 4px;font-size:var(--text-small-size);white-space:nowrap}
 }
 /* Celular: um painel por vez — a lista, e a conversa por cima dela com "voltar". */
@@ -401,7 +389,6 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px;fon
 .wa-m.nota .wa-balao b .icone{width:13px;height:13px}
 .wa-janela-ic .icone,.wa-anexo .icone,.wa-rascunho-anexo .icone{width:18px;height:18px}
 .wa-recado{margin:var(--space-2) var(--space-6) 0}
-.wa-lista-topo .wa-sr + .segmentado{margin:0}
 .wa-cab-quem h2 .selo{font-size:11px}
 .wa-modelo-form .campos{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
 .wa-escrever textarea{field-sizing:content}
@@ -478,11 +465,6 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px;fon
 .wa-sem-ligacao .icone{width:16px;height:16px;flex:none;margin-top:2px}
 /* "Encerrar" com o nome a partir de 1180 px; abaixo, o ✓ com a dica (item 5). */
 @media (max-width:1180px){.wa-cab-acoes .botao.wa-encerrar span{display:none}.wa-cab-acoes .botao.wa-encerrar{width:34px;padding:0;justify-content:center}}
-/* O "Quem aparece aqui?" da Retenção (item 13): a explicação saiu do rodapé, que é do estado da ligação. */
-.wa-filtros-linha .botao.icone.wa-quem-aparece{width:34px;height:34px;flex:none;color:var(--texto-secundario)}
-.wa-filtros-linha .botao.icone.wa-quem-aparece[aria-expanded="true"]{color:var(--acento);background:var(--acento-suave)}
-.wa-quem-aparece-texto{margin:0;padding:var(--space-2) var(--space-3);border-radius:var(--radius-control);background:var(--cinza-50);
-  font-size:var(--text-small-size);line-height:1.45;color:var(--texto-secundario)}
 /* Os botões do modelo aprovado (item 24): as etiquetas que a pessoa recebeu, sob o balão — não se clicam aqui. */
 .wa-m-botoes{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:var(--space-1);margin-top:var(--space-1);max-width:100%}
 .wa-m-botoes span{padding:var(--space-1) var(--space-3);border:1px solid var(--borda);border-radius:var(--radius-pilula);background:var(--superficie);

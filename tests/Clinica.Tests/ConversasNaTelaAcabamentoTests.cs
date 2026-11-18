@@ -188,14 +188,11 @@ public sealed class ConversasNaTelaAcabamentoTests
     // ------------------------------------------------------------ frases
 
     [Fact]
-    public void O_centro_vazio_tem_uma_frase_por_modo_sem_detalhe_tecnico()
+    public void O_centro_vazio_tem_uma_frase_sem_detalhe_tecnico()
     {
-        var (conversas, textoConversas) = ConversasNaTela.SemConversaAberta(retencao: false);
-        var (retencao, textoRetencao) = ConversasNaTela.SemConversaAberta(retencao: true);
-        Assert.Equal("Escolha uma conversa", conversas);
-        Assert.Equal("Escolha um paciente para preparar o convite", retencao);
-        foreach (var frase in new[] { textoConversas, textoRetencao })
-            Assert.DoesNotContain("segundos", frase);
+        var (titulo, texto) = ConversasNaTela.SemConversaAberta();
+        Assert.Equal("Escolha uma conversa", titulo);
+        Assert.DoesNotContain("segundos", texto);
     }
 
     [Fact]

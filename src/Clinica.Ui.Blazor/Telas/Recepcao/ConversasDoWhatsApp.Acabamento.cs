@@ -21,9 +21,6 @@ public partial class ConversasDoWhatsApp
     /// <summary>Desde quando o WhatsApp da clínica não responde (a faixa amarela e o rodapé); nulo = ligado.</summary>
     private DateTimeOffset? _semLigacaoDesde;
 
-    /// <summary>O "Quem aparece aqui?" do modo Retenção aberto.</summary>
-    private bool _quemAparece;
-
     private ElementReference _campoEl, _buscaEl;
     private bool _focarCampo, _focarBusca;
     private Task? _lendoModelosDosBotoes;
@@ -62,11 +59,6 @@ public partial class ConversasDoWhatsApp
         if (e.Key != "Escape") return;
         _buscaConversa = null;
         _focarCampo = true;
-    }
-
-    private void TeclaDoQuemAparece(KeyboardEventArgs e)
-    {
-        if (e.Key == "Escape") _quemAparece = false;
     }
 
     // ---------------------------------------------------------------- depois do desenho: as teclas e o foco
