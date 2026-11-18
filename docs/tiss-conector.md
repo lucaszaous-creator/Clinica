@@ -547,6 +547,9 @@ a `Concluida` no mesmo comando.
 
 ## As operadoras do conector (nov/2026): Saúde Petrobras e Amil
 
+> **Amil segurada (18/11/2026):** a Amil desativou o token e só aceita QR Code (só no portal); até a resposta dela sobre o QR pelo web service, a Amil sobe **só com a elegibilidade** — envio de guias (`EnvioDeGuiaNasTelas: false` + `envio Amil`) e autorização (`autorizacao Amil`) ficam desligados, e a baixa e a aba Dia dela são as de antes do #363 (`AmilSeguradaTests`).
+> Antes de ligar `autorizacao Amil`, atualize o conector: o 1f79d2bd não conhece os tipos `Autorizacao`/`CancelaAutorizacao` e para a fila inteira se encontrar um deles (provado contra o banco migrado).
+
 Quem decide "esta família de convênio tem web service" é **um catálogo só**, em
 `src/Clinica.Application/Servicos/OperadorasTiss.cs`. Operadora nova é uma linha nele; nenhum
 outro arquivo do conector, da fila ou das telas conhece nome de operadora.
