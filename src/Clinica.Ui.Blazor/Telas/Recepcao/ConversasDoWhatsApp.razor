@@ -357,7 +357,8 @@ else
                 }
                 @if (c.Acao is { } acao && !c.Encerrada)
                 {
-                    <div class="aviso @acao.Tom wa-acao" role="status">
+                    @* Só "Como foi?" (todos os botões são desfecho): a Fila 360 o mostra na coluna da direita e o tira daqui. *@
+                    <div class="aviso @acao.Tom wa-acao @(acao.Botoes.Count > 0 && acao.Botoes.All(b => b.Acao == BotaoDaAcao.Desfecho) ? "wa-acao-desfecho" : null)" role="status">
                         <Icone Nome="@(acao.Tom == "sucesso" ? "check" : acao.Tom == "atencao" ? "alerta" : "info")" />
                         <div class="wa-acao-texto"><strong>@acao.Titulo</strong>@acao.Frase</div>
                         <div class="botoes-linha">@foreach (var b in acao.Botoes) { @Botao(c, b, mini: true) }</div>

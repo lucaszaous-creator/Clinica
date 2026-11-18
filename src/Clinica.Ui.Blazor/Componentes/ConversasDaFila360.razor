@@ -35,7 +35,8 @@
                 </button>
             }
         }
-        <p class="f360-conv-rodape">Só os pacientes da Fila 360 com ficha conferida. A recepção não vê estas conversas.</p>
+        <div class="f360-conv-rodape"><p>Só os pacientes da Fila 360 com ficha conferida. A recepção não vê estas conversas.</p>
+            <button type="button" class="botao icone" @onclick="() => AoAtualizar.InvokeAsync()" title="Atualizar (F5)" aria-label="Atualizar"><Icone Nome="atualizar" /></button></div>
     </div>
 
     <div class="f360-conv-fio">
@@ -64,7 +65,17 @@
                 <dt>Responsável</dt><dd>@ConversaDoAcompanhamento.Dono(a.Linha, UsuarioId)</dd>
                 <dt>Fila</dt><dd>@a.Linha.ModalidadeTexto</dd>
             </dl>
-            <button type="button" class="botao primario" disabled="@(!PodeAcompanhar)" @onclick="() => AoRegistrar.InvokeAsync(a.Linha)"><Icone Nome="check" />Registrar como foi</button>
+            @* O "Como foi?" mora AQUI, não no meio da conversa (a clínica: "pode ir para a tela da direita, fica mais
+               clean"). Cada botão abre o "Registrar como foi" já com o desfecho escolhido — a mesma porta de sempre. *@
+            <div class="f360-comofoi @(a.Respondeu ? "respondeu" : null)">
+                <p class="f360-comofoi-tit">@if (a.Respondeu) { <Icone Nome="check" /> }@(a.Respondeu ? $"{PrimeiroNome(a.Linha.Paciente)} respondeu. Como foi?" : "Como foi?")</p>
+                @foreach (var b in RetencaoNaTela.BotoesDoComoFoi())
+                {
+                    <button type="button" class="botao mini @(b.Perigo ? "contorno-perigo" : null)" disabled="@(!PodeAcompanhar)"
+                            title="@(PodeAcompanhar ? null : "Seu acesso não permite registrar o acompanhamento.")"
+                            @onclick="() => AoRegistrar.InvokeAsync((a.Linha, b.Desfecho))">@if (b.Desfecho == DesfechoContato.QuerMarcar) { <Icone Nome="calendario" /> }@b.Rotulo</button>
+                }
+            </div>
             <button type="button" class="botao" @onclick="() => AoAbrirFicha.InvokeAsync(a.Linha)"><Icone Nome="ficha" />Ficha 360</button>
         }
     </aside>
@@ -78,7 +89,8 @@
     [Parameter] public bool PodeAcompanhar { get; set; }
     [Parameter] public EventCallback<ConversaDaFila> AoEscolher { get; set; }
     [Parameter] public EventCallback<LinhaAcompanhamento> AoAbrirFicha { get; set; }
-    [Parameter] public EventCallback<LinhaAcompanhamento> AoRegistrar { get; set; }
+    [Parameter] public EventCallback<(LinhaAcompanhamento Linha, DesfechoContato? Desfecho)> AoRegistrar { get; set; }
+    [Parameter] public EventCallback AoAtualizar { get; set; }
 
     private bool _soResponderam;
     private IReadOnlyList<ConversaDaFila> Lista => _soResponderam ? Conversas.Where(c => c.Respondeu).ToList() : Conversas;
@@ -91,6 +103,8 @@
         var local = quando.ToLocalTime();
         return local.Date == DateTime.Today ? local.ToString("HH:mm", Formato.PtBr) : local.ToString("dd/MM", Formato.PtBr);
     }
+
+    private static string PrimeiroNome(string nome) => nome.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? nome;
 
     private static string Bool(bool v) => v ? "true" : "false";
 }

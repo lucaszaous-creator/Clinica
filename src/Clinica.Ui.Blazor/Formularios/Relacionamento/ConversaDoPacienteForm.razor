@@ -226,6 +226,8 @@
     [Parameter] public IReadOnlyList<OpcaoAcompanhamento> Motivos { get; set; } = [];
     /// <summary>WhatsApp quando a conversa abre logo depois de o WhatsApp ter sido aberto.</summary>
     [Parameter] public CanalContato? CanalInicial { get; set; }
+    /// <summary>O desfecho já escolhido fora do formulário (o "Como foi?" da coluna das Conversas da Fila 360).</summary>
+    [Parameter] public DesfechoContato? DesfechoInicial { get; set; }
     [Parameter] public EventCallback AoFechar { get; set; }
     /// <summary>Gravou — com a frase da confirmação.</summary>
     [Parameter] public EventCallback<string> AoConcluir { get; set; }
@@ -268,6 +270,7 @@
         // vazio APAGARIA a legenda num simples "não respondeu".
         _motivoId = Motivos.FirstOrDefault(m => m.Nome == Linha.Motivo)?.Id;
         if (Encerrado) _data = Hoje;
+        if (DesfechoInicial is { } inicial && !Encerrado) Escolher(inicial);
         try
         {
             using var escopo = Escopos.CreateScope();

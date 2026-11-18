@@ -25,7 +25,12 @@ recall, Por responsável e Configurar. No rodapé do menu fica quem voltou em 30
 | **Carteira** | Todos os casos, do maior risco para o menor, com o "Por quê", as visões (Todos, Risco alto, Novos no BSV, Sem autorização de mensagem, Encerrados), a busca, "Mais filtros" e o CSV | `Fila360NaTela.Carteira` |
 | **Ficha 360** (página) | Cabeçalho com os selos e as ações, os cinco fatos, por que está em risco (o anel e cada motivo com os pontos), a jornada (sessões, faltas e o que está marcado nos últimos 6 meses), as mensagens e acontecimentos e a próxima mensagem | `Fila360NaTela.Risco`, `Jornada`; `IAcompanhamentoPacienteService.JornadaAsync` |
 
-O "Como foi?" continua sendo o mesmo formulário (`ConversaDoPacienteForm`), aberto pelo
+Nas **Conversas**, a página ocupa a área inteira, como a aba WhatsApp: sem cabeçalho e sem margem. O Atualizar
+fica no rodapé da lista. O "Como foi?" sai do meio da conversa e vai para a coluna da direita, com os cinco
+desfechos. Cada um abre o formulário já com o desfecho escolhido. Até 1280 px, onde a coluna some, o cartão
+volta para o meio da conversa.
+
+O "Como foi?" continua sendo o mesmo formulário (`ConversaDoPacienteForm`, agora com `DesfechoInicial`), aberto pelo
 "Registrar como foi". Ele ganhou o bloco do risco e perdeu o "Copiar o telefone para ligar": a
 retenção é só por mensagem.
 

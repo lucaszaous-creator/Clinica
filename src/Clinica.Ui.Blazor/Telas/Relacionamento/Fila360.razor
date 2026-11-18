@@ -17,7 +17,7 @@
 @using Clinica.Application.Abstracoes
 @inherits TelaBase
 
-<div class="pagina f360 @(Carregando && _carregou ? "carregando" : null)">
+<div class="pagina f360 @(_pagina == Pagina.Conversas && PodeAcompanhar ? "f360-em-conversas" : null) @(Carregando && _carregou ? "carregando" : null)">
     @if (!PodeAcompanhar)
     {
         <section class="cartao lista-cartao">
@@ -92,7 +92,7 @@
 
 @if (_conversa is { } c)
 {
-    <ConversaDoPacienteForm Linha="c" UsuarioId="UsuarioId" NomeClinica="@_nomeClinica" Motivos="_motivos" CanalInicial="_canalInicial"
+    <ConversaDoPacienteForm Linha="c" UsuarioId="UsuarioId" NomeClinica="@_nomeClinica" Motivos="_motivos" CanalInicial="_canalInicial" DesfechoInicial="_desfechoInicial"
                             AoFechar="FecharConversaAsync" AoConcluir="ConversaGravouAsync" />
 }
 @if (_maisFiltros)
@@ -158,6 +158,7 @@
     private LinhaAcompanhamento? _conversa;
     private int? _casoPedido;
     private CanalContato? _canalInicial;
+    private DesfechoContato? _desfechoInicial;
     private bool _maisFiltros, _gerarRecall, _configurar, _equipe;
 
     private static DateOnly HojeData => DateOnly.FromDateTime(DateTime.Today);
@@ -446,9 +447,10 @@
     }
 
     /// <summary>"Registrar como foi": a conversa do paciente (o "Como foi?", o trilho e o histórico).</summary>
-    private void AbrirConversa(LinhaAcompanhamento l, CanalContato? canal)
+    private void AbrirConversa(LinhaAcompanhamento l, CanalContato? canal, DesfechoContato? desfecho = null)
     {
         _canalInicial = canal;
+        _desfechoInicial = desfecho;
         _conversa = l;
     }
 
@@ -686,11 +688,10 @@
     // ---------- Conversas ----------
     private RenderFragment Conversas => __builder =>
     {
-        <CabecalhoPagina Sobretitulo="Relacionamento · Fila 360" Titulo="Conversas">
-            <button type="button" class="botao icone" @onclick="() => CarregarAsync()" title="Atualizar (F5)" aria-label="Atualizar"><Icone Nome="atualizar" /></button>
-        </CabecalhoPagina>
-        <ConversasDaFila360 Conversas="_conversas" Selecionada="@(_conversaAberta ?? _conversas.FirstOrDefault())" Falhou="_conversasFalharam" UsuarioId="UsuarioId" PodeAcompanhar="PodeAcompanhar"
-                            AoEscolher="c => _conversaAberta = c" AoAbrirFicha="AbrirFicha" AoRegistrar="l => AbrirConversa(l, CanalContato.WhatsApp)" />
+        @* Sem cabeçalho de página: a conversa ocupa a área inteira, como na aba WhatsApp (a clínica: "ainda está
+           pequeno"). O menu lateral já diz onde se está, e o Atualizar mora no topo da lista. *@
+        <ConversasDaFila360 AoAtualizar="() => CarregarAsync()" Conversas="_conversas" Selecionada="@(_conversaAberta ?? _conversas.FirstOrDefault())" Falhou="_conversasFalharam" UsuarioId="UsuarioId" PodeAcompanhar="PodeAcompanhar"
+                            AoEscolher="c => _conversaAberta = c" AoAbrirFicha="AbrirFicha" AoRegistrar="r => AbrirConversa(r.Linha, CanalContato.WhatsApp, r.Desfecho)" />
     };
 
     // ---------- Carteira ----------
