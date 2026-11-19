@@ -31,6 +31,7 @@
     <Compile Include="../../src/Clinica.Desktop.Shell/Treinamento/AcervoTreinamento.cs" Link="Treinamento/AcervoTreinamento.cs" />
     <Compile Include="../../src/Clinica.Desktop.Shell/Atualizacao/FonteAtualizacaoGithub.cs" Link="Atualizacao/FonteAtualizacaoGithub.cs" />
     <Compile Include="../../src/Clinica.Desktop.Shell/Atualizacao/DownloadComPrazo.cs" Link="Atualizacao/DownloadComPrazo.cs" />
+    <Compile Include="../../src/Clinica.Desktop.Shell/Atualizacao/TentativasDeAtualizacao.cs" Link="Atualizacao/TentativasDeAtualizacao.cs" />
     <!-- As MESMAS sementes fictícias da prévia: o teste das telas abre cada uma com os dados que
          foram fotografados (TelasBlazorAbremTests). -->
     <Compile Include="../../tools/PreviaBlazor/Sementes/*.cs" Link="PreviaBlazor/Sementes/%(Filename)%(Extension)" />
