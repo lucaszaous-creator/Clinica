@@ -408,9 +408,20 @@ public sealed class FinanceiroService
         CancellationToken ct = default,
         // A GRD / conta / lote do pagamento (nov/2026) — vai para DocumentoReferencia e é o
         // agrupador do demonstrativo de repasse ("Amil · GRD/Conta 5950322456").
-        string? referenciaPagamento = null)
+        string? referenciaPagamento = null,
+        // O DIA em que o convênio pagou (nov/2026). Informado, a receita nasce REALIZADA nessa
+        // data — é a afirmação "recebi" que o repasse por guia recebida espera (só receita
+        // realizada vira repasse). Nulo mantém o comportamento de sempre: o `status` pedido.
+        DateOnly? recebidoEm = null)
     {
         ArgumentNullException.ThrowIfNull(guia);
+        if (recebidoEm is { } dia)
+        {
+            if (dia > DateOnly.FromDateTime(DateTime.Today))
+                throw new InvalidOperationException(
+                    "A data do recebimento está no futuro — o convênio ainda não pagou. Deixe em branco para lançar como a receber.");
+            status = StatusLancamento.Realizado;
+        }
         // A lista da conciliação é lida ANTES do clique: o segundo clique, ou a outra máquina
         // que concilia o mesmo mês, gravaria uma segunda receita da mesma guia.
         if (await _repo.ExisteEntradaVivaAsync(guia.CodigoId, null, ct))
@@ -435,6 +446,7 @@ public sealed class FinanceiroService
             operador: operador,
             deducoes: deducoes,
             ct: ct,
+            dataPagamento: recebidoEm,
             documentoReferencia: referenciaPagamento);
     }
 

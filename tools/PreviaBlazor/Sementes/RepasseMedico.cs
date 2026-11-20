@@ -208,6 +208,14 @@ public sealed class SementeRepasseMedico : ISemente
         }
         Fechamento(helena, [(amil[0], 3), (amil[1], 10), (amil[2], 17)], 65m, "GRD 004102", pago: true);
         Fechamento(marcos, [(petrobras[0], 12), (petrobras[1], 19)], 80m, "Conta 87650", pago: false);
+
+        // O marco da virada (exigido para fechar): a clínica fictícia passou a fechar pelo
+        // sistema no mês passado — o que foi recebido antes já tinha sido repassado à mão.
+        db.Add(new ConfiguracaoGlobal
+        {
+            Chave = Clinica.Application.Servicos.FechamentoRepasseService.ChaveRecebidosDesde,
+            Valor = mesPassado.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)
+        });
         db.SaveChanges();
     }
 

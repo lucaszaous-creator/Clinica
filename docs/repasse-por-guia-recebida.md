@@ -36,10 +36,16 @@ lembrar de conferir.
 
 ## Como funciona
 
-1. **A Conciliação continua sendo a porta do "recebi".** Lançar a receita da guia como
-   **realizada** é a afirmação de que o convênio pagou. Receita **prevista** (a receber) não
-   conta. A Conciliação ganhou o campo opcional **Referência do pagamento (GRD / conta /
-   lote)**, que agrupa o anexo do demonstrativo como o documento da clínica fazia.
+1. **A Conciliação é a porta do "recebi".** Até aqui ela lançava a receita da guia sempre
+   como **prevista** (a receber), e o recebimento só se confirmava depois, no Caixa. Ganhou
+   dois campos opcionais que valem para o lote que se lança: **Referência do pagamento (GRD /
+   conta / lote)**, que agrupa o anexo do demonstrativo como o documento da clínica fazia, e
+   **Recebido em** — preenchido, a receita nasce **realizada** naquela data e a guia passa a
+   contar para o repasse; vazio, continua a receber, como sempre foi (quem já usava não perde
+   nada). Receita prevista não conta.
+1. **Marco da virada.** Antes do primeiro fechamento, a tela pede *a partir de quando* o
+   repasse por guia vale: o que foi recebido antes já foi repassado à mão. Sem essa data o
+   serviço recusa fechar — senão a primeira prévia traria todo o histórico pronto para pagar.
 2. **Cada recebimento é um item, e entra uma única vez.** Guia paga → item `G:{guia}`;
    sessão particular paga → item `P:{atendimento}`. O índice único em `ItensRepasse.Chave`
    (entre itens não cancelados) é a trava: dois postos fechando o mesmo médico ao mesmo tempo
@@ -97,6 +103,13 @@ particular cujo atendimento cai num período já apurado pelo modelo antigo apar
   **Gerente Geral** (que carrega o módulo Financeiro). O faturamento não muda.
 
 ## O que NÃO foi feito, e por quê
+
+- **A margem por sessão (Gerente) continua lendo o repasse antigo, por período.** Trocar
+  para os fechamentos mudaria números que a direção já acompanha (período de sessão ×
+  competência de pagamento) — fica para decisão da direção.
+- **Guia reconciliada depois de um estorno já fechado** não volta sozinha ao repasse (a
+  chave antiga continua ocupada). Caso raro; hoje se resolve cancelando o fechamento do
+  estorno, se ainda não foi pago.
 
 - **Exigir extrato bancário (OFX) para o item entrar.** A clínica pediu "conciliado e
   afirmou que recebeu" — é a receita realizada. Exigir também o `ConciliadoEm` do extrato

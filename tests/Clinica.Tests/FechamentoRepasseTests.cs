@@ -40,6 +40,8 @@ public class FechamentoRepasseTests : IDisposable
         _financeiro = new FinanceiroService(_repo);
         _regras = new RepasseService(_repo);
         _servico = new FechamentoRepasseService(_repo);
+        // O marco da virada é exigido para FECHAR; os cenários daqui começam depois dele.
+        _servico.DefinirRecebidosDesdeAsync(new DateOnly(2026, 1, 1), "direção").GetAwaiter().GetResult();
     }
 
     public void Dispose()
@@ -185,6 +187,34 @@ public class FechamentoRepasseTests : IDisposable
         previa.Aguardando.Select(a => a.CodigoFaturamentoId).Should().BeEquivalentTo([prevista.Id, cancelada.Id]);
         previa.Aguardando.Single(a => a.CodigoFaturamentoId == prevista.Id).ReceitaPrevista.Should().BeTrue();
         previa.Aguardando.Single(a => a.CodigoFaturamentoId == cancelada.Id).ReceitaPrevista.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Recebido_em_na_Conciliacao_lanca_a_receita_realizada_e_a_guia_entra_no_repasse()
+    {
+        var medica = await ProfissionalAsync();
+        await RegraAsync(medica, 65m, "Amil");
+        var p = await PacienteAsync("Beatriz", Convenio.Amil, "Amil");
+        var codigo = await GuiaAsync(p, medica, new DateOnly(2026, 9, 2));
+        var guia = new GuiaSemLancamento(codigo.Id, codigo.AtendimentoId, p.Id, p.Nome,
+            codigo.DataBaixa!.Value, codigo.NumeroGuiaReal, p.Convenio, codigo.Tipo) { ConvenioCodigo = "Amil" };
+
+        // Data no futuro não é "recebi": recusada, e nada é gravado.
+        var futuro = () => _financeiro.LancarReceitaDaGuiaAsync(guia, 120m, operador: "financeiro",
+            recebidoEm: DateOnly.FromDateTime(DateTime.Today).AddDays(1));
+        await futuro.Should().ThrowAsync<InvalidOperationException>().WithMessage("*futuro*");
+
+        // O mesmo clique da Conciliação, com "Recebido em": nasce REALIZADA, sem passar pelo Caixa.
+        var lancamento = await _financeiro.LancarReceitaDaGuiaAsync(guia, 120m, operador: "financeiro",
+            referenciaPagamento: "GRD 5950322456", recebidoEm: new DateOnly(2026, 9, 25));
+        lancamento.Status.Should().Be(StatusLancamento.Realizado);
+        lancamento.DataPagamento.Should().Be(new DateOnly(2026, 9, 25));
+
+        var item = (await PreviaDeAsync(medica, Setembro)).Itens.Should().ContainSingle().Subject;
+        item.Pronto.Should().BeTrue();
+        item.Valor.Should().Be(65m);
+        item.ReferenciaPagamento.Should().Be("GRD 5950322456");
+        item.DataRecebimento.Should().Be(new DateOnly(2026, 9, 25));
     }
 
     [Fact]
@@ -697,5 +727,21 @@ public class FechamentoRepasseTests : IDisposable
         (await _servico.RecebidosDesdeAsync()).Should().Be(new DateOnly(2026, 9, 1));
         (await PreviaDeAsync(medica, Setembro)).Itens.Should().ContainSingle()
             .Which.DataRecebimento.Should().Be(new DateOnly(2026, 9, 20));
+    }
+
+    [Fact]
+    public async Task Sem_o_marco_da_virada_a_previa_mostra_mas_fechar_e_recusado()
+    {
+        var medica = await ProfissionalAsync();
+        await RegraAsync(medica, 65m);
+        var p = await PacienteAsync("Ana", Convenio.Amil, "Amil");
+        await ReceberAsync(await GuiaAsync(p, medica, new DateOnly(2026, 9, 2)), p, 100m, new DateOnly(2026, 9, 20));
+        await _servico.DefinirRecebidosDesdeAsync(null, "direção");
+
+        (await PreviaDeAsync(medica, Setembro)).PodeFechar.Should().BeTrue();
+        var fechar = () => _servico.FecharAsync(medica, Setembro, "gerente");
+        await fechar.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage(FechamentoRepasseService.MensagemSemMarco);
+        (await _servico.FechamentosAsync()).Should().BeEmpty();
     }
 }

@@ -45,6 +45,11 @@ public sealed class FechamentoRepasseService
     /// </summary>
     public const string ChaveRecebidosDesde = "Repasse.GuiaRecebida.RecebidosDesde";
 
+    /// <summary>A recusa de fechar antes de o marco da virada estar definido.</summary>
+    public const string MensagemSemMarco =
+        "Antes do primeiro fechamento, defina a partir de quando o repasse por guia recebida vale — "
+        + "o que foi recebido antes disso já foi repassado fora do sistema e não pode ser pago de novo.";
+
     /// <summary>Até quantos meses para trás a prévia procura guias "aguardando o convênio".</summary>
     public const int MesesAguardando = 12;
 
@@ -125,6 +130,13 @@ public sealed class FechamentoRepasseService
         if (profissionalId == 0)
             throw new InvalidOperationException(
                 "Estes recebimentos não têm profissional no horário. Corrija o horário na agenda antes de fechar.");
+
+        // Sem o marco da virada, a primeira prévia traz TODO pagamento histórico ainda sem item —
+        // inclusive o que a clínica já repassou à mão antes do sistema. Fechar assim pagaria duas
+        // vezes, e item fechado não se exclui (só se cancela o fechamento inteiro). A prévia
+        // continua aberta para conferir; o que se recusa é GRAVAR antes de a direção decidir.
+        if (await RecebidosDesdeAsync(ct) is null)
+            throw new InvalidOperationException(MensagemSemMarco);
 
         var (inicio, fim) = Mes(competencia);
         var obs = string.IsNullOrWhiteSpace(observacoes) ? null : observacoes.Trim();

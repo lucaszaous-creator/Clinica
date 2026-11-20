@@ -54,6 +54,39 @@
         }
     }
 
+    @* O MARCO DA VIRADA (nov/2026): o que foi recebido antes dele já foi repassado fora do
+       sistema. Sem ele o serviço recusa fechar (FechamentoRepasseService.MensagemSemMarco);
+       aqui só se mostra e se define — a trava é do serviço. *@
+    @if (_marcoLido && (_marco is null || _editandoMarco))
+    {
+        <div class="repasse-faixa repasse-marco">
+            @if (_marco is null)
+            {
+                <Aviso Tom="atencao" Texto="Antes do primeiro fechamento: a partir de quando o repasse por guia recebida vale? O que foi recebido antes desta data já foi repassado fora do sistema e não entra — sem ela, a prévia mostra todo o histórico e fechar fica travado." />
+            }
+            <div class="repasse-marco-campos">
+                <Campo Rotulo="Recebimentos a partir de" Classe="estreito">
+                    <input class="campo" type="date" aria-label="Recebimentos a partir de"
+                           value="@_marcoDigitado?.ToString("yyyy-MM-dd")"
+                           @onchange="@(e => _marcoDigitado = DateOnly.TryParse(e.Value?.ToString(), System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : null)" />
+                </Campo>
+                <button type="button" class="botao primario" disabled="@(!PodeEditar || _marcoDigitado is null || _gravandoMarco)"
+                        title="@(PodeEditar ? null : "Seu acesso não permite mexer nos repasses.")" @onclick="DefinirMarcoAsync"><Icone Nome="check" />Definir</button>
+                @if (_marco is not null)
+                {
+                    <button type="button" class="botao fantasma" @onclick="() => _editandoMarco = false">Cancelar</button>
+                }
+            </div>
+        </div>
+    }
+    else if (_marcoLido && _marco is { } marco)
+    {
+        <p class="repasse-marco-nota">
+            Repasse por guia recebida desde @Formato.Data(marco) — o recebido antes já foi repassado fora do sistema.
+            <button type="button" class="botao mini fantasma" disabled="@(!PodeEditar)" @onclick="() => { _marcoDigitado = marco; _editandoMarco = true; }">Alterar</button>
+        </p>
+    }
+
     <section class="cartao lista-cartao" aria-label="A fechar por profissional">
         <div class="cartao-titulo">
             <div>
@@ -108,8 +141,8 @@
                                 <td class="direita numero"><span class="repasse-valor">@Formato.Dinheiro(p.ValorAFechar)</span></td>
                                 <td class="repasse-situacao"><Selo Tom="@tom">@situacao</Selo></td>
                                 <td class="direita">
-                                    <button type="button" class="botao mini primario nao-quebra" disabled="@(!PodeEditar || !p.PodeFechar)"
-                                            title="@RepasseNaTela.DicaDeFechar(p, PodeEditar)" @onclick="() => AbrirFechar(p)"><Icone Nome="cadeado" />Fechar e conferir</button>
+                                    <button type="button" class="botao mini primario nao-quebra" disabled="@(!PodeEditar || !p.PodeFechar || _marco is null)"
+                                            title="@(_marco is null && _marcoLido ? "Defina primeiro a partir de quando o repasse por guia vale (acima)." : RepasseNaTela.DicaDeFechar(p, PodeEditar))" @onclick="() => AbrirFechar(p)"><Icone Nome="cadeado" />Fechar e conferir</button>
                                 </td>
                             </tr>
                             @if (aberto)
@@ -348,6 +381,9 @@
     private string? _erro, _erroFechamentos;
     private int _geracao;
 
+    private DateOnly? _marco, _marcoDigitado;
+    private bool _marcoLido, _editandoMarco, _gravandoMarco;
+
     private PreviaRepasseProfissional? _fechando;
     private RepasseFechamento? _pagando;
     private ItemRepasseElegivel? _regraNova;
@@ -396,6 +432,8 @@
         IReadOnlyList<RepasseFechamento>? daCompetencia = null;
         IReadOnlyList<RepasseFechamento>? lista = null;
         string? erro = null, erroFechamentos = null;
+        DateOnly? marco = null;
+        var marcoLido = false;
 
         using (var escopo = Escopo())
         {
@@ -403,6 +441,8 @@
             try
             {
                 previas = await servico.PreviaAsync(competencia);
+                marco = await servico.RecebidosDesdeAsync();
+                marcoLido = true;
             }
             catch (Exception ex)
             {
@@ -429,11 +469,43 @@
         _previas = previas ?? [];
         _fechamentosNaoVerificados = lista is null;
         _erroFechamentos = erroFechamentos;
+        _marco = marco;
+        _marcoLido = marcoLido;
         _fechamentos = lista ?? [];
         // Sem a prévia, os cartões não afirmam nada: zero por erro não tem a cara de zero.
         _totais = previas is null ? null : RepasseNaTela.Totais(previas, daCompetencia ?? []);
         _lido = true;
         Carregando = false;
+    }
+
+    // ==================== Marco da virada ====================
+
+    private async Task DefinirMarcoAsync()
+    {
+        if (_gravandoMarco || _marcoDigitado is not { } desde) return;
+        if (!Exigir(Permissao.EditarFinanceiro, "mexer nos repasses")) return;
+        // Mudar um marco já definido muda o que entra no repasse: decide-se SABENDO.
+        if (_marco is { } atual && atual != desde && !await Dialogos.ConfirmarAsync("Alterar o marco do repasse",
+                $"Hoje entram recebimentos a partir de {Formato.Data(atual)}. Passar para {Formato.Data(desde)} "
+                + (desde < atual ? "traz de volta recebimentos que podem já ter sido repassados fora do sistema." : "deixa de fora recebimentos ainda não fechados.")
+                + " O que já foi fechado não muda.", perigoso: desde < atual, confirmar: "Alterar"))
+            return;
+        _gravandoMarco = true;
+        try
+        {
+            using (var escopo = Escopo())
+                await escopo.ServiceProvider.GetRequiredService<FechamentoRepasseService>()
+                    .DefinirRecebidosDesdeAsync(desde, Operador);
+            _editandoMarco = false;
+            Notificacoes.Sucesso($"Repasse por guia recebida a partir de {Formato.Data(desde)}.");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — marco do repasse não pôde ser gravado", ex);
+            Notificacoes.Erro(ex.Message);
+        }
+        finally { _gravandoMarco = false; }
     }
 
     // ==================== Fechar ====================

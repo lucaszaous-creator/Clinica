@@ -65,3 +65,8 @@ table.lista tr.repasse-bloqueado td{color:var(--texto-secundario)}
 .repasse-lista td.numero,.repasse-fechamentos td.numero,.repasse-itens-tabela td.numero{white-space:nowrap}
 .tabrep-vigencia{min-width:110px}
 .tabrep-sem-regra .cartao-corpo{padding-top:0}
+
+/* O marco da virada (nov/2026): o campo e o botão numa linha que quebra em tela estreita. */
+.repasse-marco { display: flex; flex-direction: column; gap: var(--space-2); }
+.repasse-marco-campos { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3); }
+.repasse-marco-nota { margin: 0 0 var(--space-3); color: var(--texto-secundario); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
