@@ -70,3 +70,23 @@ table.lista tr.repasse-bloqueado td{color:var(--texto-secundario)}
 .repasse-marco { display: flex; flex-direction: column; gap: var(--space-2); }
 .repasse-marco-campos { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3); }
 .repasse-marco-nota { margin: 0 0 var(--space-3); color: var(--texto-secundario); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+/* ===== Relatório para os médicos (nov/2026) — a segunda vista de Repasses ===== */
+.repasses .repasse-vista{margin-bottom:var(--space-4);align-self:flex-start}
+.repasse-rel-filtros{border-bottom:0;padding-bottom:0}
+.repasse-rel-filtros input[type="month"]{min-width:150px}
+.repasse-rel-atalhos{display:flex;flex-wrap:wrap;gap:var(--space-2);padding-bottom:var(--space-1)}
+.repasse-rel-barra{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);
+  padding:var(--space-4) var(--space-6);border-bottom:1px solid var(--borda)}
+.repasse-rel-barra .resumo-filtro{color:var(--texto-secundario);font-size:var(--text-small-size)}
+.repasse-rel-aviso{padding:var(--space-3) var(--space-6) 0}
+.repasse-rel-kpis{padding:var(--space-4) var(--space-6)}
+.repasse-rel-tabela td.numero{white-space:nowrap}
+.repasse-rel-tabela td.repasse-a-pagar{color:var(--aviso-texto);font-weight:600}
+.repasse-rel-competencia{display:flex;flex-direction:column;gap:var(--space-3)}
+.repasse-rel-competencia-titulo{display:flex;justify-content:space-between;gap:var(--space-3);font-size:var(--text-small-size);color:var(--texto-secundario)}
+.repasse-rel-competencia-titulo .numero{font-weight:600;color:var(--texto-primario);white-space:nowrap}
+@media (max-width:640px){
+  .repasse-rel-barra,.repasse-rel-aviso,.repasse-rel-kpis{padding-left:var(--space-4);padding-right:var(--space-4)}
+  .repasse-rel-barra .botoes-linha{width:100%}
+  .repasse-rel-barra .botoes-linha .botao{flex:1}
+}

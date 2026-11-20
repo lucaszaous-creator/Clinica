@@ -25,14 +25,36 @@
 <div class="pagina repasses @(Carregando && _lido ? "carregando" : null)">
     <CabecalhoPagina Sobretitulo="Financeiro · Repasses" Titulo="Repasses"
                      Subtitulo="O que fechar e pagar a cada profissional na competência — só guias que o convênio pagou e foram conciliadas.">
-        <SeletorMes Valor="_competencia" ValorChanged="TrocarCompetenciaAsync" />
-        <button type="button" class="botao" @onclick="CarregarAsync" disabled="@Carregando" title="Ler de novo (F5)"><Icone Nome="atualizar" />Atualizar</button>
+        @if (VendoRelatorio)
+        {
+            <button type="button" class="botao" @onclick="CarregarRelatorioAsync" disabled="@_relCarregando" title="Ler o relatório de novo"><Icone Nome="atualizar" />Atualizar</button>
+        }
+        else
+        {
+            <SeletorMes Valor="_competencia" ValorChanged="TrocarCompetenciaAsync" />
+            <button type="button" class="botao" @onclick="CarregarAsync" disabled="@Carregando" title="Ler de novo (F5)"><Icone Nome="atualizar" />Atualizar</button>
+        }
         <button type="button" class="botao" @onclick="IrParaTabelaAsync" title="A tabela de repasse: quanto cada médico recebe por convênio e tipo de guia"><Icone Nome="etiqueta" />Repasse médico</button>
         <button type="button" class="botao" @onclick="AbrirApuracoesAsync" title="O histórico do repasse por período, que valeu até nov/2026"><Icone Nome="historico" />Apurações antigas</button>
         <button type="button" class="botao" @onclick="AbrirRelatorio" disabled="@(!Pode(Permissao.VerFinanceiro))"
                 title="@(Pode(Permissao.VerFinanceiro) ? "Cada atendimento realizado, por profissional, com o valor de tabela e o recebido" : "Seu acesso não permite emitir relatórios do financeiro.")"><Icone Nome="imprimir" />Atendimentos por profissional</button>
     </CabecalhoPagina>
 
+    @* Duas respostas da mesma porta (nov/2026): o que fechar e pagar AGORA, e o que foi conferido
+       para cada médico num período — o papel que vai a ele (Repasses.Relatorio.cs). *@
+    <div class="segmentado repasse-vista" role="group" aria-label="O que ver">
+        <button type="button" class="@(!VendoRelatorio ? "ativo" : null)" aria-pressed="@(!VendoRelatorio ? "true" : "false")"
+                title="Fechar e pagar o repasse da competência" @onclick="AbrirVistaFechamento">Fechamento</button>
+        <button type="button" class="@(VendoRelatorio ? "ativo" : null)" aria-pressed="@(VendoRelatorio ? "true" : "false")"
+                title="Os fechamentos conferidos no período, por médico — com o PDF de cada um e a planilha" @onclick="AbrirVistaRelatorioAsync">Relatório para os médicos</button>
+    </div>
+
+    @if (VendoRelatorio)
+    {
+        @VistaDoRelatorio
+    }
+    else
+    {
     @if (!_lido && Carregando)
     {
         <section class="kpis">
@@ -235,6 +257,7 @@
         }
         <div class="rodape-lista">@RepasseNaTela.RegraDoRepasse</div>
     </section>
+    }
 </div>
 
 @if (_fechando is { } previa)
@@ -662,4 +685,190 @@
             await CarregarAsync();
         }
     }
+}
+
+@code {
+    /// <summary>A vista "Relatório para os médicos" (o código em Repasses.Relatorio.cs; as frases em RelatorioRepasseNaTela).</summary>
+    private RenderFragment VistaDoRelatorio => @<text>
+        <section class="cartao lista-cartao" aria-label="Relatório para os médicos">
+            <div class="filtros repasse-rel-filtros">
+                <Campo Rotulo="Competência de">
+                    <input type="month" class="campo" aria-label="Competência de" value="@_relFiltro.CompetenciaDe.ToString("yyyy-MM")" @onchange="RelDeAsync" />
+                </Campo>
+                <Campo Rotulo="até">
+                    <input type="month" class="campo" aria-label="Competência até" value="@_relFiltro.CompetenciaAte.ToString("yyyy-MM")" @onchange="RelAteAsync" />
+                </Campo>
+                <div class="repasse-rel-atalhos" role="group" aria-label="Atalhos de período">
+                    <button type="button" class="botao mini" @onclick="() => RelPeriodoAsync(RelatorioRepasseNaTela.EsteMes(HojeDoRelatorio))">Este mês</button>
+                    <button type="button" class="botao mini" @onclick="() => RelPeriodoAsync(RelatorioRepasseNaTela.MesPassado(HojeDoRelatorio))">Mês passado</button>
+                    <button type="button" class="botao mini" @onclick="() => RelPeriodoAsync(RelatorioRepasseNaTela.UltimosTresMeses(HojeDoRelatorio))">Últimos 3 meses</button>
+                    <button type="button" class="botao mini" @onclick="() => RelPeriodoAsync(RelatorioRepasseNaTela.EsteAno(HojeDoRelatorio))">Este ano</button>
+                </div>
+            </div>
+            <div class="filtros repasse-rel-filtros">
+                <Campo Rotulo="Médico">
+                    <select class="campo" aria-label="Médico" value="@(_relFiltro.ProfissionalId?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "")" @onchange="RelMedicoAsync">
+                        <option value="">Todos</option>
+                        @foreach (var o in _relMedicos) { <option value="@o.Valor">@o.Rotulo</option> }
+                    </select>
+                </Campo>
+                <Campo Rotulo="Convênio">
+                    <select class="campo" aria-label="Convênio" value="@(_relFiltro.ConvenioCodigo ?? "")" @onchange="RelConvenioAsync">
+                        <option value="">Todos</option>
+                        @foreach (var o in _relConvenios) { <option value="@o.Valor">@o.Rotulo</option> }
+                    </select>
+                </Campo>
+                <Campo Rotulo="Situação">
+                    <select class="campo" aria-label="Situação" value="@_relFiltro.Situacao.ToString()" @onchange="RelSituacaoAsync">
+                        @foreach (var s in RelatorioRepasseNaTela.Situacoes) { <option value="@s">@RelatorioRepasseNaTela.Rotulo(s)</option> }
+                    </select>
+                </Campo>
+                <Campo Rotulo="Paciente">
+                    <input class="campo" type="search" value="@_relFiltro.Paciente" placeholder="Parte do nome" autocomplete="off" spellcheck="false"
+                           aria-label="Buscar pelo nome do paciente" @onchange="RelPacienteAsync" />
+                </Campo>
+                @if (RelatorioRepasseNaTela.FiltroAtivo(_relFiltro))
+                {
+                    <button type="button" class="botao fantasma" @onclick="LimparFiltrosDoRelatorioAsync"><Icone Nome="x" />Limpar filtros</button>
+                }
+            </div>
+            <div class="repasse-rel-barra">
+                <span class="resumo-filtro">@(_relatorio is { } r0 && !_relFalhou ? RelatorioRepasseNaTela.Resumo(r0) : $"Competência {RelatorioRepasseNaTela.Periodo(_relFiltro)}")</span>
+                <div class="botoes-linha">
+                    <button type="button" class="botao" @onclick="ExportarPlanilhaDoRelatorioAsync"
+                            disabled="@(!PodeExportarRelatorio || _relExportando || !RelTemLinhas)"
+                            title="@(PodeExportarRelatorio ? "Todas as linhas do filtro numa planilha do Excel (.xlsx), com o filtro do Excel ligado" : "Seu acesso não permite exportar o relatório de repasse.")">
+                        <Icone Nome="baixar" />Excel
+                    </button>
+                    <button type="button" class="botao primario" @onclick="ExportarPdfsDoFiltroAsync"
+                            disabled="@(!PodeExportarRelatorio || _relExportando || !RelTemLinhas)"
+                            title="@(PodeExportarRelatorio ? "Um PDF por médico, com o filtro: com vários médicos, pergunta a pasta" : "Seu acesso não permite exportar o relatório de repasse.")">
+                        <Icone Nome="documento" />@(_relExportando ? "Gerando…" : "PDFs para os médicos")
+                    </button>
+                </div>
+            </div>
+
+            @if (_relRecusa is not null) { <div class="repasse-rel-aviso"><Aviso Tom="atencao" Texto="@_relRecusa" /></div> }
+            @if (_relAviso is not null) { <div class="repasse-rel-aviso"><Aviso Tom="atencao" Texto="@_relAviso" /></div> }
+
+            @if (_relFalhou)
+            {
+                <FalhaDeLeitura Titulo="Não foi possível ler o relatório de repasse"
+                                Detalhe="@($"O relatório não está vazio — ele não pôde ser lido. {_relErro}")" AoTentarDeNovo="CarregarRelatorioAsync" />
+            }
+            else if (_relatorio is null)
+            {
+                @if (_relRecusa is null) { <div class="cartao-corpo"><Esqueleto Altura="220" /></div> }
+            }
+            else if (_relatorio.PorProfissional.Count == 0)
+            {
+                <EstadoVazio Icone="documento" Titulo="@RelatorioRepasseNaTela.TituloDoVazio" Descricao="@RelatorioRepasseNaTela.DescricaoDoVazio(_relFiltro)">
+                    <button type="button" class="botao" @onclick="AbrirVistaFechamento"><Icone Nome="cadeado" />Ir para o fechamento</button>
+                </EstadoVazio>
+            }
+            else
+            {
+                var r = _relatorio;
+                <section class="kpis repasse-rel-kpis" aria-label="Resumo do relatório">
+                    <Kpi Rotulo="Total" Valor="@Formato.Dinheiro(r.Total)" Icone="repasse" Nota="@RelatorioRepasseNaTela.NotaDoTotal(r)" />
+                    <Kpi Rotulo="Pago" Valor="@Formato.Dinheiro(r.Pago)" Icone="check" Tom="sucesso" Nota="Saída realizada no caixa" />
+                    <Kpi Rotulo="A pagar" Valor="@Formato.Dinheiro(r.APagar)" Icone="relogio" Tom="@(r.APagar > 0 ? "aviso" : "neutro")" Nota="@RelatorioRepasseNaTela.NotaDoAPagar(r)" />
+                    <Kpi Rotulo="Consultas / guias" Valor="@r.Quantidade.ToString(Formato.PtBr)" Icone="lista" Tom="neutro" Nota="Itens de crédito dos fechamentos que valem" />
+                </section>
+                <div class="tabela-rolagem">
+                    <table class="lista repasse-rel-tabela">
+                        <thead>
+                            <tr>
+                                <th>Médico</th>
+                                <th class="direita">Fechamentos</th>
+                                <th class="direita">Guias</th>
+                                <th class="direita">Total</th>
+                                <th class="direita">Pago</th>
+                                <th class="direita">A pagar</th>
+                                <th class="direita" aria-label="Ações"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var m in r.PorProfissional)
+                            {
+                                var aberto = _relAbertos.Contains(m.ProfissionalId);
+                                <tr @key="m.ProfissionalId" class="@(aberto ? "repasse-aberta" : null)">
+                                    <td>
+                                        <button type="button" class="repasse-expandir" aria-expanded="@(aberto ? "true" : "false")"
+                                                aria-label="@($"{(aberto ? "Recolher" : "Ver")} o detalhe de {m.Profissional}")" @onclick="() => AlternarMedicoDoRelatorio(m.ProfissionalId)">
+                                            <Icone Nome="@(aberto ? "abaixo" : "direita")" />
+                                            <span class="principal">@m.Profissional</span>
+                                        </button>
+                                        @if (m.Registro is { } reg) { <span class="secundario">@reg</span> }
+                                    </td>
+                                    <td class="direita numero">@m.Fechamentos</td>
+                                    <td class="direita numero">@m.Quantidade</td>
+                                    <td class="direita numero"><span class="repasse-valor">@Formato.Dinheiro(m.Total)</span></td>
+                                    <td class="direita numero">@Formato.Dinheiro(m.Pago)</td>
+                                    <td class="direita numero @(m.APagar > 0 ? "repasse-a-pagar" : null)">@Formato.Dinheiro(m.APagar)</td>
+                                    <td class="direita">
+                                        <button type="button" class="botao mini primario nao-quebra" disabled="@(!PodeExportarRelatorio || _relExportando)"
+                                                title="@(PodeExportarRelatorio ? "Só este médico, com o mesmo filtro" : "Seu acesso não permite exportar o relatório de repasse.")"
+                                                aria-label="@($"PDF do médico {m.Profissional}")" @onclick="() => ExportarPdfDoMedicoAsync(m)"><Icone Nome="documento" />PDF do médico</button>
+                                    </td>
+                                </tr>
+                                @if (aberto)
+                                {
+                                    <tr @key="@($"d{m.ProfissionalId}")" class="repasse-detalhe">
+                                        <td colspan="7">@DetalheDoRelatorio(r, m.ProfissionalId)</td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div class="rodape-lista">O relatório lê só fechamentos conferidos — nunca a prévia: o papel que vai ao médico é o que alguém conferiu. Cancelado só aparece com “Incluir cancelados”, marcado e fora do total.</div>
+            }
+        </section>
+    </text>;
+
+    /// <summary>O detalhe de um médico: competência → convênio · referência do pagamento; estorno negativo, cancelado marcado.</summary>
+    private RenderFragment DetalheDoRelatorio(RelatorioRepasse r, int profissionalId) => @<div class="repasse-itens">
+        @foreach (var c in RelatorioRepasseNaTela.Detalhe(r.Linhas, profissionalId))
+        {
+            <div class="repasse-rel-competencia">
+                <div class="repasse-rel-competencia-titulo">
+                    <span>Competência <strong>@RelatorioRepasseNaTela.Competencia(c.Competencia)</strong></span>
+                    <span class="numero">@Formato.Dinheiro(c.Total)</span>
+                </div>
+                @foreach (var b in c.Blocos)
+                {
+                    <div class="repasse-grupo">
+                        <div class="repasse-grupo-titulo">
+                            <span><strong>@b.Convenio</strong> · @RepasseNaTela.RotuloDaReferencia(b.ReferenciaPagamento)</span>
+                            <span class="numero">@Formato.Dinheiro(b.Total)</span>
+                        </div>
+                        <div class="tabela-rolagem">
+                            <table class="lista repasse-itens-tabela">
+                                <thead>
+                                    <tr><th>Paciente</th><th>Atendido em</th><th>Guia</th><th>Recebido em</th><th class="direita">Valor recebido</th><th>Regra</th><th>Situação</th><th class="direita">Repasse</th></tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var l in b.Linhas)
+                                    {
+                                        var estorno = l.Natureza == NaturezaItemRepasse.Estorno;
+                                        <tr class="@(l.Cancelado ? "apagada" : estorno ? "repasse-estorno" : null)">
+                                            <td><span class="principal">@l.Paciente</span><span class="secundario">@(estorno ? $"Estorno · {l.Descricao}" : l.Descricao)</span></td>
+                                            <td class="nao-quebra">@Formato.Data(l.DataAtendimento)</td>
+                                            <td class="nao-quebra">@(l.NumeroGuia ?? "—")</td>
+                                            <td class="nao-quebra">@Formato.Data(l.DataRecebimento)</td>
+                                            <td class="direita numero">@Formato.Dinheiro(l.ValorRecebido)</td>
+                                            <td><span class="secundario">@l.Regra</span></td>
+                                            <td><Selo Tom="@RelatorioRepasseNaTela.TomDaLinha(l)">@l.Situacao</Selo></td>
+                                            <td class="direita numero @(estorno ? "valor-saida" : null)">@Formato.Dinheiro(l.Valor)</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>;
 }
