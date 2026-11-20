@@ -72,7 +72,17 @@ public class RegraRepasse
     /// </summary>
     public string Descricao => Base == BaseRepasse.PercentualDaReceita
         ? string.Format(PtBr, "{0:0.##}% da receita", Percentual)
-        : string.Format(PtBr, "{0:C} por atendimento", ValorPorAtendimento);
+          + (TipoGuia is { } t ? $" de {Unidade(t)}" : string.Empty)
+        : string.Format(PtBr, "{0:C} por {1}", ValorPorAtendimento,
+            TipoGuia is { } tipo ? Unidade(tipo) : "atendimento");
+
+    /// <summary>"consulta", "acupuntura", "BSV" — o tipo de guia no meio da frase (nov/2026).</summary>
+    private static string Unidade(TipoCodigo tipo)
+    {
+        var rotulo = RotulosEnum.De(tipo);
+        // Sigla fica como está ("BSV"); palavra vai para minúscula ("consulta").
+        return rotulo.Length > 1 && char.IsUpper(rotulo[1]) ? rotulo : char.ToLower(rotulo[0], PtBr) + rotulo[1..];
+    }
 
     private static readonly System.Globalization.CultureInfo PtBr =
         System.Globalization.CultureInfo.GetCultureInfo("pt-BR");

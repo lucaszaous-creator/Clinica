@@ -1,4 +1,5 @@
 using Clinica.Application.Abstracoes;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 
 namespace Clinica.Application.Servicos;
@@ -66,7 +67,13 @@ public sealed class RepasseService
         if (dados.VigenteDe is { } de && dados.VigenteAte is { } ate && ate < de)
             throw new InvalidOperationException("O fim da vigência é anterior ao início.");
 
+        if (dados.TipoGuia is { } tipoGuia && !Enum.IsDefined(tipoGuia))
+            throw new InvalidOperationException("Tipo de guia inválido.");
+
         var destino = dados.Id == 0 ? null : await _repo.ObterRegraRepasseAsync(dados.Id, ct);
+        // O que a regra dizia ANTES, para a trilha: "quem mudou a Amil de 65 para 70?".
+        var antes = destino is null ? null : Retrato(destino);
+        var estavaAtiva = destino?.Ativa;
         if (destino is null)
         {
             destino = new RegraRepasse { CriadoEm = DateTime.Now, CriadoPor = operador };
@@ -80,32 +87,147 @@ public sealed class RepasseService
             dados.Base == BaseRepasse.ValorPorAtendimento ? dados.ValorPorAtendimento : null;
         destino.ModalidadeCodigo = Limpar(dados.ModalidadeCodigo);
         destino.ConvenioCodigo = Limpar(dados.ConvenioCodigo);
-        // Campo de nov/2026 (repasse por guia recebida): fora da cópia, a edição o apagaria.
+        // Lugar 3 do CLAUDE.md: a cópia é campo a campo, e o que não estiver aqui é apagado
+        // na primeira EDIÇÃO (a criação funciona, o que esconde o defeito).
         destino.TipoGuia = dados.TipoGuia;
         destino.VigenteDe = dados.VigenteDe;
         destino.VigenteAte = dados.VigenteAte;
         destino.Ativa = dados.Ativa;
         destino.Observacoes = Limpar(dados.Observacoes);
 
+        // Mudança de valor de repasse é dinheiro: vai à trilha no MESMO SaveChanges.
+        var depois = Retrato(destino);
+        if (antes != depois)
+            await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+            {
+                Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador.Trim(),
+                Acao = antes is null ? "RegraRepasseCriada"
+                    : estavaAtiva == true && !destino.Ativa ? "RegraRepasseDesativada"
+                    : "RegraRepasseAlterada",
+                Detalhe = Cortar(antes is null ? depois : $"{antes} → {depois}", 1000)
+            }, ct);
+
         await _repo.SalvarAsync(ct);
         return destino;
     }
 
     /// <summary>
-    /// Reajuste (nov/2026): encerra a vigência da regra no dia anterior a <paramref name="aPartirDe"/>
-    /// e cria a nova com o mesmo alcance, num só SaveChanges. O que já foi fechado não muda.
-    /// ⚠️ STUB da tela — o motor implementa (contrato combinado com a tela "Repasse médico").
+    /// Exclui uma regra que nunca pagou ninguém. Regra que já está num fechamento de repasse
+    /// vivo é RECUSADA: ela é a procedência daquele valor — desative-a em vez de excluir.
     /// </summary>
-    public Task<RegraRepasse> ReajustarRegraAsync(
-        int regraId, decimal? novoValorPorAtendimento, decimal? novoPercentual, DateOnly aPartirDe,
-        string? operador, CancellationToken ct = default)
-        => throw new NotImplementedException();
+    public Task ExcluirRegraAsync(int regraId, CancellationToken ct = default)
+        => ExcluirRegraAsync(regraId, null, ct);
 
-    public async Task ExcluirRegraAsync(int regraId, CancellationToken ct = default)
+    /// <inheritdoc cref="ExcluirRegraAsync(int, CancellationToken)"/>
+    public async Task ExcluirRegraAsync(int regraId, string? operador, CancellationToken ct = default)
     {
+        var regra = await _repo.ObterRegraRepasseAsync(regraId, ct);
+        if (regra is null) return;
+
+        if (await _repo.RegraRepasseEmUsoAsync(regraId, ct))
+            throw new InvalidOperationException(
+                "Esta regra já foi usada num fechamento de repasse e não pode ser excluída — "
+                + "desative-a (ou reajuste o valor a partir de uma data) para ela parar de valer.");
+
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador.Trim(),
+            Acao = "RegraRepasseExcluida",
+            Detalhe = Cortar(Retrato(regra), 1000)
+        }, ct);
         await _repo.RemoverRegraRepasseAsync(regraId, ct);
         await _repo.SalvarAsync(ct);
     }
+
+    /// <summary>
+    /// REAJUSTA o valor (ou o percentual) de uma regra a partir de uma data, sem reescrever o
+    /// passado (nov/2026, pedido do dono: o gerente configura os valores do repasse).
+    ///
+    /// Num ÚNICO SaveChanges: a regra antiga termina na véspera de <paramref name="aPartirDe"/>
+    /// e nasce uma nova, idêntica nos filtros (profissional, convênio, tipo de guia, modalidade,
+    /// base), com o valor novo e a vigência que a antiga tinha pela frente. Como a regra do
+    /// repasse é a da DATA DO ATENDIMENTO, quem atendeu antes continua recebendo o valor
+    /// antigo, mesmo que a guia seja paga depois — e o que já foi fechado nem é relido (o item
+    /// guarda o valor congelado).
+    /// </summary>
+    public async Task<RegraRepasse> ReajustarRegraAsync(
+        int regraId, decimal? novoValorPorAtendimento, decimal? novoPercentual,
+        DateOnly aPartirDe, string? operador, CancellationToken ct = default)
+    {
+        var antiga = await _repo.ObterRegraRepasseAsync(regraId, ct);
+        if (antiga is null || !antiga.Ativa)
+            throw new InvalidOperationException("Regra de repasse não encontrada ou desativada.");
+
+        if (antiga.VigenteDe is { } de && aPartirDe <= de)
+            throw new InvalidOperationException(
+                $"A regra já começa em {de:dd/MM/yyyy}. Para mudar o valor desde o início, edite a regra; "
+                + "o reajuste vale a partir de uma data posterior.");
+
+        if (antiga.VigenteAte is { } ate && aPartirDe > ate)
+            throw new InvalidOperationException(
+                $"A regra termina em {ate:dd/MM/yyyy}; a data do reajuste está fora da vigência dela.");
+
+        decimal? valor = null, percentual = null;
+        if (antiga.Base == BaseRepasse.ValorPorAtendimento)
+        {
+            if (novoValorPorAtendimento is not { } v || v <= 0 || decimal.Round(v, 2) != v)
+                throw new InvalidOperationException("Informe o novo valor por atendimento, em reais e centavos.");
+            valor = v;
+        }
+        else
+        {
+            if (novoPercentual is not { } p || p <= 0 || p > 100)
+                throw new InvalidOperationException("O novo percentual do repasse vai de 0 a 100.");
+            percentual = p;
+        }
+
+        var nova = new RegraRepasse
+        {
+            ProfissionalId = antiga.ProfissionalId,
+            Base = antiga.Base,
+            Percentual = percentual,
+            ValorPorAtendimento = valor,
+            ModalidadeCodigo = antiga.ModalidadeCodigo,
+            ConvenioCodigo = antiga.ConvenioCodigo,
+            TipoGuia = antiga.TipoGuia,
+            VigenteDe = aPartirDe,
+            VigenteAte = antiga.VigenteAte,
+            Ativa = true,
+            Observacoes = antiga.Observacoes,
+            CriadoEm = DateTime.Now,
+            CriadoPor = operador
+        };
+        var descricaoAntiga = antiga.Descricao;
+        antiga.VigenteAte = aPartirDe.AddDays(-1);
+        await _repo.AdicionarRegraRepasseAsync(nova, ct);
+
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador.Trim(),
+            Acao = "RegraRepasseReajustada",
+            Detalhe = Cortar($"{Filtros(antiga)}: {descricaoAntiga} → {nova.Descricao} "
+                             + $"a partir de {aPartirDe:dd/MM/yyyy}", 1000)
+        }, ct);
+
+        await _repo.SalvarAsync(ct);
+        return nova;
+    }
+
+    /// <summary>A regra em uma linha, para a trilha (pt-BR fixo, como a Descricao).</summary>
+    private static string Retrato(RegraRepasse r)
+        => $"{Filtros(r)}: {r.Descricao}, vigência "
+           + $"{(r.VigenteDe is { } de ? de.ToString("dd/MM/yyyy", System.Globalization.CultureInfo.InvariantCulture) : "sempre")}"
+           + $"{(r.VigenteAte is { } ate ? " a " + ate.ToString("dd/MM/yyyy", System.Globalization.CultureInfo.InvariantCulture) : string.Empty)}"
+           + (r.Ativa ? ", ativa" : ", desativada");
+
+    private static string Filtros(RegraRepasse r)
+        => $"profissional {r.ProfissionalId}"
+           + (r.ConvenioCodigo is { } c ? $" · convênio {c}" : string.Empty)
+           + (r.TipoGuia is { } t ? $" · {RotulosEnum.De(t)}" : string.Empty)
+           + (r.ModalidadeCodigo is { } m ? $" · modalidade {m}" : string.Empty);
+
+    private static string? Cortar(string? texto, int maximo)
+        => texto is null ? null : texto.Length <= maximo ? texto : texto[..maximo];
 
     // ==================== Apuração ====================
 
@@ -299,7 +421,9 @@ public sealed class RepasseService
     private static RegraRepasse? EscolherRegra(
         IReadOnlyList<RegraRepasse> regras, int profissionalId, DateOnly dia)
         => regras
-            .Where(r => r.ProfissionalId == profissionalId && r.VigenteEm(dia))
+            // A regra por TIPO DE GUIA só vale no repasse por guia recebida
+            // (FechamentoRepasseService): aqui não há guia, e ela viraria "geral" sem querer.
+            .Where(r => r.ProfissionalId == profissionalId && r.VigenteEm(dia) && r.TipoGuia == null)
             .OrderByDescending(r => r.ModalidadeCodigo is not null || r.ConvenioCodigo is not null)
             .ThenByDescending(r => r.VigenteDe ?? DateOnly.MinValue)
             .ThenByDescending(r => r.Id)
