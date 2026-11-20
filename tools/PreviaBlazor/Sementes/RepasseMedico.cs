@@ -17,8 +17,10 @@ namespace PreviaBlazor.Sementes;
 ///   mês passado — a competência é a do PAGAMENTO;
 /// - guias faturadas e ainda sem pagamento, e uma com a receita lançada como A RECEBER
 ///   (previsto): "aguardando o convênio", informadas e nunca somadas;
-/// - um fechamento do mês passado já PAGO (Dra. Helena) e outro só CONFERIDO (Dr. Marcos), com
-///   os itens gravados — as guias deles não voltam à prévia (a chave G:{guia} está viva).
+/// - fechamentos de DUAS competências (o relatório para os médicos filtra por elas): no mês
+///   passado um PAGO (Dra. Helena) e um só CONFERIDO (Dr. Marcos); no retrasado um pago da
+///   Dra. Helena e um CANCELADO do Dr. Marcos (a guia dele volta à prévia — a chave do item
+///   cancelado não trava). As guias dos vivos não voltam (a chave G:{guia} está viva).
 /// Roda depois de Recebimentos (30: Sul América no catálogo, preços) e de RepassesResultado
 /// (60: as regras por percentual e as sessões particulares). Sem Id fixo.
 /// </summary>
@@ -163,16 +165,20 @@ public sealed class SementeRepasseMedico : ISemente
         Receita(prevista, petrobras[0], null, null);
         db.SaveChanges();
 
-        // ===== Fechamentos do mês passado: um PAGO e um só CONFERIDO =====
-        RepasseFechamento Fechamento(Profissional prof, IReadOnlyList<(Paciente P, int DiaAtendido)> guias, decimal valorPorGuia,
-            string referencia, bool pago)
+        // ===== Fechamentos de duas competências: PAGOS, um só CONFERIDO e um CANCELADO =====
+        // (o relatório para os médicos lê só fechamentos gravados: dois médicos, duas
+        // competências, pago, a pagar e cancelado são o mínimo para os filtros dele dizerem algo)
+        var mesRetrasado = mesPassado.AddMonths(-1);
+        RepasseFechamento Fechamento(Profissional prof, DateOnly competencia, IReadOnlyList<(Paciente P, int DiaAtendido)> guias,
+            decimal valorPorGuia, string referencia, bool pago, string? motivoCancelamento = null)
         {
+            var cancelado = motivoCancelamento is null ? (DateTime?)null : competencia.AddMonths(1).AddDays(3).ToDateTime(new TimeOnly(9, 30));
             var itens = new List<ItemRepasse>();
             foreach (var (p, dia) in guias)
             {
-                var atendidoEm = mesPassado.AddDays(-30 + dia);
+                var atendidoEm = competencia.AddDays(-30 + dia);
                 var guia = Consulta(p, prof, atendidoEm);
-                var pagoEm = mesPassado.AddDays(9);
+                var pagoEm = competencia.AddDays(9);
                 var receita = Receita(guia, p, pagoEm, referencia);
                 db.SaveChanges();
                 itens.Add(new ItemRepasse
@@ -184,37 +190,44 @@ public sealed class SementeRepasseMedico : ISemente
                     Descricao = "Consulta", NumeroGuia = guia.NumeroGuiaReal, ReferenciaPagamento = referencia,
                     DataRecebimento = pagoEm, ValorRecebido = receita.Valor,
                     RegraDescricao = $"{NomeDoConvenio(p)} · Consulta · {valorPorGuia.ToString("C", PtBr)} por guia",
-                    Valor = valorPorGuia
+                    Valor = valorPorGuia, CanceladoEm = cancelado
                 });
             }
             var total = itens.Sum(i => i.Valor);
-            var conferidoEm = inicioMes.AddDays(1).ToDateTime(new TimeOnly(14, 10));
+            var depois = competencia.AddMonths(1);
+            var conferidoEm = depois.AddDays(1).ToDateTime(new TimeOnly(14, 10));
+            var pagoAoMedico = depois.AddDays(4) > hoje ? hoje : depois.AddDays(4);
             var saida = new LancamentoFinanceiro
             {
-                Data = inicioMes.AddDays(1), Tipo = TipoLancamento.Saida, Valor = total,
-                Descricao = $"Repasse {prof.Rotulo} — competência {mesPassado:MM/yyyy}",
-                Status = pago ? StatusLancamento.Realizado : StatusLancamento.Previsto,
-                DataPagamento = pago ? NoMes(5) : null, DataVencimento = NoMes(10),
+                Data = depois.AddDays(1), Tipo = TipoLancamento.Saida, Valor = total,
+                Descricao = $"Repasse {prof.Rotulo} — competência {competencia:MM/yyyy}",
+                Status = cancelado is not null ? StatusLancamento.Cancelado : pago ? StatusLancamento.Realizado : StatusLancamento.Previsto,
+                DataPagamento = pago ? pagoAoMedico : null, DataVencimento = depois.AddDays(9),
                 FormaPagamento = pago ? FormaPagamento.Pix : null, CategoriaFinanceiraId = categoriaFolha, CriadoPor = "Prévia"
             };
             return db.Add(new RepasseFechamento
             {
-                ProfissionalId = prof.Id, Competencia = mesPassado, RecebidosAte = inicioMes.AddDays(-1),
+                ProfissionalId = prof.Id, Competencia = competencia, RecebidosAte = depois.AddDays(-1),
                 ProfissionalNome = prof.Nome, ProfissionalRegistro = prof.RegistroConselho,
                 Quantidade = itens.Count, Valor = total, ConferidoPor = "Marta Ribeiro (financeiro)", ConferidoEm = conferidoEm,
                 Lancamento = saida, Itens = itens,
-                Observacoes = pago ? "Conferido com o demonstrativo da Amil." : null
+                Observacoes = pago ? "Conferido com o demonstrativo da Amil." : null,
+                CanceladoEm = cancelado, CanceladoPor = cancelado is null ? null : "Marta Ribeiro (financeiro)",
+                MotivoCancelamento = motivoCancelamento
             }).Entity;
         }
-        Fechamento(helena, [(amil[0], 3), (amil[1], 10), (amil[2], 17)], 65m, "GRD 004102", pago: true);
-        Fechamento(marcos, [(petrobras[0], 12), (petrobras[1], 19)], 80m, "Conta 87650", pago: false);
+        Fechamento(helena, mesRetrasado, [(amil[3], 5), (amil[0], 12)], 65m, "GRD 003870", pago: true);
+        Fechamento(marcos, mesRetrasado, [(amil[1], 8)], 65m, "GRD 003870", pago: false,
+            motivoCancelamento: "Fechado antes de conciliar a segunda parte do GRD.");
+        Fechamento(helena, mesPassado, [(amil[0], 3), (amil[1], 10), (amil[2], 17)], 65m, "GRD 004102", pago: true);
+        Fechamento(marcos, mesPassado, [(petrobras[0], 12), (petrobras[1], 19)], 80m, "Conta 87650", pago: false);
 
         // O marco da virada (exigido para fechar): a clínica fictícia passou a fechar pelo
-        // sistema no mês passado — o que foi recebido antes já tinha sido repassado à mão.
+        // sistema dois meses atrás — o que foi recebido antes já tinha sido repassado à mão.
         db.Add(new ConfiguracaoGlobal
         {
             Chave = Clinica.Application.Servicos.FechamentoRepasseService.ChaveRecebidosDesde,
-            Valor = mesPassado.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)
+            Valor = mesRetrasado.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)
         });
         db.SaveChanges();
     }

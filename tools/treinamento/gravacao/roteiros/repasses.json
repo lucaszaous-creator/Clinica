@@ -22,6 +22,10 @@
     { "alvo": "botao-exato=Desta competência", "acao": "clicar", "ms": 1000 },
     { "titulo": "As apurações antigas", "texto": "O repasse por período, que valeu até nov/2026, fica para consulta, com o cancelar que já existia.", "alvo": "botao=Apurações antigas", "acao": "clicar" },
     { "alvo": "janela=Fechar", "acao": "clicar", "ms": 1200 },
+    { "titulo": "O relatório para os médicos", "texto": "A segunda vista lê os fechamentos conferidos de um período: quanto cada médico recebeu, o que já foi pago e o que falta pagar.", "alvo": "botao-exato=Relatório para os médicos", "acao": "clicar" },
+    { "titulo": "Escolha o período e os filtros", "texto": "Competência de e até, ou um atalho. Filtre por médico, convênio, situação ou paciente; o relatório relê a cada mudança.", "alvo": "botao-exato=Últimos 3 meses", "acao": "clicar" },
+    { "titulo": "Exporte para os médicos", "texto": "PDFs para os médicos gera um arquivo por médico (pergunta a pasta quando são vários); PDF do médico, só o daquela linha; Excel, a planilha do financeiro.", "alvo": "botao-exato=PDFs para os médicos" },
+    { "alvo": "botao-exato=Fechamento", "acao": "clicar", "ms": 1000 },
     { "titulo": "Entenda a regra", "texto": "Só entra o que o convênio pagou e foi conciliado, e cada guia entra uma única vez. As regras de valor ficam na tela Repasse médico.", "alvo": "texto=Só entra no repasse o que o convênio" },
     { "titulo": "A tabela de repasse", "texto": "Repasse médico leva à tabela: quanto cada médico recebe por convênio e tipo de guia.", "alvo": "botao-exato=Repasse médico" }
   ]
