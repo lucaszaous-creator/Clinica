@@ -50,6 +50,13 @@ lembrar de conferir.
 4. **A regra é por item**, na data do atendimento: profissional + convênio + tipo de guia +
    modalidade, a mais específica vence, com vigência (reajuste não reescreve o passado).
    Valor fixo por guia ou percentual do que entrou.
+   **A tabela de valores é configurada pelo Gerente** (pedido do dono, nov/2026): a tela
+   **Repasse médico** fica no grupo *Tabela de preços* do Gerente, ao lado dos preços por
+   convênio — quem negocia o valor com o médico é a direção, como quem negocia a tabela
+   com o convênio. É a MESMA tela que o Financeiro abre a partir de Repasses (uma porta
+   só). Editar exige `EditarFinanceiro` (o perfil Gerente tem todas as permissões).
+   **Reajustar** encerra a regra antiga na véspera e cria a nova num único registro de
+   auditoria — "quem mudou a Amil de 65 para 70, e desde quando?" tem resposta.
 5. **O que não pode entrar aparece, com o motivo**: sem regra (com atalho para cadastrar),
    sem profissional no horário, particular de período já apurado no modelo antigo.
 6. **Aguardando o convênio** é informado, nunca somado: as guias do médico já faturadas e
