@@ -80,6 +80,8 @@ public sealed class RepasseService
             dados.Base == BaseRepasse.ValorPorAtendimento ? dados.ValorPorAtendimento : null;
         destino.ModalidadeCodigo = Limpar(dados.ModalidadeCodigo);
         destino.ConvenioCodigo = Limpar(dados.ConvenioCodigo);
+        // Campo de nov/2026 (repasse por guia recebida): fora da cópia, a edição o apagaria.
+        destino.TipoGuia = dados.TipoGuia;
         destino.VigenteDe = dados.VigenteDe;
         destino.VigenteAte = dados.VigenteAte;
         destino.Ativa = dados.Ativa;
@@ -88,6 +90,16 @@ public sealed class RepasseService
         await _repo.SalvarAsync(ct);
         return destino;
     }
+
+    /// <summary>
+    /// Reajuste (nov/2026): encerra a vigência da regra no dia anterior a <paramref name="aPartirDe"/>
+    /// e cria a nova com o mesmo alcance, num só SaveChanges. O que já foi fechado não muda.
+    /// ⚠️ STUB da tela — o motor implementa (contrato combinado com a tela "Repasse médico").
+    /// </summary>
+    public Task<RegraRepasse> ReajustarRegraAsync(
+        int regraId, decimal? novoValorPorAtendimento, decimal? novoPercentual, DateOnly aPartirDe,
+        string? operador, CancellationToken ct = default)
+        => throw new NotImplementedException();
 
     public async Task ExcluirRegraAsync(int regraId, CancellationToken ct = default)
     {
