@@ -1356,6 +1356,15 @@ public interface IClinicaRepositorio
     /// <summary>A regra já está num item de repasse vivo (não pode ser excluída, só desativada).</summary>
     Task<bool> RegraRepasseEmUsoAsync(int regraId, CancellationToken ct = default);
 
+    /// <summary>
+    /// As linhas do relatório de repasse (itens de fechamentos GRAVADOS), filtradas no banco:
+    /// competência (de/até, primeiro dia do mês), médico, convênio, situação e trecho do
+    /// paciente (LIKE tolerante a acento — um SUPERCONJUNTO; o serviço confere o trecho exato).
+    /// Sem ordem garantida: quem ordena é o serviço (pt-BR).
+    /// </summary>
+    Task<IReadOnlyList<LinhaRelatorioRepasse>> RelatorioRepasseAsync(
+        FiltroRelatorioRepasse filtro, CancellationToken ct = default);
+
     // ---- Taxas de cartao e imposto (parcela 9) ----
 
     /// <summary>Catalogo de taxas da maquininha.</summary>

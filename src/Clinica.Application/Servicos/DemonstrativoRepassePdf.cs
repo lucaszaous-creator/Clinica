@@ -306,7 +306,7 @@ public static class DemonstrativoRepassePdf
         return v.IndexOfAny([';', '"', '\n', '\r']) >= 0 ? $"\"{v.Replace("\"", "\"\"")}\"" : v;
     }
 
-    private static string SemAcentosNemEspacos(string texto)
+    internal static string SemAcentosNemEspacos(string texto)
     {
         var sb = new StringBuilder();
         foreach (var ch in texto.Normalize(NormalizationForm.FormD))

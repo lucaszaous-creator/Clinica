@@ -3054,6 +3054,100 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public Task<bool> RegraRepasseEmUsoAsync(int regraId, CancellationToken ct = default)
         => _db.ItensRepasse.AnyAsync(i => i.RegraRepasseId == regraId && i.CanceladoEm == null, ct);
 
+    public async Task<IReadOnlyList<LinhaRelatorioRepasse>> RelatorioRepasseAsync(
+        FiltroRelatorioRepasse filtro, CancellationToken ct = default)
+        => await ConsultaRelatorioRepasse(filtro).ToListAsync(ct);
+
+    /// <summary>
+    /// O relatório de repasse no BANCO. ⚠️ A situação lê a COLUNA <c>CanceladoEm</c> do
+    /// fechamento (o item copia a mesma data) e o status do lançamento — nunca as derivadas
+    /// <c>Cancelado</c>/<c>Pago</c>, que o EF recusa. O trecho do paciente vai como LIKE tolerante a
+    /// acento (<see cref="PadraoDoPaciente"/>); o serviço confere o trecho exato depois.
+    /// </summary>
+    public IQueryable<LinhaRelatorioRepasse> ConsultaRelatorioRepasse(FiltroRelatorioRepasse f)
+    {
+        var de = new DateOnly(f.CompetenciaDe.Year, f.CompetenciaDe.Month, 1);
+        var ate = new DateOnly(f.CompetenciaAte.Year, f.CompetenciaAte.Month, 1);
+        var q = _db.ItensRepasse.AsNoTracking()
+            .Where(i => i.Fechamento!.Competencia >= de && i.Fechamento.Competencia <= ate);
+
+        if (f.ProfissionalId is { } profissional)
+            q = q.Where(i => i.Fechamento!.ProfissionalId == profissional);
+        if (!string.IsNullOrWhiteSpace(f.ConvenioCodigo))
+        {
+            var codigo = f.ConvenioCodigo.Trim();
+            q = q.Where(i => i.ConvenioCodigo == codigo);
+        }
+
+        q = f.Situacao switch
+        {
+            SituacaoNoRelatorioRepasse.SoPagos => q.Where(i => i.Fechamento!.CanceladoEm == null
+                && i.Fechamento.Lancamento != null && i.Fechamento.Lancamento.Status == StatusLancamento.Realizado),
+            SituacaoNoRelatorioRepasse.SoAPagar => q.Where(i => i.Fechamento!.CanceladoEm == null
+                && (i.Fechamento.Lancamento == null || i.Fechamento.Lancamento.Status != StatusLancamento.Realizado)),
+            SituacaoNoRelatorioRepasse.IncluirCancelados => q,
+            _ => q.Where(i => i.Fechamento!.CanceladoEm == null)
+        };
+
+        var termo = Clinica.Application.Servicos.RelatorioRepasseService.TextoDeBusca(f.Paciente);
+        if (termo.Length > 0)
+        {
+            var padrao = PadraoDoPaciente(termo);
+            q = q.Where(i => EF.Functions.Like(i.PacienteNome.ToLower(), padrao, "\\"));
+        }
+
+        return q.Select(i => new LinhaRelatorioRepasse(
+            i.RepasseFechamentoId,
+            i.Fechamento!.ProfissionalId,
+            i.Fechamento.ProfissionalNome,
+            i.Fechamento.ProfissionalRegistro,
+            i.Fechamento.Competencia,
+            i.Fechamento.CanceladoEm != null ? "Cancelado"
+                : i.Fechamento.Lancamento != null && i.Fechamento.Lancamento.Status == StatusLancamento.Realizado
+                    ? "Pago" : "Conferido",
+            i.Fechamento.CanceladoEm != null,
+            i.Fechamento.ConferidoEm,
+            i.Fechamento.ConferidoPor,
+            i.Fechamento.CanceladoEm == null && i.Fechamento.Lancamento != null
+                && i.Fechamento.Lancamento.Status == StatusLancamento.Realizado
+                ? (DateOnly?)(i.Fechamento.Lancamento.DataPagamento ?? i.Fechamento.Lancamento.Data)
+                : null,
+            i.Origem,
+            i.Natureza,
+            i.PacienteNome,
+            i.DataAtendimento,
+            i.ConvenioCodigo,
+            i.ConvenioNome,
+            i.Descricao,
+            i.NumeroGuia,
+            i.ReferenciaPagamento,
+            i.DataRecebimento,
+            i.ValorRecebido,
+            i.RegraDescricao,
+            i.Valor));
+    }
+
+    /// <summary>
+    /// O padrão LIKE do trecho do paciente, que tolera acento nos DOIS bancos: cada letra que
+    /// pode vir acentuada no nome (vogais, ç, ñ) vira o curinga de UM caractere. O
+    /// <c>lower</c> do SQLite só baixa ASCII, mas as letras que ele não baixa são justamente as
+    /// que viraram curinga. O resultado é um SUPERCONJUNTO ("jose" casa "Jusa"); o serviço
+    /// confere o trecho exato, sem acento, sobre o recorte já pequeno. (A primeira versão
+    /// encadeava um <c>replace</c> por letra acentuada: o SQLite recusa com "parser stack overflow".)
+    /// </summary>
+    public static string PadraoDoPaciente(string termoSemAcento)
+    {
+        var sb = new System.Text.StringBuilder("%");
+        foreach (var ch in termoSemAcento)
+            sb.Append(ch switch
+            {
+                'a' or 'e' or 'i' or 'o' or 'u' or 'c' or 'n' => "_",
+                '%' or '_' or '\\' => "\\" + ch,
+                _ => ch.ToString()
+            });
+        return sb.Append('%').ToString();
+    }
+
     public async Task<IReadOnlyList<Agendamento>> AgendamentosComAtendimentoAsync(
         DateOnly inicio, DateOnly fim, CancellationToken ct = default)
     {

@@ -1115,4 +1115,19 @@ public class TraducaoNoNpgsqlTests
         estornos.Should().Contain("\"ItemEstornadoId\"").And.Contain("\"Lancamentos").And.Contain("\"Atendimentos\"");
         aguardando.Should().Contain("\"DataBaixa\"").And.Contain("EXISTS").And.Contain("ORDER BY");
     }
+    [Theory]
+    [InlineData(SituacaoNoRelatorioRepasse.ConferidosEPagos)]
+    [InlineData(SituacaoNoRelatorioRepasse.SoPagos)]
+    [InlineData(SituacaoNoRelatorioRepasse.SoAPagar)]
+    [InlineData(SituacaoNoRelatorioRepasse.IncluirCancelados)]
+    public void Relatorio_de_repasse_traduz_todos_os_filtros_no_postgres(SituacaoNoRelatorioRepasse situacao)
+    {
+        using var db = Postgres();
+        var sql = new ClinicaRepositorio(db).ConsultaRelatorioRepasse(new FiltroRelatorioRepasse(
+            new DateOnly(2026, 9, 1), new DateOnly(2026, 11, 1), 3, "Amil", situacao, "José")).ToQueryString();
+
+        sql.Should().Contain("\"ItensRepasse\"").And.Contain("\"RepassesFechamentos\"").And.Contain("\"Competencia\"")
+            .And.Contain("\"ProfissionalId\"").And.Contain("\"ConvenioCodigo\"").And.Contain("LIKE").And.Contain("lower(");
+        if (situacao != SituacaoNoRelatorioRepasse.IncluirCancelados) sql.Should().Contain("\"CanceladoEm\" IS NULL");
+    }
 }

@@ -1142,6 +1142,12 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   toda mudança de regra vai à auditoria; a tabela é a tela **Repasse médico**
   (`ChavesSuite.RepasseMedico`), no Gerente (Tabela de preços) e no Financeiro, uma só. A
   margem (`MargemService`) continua lendo o cálculo antigo por período — decisão pendente.
+  **Relatório para os médicos** (`RelatorioRepasseService`): lê só fechamentos GRAVADOS;
+  cancelado aparece só com `IncluirCancelados`, marcado e fora de todo total; estorno é linha
+  negativa e soma. ⚠️ **Busca sem acento que roda nos dois bancos**: `replace` encadeado por
+  letra acentuada estoura o SQLite ("parser stack overflow"), e o `lower` dele só baixa ASCII.
+  A saída foi LIKE com curinga onde pode haver acento (`PadraoDoPaciente`) — superconjunto no
+  banco, conferência exata em C# sobre o recorte. O trecho do paciente NÃO vai à trilha.
 - **Estoque** (`EstoqueService`, parcela 4): o **saldo é a soma dos movimentos**, nunca um
   campo — total guardado é como o estoque para de bater. A **validade fica no movimento
   de entrada** (o lote), não no item, senão o lote que vence primeiro some. Saída maior
