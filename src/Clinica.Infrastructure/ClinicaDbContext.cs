@@ -127,6 +127,8 @@ public class ClinicaDbContext : DbContext
     public DbSet<PrecoConvenio> PrecosConvenio => Set<PrecoConvenio>();
     public DbSet<PrecoParticular> PrecosParticular => Set<PrecoParticular>();
     public DbSet<RepasseApurado> RepassesApurados => Set<RepasseApurado>();
+    public DbSet<RepasseFechamento> RepassesFechamentos => Set<RepasseFechamento>();
+    public DbSet<ItemRepasse> ItensRepasse => Set<ItemRepasse>();
     public DbSet<ItemEstoque> ItensEstoque => Set<ItemEstoque>();
     public DbSet<MovimentoEstoque> MovimentosEstoque => Set<MovimentoEstoque>();
     public DbSet<DocumentoFinanceiro> DocumentosFinanceiros => Set<DocumentoFinanceiro>();
@@ -2499,6 +2501,7 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.ValorPorAtendimento).HasPrecision(14, 2);
             e.Property(x => x.ModalidadeCodigo).HasMaxLength(40);
             e.Property(x => x.ConvenioCodigo).HasMaxLength(40);
+            e.Property(x => x.TipoGuia).HasConversion<string>().HasMaxLength(40);
             e.Property(x => x.Observacoes).HasMaxLength(500);
             e.Property(x => x.CriadoPor).HasMaxLength(80);
             e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
@@ -2507,6 +2510,61 @@ public class ClinicaDbContext : DbContext
 
             e.HasIndex(x => x.ProfissionalId);
             e.Ignore(x => x.Descricao);
+        });
+
+        // Repasse por guia recebida (nov/2026) — ver RepasseFechamento.
+        b.Entity<RepasseFechamento>(e =>
+        {
+            e.ToTable("RepassesFechamentos");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.ProfissionalNome).HasMaxLength(200);
+            e.Property(x => x.ProfissionalRegistro).HasMaxLength(80);
+            e.Property(x => x.Valor).HasPrecision(14, 2);
+            e.Property(x => x.ConferidoPor).HasMaxLength(80);
+            e.Property(x => x.ConferidoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.Observacoes).HasMaxLength(1000);
+            e.Property(x => x.CanceladoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.CanceladoPor).HasMaxLength(80);
+            e.Property(x => x.MotivoCancelamento).HasMaxLength(500);
+
+            e.HasOne(x => x.Profissional).WithMany().HasForeignKey(x => x.ProfissionalId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Lancamento).WithMany()
+                .HasForeignKey(x => x.LancamentoFinanceiroId).OnDelete(DeleteBehavior.Restrict);
+            e.HasMany(x => x.Itens).WithOne(i => i.Fechamento!)
+                .HasForeignKey(i => i.RepasseFechamentoId).OnDelete(DeleteBehavior.Restrict);
+
+            e.HasIndex(x => new { x.ProfissionalId, x.Competencia });
+            e.HasIndex(x => x.Competencia);
+            e.Ignore(x => x.Cancelado);
+            e.Ignore(x => x.Pago);
+        });
+
+        b.Entity<ItemRepasse>(e =>
+        {
+            e.ToTable("ItensRepasse");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Origem).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Natureza).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Chave).HasMaxLength(40);
+            e.Property(x => x.CanceladoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.PacienteNome).HasMaxLength(200);
+            e.Property(x => x.ConvenioCodigo).HasMaxLength(40);
+            e.Property(x => x.ConvenioNome).HasMaxLength(120);
+            e.Property(x => x.TipoGuia).HasConversion<string>().HasMaxLength(40);
+            e.Property(x => x.Descricao).HasMaxLength(120);
+            e.Property(x => x.NumeroGuia).HasMaxLength(60);
+            e.Property(x => x.ReferenciaPagamento).HasMaxLength(120);
+            e.Property(x => x.ValorRecebido).HasPrecision(14, 2);
+            e.Property(x => x.RegraDescricao).HasMaxLength(200);
+            e.Property(x => x.Valor).HasPrecision(14, 2);
+
+            // A trava de pagar duas vezes mora no BANCO: duas máquinas fechando o mesmo
+            // profissional ao mesmo tempo esbarram aqui, não numa conferência da tela.
+            e.HasIndex(x => x.Chave).IsUnique().HasFilter("\"CanceladoEm\" IS NULL");
+            e.HasIndex(x => x.RepasseFechamentoId);
+            e.HasIndex(x => x.CodigoFaturamentoId);
+            e.HasIndex(x => x.AtendimentoId);
         });
 
         b.Entity<ParcelaRecebivelCartao>(e =>
