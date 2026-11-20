@@ -125,7 +125,10 @@ public sealed class FinanceiroService
         DateOnly? dataVencimento = null,
         CancellationToken ct = default,
         // O horário que este dinheiro pagou, quando ele entra AO MARCAR (nov/2026).
-        int? agendamentoId = null)
+        int? agendamentoId = null,
+        // GRD / conta / lote do pagamento da operadora (nov/2026): o agrupador do
+        // demonstrativo de repasse médico. Nulo em tudo o que não é recebimento de guia.
+        string? documentoReferencia = null)
         => _repo.ExecutarGestaoAtomicaAsync(async () =>
     {
         if (string.IsNullOrWhiteSpace(descricao))
@@ -134,6 +137,9 @@ public sealed class FinanceiroService
             throw new ArgumentException("O valor deve ser maior que zero — o sinal vem do tipo.", nameof(valor));
         if (decimal.Round(valor, 2) != valor)
             throw new ArgumentException("Informe o valor em reais e centavos.", nameof(valor));
+        var referencia = string.IsNullOrWhiteSpace(documentoReferencia) ? null : documentoReferencia.Trim();
+        if (referencia is { Length: > 100 })
+            throw new InvalidOperationException("A referência do pagamento passa de 100 caracteres.");
         if (deducoes is { } negativa && (negativa.ValorTaxa < 0 || negativa.ValorImposto < 0))
             throw new InvalidOperationException("Taxas e impostos não podem ser negativos.");
         if (deducoes is { } d && d.Total > valor)
@@ -160,6 +166,7 @@ public sealed class FinanceiroService
             Convenio = convenio,
             ConvenioCodigo = convenioCodigo,
             Observacoes = observacoes,
+            DocumentoReferencia = referencia,
             DataPagamento = status == StatusLancamento.Realizado ? (dataPagamento ?? data) : dataPagamento,
             DataVencimento = dataVencimento,
             CriadoPor = operador,
@@ -398,7 +405,10 @@ public sealed class FinanceiroService
         int? categoriaId = null,
         string? operador = null,
         DeducoesRecebimento? deducoes = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        // A GRD / conta / lote do pagamento (nov/2026) — vai para DocumentoReferencia e é o
+        // agrupador do demonstrativo de repasse ("Amil · GRD/Conta 5950322456").
+        string? referenciaPagamento = null)
     {
         ArgumentNullException.ThrowIfNull(guia);
         // A lista da conciliação é lida ANTES do clique: o segundo clique, ou a outra máquina
@@ -424,7 +434,8 @@ public sealed class FinanceiroService
             convenioCodigo: guia.ConvenioCodigo,
             operador: operador,
             deducoes: deducoes,
-            ct: ct);
+            ct: ct,
+            documentoReferencia: referenciaPagamento);
     }
 
     // ==================== A conciliação do PARTICULAR (set/2026) ====================

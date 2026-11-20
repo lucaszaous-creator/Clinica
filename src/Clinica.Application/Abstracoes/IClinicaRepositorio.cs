@@ -1311,6 +1311,51 @@ public interface IClinicaRepositorio
 
     Task<RepasseApurado?> ObterRepasseApuradoAsync(int repasseId, CancellationToken ct = default);
 
+    // ---- Repasse por guia recebida (nov/2026) — ver RepasseFechamento ----
+
+    /// <summary>
+    /// Receitas de GUIA realizadas e vivas, recebidas entre <paramref name="desde"/> (nulo =
+    /// sem piso) e <paramref name="ate"/>, de atendimento não estornado, cuja guia ainda não
+    /// tem crédito de repasse vivo.
+    /// </summary>
+    Task<IReadOnlyList<ReceitaParaRepasse>> ReceitasDeGuiaParaRepasseAsync(
+        DateOnly? desde, DateOnly ate, CancellationToken ct = default);
+
+    /// <summary>
+    /// Receitas realizadas e vivas de sessão PARTICULAR (todos os códigos NaoAplicavel, não
+    /// estornada), sem guia, cujo atendimento ainda não tem crédito de repasse vivo. Uma
+    /// linha por lançamento: o serviço soma por atendimento.
+    /// </summary>
+    Task<IReadOnlyList<ReceitaParaRepasse>> ReceitasParticularesParaRepasseAsync(
+        DateOnly? desde, DateOnly ate, CancellationToken ct = default);
+
+    /// <summary>
+    /// Créditos de repasse vivos cuja receita deixou de existir (nenhuma receita realizada
+    /// viva da guia / da sessão, ou atendimento estornado) e que ainda não têm estorno vivo.
+    /// Vêm com o fechamento (para saber o profissional).
+    /// </summary>
+    Task<IReadOnlyList<ItemRepasse>> CreditosRepasseSemReceitaAsync(CancellationToken ct = default);
+
+    /// <summary>Horários que apontam para os atendimentos (por AtendimentoId ou AtendimentoSubstitutoId).</summary>
+    Task<IReadOnlyList<HorarioDoAtendimento>> HorariosDosAtendimentosAsync(
+        IReadOnlyCollection<int> atendimentoIds, CancellationToken ct = default);
+
+    /// <summary>Guias baixadas no intervalo, faturáveis, de atendimento vivo, sem receita realizada viva.</summary>
+    Task<IReadOnlyList<GuiaBaixadaSemRecebimento>> GuiasBaixadasSemRecebimentoAsync(
+        DateOnly de, DateOnly ate, CancellationToken ct = default);
+
+    /// <summary>Fechamentos (com itens e lançamento), do mais novo ao mais antigo. Somente leitura.</summary>
+    Task<IReadOnlyList<RepasseFechamento>> FechamentosRepasseAsync(
+        DateOnly? competencia = null, int? profissionalId = null, CancellationToken ct = default);
+
+    /// <summary>Fechamento RASTREADO (com itens e lançamento), para cancelar ou pagar.</summary>
+    Task<RepasseFechamento?> ObterFechamentoRepasseAsync(int fechamentoId, CancellationToken ct = default);
+
+    Task AdicionarFechamentoRepasseAsync(RepasseFechamento fechamento, CancellationToken ct = default);
+
+    /// <summary>A regra já está num item de repasse vivo (não pode ser excluída, só desativada).</summary>
+    Task<bool> RegraRepasseEmUsoAsync(int regraId, CancellationToken ct = default);
+
     // ---- Taxas de cartao e imposto (parcela 9) ----
 
     /// <summary>Catalogo de taxas da maquininha.</summary>

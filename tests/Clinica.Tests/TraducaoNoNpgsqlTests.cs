@@ -1098,4 +1098,21 @@ public class TraducaoNoNpgsqlTests
             .And.Contain("\"TransacoesTissGuias\"").And.Contain("\"DataBaixa\" IS NULL").And.Contain("LIMIT");
         sql.Should().NotContain("FotoMiniatura");
     }
+    [Fact]
+    public void Leituras_do_repasse_por_guia_recebida_traduzem_no_postgres()
+    {
+        using var db = Postgres();
+        var repo = new ClinicaRepositorio(db);
+        var ate = new DateOnly(2026, 9, 30);
+
+        var guias = repo.ConsultaReceitasDeGuiaParaRepasse(new DateOnly(2026, 1, 1), ate).ToQueryString();
+        var particulares = repo.ConsultaReceitasParticularesParaRepasse(null, ate).ToQueryString();
+        var estornos = repo.ConsultaCreditosRepasseSemReceita().ToQueryString();
+        var aguardando = repo.ConsultaGuiasBaixadasSemRecebimento(new DateOnly(2025, 10, 1), ate).ToQueryString();
+
+        guias.Should().Contain("\"ItensRepasse\"").And.Contain("NOT EXISTS").And.Contain("COALESCE").And.Contain("\"Lotes");
+        particulares.Should().Contain("\"ItensRepasse\"").And.Contain("\"Codigos\"").And.Contain("\"EstornadoEm\" IS NULL");
+        estornos.Should().Contain("\"ItemEstornadoId\"").And.Contain("\"Lancamentos").And.Contain("\"Atendimentos\"");
+        aguardando.Should().Contain("\"DataBaixa\"").And.Contain("EXISTS").And.Contain("ORDER BY");
+    }
 }
