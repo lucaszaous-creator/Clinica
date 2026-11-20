@@ -538,11 +538,10 @@ public class FechamentoRepasseTests : IDisposable
                 Disparou = true;
                 var db = eventData.Context.Database;
                 var dia = new DateOnly(2026, 9, 30);
-                var agora = new DateTime(2026, 10, 1, 9, 0, 0);
                 await db.ExecuteSqlInterpolatedAsync($"""
                     INSERT INTO "RepassesFechamentos" ("ProfissionalId", "Competencia", "RecebidosAte", "ProfissionalNome",
                         "Quantidade", "Valor", "ConferidoPor", "ConferidoEm")
-                    VALUES ({profissionalId}, {dia}, {dia}, {"outro"}, {1}, {65m}, {"posto 1"}, {agora})
+                    VALUES ({profissionalId}, {dia}, {dia}, {"outro"}, {1}, {65m}, {"posto 1"}, '2026-10-01 09:00:00')
                     """, cancellationToken);
                 await db.ExecuteSqlInterpolatedAsync($"""
                     INSERT INTO "ItensRepasse" ("RepasseFechamentoId", "Origem", "Natureza", "Chave", "AtendimentoId",
