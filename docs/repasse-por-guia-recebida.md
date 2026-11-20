@@ -79,6 +79,26 @@ lembrar de conferir.
 10. **Demonstrativo em PDF** no leiaute que a clínica já usava (resumo por convênio, valor
     por consulta, anexo por convênio e pagamento, assinatura de quem conferiu) e **CSV**.
 
+## Relatório para os médicos (exportar)
+
+Na própria tela **Repasses**, vista **Relatório para os médicos** (uma porta só: quem fecha
+é quem presta contas). Lê **só fechamentos conferidos** — nunca a prévia: o papel que vai ao
+médico é o que alguém conferiu.
+
+- **Filtros**: competência de/até (atalhos: este mês, mês passado, últimos 3 meses, este
+  ano; até 24 competências), médico, convênio (Particular incluso), situação (conferidos e
+  pagos · só pagos · só a pagar · incluir cancelados — cancelado sai marcado e fora do
+  total) e paciente (sem o acento atrapalhar).
+- **PDFs para os médicos**: um PDF por médico, no padrão do demonstrativo (pago, a pagar,
+  total, resumo por competência × convênio, detalhe por convênio e GRD, estornos). Com
+  vários médicos, escolhe-se a pasta e sai um arquivo por médico; cada linha tem também
+  "PDF do médico".
+- **Excel**: todas as linhas do filtro, com autofiltro, datas e valores tipados.
+- Exportar é saída de dado de paciente: exige login e `VerFinanceiro`, recusa antes de ler
+  e grava uma linha de trilha por exportação (sem o nome do paciente buscado).
+- Regras e frases: `RelatorioRepasseService` (consulta no banco), `RelatorioRepassePdf`,
+  `RelatorioRepasseNaTela` — com testes no SQLite e no Postgres.
+
 ## O modelo antigo
 
 `RepasseApurado` continua no banco e visível, só leitura, no histórico — é registro de
