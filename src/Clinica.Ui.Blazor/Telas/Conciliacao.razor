@@ -70,6 +70,17 @@
         </div>
         @if (_carregou && !_naoVerificado)
         {
+            @* A referência do pagamento vale para o LOTE que se lança, não para uma linha: um GRD da
+               operadora traz dezenas de guias, e quem concilia filtra pelo convênio e lança uma a uma.
+               Digitar a mesma referência quarenta vezes seria o convite ao erro de digitação que
+               separaria o mesmo pagamento em dois blocos no demonstrativo do médico. *@
+            <div class="conc-referencia">
+                <Campo Rotulo="Referência do pagamento (GRD / conta / lote)"
+                       Dica="Opcional. Vale para cada “Lançar” enquanto estiver preenchida e agrupa as guias no demonstrativo de repasse. Limpa sozinha ao trocar de convênio.">
+                    <input class="campo" maxlength="60" placeholder="Ex.: GRD 004471" aria-label="Referência do pagamento"
+                           value="@_referencia" @oninput="@(e => _referencia = e.Value?.ToString())" />
+                </Campo>
+            </div>
             <div class="resumo-guias @(_filtro.Ativo ? "filtrado" : null)">@_resumo</div>
         }
 
@@ -305,6 +316,8 @@
     private IReadOnlyList<string> _convenios = [ConciliacaoNaTela.TodosConvenios];
     private FiltroConciliacao _filtro = FiltroConciliacao.Nenhum;
     private string _resumo = string.Empty;
+    /// <summary>GRD / conta / lote do pagamento que está sendo conciliado (nov/2026, o agrupador do repasse).</summary>
+    private string? _referencia;
 
     private List<ReceitaGlosada> _glosadas = [];
     private string _resumoGlosadas = string.Empty;
@@ -328,7 +341,12 @@
     private Task TrocarMesAsync(DateOnly mes) { _mes = mes; return CarregarAsync(); }
 
     private void FiltroConvenioMudou(ChangeEventArgs e)
-        => Filtrar(_filtro with { Convenio = e.Value?.ToString() ?? ConciliacaoNaTela.TodosConvenios });
+    {
+        // Um GRD é de UMA operadora: trocar de convênio com a referência preenchida carimbaria
+        // o pagamento da Amil nas guias da Petrobras.
+        _referencia = null;
+        Filtrar(_filtro with { Convenio = e.Value?.ToString() ?? ConciliacaoNaTela.TodosConvenios });
+    }
 
     /// <summary>Recorta `_todas` em `_linhas` — mesma instância, o valor digitado sobrevive.</summary>
     private void Filtrar(FiltroConciliacao filtro)
@@ -479,6 +497,8 @@
         if (!Exigir(Permissao.EditarFinanceiro, "lançar receita no caixa")) return;
         if (ConciliacaoNaTela.LerValor(l.Valor, out var valor) is { } erro) { Notificacoes.Erro(erro); return; }
 
+        // Lida ANTES do primeiro await: o que vale é a referência à vista no clique.
+        var referencia = RepasseNaTela.ReferenciaParaGravar(_referencia);
         l.Gravando = true;
         try
         {
@@ -493,9 +513,11 @@
                 deducoes = await escopo.ServiceProvider.GetRequiredService<TaxaService>().CalcularAsync(
                     valor, l.Guia.DataBaixa, FormaPagamento.Convenio, reterImposto: true, convenioCodigo: l.Guia.ConvenioCodigo);
                 await escopo.ServiceProvider.GetRequiredService<FinanceiroService>()
-                    .LancarReceitaDaGuiaAsync(l.Guia, valor, operador: Operador, deducoes: deducoes);
+                    .LancarReceitaDaGuiaAsync(l.Guia, valor, operador: Operador, deducoes: deducoes,
+                        referenciaPagamento: referencia);
             }
-            Notificacoes.Sucesso(ConciliacaoNaTela.SucessoDaGuia(valor, l.Guia.Paciente, deducoes));
+            Notificacoes.Sucesso(ConciliacaoNaTela.SucessoDaGuia(valor, l.Guia.Paciente, deducoes)
+                                 + (referencia is null ? "" : $" Pagamento: {referencia}."));
             await CarregarAsync();
         }
         catch (Exception ex)

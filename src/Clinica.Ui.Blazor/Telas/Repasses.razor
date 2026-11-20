@@ -1,32 +1,39 @@
 @*
-  REPASSES (out/2026, migrado do RepassesView/RepassesViewModel do WPF).
+  REPASSES (nov/2026 — o repasse por GUIA RECEBIDA; a tela é a mesma, o modelo mudou).
 
-  Responde "quanto tenho a repassar a cada profissional neste mês, e de onde saiu o
-  número?". A tela mostra o cálculo ANTES de apurar: quem paga precisa ver quantos
-  atendimentos, quanta receita ENTROU e qual regra foi aplicada antes de o dinheiro virar
-  uma saída no caixa (RepasseService.CalcularAsync, que não grava nada).
+  Responde "o que tenho a fechar e a pagar a cada médico nesta competência, e de onde saiu cada
+  centavo?". A regra que a clínica pediu, por escrito: o repasse só conta DEPOIS de a guia ser
+  conciliada — alguém afirmou na Conciliação que o convênio PAGOU (receita realizada ligada à
+  guia). Guia faturada e não paga aparece como "aguardando o convênio": informada, nunca somada.
 
-  Apurar TRAVA o período (RepasseApurado) e cria a saída PREVISTA no caixa — o pagamento
-  de fato é o "Realizar" daquela saída, no Caixa. Cancelar a apuração cancela a saída junto.
-  Regras e apurações moram num formulário, como no WPF (parcela 49): são cadastro e
-  histórico, e a tela existe para responder "quanto tenho a repassar agora".
+  O fluxo, na ordem da tela:
+  1. a lista por profissional mostra o que está PRONTO (com a regra aplicada) e o que está
+     BLOQUEADO (sem regra, sem profissional, já pago na apuração antiga) — bloqueado não some;
+  2. "Fechar e conferir" grava o fechamento com o nome de quem fez login e cria a saída prevista;
+  3. em "Fechamentos", o demonstrativo (PDF/CSV) que vai ao médico e o "Registrar pagamento".
+
+  O "Apurar" por PERÍODO saiu inteiro (função que saiu, sai inteira); as apurações antigas ficam
+  para consulta em "Apurações antigas". As regras moram na tela "Repasse médico" (uma porta só,
+  publicada no Gerente e no Financeiro) — daqui se chega a ela pelo botão do cabeçalho, e o item
+  sem regra abre o MESMO formulário de regra já preenchido, para destravar a guia sem sair daqui.
+
+  As frases, os totais e o que acende cada botão moram em RepasseNaTela (Application, com teste).
 *@
 @inherits TelaBase
 @using Clinica.Application.Modelos
 
-<div class="pagina @(Carregando && _calculados.Count > 0 ? "carregando" : null)">
+<div class="pagina repasses @(Carregando && _lido ? "carregando" : null)">
     <CabecalhoPagina Sobretitulo="Financeiro · Repasses" Titulo="Repasses"
-                     Subtitulo="Apuração por profissional, com base na receita recebida e na regra de repasse.">
-        <SeletorMes Valor="Mes" ValorChanged="TrocarMesAsync" />
-        <button type="button" class="botao" @onclick="ExportarAsync" disabled="@(_calculados.Count == 0)"><Icone Nome="baixar" />Exportar CSV</button>
+                     Subtitulo="O que fechar e pagar a cada profissional na competência — só guias que o convênio pagou e foram conciliadas.">
+        <SeletorMes Valor="_competencia" ValorChanged="TrocarCompetenciaAsync" />
+        <button type="button" class="botao" @onclick="CarregarAsync" disabled="@Carregando" title="Ler de novo (F5)"><Icone Nome="atualizar" />Atualizar</button>
+        <button type="button" class="botao" @onclick="IrParaTabelaAsync" title="A tabela de repasse: quanto cada médico recebe por convênio e tipo de guia"><Icone Nome="etiqueta" />Repasse médico</button>
+        <button type="button" class="botao" @onclick="AbrirApuracoesAsync" title="O histórico do repasse por período, que valeu até nov/2026"><Icone Nome="historico" />Apurações antigas</button>
         <button type="button" class="botao" @onclick="AbrirRelatorio" disabled="@(!Pode(Permissao.VerFinanceiro))"
-                title="@(Pode(Permissao.VerFinanceiro) ? "Cada atendimento realizado, por profissional, com o valor de tabela e o recebido — para a folha e o repasse" : "Seu acesso não permite emitir relatórios do financeiro.")"><Icone Nome="imprimir" />Atendimentos por profissional</button>
-        <button type="button" class="botao" @onclick="() => _regrasAbertas = true"><Icone Nome="lista" />Regras e apurações</button>
-        <button type="button" class="botao primario" @onclick="NovaRegra" disabled="@(!PodeEditar)"
-                title="@(PodeEditar ? null : "Seu acesso não permite mexer nos repasses.")"><Icone Nome="mais" />Nova regra</button>
+                title="@(Pode(Permissao.VerFinanceiro) ? "Cada atendimento realizado, por profissional, com o valor de tabela e o recebido" : "Seu acesso não permite emitir relatórios do financeiro.")"><Icone Nome="imprimir" />Atendimentos por profissional</button>
     </CabecalhoPagina>
 
-    @if (_totais is null && Carregando)
+    @if (!_lido && Carregando)
     {
         <section class="kpis">
             @for (var i = 0; i < 4; i++) { <div class="cartao kpi"><Esqueleto Altura="14" Largura="40%" /><Esqueleto Altura="32" Largura="70%" /></div> }
@@ -34,201 +41,535 @@
     }
     else if (_totais is { } t)
     {
-        <section class="kpis" aria-label="Resumo do período">
-            <Kpi Rotulo="A repassar no período" Valor="@Formato.Dinheiro(t.ARepassar)" Icone="repasse" Tom="saida"
-                 Nota="Soma do que cada regra calculou sobre a receita que entrou" />
-            <Kpi Rotulo="Profissionais com atendimento" Valor="@t.Profissionais.ToString(Formato.PtBr)" Icone="pessoas" Tom="neutro"
-                 Nota="Sessões realizadas no período, pelo horário da agenda" />
-            <Kpi Rotulo="A apurar" Valor="@t.AApurar.ToString(Formato.PtBr)" Icone="cadeado"
-                 Nota="@(t.JaApurados > 0 ? $"{t.JaApurados} já apurado(s) neste período" : "Nenhum período travado ainda")" />
-            <Kpi Rotulo="Sem regra cadastrada" Valor="@t.SemRegra.ToString(Formato.PtBr)" Icone="alerta"
-                 Tom="@(t.SemRegra > 0 ? "aviso" : "neutro")" ClasseValor="@(t.SemRegra > 0 ? "tom-aviso" : null)"
-                 Nota="@(t.SemRegra > 0 ? "Sem regra não há o que pagar — cadastre antes de apurar" : "Todos com regra vigente")" />
+        <section class="kpis" aria-label="Resumo da competência">
+            <Kpi Rotulo="A fechar" Valor="@Formato.Dinheiro(t.AFechar)" Icone="repasse" Tom="saida" Nota="@RepasseNaTela.NotaDoAFechar(t)" />
+            <Kpi Rotulo="Aguardando o convênio" Valor="@t.Aguardando.ToString(Formato.PtBr)" Icone="relogio" Tom="neutro"
+                 Nota="@RepasseNaTela.NotaDoAguardandoComPrevista(t)" />
+            <Kpi Rotulo="Fechado na competência" Valor="@Formato.Dinheiro(t.Fechado)" Icone="cadeado" Nota="@RepasseNaTela.NotaDoFechado(t)" />
+            <Kpi Rotulo="Pago" Valor="@Formato.Dinheiro(t.Pago)" Icone="check" Tom="sucesso" Nota="@RepasseNaTela.NotaDoPago(t)" />
         </section>
+        @if (RepasseNaTela.AvisoDosBloqueados(t) is { } aviso)
+        {
+            <div class="repasse-faixa"><Aviso Tom="atencao" Texto="@aviso" /></div>
+        }
     }
 
-    <section class="cartao lista-cartao">
+    <section class="cartao lista-cartao" aria-label="A fechar por profissional">
         <div class="cartao-titulo">
             <div>
-                <h2>A repassar em @Formato.Mes(Mes)</h2>
-                <p>@(_resumo ?? LeituraDosRepasses.Periodo(Inicio, Fim))</p>
+                <h2>A fechar em @Formato.Mes(_competencia)</h2>
+                <p>Recebimentos ainda não fechados até o fim da competência — o que ficou de meses anteriores entra aqui.</p>
             </div>
+            <button type="button" class="botao" @onclick="IrParaConciliacaoAsync" title="Conciliar as guias que o convênio já pagou"><Icone Nome="banco" />Conciliação</button>
         </div>
 
         @if (_naoVerificado)
         {
-            <FalhaDeLeitura Titulo="Não foi possível calcular os repasses" Detalhe="@($"Os números não estão zerados — eles não puderam ser lidos. {_erroLeitura}")" AoTentarDeNovo="CarregarAsync" />
+            <FalhaDeLeitura Titulo="Não foi possível ler o repasse da competência"
+                            Detalhe="@($"Os números não estão zerados — eles não puderam ser lidos. {_erro}")" AoTentarDeNovo="CarregarAsync" />
         }
-        else if (Carregando && _calculados.Count == 0)
+        else if (!_lido)
         {
-            <div class="cartao-corpo"><Esqueleto Altura="200" /></div>
+            <div class="cartao-corpo"><Esqueleto Altura="220" /></div>
         }
-        else if (_calculados.Count == 0)
+        else if (_previas.Count == 0)
         {
-            <EstadoVazio Icone="repasse" Titulo="Nenhum atendimento realizado neste mês"
-                         Descricao="O repasse sai das sessões realizadas na agenda, com o profissional que atendeu. Sem sessão, não há o que repassar." />
+            <EstadoVazio Icone="repasse" Titulo="Nada a fechar nesta competência"
+                         Descricao="O repasse nasce da guia que o convênio PAGOU e foi conciliada. Sem guia paga e sem fechamento na competência, não há o que mostrar." />
         }
         else
         {
             <div class="tabela-rolagem">
-                <table class="lista">
+                <table class="lista repasse-lista">
                     <thead>
                         <tr>
                             <th>Profissional</th>
-                            <th class="direita" style="width:100px">Atendimentos</th>
-                            <th class="direita" style="width:140px">Receita que entrou</th>
-                            <th class="direita" style="width:130px">A receber</th>
-                            <th style="width:220px">Situação</th>
-                            <th class="direita" style="width:110px">Ações</th>
+                            <th class="direita repasse-col-qtd">Guias</th>
+                            <th class="direita repasse-col-valor">A fechar</th>
+                            <th class="repasse-col-situacao">Situação</th>
+                            <th class="direita repasse-col-acoes">Ações</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var c in _calculados)
+                        @foreach (var p in _previas)
                         {
-                            var podeApurar = LeituraDosRepasses.PodeApurar(c);
-                            <tr @key="c.ProfissionalId" class="@(!c.TemRegra ? "repasse-sem-regra" : null)">
+                            var (situacao, tom) = RepasseNaTela.Situacao(p);
+                            var aberto = _abertos.Contains(p.ProfissionalId);
+                            <tr @key="p.ProfissionalId" class="@(aberto ? "repasse-aberta" : null)">
                                 <td>
-                                    <span class="principal">@c.Profissional</span>
-                                    @if (c.TemRegra) { <span class="secundario">@c.RegraDescricao</span> }
+                                    <button type="button" class="repasse-expandir" aria-expanded="@(aberto ? "true" : "false")"
+                                            aria-label="@($"{(aberto ? "Recolher" : "Ver")} os itens de {p.Profissional}")" @onclick="() => Alternar(p.ProfissionalId)">
+                                        <Icone Nome="@(aberto ? "abaixo" : "direita")" />
+                                        <span class="principal">@p.Profissional</span>
+                                    </button>
+                                    <span class="secundario">@(p.Registro is { } r ? $"{r} · " : "")@RepasseNaTela.Detalhe(p)</span>
                                 </td>
-                                <td class="direita numero">@c.Atendimentos</td>
-                                <td class="direita numero">@Formato.Dinheiro(c.ReceitaVinculada)</td>
-                                <td class="direita numero"><span class="repasse-valor">@Formato.Dinheiro(c.Valor)</span></td>
-                                <td class="repasse-situacao"><Selo Tom="@(!c.TemRegra ? "aviso" : c.JaApurado ? "sucesso" : "info")">@c.Situacao</Selo></td>
+                                <td class="direita numero">@p.QuantidadeAFechar</td>
+                                <td class="direita numero"><span class="repasse-valor">@Formato.Dinheiro(p.ValorAFechar)</span></td>
+                                <td class="repasse-situacao"><Selo Tom="@tom">@situacao</Selo></td>
                                 <td class="direita">
-                                    <button type="button" class="botao mini primario" disabled="@(!podeApurar || !PodeEditar)"
-                                            title="@DicaApurar(c)" @onclick="() => ApurarAsync(c)"><Icone Nome="cadeado" />Apurar</button>
+                                    <button type="button" class="botao mini primario nao-quebra" disabled="@(!PodeEditar || !p.PodeFechar)"
+                                            title="@RepasseNaTela.DicaDeFechar(p, PodeEditar)" @onclick="() => AbrirFechar(p)"><Icone Nome="cadeado" />Fechar e conferir</button>
+                                </td>
+                            </tr>
+                            @if (aberto)
+                            {
+                                <tr @key="@($"d{p.ProfissionalId}")" class="repasse-detalhe">
+                                    <td colspan="5">@Detalhe(p)</td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
+    <section class="cartao lista-cartao" aria-label="Fechamentos">
+        <div class="cartao-titulo">
+            <div>
+                <h2>Fechamentos</h2>
+                <p>@(_todosOsFechamentos ? "Todas as competências, do mais novo ao mais antigo." : $"Conferidos na competência {RepasseNaTela.Competencia(_competencia)}.")</p>
+            </div>
+            <div class="segmentado" role="group" aria-label="Quais fechamentos">
+                <button type="button" aria-pressed="@(!_todosOsFechamentos ? "true" : "false")" @onclick="() => TrocarEscopoAsync(false)">Desta competência</button>
+                <button type="button" aria-pressed="@(_todosOsFechamentos ? "true" : "false")" @onclick="() => TrocarEscopoAsync(true)">Todas</button>
+            </div>
+        </div>
+
+        @if (_fechamentosNaoVerificados)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler os fechamentos"
+                            Detalhe="@($"A lista está vazia por falha de leitura, não por não haver fechamento. {_erroFechamentos}")" AoTentarDeNovo="CarregarAsync" />
+        }
+        else if (!_lido)
+        {
+            <div class="cartao-corpo"><Esqueleto Altura="120" /></div>
+        }
+        else if (_fechamentos.Count == 0)
+        {
+            <EstadoVazio Icone="cadeado" Titulo="Nenhum fechamento"
+                         Descricao="@(_todosOsFechamentos ? "Nenhum repasse foi fechado ainda." : "Feche o repasse de um profissional acima para ele aparecer aqui, com o demonstrativo.")" />
+        }
+        else
+        {
+            <div class="tabela-rolagem">
+                <table class="lista repasse-fechamentos">
+                    <thead>
+                        <tr>
+                            <th>Profissional</th>
+                            <th class="repasse-col-comp">Competência</th>
+                            <th class="direita repasse-col-qtd">Guias</th>
+                            <th class="direita repasse-col-valor">Valor</th>
+                            <th>Conferido por</th>
+                            <th class="repasse-col-situacao">Situação</th>
+                            <th class="direita repasse-col-acoes-f">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var f in _fechamentos)
+                        {
+                            <tr @key="f.Id" class="@(f.Cancelado ? "apagada" : null)">
+                                <td>
+                                    <span class="principal">@f.ProfissionalNome</span>
+                                    @if (!string.IsNullOrWhiteSpace(f.Observacoes)) { <span class="secundario">@f.Observacoes</span> }
+                                </td>
+                                <td class="nao-quebra">@RepasseNaTela.Competencia(f.Competencia)</td>
+                                <td class="direita numero">@f.Quantidade</td>
+                                <td class="direita numero"><span class="repasse-valor">@Formato.Dinheiro(f.Valor)</span></td>
+                                <td><span class="principal repasse-conferente">@f.ConferidoPor</span><span class="secundario nao-quebra">@Formato.DataHora(f.ConferidoEm)</span></td>
+                                <td class="repasse-situacao">
+                                    <Selo Tom="@RepasseNaTela.TomDoFechamento(f)" Dica="@f.MotivoCancelamento">@RepasseNaTela.SituacaoDoFechamento(f)</Selo>
+                                    @if (f.Cancelado && f.MotivoCancelamento is { } motivo) { <span class="secundario">@motivo</span> }
+                                </td>
+                                <td class="direita">
+                                    <div class="botoes-linha">
+                                        <button type="button" class="botao mini primario nao-quebra" disabled="@(!PodeVer)" @onclick="() => DemonstrativoAsync(f)"
+                                                title="@(PodeVer ? "O demonstrativo de repasse médico, em PDF — o papel que vai ao profissional" : "Seu acesso não permite ver o financeiro.")"><Icone Nome="documento" />Demonstrativo</button>
+                                        <button type="button" class="botao mini icone" disabled="@(!PodeVer)" @onclick="() => CsvAsync(f)"
+                                                title="O mesmo demonstrativo em planilha (CSV), uma linha por guia" aria-label="@($"Baixar o CSV do repasse de {f.ProfissionalNome}")"><Icone Nome="baixar" /></button>
+                                        <button type="button" class="botao mini icone" disabled="@(!PodeEditar || !RepasseNaTela.PodeRegistrarPagamento(f))" @onclick="() => AbrirPagamento(f)"
+                                                title="@RepasseNaTela.DicaDePagamento(f, PodeEditar)" aria-label="@($"Registrar pagamento do repasse de {f.ProfissionalNome}")"><Icone Nome="moeda" /></button>
+                                        <button type="button" class="botao mini icone contorno-perigo" disabled="@(!PodeEditar || !RepasseNaTela.PodeCancelar(f))" @onclick="() => CancelarAsync(f)"
+                                                title="@RepasseNaTela.DicaDeCancelar(f, PodeEditar)" aria-label="@($"Cancelar o fechamento de {f.ProfissionalNome}")"><Icone Nome="cancelar" /></button>
+                                    </div>
                                 </td>
                             </tr>
                         }
                     </tbody>
                 </table>
             </div>
-            <div class="rodape-lista">
-                O percentual incide sobre a receita que ENTROU dos atendimentos de cada um — não sobre o faturado e ainda não recebido.
-                Apurar trava o período e cria a saída prevista no caixa; o pagamento é confirmado no Caixa.
-            </div>
         }
+        <div class="rodape-lista">@RepasseNaTela.RegraDoRepasse</div>
     </section>
 </div>
 
-@if (_regrasAbertas)
+@if (_fechando is { } previa)
 {
-    <RegrasRepasseForm Regras="_regras" Apuracoes="_apuracoes" NaoVerificado="_naoVerificado"
-                       AoFechar="() => _regrasAbertas = false" AoNovaRegra="NovaRegra"
-                       AoExcluirRegra="ExcluirRegraAsync" AoCancelarApuracao="CancelarApuracaoAsync" />
+    <FecharRepasseForm Previa="previa" Competencia="_competencia" AoFechar="() => _fechando = null" AoConcluir="FechouAsync" />
+}
+@if (_pagando is { } pagando)
+{
+    <PagamentoRepasseForm Fechamento="pagando" AoFechar="() => _pagando = null" AoConcluir="PagouAsync" />
+}
+@if (_regraNova is { } item)
+{
+    <RegraRepasseForm ProfissionalId="item.ProfissionalId" ConvenioCodigo="item.ConvenioCodigo" TipoGuia="item.TipoGuia"
+                      AoFechar="() => _regraNova = null" AoConcluir="RegraSalvaAsync" />
+}
+@if (_apuracoesAbertas)
+{
+    <ApuracoesAntigasForm Apuracoes="_apuracoes" NaoVerificado="_apuracoesNaoVerificadas"
+                          AoFechar="() => _apuracoesAbertas = false" AoCancelarApuracao="CancelarApuracaoAsync" />
 }
 @if (_relatorioAberto)
 {
-    <AtendimentosPorProfissionalForm Inicio="Inicio" Fim="Fim" AoFechar="() => _relatorioAberto = false" />
-}
-@if (_novaRegra)
-{
-    <RegraRepasseForm AoFechar="() => _novaRegra = false" AoConcluir="RegraSalvaAsync" />
+    <AtendimentosPorProfissionalForm Inicio="_competencia" Fim="FimDaCompetencia" AoFechar="() => _relatorioAberto = false" />
 }
 
 @code {
-    private DateOnly Mes = new(DateTime.Today.Year, DateTime.Today.Month, 1);
-    private DateOnly Inicio => Mes;
-    private DateOnly Fim => Mes.AddMonths(1).AddDays(-1);
+    /// <summary>O que se abre ao expandir um profissional: os itens por convênio e pagamento, os estornos e o que aguarda.</summary>
+    private RenderFragment Detalhe(PreviaRepasseProfissional p) => @<div class="repasse-itens">
+        @foreach (var g in RepasseNaTela.Grupos(p.Itens))
+        {
+            <div class="repasse-grupo">
+                <div class="repasse-grupo-titulo">
+                    <span><strong>@g.Convenio</strong> · @RepasseNaTela.RotuloDaReferencia(g.ReferenciaPagamento)</span>
+                    <span class="numero">@Formato.Dinheiro(g.Total)</span>
+                </div>
+                <div class="tabela-rolagem">
+                    <table class="lista repasse-itens-tabela">
+                        <thead>
+                            <tr>
+                                <th>Paciente</th><th>Atendido em</th><th>Tipo</th><th>Guia</th><th>Recebido em</th>
+                                <th class="direita">Valor recebido</th><th>Regra</th><th class="direita">Repasse</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var i in g.Itens)
+                            {
+                                <tr @key="i.Chave" class="@(i.Pronto ? null : "repasse-bloqueado")">
+                                    <td>
+                                        <span class="principal">@i.Paciente</span>
+                                        @if (!i.Pronto)
+                                        {
+                                            <span class="secundario repasse-motivo"><Selo Tom="aviso">@RepasseNaTela.RotuloDoBloqueio(i.Bloqueio)</Selo> @RepasseNaTela.MotivoDoBloqueio(i.Bloqueio)</span>
+                                            @if (i.Bloqueio == BloqueioItemRepasse.SemRegra)
+                                            {
+                                                <button type="button" class="botao mini repasse-cadastrar" disabled="@(!PodeEditar)" @onclick="() => CadastrarRegra(i)"
+                                                        title="@(PodeEditar ? "Abre o formulário de regra já com o médico, o convênio e o tipo de guia" : "Seu acesso não permite mexer nos repasses.")"><Icone Nome="mais" />Cadastrar regra</button>
+                                            }
+                                        }
+                                    </td>
+                                    <td class="nao-quebra">@Formato.Data(i.DataAtendimento)</td>
+                                    <td>@i.Descricao</td>
+                                    <td class="nao-quebra">@(i.NumeroGuia ?? "—")</td>
+                                    <td class="nao-quebra">@Formato.Data(i.DataRecebimento)</td>
+                                    <td class="direita numero">@Formato.Dinheiro(i.ValorRecebido)</td>
+                                    <td><span class="secundario">@(string.IsNullOrWhiteSpace(i.RegraDescricao) ? "—" : i.RegraDescricao)</span></td>
+                                    <td class="direita numero">@(i.Pronto ? Formato.Dinheiro(i.Valor) : "—")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+        @if (RepasseNaTela.Estornos(p.Itens) is { Count: > 0 } estornos)
+        {
+            <div class="repasse-grupo">
+                <div class="repasse-grupo-titulo">
+                    <span><strong>Estornos</strong> · receitas que deixaram de existir depois de um fechamento — descontam neste</span>
+                    <span class="numero valor-saida">@Formato.Dinheiro(estornos.Where(e => e.Pronto).Sum(e => e.Valor))</span>
+                </div>
+                <div class="tabela-rolagem">
+                    <table class="lista repasse-itens-tabela">
+                        <thead><tr><th>Paciente</th><th>Atendido em</th><th>Convênio</th><th>Guia</th><th>Desde</th><th class="direita">Repasse</th></tr></thead>
+                        <tbody>
+                            @foreach (var e in estornos)
+                            {
+                                <tr @key="e.Chave" class="repasse-estorno">
+                                    <td><span class="principal">@e.Paciente</span><span class="secundario">@e.Descricao</span></td>
+                                    <td class="nao-quebra">@Formato.Data(e.DataAtendimento)</td>
+                                    <td>@e.ConvenioNome</td>
+                                    <td class="nao-quebra">@(e.NumeroGuia ?? "—")</td>
+                                    <td class="nao-quebra">@Formato.Data(e.DataRecebimento)</td>
+                                    <td class="direita numero valor-saida">@Formato.Dinheiro(e.Valor)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+        @if (p.Aguardando.Count > 0)
+        {
+            <details class="repasse-aguardando">
+                <summary>@p.Aguardando.Count guia(s) aguardando o convênio — informadas, não somam</summary>
+                <div class="tabela-rolagem">
+                    <table class="lista repasse-itens-tabela">
+                        <thead><tr><th>Paciente</th><th>Atendido em</th><th>Faturada em</th><th>Convênio</th><th>Guia</th><th>Situação</th></tr></thead>
+                        <tbody>
+                            @foreach (var a in p.Aguardando)
+                            {
+                                <tr @key="a.CodigoFaturamentoId">
+                                    <td><span class="principal">@a.Paciente</span><span class="secundario">@a.Descricao</span></td>
+                                    <td class="nao-quebra">@Formato.Data(a.DataAtendimento)</td>
+                                    <td class="nao-quebra">@(a.DataBaixa is { } b ? Formato.Data(b) : "—")</td>
+                                    <td>@a.ConvenioNome</td>
+                                    <td class="nao-quebra">@(a.NumeroGuia ?? "—")</td>
+                                    <td>
+                                        @if (a.Glosada) { <Selo Tom="perigo">Glosada</Selo> }
+                                        else if (a.ReceitaPrevista) { <Selo Tom="aviso" Dica="A receita foi lançada como A RECEBER: entra quando o recebimento for confirmado.">Receita a receber</Selo> }
+                                        else { <Selo Tom="neutro">Sem pagamento</Selo> }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </details>
+        }
+    </div>;
+}
 
-    private IReadOnlyList<RepasseCalculado> _calculados = [];
-    private IReadOnlyList<RepasseApurado> _apuracoes = [];
-    private IReadOnlyList<RegraRepasse> _regras = [];
-    private TotaisDosRepasses? _totais;
-    private string? _resumo;
-    private bool Carregando;
-    private bool _naoVerificado;
-    private string? _erroLeitura;
+@code {
+    private DateOnly _competencia = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private DateOnly FimDaCompetencia => _competencia.AddMonths(1).AddDays(-1);
+
+    private IReadOnlyList<PreviaRepasseProfissional> _previas = [];
+    private IReadOnlyList<RepasseFechamento> _fechamentos = [];
+    private TotaisDoRepasse? _totais;
+    private readonly HashSet<int> _abertos = [];
+    private bool _todosOsFechamentos;
+
+    private bool Carregando, _lido;
+    private bool _naoVerificado, _fechamentosNaoVerificados;
+    private string? _erro, _erroFechamentos;
     private int _geracao;
 
-    private bool _regrasAbertas;
-    private bool _novaRegra;
+    private PreviaRepasseProfissional? _fechando;
+    private RepasseFechamento? _pagando;
+    private ItemRepasseElegivel? _regraNova;
     private bool _relatorioAberto;
+
+    private bool _apuracoesAbertas, _apuracoesNaoVerificadas;
+    private IReadOnlyList<RepasseApurado> _apuracoes = [];
+
+    /// <summary>A metade visível das permissões; a que impede é o <c>Exigir</c> em cada comando.</summary>
+    private static bool PodeEditar => Pode(Permissao.EditarFinanceiro);
+    private static bool PodeVer => Pode(Permissao.VerFinanceiro);
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+    protected override Task AoVoltarAsync() => CarregarAsync();
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho) => atalho == AtalhoDeTela.Atualizar ? CarregarAsync() : Task.CompletedTask;
+
+    private Task TrocarCompetenciaAsync(DateOnly mes) { _competencia = mes; _abertos.Clear(); return CarregarAsync(); }
+
+    private Task TrocarEscopoAsync(bool todos)
+    {
+        if (_todosOsFechamentos == todos) return Task.CompletedTask;
+        _todosOsFechamentos = todos;
+        return CarregarAsync();
+    }
+
+    private void Alternar(int profissionalId)
+    {
+        if (!_abertos.Remove(profissionalId)) _abertos.Add(profissionalId);
+    }
+
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): trocar a competência duas vezes rápido
+    /// deixaria a prévia de um mês sob o título do outro — e é sobre esse número que se fecha.
+    /// As leituras vão em FILA no mesmo escopo (mesmo DbContext) e tudo é publicado depois do
+    /// último await. Os fechamentos falham sozinhos: a prévia quebrada não esconde o
+    /// demonstrativo de quem já foi fechado, e vice-versa.
+    /// </summary>
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        Carregando = true;
+        var competencia = _competencia;
+        var todos = _todosOsFechamentos;
+
+        IReadOnlyList<PreviaRepasseProfissional>? previas = null;
+        IReadOnlyList<RepasseFechamento>? daCompetencia = null;
+        IReadOnlyList<RepasseFechamento>? lista = null;
+        string? erro = null, erroFechamentos = null;
+
+        using (var escopo = Escopo())
+        {
+            var servico = escopo.ServiceProvider.GetRequiredService<FechamentoRepasseService>();
+            try
+            {
+                previas = await servico.PreviaAsync(competencia);
+            }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar("Blazor — prévia do repasse não pôde ser lida", ex);
+                erro = ex.Message;
+            }
+            if (geracao != _geracao || Descartada) return;
+
+            try
+            {
+                daCompetencia = await servico.FechamentosAsync(competencia);
+                lista = todos ? await servico.FechamentosAsync() : daCompetencia;
+            }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar("Blazor — fechamentos de repasse não puderam ser lidos", ex);
+                erroFechamentos = ex.Message;
+            }
+            if (geracao != _geracao || Descartada) return;
+        }
+
+        _naoVerificado = previas is null;
+        _erro = erro;
+        _previas = previas ?? [];
+        _fechamentosNaoVerificados = lista is null;
+        _erroFechamentos = erroFechamentos;
+        _fechamentos = lista ?? [];
+        // Sem a prévia, os cartões não afirmam nada: zero por erro não tem a cara de zero.
+        _totais = previas is null ? null : RepasseNaTela.Totais(previas, daCompetencia ?? []);
+        _lido = true;
+        Carregando = false;
+    }
+
+    // ==================== Fechar ====================
+
+    private void AbrirFechar(PreviaRepasseProfissional p)
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "fechar repasses")) return;
+        _fechando = p;
+    }
+
+    private async Task FechouAsync(RepasseFechamento f)
+    {
+        _fechando = null;
+        Notificacoes.Sucesso($"Repasse de {f.ProfissionalNome} fechado: {Formato.Dinheiro(f.Valor)}. A saída prevista está no caixa e o demonstrativo, em Fechamentos.");
+        await CarregarAsync();
+    }
+
+    // ==================== Regra (o atalho do item sem regra) ====================
+
+    private void CadastrarRegra(ItemRepasseElegivel item)
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "mexer nos repasses")) return;
+        _regraNova = item;
+    }
+
+    private async Task RegraSalvaAsync()
+    {
+        _regraNova = null;
+        Notificacoes.Sucesso("Regra de repasse salva — as guias que ela alcança passam a ficar prontas.");
+        await CarregarAsync();
+    }
+
+    private async Task IrParaTabelaAsync()
+    {
+        if (!await Host.NavegarAsync("repasse-medico"))
+            Notificacoes.Info("A tela Repasse médico não está disponível neste aplicativo para o seu acesso.");
+    }
+
+    private async Task IrParaConciliacaoAsync()
+    {
+        if (!await Host.NavegarAsync("conciliacao"))
+            Notificacoes.Info("A Conciliação não está disponível neste aplicativo para o seu acesso.");
+    }
+
+    // ==================== Fechamentos ====================
+
+    private async Task DemonstrativoAsync(RepasseFechamento f)
+    {
+        if (!Exigir(Permissao.VerFinanceiro, "emitir o demonstrativo de repasse")) return;
+        try
+        {
+            DemonstrativoRepasse d;
+            using (var escopo = Escopo())
+                d = await escopo.ServiceProvider.GetRequiredService<FechamentoRepasseService>().DemonstrativoAsync(f.Id);
+            var erro = await Host.SalvarEAbrirAsync(DemonstrativoRepassePdf.Gerar(d), DemonstrativoRepassePdf.NomeDoArquivo(d),
+                "Documento PDF (*.pdf)|*.pdf", ".pdf");
+            if (erro is not null) Notificacoes.Erro(erro);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — demonstrativo de repasse não pôde ser emitido", ex);
+            Notificacoes.Erro(ex.Message);
+        }
+    }
+
+    private async Task CsvAsync(RepasseFechamento f)
+    {
+        if (!Exigir(Permissao.VerFinanceiro, "exportar o demonstrativo de repasse")) return;
+        try
+        {
+            DemonstrativoRepasse d;
+            using (var escopo = Escopo())
+                d = await escopo.ServiceProvider.GetRequiredService<FechamentoRepasseService>().DemonstrativoAsync(f.Id);
+            byte[] conteudo = [.. System.Text.Encoding.UTF8.GetPreamble(), .. System.Text.Encoding.UTF8.GetBytes(DemonstrativoRepassePdf.Csv(d))];
+            var erro = await Host.SalvarEAbrirAsync(conteudo, System.IO.Path.ChangeExtension(DemonstrativoRepassePdf.NomeDoArquivo(d), ".csv"),
+                "Planilha CSV (*.csv)|*.csv", ".csv");
+            if (erro is not null) Notificacoes.Erro(erro);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — CSV do repasse não pôde ser exportado", ex);
+            Notificacoes.Erro(ex.Message);
+        }
+    }
+
+    private void AbrirPagamento(RepasseFechamento f)
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "registrar pagamento de repasse")) return;
+        _pagando = f;
+    }
+
+    private async Task PagouAsync()
+    {
+        var nome = _pagando?.ProfissionalNome;
+        _pagando = null;
+        Notificacoes.Sucesso($"Pagamento do repasse de {nome} registrado no caixa.");
+        await CarregarAsync();
+    }
+
+    private async Task CancelarAsync(RepasseFechamento f)
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "cancelar fechamento de repasse")) return;
+        var motivo = await Dialogos.PerguntarTextoAsync("Cancelar fechamento", RepasseNaTela.PerguntaDeCancelar(f));
+        // Cancelar a pergunta é null: não grava nada.
+        if (string.IsNullOrWhiteSpace(motivo)) return;
+
+        if (await ExecutarAsync(async () =>
+            {
+                using var escopo = Escopo();
+                await escopo.ServiceProvider.GetRequiredService<FechamentoRepasseService>().CancelarAsync(f.Id, motivo.Trim(), Operador);
+            }, "Blazor — fechamento de repasse não pôde ser cancelado", "Fechamento cancelado. As guias voltaram a ficar prontas para fechar."))
+            await CarregarAsync();
+    }
+
+    // ==================== Relatório e histórico antigo ====================
 
     private void AbrirRelatorio()
     {
         if (Exigir(Permissao.VerFinanceiro, "emitir o relatório de atendimentos por profissional")) _relatorioAberto = true;
     }
 
-    private static bool PodeEditar => Pode(Permissao.EditarFinanceiro);
-
-    protected override Task OnInitializedAsync() => CarregarAsync();
-
-    protected override Task AoVoltarAsync() => CarregarAsync();
-
-    private Task TrocarMesAsync(DateOnly mes) { Mes = mes; return CarregarAsync(); }
-
-    /// <summary>
-    /// Descarte de resposta fora de ordem (parcela 50): trocar o mês duas vezes rápido
-    /// deixaria o cálculo de um mês sob o título do outro — e é sobre esse número que se
-    /// apura. As três leituras vão em FILA no mesmo escopo (mesmo DbContext) e tudo é
-    /// publicado depois do último await.
-    /// </summary>
-    private async Task CarregarAsync()
+    private async Task AbrirApuracoesAsync()
     {
-        var geracao = ++_geracao;
-        Carregando = true;
-        _naoVerificado = false;
         try
         {
             using var escopo = Escopo();
-            var repasses = escopo.ServiceProvider.GetRequiredService<RepasseService>();
-            var calculados = await repasses.CalcularAsync(Inicio, Fim);
-            if (geracao != _geracao || Descartada) return;
-            var apuracoes = await repasses.ApuradosAsync();
-            if (geracao != _geracao || Descartada) return;
-            var regras = await repasses.RegrasAsync();
-            if (geracao != _geracao || Descartada) return;
-
-            _calculados = calculados;
-            _apuracoes = apuracoes;
-            _regras = regras;
-            _totais = LeituraDosRepasses.Totais(calculados);
-            _resumo = LeituraDosRepasses.Resumo(calculados);
+            _apuracoes = await escopo.ServiceProvider.GetRequiredService<RepasseService>().ApuradosAsync();
+            _apuracoesNaoVerificadas = false;
         }
         catch (Exception ex)
         {
-            if (geracao != _geracao) return;
-            Clinica.Application.Diagnostico.Registrar("Blazor — repasses não puderam ser calculados", ex);
-            _naoVerificado = true;
-            _erroLeitura = ex.Message;
-            _calculados = [];
-            _totais = null;
-            _resumo = null;
+            Clinica.Application.Diagnostico.Registrar("Blazor — apurações antigas de repasse não puderam ser lidas", ex);
+            _apuracoes = [];
+            _apuracoesNaoVerificadas = true;
         }
-        finally
-        {
-            if (geracao == _geracao) Carregando = false;
-        }
-    }
-
-    private static string? DicaApurar(RepasseCalculado c)
-    {
-        if (!PodeEditar) return "Seu acesso não permite mexer nos repasses.";
-        if (!c.TemRegra) return "Cadastre a regra de repasse deste profissional antes de apurar.";
-        if (c.JaApurado) return "Este período já foi apurado. Cancele a apuração em \"Regras e apurações\" para apurar de novo.";
-        if (c.Valor <= 0m) return "O repasse calculado ficou em zero — não há o que pagar neste período.";
-        return "Fecha o repasse do período e cria a saída prevista no caixa.";
-    }
-
-    private async Task ApurarAsync(RepasseCalculado c)
-    {
-        if (!Exigir(Permissao.EditarFinanceiro, "mexer nos repasses")) return;
-        if (!await Dialogos.ConfirmarAsync("Apurar repasse",
-                $"Fechar {Formato.Dinheiro(c.Valor)} para {c.Profissional} em {LeituraDosRepasses.Periodo(Inicio, Fim)}? "
-                + "Isso cria uma SAÍDA PREVISTA no caixa e impede apurar o mesmo período de novo.",
-                confirmar: "Apurar")) return;
-
-        var inicio = Inicio;
-        var fim = Fim;
-        if (await ExecutarAsync(async () =>
-            {
-                using var escopo = Escopo();
-                await escopo.ServiceProvider.GetRequiredService<RepasseService>()
-                    .ApurarAsync(c.ProfissionalId, inicio, fim, categoriaId: null, operador: Operador);
-            }, "Blazor — repasse não pôde ser apurado", "Repasse apurado e lançado no caixa como saída prevista."))
-            await CarregarAsync();
+        _apuracoesAbertas = true;
     }
 
     private async Task CancelarApuracaoAsync(RepasseApurado a)
@@ -242,68 +583,11 @@
         if (await ExecutarAsync(async () =>
             {
                 using var escopo = Escopo();
-                await escopo.ServiceProvider.GetRequiredService<RepasseService>()
-                    .CancelarApuracaoAsync(a.Id, motivo, Operador);
+                await escopo.ServiceProvider.GetRequiredService<RepasseService>().CancelarApuracaoAsync(a.Id, motivo, Operador);
             }, "Blazor — apuração não pôde ser cancelada", "Apuração cancelada."))
+        {
+            await AbrirApuracoesAsync();
             await CarregarAsync();
-    }
-
-    private async Task ExcluirRegraAsync(RegraRepasse r)
-    {
-        if (!Exigir(Permissao.EditarFinanceiro, "mexer nos repasses")) return;
-        if (!await Dialogos.ConfirmarAsync("Excluir regra",
-                $"Apagar a regra de {r.Profissional?.Rotulo ?? $"Profissional {r.ProfissionalId}"} ({r.Descricao})? As apurações JÁ FEITAS "
-                + "continuam valendo — elas guardam a própria cópia do cálculo.", perigoso: true, confirmar: "Excluir regra")) return;
-
-        if (await ExecutarAsync(async () =>
-            {
-                using var escopo = Escopo();
-                await escopo.ServiceProvider.GetRequiredService<RepasseService>().ExcluirRegraAsync(r.Id);
-            }, "Blazor — regra de repasse não pôde ser excluída", "Regra excluída."))
-            await CarregarAsync();
-    }
-
-    private void NovaRegra()
-    {
-        if (Exigir(Permissao.EditarFinanceiro, "mexer nos repasses")) _novaRegra = true;
-    }
-
-    private async Task RegraSalvaAsync()
-    {
-        _novaRegra = false;
-        Notificacoes.Sucesso("Regra de repasse salva.");
-        await CarregarAsync();
-    }
-
-    /// <summary>
-    /// O extrato do mês em CSV — o papel que o profissional recebe junto com o repasse
-    /// (parcela 32): o número vem com a CONTA que o produziu, senão discordar dele vira
-    /// discutir memória.
-    /// </summary>
-    private async Task ExportarAsync()
-    {
-        if (!Exigir(Permissao.VerFinanceiro, "exportar os repasses")) return;
-        if (_calculados.Count == 0)
-        {
-            Notificacoes.Info("Não há repasse para exportar neste mês.");
-            return;
-        }
-        try
-        {
-            var linhas = _calculados.Select(c => (IReadOnlyList<string>)
-            [
-                c.Profissional, c.Atendimentos.ToString(Formato.PtBr), Formato.Dinheiro(c.ReceitaVinculada),
-                c.RegraDescricao, Formato.Dinheiro(c.Valor), c.Situacao
-            ]).ToList();
-            var erro = await Host.ExportarCsvAsync(
-                ["Profissional", "Atendimentos", "Receita que entrou", "Regra", "A receber", "Situação"],
-                linhas, $"repasses-{Mes:yyyy-MM}.csv");
-            if (erro is not null) Notificacoes.Erro(erro);
-        }
-        catch (Exception ex)
-        {
-            Clinica.Application.Diagnostico.Registrar("Blazor — repasses não puderam ser exportados", ex);
-            Notificacoes.Erro(ex.Message);
         }
     }
 }

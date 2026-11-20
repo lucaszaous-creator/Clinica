@@ -33,3 +33,7 @@
 .conciliacao td .selo{margin-left:0}
 .conciliacao .explica + .resumo-guias{margin-top:var(--space-4)}
 .conciliacao .botao.nao-quebra{white-space:nowrap}
+/* nov/2026 — a referência do pagamento (GRD / conta / lote) vale para o lote que se lança: faixa
+   própria logo acima do resumo, na largura de um campo, para não se confundir com os filtros. */
+.conciliacao .conc-referencia{padding:0 var(--space-6) var(--space-4);max-width:560px}
+@media (max-width:640px){.conciliacao .conc-referencia{padding:0 var(--space-4) var(--space-4);max-width:none}}
