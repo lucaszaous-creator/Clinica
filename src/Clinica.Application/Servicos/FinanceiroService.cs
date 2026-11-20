@@ -398,7 +398,10 @@ public sealed class FinanceiroService
         int? categoriaId = null,
         string? operador = null,
         DeducoesRecebimento? deducoes = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        // GRD / conta / lote do pagamento da operadora (nov/2026): o agrupador do demonstrativo
+        // de repasse. Vai para DocumentoReferencia do lançamento.
+        string? referenciaPagamento = null)
     {
         ArgumentNullException.ThrowIfNull(guia);
         // A lista da conciliação é lida ANTES do clique: o segundo clique, ou a outra máquina
@@ -407,7 +410,7 @@ public sealed class FinanceiroService
             throw new InvalidOperationException(
                 $"A guia de {guia.Paciente} já tem receita lançada — atualize a conciliação.");
 
-        return await LancarAsync(
+        var lancamento = await LancarAsync(
             data: guia.DataBaixa,
             tipo: TipoLancamento.Entrada,
             descricao: $"{guia.Convenio} — guia {guia.NumeroGuiaReal ?? guia.CodigoId.ToString()} ({guia.Paciente})",
@@ -425,6 +428,10 @@ public sealed class FinanceiroService
             operador: operador,
             deducoes: deducoes,
             ct: ct);
+        if (string.IsNullOrWhiteSpace(referenciaPagamento)) return lancamento;
+        lancamento.DocumentoReferencia = referenciaPagamento.Trim();
+        await _repo.SalvarAsync(ct);
+        return lancamento;
     }
 
     // ==================== A conciliação do PARTICULAR (set/2026) ====================

@@ -26,37 +26,8 @@ public class LeiturasRepasseResultadoProducaoTests
         finally { CultureInfo.CurrentCulture = anterior; }
     }
 
-    private static RepasseCalculado Calc(decimal valor, bool temRegra = true, bool jaApurado = false) =>
-        new(1, "Dra. Helena", 3, 540m, valor, "40% da receita", temRegra, jaApurado);
-
     // ==================== Repasses ====================
-
-    [Fact]
-    public void Apurar_so_acende_com_regra_sem_apuracao_e_valor()
-    {
-        LeituraDosRepasses.PodeApurar(Calc(100m)).Should().BeTrue();
-        LeituraDosRepasses.PodeApurar(Calc(0m)).Should().BeFalse("repasse zerado não tem o que pagar");
-        LeituraDosRepasses.PodeApurar(Calc(100m, temRegra: false)).Should().BeFalse();
-        LeituraDosRepasses.PodeApurar(Calc(100m, jaApurado: true)).Should().BeFalse("apurar duas vezes é pagar duas vezes");
-    }
-
-    [Fact]
-    public void Resumo_conta_quem_esta_sem_regra_e_sai_em_reais()
-    {
-        var resumo = SobInvariante(() => LeituraDosRepasses.Resumo([Calc(1234.5m), Calc(0m, temRegra: false)]));
-        resumo.Should().Be("2 profissional(is) com atendimento no período · R$ 1.234,50 a repassar · 1 sem regra cadastrada");
-    }
-
-    [Fact]
-    public void Resumo_sem_profissional_sem_regra_nao_menciona_o_cadastro_que_falta()
-        => SobInvariante(() => LeituraDosRepasses.Resumo([Calc(10m)])).Should().NotContain("sem regra");
-
-    [Fact]
-    public void Totais_somam_o_periodo()
-    {
-        var t = LeituraDosRepasses.Totais([Calc(100m), Calc(50m, jaApurado: true), Calc(0m, temRegra: false)]);
-        t.Should().Be(new TotaisDosRepasses(3, 150m, 1, 1, 1));
-    }
+    // (o "Apurar" por período saiu da tela em nov/2026 — ver RepasseNaTelaTests)
 
     [Theory]
     [InlineData(null, null, "sempre")]

@@ -1,0 +1,341 @@
+@*
+  REPASSE MÉDICO — a tabela de repasse (nov/2026). Responde "quanto cada médico recebe por guia
+  paga, em cada convênio e tipo de guia?" — o que a clínica escrevia à mão no rodapé do
+  demonstrativo ("Amil R$ 65, Petrobras R$ 80, SulAmérica R$ 72 por consulta").
+
+  Quem negocia valor com o médico é a DIREÇÃO (o perfil Gerente tem todas as permissões); quem
+  fecha e paga é o FINANCEIRO. Por isso a tela é UMA, publicada pela MESMA chave
+  (ChavesSuite.RepasseMedico) nos dois lugares: aba "Repasse médico" da Tabela de preços, no
+  Gerente, e destino do botão "Repasse médico" da tela de Repasses, no Financeiro. No Gerente
+  Geral, que carrega os dois módulos, a dedupe por chave mantém uma só.
+
+  Reajuste não é edição: "Reajustar" encerra a regra atual no dia anterior e cria a nova
+  (RepasseService.ReajustarRegraAsync). O que já foi fechado não muda — cada item fechado guarda
+  a regra que valia quando entrou. Regra não se exclui daqui: DESATIVA-se (a linha fica, e o
+  item fechado que aponta para ela continua explicado).
+
+  Embaixo do cabeçalho, por médico, os convênios em que ele tem guia PAGA e conciliada sem regra
+  que a alcance (lido da prévia do repasse da competência corrente, a mesma conta da tela de
+  Repasses): é o cadastro que falta para o fechamento andar, a um clique, já preenchido.
+
+  As frases, o filtro e a situação de cada linha moram em RepasseNaTela (Application, com teste).
+*@
+@namespace Clinica.Ui.Blazor.Telas
+@inherits TelaBase
+@using Clinica.Application.Modelos
+
+<div class="pagina tabela-repasse @(Carregando && _lido ? "carregando" : null)">
+    <CabecalhoPagina Sobretitulo="Tabela de preços · Repasse" Titulo="Repasse médico"
+                     Subtitulo="Quanto cada médico recebe por guia paga — por convênio, tipo de guia e modalidade. É o que o fechamento do repasse aplica, no Financeiro.">
+        <button type="button" class="botao" @onclick="CarregarAsync" disabled="@Carregando" title="Ler de novo (F5)"><Icone Nome="atualizar" />Atualizar</button>
+        <button type="button" class="botao primario" disabled="@(!PodeEditar)" @onclick="() => Nova()"
+                title="@(PodeEditar ? null : "Seu acesso não permite mexer nos repasses.")"><Icone Nome="mais" />Nova regra</button>
+    </CabecalhoPagina>
+
+    @if (_semRegraFalhou)
+    {
+        <div class="tabrep-faixa"><Aviso Tom="atencao" Texto="Não foi possível conferir se há guia paga sem regra nesta competência — a tabela abaixo está completa; só essa conferência ficou de fora." /></div>
+    }
+    else if (_semRegra.Count > 0)
+    {
+        <section class="cartao lista-cartao tabrep-sem-regra" aria-label="Guias pagas sem regra">
+            <div class="cartao-titulo">
+                <div>
+                    <h2><Icone Nome="alerta" /> Guias pagas sem regra</h2>
+                    <p>Guias que o convênio já pagou e não entram no repasse porque nenhuma regra as alcança. Cadastre e elas ficam prontas para fechar.</p>
+                </div>
+            </div>
+            <div class="cartao-corpo">
+                @foreach (var m in _semRegra)
+                {
+                    <div class="tabrep-medico" @key="m.ProfissionalId">
+                        <span class="principal">@m.Profissional</span>
+                        <div class="tabrep-chips">
+                            @foreach (var c in m.Convenios)
+                            {
+                                <button type="button" class="botao mini" disabled="@(!PodeEditar)" @onclick="() => Nova(m.ProfissionalId, c.ConvenioCodigo, c.TipoGuia)"
+                                        title="@(PodeEditar ? "Cadastrar a regra já com o médico, o convênio e o tipo de guia" : "Seu acesso não permite mexer nos repasses.")"
+                                        aria-label="@($"Cadastrar regra de {m.Profissional} para {RepasseNaTela.RotuloSemRegra(c)}")"><Icone Nome="mais" />@RepasseNaTela.RotuloSemRegra(c)</button>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+    }
+
+    <section class="cartao lista-cartao" aria-label="Regras de repasse">
+        <div class="cartao-titulo">
+            <div>
+                <h2>Regras de repasse</h2>
+                @if (_lido && !_naoVerificado) { <p>@Resumo</p> }
+            </div>
+        </div>
+
+        @if (!_naoVerificado && _todas.Count > 0)
+        {
+            <div class="filtros">
+                <Campo Rotulo="Médico">
+                    <select class="campo" aria-label="Médico" value="@_profissional" @onchange="e => { _profissional = e.Value?.ToString() ?? RepasseNaTela.TodosOsProfissionais; Refiltrar(); }">
+                        @foreach (var p in _opcoesProfissional) { <option value="@p">@p</option> }
+                    </select>
+                </Campo>
+                <Campo Rotulo="Convênio">
+                    <select class="campo" aria-label="Convênio" value="@_convenio" @onchange="e => { _convenio = e.Value?.ToString() ?? RepasseNaTela.TodosOsConvenios; Refiltrar(); }">
+                        @foreach (var c in _opcoesConvenio) { <option value="@c">@c</option> }
+                    </select>
+                </Campo>
+                <label class="alternar tabrep-alternar"><input type="checkbox" checked="@_soVigentes" @onchange="e => { _soVigentes = e.Value is true; Refiltrar(); }" /> Só o que vale hoje</label>
+                <button type="button" class="botao" disabled="@(!FiltroAtivo)" @onclick="LimparFiltro"><Icone Nome="x" />Limpar filtro</button>
+            </div>
+        }
+
+        @if (_naoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler a tabela de repasse"
+                            Detalhe="@($"A tabela não está vazia — ela não pôde ser lida. {_erro}")" AoTentarDeNovo="CarregarAsync" />
+        }
+        else if (!_lido)
+        {
+            <div class="cartao-corpo"><Esqueleto Altura="220" /></div>
+        }
+        else if (_linhas.Count == 0)
+        {
+            <EstadoVazio Icone="etiqueta" Titulo="@(FiltroAtivo ? "Nenhuma regra no filtro" : "Nenhuma regra de repasse cadastrada")"
+                         Descricao="@(FiltroAtivo ? "Mude o filtro ou limpe-o para ver a tabela inteira." : "Sem regra, a guia paga não entra no repasse. Comece por “Nova regra”: médico, convênio, tipo de guia e o valor por guia.")">
+                @if (FiltroAtivo) { <button type="button" class="botao" @onclick="LimparFiltro"><Icone Nome="x" />Limpar filtro</button> }
+            </EstadoVazio>
+        }
+        else
+        {
+            <div class="tabela-rolagem">
+                <table class="lista tabrep-tabela">
+                    <thead>
+                        <tr>
+                            <th>Médico</th>
+                            <th>Convênio</th>
+                            <th>Tipo de guia</th>
+                            <th>Modalidade</th>
+                            <th class="direita">Repasse</th>
+                            <th>Vigência</th>
+                            <th>Situação</th>
+                            <th class="direita" aria-label="Ações"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var l in _linhas)
+                        {
+                            <tr @key="l.Regra.Id" class="@(l.ValendoHoje ? null : "tabrep-fora")">
+                                <td>
+                                    <span class="principal">@l.Profissional</span>
+                                    @if (!string.IsNullOrWhiteSpace(l.Regra.Observacoes)) { <span class="secundario">@l.Regra.Observacoes</span> }
+                                </td>
+                                <td>@l.Convenio</td>
+                                <td>@l.TipoGuia</td>
+                                <td><span class="secundario">@l.Modalidade</span></td>
+                                <td class="direita numero"><b>@l.Valor</b></td>
+                                <td class="tabrep-vigencia">@l.Vigencia</td>
+                                <td class="tabrep-situacao"><Selo Tom="@l.Tom">@l.Situacao</Selo></td>
+                                <td class="direita">
+                                    <div class="botoes-linha">
+                                        <button type="button" class="botao mini" disabled="@(!PodeEditar)" @onclick="() => Editar(l)"
+                                                title="@(PodeEditar ? "Corrigir um cadastro errado (para mudar o valor, use Reajustar)" : "Seu acesso não permite mexer nos repasses.")"
+                                                aria-label="@($"Editar a regra de {l.Profissional} ({l.Convenio}, {l.TipoGuia})")"><Icone Nome="editar" />Editar</button>
+                                        <button type="button" class="botao mini icone" disabled="@(!PodeEditar || !l.Regra.Ativa)" @onclick="() => Reajustar(l)"
+                                                title="@(!PodeEditar ? "Seu acesso não permite mexer nos repasses." : l.Regra.Ativa ? "Novo valor a partir de uma data — o que já foi fechado não muda" : "Reative a regra para reajustá-la.")"
+                                                aria-label="@($"Reajustar a regra de {l.Profissional} ({l.Convenio}, {l.TipoGuia})")"><Icone Nome="percentual" /></button>
+                                        <button type="button" class="botao mini icone @(l.Regra.Ativa ? "contorno-perigo" : null)" disabled="@(!PodeEditar)" @onclick="() => AlternarAtivaAsync(l)"
+                                                title="@(!PodeEditar ? "Seu acesso não permite mexer nos repasses." : l.Regra.Ativa ? "Desativar: a regra deixa de pagar guias novas; o que já foi fechado não muda" : "Reativar a regra")"
+                                                aria-label="@($"{(l.Regra.Ativa ? "Desativar" : "Reativar")} a regra de {l.Profissional} ({l.Convenio}, {l.TipoGuia})")"><Icone Nome="@(l.Regra.Ativa ? "cadeado" : "destravar")" /></button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="rodape-lista">A regra mais específica vence (médico + convênio + tipo de guia antes da regra geral do médico). Reajuste entra com a data em que passou a valer e encerra a anterior no dia de antes; o que já foi fechado guarda a regra que valia e nunca muda.</div>
+        }
+    </section>
+</div>
+
+@if (_formulario)
+{
+    <RegraRepasseForm Regra="_editando" ProfissionalId="_preProfissional" ConvenioCodigo="_preConvenio" TipoGuia="_preTipo"
+                      AoFechar="() => _formulario = false" AoConcluir="GravouAsync" />
+}
+@if (_reajustando is { } linha)
+{
+    <ReajusteRegraRepasseForm Linha="linha" AoFechar="() => _reajustando = null" AoConcluir="ReajustouAsync" />
+}
+
+@code {
+    private IReadOnlyList<LinhaDaRegraRepasse> _todas = [];
+    private IReadOnlyList<LinhaDaRegraRepasse> _linhas = [];
+    private IReadOnlyList<string> _opcoesProfissional = [RepasseNaTela.TodosOsProfissionais];
+    private IReadOnlyList<string> _opcoesConvenio = [RepasseNaTela.TodosOsConvenios];
+    private IReadOnlyList<ConveniosSemRegra> _semRegra = [];
+    private string _profissional = RepasseNaTela.TodosOsProfissionais;
+    private string _convenio = RepasseNaTela.TodosOsConvenios;
+    private bool _soVigentes;
+
+    private bool Carregando, _lido, _naoVerificado, _semRegraFalhou;
+    private string? _erro;
+    private int _geracao;
+
+    private bool _formulario;
+    private RegraRepasse? _editando;
+    private int? _preProfissional;
+    private string? _preConvenio;
+    private TipoCodigo? _preTipo;
+    private LinhaDaRegraRepasse? _reajustando;
+
+    /// <summary>A metade visível da permissão; a que impede é o <c>Exigir</c> em cada comando.</summary>
+    private static bool PodeEditar => Pode(Permissao.EditarFinanceiro);
+
+    private bool FiltroAtivo => _profissional != RepasseNaTela.TodosOsProfissionais || _convenio != RepasseNaTela.TodosOsConvenios || _soVigentes;
+    private string Resumo => RepasseNaTela.ResumoDaTabela(_todas, _linhas.Count, FiltroAtivo);
+
+    protected override Task OnInitializedAsync() => CarregarAsync();
+    protected override Task AoVoltarAsync() => CarregarAsync();
+    protected override Task AoAtalhoAsync(AtalhoDeTela atalho) => atalho == AtalhoDeTela.Atualizar ? CarregarAsync() : Task.CompletedTask;
+
+    /// <summary>
+    /// A tabela e a conferência das guias sem regra, em FILA no mesmo escopo (mesmo DbContext),
+    /// publicadas depois do último await. A conferência falha sozinha: a tabela é a pergunta da
+    /// tela, e ela não some porque a prévia do repasse não pôde ser lida.
+    /// </summary>
+    private async Task CarregarAsync()
+    {
+        var geracao = ++_geracao;
+        Carregando = true;
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        IReadOnlyList<RegraRepasse>? regras = null;
+        IReadOnlyList<PreviaRepasseProfissional>? previas = null;
+        string? erro = null;
+
+        using (var escopo = Escopo())
+        {
+            try
+            {
+                regras = await escopo.ServiceProvider.GetRequiredService<RepasseService>().RegrasAsync();
+            }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar("Blazor — tabela de repasse não pôde ser lida", ex);
+                erro = ex.Message;
+            }
+            if (geracao != _geracao || Descartada) return;
+
+            try
+            {
+                previas = await escopo.ServiceProvider.GetRequiredService<FechamentoRepasseService>()
+                    .PreviaAsync(new DateOnly(hoje.Year, hoje.Month, 1));
+            }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar("Blazor — guias pagas sem regra não puderam ser conferidas", ex);
+            }
+            if (geracao != _geracao || Descartada) return;
+        }
+
+        _naoVerificado = regras is null;
+        _erro = erro;
+        _todas = RepasseNaTela.Ordenar((regras ?? []).Select(r => RepasseNaTela.LinhaDe(r, hoje)));
+        _opcoesProfissional = RepasseNaTela.OpcoesDeProfissional(_todas);
+        _opcoesConvenio = RepasseNaTela.OpcoesDeConvenio(_todas);
+        // Atualizar não desfaz o filtro de quem está trabalhando na tabela.
+        if (!_opcoesProfissional.Contains(_profissional)) _profissional = RepasseNaTela.TodosOsProfissionais;
+        if (!_opcoesConvenio.Contains(_convenio)) _convenio = RepasseNaTela.TodosOsConvenios;
+        Refiltrar();
+        _semRegraFalhou = previas is null;
+        _semRegra = previas is null ? [] : RepasseNaTela.SemRegra(previas);
+        _lido = true;
+        Carregando = false;
+    }
+
+    private void Refiltrar() => _linhas = RepasseNaTela.Filtrar(_todas, _profissional, _convenio, _soVigentes);
+
+    private void LimparFiltro()
+    {
+        _profissional = RepasseNaTela.TodosOsProfissionais;
+        _convenio = RepasseNaTela.TodosOsConvenios;
+        _soVigentes = false;
+        Refiltrar();
+    }
+
+    private void Nova(int? profissionalId = null, string? convenioCodigo = null, TipoCodigo? tipo = null)
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "mexer nos repasses")) return;
+        _editando = null;
+        _preProfissional = profissionalId;
+        _preConvenio = convenioCodigo;
+        _preTipo = tipo;
+        _formulario = true;
+    }
+
+    private void Editar(LinhaDaRegraRepasse l)
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "mexer nos repasses")) return;
+        _editando = l.Regra;
+        _preProfissional = null;
+        _preConvenio = null;
+        _preTipo = null;
+        _formulario = true;
+    }
+
+    private void Reajustar(LinhaDaRegraRepasse l)
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "mexer nos repasses")) return;
+        _reajustando = l;
+    }
+
+    private async Task GravouAsync()
+    {
+        var nova = _editando is null;
+        _formulario = false;
+        _editando = null;
+        Notificacoes.Sucesso(nova ? "Regra de repasse cadastrada." : "Regra de repasse corrigida.");
+        await CarregarAsync();
+    }
+
+    private async Task ReajustouAsync()
+    {
+        _reajustando = null;
+        Notificacoes.Sucesso("Regra reajustada: a anterior foi encerrada e a nova vale a partir da data informada.");
+        await CarregarAsync();
+    }
+
+    /// <summary>
+    /// Desativar/reativar regrava a regra INTEIRA com a chave trocada — o SalvarRegraAsync copia
+    /// campo a campo, e quem não edita, preserva.
+    /// </summary>
+    private async Task AlternarAtivaAsync(LinhaDaRegraRepasse l)
+    {
+        if (!Exigir(Permissao.EditarFinanceiro, "mexer nos repasses")) return;
+        var r = l.Regra;
+        if (r.Ativa && !await Dialogos.ConfirmarAsync("Desativar regra", RepasseNaTela.PerguntaDeDesativar(l),
+                perigoso: true, confirmar: "Desativar")) return;
+
+        if (await ExecutarAsync(async () =>
+            {
+                using var escopo = Escopo();
+                await escopo.ServiceProvider.GetRequiredService<RepasseService>().SalvarRegraAsync(new RegraRepasse
+                {
+                    Id = r.Id,
+                    ProfissionalId = r.ProfissionalId,
+                    Base = r.Base,
+                    Percentual = r.Percentual,
+                    ValorPorAtendimento = r.ValorPorAtendimento,
+                    ModalidadeCodigo = r.ModalidadeCodigo,
+                    ConvenioCodigo = r.ConvenioCodigo,
+                    TipoGuia = r.TipoGuia,
+                    VigenteDe = r.VigenteDe,
+                    VigenteAte = r.VigenteAte,
+                    Ativa = !r.Ativa,
+                    Observacoes = r.Observacoes
+                }, Operador);
+            }, "Blazor — regra de repasse não pôde ser desativada/reativada", r.Ativa ? "Regra desativada." : "Regra reativada."))
+            await CarregarAsync();
+    }
+}
