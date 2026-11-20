@@ -1,0 +1,71 @@
+@*
+  APURAÇÕES ANTIGAS DE REPASSE (nov/2026) — o histórico do modelo por PERÍODO (RepasseApurado),
+  que valeu até o repasse passar a ser por guia recebida. Só leitura, com o cancelar que já
+  existia: cancelar uma apuração antiga ainda cancela a saída prevista dela no caixa. O "Apurar"
+  saiu da tela inteiro; as regras moram na tela "Repasse médico".
+
+  Uma sessão particular dentro de um período apurado aqui aparece como "Já apurado" na tela de
+  Repasses (BloqueioItemRepasse.ApuradoNoModeloAntigo): pagá-la de novo seria pagar duas vezes.
+
+  Como antes, o formulário recebe a lista da tela e devolve a ação a ela: quem pergunta, grava e
+  recarrega é a tela.
+*@
+@using Clinica.Application.Modelos
+
+<Modal Titulo="Apurações antigas (por período)" Largura="largo" AoFechar="AoFechar"
+       Subtitulo="O repasse por período, que valeu até nov/2026. Fica para consulta: o repasse de hoje é por guia paga e conciliada.">
+    <ChildContent>
+        @if (NaoVerificado)
+        {
+            <FalhaDeLeitura Titulo="Não foi possível ler as apurações antigas" Detalhe="Feche e tente de novo pela tela de Repasses." />
+        }
+        else if (Apuracoes.Count == 0)
+        {
+            <EstadoVazio Icone="cadeado" Titulo="Nenhuma apuração antiga"
+                         Descricao="A clínica não chegou a apurar repasse pelo modelo por período." />
+        }
+        else
+        {
+            <div class="tabela-rolagem repasse-tabela-form">
+                <table class="lista">
+                    <thead><tr><th>Profissional</th><th style="width:200px">Período</th><th class="direita" style="width:130px">Valor</th><th style="width:200px">Situação</th><th class="direita" style="width:72px">Ações</th></tr></thead>
+                    <tbody>
+                        @foreach (var a in Apuracoes)
+                        {
+                            <tr @key="a.Id" class="@(a.Cancelado ? "apagada" : null)">
+                                <td>
+                                    <span class="principal">@(a.Profissional?.Rotulo ?? "—")</span>
+                                    <span class="secundario">@a.Atendimentos atendimento(s) · @(a.RegraDescricao ?? "—")</span>
+                                </td>
+                                <td class="nao-quebra">@LeituraDosRepasses.Periodo(a.Inicio, a.Fim)</td>
+                                <td class="direita numero">@Formato.Dinheiro(a.Valor)</td>
+                                <td>
+                                    <Selo Tom="@(a.Cancelado ? "neutro" : "sucesso")" Dica="@a.MotivoCancelamento">@LeituraDosRepasses.SituacaoDaApuracao(a)</Selo>
+                                </td>
+                                <td class="direita">
+                                    @if (!a.Cancelado)
+                                    {
+                                        <button type="button" class="botao mini icone contorno-perigo" title="Cancelar apuração" aria-label="Cancelar apuração"
+                                                disabled="@(!PodeEditar)" @onclick="() => AoCancelarApuracao.InvokeAsync(a)"><Icone Nome="cancelar" /></button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Fechar</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<RepasseApurado> Apuracoes { get; set; } = [];
+    [Parameter] public bool NaoVerificado { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+    [Parameter] public EventCallback<RepasseApurado> AoCancelarApuracao { get; set; }
+
+    private static bool PodeEditar => SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
+}

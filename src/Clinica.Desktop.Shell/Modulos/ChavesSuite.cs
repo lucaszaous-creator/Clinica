@@ -228,6 +228,15 @@ public static class ChavesSuite
     public const string PrecosParticular = "precos-particular";
 
     /// <summary>
+    /// Repasse médico — a tabela de regras de repasse (nov/2026). Tela do shell publicada pelo
+    /// Gerente (aba da Tabela de preços, onde a direção negocia o valor com o médico) e pelo
+    /// Financeiro (destino do botão "Repasse médico" da tela de Repasses, onde se fecha e paga).
+    /// Mora aqui pela razão do PrecosParticular: chave diferente faria o Gerente Geral mostrar a
+    /// tela duas vezes. A tela Blazor navega para ela pelo literal ("repasse-medico").
+    /// </summary>
+    public const string RepasseMedico = "repasse-medico";
+
+    /// <summary>
     /// Importar pacientes do sistema anterior: a tela é do Gerente, e o "Importar" da lista
     /// de Pacientes (out/2026, mockup aprovado) navega para ela onde ela existe.
     /// </summary>

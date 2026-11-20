@@ -53,6 +53,11 @@ public static class MensagensDeErro
         if (indice.Contains("Contatos", StringComparison.Ordinal))
             return "Esta mensagem já foi registrada para este paciente nesta rodada.";
 
+        // A trava de pagar o mesmo repasse duas vezes (nov/2026): dois postos fecharam o
+        // mesmo profissional ao mesmo tempo, e o segundo esbarrou no índice de ItensRepasse.
+        if (indice.Contains("ItensRepasse", StringComparison.Ordinal))
+            return FechamentoRepasseConcorrente;
+
         // --- genéricos por coluna, só depois dos específicos ---
         if (indice.Contains("CodigoVerificacao", StringComparison.Ordinal))
             return "Já existe um documento com este código de conferência.";
@@ -64,6 +69,13 @@ public static class MensagensDeErro
         return "Este registro já existe — a gravação foi recusada para não duplicá-lo. "
                + $"(índice: {indice})";
     }
+
+    /// <summary>
+    /// A MESMA frase do <c>FechamentoRepasseService</c> (que a usa quando a recusa chega pelo
+    /// SQLite, sem nome de índice): um texto só para o mesmo fato.
+    /// </summary>
+    public const string FechamentoRepasseConcorrente =
+        Clinica.Application.Servicos.FechamentoRepasseService.MensagemConcorrencia;
 
     /// <summary>
     /// Mensagem para queda de conexão.

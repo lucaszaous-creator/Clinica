@@ -4,3 +4,5 @@ faturamento-pendencias
 consultorio-medicamentos
 consultorio-exames
 ocupacao-agenda
+repasses
+repasse-medico

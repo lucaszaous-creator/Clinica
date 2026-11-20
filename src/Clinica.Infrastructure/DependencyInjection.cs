@@ -163,6 +163,8 @@ public static class DependencyInjection
         services.AddScoped<TaxaService>();
         services.AddScoped<PacoteService>();
         services.AddScoped<RepasseService>();
+        services.AddScoped<FechamentoRepasseService>();
+        services.AddScoped<RelatorioRepasseService>();
         services.AddScoped<EstoqueService>();
         services.AddScoped<MargemService>();
         services.AddScoped<CrmNaDirecaoService>();
