@@ -418,8 +418,10 @@ public static partial class GuiaAnsNaBaixa
 /// atendimento, horário, cadastro da equipe, dados do prestador, tabela de preços, guias anteriores) e
 /// devolve os campos preenchidos. Só leitura — quem grava é o <see cref="FaturamentoService"/>.
 /// </summary>
+/// <param name="relogio">A hora da clínica (padrão: <see cref="HoraDaClinica.Agora"/>). Os avisos de prazo e da
+/// janela do mês dependem do dia; o teste fixa o relógio para não depender da data em que roda.</param>
 public sealed class GuiaAnsNaBaixaService(IClinicaRepositorio repo, ParametrosService parametros, PrecoConvenioService precos,
-    CredenciaisTissService credenciais, EnvioTissLigadoNaPrevia? previa = null)
+    CredenciaisTissService credenciais, EnvioTissLigadoNaPrevia? previa = null, Func<DateTime>? relogio = null)
 {
     public async Task<PropostaGuiaAns> PrepararAsync(int codigoId, CancellationToken ct = default)
     {
@@ -433,7 +435,7 @@ public sealed class GuiaAnsNaBaixaService(IClinicaRepositorio repo, ParametrosSe
         var convenioCodigo = paciente.ConvenioCodigo ?? paciente.Convenio.ToString();
         var operadora = OperadorasTiss.DoConvenio(paciente.ConvenioCodigo, paciente.Convenio);
         var modelo = operadora?.ModeloDaGuia ?? ModeloDaGuiaTiss.Consulta;
-        var agora = HoraDaClinica.Agora();
+        var agora = (relogio ?? HoraDaClinica.Agora)();
         var prazo = PrazosTiss.AvisoDaGuia(operadora, atendimento.Data, agora);
         var alertaDePrazo = prazo is { Grave: true } ? prazo.Value.Texto : null;
         // O grave vai à parte (vermelho); o comum e a janela do mês, junto dos outros avisos.
