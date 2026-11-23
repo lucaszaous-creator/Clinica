@@ -73,9 +73,10 @@ public static class SuiteApp
             args.Handled = true;
         };
 
-        // Atualização na abertura: havendo versão nova, o app reinicia já atualizado
-        // (antes de tocar no banco). O limite evita travar a abertura com rede lenta.
-        if (await AtualizadorSuite.AtualizarNaAberturaAsync(TimeSpan.FromSeconds(30)))
+        // Atualização ANTES DO LOGIN (nov/2026): versão obrigatória mostra "Atualizando…", baixa e
+        // reabre (até 2 min); a comum baixa por trás e entra no próximo reinício; sem internet segue.
+        // Antes de tocar no banco: a versão obrigatória costuma ser a que traz migration.
+        if (await AtualizadorSuite.AtualizarAntesDoLoginAsync(nomeApp))
             return null; // o Velopack encerra este processo e reabre o app atualizado
 
         // Fechar a janela de setup não pode encerrar o app antes de a janela principal
