@@ -494,8 +494,30 @@ public class GuiaAnsNaBaixaTests : IDisposable
 
     // ==================== a proposta que o formulário recebe ====================
 
-    private GuiaAnsNaBaixaService Proposta() => new(_repo, new ParametrosService(_repo), new PrecoConvenioService(_repo),
-        new CredenciaisTissService(_repo, new ProtecaoSegredoGlobal(Convert.ToBase64String(new byte[32]))));
+    // O relógio é FIXO (dois dias depois do atendimento, dentro da janela 1–20 da Saúde Petrobras): os avisos
+    // de prazo e de dias de envio dependem do dia, e o teste não pode quebrar só porque rodou no dia 21.
+    private static readonly DateTime Agora = Dia.AddDays(2).ToDateTime(new TimeOnly(10, 0));
+
+    private GuiaAnsNaBaixaService Proposta(DateTime? agora = null) => new(_repo, new ParametrosService(_repo), new PrecoConvenioService(_repo),
+        new CredenciaisTissService(_repo, new ProtecaoSegredoGlobal(Convert.ToBase64String(new byte[32]))), relogio: () => agora ?? Agora);
+
+    // A janela de envio da Saúde Petrobras (lotes do dia 1 ao 20): só aviso, nos dois lados da janela.
+    [Fact]
+    public async Task Petrobras_no_dia_20_a_proposta_nao_avisa_dos_dias_de_envio()
+    {
+        var (_, codigo) = await LancarAsync(Convenio.Petrobras);
+        var proposta = await Proposta(new DateTime(2026, 11, 20, 17, 0, 0)).PrepararAsync(codigo.Id);
+        proposta.Avisos.Should().NotContain(a => a.Contains("recebe lotes do dia"));
+    }
+
+    [Fact]
+    public async Task Petrobras_no_dia_21_a_proposta_avisa_que_o_proximo_periodo_abre_no_dia_1()
+    {
+        var (_, codigo) = await LancarAsync(Convenio.Petrobras);
+        var proposta = await Proposta(new DateTime(2026, 11, 21, 9, 0, 0)).PrepararAsync(codigo.Id);
+        proposta.Avisos.Should().ContainSingle(a => a.Contains("recebe lotes do dia 1 ao dia 20"))
+            .Which.Should().Contain("hoje é dia 21").And.Contain("01/12");
+    }
 
     [Fact]
     public async Task Guia_que_nao_exige_recebe_proposta_vazia()
