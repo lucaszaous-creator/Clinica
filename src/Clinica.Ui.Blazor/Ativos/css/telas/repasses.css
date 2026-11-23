@@ -1,8 +1,6 @@
 /* Estilo PRÓPRIO da tela (out/2026). O comum mora em ../clinica.css — aqui só o que esta tela tem de seu. */
 /* O valor a receber é o número que se lê em voz alta: peso de destaque, sem cor de entrada/saída. */
 .repasse-valor{font-weight:600;color:var(--texto-primario)}
-/* Quem não tem regra continua na lista (é o cadastro que falta), com o valor apagado. */
-table.lista tr.repasse-sem-regra .repasse-valor{color:var(--texto-secundario);font-weight:500}
 /* Dentro do formulário a tabela encosta na borda do modal, como a lista da tela. */
 .modal .repasse-tabela-form{margin:0 calc(-1 * var(--space-6))}
 .repasse-nota{margin:0}
@@ -21,3 +19,74 @@ table.lista tr.repasse-sem-regra .repasse-valor{color:var(--texto-secundario);fo
 /* nov/2026 — com os quadros por tipo abaixo da tabela, o corpo do formulário (coluna flexível)
    espremia a tabela dos profissionais até uma linha. Nenhum dos dois encolhe: quem rola é o corpo. */
 .tabela-rolagem:has(> .rel-prof-tabela),.rel-prof-contagens{flex-shrink:0}
+/* ===== Repasse por guia recebida (nov/2026) ===== */
+.repasses .repasse-faixa{margin-bottom:var(--space-4)}
+.repasse-col-qtd{width:64px}
+.repasse-col-valor{width:120px}
+.repasse-col-situacao{width:170px}
+.repasse-col-comp{width:96px}
+.repasse-col-acoes{width:200px}
+.repasse-col-acoes-f{width:250px}
+/* O nome do profissional é o botão que abre a lista dele: parece texto, comporta-se como botão. */
+.repasse-expandir{display:inline-flex;align-items:center;gap:var(--space-2);padding:0;border:0;background:none;color:inherit;font:inherit;cursor:pointer;text-align:left}
+.repasse-expandir:focus-visible{outline:2px solid var(--foco);outline-offset:2px;border-radius:var(--radius-pequeno)}
+table.lista tr.repasse-aberta > td{border-bottom-color:transparent}
+table.lista tr.repasse-detalhe > td{background:var(--cinza-50);padding:var(--space-3) var(--space-4) var(--space-4)}
+.repasse-itens{display:flex;flex-direction:column;gap:var(--space-4)}
+.repasse-grupo{background:var(--superficie);border:1px solid var(--borda);border-radius:var(--radius-card);overflow:hidden}
+.repasse-grupo-titulo{display:flex;justify-content:space-between;gap:var(--space-3);padding:var(--space-2) var(--space-4);border-bottom:1px solid var(--borda);font-size:var(--text-small-size)}
+.repasse-grupo-titulo .numero{font-weight:600;white-space:nowrap}
+.repasse-itens-tabela td,.repasse-itens-tabela th{font-size:var(--text-small-size)}
+/* Bloqueado não some: aparece, recua e diz por quê. */
+table.lista tr.repasse-bloqueado td{color:var(--texto-secundario)}
+.repasse-motivo{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1);white-space:normal}
+.repasse-cadastrar{margin-top:var(--space-1)}
+.repasse-aguardando{background:var(--superficie);border:1px dashed var(--borda);border-radius:var(--radius-card);padding:var(--space-2) var(--space-4)}
+.repasse-aguardando summary{cursor:pointer;font-size:var(--text-small-size);color:var(--texto-secundario)}
+.repasse-aguardando[open] summary{margin-bottom:var(--space-2)}
+.repasse-conferente{font-weight:500}
+.repasse-fechamentos .botoes-linha{justify-content:flex-end;flex-wrap:nowrap}
+.repasse-fechar-pares{margin-bottom:var(--space-4)}
+/* ===== Repasse médico — a tabela de regras (nov/2026) ===== */
+.tabela-repasse .tabrep-faixa{margin-bottom:var(--space-4)}
+.tabrep-sem-regra{margin-bottom:var(--space-4)}
+.tabrep-sem-regra h2{display:flex;align-items:center;gap:var(--space-2);color:var(--aviso-texto)}
+.tabrep-medico{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2) var(--space-4);padding:var(--space-2) 0;border-bottom:1px solid var(--borda)}
+.tabrep-medico:last-child{border-bottom:0}
+.tabrep-chips{display:flex;flex-wrap:wrap;gap:var(--space-2)}
+.tabela-repasse .tabrep-alternar{padding-bottom:var(--space-2)}
+.tabrep-tabela td.numero{white-space:nowrap}
+/* Fora de vigência fica legível, mas recua: a pergunta da tela é "quanto paga HOJE". */
+.tabrep-tabela tr.tabrep-fora td:not(:last-child){color:var(--texto-secundario)}
+.tabrep-situacao .selo{white-space:nowrap}
+.tabrep-tabela .botoes-linha{justify-content:flex-end;flex-wrap:nowrap}
+.repasse-lista .botao,.repasse-fechamentos .botao{white-space:nowrap}
+/* Dinheiro não quebra entre o "R$" e o número (a foto de 1024 mostrou "R$ / 65,00"). */
+.repasse-lista td.numero,.repasse-fechamentos td.numero,.repasse-itens-tabela td.numero{white-space:nowrap}
+.tabrep-vigencia{min-width:110px}
+.tabrep-sem-regra .cartao-corpo{padding-top:0}
+
+/* O marco da virada (nov/2026): o campo e o botão numa linha que quebra em tela estreita. */
+.repasse-marco { display: flex; flex-direction: column; gap: var(--space-2); }
+.repasse-marco-campos { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3); }
+.repasse-marco-nota { margin: 0 0 var(--space-3); color: var(--texto-secundario); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+/* ===== Relatório para os médicos (nov/2026) — a segunda vista de Repasses ===== */
+.repasses .repasse-vista{margin-bottom:var(--space-4);align-self:flex-start}
+.repasse-rel-filtros{border-bottom:0;padding-bottom:0}
+.repasse-rel-filtros input[type="month"]{min-width:150px}
+.repasse-rel-atalhos{display:flex;flex-wrap:wrap;gap:var(--space-2);padding-bottom:var(--space-1)}
+.repasse-rel-barra{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);
+  padding:var(--space-4) var(--space-6);border-bottom:1px solid var(--borda)}
+.repasse-rel-barra .resumo-filtro{color:var(--texto-secundario);font-size:var(--text-small-size)}
+.repasse-rel-aviso{padding:var(--space-3) var(--space-6) 0}
+.repasse-rel-kpis{padding:var(--space-4) var(--space-6)}
+.repasse-rel-tabela td.numero{white-space:nowrap}
+.repasse-rel-tabela td.repasse-a-pagar{color:var(--aviso-texto);font-weight:600}
+.repasse-rel-competencia{display:flex;flex-direction:column;gap:var(--space-3)}
+.repasse-rel-competencia-titulo{display:flex;justify-content:space-between;gap:var(--space-3);font-size:var(--text-small-size);color:var(--texto-secundario)}
+.repasse-rel-competencia-titulo .numero{font-weight:600;color:var(--texto-primario);white-space:nowrap}
+@media (max-width:640px){
+  .repasse-rel-barra,.repasse-rel-aviso,.repasse-rel-kpis{padding-left:var(--space-4);padding-right:var(--space-4)}
+  .repasse-rel-barra .botoes-linha{width:100%}
+  .repasse-rel-barra .botoes-linha .botao{flex:1}
+}

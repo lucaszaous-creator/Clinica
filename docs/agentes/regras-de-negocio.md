@@ -1118,6 +1118,36 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   para travar o período: repasse pago duas vezes é dinheiro que não volta; cancelar a
   apuração cancela junto a saída no caixa. Regra tem vigência — mudar o percentual hoje
   não reescreve o mês já pago.
+- **Repasse por GUIA RECEBIDA** (`FechamentoRepasseService`, nov/2026, pedido da clínica):
+  o repasse só conta depois de a guia ser **conciliada** — entrada REALIZADA e viva com
+  `CodigoFaturamentoId` (prevista é "aguardando o convênio", informada e nunca somada). Um
+  item por guia (`G:{id}`) e por sessão particular paga (`P:{atendimentoId}`); a competência
+  é a do **pagamento** (`DataPagamento ?? Data`), a regra é a da **data do atendimento**, e
+  ganha a mais específica (convênio + tipo de guia + modalidade). A trava de pagar duas vezes
+  é o índice único filtrado de `ItensRepasse.Chave`; cancelar o fechamento copia
+  `CanceladoEm` para cada item, senão eles nunca voltam à prévia. Crédito cuja receita sumiu
+  (cancelada, atendimento estornado) volta **negativo** no próximo fechamento (`E:{chave}`);
+  o fechamento antigo não se reescreve. Quem atendeu: horário por `AtendimentoId`; sem
+  profissional, o horário **substituído** (`AtendimentoSubstitutoId`). Item cujo atendimento
+  cai num `RepasseApurado` vivo é bloqueado (o modelo antigo pagava toda sessão, convênio
+  incluso). ⚠️ **Marco da virada**: sem `Repasse.GuiaRecebida.RecebidosDesde`, a primeira
+  prévia traz TODO recebimento histórico ainda sem item — o que foi pago à mão aparece pronto
+  para fechar. Por isso `FecharAsync` **recusa** sem o marco (`MensagemSemMarco`) e a tela
+  Repasses mostra o campo antes do primeiro fechamento: motor sem porta é garantia aparente.
+  ⚠️ **A Conciliação lançava a receita da guia SEMPRE como prevista** — o "recebi" só
+  existia no Caixa, e nenhuma guia viraria repasse sem um segundo passo que ninguém lembraria.
+  `LancarReceitaDaGuiaAsync(recebidoEm:)` (campo "Recebido em" do lote, ao lado do GRD) faz
+  a receita nascer REALIZADA; vazio continua "a receber", como sempre. ⚠️ **Valor de regra
+  muda por reajuste** (`ReajustarRegraAsync`: encerra a antiga na véspera e cria a nova), e
+  toda mudança de regra vai à auditoria; a tabela é a tela **Repasse médico**
+  (`ChavesSuite.RepasseMedico`), no Gerente (Tabela de preços) e no Financeiro, uma só. A
+  margem (`MargemService`) continua lendo o cálculo antigo por período — decisão pendente.
+  **Relatório para os médicos** (`RelatorioRepasseService`): lê só fechamentos GRAVADOS;
+  cancelado aparece só com `IncluirCancelados`, marcado e fora de todo total; estorno é linha
+  negativa e soma. ⚠️ **Busca sem acento que roda nos dois bancos**: `replace` encadeado por
+  letra acentuada estoura o SQLite ("parser stack overflow"), e o `lower` dele só baixa ASCII.
+  A saída foi LIKE com curinga onde pode haver acento (`PadraoDoPaciente`) — superconjunto no
+  banco, conferência exata em C# sobre o recorte. O trecho do paciente NÃO vai à trilha.
 - **Estoque** (`EstoqueService`, parcela 4): o **saldo é a soma dos movimentos**, nunca um
   campo — total guardado é como o estoque para de bater. A **validade fica no movimento
   de entrada** (o lote), não no item, senão o lote que vence primeiro some. Saída maior

@@ -1413,6 +1413,10 @@
      {
       "rotulo": "Particular",
       "chave": "precos-particular"
+     },
+     {
+      "rotulo": "Repasse médico",
+      "chave": "repasse-medico"
      }
     ],
     "componente": null
@@ -1585,6 +1589,19 @@
     "perfilExclusivo": null,
     "abas": [],
     "componente": "RentabilidadePorConvenio"
+   },
+   {
+    "chave": "repasse-medico",
+    "rotulo": "Repasse médico",
+    "descricao": null,
+    "oculto": true,
+    "requer": [
+     "VerFinanceiro"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "TabelaDeRepasse"
    },
    {
     "chave": "repasses",
