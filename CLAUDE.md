@@ -607,6 +607,8 @@ arquivos que você LÊ quando a tarefa toca a área (cada um abre com o índice 
 Antes de mexer numa área: `grep -n "palavra" docs/agentes/*.md` e leia os tópicos que aparecerem.
 Lição nova vai para o arquivo da área; regra que vale para toda mudança, para este arquivo.
 
+**Vídeo de anúncio** (Reels/Stories/Feed): siga `docs/padrao-de-video-anuncio.md` (legenda cinética presa à voz, fundo branco, logo colorida, ElevenLabs, código + ffmpeg, regras do CFM); o gerador-modelo está em `tools/video-anuncios/`.
+
 Documentação de produto e decisões: `docs/` (`docs/arquitetura-multi-exe.md`, `docs/telas-blazor.md`,
 `docs/chat-da-equipe.md`, `docs/crm-em-producao-out2026.md`, `docs/desempenho-leituras-2026-10-15.md`).
 O WhatsApp nativo na Recepção (decisão da direção, out/2026): a proposta e o mockup interativo em
