@@ -124,7 +124,6 @@ public interface IMolduraDoApp
     // ----- navegação -----
     void Navegar(string chave);
     void SelecionarAba(int indice);
-    void AbrirTreinamento();
 
     // ----- assinaturas de infusão pendentes -----
     int AssinaturasPendentes { get; }
@@ -173,9 +172,6 @@ public interface IMolduraDoApp
 
     /// <summary>Reabre o app na tela de entrada (a confirmação é da moldura, antes).</summary>
     void TrocarUsuario();
-
-    /// <summary>O botão "Treinamento" (as videoaulas do app). A gestão web não tem: as aulas são do app.</summary>
-    bool TemTreinamento => true;
 
     /// <summary>O sino. A gestão web (nov/2026) ainda não vigia pedidos e respostas — o vigia é do shell do app.</summary>
     bool TemSino => true;

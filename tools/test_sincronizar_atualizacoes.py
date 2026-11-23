@@ -47,7 +47,7 @@ class PrincipaisTests(unittest.TestCase):
 
     def test_sem_canal_nenhum_recusa(self):
         with self.assertRaisesRegex(RuntimeError, 'Nenhum canal'):
-            sync.principais([self.tag(1, 'treinamento-desktop-20261020')])
+            sync.principais([self.tag(1, 'outra-coisa-20261020')])
 
     def test_ancora_sem_faturamento_usa_app_visivel(self):
         recepcao = {'id': 5, 'draft': False, 'prerelease': False}

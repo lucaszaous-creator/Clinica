@@ -46,7 +46,7 @@ ConnectionStrings__Clinica="Host=...;Database=...;Username=...;Password=..." \
 
 # A PRÉVIA das telas Blazor com dados fictícios (tools/PreviaBlazor, Sementes/ = uma por tela).
 # A página da aula (/aula/{app}/{chave}, onde a moldura e o chat aparecem) pede CLINICA_NAVEGACAO
-# apontando para o navegacao.json; sem ele, só /tela/{Nome}.
+# apontando para um navegacao.json (o da gestão é src/Clinica.Gestao.Web/catalogo-gestao.json); sem ele, só /tela/{Nome}.
 dotnet run --project tools/PreviaBlazor --urls http://127.0.0.1:5199
 
 # Verificação estática da suíte multi-exe (XAML, pack URIs, tokens, migration destrutiva)
@@ -78,7 +78,8 @@ trava a DLL dos testes e o CI já faz o trabalho certo: num `pull_request` o Git
 - **CI** (`.github/workflows/build-exe.yml`, runner Windows, só no PR para a `main`): `build`,
   `testes` (6 lotes, inclui `TelasBlazorAbremTests`: toda tela Blazor e cada botão), `conferencias`
   e `publicar`. O push da `main` depois do merge NÃO roda de novo (o runner Windows é faturado 2×).
-  Os jobs `gravar`/`montar`/`inventario` são das videoaulas (`Videoaulas (Treinamento)`), não do build.
+  As videoaulas (workflows `Videoaulas (Treinamento)` e `Publicar videoaulas`, a aba Treinamento) saíram
+  por inteiro em nov/2026, a pedido do dono: ninguém usava e gastavam minutos de Actions.
 - **Localmente**, só o que é rápido e focado: `dotnet build` do projeto mexido, `--filter` na família
   de testes da mudança (segundos), `verificar-suite`. Nada de rodar a suíte inteira "para garantir".
 - **O que o CI NÃO cobre** desde que o `verificar.yml` saiu (out/2026, para economizar Actions): a

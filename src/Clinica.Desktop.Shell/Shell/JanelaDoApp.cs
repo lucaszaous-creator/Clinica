@@ -54,8 +54,7 @@ public sealed class JanelaDoApp : Window
         catch (Exception ex) { LogSuite.Registrar("Janela do app — ícone não carregou", ex); }
 
         _visor = NavegadorEmbutido.Criar(servicos, typeof(RaizDoApp),
-            new Dictionary<string, object?> { ["Estado"] = _estado },
-            core => servicos.GetService<Treinamento.TreinamentoDaSuite>()?.MapearPastas(core));
+            new Dictionary<string, object?> { ["Estado"] = _estado });
         Content = _visor;
 
         // A primeira renderização libera o navegador; o BeginInvoke em Background deixa o lote

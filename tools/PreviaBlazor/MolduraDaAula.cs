@@ -4,7 +4,7 @@ using Clinica.Ui.Blazor.Moldura;
 namespace PreviaBlazor;
 
 /// <summary>
-/// A moldura do app na prévia (out/2026, para as videoaulas): o MESMO <see cref="MolduraDoApp"/>
+/// A moldura do app na prévia (out/2026): o MESMO <see cref="MolduraDoApp"/>
 /// que os cinco executáveis desenham — logo, menu do topo, abas das telas compostas —, com o
 /// menu lido da navegação real (<see cref="NavegacaoDaPrevia"/>). Clicar no menu ou numa aba
 /// troca a tela do palco, como no app; o sino, a busca e a conta ficam quietos, porque a aula
@@ -42,7 +42,7 @@ public sealed class MolduraDaAula : IMolduraDoApp
 
     // ----- quem espera resposta no WhatsApp (25/10, só com ?espera=true na página da aula) -----
     // O MESMO vigia do app (VigiaDoWhatsApp) sobre o CRM de mentira, uma leitura: o número no item "WhatsApp" e a seção
-    // do sino, para a foto. Sem o parâmetro, a aula continua com o sino quieto (as videoaulas não mudam).
+    // do sino, para a foto. Sem o parâmetro, a aula continua com o sino quieto .
     private Clinica.Application.Servicos.LeituraDaEspera _espera = Clinica.Application.Servicos.LeituraDaEspera.Desligada;
     private bool _sinoAberto;
 
@@ -135,7 +135,6 @@ public sealed class MolduraDaAula : IMolduraDoApp
         Mostrar(_pai.Abas[indice].Chave);
     }
 
-    public void AbrirTreinamento() { }
 
     // ----- o resto do cabeçalho: quieto -----
     public int AssinaturasPendentes => 0;
