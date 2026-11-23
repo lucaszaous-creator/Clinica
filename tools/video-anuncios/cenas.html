@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>SemDor · anúncios Meta · rodada 3 (voz + legenda cinética)</title>
+<!-- ?peca=C1|C2|C3&fmt=9x16|4x5&t=ms
+     Legenda palavra por palavra presa aos tempos da locução (tempos.js, gerado dos JSON da pasta locucao; "Sem"+"Dor" = "SemDor").
+     Fotos: Pexels License (LICENCAS.md). Fontes: Inter e Caveat (OFL). Interface do WhatsApp desenhada aqui, conversa fictícia. -->
+<style>
+@font-face { font-family: "Inter"; src: url("inter.woff2") format("woff2"); font-weight: 100 900; }
+@font-face { font-family: "Caveat"; src: url("fontes/Caveat.ttf") format("truetype"); font-weight: 400 700; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+#tela { position: relative; overflow: hidden; background: #fff; font-family: "Inter", sans-serif; color: #111; -webkit-font-smoothing: antialiased; }
+.abs { position: absolute; }
+.nomeH { aspect-ratio: 564/185; -webkit-mask: url("nome-horizontal-mascara.png") 0 0/100% 100% no-repeat; mask: url("nome-horizontal-mascara.png") 0 0/100% 100% no-repeat; }
+.cur { font-family: "Caveat", cursive; font-weight: 700; color: #153194; letter-spacing: -0.01em; }
+.leg { display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; column-gap: .26em; row-gap: 0; text-align: center; }
+.leg span { display: inline-block; position: relative; transform-origin: 50% 80%; }
+.leg .n { font-weight: 820; letter-spacing: -0.03em; line-height: 1.08; }
+.leg .k { line-height: .95; }
+.fig { border: 14px solid #fff; border-radius: 34px; box-shadow: 0 2px 0 1px #E6ECF6, 0 22px 48px rgba(17,17,17,.20); background: #fff; transform-origin: 50% 50%; }
+.fig > .img { position: absolute; inset: 0; overflow: hidden; border-radius: 22px; }
+.fig > .img img { position: absolute; display: block; }
+.sel { border: 3px solid #3D5FC4; }
+.sel i { position: absolute; width: 16px; height: 16px; background: #fff; border: 3px solid #3D5FC4; }
+.rot { font-family: "Caveat", cursive; font-weight: 700; color: #153194; background: #fff; border-radius: 14px; padding: 0 16px 4px; box-shadow: 0 6px 18px rgba(17,17,17,.14); white-space: nowrap; }
+.wa { display: inline-flex; align-items: center; gap: 16px; font-weight: 650; font-size: 34px; letter-spacing: -0.01em; color: #153194; }
+.wa i { width: 60px; height: 60px; border-radius: 50%; display: grid; place-items: center; flex: none; background: #EEF3FC; }
+.wa svg { width: 32px; height: 32px; }
+.wa small { display: block; font-weight: 500; font-size: 25px; letter-spacing: 0; color: #4A5160; }
+.rt { font-size: 22px; line-height: 30px; font-weight: 500; color: #6B7280; text-align: center; }
+.rt b { font-weight: 650; color: #3F4654; }
+.cel { background: #111; border-radius: 64px; padding: 14px; box-shadow: 0 26px 60px rgba(17,17,17,.22); }
+.cel .tl { position: relative; width: 100%; height: 100%; border-radius: 52px; overflow: hidden; background: #EFEAE2; font-family: "Inter"; }
+.cel .cab { position: absolute; left: 0; right: 0; top: 0; background: #F7F8FA; display: flex; align-items: center; border-bottom: 1px solid #E3E6EA; }
+.cel .bal { position: absolute; max-width: 78%; border-radius: 22px; box-shadow: 0 1px 1px rgba(0,0,0,.08); color: #111; line-height: 1.28; }
+.cel .bal small { display: block; text-align: right; color: #6B7280; }
+</style>
+<script src="tempos.js"></script>
+</head>
+<body>
+<div id="tela"></div>
+<script>
+const Q = new URLSearchParams(location.search);
+const PECA = Q.get("peca") || "C1", FMT = Q.get("fmt") || "9x16";
+const W = 1080, H = { "4x5": 1350, "9x16": 1920 }[FMT], G = FMT === "9x16";
+const tela = document.getElementById("tela"); tela.style.width = W + "px"; tela.style.height = H + "px";
+const TOPO = G ? 220 : 64, BASE = G ? 250 : 56, MX = 72;
+// zonas: imagem em cima, legenda no meio-baixo, rodapé do RT embaixo (sempre visível)
+const ZY = G ? 320 : 150, ZH = G ? 900 : 690, ZW = W - 2 * MX;
+const LEG_Y = G ? 1400 : 1020;            // centro da legenda
+const KW = G ? 150 : 118, NW = G ? 62 : 50; // corpo da palavra-chave (cursiva) e das demais (Inter)
+const D_DOR = "M180 14 C85 14 10 75 10 163 C10 251 85 312 180 312 H198 Q228 312 228 282 V18 Q228 14 224 14 Z";
+const D_ALV = "M145 124 C250 124 329 190 329 272 C329 355 250 421 160 421 H115 Q111 421 111 417 V156 Q111 124 145 124 Z";
+const AZUL = "#153194", AMBAR = "#FFB020";
+let gid = 0;
+const cl = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x)), seg = (t, a, b) => cl((t - a) / (b - a));
+const eo = x => 1 - Math.pow(1 - x, 3), eio = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const spr = (ms, dur = 520) => { if (ms <= 0) return 0; const x = ms / dur; return x >= 1 ? 1 : 1 - Math.exp(-5 * x) * Math.cos(9.4 * x); };
+const pop = ms => 0.55 + 0.45 * spr(ms);           // escala de mola (0,55 → ~1,08 → 1)
+function el(html, css, pai = tela) { const d = document.createElement("div"); d.className = "abs"; d.innerHTML = html; Object.assign(d.style, css || {}); pai.appendChild(d); return d; }
+
+// ───────── traços desenhados à mão (SVG; p = quanto já foi desenhado) ─────────
+const rnd = s => { const x = Math.sin(s * 127.1) * 43758.5453; return x - Math.floor(x); };
+function traco(d, p, cor = AZUL, w = 9, halo = false) {
+  const da = p >= 1 ? "" : `pathLength="1" stroke-dasharray="1" stroke-dashoffset="${(1 - cl(p)).toFixed(4)}"`;
+  return (halo ? `<path d="${d}" ${da} fill="none" stroke="#fff" stroke-opacity=".92" stroke-width="${w + 10}" stroke-linecap="round" stroke-linejoin="round"/>` : "") +
+    `<path d="${d}" ${da} fill="none" stroke="${cor}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`; }
+function pCirculo(cx, cy, rx, ry, s = 1) { let d = ""; const n = 64, a0 = -2.2, a1 = a0 + Math.PI * 2 * 1.1;
+  for (let i = 0; i <= n; i++) { const a = a0 + (a1 - a0) * i / n, k = 1 + 0.035 * Math.sin(3 * a + s) + 0.05 * i / n;
+    d += (i ? "L" : "M") + (cx + Math.cos(a) * rx * k).toFixed(1) + " " + (cy + Math.sin(a) * ry * k).toFixed(1); } return d; }
+function pSeta(x1, y1, x2, y2, curva = 0.25) { const mx = (x1 + x2) / 2, my = (y1 + y2) / 2, dx = x2 - x1, dy = y2 - y1;
+  const cx = mx - dy * curva, cy = my + dx * curva; const ang = Math.atan2(y2 - cy, x2 - cx), L = 34;
+  const h1 = [x2 - L * Math.cos(ang - 0.5), y2 - L * Math.sin(ang - 0.5)], h2 = [x2 - L * Math.cos(ang + 0.5), y2 - L * Math.sin(ang + 0.5)];
+  return [`M${x1} ${y1} Q${cx} ${cy} ${x2} ${y2}`, `M${h1[0]} ${h1[1]} L${x2} ${y2} L${h2[0]} ${h2[1]}`]; }
+function pSublinha(x1, x2, y) { const n = 10, st = (x2 - x1) / n; let d = `M${x1} ${y}`; for (let i = 1; i <= n; i++) d += ` Q${x1 + st * (i - .5)} ${y + (i % 2 ? 7 : -5)} ${x1 + st * i} ${y + (i % 2 ? -2 : 3)}`; return d; }
+function svgCamada(conteudo, css = {}) { return el(`<svg width="100%" height="100%" style="overflow:visible;display:block">${conteudo}</svg>`, Object.assign({ left: 0, top: 0, width: W + "px", height: H + "px", pointerEvents: "none" }, css)); }
+function seta(x1, y1, x2, y2, p, curva, cor = AZUL, halo = true) { const [a, b] = pSeta(x1, y1, x2, y2, curva); return traco(a, seg(p, 0, .78), cor, 9, halo) + traco(b, seg(p, .72, 1), cor, 9, halo); }
+
+// ───────── marca (redesenho fiel à apresentação; só a versão colorida) ─────────
+function simbolo(fase = 1) { const id = "g" + (gid++); const ms = fase * 960;
+  const a = eo(seg(ms, 0, 320)), b = eo(seg(ms, 240, 720)), c = eio(seg(ms, 400, 720));
+  return `<svg viewBox="0 0 340 436" style="width:100%;height:auto;overflow:visible;display:block"><defs><linearGradient id="${id}" x1="0.1" y1="0.1" x2="0.9" y2="0.95"><stop offset="0" stop-color="#6A8FDB"/><stop offset="1" stop-color="#B0D3F3"/></linearGradient></defs>
+  <g style="transform-origin:50% 50%;transform:scale(${0.92 + 0.08 * a})"><path fill="#153194" opacity="${a}" d="${D_DOR}"/><path fill="#153194" opacity="${a * (1 - c)}" d="${D_ALV}"/>
+  <path fill="url(#${id})" fill-opacity="0.86" opacity="${b}" transform="translate(${(1 - b) * 32} ${(1 - b) * 32})" d="${D_ALV}"/></g></svg>`; }
+function logoH(alt, css = {}, fase = 1, pai) { const k = alt / 222;
+  return el(`<div style="display:flex;align-items:flex-start;gap:${23 * k}px"><div style="width:${173 * k}px">${simbolo(fase)}</div><div class="nomeH" style="height:${185 * k}px;background:#111;margin-top:${-10 * k}px"></div></div>`, css, pai); }
+const larguraLogo = alt => (173 + 23 + 564) * alt / 222;
+const BALAO = c => `<svg viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18.5 5.3 15A7.5 7.5 0 1 1 9 18.7Z"/><path d="M9 10.5h6M9 13.5h4"/></svg>`;
+function wa(css) { return el(`<div class="wa"><i>${BALAO(AZUL)}</i><span>WhatsApp (22) 99957-7446<small>Toque em "Enviar mensagem"</small></span></div>`, css); }
+function rt() { return el(`<div class="rt">Atendimento em Macaé · <b>Responsável técnico: Dr. Gustavo Lacerda · CRM-RJ 52-990914</b></div>`, { left: MX + "px", right: MX + "px", bottom: BASE + "px" }); }
+
+// ───────── figurinha / foto (borda branca, sombra, mola, zoom lento) com anotações presas à foto ─────────
+const FOTOS = { // largura × altura do arquivo
+  recepcao: ["fotos/pexels-7108325.jpg", 1800, 1202], sofa: ["fotos/pexels-4266930.jpg", 1800, 2700], tablet: ["fotos/pexels-4266931.jpg", 1800, 1200],
+  balcao: ["fotos/pexels-4266932.jpg", 1800, 1200], consulta: ["fotos/pexels-7579831.jpg", 1800, 1200], celular: ["fotos/pexels-39219737.jpg", 1800, 1013] };
+let TEVE_FOTO = false;
+function foto(o) { TEVE_FOTO = true; // o: {f, x, y, w, h, rot, foco:[fx,fy], zoom, lt, entra:"mola"|"corte", anot:[...]}
+  const [src, iw, ih] = FOTOS[o.f]; const lt = o.lt, B = 14, w2 = o.w - 2 * B, h2 = o.h - 2 * B;
+  const z = (o.zoom || 1.04) + 0.035 * lt / 1000; const s = Math.max(w2 / iw, h2 / ih) * z, dw = iw * s, dh = ih * s;
+  const [fx, fy] = o.foco || [.5, .5]; const ox = cl(w2 / 2 - fx * dw, w2 - dw, 0), oy = cl(h2 / 2 - fy * dh, h2 - dh, 0);
+  const P = ([a, b]) => [B + ox + a * dw, B + oy + b * dh];
+  const sc = o.entra === "corte" ? 1 : pop(lt), op = o.entra === "corte" ? 1 : cl(lt / 90);
+  const d = el(`<div class="img"><img src="${src}" style="left:${ox}px;top:${oy}px;width:${dw}px;height:${dh}px"></div>`,
+    { left: o.x + "px", top: o.y + "px", width: o.w + "px", height: o.h + "px", transform: `rotate(${o.rot || 0}deg) scale(${sc})`, opacity: op });
+  d.className = "abs fig"; let svg = "";
+  (o.anot || []).forEach(a => { const p = lt - a.t0; if (p < 0) return;
+    if (a.c === "circ") { const [cx, cy] = P(a.f); svg += traco(pCirculo(cx, cy, a.r[0], a.r[1], a.s || 1), eo(seg(p, 0, 420)), a.cor || AZUL, 9, true); }
+    if (a.c === "seta") { const [x2, y2] = P(a.f); svg += seta(x2 + a.de[0], y2 + a.de[1], x2, y2, eo(seg(p, 0, 460)), a.curva ?? .25); }
+    if (a.c === "sel") { const [x1, y1] = P(a.a), [x2, y2] = P(a.b); const q = eo(seg(p, 0, 260));
+      const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2, bw = (x2 - x1) * (0.85 + 0.15 * q), bh = (y2 - y1) * (0.85 + 0.15 * q);
+      const s = el(`<i style="left:-10px;top:-10px"></i><i style="right:-10px;top:-10px"></i><i style="left:-10px;bottom:-10px"></i><i style="right:-10px;bottom:-10px"></i>`,
+        { left: (cx - bw / 2) + "px", top: (cy - bh / 2) + "px", width: bw + "px", height: bh + "px", opacity: q }, d); s.className = "abs sel";
+      if (a.txt) { const r = el(a.txt, { left: (cx - bw / 2 - 6) + "px", top: (cy - bh / 2 - (G ? 82 : 70)) + "px", fontSize: (G ? 58 : 50) + "px", transform: `rotate(-3deg) scale(${pop(p - 120)})`, transformOrigin: "0 100%", opacity: cl((p - 120) / 80) }, d); r.className = "abs rot"; } }
+    if (a.c === "rot") { const [x, y] = P(a.f); const r = el(a.txt, { left: (x + (a.dx || 0)) + "px", top: (y + (a.dy || 0)) + "px", fontSize: (G ? 58 : 50) + "px", transform: `rotate(${a.giro ?? -4}deg) scale(${pop(p)})`, opacity: cl(p / 80) }, d); r.className = "abs rot"; }
+  });
+  if (svg) el(`<svg width="100%" height="100%" style="overflow:visible;display:block">${svg}</svg>`, { left: 0, top: 0, width: "100%", height: "100%" }, d);
+  return d; }
+
+// ───────── celular com WhatsApp desenhado (conversa fictícia) ─────────
+function celular(lt, cfg) { // cfg: {x, y, w, msgs:[{de:"eu"|"sd", txt, t0}], digitando:[t0,t1]}
+  const w = cfg.w, h = w * 2.02, k = w / 440, d = el(`<div class="tl"></div>`, { left: cfg.x + "px", top: cfg.y + "px", width: w + "px", height: h + "px", transform: `scale(${pop(lt)})`, transformOrigin: "50% 60%", opacity: cl(lt / 90) });
+  d.className = "abs cel"; const tl = d.firstChild;
+  el(`<div style="width:${54 * k}px;height:${54 * k}px;border-radius:50%;background:#fff;border:1px solid #E3E6EA;display:grid;place-items:center;margin:0 ${16 * k}px 0 ${22 * k}px"><div style="width:${30 * k}px">${simbolo()}</div></div>
+      <div style="font-weight:700;font-size:${25 * k}px;line-height:1.2">Clínica SemDor<div style="font-weight:500;font-size:${18 * k}px;color:#6B7280">conta comercial</div></div>`,
+    { left: 0, right: 0, top: 0, height: (118 * k) + "px", paddingTop: (36 * k) + "px" }, tl).className = "cab";
+  let y = 150 * k; const bal = [];
+  cfg.msgs.forEach(m => { const p = lt - m.t0; if (p < 0) return; const eu = m.de === "eu";
+    const b = el(`${m.txt}<small style="font-size:${18 * k}px">${m.hora || "09:41"}${eu ? " ✓✓" : ""}</small>`, { top: y + "px", [eu ? "right" : "left"]: (16 * k) + "px", background: eu ? "#D9FDD3" : "#fff", fontSize: (30 * k) + "px", padding: `${10 * k}px ${14 * k}px ${6 * k}px`, transform: `scale(${pop(p)})`, transformOrigin: eu ? "100% 100%" : "0 100%", opacity: cl(p / 80) }, tl);
+    b.className = "abs bal"; bal.push(b); y += b.offsetHeight + 12 * k; });
+  if (cfg.digitando && lt >= cfg.digitando[0] && lt < cfg.digitando[1]) { const f = Math.floor(lt / 160) % 3;
+    el([0, 1, 2].map(i => `<b style="display:inline-block;width:${9 * k}px;height:${9 * k}px;margin:0 ${3 * k}px;border-radius:50%;background:${i === f ? "#6B7280" : "#C4C8CE"}"></b>`).join(""),
+      { left: (16 * k) + "px", top: y + "px", background: "#fff", borderRadius: (20 * k) + "px", padding: `${14 * k}px ${16 * k}px` }, tl); }
+  const dig = cfg.digitando && lt >= cfg.digitando[0] && lt < cfg.digitando[1];
+  const desce = Math.max(0, h - 28 - 120 * k - (dig ? 70 * k : 0) - y); bal.forEach(b => b.style.top = (parseFloat(b.style.top) + desce) + "px"); if (tl.lastChild && dig) tl.lastChild.style.top = (parseFloat(tl.lastChild.style.top) + desce) + "px";
+  el(`<div style="flex:1;height:${50 * k}px;border-radius:${25 * k}px;background:#fff;color:#8A9099;font-size:${18 * k}px;display:flex;align-items:center;padding-left:${18 * k}px">Mensagem</div>
+      <div style="width:${50 * k}px;height:${50 * k}px;border-radius:50%;background:#1FAF5A;margin-left:${10 * k}px;display:grid;place-items:center"><svg viewBox="0 0 24 24" width="${24 * k}" height="${24 * k}" fill="#fff"><path d="M3 20.5 21 12 3 3.5l.01 6.6L15 12 3.01 13.9Z"/></svg></div>`,
+    { left: (14 * k) + "px", right: (14 * k) + "px", bottom: (22 * k) + "px", display: "flex", alignItems: "center" }, tl);
+  return { el: d, w, h }; }
+
+// ───────── grafismos ─────────
+function numero(n, lt) { // número grande centrado + círculo âmbar desenhado
+  const f = G ? 560 : 420, x = W / 2 - f * 0.3, y = ZY + ZH / 2 - f * 0.52; const d = el(`<div style="font-weight:880;font-size:${f}px;line-height:1;letter-spacing:-0.05em;color:${AZUL}">${n}</div>`, { left: x + "px", top: y + "px", transform: `scale(${pop(lt)})`, transformOrigin: "40% 60%" });
+  svgCamada(traco(pCirculo(x + f * 0.3, y + f * 0.52, f * 0.5, f * 0.5, n), eo(seg(lt, 120, 560)), AMBAR, 11));
+  el(`<div class="cur" style="font-size:${G ? 110 : 88}px;transform:rotate(-6deg)">passo</div>`, { left: (x - f * 0.42) + "px", top: (y - (G ? 40 : 30)) + "px", opacity: cl((lt - 60) / 100) }); return d; }
+function palavraGrande(txt, lt, y, tam) { const d = el(`<div class="cur" style="font-size:${tam}px;line-height:1">${txt}</div>`, { left: 0, width: W + "px", top: y + "px", textAlign: "center", transform: `scale(${pop(lt)}) rotate(-3deg)` }); return d; }
+function relogio(lt, cx, cy, r) { const giro = lt * 0.06; // ponteiro anda devagar: "sem pressa"
+  return svgCamada(traco(pCirculo(cx, cy, r, r, 3), eo(seg(lt, 0, 500)), AZUL, 12) + traco(`M${cx} ${cy} L${cx} ${cy - r * 0.62}`, eo(seg(lt, 300, 500)), AZUL, 12) +
+    `<g style="transform-origin:${cx}px ${cy}px;transform:rotate(${120 + giro}deg)">${traco(`M${cx} ${cy} L${cx} ${cy - r * 0.8}`, eo(seg(lt, 400, 620)), AMBAR, 10)}</g>`); }
+function ondas(lt, x, y, w, t0 = 0) { let s = ""; for (let i = 0; i < 3; i++) { const yy = y + i * 46, n = 6, st = w / n; let d = `M${x} ${yy}`;
+  for (let j = 1; j <= n; j++) d += ` Q${x + st * (j - .5)} ${yy + (j % 2 ? -22 : 22)} ${x + st * j} ${yy}`; s += traco(d, eo(seg(lt, t0 + i * 120, t0 + i * 120 + 520)), AZUL, 9); } return s; }
+function sol(lt, cx, cy, r, t0 = 0) { let s = traco(pCirculo(cx, cy, r, r, 5), eo(seg(lt, t0, t0 + 420)), AMBAR, 10);
+  for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, r1 = r * 1.35, r2 = r * 1.75; s += traco(`M${cx + Math.cos(a) * r1} ${cy + Math.sin(a) * r1} L${cx + Math.cos(a) * r2} ${cy + Math.sin(a) * r2}`, eo(seg(lt, t0 + 300 + i * 40, t0 + 460 + i * 40)), AMBAR, 10); } return s; }
+function raio(lt, x, y, s, t0 = 0) { return traco(`M${x + s * .55} ${y} L${x + s * .1} ${y + s * .55} L${x + s * .5} ${y + s * .55} L${x + s * .2} ${y + s * 1.1}`, eo(seg(lt, t0, t0 + 380)), AZUL, 11); }
+function alfinete(lt, cx, cy, r, t0 = 0) { // pino de mapa desenhado: gota + círculo + sombra
+  const gota = `M${cx} ${cy + r * 1.5} C${cx - r * .35} ${cy + r * .9} ${cx - r} ${cy + r * .35} ${cx - r} ${cy - r * .25} A${r} ${r} 0 1 1 ${cx + r} ${cy - r * .25} C${cx + r} ${cy + r * .35} ${cx + r * .35} ${cy + r * .9} ${cx} ${cy + r * 1.5} Z`;
+  return traco(gota, eo(seg(lt, t0, t0 + 520)), AZUL, 11) + traco(pCirculo(cx, cy - r * .25, r * .36, r * .36, 2), eo(seg(lt, t0 + 400, t0 + 700)), AMBAR, 10) +
+    traco(pCirculo(cx, cy + r * 1.62, r * .9, r * .2, 7), eo(seg(lt, t0 + 600, t0 + 900)), AZUL, 7); }
+function check(lt, x, y, s, t0 = 0, cor = AZUL) { return traco(`M${x} ${y + s * .5} L${x + s * .38} ${y + s * .88} L${x + s} ${y}`, eo(seg(lt, t0, t0 + 320)), cor, 12); }
+function logoCena(lt, rotulo = "é aqui") { // logo colorida se montando dentro de uma moldura de seleção
+  const alt = G ? 230 : 190, lw = larguraLogo(alt), x = (W - lw) / 2, y = ZY + (ZH - alt) / 2 - (G ? 20 : 10);
+  logoH(alt, { left: x + "px", top: y + "px", transform: `scale(${pop(lt)})`, transformOrigin: "50% 50%" }, seg(lt, 0, 960));
+  const q = eo(seg(lt, 380, 640)), m = 40; const s = el(`<i style="left:-10px;top:-10px"></i><i style="right:-10px;top:-10px"></i><i style="left:-10px;bottom:-10px"></i><i style="right:-10px;bottom:-10px"></i>`,
+    { left: (x - m) + "px", top: (y - m) + "px", width: (lw + 2 * m) + "px", height: (alt + 2 * m) + "px", opacity: q }); s.className = "abs sel";
+  if (rotulo) { const r = el(rotulo, { left: (x - m - 6) + "px", top: (y - m - (G ? 84 : 72)) + "px", fontSize: (G ? 60 : 52) + "px", transform: `rotate(-3deg) scale(${pop(lt - 520)})`, transformOrigin: "0 100%", opacity: cl((lt - 520) / 80) }); r.className = "abs rot"; }
+}
+function fechoCena(lt, msgs, dig) { // fecho: celular com a conversa + WhatsApp; a legenda faz o bordão
+  const cw = G ? 440 : 330, ch = cw * 2.02, cx = G ? MX + 20 : MX + 10, cy = ZY + (ZH - ch) / 2 + (G ? 0 : 6);
+  celular(lt, { x: cx, y: cy, w: cw, msgs, digitando: dig });
+  const lx = cx + cw + (G ? 40 : 46), lalt = G ? 92 : 80;
+  logoH(lalt, { left: lx + "px", top: (cy + (G ? 120 : 60)) + "px", transform: `scale(${pop(lt - 150)})`, transformOrigin: "0 50%", opacity: cl((lt - 150) / 90) });
+  const ty = cy + (G ? 330 : 220);
+  el(`<div class="cur" style="font-size:${G ? 76 : 62}px;line-height:1;transform:rotate(-4deg)">manda um oi</div>`, { left: lx + "px", top: ty + "px", opacity: cl((lt - 300) / 90), transform: `rotate(-4deg) scale(${pop(lt - 300)})`, transformOrigin: "0 50%" });
+  const nr = el(`<div style="display:flex;align-items:center;gap:${G ? 16 : 12}px"><div style="width:${G ? 64 : 52}px;height:${G ? 64 : 52}px;border-radius:50%;background:#EEF3FC;display:grid;place-items:center;flex:none"><div style="width:${G ? 34 : 28}px;height:${G ? 34 : 28}px">${BALAO(AZUL)}</div></div><div style="font-weight:700;font-size:${G ? 34 : 28}px;line-height:1.15;color:${AZUL}">WhatsApp<br>(22) 99957-7446<div style="font-weight:500;font-size:${G ? 24 : 20}px;color:#4A5160">Toque em "Enviar mensagem"</div></div></div>`,
+    { left: lx + "px", top: (cy + ch * (G ? .66 : .64)) + "px", opacity: cl((lt - 700) / 120), transform: `translateY(${(1 - eo(seg(lt, 700, 1000))) * 20}px)` });
+  svgCamada(seta(lx + 40, ty + (G ? 100 : 84), cx + cw - 40, cy + ch * (G ? .40 : .40), eo(seg(lt, 420, 900)), -.3));
+}
+
+// ───────── legenda cinética palavra por palavra ─────────
+const LEG = {
+  C1: "Sabe aquele lugar|onde alguém para,|de *verdade*,|pra te *ouvir?*|Em *Macaé*,|ele tem nome:|Clínica *SemDor.*|Aqui, o *cuidado*|da dor começa|com uma *conversa.*|A *equipe* avalia|com *calma*,|explica o que encontrou|e mostra as *opções.*|Sem *pressa.*|Uma *etapa*|de cada vez.|Cuidado da dor?|Chama a *SemDor.*|Manda um *oi*|no *WhatsApp!*",
+  C2: "Como é ir|à *SemDor?*|Passo *um*:|você manda|um *oi* no WhatsApp.|Passo *dois*:|a equipe *escuta*|e faz a *avaliação.*|Passo *três*:|explica *tudo*|e mostra as *opções.*|*Simples* assim.|Cuidado da dor?|Chama a *SemDor.*",
+  C3: "*Macaé*|tem *praia*,|tem *energia...*|e tem um lugar|*dedicado*|ao *cuidado* da dor.|Clínica *SemDor.*|Atendimento *humano*,|*avaliação*|com *calma*,|e cada opção|*explicada.*|Cuidado da dor?|Chama a *SemDor.*|Manda um *oi*|no *WhatsApp!*" };
+const norm = s => s.replace(/[*.,!?:…]/g, "").toLowerCase();
+function montarLegenda(peca) { const T = window.TEMPOS[peca]; let i = 0;
+  const blocos = LEG[peca].split("|").map(b => b.split(" ").map(tok => { const w = T[i++]; if (!w || norm(w.p) !== norm(tok)) throw new Error(`legenda ≠ voz em "${tok}" (voz: ${w && w.p})`);
+    return { txt: tok.replace(/\*/g, ""), k: tok.includes("*"), i: w.i, f: w.f }; }));
+  if (i !== T.length) throw new Error("sobrou palavra da voz sem legenda"); return blocos; }
+let BLOCOS;
+function legenda(t) { let b = -1; BLOCOS.forEach((bl, j) => { if (t >= bl[0].i - 40) b = j; }); if (b < 0) return;
+  const bl = BLOCOS[b], d = el("", { left: MX + "px", width: ZW + "px", top: "0px", fontSize: NW + "px" }); d.className = "abs leg"; let sub = "";
+  bl.forEach(w => { const p = t - w.i; const s = document.createElement("span");
+    s.textContent = w.txt; s.className = w.k ? "k cur" : "n"; s.style.fontSize = (w.k ? KW : NW) + "px";
+    s.style.opacity = p < -40 ? 0 : cl((p + 40) / 70); s.style.transform = `translateY(${(1 - spr(p + 40, 420)) * 26}px) scale(${w.k ? pop(p + 40) : 0.9 + 0.1 * spr(p + 40, 360)}) ${w.k ? "rotate(-3deg)" : ""}`;
+    d.appendChild(s); });
+  d.style.top = (LEG_Y - d.offsetHeight / 2) + "px";
+  // sublinhado âmbar desenhado sob cada palavra-chave
+  [...d.children].forEach((s, j) => { const w = bl[j]; if (!w.k) return; const p = t - w.i - 140; if (p < 0) return;
+    const x1 = d.offsetLeft + s.offsetLeft + 6, x2 = x1 + s.offsetWidth - 12, y = d.offsetTop + s.offsetTop + s.offsetHeight - (G ? 14 : 10);
+    sub += traco(pSublinha(x1, x2, y), eo(seg(p, 0, 300)), AMBAR, G ? 10 : 8); });
+  if (sub) svgCamada(sub);
+}
+
+// ───────── roteiros (s → ms); cada cena recebe o tempo local lt ─────────
+const s = x => Math.round(x * 1000);
+const CENAS = {
+  C1: [
+    [0, 1.44, lt => foto({ f: "recepcao", x: MX, y: ZY, w: ZW, h: ZH, foco: [.78, .45], zoom: 1.02, lt, entra: "corte", anot: [{ c: "sel", a: [.66, .25], b: [.98, .74], txt: "alguém pra ouvir", t0: 450 }] })],
+    [1.44, 3.94, lt => { foto({ f: "sofa", x: MX + 40, y: ZY + 10, w: ZW - 80, h: ZH - 20, rot: -2.5, foco: [.5, .45], lt, anot: [{ c: "circ", f: [.21, .44], r: [95, 110], t0: 1300 }, { c: "circ", f: [.77, .46], r: [95, 110], t0: 1450, s: 4 }] }); }],
+    [3.94, 5.89, lt => { palavraGrande("Macaé", lt, ZY + ZH * .22, G ? 300 : 240); svgCamada(ondas(lt, W / 2 - 260, ZY + ZH * (G ? .66 : .7), 520, 200) + sol(lt, W - MX - 130, ZY + 110, 44, 380)); }],
+    [5.89, 7.42, lt => logoCena(lt, "é aqui")],
+    [7.42, 9.46, lt => foto({ f: "consulta", x: MX, y: ZY, w: ZW, h: ZH, foco: [.6, .45], zoom: 1.0, lt, entra: "corte", anot: [{ c: "seta", f: [.62, .52], de: [-200, -230], t0: 700, curva: .3 }] })],
+    [9.46, 10.91, lt => { const cel = celular(lt, { x: (W - (G ? 440 : 340)) / 2, y: ZY, w: G ? 440 : 340, msgs: [{ de: "sd", txt: "Oi! Aqui é a recepção da SemDor. Conta pra gente o que te trouxe?", t0: 180 }] }); }],
+    [10.91, 13.13, lt => foto({ f: "balcao", x: MX + 30, y: ZY + 20, w: ZW - 60, h: ZH - 40, rot: 2.2, foco: [.5, .45], lt, anot: [{ c: "sel", a: [.17, .2], b: [.44, .82], txt: "conversa", t0: 150 }] })],
+    [13.13, 16.10, lt => foto({ f: "tablet", x: MX, y: ZY, w: ZW, h: ZH, foco: [.48, .35], zoom: 1.0, lt, entra: "corte", anot: [{ c: "circ", f: [.545, .42], r: [110, 80], t0: 1500 }, { c: "rot", f: [.6, .5], txt: "as opções", dx: 60, dy: 50, t0: 1700 }] })],
+    [16.10, 17.18, lt => { relogio(lt, W / 2, ZY + ZH / 2, G ? 230 : 190); }],
+    [17.18, 19.05, lt => { const cx = [W * .2, W * .5, W * .8], ts = [0, 630, 1090], y = ZY + ZH / 2; let sv = "";
+      cx.forEach((x, i) => { const p = lt - ts[i]; if (p < 0) return; el(`<div style="font-weight:880;font-size:${G ? 210 : 170}px;line-height:1;color:${i === 2 ? AZUL : "#111"};letter-spacing:-0.04em">${i + 1}</div>`, { left: (x - 60) + "px", top: (y - (G ? 110 : 90)) + "px", transform: `scale(${pop(p)})` });
+        if (i < 2) sv += seta(x + 70, y + (G ? 150 : 120), cx[i + 1] - 70, y + (G ? 150 : 120), eo(seg(lt, ts[i] + 200, ts[i + 1])), .25, AMBAR, false); });
+      svgCamada(sv); }],
+    [19.05, 21.41, lt => logoCena(lt, null)],
+    [21.41, 24.6, lt => fechoCena(lt, [{ de: "eu", txt: "Oi! Queria saber como funciona o atendimento.", t0: 420 }, { de: "sd", txt: "Oi! Que bom falar com você. Qual o melhor horário pra conversar?", t0: 1700 }], [800, 1700])] ],
+  C2: [
+    [0, 1.71, lt => foto({ f: "recepcao", x: MX, y: ZY, w: ZW, h: ZH, foco: [.7, .45], zoom: 1.0, lt, entra: "corte", anot: [{ c: "sel", a: [.36, .05], b: [.95, .95], txt: "a recepção", t0: 700 }] })],
+    [1.71, 2.69, lt => numero("1", lt)],
+    [2.69, 3.46, lt => foto({ f: "celular", x: MX + 30, y: ZY + 30, w: ZW - 60, h: ZH - 60, rot: -2, foco: [.5, .4], lt, anot: [{ c: "circ", f: [.57, .62], r: [90, 110], t0: 300 }] })],
+    [3.46, 4.61, lt => celular(lt, { x: (W - (G ? 440 : 340)) / 2, y: ZY, w: G ? 440 : 340, msgs: [{ de: "eu", txt: "Oi!", t0: 0 }, { de: "sd", txt: "Oi! Aqui é a recepção da SemDor.", t0: 650 }] })],
+    [4.61, 5.63, lt => numero("2", lt)],
+    [5.63, 7.98, lt => foto({ f: "sofa", x: MX + 40, y: ZY + 10, w: ZW - 80, h: ZH - 20, rot: 2.4, foco: [.5, .45], lt, anot: [{ c: "sel", a: [.6, .34], b: [.97, .6], txt: "escuta", t0: 300 }] })],
+    [7.98, 8.84, lt => numero("3", lt)],
+    [8.84, 11.30, lt => foto({ f: "tablet", x: MX, y: ZY, w: ZW, h: ZH, foco: [.48, .35], zoom: 1.0, lt, entra: "corte", anot: [{ c: "seta", f: [.53, .42], de: [180, 260], t0: 900, curva: -.3 }, { c: "rot", f: [.53, .42], txt: "tudo explicado", dx: 20, dy: 270, t0: 1150 }] })],
+    [11.30, 12.34, lt => { const y = ZY + ZH / 2 - (G ? 230 : 180); let sv = "";
+      ["oi", "escuta", "opções"].forEach((w, i) => { const yy = y + i * (G ? 170 : 130), p = lt - i * 150; if (p < 0) return;
+        el(`<div class="cur" style="font-size:${G ? 130 : 100}px;line-height:1">${w}</div>`, { left: (W / 2 - (G ? 60 : 40)) + "px", top: (yy - 10) + "px", opacity: cl(p / 80), transform: `scale(${pop(p)})`, transformOrigin: "0 50%" });
+        sv += check(lt, W / 2 - (G ? 210 : 160), yy + 20, G ? 100 : 76, i * 150 + 120); }); svgCamada(sv); }],
+    [12.34, 16.6, lt => { logoCena(lt, null); const r = cl((lt - 1600) / 200); if (r > 0) { const d = wa({ left: "0", width: W + "px", justifyContent: "center", display: "flex", top: (ZY + ZH - (G ? 140 : 70)) + "px" }); d.style.opacity = r; } }] ],
+  C3: [
+    [0, 0.91, lt => palavraGrande("Macaé", lt, ZY + ZH * .3, G ? 320 : 250)],
+    [0.91, 1.92, lt => { palavraGrande("praia", lt, ZY + ZH * .14, G ? 240 : 200); svgCamada(ondas(lt, W / 2 - 280, ZY + ZH * .66, 560, 80) + sol(lt, W - MX - 120, ZY + ZH * .2, 44, 200)); }],
+    [1.92, 3.11, lt => { palavraGrande("energia", lt, ZY + ZH * .14, G ? 240 : 200); svgCamada(raio(lt, W / 2 - 150, ZY + ZH * .55, G ? 220 : 170, 100) + raio(lt, W / 2 + 60, ZY + ZH * .5, G ? 170 : 130, 300)); }],
+    [3.11, 4.74, lt => { palavraGrande("um lugar", lt, ZY + ZH * .14, G ? 240 : 200); svgCamada(alfinete(lt, W / 2, ZY + ZH * (G ? .72 : .74), G ? 120 : 100, 150)); }],
+    [4.74, 6.36, lt => foto({ f: "consulta", x: MX + 30, y: ZY + 20, w: ZW - 60, h: ZH - 40, rot: -2, foco: [.6, .45], lt, anot: [{ c: "circ", f: [.4, .5], r: [150, 170], t0: 450 }] })],
+    [6.36, 7.67, lt => logoCena(lt, "é aqui")],
+    [7.67, 9.12, lt => foto({ f: "balcao", x: MX, y: ZY, w: ZW, h: ZH, foco: [.5, .4], zoom: 1.0, lt, entra: "corte", anot: [] })],
+    [9.12, 10.77, lt => foto({ f: "sofa", x: MX + 40, y: ZY + 10, w: ZW - 80, h: ZH - 20, rot: 2.4, foco: [.5, .45], lt, anot: [{ c: "sel", a: [.05, .26], b: [.95, .7], txt: "com calma", t0: 700 }] })],
+    [10.77, 12.86, lt => foto({ f: "tablet", x: MX, y: ZY, w: ZW, h: ZH, foco: [.48, .35], zoom: 1.0, lt, entra: "corte", anot: [{ c: "circ", f: [.545, .42], r: [110, 80], t0: 500 }, { c: "rot", f: [.6, .5], txt: "cada opção", dx: 60, dy: 50, t0: 700 }] })],
+    [12.86, 16.09, lt => logoCena(lt, null)],
+    [16.09, 19.2, lt => fechoCena(lt, [{ de: "eu", txt: "Oi! Queria saber como funciona o atendimento.", t0: 380 }, { de: "sd", txt: "Oi! Que bom falar com você. Qual o melhor horário pra conversar?", t0: 1600 }], [760, 1600])] ] };
+const DUR = { C1: 24600, C2: 16600, C3: 19200 };
+
+function desenhar(t) { tela.innerHTML = ""; gid = 0; TEVE_FOTO = false;
+  const cena = CENAS[PECA].find(c => t >= s(c[0]) && t < s(c[1])) || CENAS[PECA][CENAS[PECA].length - 1];
+  cena[2](t - s(cena[0]));
+  const logoGrande = cena[2].toString().includes("logoCena") || cena[2].toString().includes("fechoCena");
+  if (!logoGrande) logoH(G ? 60 : 50, { left: MX + "px", top: (G ? TOPO + 10 : TOPO) + "px" });
+  legenda(t); rt(); if (TEVE_FOTO) el(`<div style="font-size:16px;line-height:20px;font-weight:500;color:#6B7280;text-align:center">Imagens ilustrativas</div>`, { left: MX + "px", right: MX + "px", bottom: (BASE + 36) + "px" }); }
+window.desenhar = desenhar; window.duracao = DUR[PECA];
+Promise.all([document.fonts.load('820 60px "Inter"'), document.fonts.load('700 120px "Caveat"'),
+  ...Object.values(FOTOS).map(([src]) => new Promise(r => { const i = new Image(); i.onload = r; i.onerror = r; i.src = src; }))]).then(() => {
+  BLOCOS = montarLegenda(PECA); const t = Q.get("t"); desenhar(t === null ? 3000 : +t); setTimeout(() => window.pronto = true, 80); });
+</script>
+</body>
+</html>
