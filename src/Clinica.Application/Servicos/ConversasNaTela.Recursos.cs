@@ -242,4 +242,32 @@ public static partial class ConversasNaTela
 
     /// <summary>O texto sem os símbolos da formatação do WhatsApp (para o resumo e a comparação).</summary>
     public static string TextoSemFormatacao(string? texto) => string.Concat(Formatar(texto).Select(t => t.Texto));
+
+    // ---------------------------------------------------------------- o histórico aos poucos (nov/2026, "rolar para cima carrega")
+
+    /// <summary>Quantos itens da linha do tempo a conversa desenha de cada vez (a conversa importada do celular tem centenas).</summary>
+    public const int ItensPorVez = 60;
+
+    /// <summary>
+    /// Os últimos <paramref name="quantos"/> itens da linha do tempo, sem o leitor perder o dia: se o corte cai no meio de um dia,
+    /// o separador daquele dia vem junto, em cima. <c>Escondidos</c> diz quantos ficaram para o "Mensagens anteriores".
+    /// </summary>
+    public static (IReadOnlyList<ItemDaConversa> Itens, int Escondidos) UltimosDaLinha(IReadOnlyList<ItemDaConversa> linha, int quantos)
+    {
+        if (quantos <= 0 || linha.Count <= quantos) return (linha, 0);
+        var inicio = linha.Count - quantos;
+        var itens = linha.Skip(inicio).ToList();
+        if (itens[0].Tipo != TipoNaLinhaDoTempo.Dia)
+            for (var k = inicio - 1; k >= 0; k--)
+                if (linha[k].Tipo == TipoNaLinhaDoTempo.Dia) { itens.Insert(0, linha[k]); break; }
+        return (itens, inicio);
+    }
+
+    /// <summary>Quantos itens desenhar para que a mensagem <paramref name="id"/> (a citada) esteja na tela; nulo quando já está ou não existe.</summary>
+    public static int? ItensAte(IReadOnlyList<ItemDaConversa> linha, string id, int desenhados)
+    {
+        for (var k = 0; k < linha.Count; k++)
+            if (linha[k].Id == id) return linha.Count - k > desenhados ? linha.Count - k : null;
+        return null;
+    }
 }

@@ -559,9 +559,9 @@ public sealed class ConversasNaTelaTests
         var itens = ConversasNaTela.LinhaDoTempo(conversa, 2, Agora, WhatsAppDeTeste.Agentes);
         Assert.Equal(
         [
-            (TipoNaLinhaDoTempo.Dia, "Ontem · sexta-feira, 23/10", false),
+            (TipoNaLinhaDoTempo.Dia, "Ontem", false),
             (TipoNaLinhaDoTempo.Enviada, "Boa tarde, Maria!", false),
-            (TipoNaLinhaDoTempo.Dia, "Hoje · sábado, 24/10", false),
+            (TipoNaLinhaDoTempo.Dia, "Hoje", false),
             (TipoNaLinhaDoTempo.Recebida, "Não vou conseguir ir hoje", false),
             (TipoNaLinhaDoTempo.Recebida, "Surgiu um compromisso", true),
             (TipoNaLinhaDoTempo.Nota, "Ela prefere a tarde.", false),

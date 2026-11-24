@@ -282,6 +282,7 @@ public partial class ConversasDoWhatsApp
     {
         _refDaTela ??= DotNetObjectReference.Create(this);
         await modulo.InvokeVoidAsync("ligarArquivos", _refDaTela);
+        await modulo.InvokeVoidAsync("ligarHistorico", _refDaTela); // o histórico aos poucos (nov/2026)
     }
 
     // ---------------------------------------------------------------- busca ↑↓
@@ -295,6 +296,31 @@ public partial class ConversasDoWhatsApp
         {
             var modulo = await JS.InvokeAsync<IJSObjectReference>("import", ModuloDaConversa);
             await modulo.InvokeVoidAsync("irAoAchado");
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException) { }
+    }
+
+    // ---------------------------------------------------------------- o histórico aos poucos e a citação (nov/2026)
+
+    private int _itensDesenhados = ConversasNaTela.ItensPorVez;
+
+    /// <summary>Chegou ao topo (ou clicou em "Mensagens anteriores"): mais um lote, sem reler nada do CRM.</summary>
+    [JSInvokable]
+    public Task CarregarAnteriores()
+    {
+        _itensDesenhados += ConversasNaTela.ItensPorVez;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    /// <summary>A citação leva à mensagem original (e a destaca), carregando o histórico até ela, se for preciso.</summary>
+    private async Task IrParaCitadaAsync(ConversaDoWhatsApp c, string id)
+    {
+        if (ConversasNaTela.ItensAte(c.LinhaDoTempo, id, _itensDesenhados) is { } precisa) { _itensDesenhados = precisa + 1; StateHasChanged(); }
+        try
+        {
+            var modulo = await JS.InvokeAsync<IJSObjectReference>("import", ModuloDaConversa);
+            await modulo.InvokeVoidAsync("irParaMensagem", id);
         }
         catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException) { }
     }
