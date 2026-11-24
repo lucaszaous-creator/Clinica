@@ -195,12 +195,15 @@ public sealed class JanelasDosExamesDaGestao(NavegacaoDaGestao navegacao, Pedido
 
 /// <summary>
 /// A lista de prontuários: "Novo prontuário" abre a tela de atendimento de quem clicou. A
-/// assinatura da anamnese é a área congelada — a gestão web não assina, e DIZ isso.
+/// assinatura da ANAMNESE não vem à gestão (nov/2026): a autorização do dono cobre receitas e documentos
+/// clínicos pelas rotas do Consultório, e a anamnese não é um deles — a tela DIZ isso.
 /// </summary>
 public sealed class JanelasDosProntuariosDaGestao(NavegacaoDaGestao navegacao) : IJanelasDosProntuarios
 {
+    public const string AnamneseNoComputador = "A assinatura da anamnese é feita no aplicativo do computador.";
+
     public Task<ResultadoDaAssinatura?> AssinarAnamneseAsync(LinhaProntuario linha)
-        => Task.FromResult<ResultadoDaAssinatura?>(new ResultadoDaAssinatura(AssinaturaForaDaGestao.Frase, Erro: true));
+        => Task.FromResult<ResultadoDaAssinatura?>(new ResultadoDaAssinatura(AnamneseNoComputador, Erro: true));
 
     public Task<bool> AbrirAtendimentoAsync()
         => Task.FromResult(navegacao.Navegar(PostoDoConsultorioNaTela.AtendimentoDeEnfermagem(SessaoUsuario.Atual)
@@ -222,7 +225,7 @@ public sealed class DocumentosDaGestao(
     IServiceScopeFactory escopos, IHostDaTela host, Dialogos dialogos, Notificacoes notificacoes, NavegacaoDaGestao navegacao)
     : IDocumentosDaRecepcao
 {
-    public const string SoNoAplicativo = "Esta ação é feita no aplicativo instalado da clínica (assinatura e link do documento).";
+    public const string SoNoAplicativo = "Esta ação é feita no aplicativo instalado da clínica (link do documento).";
 
     public bool Disponivel => true;
 
@@ -233,7 +236,11 @@ public sealed class DocumentosDaGestao(
         var pode = SessaoUsuario.Atual.Pode(CentralDocumentosService.AcessoParaEmitir(doc.Tipo));
         return new AtosDoDocumento(
             NovaVersao: TipoDocumentoInfo.PermiteNovaVersao(doc.Tipo) && !doc.Cancelado && doc.PacienteId is not null && pode,
-            Assinar: false,
+            // Nov/2026 (autorização do dono): a gestão ASSINA receitas e documentos — SafeID ou A1, pelas rotas do
+            // Consultório (AssinaturaNaGestao). Só quem assina vê: bit de prescrever, profissional vinculado e um
+            // tipo que o profissional assina; a autoria a API confere de novo.
+            Assinar: !doc.Assinado && !doc.Cancelado && Clinica.Domain.Regras.DocumentosParaAssinar.Tipos.Contains(doc.Tipo)
+                     && SessaoUsuario.Atual.ProfissionalId is not null && SessaoUsuario.Atual.Pode(Permissao.Prescrever),
             Enviar: EnvioAoPacienteService.PodeEnviar(doc.Tipo, doc.Assinado, doc.Cancelado) && pode,
             RenovarLink: false,
             TirarDoAr: false,

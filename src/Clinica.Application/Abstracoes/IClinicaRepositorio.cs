@@ -935,6 +935,12 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<DocumentoClinico>> DocumentosPublicadosVencidosAsync(
         DateOnly hoje, CancellationToken ct = default);
 
+    /// <summary>
+    /// Os documentos que o profissional ainda precisa assinar (<see cref="Clinica.Domain.Regras.DocumentosParaAssinar"/>),
+    /// com o paciente, do mais antigo ao mais novo, até <paramref name="limite"/>. A aba "Para assinar" da central.
+    /// </summary>
+    Task<IReadOnlyList<DocumentoClinico>> DocumentosParaAssinarAsync(int profissionalId, int limite = 200, CancellationToken ct = default);
+
     Task<IReadOnlyList<DocumentoClinico>> DocumentosDoPacienteAsync(
         int pacienteId, CancellationToken ct = default);
 

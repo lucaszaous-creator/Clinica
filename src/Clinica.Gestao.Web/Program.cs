@@ -62,8 +62,9 @@ builder.Services.AddScoped<PedidoDeDocumento>();
 builder.Services.AddScoped<PedidoDeConversaNoCrm>();
 builder.Services.AddScoped<PedidoDoAcompanhamento>();
 builder.Services.AddTelasBlazor();
-// Assinatura digital: área congelada — a gestão web não assina (AssinaturaForaDaGestao).
-builder.Services.AddScoped<IAssinaturaNaTela, AssinaturaForaDaGestao>();
+// Assinatura digital (nov/2026, autorização do dono — docs/safeid-congelado.md): as MESMAS rotas do Consultório,
+// pelo navegador (wwwroot/assinatura-na-gestao.js). O motor não muda.
+builder.Services.AddScoped<IAssinaturaNaTela, AssinaturaNaGestao>();
 
 builder.Services.AddSingleton(CatalogoDaGestao.Embutido());
 // Convênios, modalidades e especialidades em memória: nos apps quem carrega é a abertura; aqui,

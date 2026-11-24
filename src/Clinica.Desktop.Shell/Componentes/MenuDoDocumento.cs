@@ -28,7 +28,7 @@ public sealed record ComandosDoDocumento(
 /// Eram seis botões por linha, e o mockup aprovado (01) trocou isso por "uma ação + ⋯" —
 /// primeiro no Consultório. Com a central e a ficha ganhando os mesmos seis atos, o menu
 /// passaria a existir em TRÊS telas; os RÓTULOS dele são metade do que a parcela entrega
-/// ("Imprimir a 2ª via", "Assinar com o e-CPF…", "Tirar do ar"), e três cópias deles
+/// ("Imprimir a 2ª via", "Assinar (SafeID ou A1)…", "Tirar do ar"), e três cópias deles
 /// divergiriam na primeira correção — a tela que ficasse para trás chamaria o mesmo ato por
 /// outro nome, que é exatamente o que faz a pessoa procurar a diferença que não existe.
 ///
@@ -81,7 +81,7 @@ public static class MenuDoDocumento
         if (comandos.NovaVersao is { } novaVersao)
             Acrescentar("Alterar (emitir nova versão)…", novaVersao, doc.OferecerNovaVersao);
 
-        Acrescentar("Assinar com o e-CPF…", comandos.Assinar, doc.OferecerAssinar);
+        Acrescentar("Assinar (SafeID ou A1)…", comandos.Assinar, doc.OferecerAssinar);
 
         // É o ARQUIVO que vale: sem esta porta, o paciente sai com o papel e o PDF assinado
         // fica no computador da clínica.
