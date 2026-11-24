@@ -27,7 +27,7 @@ public sealed record AppSms(bool Enabled, string Provider);
 /// pulso de POST …/typing também MARCA COMO LIDA a última mensagem do paciente (é como a Meta faz o indicador).</summary>
 public sealed record AppSession(string? AgentId, string Csrf, AppAgent[] Agents, AppInbox[] Inboxes, string[] Queues,
     bool AttachmentsEnabled, bool SendEnabled, bool WhatsappOff, AppSms? Sms = null, bool RecordingEnabled = false,
-    bool RemindersEnabled = false, bool PatientTyping = false);
+    bool RemindersEnabled = false, bool PatientTyping = false, bool TranscriptionEnabled = false);
 
 // ---------- A lista ----------
 /// <summary>Como a conversa terminou (o último ServiceClose). Outcome é a chave de AppWorkspace.Outcomes.</summary>
@@ -64,7 +64,7 @@ public sealed record AppMessage(string Id, string Direction, string Text, string
     string Status, string? Error = null, string? AttachmentId = null, string? FileName = null,
     AppTemplateSelection? Template = null, string? ReplyToId = null, bool Sticker = false,
     AppReaction[]? Reactions = null, string? ReactionTo = null, bool Starred = false,
-    AppLocation? Location = null, AppSharedContact? SharedContact = null);
+    AppLocation? Location = null, AppSharedContact? SharedContact = null, string? Transcript = null, string? RetryOf = null);
 /// <summary>Uma reação. FromPatient: do paciente; senão, da clínica, e AgentId diz quem da equipe reagiu.</summary>
 public sealed record AppReaction(string Emoji, string? AgentId, bool FromPatient, DateTimeOffset At);
 public sealed record AppNote(string Id, string Text, string AgentId, DateTimeOffset At);
@@ -223,3 +223,16 @@ public sealed record AppSchedule(string Id, string Text, DateTimeOffset At, stri
 /// "falhou" (Error diz por quê, em pt-BR).</summary>
 public sealed record AppScheduledMessage(string Id, string AgentId, string Text, DateTimeOffset At, string State, DateTimeOffset CreatedAt,
     string? AttachmentId = null, AppTemplateSelection? Template = null, string? MessageId = null, string? Error = null);
+
+// ---------- "CRM com cara de WhatsApp" (nov/2026, F2c — docs/api-para-os-apps.md §17) ----------
+// AppSession.TranscriptionEnabled: o botão "Transcrever" só aparece ligado (hoje DESLIGADO: a IA do @SemDor não ouve áudio).
+// AppMessage.Transcript: o texto do áudio; AppMessage.RetryOf: esta mensagem é o "Tentar de novo" da original (a tela tira o "!" dela).
+/// <summary>POST …/{id}/semdor/opcoes (corpo vazio) — de 2 a 3 respostas curtas para as pílulas; a escolhida vai para o CAMPO.
+/// 409 desligado ou sem fala do paciente · 502 não respondeu (as frases como na sugestão).</summary>
+public sealed record AppSemDorOptions(string[] Options);
+/// <summary>POST …/{id}/messages/{messageId}/retry — "Tentar de novo": envio NOVO (Id: Guid "D" novo) com o mesmo conteúdo da que
+/// falhou (ou ficou incerta há mais de 10 min). Version: a da conversa. Resposta: AppConversation.</summary>
+public sealed record AppRetry(int Version, string Id);
+/// <summary>GET /api/greeting e POST (só a gestão) — a saudação do menu, a primeira mensagem ao paciente que escreve, e se o menu
+/// está ligado. Version: a da configuração (409 quando outra pessoa salvou antes).</summary>
+public sealed record AppGreeting(bool Enabled, string Text, int Version);

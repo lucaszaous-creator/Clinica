@@ -247,6 +247,32 @@ public interface IClienteDoCrm
     /// <summary>POST …/{id}/scheduled/{agendamentoId}/cancel — só quem agendou ou a gestão (403); já enviada é 409.</summary>
     Task<AppConversation> CancelarAgendamentoAsync(int usuarioId, string conversaId, string agendamentoId, CancellationToken ct = default);
 
+    // ---------- "Cara de WhatsApp", F2c (semdor-crm §17) ----------
+
+    /// <summary>
+    /// POST …/{id}/semdor/opcoes — de 2 a 3 respostas curtas do @SemDor para as pílulas; a escolhida vai para o CAMPO, nunca é
+    /// enviada sozinha. As falhas como na sugestão (409 desligado; 502 = <see cref="CrmIndisponivel"/>). Prazo da IA.
+    /// </summary>
+    Task<AppSemDorOptions> OpcoesDoSemDorAsync(int usuarioId, string conversaId, CancellationToken ct = default);
+
+    /// <summary>
+    /// POST …/{id}/messages/{mensagemId}/transcribe — a transcrição do áudio (em <see cref="AppMessage.Transcript"/>). Hoje o CRM
+    /// responde 409 ("desligada"): a IA do @SemDor não ouve áudio. Só chame com <see cref="AppSession.TranscriptionEnabled"/>.
+    /// </summary>
+    Task<AppConversation> TranscreverAsync(int usuarioId, string conversaId, string mensagemId, CancellationToken ct = default);
+
+    /// <summary>
+    /// POST …/{id}/messages/{mensagemId}/retry — "Tentar de novo": envio NOVO (o <c>Id</c> é um Guid "D" novo) com o mesmo
+    /// conteúdo da que falhou. A nova vem com <see cref="AppMessage.RetryOf"/>. 409: não falhou, incerta há menos de 10 min ou já reenviada.
+    /// </summary>
+    Task<AppConversation> TentarDeNovoAsync(int usuarioId, string conversaId, string mensagemId, AppRetry pedido, CancellationToken ct = default);
+
+    /// <summary>GET /api/greeting — a saudação do menu e se o menu está ligado.</summary>
+    Task<AppGreeting> SaudacaoAsync(int usuarioId, CancellationToken ct = default);
+
+    /// <summary>POST /api/greeting — muda a saudação e o liga/desliga do menu (só a gestão: 403; versão velha: 409).</summary>
+    Task<AppGreeting> SalvarSaudacaoAsync(int usuarioId, AppGreeting saudacao, CancellationToken ct = default);
+
     /// <summary>Esquece a sessão do CRM da pessoa (o app chama no logout): a próxima chamada entra de novo.</summary>
     void EsquecerSessao(int usuarioId);
 }
