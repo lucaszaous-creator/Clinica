@@ -45,6 +45,14 @@ public interface IAssinaturaNaTela
     /// é erro; nulo = desistiu no seletor.
     /// </summary>
     Task<(string Frase, bool EhErro)?> AssinarDocumentoPorIdAsync(int documentoId, string assunto);
+
+    /// <summary>
+    /// Onde assinar quando ESTA hospedagem não assina (nov/2026: a gestão web — área congelada). Devolve o endereço
+    /// do Consultório do portal já com o documento pronto para assinar (A1 ou SafeID, os MESMOS serviços); nulo = a
+    /// assinatura é feita aqui mesmo (os aplicativos do computador). A tela troca "Assinar" por "Assinar no
+    /// Consultório" quando há endereço: botão que não assina é defeito (regra "função que saiu, sai inteira").
+    /// </summary>
+    string? EnderecoParaAssinarFora(int documentoId, int pacienteId) => null;
 }
 
 /// <summary>A porta da assinatura nas telas Blazor — um por navegador (Scoped), como a camada dos formulários.</summary>
