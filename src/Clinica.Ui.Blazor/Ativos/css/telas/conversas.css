@@ -497,7 +497,7 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px;fon
    da SemDor (#1E62AC) e os verdes do WhatsApp só onde são do canal: o balão da clínica, o botão redondo e as não lidas.
    Tudo de token (tokens/web-extras.css, bloco --wa-*). Vem por último e com o prefixo da página para vencer o comum.
    ==================================================================================================================== */
-.pagina.wa{--acento:var(--wa-acao);--acento-hover:var(--wa-acao-hover);--acento-suave:var(--wa-acao-suave);--acento-tint:var(--wa-acao-tint);
+.pagina.wa,.wa-camada{--acento:var(--wa-acao);--acento-hover:var(--wa-acao-hover);--acento-suave:var(--wa-acao-suave);--acento-tint:var(--wa-acao-tint);
   --foco:var(--wa-acao);--texto-secundario:var(--wa-cinza)}
 .pagina.wa .wa-sr,.pagina.wa .wa-enviar-rotulo,.pagina.wa .wa-gravar-rotulo{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);margin:-1px;white-space:nowrap}
 
@@ -653,3 +653,97 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px;fon
   .pagina.wa .wa-popover.wa-emojis{grid-template-columns:repeat(6,40px)}
 }
 @media (prefers-reduced-motion:reduce){.wa-balao-menu,.wa-pilula{transition:none}}
+
+/* ====================================================================================================================
+   A v3 E A v4 NA TELA (nov/2026, F3): etiquetas, fixadas, rascunho, "escrevendo", automáticas compactas, reação, ★,
+   endereço/contato, transcrição, "!" + "Tentar de novo", agendadas, pílulas do @SemDor, enviar mais tarde e saudação.
+   ==================================================================================================================== */
+.wa-etiqueta-conversa{display:inline-flex;align-items:center;padding:1px 8px;border-radius:var(--radius-pilula);font-size:11px;font-weight:600;white-space:nowrap}
+:is(.wa-etiqueta-conversa,.wa-pilula-etiqueta).tom-laranja{background:var(--wa-etq-laranja);color:var(--wa-etq-laranja-texto)}
+:is(.wa-etiqueta-conversa,.wa-pilula-etiqueta).tom-verde{background:var(--wa-etq-verde);color:var(--wa-etq-verde-texto)}
+:is(.wa-etiqueta-conversa,.wa-pilula-etiqueta).tom-vermelho{background:var(--wa-etq-vermelho);color:var(--wa-etq-vermelho-texto)}
+:is(.wa-etiqueta-conversa,.wa-pilula-etiqueta).tom-azul{background:var(--wa-acao-suave);color:var(--wa-acao)}
+.wa-pilula.wa-pilula-etiqueta[aria-pressed="true"]{box-shadow:inset 0 0 0 2px currentColor}
+.wa-linha-rodape .wa-etiqueta-conversa{flex:0 1 auto;min-width:0;max-width:45%;overflow:hidden;text-overflow:ellipsis}
+.wa-etiqueta-conversa small{font-size:inherit;font-weight:700;margin-left:2px}
+.wa-camada{display:contents}
+.wa-fixada{display:inline-flex;color:var(--wa-cinza);margin-left:auto;margin-right:4px}
+.wa-fixada .icone{width:14px;height:14px}
+.wa-rascunho{color:var(--wa-verde-escuro);font-weight:600}
+.wa-escrevendo{font-size:var(--text-small-size);font-weight:600;color:var(--wa-verde-escuro)}
+.wa-escrevendo + .wa-cab-meta{display:none}
+.pagina.wa .wa-faixa .wa-etiqueta-conversa{margin-right:2px}
+
+/* A automática compacta: uma linha do lado da clínica, com o rótulo pequeno; abre inteira ao clique. */
+.wa-auto{align-self:flex-end;display:inline-flex;align-items:center;gap:var(--space-2);max-width:min(560px,90%);margin-top:var(--space-2);
+  padding:4px 10px;border:1px dashed var(--borda-hover);border-radius:var(--radius-pilula);background:var(--superficie);color:var(--wa-cinza);
+  font:inherit;font-size:var(--text-small-size);cursor:pointer;text-align:left}
+.wa-auto:hover{border-color:var(--wa-cinza);color:var(--texto-primario)}
+.wa-auto:focus-visible{outline:2px solid var(--wa-acao);outline-offset:2px}
+.wa-auto-rotulo{flex:none;font-size:11px;font-weight:700;color:var(--wa-cinza)}
+.wa-auto-texto{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--texto-primario)}
+.wa-auto time{flex:none;font-variant-numeric:tabular-nums}
+.wa-auto .icone{width:14px;height:14px;flex:none}
+.wa-auto-recolher{display:block;margin:0 0 2px;padding:0;border:0;background:transparent;font:inherit;font-size:11px;font-weight:700;color:var(--wa-cinza);cursor:pointer}
+.wa-auto-recolher:hover{text-decoration:underline}
+
+/* Reação, ★, transcrição, endereço e contato no balão. */
+.wa-m.com-reacao{margin-bottom:12px}
+.wa-reacoes{position:absolute;bottom:-14px;left:8px;display:inline-flex;gap:2px;padding:1px 6px;border-radius:var(--radius-pilula);background:var(--superficie);
+  box-shadow:var(--sombra-cartao);font-size:13px;line-height:1.4;white-space:nowrap}
+.wa-m.enviada .wa-reacoes{left:auto;right:8px}
+.wa-reacoes small{font-size:11px;color:var(--wa-cinza);margin-left:2px}
+.wa-estrela{display:inline-flex;color:var(--wa-cinza)}
+.wa-estrela .icone{width:12px;height:12px;fill:currentColor}
+.wa-transcricao{display:block;margin-top:4px;padding-top:4px;border-top:1px solid var(--wa-linha);font-style:italic;color:var(--wa-cinza);font-size:var(--text-table-size)}
+.wa-local{display:flex;flex-direction:column;gap:4px;margin-bottom:4px;min-width:220px}
+.wa-local-mapa{display:grid;place-items:center;height:96px;border-radius:var(--radius-control);background:var(--wa-linha);color:var(--wa-erro)}
+.wa-local-mapa .icone{width:28px;height:28px}
+.wa-local-texto{display:flex;flex-direction:column}
+.wa-local-texto small,.wa-cartao-contato small{color:var(--wa-cinza);font-size:var(--text-small-size)}
+.wa-cartao-contato{display:flex;align-items:center;gap:var(--space-3);margin-bottom:4px;padding:6px 4px;min-width:220px}
+.wa-cartao-contato .avatar{width:40px;height:40px;font-size:13px;flex:none}
+.wa-cartao-contato > span:last-child{display:flex;flex-direction:column;min-width:0}
+
+/* "!" e "Tentar de novo" (como no WhatsApp): o vermelho só no que não saiu. */
+.wa-falhou{display:flex;align-items:center;gap:var(--space-2);flex-direction:row-reverse}
+.wa-bang{width:20px;height:20px;border-radius:50%;background:var(--wa-erro);color:var(--texto-invertido);font-size:12px;font-weight:800;display:grid;place-items:center;flex:none}
+.wa-falhou-acao{display:flex;gap:var(--space-2);margin-top:4px;padding-top:4px;border-top:1px solid var(--wa-linha);font-size:var(--text-small-size)}
+.wa-falhou-acao > span{color:var(--wa-erro);font-weight:600}
+.wa-falhou-acao .link{font-weight:700}
+
+/* As agendadas: o balão da clínica, apagado, com o relógio e o Cancelar. */
+.wa-m.wa-agendada .wa-balao{background:var(--superficie);border:1px dashed var(--wa-verde-escuro);box-shadow:none}
+.wa-agendada-quando{display:flex;align-items:center;gap:6px;margin-top:4px;font-size:var(--text-small-size);color:var(--wa-cinza)}
+.wa-agendada-quando .icone{width:14px;height:14px}
+
+/* As pílulas do @SemDor, acima do campo. */
+.wa-sugestoes{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:var(--space-2) var(--space-4) 0}
+.wa-sugestoes small{flex-basis:100%;font-size:11px;font-weight:600;color:var(--wa-cinza)}
+.wa-sugestao{padding:4px 12px;border:1px solid var(--borda-hover);border-radius:var(--radius-pilula);background:var(--superficie);font:inherit;
+  font-size:var(--text-table-size);color:var(--texto-primario);cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wa-sugestao:hover{border-color:var(--wa-acao);color:var(--wa-acao)}
+.wa-sugestao:focus-visible{outline:2px solid var(--wa-acao);outline-offset:2px}
+
+/* Enviar mais tarde: o relógio ao lado do botão redondo e o popover dos horários. */
+.pagina.wa .wa-escrever:not(.tem-texto) .wa-mais-tarde{display:none}
+.wa-agendar-campo{display:flex;gap:var(--space-2);align-items:center;padding:var(--space-2) var(--space-3)}
+.wa-agendar-campo .campo{flex:1;min-width:0;height:34px;min-height:34px}
+.wa-popover .wa-opcao strong .icone{width:14px;height:14px}
+.wa-opcao-etiqueta strong{justify-content:space-between;width:100%}
+.wa-opcao-etiqueta[aria-pressed="true"]{background:var(--wa-faixa)}
+.wa-popover.wa-reagir{grid-template-columns:repeat(6,40px)}
+
+/* A saudação: o interruptor do WhatsApp Business. */
+.wa-interruptor{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);padding:var(--space-2) 0 var(--space-3);cursor:pointer}
+.wa-interruptor > span{display:flex;flex-direction:column}
+.wa-interruptor small{color:var(--texto-secundario);font-size:var(--text-small-size)}
+.wa-interruptor input{appearance:none;width:40px;height:24px;border-radius:var(--radius-pilula);background:var(--cinza-300);position:relative;cursor:pointer;flex:none;
+  transition:background var(--duracao-rapida)}
+.wa-interruptor input::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:var(--superficie);transition:left var(--duracao-rapida)}
+.wa-interruptor input:checked{background:var(--wa-verde-escuro)}
+.wa-interruptor input:checked::after{left:19px}
+.wa-interruptor input:focus-visible{outline:2px solid var(--wa-acao);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.wa-interruptor input,.wa-interruptor input::after{transition:none}}
+/* No celular a automática quebra a linha em vez de cortar o que o paciente escolheu. */
+@media (max-width:760px){.wa-auto{border-radius:var(--radius-card)}.wa-auto-texto{white-space:normal}}

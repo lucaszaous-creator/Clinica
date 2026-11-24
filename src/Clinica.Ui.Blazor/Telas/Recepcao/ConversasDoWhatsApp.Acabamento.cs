@@ -52,7 +52,10 @@ public partial class ConversasDoWhatsApp
             {
                 // Sem o módulo (o teste, sem navegador) o Enter continua enviando; só a quebra de linha não é impedida.
                 if (await JS.InvokeAsync<IJSObjectReference>("import", ModuloDaConversa) is { } modulo)
+                {
                     await modulo.InvokeVoidAsync("ligar");
+                    await LigarColarEArrastarAsync(modulo); // colar print e arrastar arquivo (F3)
+                }
             }
             catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException)
             {

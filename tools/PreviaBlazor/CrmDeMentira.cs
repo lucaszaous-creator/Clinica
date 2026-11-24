@@ -1945,7 +1945,12 @@ public sealed class CrmDeMentira : IClienteDoCrm
         // ----- Novo contato: sem ficha, duas mensagens sem resposta.
         var novo = new Conversa(Ids.NovoContato, PessoasDoWhatsApp.NovoContato.NoCrm, PessoasDoWhatsApp.NovoContato.NoCrm, RemetenteWhatsApp)
             { NaoLidasIniciais = 2 };
-        novo.Recebida(T(0, 9, 29), "Bom dia, gostaria de saber o valor da acupuntura")
+        // O menu automático do CRM antes de alguém entrar (F3, pedido do dono 24/11: a tela o mostra COMPACTO, numa linha).
+        novo.Enviada(T(0, 9, 26), "automation", "Olá! Para agilizar, escolha o atendimento:\n\n1. Clínica da dor\n_Bloqueios e infiltrações._\n\n"
+                + "2. Acupuntura\n_Sessões com hora marcada._\n\n3. Outras especialidades\n_Consultas com a equipe._", "seen")
+            .Recebida(T(0, 9, 27), "2")
+            .Enviada(T(0, 9, 27), "automation", "Certo! Seu atendimento foi encaminhado para *Acupuntura*. Em instantes nossa equipe continua por aqui.", "seen")
+            .Recebida(T(0, 9, 29), "Bom dia, gostaria de saber o valor da acupuntura")
             .Recebida(T(0, 9, 30), "É para a minha mãe, 72 anos, dor no joelho");
         lista.Add(novo);
 

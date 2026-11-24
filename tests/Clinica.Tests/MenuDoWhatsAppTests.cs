@@ -31,7 +31,7 @@ public sealed class MenuDoWhatsAppTests
         var menu = MenuDoWhatsApp.DaConversa(Linha(), "ana", Tudo);
 
         Acoes(menu).Should().Equal(AcaoNaConversa.Abrir, AcaoNaConversa.Assumir, AcaoNaConversa.Transferir, AcaoNaConversa.NotaInterna,
-            AcaoNaConversa.MarcarNaoLida, AcaoNaConversa.CopiarTelefone, AcaoNaConversa.ConferirFicha, AcaoNaConversa.Resumir, AcaoNaConversa.Encerrar);
+            AcaoNaConversa.MarcarNaoLida, AcaoNaConversa.Fixar, AcaoNaConversa.CopiarTelefone, AcaoNaConversa.ConferirFicha, AcaoNaConversa.Resumir, AcaoNaConversa.Encerrar);
         Item(menu, AcaoNaConversa.Assumir).Habilitado.Should().BeTrue();
         Item(menu, AcaoNaConversa.Transferir).Motivo.Should().Be(MenuDoWhatsApp.SoComVoce);
         Item(menu, AcaoNaConversa.Encerrar).Motivo.Should().Be(MenuDoWhatsApp.SoComVoce);
@@ -98,9 +98,9 @@ public sealed class MenuDoWhatsAppTests
     [Fact]
     public void Recebida_com_a_janela_aberta_responde_citando_e_copia()
     {
-        var menu = MenuDoWhatsApp.DaMensagem(Recebida(), "", janelaLivre: true, sms: false, minha: true, fichaConferida: true, Tudo);
+        var menu = MenuDoWhatsApp.DaMensagem(Recebida(), "", janelaLivre: true, sms: false, minha: true, fichaConferida: true, Tudo, Agora);
         menu.Select(i => i.Acao).Should().Equal(AcaoNaMensagem.Responder, AcaoNaMensagem.CopiarTexto, AcaoNaMensagem.NotaSobre,
-            AcaoNaMensagem.PerguntarAoProfissional, AcaoNaMensagem.CopiarComHora);
+            AcaoNaMensagem.PerguntarAoProfissional, AcaoNaMensagem.Reagir, AcaoNaMensagem.Estrelar, AcaoNaMensagem.CopiarComHora);
         menu.Should().OnlyContain(i => i.Habilitado);
     }
 

@@ -33,7 +33,10 @@ public partial class ConversasDoWhatsApp
         FecharMenus();
         _conversaDoMenu = conversaId;
         (_menuX, _menuY) = (e.ClientX, e.ClientY);
-        _menuDaConversa = MenuDoWhatsApp.DaConversa(c, _painel.Sessao.AgentId, AcessoDoMenu);
+        _menuDaConversa = MenuDoWhatsApp.DaConversa(c with { Pinned = Fixada(c.Id) }, _painel.Sessao.AgentId, AcessoDoMenu,
+            _fixadas?.ConversationIds.Length ?? 0, _fixadas?.Max ?? 3);
+        // Sem a leitura das fixadas (CRM antigo), o item some: não há o que fixar.
+        if (_fixadas is null) _menuDaConversa = _menuDaConversa.Where(i => i.Acao is not (AcaoNaConversa.Fixar or AcaoNaConversa.Desafixar)).ToList();
     }
 
     private async Task AbrirMenuDaMensagemAsync(ConversaDoWhatsApp c, ItemDaConversa item, MouseEventArgs e)
@@ -43,7 +46,8 @@ public partial class ConversasDoWhatsApp
         _mensagemDoMenu = item;
         _selecaoDoMenu = item.Id is { } id ? await SelecaoNoBalaoAsync(id) : "";
         var fichaConferida = c.Conversa?.PatientId is not null;
-        _menuDaMensagem = MenuDoWhatsApp.DaMensagem(item, _selecaoDoMenu, c.Janela.PodeEscreverLivre, c.Sms, c.Minha, fichaConferida, AcessoDoMenu);
+        _menuDaMensagem = MenuDoWhatsApp.DaMensagem(item, _selecaoDoMenu, c.Janela.PodeEscreverLivre, c.Sms, c.Minha, fichaConferida, AcessoDoMenu,
+            WhatsAppDaRecepcaoService.Agora);
     }
 
     private void FecharMenus()
@@ -79,6 +83,9 @@ public partial class ConversasDoWhatsApp
                 return;
             case AcaoNaConversa.MarcarLida:
                 await MarcarLeituraAsync(id, lida: true);
+                return;
+            case AcaoNaConversa.Fixar or AcaoNaConversa.Desafixar:
+                await FixarAsync(id, acao == AcaoNaConversa.Fixar);
                 return;
             case AcaoNaConversa.AbrirFicha when linha.PatientId is { } pid:
                 await AbrirFichaAsync(pid);
@@ -161,6 +168,8 @@ public partial class ConversasDoWhatsApp
                 break;
             // Era o botão ao lado do balão do paciente (R10); desde a F1 (nov/2026) é um item do menu do balão, o mesmo handler.
             case AcaoNaMensagem.PerguntarAoProfissional: await AbrirPerguntaAsync(c, m); break;
+            case AcaoNaMensagem.Reagir when m.Id is { } reagir: if (Exigir(Permissao.EditarAgenda, "reagir à mensagem")) AbrirReacoes(reagir); break;
+            case AcaoNaMensagem.Estrelar: await EstrelarAsync(c, m); break;
             case AcaoNaMensagem.DetalhesDaEntrega:
                 await Dialogos.AvisoAsync("Detalhes da entrega",
                     string.Join("\n", MenuDoWhatsApp.DetalhesDaEntrega(m).Select(l => $"{l.Rotulo}: {l.Texto}")));

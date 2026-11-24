@@ -179,8 +179,31 @@ public sealed class AcabamentoDoWhatsAppNaTelaTests : IClassFixture<BancoDasTela
     {
         var tela = Abrir();
         AbrirConversa(tela, "Carlos Eduardo");
-        // O lembrete das 06:00 saiu pelo modelo com Confirmar, Remarcar e Cancelar: a recepção vê o que a pessoa recebeu.
+        // O lembrete das 06:00 é automático: chega COMPACTO numa linha (pedido do dono, 24/11) e abre inteiro ao clique.
+        tela.WaitForAssertion(() => tela.FindAll(".wa-auto").Should().Contain(b => b.TextContent.Contains("Lembrete enviado")), Prazo);
+        tela.FindAll(".wa-m-botoes").Should().BeEmpty("recolhido, o lembrete não mostra os botões");
+        tela.Clicar(() => tela.FindAll(".wa-auto").First(b => b.TextContent.Contains("Lembrete enviado")));
+        // Aberto, a recepção vê o que a pessoa recebeu: Confirmar, Remarcar e Cancelar.
         tela.WaitForAssertion(() => tela.Find(".wa-m-botoes").TextContent.Should().Contain("Confirmar").And.Contain("Remarcar").And.Contain("Cancelar"), Prazo);
+    }
+
+    [Fact]
+    public void O_menu_automatico_fica_numa_linha_e_a_formatacao_aparece_sem_os_asteriscos()
+    {
+        var tela = Abrir();
+        AbrirConversa(tela, "99712-0045");
+
+        // Pedido do dono (24/11): o que a máquina mandou vira uma linha, com o que o paciente escolheu.
+        tela.WaitForAssertion(() => tela.FindAll(".wa-auto").Select(b => b.TextContent).Should()
+            .Contain(t => t.Contains("Menu enviado · paciente escolheu Acupuntura")), Prazo);
+        tela.FindAll(".wa-auto").Should().OnlyContain(b => b.TextContent.Contains("Automático"));
+
+        // Aberta, a automática mostra *Acupuntura* em negrito, sem os asteriscos, e se recolhe de novo.
+        tela.Clicar(() => tela.FindAll(".wa-auto").First(b => b.TextContent.Contains("encaminhado")));
+        tela.WaitForAssertion(() => tela.FindAll(".wa-balao strong").Should().Contain(e => e.TextContent == "Acupuntura"), Prazo);
+        tela.FindAll(".wa-balao").Should().NotContain(e => e.TextContent.Contains("*Acupuntura*"));
+        tela.Clicar(() => tela.Find(".wa-auto-recolher"));
+        tela.FindAll(".wa-auto-recolher").Should().BeEmpty();
     }
 
     [Fact]
