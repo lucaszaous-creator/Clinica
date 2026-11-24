@@ -576,6 +576,29 @@ public sealed class AgendaService
         Anexar(avisosGuia, await _atendimentos.AjustarAoRemarcarAsync(
             ag, DateOnly.FromDateTime(horarioAnterior), regerarGuias, operador, ct));
 
+        // ===== REMARCOU → A CONFIRMAÇÃO RECOMEÇA NA DATA NOVA (nov/2026) =====
+        // Uma regra só para as três portas (balcão, CRM e a escolha do paciente), todas passam por aqui. O pedido
+        // de confirmação já enviado era do horário ANTIGO: o contato vai para a rodada do dia novo, PENDENTE, e o
+        // que ele dizia fica na auditoria. Sem isto (25/11) a rodada de amanhã mostrou como "Não avisado" quatro
+        // horários que a recepção tinha remarcado à tarde — o contato continuava preso à data antiga.
+        if (dataHora != horarioAnterior
+            && await _repo.ContatoDeConfirmacaoDoAgendamentoAsync(ag.Id, ct) is { } confirmacao)
+        {
+            await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+            {
+                Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
+                Acao = "ConfirmacaoReaberta",
+                Detalhe = $"Horário {ag.Id} remarcado: a confirmação de {confirmacao.Referencia:dd/MM/yyyy} "
+                          + $"({confirmacao.Status}{(confirmacao.EnviadoEm is { } enviado ? $", enviada em {enviado:dd/MM HH:mm}" : "")}"
+                          + $"{(confirmacao.RespondidoEm is { } resp ? $", respondida em {resp:dd/MM HH:mm}" : "")}) "
+                          + $"recomeça em {dataHora:dd/MM/yyyy}, pendente.",
+                PacienteId = ag.PacienteId
+            }, ct);
+            confirmacao.Referencia = DateOnly.FromDateTime(dataHora);
+            confirmacao.Status = StatusContato.Pendente;
+            confirmacao.EnviadoEm = null; confirmacao.EnviadoPor = null; confirmacao.RespondidoEm = null;
+        }
+
         await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
         {
             Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
