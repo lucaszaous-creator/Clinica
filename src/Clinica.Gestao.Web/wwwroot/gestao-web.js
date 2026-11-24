@@ -1,6 +1,10 @@
 // A gestão no navegador (nov/2026): o que o hospedeiro das telas pede ao navegador — baixar um
 // arquivo, escolher um arquivo para enviar, copiar texto, abrir um endereço. Os bytes vêm e vão
 // por STREAM (DotNetStreamReference / IJSStreamReference), nunca numa mensagem gigante do WebSocket.
+// A gestão ABRIU: apaga a marca da ida automática que o portal deixa (clinica-site, clinico.js,
+// areaPosto.irAGestao). Sem isto, voltar ao portal logo depois pareceria a gestão recusando a pessoa.
+try { sessionStorage.removeItem('portal-ida-gestao'); } catch { /* sem armazenamento: nada a apagar */ }
+
 window.gestaoWeb = {
   async baixar(nome, tipo, referencia, abrir) {
     const dados = await referencia.arrayBuffer();

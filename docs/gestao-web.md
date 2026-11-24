@@ -181,7 +181,10 @@ tinha os dois ficava no "Meu dia". Às vezes sim, às vezes não: dependia de a 
 - **Portal** (`clinica-site`): reabrir segue a MESMA ordem do login — `destinos[0]==='gestao'` vai à
   `/gestao/`. O posto fica quando foi PEDIDO: `?posto` na URL, a volta da Safeweb (`?assinatura=`) ou
   a aba que já estava no posto (`sessionStorage`, some com a aba: F5, Termos, Treinamento e a logo
-  continuam no posto). O item Gestão e o Sair esquecem o pedido.
+  continuam no posto). O item Gestão e o Sair esquecem o pedido. Contra o laço gestão ⇄ portal
+  (a gestão recusa quem ela não aceita — ex.: `Gestao__ExigirSegundoFator` sem autenticador — e
+  devolve a `/profissional/`), a ida automática deixa uma marca de 20 s que o `gestao-web.js`
+  apaga ao abrir; voltar com a marca é recusa, e o portal não manda de novo.
 - **Gestão** (aqui): para quem passa na régua do posto, a barra ganha a entrada direta **"Meu dia"**
   no fim, que abre `/profissional/?posto`. A régua é UMA função, `AcessoAoPortal.PodePosto`, usada
   pela API (destinos) e pela gestão (a porta) — botão para um posto que recusaria a pessoa seria
