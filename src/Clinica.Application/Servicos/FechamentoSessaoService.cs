@@ -233,7 +233,7 @@ public sealed class FechamentoSessaoService
         var ehParticular = SessaoParticular.Eh(ag);
 
         var pacote = await PacoteADebitarAsync(ag.PacienteId, dia, ct);
-        var (valor, procedencia, forma) = await ValorSugeridoAsync(ag.PacienteId, ct);
+        var (valor, procedencia, forma) = await ValorSugeridoAsync(ag.PacienteId, ehParticular, ct);
 
         // PAGO AO MARCAR (nov/2026): o dinheiro desta sessão já está no caixa, preso ao horário.
         // Perguntar de novo no Finalizar é cobrar duas vezes — a mesma razão do pacote.
@@ -536,11 +536,17 @@ public sealed class FechamentoSessaoService
     /// seria pior do que perguntar.
     /// </summary>
     private async Task<(decimal?, string?, FormaPagamento?)> ValorSugeridoAsync(
-        int pacienteId, CancellationToken ct)
+        int pacienteId, bool ehParticular, CancellationToken ct)
     {
         try
         {
             var ultimo = await _repo.UltimoRecebimentoDoPacienteAsync(pacienteId, ct);
+            // Nov/2026: o particular POR ESCOLHA entra no caixa sozinho (ReceitaDoParticularService). Esse dinheiro é da
+            // sessão particular — numa sessão PELO PLANO da mesma paciente ele não é "já pagou antes": viraria um
+            // "Cobrar R$ X" pré-marcado no convênio, a receita fantasma que o SugereLancamento existe para evitar.
+            if (!ehParticular && ultimo?.AtendimentoId is { } deOnde
+                && await _repo.ObterAtendimentoAsync(deOnde, ct) is { Particular: true })
+                return (null, null, null);
             return ultimo is null
                 ? (null, null, null)
                 : (ultimo.Valor, $"igual à sessão de {ultimo.Data:dd/MM/yyyy}", ultimo.FormaPagamento);
