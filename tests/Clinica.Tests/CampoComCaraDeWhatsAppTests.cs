@@ -54,12 +54,11 @@ public sealed class CampoComCaraDeWhatsAppTests
     public void As_pilulas_sao_as_do_WhatsApp_e_so_mostram_numero_onde_ha_o_que_fazer()
     {
         ConversasNaTela.Pilulas.Select(p => p.Rotulo).Should().Equal("Tudo", "Não lidas", "Minhas", "Sem resposta");
-        var c = new ContagemDasConversas(Novas: 1, Minhas: 3, Todas: 9, Encerradas: 4, NaoLidas: 7, SemResposta: 120);
+        var c = new ContagemDasConversas(Novas: 1, Minhas: 3, Todas: 9, NaoLidas: 7, SemResposta: 120);
         ConversasNaTela.Pilulas.Select(p => ConversasNaTela.ContagemDaPilula(p, c)).Should().Equal(null, "7", null, "99+");
         ConversasNaTela.ContagemDaPilula(ConversasNaTela.Pilulas[1], c with { NaoLidas = 0 }).Should().BeNull("zero não vira número");
         ConversasNaTela.PilulaAtual(FiltroDasConversas.Todas, soNaoLidas: true)!.Rotulo.Should().Be("Não lidas");
         ConversasNaTela.PilulaAtual(FiltroDasConversas.Minhas, soNaoLidas: true)!.Rotulo.Should().Be("Minhas");
-        ConversasNaTela.PilulaAtual(FiltroDasConversas.Encerradas, soNaoLidas: false).Should().BeNull("Encerradas é a linha de cima, não pílula");
     }
 
     // ---------------------------------------------------------------- o ⋮ do cabeçalho
@@ -69,13 +68,12 @@ public sealed class CampoComCaraDeWhatsAppTests
     {
         var minha = MenuDoWhatsApp.DoCabecalho(Conversa(agente: "eu"), "eu", 3, Tudo);
         minha.Select(i => i.Acao).Should().Equal(AcaoNaConversa.Devolver, AcaoNaConversa.Transferir, AcaoNaConversa.NotaInterna,
-            AcaoNaConversa.Buscar, AcaoNaConversa.DadosDoContato, AcaoNaConversa.Etiquetas, AcaoNaConversa.Resumir, AcaoNaConversa.Encerrar);
+            AcaoNaConversa.Buscar, AcaoNaConversa.DadosDoContato, AcaoNaConversa.Etiquetas, AcaoNaConversa.Resumir);
         minha.Should().OnlyContain(i => i.Habilitado);
-        minha.Single(i => i.Acao == AcaoNaConversa.Encerrar).Perigo.Should().BeTrue();
 
         var daBia = MenuDoWhatsApp.DoCabecalho(Conversa(agente: "bia"), "eu", 3, Tudo);
         daBia.Single(i => i.Acao == AcaoNaConversa.Assumir).Motivo.Should().Contain("peça a transferência");
-        daBia.Single(i => i.Acao == AcaoNaConversa.Encerrar).Motivo.Should().Be(MenuDoWhatsApp.SoComVoce);
+        daBia.Single(i => i.Acao == AcaoNaConversa.Transferir).Motivo.Should().Be(MenuDoWhatsApp.SoComVoce);
         daBia.Single(i => i.Acao == AcaoNaConversa.NotaInterna).Habilitado.Should().BeTrue("todos escrevem: nota é de toda a equipe");
 
         var semEscrever = MenuDoWhatsApp.DoCabecalho(Conversa(agente: "eu"), "eu", 3, Tudo with { PodeEscrever = false });
@@ -85,11 +83,12 @@ public sealed class CampoComCaraDeWhatsAppTests
     }
 
     [Fact]
-    public void Encerrada_reabre_sem_resumo_vazio_e_o_caso_sem_conversa_so_tem_os_dados()
+    public void Sem_encerrar_nem_reabrir_a_conversa_que_o_CRM_separou_e_igual_as_outras_e_o_caso_sem_conversa_so_tem_os_dados()
     {
+        // Pedido do dono (24/11): encerrar some da tela. A conversa que o CRM separou por inatividade tem o mesmo menu de todas.
         var encerrada = MenuDoWhatsApp.DoCabecalho(Conversa(agente: "eu", encerrada: true, mensagens: 0), "eu", 0, Tudo);
-        encerrada.Select(i => i.Acao).Should().Equal(AcaoNaConversa.Reabrir, AcaoNaConversa.Buscar, AcaoNaConversa.DadosDoContato,
-            AcaoNaConversa.Etiquetas, AcaoNaConversa.Resumir);
+        encerrada.Select(i => i.Acao).Should().Equal(AcaoNaConversa.Devolver, AcaoNaConversa.Transferir, AcaoNaConversa.NotaInterna,
+            AcaoNaConversa.Buscar, AcaoNaConversa.DadosDoContato, AcaoNaConversa.Etiquetas, AcaoNaConversa.Resumir);
         encerrada.Single(i => i.Acao == AcaoNaConversa.Resumir).Motivo.Should().Be("Ainda não há mensagem para resumir");
 
         MenuDoWhatsApp.DoCabecalho(Conversa(agente: "eu"), "eu", 3, Tudo with { SemDor = false }).Select(i => i.Acao)

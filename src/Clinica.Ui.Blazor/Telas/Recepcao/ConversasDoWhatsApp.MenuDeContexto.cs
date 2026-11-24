@@ -99,9 +99,7 @@ public partial class ConversasDoWhatsApp
         {
             case AcaoNaConversa.Assumir: await AssumirAsync(); break;
             case AcaoNaConversa.Devolver: await DevolverAsync(); break;
-            case AcaoNaConversa.Reabrir: await ReabrirAsync(); break;
             case AcaoNaConversa.Transferir: if (Exigir(Permissao.EditarAgenda, "transferir a conversa")) _form = Form.Transferir; break;
-            case AcaoNaConversa.Encerrar: if (Exigir(Permissao.EditarAgenda, "encerrar o atendimento")) _form = Form.Encerrar; break;
             case AcaoNaConversa.NotaInterna when _aberta is { } a:
                 if (Exigir(Permissao.EditarAgenda, "escrever nota interna")) { Rascunho(a).Nota = true; _focarCampo = true; }
                 break;

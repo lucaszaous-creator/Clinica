@@ -169,7 +169,7 @@ public sealed class RegrasDoWhatsAppNaTelaTests : IClassFixture<BancoDasTelas>, 
         tela.WaitForAssertion(() => tela.Find(".menu-contexto").GetAttribute("aria-label").Should().Be("Ações da conversa"), Prazo);
         // O Roberto está com quem vê: devolve, e o "Assumir" não aparece.
         var rotulos = tela.FindAll(".menu-contexto [role=menuitem]").Select(b => b.TextContent.Trim()).ToList();
-        rotulos.Should().Contain(["Abrir", "Devolver à fila", "Transferir…", "Copiar telefone", "Abrir a ficha", "Encerrar…"]).And.NotContain("Assumir");
+        rotulos.Should().Contain(["Abrir", "Devolver à fila", "Transferir…", "Copiar telefone", "Abrir a ficha"]).And.NotContain("Assumir");
 
         tela.Clicar(() => ItemDoMenu(tela, "Marcar como não lida"));
 

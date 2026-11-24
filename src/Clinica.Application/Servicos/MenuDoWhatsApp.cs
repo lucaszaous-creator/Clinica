@@ -17,7 +17,7 @@ public sealed record ItemDeMenu<TAcao>(TAcao Acao, string Rotulo, string Icone, 
 /// <summary>O que o botão direito faz numa conversa da lista — e o ⋮ do cabeçalho da conversa aberta (Buscar, Dados do contato).</summary>
 public enum AcaoNaConversa
 {
-    Abrir, Assumir, Devolver, MarcarNaoLida, MarcarLida, Transferir, Encerrar, Reabrir, NotaInterna,
+    Abrir, Assumir, Devolver, MarcarNaoLida, MarcarLida, Transferir, NotaInterna,
     CopiarTelefone, AbrirFicha, ConferirFicha, Resumir, Buscar, DadosDoContato, Fixar, Desafixar, Etiquetas
 }
 
@@ -48,7 +48,7 @@ public static class MenuDoWhatsApp
 {
     /// <summary>Todos escrevem (nov/2026, decisão da direção): responder, anotar e reenviar valem para toda a equipe;
     /// transferir e encerrar continuam de quem está com a conversa.</summary>
-    public const string SoComVoce = "Só quem está com a conversa transfere e encerra";
+    public const string SoComVoce = "Só quem está com a conversa transfere";
 
     /// <summary>
     /// O menu de uma conversa da lista. <paramref name="meuAgente"/> é o id da pessoa no CRM; <paramref name="fichaConferida"/>,
@@ -61,15 +61,12 @@ public static class MenuDoWhatsApp
         var semEscrever = acesso.PodeEscrever ? null : "Seu acesso não alcança escrever no WhatsApp";
         var itens = new List<ItemDeMenu<AcaoNaConversa>> { new(AcaoNaConversa.Abrir, "Abrir", "chat") };
 
-        if (c.Closed)
-            itens.Add(new(AcaoNaConversa.Reabrir, "Reabrir", "atualizar", semEscrever, GrupoNovo: true));
-        else if (minha)
+        if (minha)
             itens.Add(new(AcaoNaConversa.Devolver, "Devolver à fila", "devolver", semEscrever, GrupoNovo: true));
         else
             itens.Add(new(AcaoNaConversa.Assumir, "Assumir", "pessoa",
                 semEscrever ?? (c.AgentId is not null ? "Está com outra pessoa: peça a transferência" : null), GrupoNovo: true));
 
-        if (!c.Closed)
         {
             var pendente = c.PendingTransfer is not null ? "Já há um pedido de transferência aguardando o aceite" : null;
             itens.Add(new(AcaoNaConversa.Transferir, "Transferir…", "transferir", semEscrever ?? (minha ? pendente : SoComVoce)));
@@ -97,8 +94,6 @@ public static class MenuDoWhatsApp
         if (acesso.SemDor)
             itens.Add(new(AcaoNaConversa.Resumir, "Resumo do @SemDor", "raio", semEscrever));
 
-        if (!c.Closed)
-            itens.Add(new(AcaoNaConversa.Encerrar, "Encerrar…", "check", semEscrever ?? (minha ? null : SoComVoce), Perigo: true, GrupoNovo: true));
         return itens;
     }
 
@@ -148,9 +143,6 @@ public static class MenuDoWhatsApp
         var minha = !string.IsNullOrWhiteSpace(meuAgente) && conversa.AgentId == meuAgente;
         var semEscrever = acesso.PodeEscrever ? null : "Seu acesso não alcança escrever no WhatsApp";
         var itens = new List<ItemDeMenu<AcaoNaConversa>>();
-        if (conversa.Closed)
-            itens.Add(new(AcaoNaConversa.Reabrir, "Reabrir", "atualizar", semEscrever));
-        else
         {
             if (minha)
                 itens.Add(new(AcaoNaConversa.Devolver, "Devolver à fila", "devolver", semEscrever));
@@ -167,8 +159,6 @@ public static class MenuDoWhatsApp
         if (acesso.SemDor)
             itens.Add(new(AcaoNaConversa.Resumir, "Resumo do @SemDor", "raio",
                 semEscrever ?? (mensagens == 0 ? "Ainda não há mensagem para resumir" : null)));
-        if (!conversa.Closed)
-            itens.Add(new(AcaoNaConversa.Encerrar, "Encerrar…", "check", semEscrever ?? (minha ? null : SoComVoce), Perigo: true, GrupoNovo: true));
         return itens;
     }
 

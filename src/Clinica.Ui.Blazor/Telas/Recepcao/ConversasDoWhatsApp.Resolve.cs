@@ -134,7 +134,7 @@ public partial class ConversasDoWhatsApp
         _marcando = null;
         await ReleiaDepoisDoAtoAsync();
         bool preparou = false, janelaFechada = false;
-        if (_aberta is { Conversa: not null, Encerrada: false } a && a.Paciente?.Id == paciente
+        if (_aberta is { Conversa: not null } a && a.Paciente?.Id == paciente
             && RascunhosDaConversa.HorarioNovo(antes, a.Dados.Horarios) is { } novo)
         {
             if (!a.Janela.PodeEscreverLivre) janelaFechada = true;
@@ -156,7 +156,7 @@ public partial class ConversasDoWhatsApp
     /// <summary>Depois de cancelar: o rascunho "Cancelei o seu horário de …", se a janela está aberta e o campo vazio. Verdadeiro = preparou.</summary>
     private bool PrepararRascunhoDoCancelamento(HorarioDoPaciente h)
     {
-        if (_aberta is not { Conversa: not null, Encerrada: false } a || !a.Janela.PodeEscreverLivre) return false;
+        if (_aberta is not { Conversa: not null } a || !a.Janela.PodeEscreverLivre) return false;
         var r = Rascunho(a);
         if (!string.IsNullOrWhiteSpace(r.Texto)) return false;
         r.Nota = false;

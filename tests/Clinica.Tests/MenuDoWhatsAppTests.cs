@@ -31,11 +31,9 @@ public sealed class MenuDoWhatsAppTests
         var menu = MenuDoWhatsApp.DaConversa(Linha(), "ana", Tudo);
 
         Acoes(menu).Should().Equal(AcaoNaConversa.Abrir, AcaoNaConversa.Assumir, AcaoNaConversa.Transferir, AcaoNaConversa.NotaInterna,
-            AcaoNaConversa.MarcarNaoLida, AcaoNaConversa.Fixar, AcaoNaConversa.CopiarTelefone, AcaoNaConversa.ConferirFicha, AcaoNaConversa.Resumir, AcaoNaConversa.Encerrar);
+            AcaoNaConversa.MarcarNaoLida, AcaoNaConversa.Fixar, AcaoNaConversa.CopiarTelefone, AcaoNaConversa.ConferirFicha, AcaoNaConversa.Resumir);
         Item(menu, AcaoNaConversa.Assumir).Habilitado.Should().BeTrue();
         Item(menu, AcaoNaConversa.Transferir).Motivo.Should().Be(MenuDoWhatsApp.SoComVoce);
-        Item(menu, AcaoNaConversa.Encerrar).Motivo.Should().Be(MenuDoWhatsApp.SoComVoce);
-        Item(menu, AcaoNaConversa.Encerrar).Perigo.Should().BeTrue();
     }
 
     [Fact]
@@ -44,7 +42,6 @@ public sealed class MenuDoWhatsAppTests
         var minha = MenuDoWhatsApp.DaConversa(Linha(agente: "ana"), "ana", Tudo);
         Acoes(minha).Should().Contain(AcaoNaConversa.Devolver).And.NotContain(AcaoNaConversa.Assumir);
         Item(minha, AcaoNaConversa.Transferir).Habilitado.Should().BeTrue();
-        Item(minha, AcaoNaConversa.Encerrar).Habilitado.Should().BeTrue();
 
         var comPedido = MenuDoWhatsApp.DaConversa(Linha(agente: "ana", pedido: new("t1", "ana", "bruna", "", Agora)), "ana", Tudo);
         Item(comPedido, AcaoNaConversa.Transferir).Motivo.Should().Contain("aguardando o aceite");
@@ -53,15 +50,15 @@ public sealed class MenuDoWhatsAppTests
         Item(daBruna, AcaoNaConversa.Assumir).Motivo.Should().Contain("peça a transferência");
         // Todos escrevem (nov/2026): a nota vale na conversa de outra pessoa; transferir e encerrar, não.
         Item(daBruna, AcaoNaConversa.NotaInterna).Habilitado.Should().BeTrue();
-        Item(daBruna, AcaoNaConversa.Encerrar).Motivo.Should().Be(MenuDoWhatsApp.SoComVoce);
     }
 
     [Fact]
-    public void Encerrada_reabre_e_nao_oferece_transferir_nota_nem_encerrar()
+    public void Sem_encerrar_nem_reabrir_a_conversa_que_o_CRM_separou_tem_o_mesmo_menu()
     {
+        // Pedido do dono (24/11): encerrar e reabrir somem da tela; escrever já reabre no CRM.
         var menu = MenuDoWhatsApp.DaConversa(Linha(encerrada: true), "ana", Tudo);
-        Acoes(menu).Should().Contain(AcaoNaConversa.Reabrir)
-            .And.NotContain([AcaoNaConversa.Assumir, AcaoNaConversa.Transferir, AcaoNaConversa.NotaInterna, AcaoNaConversa.Encerrar]);
+        Acoes(menu).Should().Contain([AcaoNaConversa.Assumir, AcaoNaConversa.Transferir, AcaoNaConversa.NotaInterna]);
+        Enum.GetNames<AcaoNaConversa>().Should().NotContain(["Encerrar", "Reabrir"]);
     }
 
     [Fact]
