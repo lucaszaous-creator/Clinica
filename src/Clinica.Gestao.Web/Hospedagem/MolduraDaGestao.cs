@@ -19,15 +19,24 @@ public sealed class MolduraDaGestao : IMolduraDoApp
     private readonly CatalogoDaGestao _catalogo;
     private readonly SessaoUsuario _sessao;
     private readonly Action _sair;
+    private readonly Action? _abrirPosto;
     private CatalogoDaGestao.Item? _pai;
     private int _aba;
     private Notificacoes? _notificacoes;
 
-    public MolduraDaGestao(CatalogoDaGestao catalogo, SessaoUsuario sessao, Action sair)
+    /// <summary>A chave da porta "Meu dia": não é tela da gestão, é a volta ao posto do portal.</summary>
+    public const string ChaveDoPosto = "portal-meu-dia";
+
+    /// <param name="abrirPosto">
+    /// Só para quem TAMBÉM atende (<c>AcessoAoPortal.PodePosto</c>): leva ao "Meu dia" do portal.
+    /// Nulo, a barra não mostra a porta — botão para um posto que recusaria a pessoa é função morta.
+    /// </param>
+    public MolduraDaGestao(CatalogoDaGestao catalogo, SessaoUsuario sessao, Action sair, Action? abrirPosto = null)
     {
         _catalogo = catalogo;
         _sessao = sessao;
         _sair = sair;
+        _abrirPosto = abrirPosto;
         Abrir(PrimeiraChave());
     }
 
@@ -40,10 +49,14 @@ public sealed class MolduraDaGestao : IMolduraDoApp
     /// <summary>A chave da tela à vista.</summary>
     public string ChaveAtual { get; private set; } = "";
 
+    // O gerente que também atende (nov/2026): o portal o traz à gestão primeiro, e o "Meu dia" é a
+    // porta de volta ao posto — entrada DIRETA no fim da barra, sem lista (não é área da gestão).
     public IReadOnlyList<GrupoDaBarra> Barra => _catalogo.Areas
         .Select(a => new GrupoDaBarra(a.Rotulo, null, a.Itens.Select(_catalogo.ItemDe).OfType<CatalogoDaGestao.Item>()
             .Where(Visivel).Select(i => new ItemDaBarra(i.Chave, i.Rotulo, i.Descricao, i.Chave == _pai?.Chave)).ToList()))
         .Where(g => g.Itens.Count > 0)
+        .Concat(_abrirPosto is null ? Array.Empty<GrupoDaBarra>() : new[] { new GrupoDaBarra("Meu dia",
+            new ItemDaBarra(ChaveDoPosto, "Meu dia", "Seus pacientes no portal de atendimento", false), []) })
         .ToList();
 
     private bool Visivel(CatalogoDaGestao.Item i) => CatalogoDaGestao.Alcanca(i, _sessao)
@@ -153,7 +166,11 @@ public sealed class MolduraDaGestao : IMolduraDoApp
     }
 
     // ----- navegação -----
-    public void Navegar(string chave) => Abrir(chave);
+    public void Navegar(string chave)
+    {
+        if (chave == ChaveDoPosto && _abrirPosto is { } posto) { posto(); return; }
+        Abrir(chave);
+    }
 
     public void SelecionarAba(int indice)
     {

@@ -48,7 +48,8 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<SessaoDoPortalNaGestao>();
 // Desligada por padrão: o gerente entra só com a senha até ativar o segundo fator no portal.
 // Ligue (Gestao__ExigirSegundoFator=true) para a gestão abrir só para quem já ativou.
-builder.Services.AddSingleton(new OpcoesDaGestaoWeb(cfg.GetValue<bool>("Gestao:ExigirSegundoFator")));
+builder.Services.AddSingleton(new OpcoesDaGestaoWeb(cfg.GetValue<bool>("Gestao:ExigirSegundoFator"),
+    cfg.GetValue("Portal:AtendimentoHabilitado", true)));
 
 // Os pedidos entre telas ("abra a ficha deste paciente") são SINGLETON no desktop, onde há uma
 // pessoa por processo. Aqui são POR CONEXÃO — registrados antes do AddTelasBlazor, que só os

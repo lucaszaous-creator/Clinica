@@ -1,4 +1,5 @@
 @using Clinica.Infrastructure.Tablet
+@using Clinica.Application.Tablet
 @implements IDisposable
 @inject SessaoDaConexao Conexao
 @inject NavegacaoDaGestao Navegacao
@@ -6,6 +7,7 @@
 @inject IServiceScopeFactory Escopos
 @inject NavigationManager Navegador
 @inject TimeProvider Relogio
+@inject OpcoesDaGestaoWeb Opcoes
 @*
   A raiz da gestão no navegador (nov/2026). Confere a sessão do portal pelo id, faz a fotografia
   do usuário DESTA conexão e monta a MESMA moldura dos apps (MolduraDoApp) com o catálogo da
@@ -42,7 +44,12 @@ else
             return;
         }
         Conexao.Iniciar(valida, Relogio.GetUtcNow());
-        _moldura = new MolduraDaGestao(Catalogo, Conexao.Sessao, () => _ = SairAsync());
+        // "Meu dia" volta ao posto pedindo-o na URL (?posto): sem o pedido, o portal reabre a
+        // gestão para quem tem a gestão primeiro (clinica-site, portal/profissional/clinico.js).
+        Action? abrirPosto = AcessoAoPortal.PodePosto(valida.Usuario, Opcoes.AtendimentoNoPortal)
+            ? () => Navegador.NavigateTo("/profissional/?posto", forceLoad: true)
+            : null;
+        _moldura = new MolduraDaGestao(Catalogo, Conexao.Sessao, () => _ = SairAsync(), abrirPosto);
         Navegacao.Moldura = _moldura;
     }
 

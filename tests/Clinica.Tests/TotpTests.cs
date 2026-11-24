@@ -75,4 +75,18 @@ public class TotpTests
         Assert.False(AcessoAoPortal.PodeGestao(U(PerfilAcesso.Gerente, ativo: false)));
         Assert.False(AcessoAoPortal.PodeGestao(U(PerfilAcesso.Gerente, trocar: true)));
     }
+
+    [Fact]
+    public void A_regua_do_posto_e_a_mesma_para_os_destinos_e_para_a_porta_da_gestao()
+    {
+        // O gerente que também atende (a Jade, nov/2026): vínculo com profissional ativo.
+        var gerenteQueAtende = new UsuarioSistema { Id = 1, Login = "g", Perfil = PerfilAcesso.Gerente, ProfissionalId = 5 };
+        var financeiro = new UsuarioSistema { Id = 2, Login = "f", Perfil = PerfilAcesso.Financeiro };
+        Assert.True(AcessoAoPortal.PodePosto(gerenteQueAtende, atendimentoHabilitado: true));
+        Assert.False(AcessoAoPortal.PodePosto(financeiro, atendimentoHabilitado: true));
+        Assert.False(AcessoAoPortal.PodePosto(new UsuarioSistema { Id = 3, Login = "i", Perfil = PerfilAcesso.Gerente, ProfissionalId = 5, Ativo = false }, true));
+        foreach (var u in new[] { gerenteQueAtende, financeiro })
+        foreach (var hab in new[] { false, true })
+            Assert.Equal(AcessoAoPortal.PodeColher(u) || (hab && PoliticaAtendimentoTablet.PodeUsarPosto(u)), AcessoAoPortal.PodePosto(u, hab));
+    }
 }
