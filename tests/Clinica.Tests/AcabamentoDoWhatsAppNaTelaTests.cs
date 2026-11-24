@@ -55,17 +55,26 @@ public sealed class AcabamentoDoWhatsAppNaTelaTests : IClassFixture<BancoDasTela
 
     private CrmDeMentira Crm => (CrmDeMentira)_ctx.Services.GetRequiredService<IClienteDoCrm>();
 
+    /// <summary>O sinal que o palco usa para entregar os atalhos (F1b): o teste aperta Ctrl+F, Ctrl+Alt+N e Esc por ele.</summary>
+    private readonly SinalDeVolta _sinal = new();
+
+    private void Atalho(IRenderedComponent<Raiz> tela, AtalhoDeTela atalho)
+        => tela.InvokeAsync(() => _sinal.AvisarAtalhoAsync(atalho)).GetAwaiter().GetResult();
+
+    private static void ItemDoMenu(IRenderedComponent<Raiz> tela, string rotulo)
+        => tela.Clicar(() => tela.FindAll(".menu-contexto [role=menuitem]").First(b => b.TextContent.Trim() == rotulo));
+
     private IRenderedComponent<Raiz> Abrir()
     {
         var tipo = typeof(IHostDaTela).Assembly.GetType("Clinica.Ui.Blazor.Telas.ConversasDoWhatsApp")!;
-        var tela = _ctx.RenderComponent<Raiz>(p => p.Add(r => r.Tela, tipo));
+        var tela = _ctx.RenderComponent<Raiz>(p => p.Add(r => r.Tela, tipo).Add(r => r.Sinal, _sinal));
         tela.WaitForAssertion(() => tela.FindAll(".wa-linha").Should().NotBeEmpty(), Prazo);
         return tela;
     }
 
     private static void AbrirConversa(IRenderedComponent<Raiz> tela, string nome)
     {
-        tela.Clicar(() => tela.FindAll(".wa-filtros .segmentado button").First(b => b.TextContent.Trim().StartsWith("Todas", StringComparison.Ordinal)));
+        tela.Clicar(() => tela.FindAll(".wa-filtros .wa-pilula").First(b => b.TextContent.Trim().StartsWith("Tudo", StringComparison.Ordinal)));
         tela.Clicar(() => tela.FindAll(".wa-linha").First(e => e.TextContent.Contains(nome, StringComparison.Ordinal)));
         tela.WaitForAssertion(() => tela.Find(".wa-cab-quem h2").TextContent.Should().Contain(nome), Prazo);
     }
@@ -81,7 +90,7 @@ public sealed class AcabamentoDoWhatsAppNaTelaTests : IClassFixture<BancoDasTela
         var tela = Abrir();
         AbrirConversa(tela, "Maria das Graças");
         var antes = (await Crm.AbrirConversaAsync(1, CrmDeMentira.Ids.Maria)).Messages.Length;
-        tela.Find(".wa-escrever textarea").GetAttribute("placeholder").Should().Contain("Enter envia, Shift+Enter quebra a linha");
+        tela.Find(".wa-escrever textarea").GetAttribute("title").Should().Contain("Enter envia, Shift+Enter quebra a linha");
 
         // Shift+Enter é a quebra de linha: nada sai e o texto fica.
         tela.Digitar(() => tela.Find(".wa-escrever textarea"), "Combinado, Maria!");
@@ -97,26 +106,48 @@ public sealed class AcabamentoDoWhatsAppNaTelaTests : IClassFixture<BancoDasTela
     }
 
     [Fact]
-    public void Esc_fecha_a_busca_e_os_popovers()
+    public void Os_atalhos_do_WhatsApp_Web_buscam_comecam_e_o_Esc_fecha_uma_coisa_por_vez()
     {
         var tela = Abrir();
         AbrirConversa(tela, "Maria das Graças");
+        tela.Find(".pagina.wa").GetAttribute("data-atalhos").Should().Be("buscar nova fechar");
 
-        tela.Clicar(() => tela.Find("[data-acao=buscar]"));
+        // Ctrl+F abre a busca na conversa; o 📎 abre as respostas rápidas por cima.
+        Atalho(tela, AtalhoDeTela.Buscar);
         tela.WaitForAssertion(() => tela.Find(".wa-busca-conversa input"), Prazo);
-        Tecla(tela, () => tela.Find(".wa-busca-conversa input"), "Escape");
+        tela.Clicar(() => tela.Find(".wa-clipe"));
+        ItemDoMenu(tela, "Respostas rápidas");
+        tela.WaitForAssertion(() => tela.Find(".wa-popover").TextContent.Should().Contain("Respostas rápidas"), Prazo);
+
+        // Esc fecha UMA coisa por vez: o popover, depois a busca, depois a conversa.
+        Atalho(tela, AtalhoDeTela.Fechar);
+        tela.FindAll(".wa-popover").Should().BeEmpty();
+        tela.FindAll(".wa-busca-conversa").Should().NotBeEmpty("um Esc, uma coisa");
+        Atalho(tela, AtalhoDeTela.Fechar);
         tela.FindAll(".wa-busca-conversa").Should().BeEmpty();
+        tela.FindAll(".wa-cab").Should().NotBeEmpty();
+        Atalho(tela, AtalhoDeTela.Fechar);
+        tela.WaitForAssertion(() => tela.FindAll(".wa-cab").Should().BeEmpty(), Prazo);
 
-        tela.Clicar(() => tela.FindAll(".wa-escrever-rodape button").First(b => b.TextContent.Contains("Respostas rápidas")));
-        tela.WaitForAssertion(() => tela.Find(".wa-popover"), Prazo);
-        Tecla(tela, () => tela.Find(".wa-popover"), "Escape");
-        tela.FindAll(".wa-popover").Should().BeEmpty();
+        // Ctrl+Alt+N começa uma conversa (o formulário de sempre).
+        Atalho(tela, AtalhoDeTela.Nova);
+        tela.WaitForAssertion(() => tela.Find(".modal"), Prazo);
+    }
 
-        // Com o popover aberto, o Esc no próprio campo também fecha.
-        tela.Clicar(() => tela.FindAll(".wa-escrever-rodape button").First(b => b.TextContent.Contains("Respostas rápidas")));
-        tela.WaitForAssertion(() => tela.Find(".wa-popover"), Prazo);
-        Tecla(tela, () => tela.Find(".wa-escrever textarea"), "Escape");
-        tela.FindAll(".wa-popover").Should().BeEmpty();
+    [Fact]
+    public void O_barra_junta_respostas_e_modelos_e_o_Enter_escolhe_sem_enviar_o_comando()
+    {
+        var tela = Abrir();
+        AbrirConversa(tela, "Maria das Graças");
+        var antes = Crm.AbrirConversaAsync(1, CrmDeMentira.Ids.Maria).GetAwaiter().GetResult().Messages.Length;
+
+        tela.Digitar(() => tela.Find(".wa-escrever textarea"), "/endere");
+        tela.WaitForAssertion(() => tela.Find(".wa-barra").TextContent.Should().Contain("Endereço"), Prazo);
+        Tecla(tela, () => tela.Find(".wa-escrever textarea"), "Enter");
+
+        tela.WaitForAssertion(() => Campo(tela).Should().NotStartWith("/").And.NotBeEmpty(), Prazo);
+        tela.FindAll(".wa-barra").Should().BeEmpty();
+        Crm.AbrirConversaAsync(1, CrmDeMentira.Ids.Maria).GetAwaiter().GetResult().Messages.Length.Should().Be(antes, "o \"/endere\" nunca vai ao paciente");
     }
 
     [Fact]
@@ -125,11 +156,14 @@ public sealed class AcabamentoDoWhatsAppNaTelaTests : IClassFixture<BancoDasTela
         var tela = Abrir();
         AbrirConversa(tela, "Maria das Graças");
 
-        tela.Find("[data-acao=devolver]").TextContent.Should().Contain("Devolver à fila");
+        // O ⋮ do WhatsApp (F1): os botões escritos do cabeçalho viraram itens do menu, com a mesma regra.
         tela.Find(".wa-cab-acoes").TextContent.Should().NotContain("Com você");
-        tela.Find("[data-acao=encerrar]").TextContent.Should().Contain("Encerrar");
+        tela.Clicar(() => tela.Find("[data-acao=menu]"));
+        tela.WaitForAssertion(() => tela.Find(".menu-contexto").GetAttribute("aria-label").Should().Be("Mais opções da conversa"), Prazo);
+        tela.FindAll(".menu-contexto [role=menuitem]").Select(b => b.TextContent.Trim()).Should()
+            .Contain(["Devolver à fila", "Transferir…", "Nota para a equipe", "Buscar na conversa", "Dados do contato", "Encerrar…"]);
 
-        tela.Clicar(() => tela.Find("[data-acao=transferir]"));
+        ItemDoMenu(tela, "Transferir…");
         tela.WaitForAssertion(() => tela.Find(".modal"), Prazo);
         tela.FindAll(".modal input[type=radio]").Should().NotBeEmpty().And.OnlyContain(r => !r.HasAttribute("checked"));
         // O botão principal: "Transferir" para o setor, "Enviar o pedido" para uma pessoa (§14) — o rótulo muda com a escolha.

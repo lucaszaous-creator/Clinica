@@ -99,7 +99,8 @@ public sealed class MenuDoWhatsAppTests
     public void Recebida_com_a_janela_aberta_responde_citando_e_copia()
     {
         var menu = MenuDoWhatsApp.DaMensagem(Recebida(), "", janelaLivre: true, sms: false, minha: true, fichaConferida: true, Tudo);
-        menu.Select(i => i.Acao).Should().Equal(AcaoNaMensagem.Responder, AcaoNaMensagem.CopiarTexto, AcaoNaMensagem.CopiarComHora, AcaoNaMensagem.NotaSobre);
+        menu.Select(i => i.Acao).Should().Equal(AcaoNaMensagem.Responder, AcaoNaMensagem.CopiarTexto, AcaoNaMensagem.NotaSobre,
+            AcaoNaMensagem.PerguntarAoProfissional, AcaoNaMensagem.CopiarComHora);
         menu.Should().OnlyContain(i => i.Habilitado);
     }
 

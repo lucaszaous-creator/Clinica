@@ -182,7 +182,7 @@ public static partial class ConversasNaTela
 
     /// <summary>O centro sem conversa aberta.</summary>
     public static (string Titulo, string Texto) SemConversaAberta()
-        => ("Escolha uma conversa", "Ela abre aqui, com a ficha e os horários do paciente ao lado.");
+        => ("Escolha uma conversa", "Ela abre aqui. Clique no nome para ver a ficha e os horários.");
 
     // ---------------------------------------------------------------- sem ligação
 
