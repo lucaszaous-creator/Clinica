@@ -27,7 +27,10 @@ public sealed class EnderecoPrescricaoTabletService(AtendimentoTabletService ace
         return new { precisaEndereco = d.Tipo == TipoDocumentoClinico.Receita && string.IsNullOrWhiteSpace(d.Paciente?.Endereco) };
     }
 
-    public async Task CompletarAsync(SessaoTablet sessao, int agendamento, int documento, string? endereco, CancellationToken ct)
+    public Task CompletarAsync(SessaoTablet sessao, int agendamento, int documento, string? endereco, CancellationToken ct)
+        => Clinica.Infrastructure.TransacaoResiliente.ExecutarAsync(db, c => CompletarNaTransacaoAsync(sessao, agendamento, documento, endereco, c), ct);
+
+    private async Task CompletarNaTransacaoAsync(SessaoTablet sessao, int agendamento, int documento, string? endereco, CancellationToken ct)
     {
         endereco = endereco?.Trim();
         if (endereco is null || endereco.Length is < 5 or > 300 || endereco.Any(char.IsControl))

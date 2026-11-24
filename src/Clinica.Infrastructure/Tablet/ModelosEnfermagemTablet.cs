@@ -26,7 +26,11 @@ public sealed partial class PostoTabletService
         return modelos.Select(DadosModeloEnfermagem).ToArray();
     }
 
-    public async Task<ModeloEnfermagemTablet> SalvarModeloEnfermagemAsync(
+    public Task<ModeloEnfermagemTablet> SalvarModeloEnfermagemAsync(
+        SessaoTablet s, SalvarModeloEnfermagemTablet p, CancellationToken ct)
+        => TransacaoResiliente.ExecutarAsync(db, c => SalvarModeloEnfermagemNaTransacaoAsync(s, p, c), ct);
+
+    private async Task<ModeloEnfermagemTablet> SalvarModeloEnfermagemNaTransacaoAsync(
         SessaoTablet s, SalvarModeloEnfermagemTablet p, CancellationToken ct)
     {
         if (p.Idempotencia == Guid.Empty || p.Id < 0)

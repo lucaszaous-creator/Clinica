@@ -159,7 +159,11 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
         return await Mapa(evolucao, ct);
     }
 
-    public async Task<T> Escrever<T>(SessaoTablet s, int agendamento, Guid chave, object pedido,
+    public Task<T> Escrever<T>(SessaoTablet s, int agendamento, Guid chave, object pedido,
+        Func<UsuarioSistema, Agendamento, Task<T>> acao, CancellationToken ct)
+        => TransacaoResiliente.ExecutarAsync(db, c => EscreverNaTransacao(s, agendamento, chave, pedido, acao, c), ct);
+
+    private async Task<T> EscreverNaTransacao<T>(SessaoTablet s, int agendamento, Guid chave, object pedido,
         Func<UsuarioSistema, Agendamento, Task<T>> acao, CancellationToken ct)
     {
         if (chave == Guid.Empty) throw ErroFormularioTablet.Criar("Atualize a página antes de salvar.");
