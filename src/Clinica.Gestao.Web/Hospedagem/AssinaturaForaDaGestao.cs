@@ -21,4 +21,11 @@ public sealed class AssinaturaForaDaGestao : IAssinaturaNaTela
 
     public Task<(string Frase, bool EhErro)?> AssinarDocumentoPorIdAsync(int documentoId, string assunto)
         => Task.FromResult<(string, bool)?>((Frase, true));
+
+    /// <summary>
+    /// O Consultório do portal (mesmo domínio, mesma sessão) abre a ficha do paciente na aba Documentos, com o
+    /// documento destacado e o "Assinar" aberto — A1 ou SafeID, pelos serviços de sempre. Sem pop-up: a mesma aba.
+    /// </summary>
+    public string? EnderecoParaAssinarFora(int documentoId, int pacienteId)
+        => $"/profissional/?posto&assinar={documentoId}&paciente={pacienteId}";
 }

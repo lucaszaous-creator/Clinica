@@ -240,7 +240,7 @@
                                                         @foreach (var a in AtosDe(l))
                                                         {
                                                             <button type="button" role="menuitem" class="@(a == AtoDoDocumento.Cancelar ? "rd-perigo" : null)"
-                                                                    @onclick="() => AgirAsync(a, l)">@AtosDoDocumento.Rotulo(a)</button>
+                                                                    @onclick="() => AgirAsync(a, l)">@(a == AtoDoDocumento.Assinar && AssinaNoConsultorio ? "Assinar no Consultório" : AtosDoDocumento.Rotulo(a))</button>
                                                         }
                                                     </span>
                                                 }
@@ -280,6 +280,9 @@
 
 @code {
     [Inject] private IServiceProvider Servicos { get; set; } = default!;
+
+    /// <summary>A gestão web assina no Consultório (nov/2026): o item do menu diz isso.</summary>
+    private bool AssinaNoConsultorio => Servicos.GetService<IAssinaturaNaTela>()?.EnderecoParaAssinarFora(0, 0) is not null;
 
     /// <summary>
     /// Dentro da TELA DO PACIENTE (seção "Prescrições e documentos"): sem o cabeçalho da página
@@ -796,6 +799,13 @@
                 }
                 // Assinar com o A1 é formulário Blazor desde out/2026 (IAssinaturaNaTela — o MESMO
                 // serviço e a MESMA ordem do WPF); os outros atos seguem pela ponte.
+                // Gestão web (nov/2026): a assinatura é no Consultório do portal — a mesma aba vai até lá.
+                if (ato == AtoDoDocumento.Assinar && Servicos.GetService<IAssinaturaNaTela>() is { } fora
+                    && doc.PacienteId is { } pacienteDoDoc && fora.EnderecoParaAssinarFora(doc.DocumentoId, pacienteDoDoc) is { } noConsultorio)
+                {
+                    Servicos.GetRequiredService<NavigationManager>().NavigateTo(noConsultorio, forceLoad: true);
+                    return;
+                }
                 var r = ato == AtoDoDocumento.Assinar && Servicos.GetService<IAssinaturaNaTela>() is { } assinatura
                     ? await assinatura.AssinarDocumentoAsync(doc)
                     : await Ponte.ExecutarAsync(ato, doc);
