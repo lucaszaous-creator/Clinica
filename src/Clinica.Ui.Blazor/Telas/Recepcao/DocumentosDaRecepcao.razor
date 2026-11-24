@@ -274,7 +274,8 @@
 @if (_folhaAberta is { } fa)
 {
     <DocumentoForm PacienteId="fa.PacienteId" Tipo="fa.Tipo" VersaoDe="fa.VersaoDe"
-                   AoFechar="FecharFolhaAsync" AoConcluir="ConcluirFolhaAsync" />
+                   AoFechar="FecharFolhaAsync" AoConcluir="ConcluirFolhaAsync"
+                   Continuar="@(fa.VersaoDe is null)" AoEmitir="EmitiuNaFolhaAsync" />
 }
 
 @code {
@@ -581,6 +582,12 @@
         _folhaAberta = null;
         await CarregarAsync();
     }
+
+    /// <summary>
+    /// Saiu um papel com a folha aberta (várias seguidas, nov/2026 — pedido do dono para toda porta): "O que já saiu" relê, e a
+    /// folha fica para o próximo. A nova versão do laudo não continua: ela substitui UM documento.
+    /// </summary>
+    private Task EmitiuNaFolhaAsync(DocumentoForm.Emitido emitido) => CarregarAsync();
 
     private async Task ConcluirFolhaAsync(DocumentoForm.Emitido emitido)
     {

@@ -23,7 +23,9 @@
 @inherits TelaBase
 @inject IAssinaturaNaTela Assinatura
 
-<Modal Titulo="@TituloDoModal" Subtitulo="@SubtituloDoModal" Largura="largo" AoFechar="FecharAsync">
+@* Maximizar (pedido da Dra., nov/2026): a receita longa ganha a tela inteira, e a escolha fica lembrada para quem está logado. *@
+<Modal Titulo="@TituloDoModal" Subtitulo="@SubtituloDoModal" Largura="largo" AoFechar="FecharAsync" Maximizavel="true"
+       MaximizadoInicial="@PreferenciaDaFolha.Maximizada(SessaoUsuario.Atual.UsuarioId)" AoMaximizar="m => PreferenciaDaFolha.Guardar(SessaoUsuario.Atual.UsuarioId, m)">
     <ChildContent>
         @if (_recusa is not null)
         {
@@ -302,7 +304,14 @@
             <button type="button" class="botao fantasma esquerda" disabled="@(!PodeEditar)" @onclick="PedirNomeModeloAsync">Salvar como modelo</button>
         }
         <button type="button" class="botao" disabled="@_emitindo" @onclick="FecharAsync">Fechar</button>
-        @if (_r is not null)
+        @if (_ultimo is { } ultimo && _r is not null)
+        {
+            @* EMITIR VÁRIAS SEGUIDAS (pedido da Dra., nov/2026): a folha não fecha depois de emitir; a próxima sai daqui. *@
+            <button type="button" class="botao" title="Outra folha em branco para o mesmo paciente" @onclick="() => NovaAsync(copiar: false)">@(_r.Tipo == TipoDocumentoClinico.Receita ? "Nova receita" : "Novo documento")</button>
+            <button type="button" class="botao" title="Outra folha para o mesmo paciente, já com o texto da que saiu" @onclick="() => NovaAsync(copiar: true)">Com o mesmo texto</button>
+            <button type="button" class="botao primario" title="Escolher o próximo paciente sem sair daqui" @onclick="ProximoPaciente">Próximo paciente</button>
+        }
+        else if (_r is not null)
         {
             <button type="button" class="botao" disabled="@(!PodePrever)" title="Abre o PDF desta folha sem emitir: sem número e sem valor de documento"
                     @onclick="PreverAsync">@(_gerandoPrevia ? "Gerando a prévia…" : "Pré-visualizar")</button>
@@ -348,6 +357,18 @@
 
     /// <summary>Emitiu e imprimiu (e perguntou do envio): o documento e de quem é.</summary>
     [Parameter] public EventCallback<Emitido> AoConcluir { get; set; }
+
+    /// <summary>
+    /// A folha NÃO fecha depois de emitir (nov/2026, pedido da Dra.): diz que saiu e oferece "Nova receita", "Com o mesmo texto" e
+    /// "Próximo paciente". <see cref="AoEmitir"/> avisa quem abriu (para reler o que saiu hoje); fechar continua pelo "Fechar".
+    /// </summary>
+    [Parameter] public bool Continuar { get; set; }
+
+    /// <summary>Saiu um documento com a folha aberta (<see cref="Continuar"/>).</summary>
+    [Parameter] public EventCallback<Emitido> AoEmitir { get; set; }
+
+    /// <summary>O último que saiu com a folha aberta (o modo <see cref="Continuar"/>).</summary>
+    private Emitido? _ultimo;
 
     [Inject] private IServiceProvider Servicos { get; set; } = default!;
 
@@ -404,7 +425,18 @@
     private async Task EscolherPacienteAsync(Paciente? p)
     {
         _escolhido = p;
-        if (p is not null) await AbrirAsync(p.Id);
+        if (p is null) return;
+        // Trocar de paciente nesta folha é abrir dados de saúde dele (alergias): o acesso fica registrado (LGPD, ponto 3).
+        if (p.Id != PacienteId)
+        {
+            try
+            {
+                using var escopo = Escopo();
+                await escopo.ServiceProvider.GetRequiredService<AcessoProntuarioService>().RegistrarAsync(p.Id, Operador);
+            }
+            catch (Exception ex) { Clinica.Application.Diagnostico.Registrar("Documento clínico — o acesso do próximo paciente não foi registrado", ex); }
+        }
+        await AbrirAsync(p.Id);
     }
 
     /// <summary>Abre a folha do paciente — ou diz por que este papel não se emite por aqui.</summary>
@@ -412,7 +444,8 @@
     {
         _recusa = EmissaoDeDocumentoNaTela.RecusaDeAbertura(pacienteId, Tipo, VersaoDe);
         if (_recusa is not null) return;
-        _r = new RascunhoDeDocumento(pacienteId, Tipo, Heranca, VersaoDe);
+        // A herança da sessão é do paciente DELA: o próximo paciente começa sem ela.
+        _r = new RascunhoDeDocumento(pacienteId, _r?.Tipo ?? Tipo, pacienteId == PacienteId ? Heranca : null, VersaoDe);
         await CarregarAsync();
     }
 
@@ -633,7 +666,7 @@
                 {
                     var assinadoConcluido = new Emitido(emitido.Id, emitido.Numero, emitido.Tipo, r.Paciente?.Nome ?? string.Empty);
                     if (!PerguntarSeEnviaAgora(emitido, assinadoConcluido))
-                        await AoConcluir.InvokeAsync(assinadoConcluido);
+                        await ConcluirAsync(assinadoConcluido);
                     return;
                 }
             }
@@ -653,7 +686,7 @@
             // folha é a resposta do formulário de envio (TerminouEnvioAsync). Esperar dentro do
             // clique prenderia o evento até alguém fechar o formulário.
             if (!PerguntarSeEnviaAgora(emitido, concluido))
-                await AoConcluir.InvokeAsync(concluido);
+                await ConcluirAsync(concluido);
         }
         catch (Exception ex)
         {
@@ -688,7 +721,7 @@
         _envioPendente = null;
         if (r is { Silencioso: false } && !string.IsNullOrWhiteSpace(r.Frase))
             await Dialogos.AvisoAsync("Enviar ao paciente", r.Frase);
-        await AoConcluir.InvokeAsync(concluido);
+        await ConcluirAsync(concluido);
     }
 
     /// <summary>
@@ -854,7 +887,37 @@
     // ==================== moldura ====================
 
     /// <summary>Fechar no meio da emissão não existe: o número pode já ter sido gasto, e a folha diz o desfecho.</summary>
-    private Task FecharAsync() => _emitindo ? Task.CompletedTask : AoFechar.InvokeAsync();
+    private Task FecharAsync() => _emitindo ? Task.CompletedTask : _ultimo is { } ultimo ? AoConcluir.InvokeAsync(ultimo) : AoFechar.InvokeAsync();
+
+    // ==================== várias seguidas (nov/2026) ====================
+
+    /// <summary>Saiu: no modo <see cref="Continuar"/> a folha fica e diz que saiu; fora dele, conclui como sempre (quem abriu fecha).</summary>
+    private async Task ConcluirAsync(Emitido emitido)
+    {
+        if (!Continuar) { await AoConcluir.InvokeAsync(emitido); return; }
+        _ultimo = emitido;
+        _mensagem = $"{TipoDocumentoInfo.Rotular(emitido.Tipo)} {emitido.Numero} emitido(a) para {emitido.Paciente}. Faça a próxima daqui.";
+        _mensagemEhErro = false;
+        await AoEmitir.InvokeAsync(emitido);
+    }
+
+    /// <summary>Outra folha para o MESMO paciente — em branco ou com o texto da que acabou de sair.</summary>
+    private async Task NovaAsync(bool copiar)
+    {
+        if (_r is not { } anterior) return;
+        var (corpo, formato) = (anterior.Corpo, anterior.CorpoFormatado);
+        _ultimo = null; _jaEmitido = null; Limpar();
+        await AbrirAsync(anterior.PacienteId);
+        if (copiar && _r is { } nova) { nova.Corpo = corpo; nova.CorpoFormatado = formato; }
+        _aba = AbaFolha;
+    }
+
+    /// <summary>O próximo paciente sem sair daqui: volta à pergunta "para quem?"; a escolha registra o acesso e abre a folha dele.</summary>
+    private void ProximoPaciente()
+    {
+        _ultimo = null; _jaEmitido = null; Limpar();
+        _r = null; _escolhido = null; _aba = AbaFolha;
+    }
 
     private void Limpar()
     {

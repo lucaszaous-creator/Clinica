@@ -273,7 +273,7 @@
     {
         @* O papel ESCRITO, já com o que a sessão sabe — a MESMA folha da central de Documentos. *@
         <DocumentoForm PacienteId="Contexto.PacienteId" Tipo="aberto.Tipo" Heranca="aberto.Heranca"
-                       AoFechar="FecharPapelAsync" AoConcluir="ConcluirPapelAsync" />
+                       AoFechar="FecharPapelAsync" AoConcluir="ConcluirPapelAsync" Continuar="true" AoEmitir="EmitiuPapelAsync" />
     }
 }
 @if (_enviando is { } papelEnviado)
@@ -615,6 +615,12 @@
     private async Task FecharPapelAsync()
     {
         _papelAberto = null;
+        if (_folha is not null) await _folha.RelerSaiuHojeAsync();
+    }
+
+    /// <summary>Saiu um papel com a folha aberta (várias seguidas, nov/2026): o "saiu hoje" já mostra; a folha fica.</summary>
+    private async Task EmitiuPapelAsync(DocumentoForm.Emitido emitido)
+    {
         if (_folha is not null) await _folha.RelerSaiuHojeAsync();
     }
 
