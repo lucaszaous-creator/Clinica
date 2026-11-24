@@ -427,6 +427,135 @@ public sealed class CrmDeMentira : IClienteDoCrm
 
     private readonly List<string> fixadas = new();
 
+    // ---------- F2b (§16): endereço, contatos e serviços fictícios, como a gestão os teria configurado ----------
+
+    /// <summary>O que o clipe oferece na prévia (dados fictícios).</summary>
+    public AppShareOptions Clipe { get; set; } = new(
+        new AppLocation("Clínica SemDor (fictícia)", "Rua do Exemplo, 100 — Centro", -22.9, -42.0),
+        [new AppContactCard("8b1e2c3d-0001-4a00-9a00-000000000001", "Dra. Helena Fictícia", "5522999990101", "Acupuntura", false, 1),
+         new AppContactCard("8b1e2c3d-0002-4a00-9a00-000000000002", "Dr. Rafael Exemplo", "5522999990102", "Clínico geral", false, 1)],
+        [new AppService("8b1e2c3d-0101-4a00-9a00-000000000101", "Acupuntura", "Sessões com hora marcada, para dor crônica e ansiedade.", null, false, 1),
+         new AppService("8b1e2c3d-0102-4a00-9a00-000000000102", "Avaliação inicial", "Uma conversa com o profissional para montar o plano.", null, false, 1)]);
+
+    public async Task<AppShareOptions> OpcoesDoClipeAsync(int usuarioId, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava) return Clipe;
+    }
+
+    private AppShareOptions MudarClipe(Func<AppShareOptions, AppShareOptions> mudar)
+    {
+        if (!DaGestao) throw new RecusaDoCrm("Esta função está disponível para supervisores e administradores.", 403);
+        return Clipe = mudar(Clipe);
+    }
+
+    public async Task<AppShareOptions> SalvarEnderecoAsync(int usuarioId, AppLocation endereco, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava) return MudarClipe(o => o with { Location = endereco });
+    }
+
+    public async Task<AppShareOptions> SalvarContatoAsync(int usuarioId, AppContactCard contato, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava) return MudarClipe(o =>
+        {
+            var novo = contato with { Id = string.IsNullOrEmpty(contato.Id) ? Guid.NewGuid().ToString("D") : contato.Id, Version = contato.Version + 1 };
+            return o with { Contacts = o.Contacts.Where(x => x.Id != novo.Id).Append(novo).ToArray() };
+        });
+    }
+
+    public async Task<AppShareOptions> SalvarServicoAsync(int usuarioId, AppService servico, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava)
+        {
+            if (System.Text.RegularExpressions.Regex.IsMatch(servico.Title + " " + servico.Text, @"R\$\s*\d"))
+                throw new RecusaDoCrm("O cartão de serviço não leva preço. Tire o valor do texto.", 400);
+            return MudarClipe(o =>
+            {
+                var novo = servico with { Id = string.IsNullOrEmpty(servico.Id) ? Guid.NewGuid().ToString("D") : servico.Id, Version = servico.Version + 1 };
+                return o with { Services = o.Services.Where(x => x.Id != novo.Id).Append(novo).ToArray() };
+            });
+        }
+    }
+
+    public async Task<AppShareOptions> ImagemDoServicoAsync(int usuarioId, string servicoId, Stream? arquivo, string nome = "", string mime = "", CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava) return MudarClipe(o => o with { Services = o.Services.Select(s => s.Id == servicoId ? s with { ImageId = arquivo is null ? null : Guid.NewGuid().ToString("N") } : s).ToArray() });
+    }
+
+    public async Task<ArquivoDaMidia> VerImagemDoServicoAsync(int usuarioId, string servicoId, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        throw new RecusaDoCrm("Serviço sem imagem.", 404);
+    }
+
+    public async Task<AppConversation> CompartilharAsync(int usuarioId, string conversaId, AppShare envio, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava)
+        {
+            var c = Achar(conversaId);
+            if (c.Messages.Any(m => m.Id == envio.Id)) return Foto(c);
+            if (c.Sender == RemetenteSms) throw new RecusaDoCrm("Endereço, contato e serviço só vão pelo WhatsApp.", 400);
+            if (DateTimeOffset.UtcNow - c.LastIncoming >= ConversasNaTela.DuracaoDaJanela)
+                throw new RecusaDoCrm("A janela de 24 horas terminou. Use um modelo aprovado do WhatsApp ou continue por SMS.", 409);
+            var agora = DateTimeOffset.UtcNow;
+            AppMessage mensagem = envio.Kind switch
+            {
+                "location" => Clipe.Location is { } l
+                    ? new AppMessage(envio.Id, "out", "📍 " + l.Name + " — " + l.Address, "LOCATION", Eu, agora, "accepted", Location: l)
+                    : throw new RecusaDoCrm("O endereço da clínica ainda não foi configurado (Configurações).", 409),
+                "contact" => Clipe.Contacts.FirstOrDefault(k => k.Id == envio.ItemId && !k.Archived) is { } k
+                    ? new AppMessage(envio.Id, "out", "👤 " + k.Name + " — " + k.Role, "CONTACTS", Eu, agora, "accepted", SharedContact: new AppSharedContact(k.Name, k.Phone, k.Role))
+                    : throw new RecusaDoCrm("Contato não encontrado.", 404),
+                "service" => Clipe.Services.FirstOrDefault(s => s.Id == envio.ItemId && !s.Archived) is { } s
+                    ? new AppMessage(envio.Id, "out", "*" + s.Title + "*\n" + s.Text, "TEXT", Eu, agora, "accepted")
+                    : throw new RecusaDoCrm("Serviço não encontrado.", 404),
+                _ => throw new RecusaDoCrm("Escolha endereço, contato ou serviço.", 400),
+            };
+            c.Messages.Add(mensagem);
+            c.Version++; c.UpdatedAt = agora;
+            return Foto(c);
+        }
+    }
+
+    public async Task<AppConversation> AgendarAsync(int usuarioId, string conversaId, AppSchedule agendamento, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava)
+        {
+            var c = Achar(conversaId);
+            if (c.Agendadas.Any(a => a.Id == agendamento.Id)) return Foto(c);
+            var agora = DateTimeOffset.UtcNow;
+            if (agendamento.At - agora < TimeSpan.FromMinutes(1) || agendamento.At - agora > TimeSpan.FromDays(30))
+                throw new RecusaDoCrm("Escolha um horário de 1 minuto a 30 dias à frente.", 400);
+            if (agendamento.Template is null && c.Sender != RemetenteSms && agendamento.At >= c.LastIncoming + ConversasNaTela.DuracaoDaJanela)
+                throw new RecusaDoCrm("Nesse horário a janela de 24 horas já terá fechado. Agende até " +
+                    (c.LastIncoming + ConversasNaTela.DuracaoDaJanela).ToLocalTime().ToString("dd/MM 'às' HH:mm") + " ou use um modelo aprovado.", 409);
+            c.Agendadas.Add(new AppScheduledMessage(agendamento.Id, Eu, agendamento.Text, agendamento.At, "agendada", agora, agendamento.AttachmentId, agendamento.Template));
+            c.UpdatedAt = agora;
+            return Foto(c);
+        }
+    }
+
+    public async Task<AppConversation> CancelarAgendamentoAsync(int usuarioId, string conversaId, string agendamentoId, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava)
+        {
+            var c = Achar(conversaId);
+            var i = c.Agendadas.FindIndex(a => a.Id == agendamentoId);
+            if (i < 0) throw new RecusaDoCrm("Agendamento não encontrado nesta conversa.", 404);
+            if (c.Agendadas[i].State is "enviada" or "enviando") throw new RecusaDoCrm("Esta mensagem já foi enviada.", 409);
+            c.Agendadas[i] = c.Agendadas[i] with { State = "cancelada" };
+            c.UpdatedAt = DateTimeOffset.UtcNow;
+            return Foto(c);
+        }
+    }
+
     public async Task<AppConversation> ReagirAsync(int usuarioId, string conversaId, AppReact reacao, CancellationToken ct = default)
     {
         await EntrarAsync(ct);
@@ -1546,7 +1675,7 @@ public sealed class CrmDeMentira : IClienteDoCrm
     private AppConversation Foto(Conversa c) => new(c.Id, c.Name, c.Contact, c.Channel, c.Sender, c.Queue, c.AgentId, c.Closed,
         c.Version, c.UpdatedAt, c.LastIncoming, c.PatientId, c.PatientName, c.Messages.ToArray(), c.Notes.ToArray(),
         c.Audit.OrderBy(a => a.At).ToArray(), c.Resolutions.ToArray(), c.ClosedAt, c.Pedido,
-        Labels: c.Labels.ToArray(), Typing: EscrevendoNaPrevia.GetValueOrDefault(c.Id, []));
+        Labels: c.Labels.ToArray(), Typing: EscrevendoNaPrevia.GetValueOrDefault(c.Id, []), Scheduled: c.Agendadas.ToArray());
 
     private AppConversationSummary Linha(Conversa c, int usuarioId)
     {
@@ -1589,6 +1718,8 @@ public sealed class CrmDeMentira : IClienteDoCrm
         public int NaoLidasIniciais { get; set; }
         /// <summary>As etiquetas da conversa (ids de <see cref="EtiquetasDaClinica"/>), como o CRM guarda (§15).</summary>
         public List<string> Labels { get; } = new();
+        /// <summary>"Enviar mais tarde" (§16), como o CRM devolve em AppConversation.Scheduled.</summary>
+        public List<AppScheduledMessage> Agendadas { get; } = new();
 
         /// <summary>O pedido de transferência para uma pessoa que espera o aceite (o AppPendingTransfer do CRM).</summary>
         public AppPendingTransfer? Pedido { get; private set; }

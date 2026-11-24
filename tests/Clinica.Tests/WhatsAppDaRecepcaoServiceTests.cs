@@ -1052,6 +1052,15 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
         public Task<AppTyping> EscrevendoAsync(int usuarioId, string conversaId, CancellationToken ct = default) => Task.FromResult(new AppTyping([]));
         public Task<AppTyping> QuemEscreveAsync(int usuarioId, string conversaId, CancellationToken ct = default) => Task.FromResult(new AppTyping([]));
         public Task ParouDeEscreverAsync(int usuarioId, string conversaId, CancellationToken ct = default) => Task.CompletedTask;
+        public Task<AppShareOptions> OpcoesDoClipeAsync(int usuarioId, CancellationToken ct = default) => Task.FromResult(new AppShareOptions(null, [], []));
+        public Task<AppShareOptions> SalvarEnderecoAsync(int usuarioId, AppLocation endereco, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<AppShareOptions> SalvarContatoAsync(int usuarioId, AppContactCard contato, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<AppShareOptions> SalvarServicoAsync(int usuarioId, AppService servico, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<AppShareOptions> ImagemDoServicoAsync(int usuarioId, string servicoId, Stream? arquivo, string nome = "", string mime = "", CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<ArquivoDaMidia> VerImagemDoServicoAsync(int usuarioId, string servicoId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<AppConversation> CompartilharAsync(int usuarioId, string conversaId, AppShare envio, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<AppConversation> AgendarAsync(int usuarioId, string conversaId, AppSchedule agendamento, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<AppConversation> CancelarAgendamentoAsync(int usuarioId, string conversaId, string agendamentoId, CancellationToken ct = default) => throw new NotSupportedException();
         public void EsquecerSessao(int usuarioId) { }
     }
 

@@ -63,7 +63,8 @@ public sealed record AppTemplateSelection(string Name, string Language, string[]
 public sealed record AppMessage(string Id, string Direction, string Text, string Type, string? AgentId, DateTimeOffset At,
     string Status, string? Error = null, string? AttachmentId = null, string? FileName = null,
     AppTemplateSelection? Template = null, string? ReplyToId = null, bool Sticker = false,
-    AppReaction[]? Reactions = null, string? ReactionTo = null, bool Starred = false);
+    AppReaction[]? Reactions = null, string? ReactionTo = null, bool Starred = false,
+    AppLocation? Location = null, AppSharedContact? SharedContact = null);
 /// <summary>Uma reação. FromPatient: do paciente; senão, da clínica, e AgentId diz quem da equipe reagiu.</summary>
 public sealed record AppReaction(string Emoji, string? AgentId, bool FromPatient, DateTimeOffset At);
 public sealed record AppNote(string Id, string Text, string AgentId, DateTimeOffset At);
@@ -74,7 +75,8 @@ public sealed record AppAudit(DateTimeOffset At, string Actor, string Action);
 public sealed record AppConversation(string Id, string Name, string Contact, string Channel, string Sender, string Queue,
     string? AgentId, bool Closed, int Version, DateTimeOffset UpdatedAt, DateTimeOffset LastIncoming, int? PatientId,
     string PatientName, AppMessage[] Messages, AppNote[] Notes, AppAudit[] Audit, AppResolution[] Resolutions,
-    DateTimeOffset? ClosedAt, AppPendingTransfer? PendingTransfer = null, string[]? Labels = null, string[]? Typing = null);
+    DateTimeOffset? ClosedAt, AppPendingTransfer? PendingTransfer = null, string[]? Labels = null, string[]? Typing = null,
+    AppScheduledMessage[]? Scheduled = null);
 /// <summary>
 /// O pedido de transferência para uma PESSOA que espera o aceite (o setor passa na hora e nunca fica pendente). Nulo
 /// quando não há. From: quem pediu; To: quem recebe (ids de AppAgent); Note: o contexto para quem recebe. Quem recebe
@@ -197,3 +199,27 @@ public sealed record AppPins(string[] ConversationIds, int Max);
 /// <summary>POST …/{id}/typing (corpo "{}") — o pulso de "estou escrevendo" (vale 6 s; pulse a cada ~3 s enquanto digita) e
 /// GET …/{id}/typing: Agents = quem MAIS da equipe escreve agora (ids de AppAgent, sem quem pediu). POST …/typing/stop esquece o pulso.</summary>
 public sealed record AppTyping(string[] Agents);
+
+// ---------- "CRM com cara de WhatsApp" (nov/2026, F2b — docs/api-para-os-apps.md §16) ----------
+/// <summary>O endereço da clínica (mensagem de localização da Meta). Também vem em AppMessage.Location da mensagem enviada (Type "LOCATION").</summary>
+public sealed record AppLocation(string Name, string Address, double Latitude, double Longitude);
+/// <summary>O cartão de contato de um profissional. Phone: com DDI, só dígitos. Role: o que ele faz ("Acupuntura").</summary>
+public sealed record AppContactCard(string Id, string Name, string Phone, string Role, bool Archived, int Version);
+/// <summary>O contato enviado numa mensagem (AppMessage.SharedContact, Type "CONTACTS").</summary>
+public sealed record AppSharedContact(string Name, string Phone, string Role);
+/// <summary>Um serviço da clínica em cartão: título, texto e imagem opcional (GET /api/share/services/{Id}/image). Sem preço.</summary>
+public sealed record AppService(string Id, string Title, string Text, string? ImageId, bool Archived, int Version);
+/// <summary>GET /api/share — o que o clipe oferece: o endereço (nulo = não configurado), os contatos e os serviços.
+/// POST /api/share/location · /contacts · /services (só a gestão) devolvem o mesmo objeto.</summary>
+public sealed record AppShareOptions(AppLocation? Location, AppContactCard[] Contacts, AppService[] Services);
+/// <summary>POST …/{id}/share — envia o endereço (Kind "location"), um contato ("contact", ItemId) ou um serviço ("service", ItemId).
+/// Id: Guid "D", torna o envio idempotente como no AppReply. Só na janela de 24 h. Resposta: AppConversation.</summary>
+public sealed record AppShare(int Version, string Id, string Kind, string? ItemId = null);
+/// <summary>POST …/{id}/scheduled — "enviar mais tarde": texto, anexo ou modelo, de 1 minuto a 30 dias à frente. Fora da janela de
+/// 24 h só modelo (409 diz até que horas o texto livre ainda vale). Id: Guid "D". Resposta: AppConversation (com Scheduled).
+/// POST …/{id}/scheduled/{Id}/cancel — só quem agendou ou a gestão.</summary>
+public sealed record AppSchedule(string Id, string Text, DateTimeOffset At, string? AttachmentId = null, AppTemplateSelection? Template = null);
+/// <summary>Uma mensagem agendada. State: "agendada" | "enviando" | "enviada" (MessageId = a AppMessage criada) | "cancelada" |
+/// "falhou" (Error diz por quê, em pt-BR).</summary>
+public sealed record AppScheduledMessage(string Id, string AgentId, string Text, DateTimeOffset At, string State, DateTimeOffset CreatedAt,
+    string? AttachmentId = null, AppTemplateSelection? Template = null, string? MessageId = null, string? Error = null);
