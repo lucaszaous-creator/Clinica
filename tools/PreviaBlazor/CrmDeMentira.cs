@@ -416,6 +416,128 @@ public sealed class CrmDeMentira : IClienteDoCrm
 
     public void EsquecerSessao(int usuarioId) { }
 
+    // ---------- "Cara de WhatsApp", F2a (§15 do CRM): com as regras e as frases do RecursosDaConversa.cs ----------
+
+    /// <summary>As etiquetas da clínica: as quatro de partida do CRM (ids fixos).</summary>
+    public List<AppLabel> EtiquetasDaClinica { get; } =
+        [new("agendar", "Agendar", false, 0), new("convenio", "Convênio", false, 0), new("retorno", "Retorno", false, 0), new("novo-paciente", "Novo paciente", false, 0)];
+
+    /// <summary>Quem "está escrevendo" em cada conversa (a prévia mostra a Bruna escrevendo na conversa da Maria).</summary>
+    public Dictionary<string, string[]> EscrevendoNaPrevia { get; } = new() { [Ids.Maria] = ["bruna"] };
+
+    private readonly List<string> fixadas = new();
+
+    public async Task<AppConversation> ReagirAsync(int usuarioId, string conversaId, AppReact reacao, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava)
+        {
+            var c = Achar(conversaId);
+            var emoji = (reacao.Emoji ?? "").Trim();
+            if (emoji.Length > 20 || emoji.Any(char.IsAsciiLetterOrDigit)) throw new RecusaDoCrm("Escolha um emoji para reagir.", 400);
+            var i = c.Messages.FindIndex(m => m.Id == reacao.MessageId);
+            if (i < 0) throw new RecusaDoCrm("Mensagem não encontrada nesta conversa.", 404);
+            if (DateTimeOffset.UtcNow - c.LastIncoming >= TimeSpan.FromHours(24)) throw new RecusaDoCrm("A janela de 24 horas terminou: a reação não chega ao paciente.", 409);
+            var m = c.Messages[i];
+            var reacoes = (m.Reactions ?? []).Where(r => r.FromPatient).ToList();
+            if (emoji.Length > 0) reacoes.Add(new AppReaction(emoji, Eu, false, DateTimeOffset.UtcNow));
+            c.Messages[i] = m with { Reactions = reacoes.ToArray() };
+            c.UpdatedAt = DateTimeOffset.UtcNow;
+            return Foto(c);
+        }
+    }
+
+    public async Task<AppLabel[]> EtiquetasAsync(int usuarioId, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava) return EtiquetasDaClinica.ToArray();
+    }
+
+    public async Task<AppLabel[]> SalvarEtiquetaAsync(int usuarioId, AppLabelSave etiqueta, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava)
+        {
+            if (!DaGestao) throw new RecusaDoCrm("Esta função está disponível para supervisores e administradores.", 403);
+            var nome = (etiqueta.Name ?? "").Trim();
+            if (nome.Length is 0 or > 30) throw new RecusaDoCrm("Nome da etiqueta: preencha até 30 caracteres.", 400);
+            var i = EtiquetasDaClinica.FindIndex(e => e.Id == etiqueta.Id);
+            if (i >= 0) EtiquetasDaClinica[i] = EtiquetasDaClinica[i] with { Name = nome, Archived = etiqueta.Archived, Version = EtiquetasDaClinica[i].Version + 1 };
+            else EtiquetasDaClinica.Add(new AppLabel(Guid.NewGuid().ToString("D"), nome, etiqueta.Archived, 1));
+            return EtiquetasDaClinica.ToArray();
+        }
+    }
+
+    public async Task<AppConversation> EtiquetarConversaAsync(int usuarioId, string conversaId, AppConversationLabels etiquetas, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava)
+        {
+            var c = Achar(conversaId);
+            var novas = (etiquetas.Labels ?? []).Distinct().ToList();
+            if (novas.Count > 10) throw new RecusaDoCrm("Use até 10 etiquetas por conversa.", 400);
+            if (novas.FirstOrDefault(x => !EtiquetasDaClinica.Any(e => e.Id == x && !e.Archived) && !c.Labels.Contains(x)) is { } estranha)
+                throw new RecusaDoCrm($"Etiqueta desconhecida: {estranha}.", 400);
+            c.Labels.Clear(); c.Labels.AddRange(novas);
+            c.UpdatedAt = DateTimeOffset.UtcNow;
+            return Foto(c);
+        }
+    }
+
+    public async Task<AppConversation> EstrelarAsync(int usuarioId, string conversaId, string mensagemId, AppStar estrela, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava)
+        {
+            var c = Achar(conversaId);
+            var i = c.Messages.FindIndex(m => m.Id == mensagemId);
+            if (i < 0) throw new RecusaDoCrm("Mensagem não encontrada nesta conversa.", 404);
+            c.Messages[i] = c.Messages[i] with { Starred = estrela.Starred };
+            c.UpdatedAt = DateTimeOffset.UtcNow;
+            return Foto(c);
+        }
+    }
+
+    public async Task<AppPins> FixadasAsync(int usuarioId, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava) return new AppPins(fixadas.ToArray(), 3);
+    }
+
+    public async Task<AppPins> FixarAsync(int usuarioId, string conversaId, AppPin fixar, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava)
+        {
+            _ = Achar(conversaId);
+            if (fixar.Pinned && !fixadas.Contains(conversaId))
+            {
+                if (fixadas.Count >= 3) throw new RecusaDoCrm("Você já fixou 3 conversas. Desafixe uma para fixar esta.", 409);
+                fixadas.Add(conversaId);
+            }
+            else if (!fixar.Pinned) fixadas.Remove(conversaId);
+            return new AppPins(fixadas.ToArray(), 3);
+        }
+    }
+
+    public async Task<AppTyping> EscrevendoAsync(int usuarioId, string conversaId, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava) { _ = Achar(conversaId); return new AppTyping(EscrevendoNaPrevia.GetValueOrDefault(conversaId, [])); }
+    }
+
+    public async Task<AppTyping> QuemEscreveAsync(int usuarioId, string conversaId, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava) { _ = Achar(conversaId); return new AppTyping(EscrevendoNaPrevia.GetValueOrDefault(conversaId, [])); }
+    }
+
+    public async Task ParouDeEscreverAsync(int usuarioId, string conversaId, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava) _ = Achar(conversaId);
+    }
+
     /// <summary>Os pulsos de presença que chegaram (25/10): o teste confere que o vigia pulsa e que para.</summary>
     public int Pulsos { get; private set; }
 
@@ -1423,7 +1545,8 @@ public sealed class CrmDeMentira : IClienteDoCrm
 
     private AppConversation Foto(Conversa c) => new(c.Id, c.Name, c.Contact, c.Channel, c.Sender, c.Queue, c.AgentId, c.Closed,
         c.Version, c.UpdatedAt, c.LastIncoming, c.PatientId, c.PatientName, c.Messages.ToArray(), c.Notes.ToArray(),
-        c.Audit.OrderBy(a => a.At).ToArray(), c.Resolutions.ToArray(), c.ClosedAt, c.Pedido);
+        c.Audit.OrderBy(a => a.At).ToArray(), c.Resolutions.ToArray(), c.ClosedAt, c.Pedido,
+        Labels: c.Labels.ToArray(), Typing: EscrevendoNaPrevia.GetValueOrDefault(c.Id, []));
 
     private AppConversationSummary Linha(Conversa c, int usuarioId)
     {
@@ -1437,7 +1560,7 @@ public sealed class CrmDeMentira : IClienteDoCrm
             PreviewDirection: ultima?.Direction ?? "in", PreviewStatus: ultima?.Status ?? "",
             // A regra do CRM (Program.cs): a etiqueta só vale enquanto o paciente espera a clínica.
             Semdor: SemDor != ModoDoSemDor.Desligado && !c.Closed && ultima?.Direction == "in" ? Etiquetas.GetValueOrDefault(c.Id) : null,
-            PendingTransfer: c.Pedido);
+            PendingTransfer: c.Pedido, Labels: c.Labels.ToArray(), Pinned: fixadas.Contains(c.Id));
     }
 
     private sealed record Anexo(string Id, string ConversaId, string Nome, string Mime, byte[] Bytes);
@@ -1464,6 +1587,8 @@ public sealed class CrmDeMentira : IClienteDoCrm
         public List<AppAudit> Audit { get; } = new();
         public List<AppResolution> Resolutions { get; } = new();
         public int NaoLidasIniciais { get; set; }
+        /// <summary>As etiquetas da conversa (ids de <see cref="EtiquetasDaClinica"/>), como o CRM guarda (§15).</summary>
+        public List<string> Labels { get; } = new();
 
         /// <summary>O pedido de transferência para uma pessoa que espera o aceite (o AppPendingTransfer do CRM).</summary>
         public AppPendingTransfer? Pedido { get; private set; }

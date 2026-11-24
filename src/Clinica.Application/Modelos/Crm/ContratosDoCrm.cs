@@ -22,10 +22,12 @@ public sealed record AppSms(bool Enabled, string Provider);
 /// <summary>GET /api/session. Anônimo: só Csrf (e o cookie antiforgery). Logado: AgentId e o resto. O Csrf MUDA a cada login.
 /// RecordingEnabled: o CRM converte a gravação de voz (ffmpeg) — sem ele, o app não mostra o microfone.
 /// RemindersEnabled: o pedido de confirmação automático da agenda está ligado (Automação → Agenda e lembretes) — sem ele,
-/// a mensagem ao paciente não promete lembrete nenhum.</summary>
+/// a mensagem ao paciente não promete lembrete nenhum.
+/// PatientTyping: o CRM mostra "digitando…" ao paciente enquanto a equipe escreve (CRM_WA_TYPING_INDICATOR; §15). Ligado, o
+/// pulso de POST …/typing também MARCA COMO LIDA a última mensagem do paciente (é como a Meta faz o indicador).</summary>
 public sealed record AppSession(string? AgentId, string Csrf, AppAgent[] Agents, AppInbox[] Inboxes, string[] Queues,
     bool AttachmentsEnabled, bool SendEnabled, bool WhatsappOff, AppSms? Sms = null, bool RecordingEnabled = false,
-    bool RemindersEnabled = false);
+    bool RemindersEnabled = false, bool PatientTyping = false);
 
 // ---------- A lista ----------
 /// <summary>Como a conversa terminou (o último ServiceClose). Outcome é a chave de AppWorkspace.Outcomes.</summary>
@@ -34,12 +36,13 @@ public sealed record AppResolution(string Outcome, string Summary, string ActorI
 /// Uma linha de GET /api/conversations. Channel: "whatsapp" | "sms". Unread: recebidas depois da
 /// última leitura de QUEM pediu. Preview: o texto (ou o nome do arquivo) da última mensagem;
 /// PreviewDirection "in" | "out" e PreviewStatus (o Status da mensagem) desenham o tick na lista.
+/// Labels: ids de AppLabel (GET /api/labels) — o filtro por etiqueta é da tela. Pinned: QUEM pediu fixou esta conversa (§15).
 /// </summary>
 public sealed record AppConversationSummary(string Id, string Name, string Contact, string Channel, string Sender,
     string Queue, string? AgentId, bool Closed, int Version, DateTimeOffset UpdatedAt, DateTimeOffset LastIncoming,
     int? PatientId, string PatientName, int Unread, string Preview, bool AwaitingMenu, bool DeliveryAttention,
     AppResolution? Resolution, DateTimeOffset? ClosedAt, string PreviewDirection = "in", string PreviewStatus = "",
-    AppSemDorTag? Semdor = null, AppPendingTransfer? PendingTransfer = null);
+    AppSemDorTag? Semdor = null, AppPendingTransfer? PendingTransfer = null, string[]? Labels = null, bool Pinned = false);
 /// <summary>A etiqueta do @SemDor na linha: o assunto da mensagem nova de quem espera a clínica. Nula quando a IA
 /// está desligada, quando a clínica já respondeu ou a conversa encerrou. Atencao: sintoma grave, reação ao tratamento ou reclamação.</summary>
 public sealed record AppSemDorTag(string Tema, string Rotulo, bool Atencao);
@@ -53,18 +56,25 @@ public sealed record AppTemplateSelection(string Name, string Language, string[]
 /// "uncertain" (envio não confirmado) | "delivered" | "seen" (lida) | "failed" (Error diz por quê). Type "TEXT" | "IMAGE" | "DOCUMENT" | "AUDIO" | "VIDEO" | "TEMPLATE" |
 /// "INTERACTIVE". AgentId nulo na saída = mensagem automática (lembrete, recall, menu).
 /// Sticker: figurinha do WhatsApp — Type continua "IMAGE" (o app antigo a mostra como foto), e o novo a desenha pequena e sem moldura.
+/// Reactions: as reações a esta mensagem (no máximo uma do paciente e uma da clínica). ReactionTo: esta mensagem É a reação
+/// do paciente (texto "Reagiu com 👍") e aponta o Id da reagida — a tela nova a esconde e põe o emoji no balão; a antiga mostra
+/// o texto. Starred: ★ importante, para todos da conversa (§15).
 /// </summary>
 public sealed record AppMessage(string Id, string Direction, string Text, string Type, string? AgentId, DateTimeOffset At,
     string Status, string? Error = null, string? AttachmentId = null, string? FileName = null,
-    AppTemplateSelection? Template = null, string? ReplyToId = null, bool Sticker = false);
+    AppTemplateSelection? Template = null, string? ReplyToId = null, bool Sticker = false,
+    AppReaction[]? Reactions = null, string? ReactionTo = null, bool Starred = false);
+/// <summary>Uma reação. FromPatient: do paciente; senão, da clínica, e AgentId diz quem da equipe reagiu.</summary>
+public sealed record AppReaction(string Emoji, string? AgentId, bool FromPatient, DateTimeOffset At);
 public sealed record AppNote(string Id, string Text, string AgentId, DateTimeOffset At);
 /// <summary>A trilha da conversa (assumiu, transferiu, encerrou, ligou ficha…): vira os eventos da linha do tempo.</summary>
 public sealed record AppAudit(DateTimeOffset At, string Actor, string Action);
-/// <summary>GET /api/conversations/{id}, e a resposta de toda escrita sobre a conversa.</summary>
+/// <summary>GET /api/conversations/{id}, e a resposta de toda escrita sobre a conversa.
+/// Labels: ids de AppLabel. Typing: quem da equipe está escrevendo agora (ids de AppAgent; inclui quem pediu — a tela o tira).</summary>
 public sealed record AppConversation(string Id, string Name, string Contact, string Channel, string Sender, string Queue,
     string? AgentId, bool Closed, int Version, DateTimeOffset UpdatedAt, DateTimeOffset LastIncoming, int? PatientId,
     string PatientName, AppMessage[] Messages, AppNote[] Notes, AppAudit[] Audit, AppResolution[] Resolutions,
-    DateTimeOffset? ClosedAt, AppPendingTransfer? PendingTransfer = null);
+    DateTimeOffset? ClosedAt, AppPendingTransfer? PendingTransfer = null, string[]? Labels = null, string[]? Typing = null);
 /// <summary>
 /// O pedido de transferência para uma PESSOA que espera o aceite (o setor passa na hora e nunca fica pendente). Nulo
 /// quando não há. From: quem pediu; To: quem recebe (ids de AppAgent); Note: o contexto para quem recebe. Quem recebe
@@ -167,3 +177,23 @@ public sealed record AppQualityTrendAgent(string AgentId, string Name, AppQualit
 /// <summary>GET /api/quality/evolucao?semanas=8 (de 4 a 26): Weeks são as segundas-feiras, a mais antiga primeiro; a última é a
 /// semana corrente, ainda parcial. Cada secretária traz uma AppQualityWeek por semana, na mesma ordem.</summary>
 public sealed record AppQualityTrend(DateOnly[] Weeks, AppQualityTrendAgent[] Agents);
+
+// ---------- "CRM com cara de WhatsApp" (nov/2026, F2a — docs/api-para-os-apps.md §15) ----------
+/// <summary>POST …/{id}/react — a clínica reage a uma mensagem (API oficial da Meta). Emoji vazio tira a reação. Só na janela de 24 h,
+/// em mensagem de até 30 dias, que não seja reação nem importada do celular. Resposta: AppConversation.</summary>
+public sealed record AppReact(string MessageId, string Emoji);
+/// <summary>Uma etiqueta da clínica (GET /api/labels). Archived: some da escolha, mas continua nas conversas que já a têm.</summary>
+public sealed record AppLabel(string Id, string Name, bool Archived, int Version);
+/// <summary>POST /api/labels — só a gestão. Id nulo cria; Version: a da etiqueta (0 para criar). Resposta: a lista inteira (AppLabel[]).</summary>
+public sealed record AppLabelSave(string? Id, string Name, bool Archived, int Version);
+/// <summary>POST …/{id}/labels — as etiquetas da conversa, EXATAMENTE estas (ids de AppLabel; até 10). Resposta: AppConversation.</summary>
+public sealed record AppConversationLabels(string[] Labels);
+/// <summary>POST …/{id}/messages/{messageId}/star — ★ marca ou desmarca a mensagem como importante. Resposta: AppConversation.</summary>
+public sealed record AppStar(bool Starred);
+/// <summary>POST …/{id}/pin — fixa ou desafixa a conversa no topo da lista de QUEM pede (até Max). 409 com a frase quando já tem Max.</summary>
+public sealed record AppPin(bool Pinned);
+/// <summary>GET /api/pins e a resposta do /pin: as conversas fixadas por quem pediu, na ordem em que fixou.</summary>
+public sealed record AppPins(string[] ConversationIds, int Max);
+/// <summary>POST …/{id}/typing (corpo "{}") — o pulso de "estou escrevendo" (vale 6 s; pulse a cada ~3 s enquanto digita) e
+/// GET …/{id}/typing: Agents = quem MAIS da equipe escreve agora (ids de AppAgent, sem quem pediu). POST …/typing/stop esquece o pulso.</summary>
+public sealed record AppTyping(string[] Agents);

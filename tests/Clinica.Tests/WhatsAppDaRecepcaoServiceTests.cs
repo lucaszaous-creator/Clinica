@@ -1042,6 +1042,16 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
         public Task<AppQualityTrend> EvolucaoDaAuditoriaAsync(int usuarioId, int semanas, CancellationToken ct = default)
             => Task.FromResult(new AppQualityTrend([], []));
 
+        public Task<AppConversation> ReagirAsync(int usuarioId, string conversaId, AppReact reacao, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<AppLabel[]> EtiquetasAsync(int usuarioId, CancellationToken ct = default) => Task.FromResult(Array.Empty<AppLabel>());
+        public Task<AppLabel[]> SalvarEtiquetaAsync(int usuarioId, AppLabelSave etiqueta, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<AppConversation> EtiquetarConversaAsync(int usuarioId, string conversaId, AppConversationLabels etiquetas, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<AppConversation> EstrelarAsync(int usuarioId, string conversaId, string mensagemId, AppStar estrela, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<AppPins> FixadasAsync(int usuarioId, CancellationToken ct = default) => Task.FromResult(new AppPins([], 3));
+        public Task<AppPins> FixarAsync(int usuarioId, string conversaId, AppPin fixar, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<AppTyping> EscrevendoAsync(int usuarioId, string conversaId, CancellationToken ct = default) => Task.FromResult(new AppTyping([]));
+        public Task<AppTyping> QuemEscreveAsync(int usuarioId, string conversaId, CancellationToken ct = default) => Task.FromResult(new AppTyping([]));
+        public Task ParouDeEscreverAsync(int usuarioId, string conversaId, CancellationToken ct = default) => Task.CompletedTask;
         public void EsquecerSessao(int usuarioId) { }
     }
 

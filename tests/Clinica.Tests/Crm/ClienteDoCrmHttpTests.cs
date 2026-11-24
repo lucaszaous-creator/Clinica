@@ -537,6 +537,51 @@ public sealed class ClienteDoCrmHttpTests : IDisposable
         Assert.Equal(2, Bilhetes());
     }
 
+    // ---------- "Cara de WhatsApp", F2a (nov/2026, semdor-crm §15) ----------
+
+    [Fact] public async Task Reacao_etiquetas_estrela_fixar_e_escrevendo_vao_pelas_rotas_da_secao_15()
+    {
+        await Configurar(EnderecoA);
+        var conversa = new AppConversation("c1", "Paciente", "5522988887777", "whatsapp", "5522999990000", "Recepção", "ana", false, 3,
+            DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch, null, "", [], [], [], [], null, Labels: ["agendar"]);
+        crm.Rota = (p, _) => p.Caminho switch
+        {
+            "/api/labels" => Responder(new[] { new AppLabel("agendar", "Agendar", false, 0) }),
+            "/api/pins" or "/api/conversations/c1/pin" => Responder(new AppPins(["c1"], 3)),
+            "/api/conversations/c1/typing" => Responder(new AppTyping(["bruna"])),
+            "/api/conversations/c1/typing/stop" => new HttpResponseMessage(HttpStatusCode.OK),
+            _ => Responder(conversa),
+        };
+
+        Assert.Equal(["agendar"], (await cliente.ReagirAsync(7, "c1", new AppReact("wamid.1", "👍"))).Labels);
+        Assert.Equal("Agendar", Assert.Single(await cliente.EtiquetasAsync(7)).Name);
+        await cliente.SalvarEtiquetaAsync(7, new AppLabelSave(null, "Urgente", false, 0));
+        await cliente.EtiquetarConversaAsync(7, "c1", new AppConversationLabels(["agendar"]));
+        await cliente.EstrelarAsync(7, "c1", "wamid.1", new AppStar(true));
+        Assert.Equal(["c1"], (await cliente.FixadasAsync(7)).ConversationIds);
+        Assert.Equal(3, (await cliente.FixarAsync(7, "c1", new AppPin(true))).Max);
+        Assert.Equal(["bruna"], (await cliente.EscrevendoAsync(7, "c1")).Agents);
+        Assert.Equal(["bruna"], (await cliente.QuemEscreveAsync(7, "c1")).Agents);
+        await cliente.ParouDeEscreverAsync(7, "c1");
+
+        var pedidos = crm.Pedidos.Where(p => p.Caminho != "/api/session" && p.Caminho != "/api/login/ticket")
+            .Select(p => (p.Metodo, p.Caminho, p.Csrf != "")).ToArray();
+        Assert.Equal(new[]
+        {
+            ("POST", "/api/conversations/c1/react", true), ("GET", "/api/labels", false), ("POST", "/api/labels", true),
+            ("POST", "/api/conversations/c1/labels", true), ("POST", "/api/conversations/c1/messages/wamid.1/star", true),
+            ("GET", "/api/pins", false), ("POST", "/api/conversations/c1/pin", true), ("POST", "/api/conversations/c1/typing", true),
+            ("GET", "/api/conversations/c1/typing", false), ("POST", "/api/conversations/c1/typing/stop", true),
+        }, pedidos);
+        Assert.Contains("\"emoji\":\"", crm.Pedidos.Single(p => p.Caminho.EndsWith("/react")).Corpo);
+        Assert.Contains("\"starred\":true", crm.Pedidos.Single(p => p.Caminho.EndsWith("/star")).Corpo);
+
+        // A recusa do CRM chega com a frase dele (a quarta fixada).
+        crm.Rota = (_, _) => Erro(409, "Você já fixou 3 conversas. Desafixe uma para fixar esta.");
+        var recusa = await Assert.ThrowsAsync<RecusaDoCrm>(() => cliente.FixarAsync(7, "c2", new AppPin(true)));
+        Assert.Equal((409, "Você já fixou 3 conversas. Desafixe uma para fixar esta."), (recusa.Status, recusa.Message));
+    }
+
     [Fact] public async Task O_anexo_e_reenviado_inteiro_quando_a_sessao_venceu()
     {
         await Configurar(EnderecoA);
