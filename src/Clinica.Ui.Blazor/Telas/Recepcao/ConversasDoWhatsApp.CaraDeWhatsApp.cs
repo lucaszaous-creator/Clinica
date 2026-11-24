@@ -54,6 +54,7 @@ public partial class ConversasDoWhatsApp
                 break;
             case AcaoNaConversa.Buscar: if (_buscaConversa is null) AlternarBusca(); else _focarBusca = true; break;
             case AcaoNaConversa.DadosDoContato: _fichaAberta = true; break;
+            case AcaoNaConversa.Etiquetas: if (Exigir(Permissao.EditarAgenda, "etiquetar a conversa")) _popover = Popover.Etiquetas; break;
             case AcaoNaConversa.Resumir: await ResumirComSemDorAsync(a); break;
         }
     }
@@ -77,7 +78,7 @@ public partial class ConversasDoWhatsApp
         FecharMenus();
         _popover = Popover.Nenhum;
         (_menuX, _menuY) = (e.ClientX, e.ClientY);
-        _menuDoClipe = MenuDoWhatsApp.DoClipe(c.Sms, _painel?.Sessao.AttachmentsEnabled == true, AcessoDoMenu);
+        _menuDoClipe = MenuDoWhatsApp.DoClipe(c.Sms, _painel?.Sessao.AttachmentsEnabled == true, AcessoDoMenu, _compartilhar, c.Janela.PodeEscreverLivre);
     }
 
     private async Task AoEscolherNoClipeAsync(AcaoDoClipe acao)
@@ -88,6 +89,8 @@ public partial class ConversasDoWhatsApp
             case AcaoDoClipe.Arquivo: await AnexarAsync(c); break;
             case AcaoDoClipe.Modelos: await AbrirModelosAsync(false); break;
             case AcaoDoClipe.Rapidas: _popover = Popover.Rapidas; break;
+            case AcaoDoClipe.Endereco: await CompartilharAsync(c, "location", null, "Endereço da clínica enviado."); break;
+            case AcaoDoClipe.Contato or AcaoDoClipe.Servicos: _escolhendo = acao; _popover = Popover.Compartilhar; break;
         }
     }
 

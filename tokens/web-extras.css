@@ -16,6 +16,11 @@
 --wa-balao-enviado:#D9FDD3;--wa-verde:#00A884;--wa-verde-escuro:#008069;
 --wa-papel:#F4F1EC;--wa-cinza:#54656F;--wa-linha:#E9EDEF;--wa-faixa:#F0F2F5;
 --wa-nota:#FFF6D6;--wa-nota-texto:#8A6100;
+/* F3: as quatro cores das etiquetas (texto no fundo: 5,32 · 5,78 · 5,72 · 5,42:1) e o vermelho do "!" e do "Não enviada" (5,44:1). */
+--wa-etq-laranja:#FFF1E6;--wa-etq-laranja-texto:#A44A12;--wa-etq-verde:#E6F6F1;--wa-etq-verde-texto:#0B6B57;
+/* O aviso passageiro na aba WhatsApp: neutro escuro, sem azul (marinho é proibido); branco nele 13,4:1. */
+--wa-aviso-fundo:#2F2F2F;
+--wa-etq-vermelho:#FDECEC;--wa-etq-vermelho-texto:#B4232A;--wa-erro:#C62F35;
 /* Sombras — só popups, tooltips e snackbar (cartões são flat) */
 --sombra-popup:0 12px 32px rgba(17,24,39,.16); /* @kind shadow */
 --sombra-tooltip:0 4px 16px rgba(17,24,39,.12); /* @kind shadow */

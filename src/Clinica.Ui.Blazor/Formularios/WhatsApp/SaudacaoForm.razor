@@ -1,0 +1,52 @@
+@namespace Clinica.Ui.Blazor.Formularios
+@using Clinica.Crm.Contracts
+@*
+  A MENSAGEM DE SAUDAÇÃO (nov/2026, F3 — v4 "ajuda sem atrapalhar"): o interruptor e o texto, como nas configurações do
+  WhatsApp Business. É a primeira mensagem que o paciente recebe quando escreve (GET/POST /api/greeting do CRM, só a
+  gestão). Quem lê e grava é a tela; aqui só se desenha. "Fora do horário" não existe: saiu em out/2026 (direção).
+*@
+
+<Modal Titulo="Mensagem de saudação" Subtitulo="A primeira mensagem que o paciente recebe quando escreve." Largura="pequeno" AoFechar="AoFechar">
+    <ChildContent>
+        <label class="wa-interruptor">
+            <span><strong>Enviar a saudação</strong><small>@(_ligada ? "Ligada" : "Desligada")</small></span>
+            <input type="checkbox" role="switch" checked="@_ligada" @onchange="e => _ligada = e.Value is true" />
+        </label>
+        <Campo Rotulo="Texto" Classe="largo">
+            <textarea class="campo" rows="4" maxlength="1000" spellcheck="true" lang="pt-BR" @bind="_texto" @bind:event="oninput"
+                      placeholder="Olá! Aqui é a clínica. Como podemos ajudar?"></textarea>
+        </Campo>
+        <Aviso Tom="erro" Texto="@_erro" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" disabled="@_ocupado" @onclick="SalvarAsync"><Icone Nome="check" />@(_ocupado ? "Salvando…" : "Salvar")</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public AppGreeting Saudacao { get; set; } = default!;
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    /// <summary>Grava (ligada, texto); devolve a frase da recusa ou nulo quando gravou.</summary>
+    [Parameter, EditorRequired] public Func<bool, string, Task<string?>> AoConfirmar { get; set; } = default!;
+
+    private bool _ligada;
+    private string _texto = "";
+    private string? _erro;
+    private bool _ocupado;
+
+    protected override void OnInitialized()
+    {
+        _ligada = Saudacao.Enabled;
+        _texto = Saudacao.Text;
+    }
+
+    private async Task SalvarAsync()
+    {
+        _ocupado = true;
+        _erro = null;
+        try { _erro = await AoConfirmar(_ligada, _texto ?? ""); }
+        finally { _ocupado = false; }
+    }
+}

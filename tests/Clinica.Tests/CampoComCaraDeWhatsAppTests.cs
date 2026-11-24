@@ -69,7 +69,7 @@ public sealed class CampoComCaraDeWhatsAppTests
     {
         var minha = MenuDoWhatsApp.DoCabecalho(Conversa(agente: "eu"), "eu", 3, Tudo);
         minha.Select(i => i.Acao).Should().Equal(AcaoNaConversa.Devolver, AcaoNaConversa.Transferir, AcaoNaConversa.NotaInterna,
-            AcaoNaConversa.Buscar, AcaoNaConversa.DadosDoContato, AcaoNaConversa.Resumir, AcaoNaConversa.Encerrar);
+            AcaoNaConversa.Buscar, AcaoNaConversa.DadosDoContato, AcaoNaConversa.Etiquetas, AcaoNaConversa.Resumir, AcaoNaConversa.Encerrar);
         minha.Should().OnlyContain(i => i.Habilitado);
         minha.Single(i => i.Acao == AcaoNaConversa.Encerrar).Perigo.Should().BeTrue();
 
@@ -88,7 +88,8 @@ public sealed class CampoComCaraDeWhatsAppTests
     public void Encerrada_reabre_sem_resumo_vazio_e_o_caso_sem_conversa_so_tem_os_dados()
     {
         var encerrada = MenuDoWhatsApp.DoCabecalho(Conversa(agente: "eu", encerrada: true, mensagens: 0), "eu", 0, Tudo);
-        encerrada.Select(i => i.Acao).Should().Equal(AcaoNaConversa.Reabrir, AcaoNaConversa.Buscar, AcaoNaConversa.DadosDoContato, AcaoNaConversa.Resumir);
+        encerrada.Select(i => i.Acao).Should().Equal(AcaoNaConversa.Reabrir, AcaoNaConversa.Buscar, AcaoNaConversa.DadosDoContato,
+            AcaoNaConversa.Etiquetas, AcaoNaConversa.Resumir);
         encerrada.Single(i => i.Acao == AcaoNaConversa.Resumir).Motivo.Should().Be("Ainda não há mensagem para resumir");
 
         MenuDoWhatsApp.DoCabecalho(Conversa(agente: "eu"), "eu", 3, Tudo with { SemDor = false }).Select(i => i.Acao)
@@ -115,7 +116,7 @@ public sealed class CampoComCaraDeWhatsAppTests
     public void O_balao_do_paciente_abre_com_os_quatro_do_WhatsApp_e_pergunta_ao_profissional()
     {
         var recebida = new ItemDaConversa(TipoNaLinhaDoTempo.Recebida, "Posso levar o exame?", "09:02", Id: "wamid.1", At: Agora);
-        var menu = MenuDoWhatsApp.DaMensagem(recebida, "", janelaLivre: true, sms: false, minha: true, fichaConferida: true, Tudo);
+        var menu = MenuDoWhatsApp.DaMensagem(recebida, "", janelaLivre: true, sms: false, minha: true, fichaConferida: true, Tudo, Agora);
         menu.Take(4).Select(i => i.Rotulo).Should().Equal("Responder", "Copiar", "Nota para a equipe", "Perguntar ao profissional");
         menu.Should().OnlyContain(i => i.Habilitado);
 

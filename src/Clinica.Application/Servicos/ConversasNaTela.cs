@@ -149,7 +149,9 @@ public enum TipoNaLinhaDoTempo { Dia, Novas, Evento, Recebida, Enviada, Nota }
 public sealed record ItemDaConversa(TipoNaLinhaDoTempo Tipo, string Texto, string Hora = "", string? Autor = null,
     bool Seguida = false, TickDaMensagem? Tick = null, string? Anexo = null, string? Modelo = null,
     string Tom = "neutro", string? Erro = null, string? Id = null, DateTimeOffset? At = null, MidiaDaMensagem? Midia = null,
-    CitacaoNaConversa? Citacao = null);
+    CitacaoNaConversa? Citacao = null, IReadOnlyList<ReacaoNoBalao>? Reacoes = null, bool Estrela = false,
+    AppLocation? Local = null, AppSharedContact? Contato = null, string? Transcricao = null, bool TentarDeNovo = false,
+    string? Automatica = null);
 
 /// <summary>
 /// A mensagem que um balão cita ("Responder citando", out/2026): quem escreveu e o começo do texto, como o WhatsApp
@@ -747,11 +749,15 @@ public static partial class ConversasNaTela
         for (var i = 0; i < conversa.Messages.Length; i++)
         {
             var m = conversa.Messages[i];
+            // A reação chega como mensagem própria ("Reagiu com 👍", F2): ela aparece no balão que reagiu, não sozinha (F3).
+            if (!string.IsNullOrEmpty(m.ReactionTo)) continue;
             var recebida = EhRecebida(m);
             // Foto, áudio, vídeo e documento aparecem no balão (MidiaDaConversa): o texto é só a legenda, e sem
             // legenda o balão não inventa "Mensagem sem texto" nem repete o nome que o cartão do arquivo já mostra.
             var midia = MidiaDaConversa.Da(conversa.Id, m);
-            var texto = !string.IsNullOrWhiteSpace(m.Text) ? m.Text
+            // Endereço e contato (F3) aparecem como cartão: o texto que o CRM guarda junto ("📍 …", "👤 …") não se repete.
+            var texto = m.Location is not null || m.SharedContact is not null ? ""
+                : !string.IsNullOrWhiteSpace(m.Text) ? m.Text
                 : midia is not null ? ""
                 : m.FileName ?? (recebida ? "Mensagem sem texto" : "Arquivo");
             var tick = recebida ? null : Tick(m.Status);
@@ -760,7 +766,11 @@ public static partial class ConversasNaTela
                 Tick: tick, Anexo: midia is not null || string.IsNullOrWhiteSpace(m.FileName) ? null : m.FileName, Modelo: m.Template?.Name,
                 Erro: ErroDaEntrega(tick, m.Error), Id: m.Id, At: m.At, Midia: midia,
                 Citacao: m.ReplyToId is { } citada && porId.TryGetValue(citada, out var original)
-                    ? Citacao(original, NomeDaConversa(conversa), nomesDosAgentes) : null), null));
+                    ? Citacao(original, NomeDaConversa(conversa), nomesDosAgentes) : null,
+                Reacoes: Reacoes(m), Estrela: m.Starred, Local: m.Location, Contato: m.SharedContact,
+                Transcricao: string.IsNullOrWhiteSpace(m.Transcript) ? null : m.Transcript.Trim(),
+                TentarDeNovo: !recebida && PedeTentarDeNovo(m, conversa.Messages),
+                Automatica: !recebida && EhAutomatica(m) ? ResumoDaAutomatica(m, ProximaRecebida(conversa.Messages, i)) : null), null));
         }
         for (var i = 0; i < conversa.Notes.Length; i++)
         {
@@ -775,7 +785,10 @@ public static partial class ConversasNaTela
             fontes.Add((a.At, 2, i, new ItemDaConversa(TipoNaLinhaDoTempo.Evento, e.Texto, Hora(a.At, agora), Tom: e.Tom, At: a.At), e));
         }
 
-        var naoLidas = conversa.Messages.Count(EhRecebida) - Math.Max(0, recebidasJaLidas);
+        // A marca de leitura do CRM conta as reações recebidas como mensagens; a linha do tempo não as desenha (F3).
+        var reacoesRecebidas = conversa.Messages.Count(m => EhRecebida(m) && !string.IsNullOrEmpty(m.ReactionTo));
+        recebidasJaLidas = Math.Max(0, recebidasJaLidas - reacoesRecebidas);
+        var naoLidas = conversa.Messages.Count(m => EhRecebida(m) && string.IsNullOrEmpty(m.ReactionTo)) - recebidasJaLidas;
         var itens = new List<ItemDaConversa>();
         DateOnly? dia = null;
         ItemDaConversa? anterior = null;

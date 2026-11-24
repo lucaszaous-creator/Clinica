@@ -72,6 +72,10 @@ else
                 <h1 class="wa-sr">WhatsApp da clínica · @contaConversas.Todas abertas</h1>
                 @* O modo Retenção saiu (nov/2026): a retenção é a Fila 360 — uma porta por pergunta. *@
                 <p class="wa-lista-titulo">Conversas</p>
+                @if (PodeSaudacao)
+                {
+                    <button type="button" class="botao icone fantasma" title="Mensagem de saudação" aria-label="Mensagem de saudação" @onclick="AbrirSaudacaoAsync"><Icone Nome="ajustes" /></button>
+                }
                 <button type="button" class="botao icone" title="Nova conversa" aria-label="Nova conversa" disabled="@(!PodeEscrever)" @onclick="AbrirNovaConversa"><Icone Nome="mais" /></button>
             </div>
             @* A busca e as pílulas do WhatsApp (F1, nov/2026): Tudo, Não lidas, Minhas e Sem resposta (a direção vê quem espera,
@@ -83,7 +87,13 @@ else
                     @foreach (var pilula in ConversasNaTela.Pilulas)
                     {
                         var n = ConversasNaTela.ContagemDaPilula(pilula, contaConversas);
-                        <button type="button" class="wa-pilula" aria-pressed="@Bool(ConversasNaTela.PilulaAtual(_filtro, _soNaoLidas) == pilula)" @onclick="() => EscolherPilula(pilula)">@pilula.Rotulo @if (n is not null) { <b>@n</b> }</button>
+                        <button type="button" class="wa-pilula" aria-pressed="@Bool(ConversasNaTela.PilulaAtual(_filtro, _soNaoLidas) == pilula && _etiquetaDoFiltro is null)" @onclick="() => { EscolherPilula(pilula); _etiquetaDoFiltro = null; }">@pilula.Rotulo @if (n is not null) { <b>@n</b> }</button>
+                    }
+                    @* As etiquetas viram pílula de filtro, como no WhatsApp Business (F3). A sobra rola para o lado. *@
+                    @foreach (var etiqueta in _etiquetas.Where(e => !e.Archived))
+                    {
+                        <button type="button" class="wa-pilula wa-pilula-etiqueta tom-@ConversasNaTela.TomDaEtiqueta(etiqueta.Id)" aria-pressed="@Bool(_etiquetaDoFiltro == etiqueta.Id)"
+                                @onclick="() => _etiquetaDoFiltro = _etiquetaDoFiltro == etiqueta.Id ? null : etiqueta.Id">@etiqueta.Name</button>
                     }
                 </div>
             </div>
@@ -99,7 +109,8 @@ else
                     <button type="button" class="botao icone fantasma" aria-label="Fechar o aviso do @@SemDor" @onclick="() => _avisoSemDorFechado = true"><Icone Nome="x" /></button></div>
             }
             <div class="wa-linhas" role="listbox" aria-label="Lista de conversas">
-                @{ var linhas = WhatsAppDaRecepcaoService.Linhas(painel, _filtro, _busca, _soNaoLidas, agora); }
+                @{ var linhas = LinhasComRecursos(WhatsAppDaRecepcaoService.Linhas(painel, _filtro, _busca, _soNaoLidas, agora), painel);
+                   var resumoDaLinha = painel.Conversas.ToDictionary(x => x.Id); }
                 @if (linhas.Count == 0)
                 {
                     var (titulo, texto) = ConversasNaTela.Vazio(_filtro, !string.IsNullOrWhiteSpace(_busca));
@@ -111,9 +122,14 @@ else
                             @onclick="() => AbrirConversaAsync(l.Id, l.NaoLidas, null)" @oncontextmenu="e => AbrirMenuDaConversa(l.Id, e)" @oncontextmenu:preventDefault="true">
                         @Avatar(l.PacienteId, l.Iniciais, l.TomDoAvatar, @<span class="wa-canal @(l.Sms ? "sms" : null)" title="@(l.Sms ? "SMS" : "WhatsApp")"><Icone Nome="@(l.Sms ? "sms" : "chat")" /></span>)
                         <span class="wa-linha-corpo">
-                            <span class="wa-linha-topo"><span class="wa-linha-nome">@l.Nome</span>@if (l.Espera is { } espera) { <span class="wa-linha-hora wa-espera tom-@espera.Tom" title="@($"{espera.Texto} (a última mensagem: {l.Hora})")" aria-label="@espera.Texto">@espera.Curto</span> } else { <span class="wa-linha-hora">@l.Hora</span> }</span>
-                            <span class="wa-linha-previa">@if (l.Tick is { } t) { @Tick(t) }@if (l.SemDor is { } etiqueta) { @SeloDoSemDor(etiqueta) }<span class="texto">@l.Previa</span>@if (l.NaoLidas > 0) { <b class="wa-nao-lidas" aria-label="@($"{l.NaoLidas} não lidas")">@l.NaoLidas</b> }</span>
+                            <span class="wa-linha-topo"><span class="wa-linha-nome">@l.Nome</span>@if (Fixada(l.Id)) { <span class="wa-fixada" title="Fixada no topo"><Icone Nome="fixado" /><span class="wa-sr">Fixada</span></span> }@if (l.Espera is { } espera) { <span class="wa-linha-hora wa-espera tom-@espera.Tom" title="@($"{espera.Texto} (a última mensagem: {l.Hora})")" aria-label="@espera.Texto">@espera.Curto</span> } else { <span class="wa-linha-hora">@l.Hora</span> }</span>
+                            <span class="wa-linha-previa">@if (l.Tick is { } t) { @Tick(t) }@if (l.SemDor is { } etiqueta) { @SeloDoSemDor(etiqueta) }@if (RascunhoNaLista(l.Id) is { } rascunho) { <span class="texto"><b class="wa-rascunho">Rascunho:</b> @rascunho</span> } else { <span class="texto">@l.Previa</span> }@if (l.NaoLidas > 0) { <b class="wa-nao-lidas" aria-label="@($"{l.NaoLidas} não lidas")">@l.NaoLidas</b> }</span>
                             <span class="wa-linha-rodape"><span class="selo tom-@l.Selo.Tom">@l.Selo.Texto</span>
+                                @if (resumoDaLinha.TryGetValue(l.Id, out var resumo) && resumo.Labels is { Length: > 0 } ids)
+                                {
+                                    var dela = ConversasNaTela.EtiquetasDa(ids, _etiquetas);
+                                    @if (dela.Count > 0) { <span class="wa-etiqueta-conversa @(dela.Count > 1 ? "com-mais" : null) tom-@ConversasNaTela.TomDaEtiqueta(dela[0].Id)" title="@string.Join(", ", dela.Select(x => x.Name))">@if (dela.Count > 1) { <small>+@(dela.Count - 1)</small> }<span class="wa-etiqueta-nome">@dela[0].Name</span></span> }
+                                }
                                 @if (l.TemResponsavel) { <span class="wa-linha-quem @(l.Minha ? "minha" : null)" title="@l.Responsavel"><Icone Nome="pessoa" /><span>@l.Responsavel</span></span> }</span>
                         </span>
                     </button>
@@ -156,6 +172,10 @@ else
                     @* Sem telefone não há WhatsApp: nem o selo do canal no avatar (item 15). *@
                     @Avatar(c.Conversa?.PatientId ?? c.Paciente?.Id, c.Iniciais, c.TomDoAvatar, c.SemTelefone ? null : @<span class="wa-canal @(c.Sms ? "sms" : null)"><Icone Nome="@(c.Sms ? "sms" : "chat")" /></span>)
                     <div class="wa-cab-quem"><h2><button type="button" class="wa-cab-nome" title="Dados do contato" aria-expanded="@Bool(_fichaAberta)" @onclick="() => _fichaAberta = !_fichaAberta">@c.Nome</button></h2>
+                        @if (ConversasNaTela.QuemEscreve(c.Conversa?.Typing, painel.Sessao.AgentId, painel.Agentes) is { } escrevendo)
+                        {
+                            <div class="wa-escrevendo" role="status">@escrevendo</div>
+                        }
                         <div class="wa-cab-meta">@* Sem nome, o título já é o telefone: não repete. Sem ficha conferida, o nome do perfil vai rotulado (item 16). *@@if (!string.IsNullOrWhiteSpace(c.Telefone) && c.Telefone != c.Nome) { <span>@c.Telefone</span><span>·</span> }@if (c.NomeDoPerfil is { } doPerfil) { <span title="O nome que a pessoa usa na conversa: ele não diz qual ficha é a dela">@doPerfil</span> }@if (!c.SemTelefone && (c.NomeDoPerfil is null || c.Sms)) { if (c.NomeDoPerfil is not null) { <span>·</span> } <span>@(c.Sms ? "SMS" : "WhatsApp")</span> }
                             @* O selo da ficha é o ESTADO; a ação (conferir, buscar) mora no aviso da conversa quando ele a oferece (item 6). *@
                             @if (c.Ficha.Estado == EstadoFicha.Conferida)
@@ -193,6 +213,7 @@ else
                 @* A faixa encolheu para o que muda a escrita (F1): com quem está e a janela de 24 h. A fila, o próximo horário e o caso
                    estão nos Dados do contato; o que pede ação é a faixa fixada logo abaixo. *@
                 <div class="wa-faixa">
+                    @foreach (var e in ConversasNaTela.EtiquetasDa(c.Conversa?.Labels, _etiquetas)) { <span class="wa-etiqueta-conversa tom-@ConversasNaTela.TomDaEtiqueta(e.Id)">@e.Name</span> }
                     <span>@if (c.Responsavel == "Sem responsável") { @c.Responsavel } else if (c.Minha) { <text>Com <b>você</b></text> } else { <text>Com <b>@c.Responsavel</b></text> }</span>
                     @if (c.SemTelefone)
                     {
@@ -241,12 +262,15 @@ else
                 {
                     <div class="wa-busca-conversa">
                         <div class="busca"><Icone Nome="busca" /><input class="campo" type="search" placeholder="Buscar nesta conversa e nas notas" aria-label="Buscar nesta conversa" autocomplete="off"
-                                                                       value="@_buscaConversa" @oninput="e => _buscaConversa = e.Value?.ToString() ?? string.Empty"
+                                                                       value="@_buscaConversa" @oninput="e => { _buscaConversa = e.Value?.ToString() ?? string.Empty; _achadoAtual = 0; }"
                                                                        @ref="_buscaEl" /></div>
                         <small>@Achados(c)</small>
+                        <button type="button" class="botao icone fantasma" aria-label="Achado anterior" disabled="@(_contaAchados == 0)" @onclick="() => IrAoAchadoAsync(-1, _contaAchados)"><Icone Nome="entrada" /></button>
+                        <button type="button" class="botao icone fantasma" aria-label="Próximo achado" disabled="@(_contaAchados == 0)" @onclick="() => IrAoAchadoAsync(1, _contaAchados)"><Icone Nome="saida" /></button>
                         <button type="button" class="botao icone fantasma" aria-label="Fechar a busca" @onclick="AlternarBusca"><Icone Nome="x" /></button>
                     </div>
                 }
+                _contaAchados = 0;
                 <div class="wa-mensagens" role="log" aria-label="Mensagens" @ref="_mensagensEl">
                     @foreach (var item in c.LinhaDoTempo)
                     {
@@ -268,14 +292,44 @@ else
                                 break;
                             default:
                                 var enviada = item.Tipo == TipoNaLinhaDoTempo.Enviada;
-                                <div class="wa-m @(enviada ? "enviada" : "recebida") @(item.Seguida ? "seguida" : null)">
+                                @* A AUTOMÁTICA COMPACTA (pedido do dono, 24/11): o menu, o "encaminhado para…" e o lembrete viram uma linha
+                                   que abre inteira ao clique — a conversa da equipe fica à vista. O rótulo é pequeno, sem faixa colorida. *@
+                                @if (item.Automatica is { } resumoAuto && item.Id is { } idAuto && !_automaticasAbertas.Contains(idAuto))
+                                {
+                                    <button type="button" class="wa-auto" aria-expanded="false" title="Ver a mensagem automática inteira" @onclick="() => _automaticasAbertas.Add(idAuto)">
+                                        <span class="wa-auto-rotulo">Automático</span><span class="wa-auto-texto">@resumoAuto</span><time>@item.Hora</time><Icone Nome="abaixo" /></button>
+                                    break;
+                                }
+                                <div class="wa-m @(enviada ? "enviada" : "recebida") @(item.Seguida ? "seguida" : null) @(item.Reacoes is { Count: > 0 } ? "com-reacao" : null)">
                                     @if (item.Anexo is { } anexo) { <span class="wa-anexo"><Icone Nome="documento" />@anexo</span> }
+                                    <div class="@(item.TentarDeNovo ? "wa-falhou" : null)">
+                                    @if (item.TentarDeNovo) { <span class="wa-bang" title="Não enviada" aria-hidden="true">!</span> }
                                     <div class="wa-balao @(item.Midia?.Figurinha == true ? "wa-balao-figurinha" : null) @(_menuDaMensagem is not null && item.Id is not null && _mensagemDoMenu?.Id == item.Id ? "no-menu" : null)" data-mensagem="@item.Id"
-                                         @oncontextmenu="e => AbrirMenuDaMensagemAsync(c, item, e)" @oncontextmenu:preventDefault="true">@* A setinha do WhatsApp (F1): o MESMO menu do botão direito, para quem não sabe dele. *@<button type="button" class="wa-balao-menu" title="Responder, copiar, nota e mais" aria-label="Mais opções da mensagem" aria-haspopup="menu" @onclick="e => AbrirMenuDaMensagemAsync(c, item, e)"><Icone Nome="abaixo" /></button>@if (item.Citacao is { } cit) { <span class="wa-citacao"><b>@cit.Autor</b>@cit.Trecho</span> }@if (item.Midia is { } md) { @Midia(md) }@Marcar(item.Texto)<span class="wa-m-rodape">@if (enviada && item.Autor is { } autor) { <span class="wa-autor">@autor ·</span> }@if (item.Modelo is { } m) { <span class="wa-autor" title="@($"Modelo aprovado: {ModeloDoWhatsApp.NomeNaTela(m)} ({m})")">modelo ·</span> }<span>@item.Hora</span>@if (item.Tick is { } t) { @Tick(t) }</span></div>
+                                         @oncontextmenu="e => AbrirMenuDaMensagemAsync(c, item, e)" @oncontextmenu:preventDefault="true">@* A setinha do WhatsApp (F1): o MESMO menu do botão direito, para quem não sabe dele. *@<button type="button" class="wa-balao-menu" title="Responder, copiar, nota e mais" aria-label="Mais opções da mensagem" aria-haspopup="menu" @onclick="e => AbrirMenuDaMensagemAsync(c, item, e)"><Icone Nome="abaixo" /></button>@if (item.Automatica is not null && item.Id is { } idAberta) { <button type="button" class="wa-auto-recolher" @onclick="() => _automaticasAbertas.Remove(idAberta)">Automático · recolher</button> }@if (item.Citacao is { } cit) { <span class="wa-citacao"><b>@cit.Autor</b>@cit.Trecho</span> }@if (item.Midia is { } md) { @Midia(md) }@if (item.Local is { } local) { @Local(local) }@if (item.Contato is { } contato) { @Contato(contato) }@Marcar(item.Texto)@if (item.Transcricao is { } transcricao) { <span class="wa-transcricao">"@transcricao"</span> }<span class="wa-m-rodape">@if (item.Estrela) { <span class="wa-estrela" title="Importante"><Icone Nome="estrela" /></span> }@if (enviada && item.Automatica is null && item.Autor is { } autor) { <span class="wa-autor">@autor ·</span> }@if (item.Modelo is { } m) { <span class="wa-autor" title="@($"Modelo aprovado: {ModeloDoWhatsApp.NomeNaTela(m)} ({m})")">modelo ·</span> }<span>@item.Hora</span>@if (item.Tick is { } t) { @Tick(t) }</span>
+                                        @if (item.TentarDeNovo)
+                                        {
+                                            <span class="wa-falhou-acao"><span>Não enviada</span>
+                                                <button type="button" class="link" disabled="@(!PodeEscrever || _ocupado)" @onclick="() => TentarDeNovoAsync(c, item)">Tentar de novo</button></span>
+                                        }
+                                        @if (item.Reacoes is { Count: > 0 } reacoes)
+                                        {
+                                            <span class="wa-reacoes" title="Reações">@foreach (var reacao in reacoes) { <span>@reacao.Emoji@if (reacao.Quantas > 1) { <small>@reacao.Quantas</small> }</span> }</span>
+                                        }</div>
+                                    </div>
                                     @if (BotoesDoModelo(c, item) is { Count: > 0 } botoesDoModelo) { <div class="wa-m-botoes" aria-label="Botões que a pessoa recebeu">@foreach (var b in botoesDoModelo) { <span>@b</span> }</div> }
-                                    @if (item.Erro is { } erro) { <span class="wa-m-erro">@erro</span> }
+                                    @if (item.Erro is { } erro && !item.TentarDeNovo) { <span class="wa-m-erro">@erro</span> }
                                 </div>
                                 break;
+                        }
+                    }
+                    @if (c.Conversa is { } comAgendadas)
+                    {
+                        @foreach (var ag in ConversasNaTela.AgendadasAVista(comAgendadas))
+                        {
+                            <div class="wa-m enviada wa-agendada" @key="ag.Id">
+                                <div class="wa-balao">@Marcar(ag.Text)<span class="wa-agendada-quando"><Icone Nome="relogio" />@ConversasNaTela.TextoDaAgendada(ag, agora)
+                                    @if (ag.State == "agendada") { <button type="button" class="link" disabled="@(!PodeEscrever || _ocupado)" @onclick="() => CancelarAgendadaAsync(c, ag.Id)">Cancelar</button> }</span></div>
+                            </div>
                         }
                     }
                 </div>
@@ -334,17 +388,23 @@ else
                                 <div class="wa-rascunho-citacao"><Icone Nome="mensagem" /><span><b>Respondendo a @citada.Autor</b><span class="trecho">@citada.Trecho</span></span>
                                     <button type="button" class="fechar" aria-label="Tirar a citação" @onclick="() => r.Citada = null">×</button></div>
                             }
+                            @if (!r.Nota && SugestoesDa(c) is { Length: > 0 } sugestoes)
+                            {
+                                @* As pílulas do @SemDor (F3, v4): um clique põe o texto no CAMPO; a pessoa revisa antes de enviar. *@
+                                <div class="wa-sugestoes" aria-label="Sugestões do @@SemDor"><small>Sugestões do @@SemDor</small>
+                                    @foreach (var sugestao in sugestoes) { <button type="button" class="wa-sugestao" @onclick="() => { r.Texto = sugestao; _focarCampo = true; }">@sugestao</button> }</div>
+                            }
                             <div class="wa-escrever-rodape">
                                 @if (!r.Nota)
                                 {
                                     <button type="button" class="botao icone fantasma wa-emoji" title="Emojis" aria-label="Emojis" aria-expanded="@Bool(_popover == Popover.Emojis)"
                                             @onclick="() => _popover = _popover == Popover.Emojis ? Popover.Nenhum : Popover.Emojis"><Icone Nome="emoji" /></button>
                                     <button type="button" class="botao icone fantasma wa-clipe" title="Anexar, modelos e respostas rápidas" aria-label="Anexar, modelos e respostas rápidas"
-                                            aria-haspopup="menu" aria-expanded="@Bool(_menuDoClipe is not null)" @onclick="e => AbrirMenuDoClipe(c, e)"><Icone Nome="clipe" /></button>
+                                            aria-haspopup="menu" aria-expanded="@Bool(_menuDoClipe is not null)" @onclick="e => AbrirMenuDoClipeComOpcoesAsync(c, e)"><Icone Nome="clipe" /></button>
                                 }
                                 <textarea rows="1" placeholder="@(r.Nota ? "Nota para a equipe" : "Mensagem")" title="@(r.Nota ? "Enter guarda, Shift+Enter quebra a linha" : "Enter envia, Shift+Enter quebra a linha. / no começo busca respostas e modelos.")"
                                           aria-label="@(r.Nota ? "Nota interna" : "Mensagem")" spellcheck="true" lang="pt-BR"
-                                          maxlength="4000" @bind="r.Texto" @bind:event="oninput" @ref="_campoEl" @onkeydown="e => TeclaAsync(c, e)" @onkeydown:stopPropagation="@(_popover != Popover.Nenhum || BarraAberta(c))"></textarea>
+                                          maxlength="4000" @bind="r.Texto" @bind:event="oninput" @bind:after="() => AoDigitar(c)" @ref="_campoEl" @onkeydown="e => TeclaAsync(c, e)" @onkeydown:stopPropagation="@(_popover != Popover.Nenhum || BarraAberta(c))"></textarea>
                                 @if (!r.Nota && SemDorLigado && c.Conversa is { } paraSugerir)
                                 {
                                     @BotoesDoSemDor(c, paraSugerir, r)
@@ -355,6 +415,11 @@ else
                                 {
                                     <GravadorDeAudio @ref="_gravador" ConversaId="@c.Id" Desabilitado="@(!PodeEscrever || _ocupado || c.Conversa is null)"
                                                      AoEnviar="g => EnviarGravacaoAsync(c, g)" AoAvisar="@((string t) => Recado(t, "atencao"))" />
+                                }
+                                @if (!r.Nota && !c.Sms && c.Conversa is not null)
+                                {
+                                    <button type="button" class="botao icone fantasma wa-mais-tarde" title="Enviar mais tarde" aria-label="Enviar mais tarde" aria-expanded="@Bool(_popover == Popover.Agendar)"
+                                            disabled="@(!PodeEscrever || _ocupado || !r.TemConteudo)" @onclick="() => _popover = _popover == Popover.Agendar ? Popover.Nenhum : Popover.Agendar"><Icone Nome="relogio" /></button>
                                 }
                                 <button type="button" class="botao primario wa-enviar" title="@(r.Nota ? "Guardar nota" : "Enviar")" disabled="@(!PodeEscrever || _ocupado || !r.TemConteudo)" @onclick="() => EnviarAsync(c)">
                                     <Icone Nome="@(r.Nota ? "nota" : "aviao")" /><span class="wa-enviar-rotulo">@(r.Nota ? "Guardar nota" : _ocupado ? "Enviando…" : "Enviar")</span></button>
@@ -373,6 +438,68 @@ else
                                         <strong>@if (o.Tipo == TipoNaBarra.Modelo) { <span class="selo tom-neutro">modelo</span> }@o.Titulo</strong><span>@o.Texto</span></button>
                                 }
                                 @if (opcoes.Count == 0) { <p class="wa-dica">@ConversasNaTela.VazioDaBarra(termo, painel.Area.QuickReplies.Any(q => !q.Archived), c.Sms)</p> }
+                            </div>
+                        </div>
+                    }
+                    else if (_popover == Popover.Reacoes)
+                    {
+                        <div class="wa-popover wa-emojis wa-reagir" role="dialog" aria-label="Reagir à mensagem">
+                            @foreach (var emoji in ConversasNaTela.EmojisDeReacao)
+                            {
+                                <button type="button" class="wa-emoji-opcao" aria-label="@($"Reagir com {emoji}")" disabled="@_ocupado" @onclick="() => ReagirAsync(c, emoji)">@emoji</button>
+                            }
+                        </div>
+                    }
+                    else if (_popover == Popover.Agendar)
+                    {
+                        var fim = c.Conversa is { } paraAgendar ? ConversasNaTela.FimDaJanela(paraAgendar.LastIncoming) : null;
+                        <div class="wa-popover wa-agendar" role="dialog" aria-label="Enviar mais tarde">
+                            <div class="wa-popover-topo"><h3>Enviar mais tarde</h3><small>@(fim is { } f ? $"Texto livre até {f.ToOffset(agora.Offset).ToString("dd/MM HH:mm", Formato.PtBr)}" : "Fora da janela: só modelo")</small></div>
+                            <div class="wa-popover-lista">
+                                @foreach (var h in ConversasNaTela.HorariosSugeridos(agora, fim))
+                                {
+                                    <button type="button" class="wa-opcao" disabled="@_ocupado" @onclick="() => AgendarAsync(c, h.Quando)"><strong><Icone Nome="relogio" />@h.Rotulo</strong></button>
+                                }
+                                <div class="wa-agendar-campo"><input class="campo" type="datetime-local" aria-label="Dia e hora" value="@_quandoAgendar" @oninput="e => _quandoAgendar = e.Value?.ToString()" />
+                                    <button type="button" class="botao primario mini" disabled="@(_ocupado || string.IsNullOrWhiteSpace(_quandoAgendar))" @onclick="() => AgendarNoCampoAsync(c)">Agendar</button></div>
+                                <p class="wa-dica">Fora das 24 h da última mensagem do paciente, só modelo aprovado.</p>
+                            </div>
+                        </div>
+                    }
+                    else if (_popover == Popover.Compartilhar && _compartilhar is { } opcoesDoClipe)
+                    {
+                        <div class="wa-popover" role="dialog" aria-label="@(_escolhendo == AcaoDoClipe.Contato ? "Contato do médico" : "Serviços")">
+                            <div class="wa-popover-topo"><h3>@(_escolhendo == AcaoDoClipe.Contato ? "Contato do médico" : "Serviços")</h3><small>Vai como cartão</small></div>
+                            <div class="wa-popover-lista">
+                                @if (_escolhendo == AcaoDoClipe.Contato)
+                                {
+                                    @foreach (var k in opcoesDoClipe.Contacts.Where(x => !x.Archived))
+                                    {
+                                        <button type="button" class="wa-opcao" disabled="@_ocupado" @onclick="() => EnviarContatoAsync(c, k)"><strong>@k.Name</strong><span>@k.Role</span></button>
+                                    }
+                                }
+                                else
+                                {
+                                    @foreach (var sv in opcoesDoClipe.Services.Where(x => !x.Archived))
+                                    {
+                                        <button type="button" class="wa-opcao" disabled="@_ocupado" @onclick="() => EnviarServicoAsync(c, sv)"><strong>@sv.Title</strong><span>@sv.Text</span></button>
+                                    }
+                                }
+                            </div>
+                        </div>
+                    }
+                    else if (_popover == Popover.Etiquetas && c.Conversa is { } paraEtiquetar)
+                    {
+                        <div class="wa-popover" role="dialog" aria-label="Etiquetas da conversa">
+                            <div class="wa-popover-topo"><h3>Etiquetas</h3><small>Viram filtro na lista</small></div>
+                            <div class="wa-popover-lista">
+                                @foreach (var e in _etiquetas.Where(x => !x.Archived || paraEtiquetar.Labels?.Contains(x.Id) == true))
+                                {
+                                    var marcada = paraEtiquetar.Labels?.Contains(e.Id) == true;
+                                    <button type="button" class="wa-opcao wa-opcao-etiqueta" aria-pressed="@Bool(marcada)" disabled="@(_ocupado || !PodeEscrever)" @onclick="() => AlternarEtiquetaAsync(c, e.Id)">
+                                        <strong><span class="wa-etiqueta-conversa tom-@ConversasNaTela.TomDaEtiqueta(e.Id)">@e.Name</span>@if (marcada) { <Icone Nome="check" /> }</strong></button>
+                                }
+                                @if (_etiquetas.Length == 0) { <p class="wa-dica">Nenhuma etiqueta cadastrada no CRM.</p> }
                             </div>
                         </div>
                     }
@@ -466,6 +593,27 @@ else
                     <span class="wa-contato-meta">Fila @quem.Fila @if (quem.ProximoHorario is { } proximo) { <text> · próximo: @proximo.QuandoTexto</text> }</span>
                     @if (quem.Caso is { } casoDoTopo) { <span class="selo tom-info"><Icone Nome="coracao" />@RetencaoNaTela.Etiqueta(casoDoTopo, SessaoUsuario.Atual.UsuarioId)</span> }
                 </div>
+                @* Etiquetas, mídia e ★ importantes (F3, v3): como o painel "Dados do contato" do WhatsApp. *@
+                @if (quem.Conversa is { } daConversa)
+                {
+                    <section class="wa-secao"><h3>Etiquetas <button type="button" class="link" disabled="@(!PodeEscrever)" @onclick="() => _popover = Popover.Etiquetas">Editar</button></h3>
+                        @{ var dela = ConversasNaTela.EtiquetasDa(daConversa.Labels, _etiquetas); }
+                        @if (dela.Count == 0) { <p class="wa-dica">Nenhuma etiqueta.</p> }
+                        else { <div class="wa-selos">@foreach (var e in dela) { <span class="wa-etiqueta-conversa tom-@ConversasNaTela.TomDaEtiqueta(e.Id)">@e.Name</span> }</div> }
+                    </section>
+                    var midias = quem.LinhaDoTempo.Where(i => i.Midia is not null && i.Midia.Figurinha != true).ToList();
+                    @if (midias.Count > 0)
+                    {
+                        <section class="wa-secao"><h3>Mídia e documentos <span class="wa-dica">@midias.Count</span></h3>
+                            <ul class="wa-tempo">@foreach (var md in midias.TakeLast(4).Reverse()) { <li><time>@md.Hora</time><span>@md.Midia!.Rotulo</span></li> }</ul></section>
+                    }
+                    var importantes = quem.LinhaDoTempo.Where(i => i.Estrela).ToList();
+                    @if (importantes.Count > 0)
+                    {
+                        <section class="wa-secao"><h3>Mensagens importantes ★ <span class="wa-dica">@importantes.Count</span></h3>
+                            <ul class="wa-tempo">@foreach (var im in importantes.TakeLast(4).Reverse()) { <li><time>@im.Hora</time><span>@ConversasNaTela.TextoSemFormatacao(im.Texto)</span></li> }</ul></section>
+                    }
+                }
             }
             @if (_aberta is not { } a)
             {
@@ -578,6 +726,8 @@ else
         </aside>
     </div>
 
+    @* Os formulários e os menus desta aba ficam no azul de ação da SemDor como a tela (.wa-camada repete a troca do --acento). *@
+    <div class="wa-camada">
     @if (_aberta is { } aberta)
     {
         @switch (_form)
@@ -600,6 +750,10 @@ else
                              DesfechoInicial="@_comoFoiInicial" Motivos="@_motivos" PodeParar="@caso.Consentimento" AoFechar="FecharForm" AoConfirmar="RegistrarComoFoiAsync" />
                 break;
         }
+    }
+    @if (_saudacao is { } saudacao)
+    {
+        <SaudacaoForm Saudacao="saudacao" AoFechar="() => _saudacao = null" AoConfirmar="SalvarSaudacaoAsync" />
     }
     @if (_form == Form.Nova)
     {
@@ -626,10 +780,11 @@ else
                     AoEscolher="AoEscolherNaFaixaAsync" AoFechar="FecharMenus" />
     <MenuDeContexto TAcao="AcaoDoClipe" Itens="_menuDoClipe" X="_menuX" Y="_menuY" Rotulo="Anexar, modelos e respostas rápidas"
                     AoEscolher="AoEscolherNoClipeAsync" AoFechar="FecharMenus" />
+    </div>
 }
 
 @code {
-    private enum Popover { Nenhum, Modelos, Rapidas, Emojis }
+    private enum Popover { Nenhum, Modelos, Rapidas, Emojis, Reacoes, Agendar, Compartilhar, Etiquetas }
     private enum Form { Nenhum, Transferir, Encerrar, ConferirFicha, Cancelar, ComoFoi, Nova }
 
     // Sem a aba "Novas": a conversa sem dona já aparece em "Tudo" com o selo, e o que falta ler a pílula "Não lidas" separa.
@@ -737,6 +892,7 @@ else
     {
         _relogio?.Dispose();
         _relogio = null;
+        _refDaTela?.Dispose();
         base.Dispose();
     }
 
@@ -776,6 +932,7 @@ else
             _painel = painel;
             PedirFotos();
             _ultimaLeituraInteira = DateTimeOffset.Now;
+            await LerRecursosAsync();
             _semLigacaoDesde = null;
             _erroLista = null;
         }
@@ -930,6 +1087,8 @@ else
         }
         // "Para resolver" (R6): lido DEPOIS de a conversa estar na tela, uma vez por troca de paciente (ConversasDoWhatsApp.ParaResolver.cs).
         if (g == _geracaoConversa) await ParaResolverDaConversaAsync();
+        // As pílulas do @SemDor (F3): pedidas uma vez por mensagem do paciente, depois de a conversa estar na tela.
+        if (g == _geracaoConversa && _aberta is { } paraSugerir) await PedirSugestoesAsync(paraSugerir);
     }
 
     private bool ConversaDoCasoMudou(LinhaAcompanhamento caso) => _aberta?.Caso?.Id != caso.Id;
@@ -1622,12 +1781,28 @@ else
 
     private RenderFragment Tick(TickDaMensagem t) => @<span class="wa-tick @(t.Estado == EstadoDaEntrega.Lida ? "lida" : t.Estado == EstadoDaEntrega.Falhou ? "falhou" : t.Estado == EstadoDaEntrega.NaoConfirmada ? "nao-confirmada" : null)" title="@t.Texto"><Icone Nome="@(t.Estado switch { EstadoDaEntrega.Enviando => "relogio", EstadoDaEntrega.Enviada => "tick", EstadoDaEntrega.Falhou or EstadoDaEntrega.NaoConfirmada => "alerta", _ => "ticks" })" /></span>;
 
-    /// <summary>O texto do balão com o que a busca achou marcado (sem caixa nem acento, como a busca da lista).</summary>
+    /// <summary>
+    /// O texto do balão com a formatação do WhatsApp (*negrito*, _itálico_, ~tachado~ — ConversasNaTela.Formatar, F3) e, por
+    /// cima, o que a busca achou marcado (sem caixa nem acento, como a busca da lista). O achado atual (↑↓) leva "atual".
+    /// </summary>
     private RenderFragment Marcar(string texto) => b =>
     {
         var termo = _buscaConversa?.Trim();
-        if (string.IsNullOrEmpty(termo)) { b.AddContent(0, texto); return; }
         var seq = 0;
+        foreach (var t in ConversasNaTela.Formatar(texto))
+        {
+            var abertas = 0;
+            if (t.Negrito) { b.OpenElement(seq++, "strong"); abertas++; }
+            if (t.Italico) { b.OpenElement(seq++, "em"); abertas++; }
+            if (t.Tachado) { b.OpenElement(seq++, "s"); abertas++; }
+            seq = Achar(b, seq, t.Texto, termo);
+            for (var k = 0; k < abertas; k++) b.CloseElement();
+        }
+    };
+
+    private int Achar(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder b, int seq, string texto, string? termo)
+    {
+        if (string.IsNullOrEmpty(termo)) { b.AddContent(seq++, texto); return seq; }
         var desde = 0;
         while (desde < texto.Length)
         {
@@ -1635,13 +1810,22 @@ else
             if (i < 0) break;
             b.AddContent(seq++, texto[desde..i]);
             b.OpenElement(seq++, "mark");
-            b.AddAttribute(seq++, "class", "wa-achado");
+            b.AddAttribute(seq++, "class", _contaAchados++ == _achadoAtual ? "wa-achado atual" : "wa-achado");
             b.AddContent(seq++, texto.Substring(i, Math.Min(termo.Length, texto.Length - i)));
             b.CloseElement();
             desde = i + Math.Max(1, termo.Length);
         }
-        if (desde < texto.Length) b.AddContent(seq, texto[desde..]);
-    };
+        if (desde < texto.Length) b.AddContent(seq++, texto[desde..]);
+        return seq;
+    }
+
+    /// <summary>O endereço da clínica que saiu como localização (F3): o cartão com o mapa desenhado e o endereço.</summary>
+    private RenderFragment Local(AppLocation l) => @<span class="wa-local"><span class="wa-local-mapa" aria-hidden="true"><Icone Nome="local" /></span>
+        <span class="wa-local-texto"><strong>@l.Name</strong><small>@l.Address</small></span></span>;
+
+    /// <summary>O contato do médico que saiu como cartão (F3).</summary>
+    private RenderFragment Contato(AppSharedContact k) => @<span class="wa-cartao-contato"><span class="avatar tom-azul">@WhatsAppDaRecepcaoService.Iniciais(k.Name)</span>
+        <span><strong>@k.Name</strong><small>@k.Role@(string.IsNullOrWhiteSpace(k.Phone) ? "" : " · " + ConversasNaTela.TelefoneNaTela(k.Phone))</small></span></span>;
 
     private string Achados(ConversaDoWhatsApp c)
     {
