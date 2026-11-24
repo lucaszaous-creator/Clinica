@@ -85,7 +85,7 @@ public sealed record AtosDoDocumento(
     {
         AtoDoDocumento.SegundaVia => "Imprimir a 2ª via",
         AtoDoDocumento.NovaVersao => "Alterar (emitir nova versão)…",
-        AtoDoDocumento.Assinar => "Assinar com o e-CPF…",
+        AtoDoDocumento.Assinar => "Assinar (SafeID ou A1)…",
         AtoDoDocumento.Enviar => "Enviar ao paciente…",
         AtoDoDocumento.RenovarLink => "Renovar o link",
         AtoDoDocumento.TirarDoAr => "Tirar do ar",

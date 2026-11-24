@@ -33,11 +33,54 @@
     <div class="abas" role="tablist" aria-label="Documentos">
         <button type="button" role="tab" aria-selected="@Bool(_aba == 0)" @onclick="() => _aba = 0">Emitir</button>
         <button type="button" role="tab" aria-selected="@Bool(_aba == 1)" @onclick="() => _aba = 1">O que já saiu @(_carregou ? $"· {_lidas.Count}" : null)</button>
+        @if (PodeAssinarAqui)
+        {
+            <button type="button" role="tab" aria-selected="@Bool(_aba == 2)" @onclick="() => _aba = 2">Para assinar @(_paraAssinar is { } pa ? $"· {pa.Count}" : null)</button>
+        }
     </div>
 
     <Aviso Texto="@_mensagem" Tom="@(_mensagemEhErro ? "erro" : "sucesso")" />
 
-    @if (_aba == 0)
+    @if (_aba == 2 && PodeAssinarAqui)
+    {
+        @* PARA ASSINAR (nov/2026, Clínico → Prescrições): os documentos PRÓPRIOS ainda sem assinatura — com ou sem
+           atendimento —, a MESMA leitura do "Documentos para assinar" do Consultório (DocumentosParaAssinar).
+           "Assinar" é o da hospedagem (IAssinaturaNaTela): no computador, o de sempre; na gestão web, SafeID ou A1
+           pelas mesmas rotas do Consultório. *@
+        <section class="painel">
+            @if (_paraAssinar is null)
+            {
+                <EstadoVazio Titulo="Lendo os documentos para assinar…" Descricao="" />
+            }
+            else if (_paraAssinar.Count == 0)
+            {
+                <EstadoVazio Titulo="Nada para assinar" Descricao="Os documentos que você emitir e ainda não assinar aparecem aqui." />
+            }
+            else
+            {
+                <div class="tabela-rolagem">
+                    <table class="lista dc-tabela">
+                        <thead><tr><th>Data</th><th>Papel</th><th>Para</th><th class="direita">Ações</th></tr></thead>
+                        <tbody>
+                            @foreach (var d in _paraAssinar)
+                            {
+                                <tr>
+                                    <td class="nao-quebra">@d.Data.ToString("dd/MM/yyyy", CultureInfo.GetCultureInfo("pt-BR"))</td>
+                                    <td><span class="principal">@TipoDocumentoInfo.Rotular(d.Tipo) @d.Numero</span></td>
+                                    <td>@(d.Paciente?.Nome ?? "—")</td>
+                                    <td class="direita">
+                                        <button type="button" class="botao mini primario" disabled="@_ocupado" @onclick="() => AssinarPendenteAsync(d)"
+                                                title="Assinar com SafeID ou A1">Assinar</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    }
+    else if (_aba == 0)
     {
         @* ===== 1 · QUEM ===== *@
         <section class="cartao dc-passo" aria-label="Passo 1: para quem é o documento">
@@ -231,19 +274,15 @@
                                         <span class="botoes-linha">
                                             <button type="button" class="botao mini primario" disabled="@_ocupado" @onclick="() => AgirAsync(AtoDoDocumento.SegundaVia, l)"
                                                     title="A via sai idêntica à que o paciente levou"><Icone Nome="imprimir" />2ª via</button>
+                                            @* O "Assinar" à vista na linha (nov/2026): quem assina não precisa achar o ⋯. *@
+                                            @if (AtosDe(l).Contains(AtoDoDocumento.Assinar))
+                                            {
+                                                <button type="button" class="botao mini" disabled="@_ocupado" @onclick="() => AgirAsync(AtoDoDocumento.Assinar, l)"
+                                                        title="Assinar com SafeID ou A1">Assinar</button>
+                                            }
                                             <span class="rd-menu">
                                                 <button type="button" class="botao mini icone" aria-haspopup="menu" aria-expanded="@Bool(_menu == Chave(f))"
-                                                        title="Mais ações" aria-label="Mais ações de @f.Numero" @onclick="() => AlternarMenu(f)">⋯</button>
-                                                @if (_menu == Chave(f))
-                                                {
-                                                    <span class="rd-menu-lista" role="menu">
-                                                        @foreach (var a in AtosDe(l))
-                                                        {
-                                                            <button type="button" role="menuitem" class="@(a == AtoDoDocumento.Cancelar ? "rd-perigo" : null)"
-                                                                    @onclick="() => AgirAsync(a, l)">@(a == AtoDoDocumento.Assinar && AssinaNoConsultorio ? "Assinar no Consultório" : AtosDoDocumento.Rotulo(a))</button>
-                                                        }
-                                                    </span>
-                                                }
+                                                        title="Mais ações" aria-label="Mais ações de @f.Numero" @onclick="e => AlternarMenu(f, e)">⋯</button>
                                             </span>
                                         </span>
                                     </td>
@@ -257,9 +296,20 @@
     }
 </div>
 
-@if (_menu is not null)
+@if (_menu is not null && _visiveis.FirstOrDefault(x => Chave(x.Folha) == _menu) is { } linhaDoMenu)
 {
+    @* O menu do ⋯ mora FORA da tabela (nov/2026): dentro do cartão do celular ele ficava preso na pilha da linha,
+       debaixo do fundo que fecha o menu — o toque caía no fundo e o ⋯ "não fazia nada" no iPhone. Aqui o fundo e o
+       menu são irmãos (25 < 30), a posição vem do toque e, na tela estreita, o menu vira uma folha no rodapé. *@
     <div class="rd-menu-fundo" @onclick="() => _menu = null"></div>
+    <span class="rd-menu-lista dc-menu-folha" role="menu" aria-label="Ações de @linhaDoMenu.Folha.Numero" style="@_estiloDoMenu">
+        @foreach (var a in AtosDe(linhaDoMenu))
+        {
+            var ato = a;
+            <button type="button" role="menuitem" class="@(ato == AtoDoDocumento.Cancelar ? "rd-perigo" : null)"
+                    @onclick="() => AgirAsync(ato, linhaDoMenu)">@AtosDoDocumento.Rotulo(ato)</button>
+        }
+    </span>
 }
 @if (_enviandoDoc is { } enviado)
 {
@@ -281,15 +331,55 @@
 @code {
     [Inject] private IServiceProvider Servicos { get; set; } = default!;
 
-    /// <summary>A gestão web assina no Consultório (nov/2026): o item do menu diz isso.</summary>
-    private bool AssinaNoConsultorio => Servicos.GetService<IAssinaturaNaTela>()?.EnderecoParaAssinarFora(0, 0) is not null;
-
     /// <summary>
     /// Dentro da TELA DO PACIENTE (seção "Prescrições e documentos"): sem o cabeçalho da página
     /// (o nome já está no crachá) e com o paciente FIXO — sem "Trocar", e "O que já saiu" já
     /// recortado nele. A MESMA tela da central, para os documentos terem uma definição só.
     /// </summary>
     [Parameter] public bool Embutida { get; set; }
+
+    /// <summary>
+    /// Mostra a aba "Para assinar" (nov/2026, pedido do dono: Clínico → Prescrições). Ligada pela
+    /// <see cref="PrescricoesEDocumentos"/>; a Recepção → Documentos continua como era. E só para quem assina:
+    /// o bit de prescrever e um profissional vinculado.
+    /// </summary>
+    [Parameter] public bool ComParaAssinar { get; set; }
+
+    private bool PodeAssinarAqui => ComParaAssinar && !Embutida && SessaoUsuario.Atual.ProfissionalId is not null
+                                    && SessaoUsuario.Atual.Pode(Permissao.Prescrever);
+    private List<DocumentoClinico>? _paraAssinar;
+
+    private async Task CarregarParaAssinarAsync()
+    {
+        if (!PodeAssinarAqui || SessaoUsuario.Atual.ProfissionalId is not { } profissional) return;
+        try
+        {
+            using var escopo = Escopo();
+            var lidos = await escopo.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>()
+                .DocumentosParaAssinarAsync(profissional);
+            if (!Descartada) _paraAssinar = lidos.ToList();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Prescrições — os documentos para assinar não puderam ser lidos", ex);
+            _paraAssinar ??= [];
+        }
+    }
+
+    private async Task AssinarPendenteAsync(DocumentoClinico d)
+    {
+        if (_ocupado) return;
+        if (Servicos.GetService<IAssinaturaNaTela>() is not { } assinatura) { Dizer(ResultadoDoAto.Indisponivel.Frase!, true); return; }
+        _ocupado = true;
+        try
+        {
+            var r = await assinatura.AssinarDocumentoAsync(new DocumentoEmitido(d.Id, d.PacienteId, d.Numero, d.Tipo,
+                TipoDocumentoInfo.Rotular(d.Tipo), Cancelado: false, Assinado: false, LinkNoAr: false, JaTeveLink: false));
+            if (!r.Silencioso) Dizer(r.Frase ?? string.Empty, r.EhErro);
+            if (r.Mudou) await CarregarAsync();
+        }
+        finally { _ocupado = false; }
+    }
 
     /// <summary>O paciente da tela do paciente; nulo = a central (busca, ou o foco do posto).</summary>
     [Parameter] public int? PacienteFixo { get; set; }
@@ -692,6 +782,7 @@
 
     public async Task CarregarAsync()
     {
+        await CarregarParaAssinarAsync();
         var g = ++_geracao;
         _carregando = true;
         _naoVerificado = false;
@@ -762,7 +853,16 @@
         await CarregarAsync();
     }
 
-    private void AlternarMenu(FolhaEmitida f) => _menu = _menu == Chave(f) ? null : Chave(f);
+    private string? _estiloDoMenu;
+
+    /// <summary>Abre o ⋯ junto do toque: abaixo do botão, ou acima quando falta espaço (a folha do celular é o CSS).</summary>
+    private void AlternarMenu(FolhaEmitida f, MouseEventArgs e)
+    {
+        _menu = _menu == Chave(f) ? null : Chave(f);
+        var inv = CultureInfo.InvariantCulture;
+        _estiloDoMenu = $"left:max(8px, {(e.ClientX + 16).ToString("0", inv)}px - 260px);"
+                        + $"top:max(8px, min({(e.ClientY + 14).ToString("0", inv)}px, calc(100vh - 320px)))";
+    }
 
     /// <summary>
     /// Os atos do "⋯". Clínico: a resolução das outras portas (estado E bit do tipo), pela
@@ -799,13 +899,6 @@
                 }
                 // Assinar com o A1 é formulário Blazor desde out/2026 (IAssinaturaNaTela — o MESMO
                 // serviço e a MESMA ordem do WPF); os outros atos seguem pela ponte.
-                // Gestão web (nov/2026): a assinatura é no Consultório do portal — a mesma aba vai até lá.
-                if (ato == AtoDoDocumento.Assinar && Servicos.GetService<IAssinaturaNaTela>() is { } fora
-                    && doc.PacienteId is { } pacienteDoDoc && fora.EnderecoParaAssinarFora(doc.DocumentoId, pacienteDoDoc) is { } noConsultorio)
-                {
-                    Servicos.GetRequiredService<NavigationManager>().NavigateTo(noConsultorio, forceLoad: true);
-                    return;
-                }
                 var r = ato == AtoDoDocumento.Assinar && Servicos.GetService<IAssinaturaNaTela>() is { } assinatura
                     ? await assinatura.AssinarDocumentoAsync(doc)
                     : await Ponte.ExecutarAsync(ato, doc);

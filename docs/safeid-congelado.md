@@ -40,6 +40,30 @@ linha) e há teste que a fixa (`AssinaturaNaTelaTests`). O roteiro do que a dire
 testar em homologação, caminho por caminho, está em
 [`docs/safeid-telas-blazor-out2026.md`](safeid-telas-blazor-out2026.md).
 
+## ✅ Autorização expressa de 24/11/2026 — ASSINAR NA GESTÃO WEB
+
+**Pergunta feita ao dono:** *"Autoriza levar a assinatura digital (SafeID e A1) para a Gestão do portal? O motor da
+assinatura não muda; a Gestão passa a usar os mesmos serviços do Consultório, e é preciso 1 assinatura real de
+teste, que é cobrada."*
+
+**Resposta do dono (24/11/2026):** *"Autorizo, na Gestão"*.
+
+O alcance:
+
+- ✅ **Pode**: a gestão web (`/gestao`) assinar receitas e documentos clínicos chamando, pelo navegador, as MESMAS
+  rotas da API do portal que o Consultório usa, na MESMA ordem e com a mesma sessão e o mesmo CSRF:
+  - `.../atendimentos/0/documento/{id}/safeid` → Safeweb **na mesma aba** → `/safeid/retorno` → de volta à
+    `/gestao/?assinatura=` → confirmação explícita "Assinar e arquivar" → `/safeid/{id}/concluir`;
+  - `.../atendimentos/0/documento/{id}/a1` → senha → `/a1/{id}/assinar`.
+
+  Peças: `Gestao.Web/Hospedagem/AssinaturaNaGestao.cs`, `Gestao.Web/wwwroot/assinatura-na-gestao.js`, a volta no
+  `clinica-site` (`clinico.js`, `safeid.js`) e a aba "Para assinar" de Clínico → Prescrições.
+- ❌ **Não pode**: nada muda no motor. `Assinatura/`, `SafeID/`, `SafeIdTabletService`, `A1TabletService`,
+  `PublicacaoDocumentoService`, hash, PDF/PAdES, certificado e token continuam congelados. A infusão (prescrição,
+  folha de execução) segue só no Consultório, com o A1. A anamnese segue no aplicativo do computador.
+- 🧪 **Teste real**: UMA assinatura de teste, feita pela própria médica, guiada, depois do deploy. O CI usa só
+  falsos (`AssinaturaNaGestaoTests`).
+
 ---
 
 ## Por que

@@ -22,7 +22,6 @@
 @using Clinica.Application.Modelos
 @inherits TelaBase
 @inject IAssinaturaNaTela Assinatura
-@inject NavigationManager Navegacao
 
 @* Maximizar (pedido da Dra., nov/2026): a receita longa ganha a tela inteira, e a escolha fica lembrada para quem está logado. *@
 <Modal Titulo="@TituloDoModal" Subtitulo="@SubtituloDoModal" Largura="largo" AoFechar="FecharAsync" Maximizavel="true"
@@ -318,10 +317,8 @@
                     @onclick="PreverAsync">@(_gerandoPrevia ? "Gerando a prévia…" : "Pré-visualizar")</button>
             @* Assinar na hora (A1 ou SafeID, out/2026): emite, abre o seletor e entrega o PDF ASSINADO.
                Desistir no seletor entrega a via de sempre; a assinatura fica para a central. *@
-            @* Na gestão web a assinatura é no Consultório (nov/2026): o botão diz isso e leva até lá. *@
-            <button type="button" class="botao" disabled="@(!PodeEmitir)"
-                    title="@(AssinaForaDaqui ? "Emite e abre o Consultório com o documento pronto para assinar (A1 ou SafeID)" : "Emite e assina com o seu certificado (A1 ou SafeID)")"
-                    @onclick="() => EmitirAsync(assinar: true)">@(AssinaForaDaqui ? "Emitir e assinar no Consultório" : "Emitir e assinar")</button>
+            <button type="button" class="botao" disabled="@(!PodeEmitir)" title="Emite e assina com o seu certificado (A1 ou SafeID)"
+                    @onclick="() => EmitirAsync(assinar: true)">Emitir e assinar</button>
             <button type="button" class="botao primario" disabled="@(!PodeEmitir)" @onclick="() => EmitirAsync(assinar: false)">@(_emitindo ? "Emitindo…" : "Emitir e imprimir")</button>
         }
     </Rodape>
@@ -342,9 +339,6 @@
 @code {
     /// <summary>O paciente do papel. Nulo = a tela não tem paciente (os Exames) e a folha pergunta quem.</summary>
     [Parameter] public int? PacienteId { get; set; }
-
-    /// <summary>Esta hospedagem manda assinar no Consultório (gestão web): o botão muda de nome e de destino.</summary>
-    private bool AssinaForaDaqui => Assinatura.EnderecoParaAssinarFora(0, 0) is not null;
 
     /// <summary>A pergunta do passo "quem", quando não há paciente ("Novo pedido de exame — para quem?").</summary>
     [Parameter] public string TituloDaEscolha { get; set; } = "Para quem é o documento?";
@@ -649,12 +643,6 @@
             // Assinar na hora: o PDF que sai é o ASSINADO (a porta salva e abre). Desistir no seletor
             // cai na via de sempre, logo abaixo; falhar diz que o documento JÁ existe — senão alguém
             // emite de novo — e que a assinatura se faz depois pela central de Documentos.
-            // Hospedagem que não assina (gestão web): o documento já existe; a assinatura é no Consultório, na mesma aba.
-            if (assinar && Assinatura.EnderecoParaAssinarFora(emitido.Id, r.PacienteId) is { } noConsultorio)
-            {
-                Navegacao.NavigateTo(noConsultorio, forceLoad: true);
-                return;
-            }
             if (assinar)
             {
                 (string Frase, bool EhErro)? assinado;

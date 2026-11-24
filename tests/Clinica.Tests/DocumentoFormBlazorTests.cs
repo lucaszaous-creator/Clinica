@@ -76,50 +76,6 @@ public sealed class DocumentoFormBlazorTests : IClassFixture<BancoDasTelas>, IDi
         Assert.Equal(doc.Numero, emitido!.Numero);
     }
 
-    /// <summary>
-    /// Nov/2026: a gestão web não assina (área congelada) e mostrava "Emitir e assinar", que falhava — no celular parecia
-    /// "a aba de assinar não abre". Hospedagem que não assina devolve o endereço do Consultório: o botão diz "Emitir e
-    /// assinar no Consultório", emite e leva até lá na mesma aba; a assinatura daqui NUNCA é chamada. O app do computador
-    /// (sem endereço) continua com o "Emitir e assinar" de sempre.
-    /// </summary>
-    [Fact]
-    public void Na_gestao_web_emitir_e_assinar_leva_ao_Consultorio_com_o_documento()
-    {
-        var (_, paciente) = Semear("Gestao", endereco: "Rua das Flores, 10, Centro, Cidade");
-        using (var desktop = Contexto())
-        {
-            var normal = desktop.RenderComponent<DocumentoForm>(p => p.Add(x => x.PacienteId, paciente.Id).Add(x => x.Tipo, TipoDocumentoClinico.Receita));
-            EsperarCarregado(normal);
-            Assert.Contains(normal.FindAll("button"), b => b.TextContent.Trim() == "Emitir e assinar");
-        }
-        using var ctx = Contexto();
-        var fora = new AssinaNoConsultorio();
-        ctx.Services.AddSingleton<IAssinaturaNaTela>(fora);
-        var form = ctx.RenderComponent<DocumentoForm>(p => p.Add(x => x.PacienteId, paciente.Id).Add(x => x.Tipo, TipoDocumentoClinico.Receita));
-        EsperarCarregado(form);
-        Assert.DoesNotContain(form.FindAll("button"), b => b.TextContent.Trim() == "Emitir e assinar");
-
-        Escrever(form, "Paracetamol 750mg, 1 comprimido de 8 em 8 horas");
-        Clicar(form, "Emitir e assinar no Consultório");
-        var nav = ctx.Services.GetRequiredService<Microsoft.AspNetCore.Components.NavigationManager>();
-        Esperar(() => nav.Uri.Contains("/profissional/"));
-
-        using var db = Db();
-        var doc = db.DocumentosClinicos.Single(d => d.PacienteId == paciente.Id);
-        Assert.EndsWith($"/profissional/?posto&assinar={doc.Id}&paciente={paciente.Id}", nav.Uri);
-        Assert.False(fora.TentouAssinarAqui);
-    }
-
-    private sealed class AssinaNoConsultorio : IAssinaturaNaTela
-    {
-        public bool TentouAssinarAqui { get; private set; }
-        public Task<Clinica.Application.Assinatura.CertificadoAssinatura?> EscolherCertificadoAsync(string assunto) { TentouAssinarAqui = true; return Task.FromResult<Clinica.Application.Assinatura.CertificadoAssinatura?>(null); }
-        public Task<Clinica.Application.Assinatura.CertificadoAssinatura?> EscolherCertificadoParaDocumentoAsync(string assunto) { TentouAssinarAqui = true; return Task.FromResult<Clinica.Application.Assinatura.CertificadoAssinatura?>(null); }
-        public Task<ResultadoDoAto> AssinarDocumentoAsync(DocumentoEmitido doc) { TentouAssinarAqui = true; return Task.FromResult(new ResultadoDoAto(Frase: "não", EhErro: true)); }
-        public Task<(string Frase, bool EhErro)?> AssinarDocumentoPorIdAsync(int documentoId, string assunto) { TentouAssinarAqui = true; return Task.FromResult<(string, bool)?>(("não", true)); }
-        public string? EnderecoParaAssinarFora(int documentoId, int pacienteId) => $"/profissional/?posto&assinar={documentoId}&paciente={pacienteId}";
-    }
-
     [Fact]
     public void Receita_que_bate_com_a_alergia_so_sai_com_o_eu_vi()
     {

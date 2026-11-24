@@ -528,7 +528,7 @@
     "requerAlgum": [],
     "perfilExclusivo": null,
     "abas": [],
-    "componente": "DocumentosDaRecepcao"
+    "componente": "PrescricoesEDocumentos"
    },
    {
     "chave": "consultorio-prontuario",

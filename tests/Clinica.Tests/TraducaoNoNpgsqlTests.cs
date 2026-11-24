@@ -84,6 +84,15 @@ public class TraducaoNoNpgsqlTests
     }
 
     [Fact]
+    public void Documentos_para_assinar_traduzem_com_a_lista_de_tipos()
+    {
+        // A MESMA leitura do /posto/pendencias e da aba "Para assinar" (nov/2026): Contains sobre o array de tipos.
+        using var db = Postgres();
+        var sql = db.DocumentosClinicos.Where(Clinica.Domain.Regras.DocumentosParaAssinar.Do(7)).ToQueryString();
+        sql.Should().Contain("AssinadoEm").And.Contain("PacienteAssinadoEm").And.Contain("CanceladoEm").And.Contain("ProfissionalId");
+    }
+
+    [Fact]
     public void Miniaturas_traduzem_em_projecao_sem_a_ficha()
     {
         using var db = Postgres();

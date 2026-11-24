@@ -2289,6 +2289,12 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
                         && d.PublicadoAte < hoje)
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<DocumentoClinico>> DocumentosParaAssinarAsync(int profissionalId, int limite = 200, CancellationToken ct = default)
+        => await _db.DocumentosClinicos.AsNoTracking().Include(d => d.Paciente)
+            .Where(Clinica.Domain.Regras.DocumentosParaAssinar.Do(profissionalId))
+            .OrderBy(d => d.Id).Take(Math.Clamp(limite, 1, 500))
+            .ToListAsync(ct);
+
     public async Task<IReadOnlyList<DocumentoClinico>> DocumentosDoPacienteAsync(
         int pacienteId, CancellationToken ct = default)
         // O Agendamento entra junto (set/2026) para as listas dizerem DE QUAL SESSÃO o
