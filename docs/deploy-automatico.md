@@ -101,3 +101,32 @@ outra credencial cifrada, inclusive a mistura das duas.
 - 🤝 **CX:** sem máquina nova. O job das 15 min para em segundos num runner Linux, então o custo é
   baixo. O merge passa a ser a decisão de publicar. Dois secrets, e a chave da VPS só executa um
   comando, chegando pelo túnel.
+
+## Disco da VPS: faxina e conferência (nov/2026)
+
+**O que aconteceu em 24/11/2026:**
+- O disco da VPS encheu: 82 releases em `/opt/clinica-tablet/releases` e os pacotes de todos os deploys em
+  `/home/clinica-admin/tablet-stage`.
+- O Postgres caiu às 19:40:23 (PANIC: sem espaço) e voltou às 19:40:56. Às 20:23 ele recusou conexões novas até a
+  limpeza.
+- O deploy da assinatura na gestão falhou no `scp`.
+
+**O que mudou:**
+- **Faxina depois de publicar** (`deploy/tablet/regras_publicacao.py` → `faxina_depois_de_publicar`, chamada no fim
+  do `atualizar-posto.py`):
+  - roda só depois de uma publicação saudável;
+  - mantém o release novo, o anterior (o recuo) e os 5 mais novos, cada um com o seu `-runtime`;
+  - apaga o pacote já instalado do stage;
+  - se falhar, é aviso: nunca desfaz a publicação;
+  - vai dentro do pacote, então não precisa reinstalar o `clinica-deploy`.
+- **Espaço livre na VPS** (`deploy-portal.yml`): antes de qualquer `scp`, o workflow confere `df /`. Com menos de
+  5G livres, para com "Disco da VPS quase cheio" e não copia nem troca nada.
+- **Ficam para a direção decidir** (nada apagado):
+  - `/opt/clinica-posto-hml/releases` (46 releases, 7,9G);
+  - os backups por publicação em `/var/backups/clinica-tablet-continuidade-*` (81, cerca de 5G);
+  - os dumps diários em `/var/backups/clinica` (1,5G).
+
+**UX · DX · CX:**
+- 🧑‍💻 **UX:** a clínica não fica sem banco por causa do disco do deploy.
+- 🛠️ **DX:** a regra é pura e tem teste (`test_regras_publicacao.py`); o aviso do workflow diz o que fazer.
+- 🤝 **CX:** um risco de produção a menos, sem custo de Actions.

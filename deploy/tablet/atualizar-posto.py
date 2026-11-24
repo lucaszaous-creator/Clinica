@@ -5,6 +5,7 @@ Produção exige relatórios HML do mesmo pacote, salvo dispensa explícita regi
 """
 import hashlib, json, os, pathlib, pwd, re, shutil, stat, subprocess, sys, tarfile, time
 from regras_publicacao import (
+    faxina_depois_de_publicar,
     incluir_flag_false_se_ausente,
     verificar_sem_credenciais_cifradas as _verificar_sem_credenciais_cifradas,
     verificar_criptografia_desativada,
@@ -475,3 +476,12 @@ except Exception as causa:
     if erros_recuo:
         raise RuntimeError(f'Publicação falhou e o recuo teve {len(erros_recuo)} erro(s); conferir backup privado {backup}.') from causa
     raise
+
+# Faxina (nov/2026): só chega aqui a publicação SAUDÁVEL (o except acima relança). Ficam o release novo, o
+# anterior (o recuo) e os 5 mais novos; sai o pacote já instalado do stage. O disco cheio de 24/11/2026 parou
+# o Postgres. Falha aqui é aviso: a publicação já está no ar e conferida.
+try:
+    saiu = faxina_depois_de_publicar(base, {release.name, anterior}, pacote)
+    print(f'Faxina: {len(saiu)} item(ns) removido(s) ({", ".join(saiu[:8])}{"…" if len(saiu) > 8 else ""}).')
+except Exception as erro:
+    print(f'Aviso: a faxina depois da publicação não terminou ({type(erro).__name__}: {erro}). A publicação está saudável.')
