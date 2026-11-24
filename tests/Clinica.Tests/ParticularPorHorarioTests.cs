@@ -233,9 +233,10 @@ public class ParticularPorHorarioTests : IDisposable
 
         var doParticular = await _fechamento.RegistrarAtendimentoAsync(particular.Id, "recepcao");
         doParticular.Proposta.EhParticular.Should().BeTrue();
-        doParticular.Proposta.SugereLancamento.Should().BeTrue("o caixa é o único dinheiro desta sessão");
-        doParticular.Proposta.ValorSugerido.Should().Be(450m);
-        doParticular.Proposta.ProcedenciaDoValor.Should().StartWith("tabela do particular:");
+        // Nov/2026: o particular já entrou no caixa NO LANÇAMENTO, pelo preço da tabela — o Finalizar não pergunta de novo.
+        doParticular.Proposta.SugereLancamento.Should().BeFalse("a sessão já entrou no caixa ao ser lançada");
+        _db.Lancamentos.AsNoTracking().Where(l => l.AgendamentoId == particular.Id).Should().ContainSingle()
+            .Which.Valor.Should().Be(450m);
         doParticular.GuiasGeradas.Should().Be(0);
 
         // A consulta da MESMA paciente pelo plano não ganha pergunta de dinheiro.
