@@ -494,9 +494,9 @@ A aba WhatsApp da Recepção é uma tela da casa (Blazor), sobre a API do CRM. A
   conversas, janela de 24 h, os modelos `semdor_*` com nome da clínica, conferir de quem é a ficha,
   retenção com convite, cadastrar com o telefone da conversa, "Ver caso" no Acompanhamento,
   remarcar e **marcar** horário pelo formulário da agenda, celular (≤ 760 px) com todas as ações.
-- **Acesso (decisão da direção, 25/10): só as secretárias e o gerente.** `AcessoAoWhatsApp`:
-  perfil Recepção ou Gerente E o bit `EditarAgenda`, no menu, na tela, na conversa ao lado, no sino
-  e na entrada do CRM pela ponte (`ClinicTeamBridge.PodeEntrar`).
+- **Acesso (decisão 4, 24/11): quem tem o bit `EditarAgenda`, em qualquer perfil.** `AcessoAoWhatsApp`
+  vale no menu, na tela, na conversa ao lado, no sino e na entrada do CRM pela ponte
+  (`ClinicTeamBridge.PodeEntrar`). De 25/10 a 24/11 era só perfil Recepção ou Gerente com o bit.
 - **A tela diz a verdade (§14):** transferência para uma pessoa vira pedido com Aceitar/Recusar;
   o rascunho só promete lembrete quando ele está ligado; "Sem resposta" numa palavra só e também
   para o lembrete do WhatsApp; confirmar e "Não vem" sem depender da rodada; o "avisado" no ENVIO do
