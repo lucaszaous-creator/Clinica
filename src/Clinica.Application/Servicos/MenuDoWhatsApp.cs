@@ -43,7 +43,9 @@ public sealed record AcessoNoMenu(bool PodeEscrever, bool PodeVerFicha, bool Pod
 /// </summary>
 public static class MenuDoWhatsApp
 {
-    public const string SoComVoce = "Só quem está com a conversa: assuma antes";
+    /// <summary>Todos escrevem (nov/2026, decisão da direção): responder, anotar e reenviar valem para toda a equipe;
+    /// transferir e encerrar continuam de quem está com a conversa.</summary>
+    public const string SoComVoce = "Só quem está com a conversa transfere e encerra";
 
     /// <summary>
     /// O menu de uma conversa da lista. <paramref name="meuAgente"/> é o id da pessoa no CRM; <paramref name="fichaConferida"/>,
@@ -67,7 +69,7 @@ public static class MenuDoWhatsApp
         {
             var pendente = c.PendingTransfer is not null ? "Já há um pedido de transferência aguardando o aceite" : null;
             itens.Add(new(AcaoNaConversa.Transferir, "Transferir…", "transferir", semEscrever ?? (minha ? pendente : SoComVoce)));
-            itens.Add(new(AcaoNaConversa.NotaInterna, "Nota interna", "nota", semEscrever ?? (minha ? null : SoComVoce)));
+            itens.Add(new(AcaoNaConversa.NotaInterna, "Nota interna", "nota", semEscrever));
         }
 
         // A marca de leitura é de quem vê, não da conversa: não pede o bit de escrever.
@@ -135,7 +137,7 @@ public static class MenuDoWhatsApp
                     : !fichaConferida ? GuardarNaFichaService.SemFicha : null));
         }
 
-        itens.Add(new(AcaoNaMensagem.NotaSobre, "Nota interna sobre esta mensagem", "nota", semEscrever ?? (minha ? null : SoComVoce), GrupoNovo: true));
+        itens.Add(new(AcaoNaMensagem.NotaSobre, "Nota interna sobre esta mensagem", "nota", semEscrever, GrupoNovo: true));
         if (enviada && m.Tick is not null)
             itens.Add(new(AcaoNaMensagem.DetalhesDaEntrega, "Detalhes da entrega", "info"));
         return itens;
@@ -150,8 +152,7 @@ public static class MenuDoWhatsApp
             : m.Midia is not null || m.Anexo is not null ? "Arquivo se reenvia anexando de novo"
             : string.IsNullOrWhiteSpace(m.Texto) ? "A mensagem não tem texto"
             : !janelaLivre ? "Janela de 24 h fechada: só modelo"
-            : !minha ? SoComVoce
-            : null;
+            : null; // todos escrevem (nov/2026): reenviar não pede ser o responsável
 
     /// <summary>"[21/10 07:34] Alice: Confirmar" — o que "Copiar com data e hora" põe na área de transferência.</summary>
     public static string ComDataEHora(ItemDaConversa m, string nomeDoPaciente, DateTimeOffset agora)

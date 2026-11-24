@@ -322,7 +322,7 @@ else
                                 <button type="button" class="botao primario" aria-expanded="@Bool(_popover == Popover.Modelos)" disabled="@(!PodeEscrever)" @onclick="() => AbrirModelosAsync(false)"><Icone Nome="modelo" />Escolher modelo</button>
                                 @if (c.Conversa is not null)
                                 {
-                                    <button type="button" class="botao" disabled="@(!PodeEscrever || !c.Minha)" title="@(c.Minha ? null : SoComVoce)" @onclick="() => r.Nota = true"><Icone Nome="nota" />Nota interna</button>
+                                    <button type="button" class="botao" disabled="@(!PodeEscrever)" @onclick="() => r.Nota = true"><Icone Nome="nota" />Nota interna</button>
                                 }
                             </div></div>
                     }
@@ -332,9 +332,9 @@ else
                             <div class="wa-escrever-abas">
                                 <div class="segmentado" role="group" aria-label="Tipo de mensagem">
                                     <button type="button" aria-pressed="@Bool(!r.Nota)" @onclick="() => r.Nota = false"><Icone Nome="chat" />Responder</button>
-                                    <button type="button" aria-pressed="@Bool(r.Nota)" disabled="@(c.Conversa is null || !c.Minha)" title="@(c.Minha ? null : SoComVoce)" @onclick="() => r.Nota = true"><Icone Nome="nota" />Nota interna</button>
+                                    <button type="button" aria-pressed="@Bool(r.Nota)" disabled="@(c.Conversa is null)" @onclick="() => r.Nota = true"><Icone Nome="nota" />Nota interna</button>
                                 </div>
-                                <small>@(r.Nota ? "Só a equipe vê. Não vai ao paciente." : $"Vai pelo número oficial para {c.Telefone}")</small>
+                                <small>@(r.Nota ? "Só a equipe vê. Não vai ao paciente." : !c.Minha && c.Responsavel != "Sem responsável" ? $"Está com {c.Responsavel}: você responde com o seu nome e a conversa continua com {c.Responsavel}." : $"Vai pelo número oficial para {c.Telefone}")</small>
                             </div>
                             @if (!r.Nota && r.Anexo is { } anexo)
                             {
@@ -661,7 +661,8 @@ else
     private static bool PodeEscrever => Pode(Permissao.EditarAgenda);
 
     /// <summary>A regra do CRM: nota, transferir e encerrar são de quem está com a conversa (responder assume sozinho).</summary>
-    private const string SoComVoce = "Assuma a conversa antes: nota, transferir e encerrar são de quem está com ela.";
+    // Todos escrevem (nov/2026, decisão da direção): responder, anexar e anotar valem para toda a equipe; só transferir e encerrar são de quem está com a conversa.
+    private const string SoComVoce = "Transferir e encerrar são de quem está com a conversa. Responder e anotar, todos podem.";
     private static bool PodeAcompanhar => Pode(Permissao.VerFichaPaciente) && PodeAlgum(Permissao.GerenciarCampanhas | Permissao.VerFaturamento);
 
     private static string Bool(bool v) => v ? "true" : "false";
@@ -1457,7 +1458,7 @@ else
             case BotaoDaAcao.BuscarFicha: _fichaAberta = true; break;
             case BotaoDaAcao.CadastrarPaciente: await CadastrarAsync(c); break;
             case BotaoDaAcao.NotaInterna when c.Conversa is not null:
-                if (c.Minha) Rascunho(c).Nota = true; else Recado(SoComVoce, "info");
+                Rascunho(c).Nota = true;
                 break;
             case BotaoDaAcao.PrepararConvite or BotaoDaAcao.PrepararMensagem:
                 if (!Exigir(Permissao.EditarAgenda, "enviar pelo WhatsApp da clínica")) return;
