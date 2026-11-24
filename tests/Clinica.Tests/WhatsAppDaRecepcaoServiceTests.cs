@@ -1061,6 +1061,11 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
         public Task<AppConversation> CompartilharAsync(int usuarioId, string conversaId, AppShare envio, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<AppConversation> AgendarAsync(int usuarioId, string conversaId, AppSchedule agendamento, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<AppConversation> CancelarAgendamentoAsync(int usuarioId, string conversaId, string agendamentoId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<AppSemDorOptions> OpcoesDoSemDorAsync(int usuarioId, string conversaId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<AppConversation> TranscreverAsync(int usuarioId, string conversaId, string mensagemId, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<AppConversation> TentarDeNovoAsync(int usuarioId, string conversaId, string mensagemId, AppRetry pedido, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<AppGreeting> SaudacaoAsync(int usuarioId, CancellationToken ct = default) => Task.FromResult(new AppGreeting(false, "Olá!", 0));
+        public Task<AppGreeting> SalvarSaudacaoAsync(int usuarioId, AppGreeting saudacao, CancellationToken ct = default) => throw new NotSupportedException();
         public void EsquecerSessao(int usuarioId) { }
     }
 

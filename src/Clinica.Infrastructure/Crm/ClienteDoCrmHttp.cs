@@ -348,6 +348,26 @@ public sealed class ClienteDoCrmHttp : IClienteDoCrm, IDisposable
     public Task<AppConversation> CancelarAgendamentoAsync(int usuarioId, string conversaId, string agendamentoId, CancellationToken ct = default)
         => EscreverAsync<AppConversation>(usuarioId, Conversa(conversaId, "scheduled/" + Uri.EscapeDataString(agendamentoId) + "/cancel"), new { }, ct);
 
+    // ---------- "Cara de WhatsApp", F2c (semdor-crm §17) ----------
+
+    // A rota não lê corpo; vai "{}", como no resumo. Prazo da IA (Natureza.IA), como a sugestão.
+    public Task<AppSemDorOptions> OpcoesDoSemDorAsync(int usuarioId, string conversaId, CancellationToken ct = default)
+        => ChamarAsync(usuarioId, Natureza.IA, () => Post(Conversa(conversaId, "semdor/opcoes"), new StringContent("{}", System.Text.Encoding.UTF8, "application/json")),
+            Desserializar<AppSemDorOptions>, ct);
+
+    public Task<AppConversation> TranscreverAsync(int usuarioId, string conversaId, string mensagemId, CancellationToken ct = default)
+        => ChamarAsync(usuarioId, Natureza.IA, () => Post(Conversa(conversaId, "messages/" + Uri.EscapeDataString(mensagemId) + "/transcribe"),
+            new StringContent("{}", System.Text.Encoding.UTF8, "application/json")), Desserializar<AppConversation>, ct);
+
+    public Task<AppConversation> TentarDeNovoAsync(int usuarioId, string conversaId, string mensagemId, AppRetry pedido, CancellationToken ct = default)
+        => EscreverAsync<AppConversation>(usuarioId, Conversa(conversaId, "messages/" + Uri.EscapeDataString(mensagemId) + "/retry"), pedido, ct);
+
+    public Task<AppGreeting> SaudacaoAsync(int usuarioId, CancellationToken ct = default)
+        => LerAsync<AppGreeting>(usuarioId, "/api/greeting", ct);
+
+    public Task<AppGreeting> SalvarSaudacaoAsync(int usuarioId, AppGreeting saudacao, CancellationToken ct = default)
+        => EscreverAsync<AppGreeting>(usuarioId, "/api/greeting", saudacao, ct);
+
     public void EsquecerSessao(int usuarioId)
     {
         // O HttpClient antigo não é descartado aqui: uma chamada dele pode estar em andamento

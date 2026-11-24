@@ -617,6 +617,34 @@ public sealed class ClienteDoCrmHttpTests : IDisposable
         Assert.Contains("name=remove", imagens[1].Corpo);
     }
 
+    [Fact] public async Task Opcoes_transcricao_tentar_de_novo_e_saudacao_vao_pelas_rotas_da_secao_17()
+    {
+        await Configurar(EnderecoA);
+        var conversa = new AppConversation("c1", "Paciente", "5522988887777", "whatsapp", "5522999990000", "Recepção", "ana", false, 3,
+            DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch, null, "", [], [], [], [], null);
+        crm.Rota = (p, _) => p.Caminho switch
+        {
+            "/api/conversations/c1/semdor/opcoes" => Responder(new AppSemDorOptions(["Uma", "Outra"])),
+            "/api/conversations/c1/messages/m1/transcribe" => Erro(409, "A transcrição de áudio está desligada neste CRM."),
+            "/api/greeting" => Responder(new AppGreeting(true, "Olá!", 2)),
+            _ => Responder(conversa),
+        };
+
+        Assert.Equal(["Uma", "Outra"], (await cliente.OpcoesDoSemDorAsync(7, "c1")).Options);
+        var desligada = await Assert.ThrowsAsync<RecusaDoCrm>(() => cliente.TranscreverAsync(7, "c1", "m1"));
+        Assert.Equal((409, "A transcrição de áudio está desligada neste CRM."), (desligada.Status, desligada.Message));
+        await cliente.TentarDeNovoAsync(7, "c1", "m1", new AppRetry(3, Guid.NewGuid().ToString("D")));
+        Assert.Equal(2, (await cliente.SaudacaoAsync(7)).Version);
+        await cliente.SalvarSaudacaoAsync(7, new AppGreeting(true, "Olá, bem-vindo(a)!", 2));
+
+        var pedidos = crm.Pedidos.Where(p => p.Caminho != "/api/session" && p.Caminho != "/api/login/ticket").Select(p => $"{p.Metodo} {p.Caminho} {(p.Csrf != "" ? "csrf" : "-")}").ToArray();
+        Assert.Equal(new[]
+        {
+            "POST /api/conversations/c1/semdor/opcoes csrf", "POST /api/conversations/c1/messages/m1/transcribe csrf",
+            "POST /api/conversations/c1/messages/m1/retry csrf", "GET /api/greeting -", "POST /api/greeting csrf",
+        }, pedidos);
+    }
+
     [Fact] public async Task O_anexo_e_reenviado_inteiro_quando_a_sessao_venceu()
     {
         await Configurar(EnderecoA);

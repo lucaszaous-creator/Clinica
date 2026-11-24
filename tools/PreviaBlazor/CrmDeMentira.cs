@@ -541,6 +541,71 @@ public sealed class CrmDeMentira : IClienteDoCrm
         }
     }
 
+    // ---------- F2c (§17): opções do @SemDor, transcrição (desligada, como em produção), tentar de novo e saudação ----------
+
+    /// <summary>A saudação do menu na prévia.</summary>
+    public AppGreeting Saudacao { get; set; } = new(true, "Olá! Bem-vindo(a) à Clínica SemDor (fictícia). Como podemos ajudar?", 1);
+
+    public async Task<AppSemDorOptions> OpcoesDoSemDorAsync(int usuarioId, string conversaId, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        ConferirSemDor();
+        lock (trava)
+        {
+            var c = Achar(conversaId);
+            if (c.Recebidas == 0) throw new RecusaDoCrm("O paciente ainda não escreveu nada para o @SemDor responder.", 409);
+            var nome = PrimeiroNome(c.PatientName.Length > 0 ? c.PatientName : c.Name);
+            return new AppSemDorOptions([
+                $"Olá{(nome.Length > 0 ? ", " + nome : "")}! Vou verificar na agenda e já te retorno.",
+                "Pode me dizer qual dia e período ficam melhores para você?",
+                "Obrigada pela mensagem! Um momento, por favor.",
+            ]);
+        }
+    }
+
+    public async Task<AppConversation> TranscreverAsync(int usuarioId, string conversaId, string mensagemId, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        throw new RecusaDoCrm("A transcrição de áudio está desligada neste CRM.", 409);
+    }
+
+    public async Task<AppConversation> TentarDeNovoAsync(int usuarioId, string conversaId, string mensagemId, AppRetry pedido, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava)
+        {
+            var c = Achar(conversaId);
+            if (c.Messages.Any(m => m.Id == pedido.Id && m.RetryOf == mensagemId)) return Foto(c);
+            var original = c.Messages.FirstOrDefault(m => m.Id == mensagemId && m.Direction == "out") ?? throw new RecusaDoCrm("Mensagem não encontrada nesta conversa.", 404);
+            if (original.Status is not ("failed" or "uncertain")) throw new RecusaDoCrm("Esta mensagem não falhou.", 409);
+            if (original.Status == "uncertain" && DateTimeOffset.UtcNow - original.At < TimeSpan.FromMinutes(10))
+                throw new RecusaDoCrm("Ainda não se sabe se esta mensagem saiu. Espere alguns minutos: se não aparecer como entregue, tente de novo.", 409);
+            if (c.Messages.Any(m => m.RetryOf == mensagemId && m.Status != "failed")) throw new RecusaDoCrm("Esta mensagem já foi enviada de novo.", 409);
+            var agora = DateTimeOffset.UtcNow;
+            c.Messages.Add(original with { Id = pedido.Id, AgentId = Eu, At = agora, Status = "accepted", Error = null, RetryOf = mensagemId, Reactions = null, Starred = false });
+            c.Version++; c.UpdatedAt = agora;
+            return Foto(c);
+        }
+    }
+
+    public async Task<AppGreeting> SaudacaoAsync(int usuarioId, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava) return Saudacao;
+    }
+
+    public async Task<AppGreeting> SalvarSaudacaoAsync(int usuarioId, AppGreeting saudacao, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava)
+        {
+            if (!DaGestao) throw new RecusaDoCrm("Esta função está disponível para supervisores e administradores.", 403);
+            if (saudacao.Version != Saudacao.Version) throw new RecusaDoCrm("A saudação mudou. Atualize antes de salvar.", 409);
+            if ((saudacao.Text ?? "").Trim().Length is < 5 or > 700) throw new RecusaDoCrm("Escreva a saudação com 5 a 700 caracteres.", 400);
+            return Saudacao = new AppGreeting(saudacao.Enabled, saudacao.Text!.Trim(), Saudacao.Version + 1);
+        }
+    }
+
     public async Task<AppConversation> CancelarAgendamentoAsync(int usuarioId, string conversaId, string agendamentoId, CancellationToken ct = default)
     {
         await EntrarAsync(ct);
