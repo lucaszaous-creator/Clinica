@@ -63,14 +63,7 @@ public sealed class ClinicSchedulingBridge(ClinicaDbContext db, AgendaService ag
         if (!available.Vagas.Any(v => v.Inicio == Local(input.StartsAt))) throw new InvalidOperationException("Horário fora das vagas da clínica.");
         var previous = Offset(a.DataHora);
         await agenda.RemarcarAsync(a.Id, Local(input.StartsAt), a.Observacoes, operador: "CRM · " + input.Actor, ct: ct);
-        var contact = await db.Contatos.SingleOrDefaultAsync(c => c.Tipo == TipoContato.ConfirmacaoSessao && c.AgendamentoId == a.Id, ct);
-        if (contact is not null) {
-            db.Auditoria.Add(new() { Acao = "CrmConfirmacaoReaberta", Operador = "CRM · " + input.Actor, PacienteId = a.PacienteId,
-                DataHora = Local(DateTimeOffset.UtcNow), Detalhe = JsonSerializer.Serialize(new { appointmentId = a.Id, contact.Referencia, contact.Status, contact.EnviadoEm, contact.RespondidoEm }) });
-            // Preserve the prior comment; move delivery/response timestamps to the audit before reopening.
-            contact.Referencia = DateOnly.FromDateTime(a.DataHora); contact.Status = StatusContato.Pendente;
-            contact.EnviadoEm = null; contact.EnviadoPor = null; contact.RespondidoEm = null;
-        }
+        // The confirmation restarts on the new date inside AgendaService.RemarcarAsync (one rule for every door, with audit).
         var result = new ClinicRescheduleResult(a.Id, a.PacienteId, previous, Offset(a.DataHora), ClinicAgendaBridge.Revision(a));
         // Receipt and clinical changes commit together, permitting recovery after a lost HTTP response.
         db.Auditoria.Add(new() { Acao = "CrmRemarcacaoV1", Operador = "CRM · " + input.Actor, PacienteId = a.PacienteId,

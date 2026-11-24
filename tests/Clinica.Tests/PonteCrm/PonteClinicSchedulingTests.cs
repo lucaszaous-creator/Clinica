@@ -62,7 +62,7 @@ public sealed class PonteClinicSchedulingTests : IDisposable
         Assert.Equal(StatusContato.Pendente, contact.Status); Assert.Null(contact.RespondidoEm); Assert.Null(contact.EnviadoEm);
         Assert.Equal(DateOnly.FromDateTime(command.StartsAt.DateTime), contact.Referencia);
         Assert.Equal("Comentário anterior preservado", contact.Comentario);
-        Assert.Single(db.Auditoria.Where(a => a.Acao == "CrmConfirmacaoReaberta"));
+        Assert.Single(db.Auditoria.Where(a => a.Acao == "ConfirmacaoReaberta"));
         Assert.All(db.Auditoria, a => Assert.True((a.Detalhe?.Length ?? 0) <= 500));
     }
     [Fact] public async Task SharedPhoneStillRequiresTheSelectedPatient() {
