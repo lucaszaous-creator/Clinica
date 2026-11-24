@@ -194,7 +194,7 @@ public partial class ConversasDoWhatsApp
     /// </summary>
     private async Task PedirSugestoesAsync(ConversaDoWhatsApp c)
     {
-        if (!SemDorLigado || _pedindoSugestoes || c.Conversa is not { } conversa || c.Encerrada || !c.Janela.PodeEscreverLivre
+        if (!SemDorLigado || _pedindoSugestoes || c.Conversa is not { } conversa || !c.Janela.PodeEscreverLivre
             || conversa.Messages.LastOrDefault(m => string.IsNullOrEmpty(m.ReactionTo)) is not { Direction: "in" }
             || _sugestoes is { } s && s.Conversa == conversa.Id && s.Ultima == conversa.LastIncoming) return;
         _pedindoSugestoes = true;

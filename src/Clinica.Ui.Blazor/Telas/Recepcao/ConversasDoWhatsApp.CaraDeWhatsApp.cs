@@ -46,9 +46,7 @@ public partial class ConversasDoWhatsApp
         {
             case AcaoNaConversa.Assumir: await AssumirAsync(); break;
             case AcaoNaConversa.Devolver: await DevolverAsync(); break;
-            case AcaoNaConversa.Reabrir: await ReabrirAsync(); break;
             case AcaoNaConversa.Transferir: if (Exigir(Permissao.EditarAgenda, "transferir a conversa")) _form = Form.Transferir; break;
-            case AcaoNaConversa.Encerrar: if (Exigir(Permissao.EditarAgenda, "encerrar o atendimento")) _form = Form.Encerrar; break;
             case AcaoNaConversa.NotaInterna:
                 if (Exigir(Permissao.EditarAgenda, "escrever nota interna")) { Rascunho(a).Nota = true; _focarCampo = true; }
                 break;
@@ -108,7 +106,7 @@ public partial class ConversasDoWhatsApp
     private bool BarraAberta(ConversaDoWhatsApp c)
     {
         var r = Rascunho(c);
-        return !r.Nota && c.Janela.PodeEscreverLivre && !c.Encerrada && ConversasNaTela.TermoDaBarra(r.Texto) is not null
+        return !r.Nota && c.Janela.PodeEscreverLivre && ConversasNaTela.TermoDaBarra(r.Texto) is not null
             && !string.Equals(r.Texto, _barraDispensada, StringComparison.Ordinal);
     }
 

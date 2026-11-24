@@ -161,7 +161,7 @@ public sealed class AcabamentoDoWhatsAppNaTelaTests : IClassFixture<BancoDasTela
         tela.Clicar(() => tela.Find("[data-acao=menu]"));
         tela.WaitForAssertion(() => tela.Find(".menu-contexto").GetAttribute("aria-label").Should().Be("Mais opções da conversa"), Prazo);
         tela.FindAll(".menu-contexto [role=menuitem]").Select(b => b.TextContent.Trim()).Should()
-            .Contain(["Devolver à fila", "Transferir…", "Nota para a equipe", "Buscar na conversa", "Dados do contato", "Encerrar…"]);
+            .Contain(["Devolver à fila", "Transferir…", "Nota para a equipe", "Buscar na conversa", "Dados do contato"]);
 
         ItemDoMenu(tela, "Transferir…");
         tela.WaitForAssertion(() => tela.Find(".modal"), Prazo);

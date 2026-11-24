@@ -97,11 +97,6 @@ else
                     }
                 </div>
             </div>
-            @* Encerradas = as Arquivadas do WhatsApp: a linha de cima da lista; dentro dela, a mesma linha volta a Tudo. *@
-            <button type="button" class="wa-encerradas" aria-pressed="@Bool(_filtro == FiltroDasConversas.Encerradas)"
-                    @onclick="() => { if (_filtro == FiltroDasConversas.Encerradas) EscolherPilula(ConversasNaTela.Pilulas[0]); else { _filtro = FiltroDasConversas.Encerradas; _soNaoLidas = false; } }">
-                <Icone Nome="@(_filtro == FiltroDasConversas.Encerradas ? "esquerda" : "caixa")" /><span>@(_filtro == FiltroDasConversas.Encerradas ? "Voltar às abertas" : ConversasNaTela.Rotulo(FiltroDasConversas.Encerradas))</span>
-                @if (_filtro != FiltroDasConversas.Encerradas && contaConversas.Encerradas > 0) { <b>@(contaConversas.Encerradas > 99 ? "99+" : contaConversas.Encerradas.ToString(Formato.PtBr))</b> }</button>
             @if (_filtro == FiltroDasConversas.Minhas) { @BarraDoTurno() }
             @if (!_avisoSemDorFechado && SemDorNaTela.AvisoDaGestao(painel.SemDor) is { } avisoSemDor)
             {
@@ -195,7 +190,7 @@ else
                                 <span class="selo tom-@c.Ficha.Tom" title="@c.Ficha.Dica">@c.Ficha.Texto</span>
                             }
                         </div></div>
-                    @* O ⋮ do WhatsApp (F1, nov/2026): Assumir/Devolver, Transferir, Nota, Buscar, Dados do contato, Resumo e Encerrar num
+                    @* O ⋮ do WhatsApp (F1, nov/2026): Assumir/Devolver, Transferir, Nota, Buscar, Dados do contato e Resumo num
                        menu só (MenuDoWhatsApp.DoCabecalho); à vista ficam a lupa e o ⋮, e o nome abre os Dados do contato. *@
                     <div class="wa-cab-acoes">
                         @if (c.Conversa is not null)
@@ -234,7 +229,7 @@ else
                 </div>
                 @* O PRÓXIMO PASSO FIXADO (F1): o aviso que pede ação (ConversasNaTela.PedeAcao) vira a mensagem fixada do topo, com até
                    dois botões à vista; os outros ficam no "Mais" (ConversasNaTela.DividirBotoes) — nenhum some. *@
-                @if (c.Acao is { } acao && !c.Encerrada)
+                @if (c.Acao is { } acao)
                 {
                     var faixa = ConversasNaTela.DividirBotoes(acao);
                     @* Só "Como foi?" (todos os botões são desfecho): a Fila 360 o mostra na coluna da direita e o tira daqui. *@
@@ -338,12 +333,7 @@ else
                     <div class="wa-recado"><Aviso Tom="@_recadoTom" Texto="@_recado" /></div>
                 }
                 <div class="wa-escrever-wrap">
-                    @if (c.Encerrada)
-                    {
-                        <div class="wa-encerrada"><Icone Nome="check" /><span><strong>@c.Encerramento</strong>. Se a pessoa escrever de novo, a conversa reabre sozinha.</span>
-                            <button type="button" class="botao" disabled="@(!PodeEscrever || _ocupado)" @onclick="ReabrirAsync"><Icone Nome="atualizar" />Reabrir</button></div>
-                    }
-                    else if (c.Abertura is { } abertura && !r.Nota)
+                    @if (c.Abertura is { } abertura && !r.Nota)
                     {
                         <div class="wa-convite"><span class="wa-janela-ic"><Icone Nome="coracao" /></span>
                             <div class="wa-janela-texto"><strong>@abertura.Titulo</strong>@abertura.Texto</div>
@@ -736,9 +726,6 @@ else
                 <TransferirConversaForm Nome="@aberta.Nome" Agentes="@painel.Sessao.Agents.Where(x => x.Id != painel.Sessao.AgentId).ToList()" Filas="@painel.Sessao.Queues"
                                         AoFechar="FecharForm" AoConfirmar="TransferirAsync" />
                 break;
-            case Form.Encerrar when aberta.Conversa is not null:
-                <EncerrarConversaForm Resultados="@painel.Resultados.ToList()" AoFechar="FecharForm" AoConfirmar="EncerrarAsync" />
-                break;
             case Form.ConferirFicha:
                 <ConferirFichaDaConversaForm Telefone="@aberta.Telefone" Candidatas="@aberta.Dados.Candidatas" AoFechar="FecharForm" AoConfirmar="LigarCandidataAsync" />
                 break;
@@ -785,10 +772,10 @@ else
 
 @code {
     private enum Popover { Nenhum, Modelos, Rapidas, Emojis, Reacoes, Agendar, Compartilhar, Etiquetas }
-    private enum Form { Nenhum, Transferir, Encerrar, ConferirFicha, Cancelar, ComoFoi, Nova }
+    private enum Form { Nenhum, Transferir, ConferirFicha, Cancelar, ComoFoi, Nova }
 
     // Sem a aba "Novas": a conversa sem dona já aparece em "Tudo" com o selo, e o que falta ler a pílula "Não lidas" separa.
-    // As pílulas (F1, nov/2026) substituíram o segmentado Todas · Minhas · Encerradas e o chip "Não lidas": ConversasNaTela.Pilulas.
+    // As pílulas (F1, nov/2026) substituíram o segmentado e o chip "Não lidas": ConversasNaTela.Pilulas. Sem "Encerradas" (24/11): uma lista só.
     private void EscolherPilula(PilulaDaLista p)
     {
         _filtro = p.Filtro;
@@ -850,7 +837,7 @@ else
 
     /// <summary>A regra do CRM: nota, transferir e encerrar são de quem está com a conversa (responder assume sozinho).</summary>
     // Todos escrevem (nov/2026, decisão da direção): responder, anexar e anotar valem para toda a equipe; só transferir e encerrar são de quem está com a conversa.
-    private const string SoComVoce = "Transferir e encerrar são de quem está com a conversa. Responder e anotar, todos podem.";
+    private const string SoComVoce = "Transferir é de quem está com a conversa. Responder e anotar, todos podem.";
     private static bool PodeAcompanhar => Pode(Permissao.VerFichaPaciente) && PodeAlgum(Permissao.GerenciarCampanhas | Permissao.VerFaturamento);
 
     private static string Bool(bool v) => v ? "true" : "false";
@@ -1005,7 +992,7 @@ else
         if (pedido.ConversaId is { Length: > 0 } exata)
         {
             var linha = painel.Conversas.FirstOrDefault(c => c.Id == exata);
-            _filtro = linha is { Closed: true } ? FiltroDasConversas.Encerradas : FiltroDasConversas.Todas;
+            _filtro = FiltroDasConversas.Todas;
             await AbrirConversaAsync(exata, linha?.Unread ?? 0, null);
             return;
         }
@@ -1022,7 +1009,7 @@ else
                 Notificacoes.Info("Ainda não há conversa com este telefone: a primeira mensagem é um modelo aprovado. O texto sugerido ficou de fora.");
             return;
         }
-        _filtro = conversa.Closed ? FiltroDasConversas.Encerradas : FiltroDasConversas.Todas;
+        _filtro = FiltroDasConversas.Todas;
         await AbrirConversaAsync(conversa.Id, conversa.Unread, null);
         if (_aberta?.Conversa is { } aberta && aberta.PatientId is null && pedido.PacienteId is { } ficha && PodeEscrever)
             await GravarNoCrmAsync(s => s.LigarFichaAsync(aberta, ficha, pedido.Nome), "Ficha ligada à conversa.");
@@ -1224,10 +1211,6 @@ else
         await GravarNoCrmAsync(s => s.DevolverAsync(c, motivo), "Devolvida à fila da Recepção.");
     }
 
-    private Task ReabrirAsync() => _aberta?.Conversa is { } c
-        ? GravarNoCrmAsync(s => s.ReabrirAsync(c, _painel?.Sessao.AgentId), "Conversa reaberta e com você.")
-        : Task.CompletedTask;
-
     private async Task<string?> TransferirAsync(string? agente, string? fila, string? nota)
     {
         if (_aberta?.Conversa is not { } c) return "A conversa não está mais aberta.";
@@ -1235,15 +1218,6 @@ else
         if (nova is null) return _recado;
         // Para uma pessoa o pedido foi enviado; só o setor passa na hora (R3): a frase diz qual dos dois aconteceu.
         Notificacoes.Sucesso(ConversasNaTela.FraseDaTransferencia(nova, _painel?.Agentes));
-        FecharForm();
-        return null;
-    }
-
-    private async Task<string?> EncerrarAsync(string resultado, string? resumo)
-    {
-        if (_aberta?.Conversa is not { } c) return "A conversa não está mais aberta.";
-        var nova = await GravarNoCrmAsync(s => s.EncerrarAsync(c, resultado, resumo), "Atendimento encerrado.");
-        if (nova is null) return _recado;
         FecharForm();
         return null;
     }
@@ -1527,7 +1501,7 @@ else
         var antes = _horariosAntesDeRemarcar;
         await ReleiaDepoisDoAtoAsync();
         // Remarcou pela janela do horário: a mensagem do que a clínica FEZ fica pronta para revisar (nunca sai sozinha).
-        if (_aberta is { } a && a.Janela.PodeEscreverLivre && !a.Encerrada
+        if (_aberta is { } a && a.Janela.PodeEscreverLivre
             && a.Dados.Horarios.FirstOrDefault(n => !antes.Any(x => x.AgendamentoId == n.AgendamentoId && x.Quando == n.Quando)) is { } novo
             && antes.Count > 0)
         {

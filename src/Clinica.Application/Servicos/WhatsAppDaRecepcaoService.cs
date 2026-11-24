@@ -89,7 +89,7 @@ public sealed record ParaResolverDoPaciente(int PacienteId, IReadOnlyList<FichaA
 
 /// <summary>A conversa aberta, composta: o que as colunas 2 e 3 desenham.</summary>
 public sealed record ConversaDoWhatsApp(DadosDaConversa Dados, string Id, string Nome, string Iniciais, string TomDoAvatar,
-    string Telefone, bool Sms, string Fila, string Responsavel, bool Minha, bool Encerrada, string? Encerramento,
+    string Telefone, bool Sms, string Fila, string Responsavel, bool Minha,
     IReadOnlyList<ItemDaConversa> LinhaDoTempo, JanelaDaConversa Janela, FichaDaConversa Ficha,
     AcaoPedida? Acao, AberturaDaRetencao? Abertura, (string Titulo, string Texto)? CampoFechado)
 {
@@ -429,29 +429,16 @@ public sealed partial class WhatsAppDaRecepcaoService(
             d.Candidatas is [var unica] ? unica : null);
         var abertura = d.Caso is { } caso && (c is null || c.Messages.Length == 0) ? RetencaoNaTela.Abertura(caso, c, agora) : null;
         var minha = c?.AgentId is { } a && a == d.MeuAgente;
-        var encerramento = c is { Closed: true } ? Encerramento(c, d.Agentes, d.Resultados, agora) : null;
         // O avatar: o tom é da conversa (ou do caso, antes de a conversa existir); sem nome nenhum, cinza e "?".
         var semNome = c is not null && d.Paciente is null && c.PatientId is null && !TemLetra(c.Name);
         var chave = c is null ? "caso-" + d.Caso?.Id : semNome ? null : c.Id;
         return new ConversaDoWhatsApp(d, c?.Id ?? "", nome, semNome ? "?" : Iniciais(nome), TomDoAvatar(chave),
             ConversasNaTela.TelefoneNaTela(d.Contato), sms, c?.Queue ?? "Recepção",
-            Responsavel(c?.AgentId, d.MeuAgente, d.Agentes), minha, c?.Closed ?? false, encerramento,
+            Responsavel(c?.AgentId, d.MeuAgente, d.Agentes), minha,
             // O caso sem conversa ainda não tem o que mostrar: nem o separador "Hoje" sozinho (foto 82 da revisão).
             c is null ? [] : ConversasNaTela.LinhaDoTempo(c, d.RecebidasJaLidas, agora, d.Agentes),
             janela, ficha, acao, abertura, ConversasNaTela.CampoFechado(janela, nomeNoWhatsApp ?? nome, agora))
         { NomeNoWhatsApp = nomeNoWhatsApp };
-    }
-
-    private static string Encerramento(AppConversation c, IReadOnlyDictionary<string, string> agentes,
-        IReadOnlyDictionary<string, string> resultados, DateTimeOffset agora)
-    {
-        var r = c.Resolutions.OrderByDescending(x => x.At).FirstOrDefault();
-        var quando = c.ClosedAt ?? r?.At;
-        var partes = new List<string> { "Encerrada" };
-        if (quando is { } q) partes[0] += " " + ConversasNaTela.Quando(q, agora);
-        if (r is not null && agentes.TryGetValue(r.ActorId, out var quem) && !string.IsNullOrWhiteSpace(quem)) partes[0] += $" por {quem}";
-        if (r is not null && resultados.TryGetValue(r.Outcome, out var rotulo) && !string.IsNullOrWhiteSpace(rotulo)) partes.Add(rotulo);
-        return string.Join(" · ", partes);
     }
 
     /// <summary>
@@ -471,7 +458,7 @@ public sealed partial class WhatsAppDaRecepcaoService(
         var avisosDele = ConversasNaTela.AvisosDaConversa(c.PatientId, painel.Avisos, painel.PacienteDoAgendamento);
         var fichas = painel.FichasPorConversa.TryGetValue(c.Id, out var f) ? f.Count : 0;
         var caso = ConversasNaTela.CasoDoPaciente(c.PatientId, painel.Retencao);
-        var selo = ConversasNaTela.Selo(c, avisosDele, fichas, caso, agora, painel.Resultados, painel.Sessao.AgentId, painel.Agentes);
+        var selo = ConversasNaTela.Selo(c, avisosDele, fichas, caso, agora, painel.Sessao.AgentId, painel.Agentes);
         var nome = ConversasNaTela.NomeDaConversa(c);
         var semNome = c.PatientId is null && !TemLetra(c.Name) && string.IsNullOrWhiteSpace(c.PatientName);
         return new LinhaDaConversa(c.Id, nome, semNome ? "?" : Iniciais(nome), TomDoAvatar(semNome ? null : c.Id),
@@ -855,15 +842,6 @@ public sealed partial class WhatsAppDaRecepcaoService(
         var r = await elegibilidade.ConferirAsync(pacienteId, DateOnly.FromDateTime(Agora.DateTime), ct);
         return new(pacienteId, r.Alertas.Select(FichaAdministrativaNaTela.AlertaDe).ToList());
     }
-
-    public Task<AppConversation> EncerrarAsync(AppConversation c, string resultado, string? resumo, CancellationToken ct = default)
-    {
-        if (string.IsNullOrWhiteSpace(resultado)) throw new InvalidOperationException("Escolha como terminou o atendimento.");
-        return crm.EncerrarAsync(UsuarioId, c.Id, new AppClose(c.Version, resultado, resumo?.Trim() ?? ""), ct);
-    }
-
-    public Task<AppConversation> ReabrirAsync(AppConversation c, string? meuAgente, CancellationToken ct = default)
-        => crm.ReabrirAsync(UsuarioId, c.Id, new AppChange(c.Version, meuAgente, c.Queue), ct);
 
     /// <summary>Liga a ficha que a RECEPÇÃO conferiu (regra 5). A conversa que já tem ficha não troca por aqui.</summary>
     public Task<AppConversation> LigarFichaAsync(AppConversation c, int pacienteId, string nome, CancellationToken ct = default)

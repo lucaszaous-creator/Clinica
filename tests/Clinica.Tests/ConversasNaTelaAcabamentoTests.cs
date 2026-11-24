@@ -80,10 +80,9 @@ public sealed class ConversasNaTelaAcabamentoTests
             new AppAudit(Em(24, 10, 5), "Sistema", "Reaberta após nova mensagem"),
         ]);
         var eventos = ConversasNaTela.LinhaDoTempo(c, 1, Agora, Agentes).Where(i => i.Tipo == TipoNaLinhaDoTempo.Evento).ToList();
-        Assert.Equal(2, eventos.Count);
-        Assert.Equal(("Encerrada por Bruna. Bruna desligou a ficha de Maria desta conversa", "aviso", "10:00"),
-            (eventos[0].Texto, eventos[0].Tom, eventos[0].Hora));
-        Assert.Equal("A conversa reabriu sozinha com a nova mensagem do paciente", eventos[1].Texto);
+        // Encerrar e reabrir não aparecem (24/11, pedido do dono): sobra a ficha desligada, com o tom dela.
+        Assert.Single(eventos);
+        Assert.Equal(("Bruna desligou a ficha de Maria desta conversa", "aviso", "10:00"), (eventos[0].Texto, eventos[0].Tom, eventos[0].Hora));
     }
 
     [Fact]

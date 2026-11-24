@@ -230,10 +230,6 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px;fon
 .wa-janela-ic svg{width:18px;height:18px}
 .wa-janela-texto{flex:1 1 260px;min-width:0;font-size:var(--text-table-size);color:var(--texto-secundario)}
 .wa-janela-texto strong{display:block;color:var(--texto-primario);font-size:var(--text-body-size)}
-.wa-encerrada{margin:var(--space-2) var(--space-6) var(--space-4);padding:var(--space-3) var(--space-4);border-radius:var(--radius-card);background:var(--superficie);border:1px solid var(--borda);
-  display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3);font-size:var(--text-table-size);color:var(--texto-secundario)}
-.wa-encerrada strong{color:var(--texto-primario)}
-.wa-encerrada .botao{margin-left:auto}
 
 /* Vazio: nenhuma conversa escolhida */
 .wa-vazia{flex:1;display:flex;align-items:center;justify-content:center;padding:var(--space-8)}
@@ -328,7 +324,7 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px;fon
   .wa-ficha.aberta{transform:none;box-shadow:var(--sombra-popup)}
   .wa-ficha-fechar{display:inline-flex}
   .wa-mensagens{padding:var(--space-3) var(--space-4)}
-  .wa-acao,.wa-escrever,.wa-janela-fechada,.wa-encerrada{margin-left:var(--space-4);margin-right:var(--space-4)}
+  .wa-acao,.wa-escrever,.wa-janela-fechada{margin-left:var(--space-4);margin-right:var(--space-4)}
   .wa-popover{left:var(--space-4);right:var(--space-4)}
   /* Sem a coluna da ficha, a bolinha do chat da equipe cai sobre o canto do Enviar: o rodapé deixa o lugar dela. */
   .wa-escrever-rodape,.wa-convite,.wa-janela-fechada{padding-right:calc(var(--space-12) + var(--space-8))}
@@ -518,14 +514,6 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px;fon
 .wa-pilula:focus-visible{outline:2px solid var(--wa-acao);outline-offset:2px}
 .wa-pilula[aria-pressed="true"]{background:var(--wa-acao-suave);color:var(--wa-acao)}
 .wa-pilula b{font-variant-numeric:tabular-nums;font-weight:700}
-.wa-encerradas{display:flex;align-items:center;gap:var(--space-3);width:100%;padding:var(--space-2) var(--space-4);border:0;border-top:1px solid var(--wa-linha);
-  background:transparent;font:inherit;font-size:var(--text-table-size);font-weight:600;color:var(--texto-primario);text-align:left;cursor:pointer}
-.wa-encerradas:hover{background:var(--wa-faixa)}
-.wa-encerradas:focus-visible{outline:2px solid var(--wa-acao);outline-offset:-2px}
-.wa-encerradas .icone{width:18px;height:18px;color:var(--wa-cinza);flex:none}
-.wa-encerradas span{flex:1;min-width:0}
-.wa-encerradas b{color:var(--wa-verde-escuro);font-variant-numeric:tabular-nums}
-.wa-encerradas[aria-pressed="true"]{color:var(--wa-acao)}
 .pagina.wa .wa-linhas{border-top:1px solid var(--wa-linha)}
 .pagina.wa .wa-linha{border-bottom-color:var(--wa-linha)}
 .pagina.wa .wa-linha:hover{background:var(--wa-faixa)}
@@ -611,7 +599,7 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px;fon
 .pagina.wa .wa-escrever-rodape .botao.mini.wa-semdor-sugerir{height:40px;min-width:40px;border-radius:var(--radius-pilula)}
 .pagina.wa .wa-escrever-rodape .wa-gravando{padding-top:0;min-height:40px}
 .pagina.wa .wa-rascunho-anexo,.pagina.wa .wa-rascunho-citacao{margin:var(--space-2) var(--space-4) 0;background:var(--superficie)}
-.pagina.wa .wa-janela-fechada,.pagina.wa .wa-encerrada,.pagina.wa .wa-convite{margin:var(--space-2) var(--space-4) var(--space-3)}
+.pagina.wa .wa-janela-fechada,.pagina.wa .wa-convite{margin:var(--space-2) var(--space-4) var(--space-3)}
 /* A bolinha do chat da equipe fica no canto de baixo: sem a coluna dos dados, o botão redondo deixa o lugar dela. */
 .pagina.wa:not(.com-dados) .wa-escrever-rodape,.pagina.wa:not(.com-dados) .wa-janela-fechada,.pagina.wa:not(.com-dados) .wa-convite{padding-right:calc(var(--space-12) + var(--space-8))}
 .pagina.wa .wa-recado{margin:var(--space-2) var(--space-4) 0}
