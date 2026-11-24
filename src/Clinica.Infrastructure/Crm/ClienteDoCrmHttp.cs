@@ -267,6 +267,39 @@ public sealed class ClienteDoCrmHttp : IClienteDoCrm, IDisposable
     public Task<AppQualityTrend> EvolucaoDaAuditoriaAsync(int usuarioId, int semanas, CancellationToken ct = default)
         => LerAsync<AppQualityTrend>(usuarioId, "/api/quality/evolucao?semanas=" + semanas.ToString(System.Globalization.CultureInfo.InvariantCulture), ct);
 
+    // ---------- "Cara de WhatsApp", F2a (semdor-crm docs/api-para-os-apps.md §15) ----------
+
+    public Task<AppConversation> ReagirAsync(int usuarioId, string conversaId, AppReact reacao, CancellationToken ct = default)
+        => EscreverAsync<AppConversation>(usuarioId, Conversa(conversaId, "react"), reacao, ct);
+
+    public Task<AppLabel[]> EtiquetasAsync(int usuarioId, CancellationToken ct = default)
+        => LerAsync<AppLabel[]>(usuarioId, "/api/labels", ct);
+
+    public Task<AppLabel[]> SalvarEtiquetaAsync(int usuarioId, AppLabelSave etiqueta, CancellationToken ct = default)
+        => EscreverAsync<AppLabel[]>(usuarioId, "/api/labels", etiqueta, ct);
+
+    public Task<AppConversation> EtiquetarConversaAsync(int usuarioId, string conversaId, AppConversationLabels etiquetas, CancellationToken ct = default)
+        => EscreverAsync<AppConversation>(usuarioId, Conversa(conversaId, "labels"), etiquetas, ct);
+
+    public Task<AppConversation> EstrelarAsync(int usuarioId, string conversaId, string mensagemId, AppStar estrela, CancellationToken ct = default)
+        => EscreverAsync<AppConversation>(usuarioId, Conversa(conversaId, "messages/" + Uri.EscapeDataString(mensagemId) + "/star"), estrela, ct);
+
+    public Task<AppPins> FixadasAsync(int usuarioId, CancellationToken ct = default)
+        => LerAsync<AppPins>(usuarioId, "/api/pins", ct);
+
+    public Task<AppPins> FixarAsync(int usuarioId, string conversaId, AppPin fixar, CancellationToken ct = default)
+        => EscreverAsync<AppPins>(usuarioId, Conversa(conversaId, "pin"), fixar, ct);
+
+    public Task<AppTyping> EscrevendoAsync(int usuarioId, string conversaId, CancellationToken ct = default)
+        => EscreverAsync<AppTyping>(usuarioId, Conversa(conversaId, "typing"), new { }, ct);
+
+    public Task<AppTyping> QuemEscreveAsync(int usuarioId, string conversaId, CancellationToken ct = default)
+        => LerAsync<AppTyping>(usuarioId, Conversa(conversaId, "typing"), ct);
+
+    public Task ParouDeEscreverAsync(int usuarioId, string conversaId, CancellationToken ct = default)
+        => ChamarAsync(usuarioId, Natureza.Escrita, () => Post(Conversa(conversaId, "typing/stop"), JsonContent.Create(new { }, options: Json)),
+            (_, _) => Task.FromResult(true), ct);
+
     public void EsquecerSessao(int usuarioId)
     {
         // O HttpClient antigo não é descartado aqui: uma chamada dele pode estar em andamento

@@ -172,6 +172,45 @@ public interface IClienteDoCrm
     /// </summary>
     Task<AppQualityTrend> EvolucaoDaAuditoriaAsync(int usuarioId, int semanas, CancellationToken ct = default);
 
+    // ---------- "Cara de WhatsApp", F2a (nov/2026 — semdor-crm docs/api-para-os-apps.md §15) ----------
+    // CRM anterior a esta versão responde 404 nestas rotas (RecusaDoCrm 404): a tela esconde o recurso.
+
+    /// <summary>
+    /// POST …/{id}/react — a clínica reage a uma mensagem (emoji vazio tira). Uma reação da clínica por mensagem. Pela Meta só
+    /// dentro da janela de 24 h, em mensagem de até 30 dias, que não seja reação nem importada do celular (409 com a frase).
+    /// </summary>
+    Task<AppConversation> ReagirAsync(int usuarioId, string conversaId, AppReact reacao, CancellationToken ct = default);
+
+    /// <summary>GET /api/labels — as etiquetas da clínica (as quatro de partida enquanto a gestão não salvar nenhuma).</summary>
+    Task<AppLabel[]> EtiquetasAsync(int usuarioId, CancellationToken ct = default);
+
+    /// <summary>POST /api/labels — cria ou muda uma etiqueta (só a gestão: 403 para os outros). Devolve a lista inteira.</summary>
+    Task<AppLabel[]> SalvarEtiquetaAsync(int usuarioId, AppLabelSave etiqueta, CancellationToken ct = default);
+
+    /// <summary>POST …/{id}/labels — as etiquetas da conversa, exatamente estas (até 10).</summary>
+    Task<AppConversation> EtiquetarConversaAsync(int usuarioId, string conversaId, AppConversationLabels etiquetas, CancellationToken ct = default);
+
+    /// <summary>POST …/{id}/messages/{mensagemId}/star — ★ marca ou desmarca a mensagem como importante (para toda a equipe).</summary>
+    Task<AppConversation> EstrelarAsync(int usuarioId, string conversaId, string mensagemId, AppStar estrela, CancellationToken ct = default);
+
+    /// <summary>GET /api/pins — as conversas que a pessoa fixou no topo, na ordem em que fixou, e o máximo (3).</summary>
+    Task<AppPins> FixadasAsync(int usuarioId, CancellationToken ct = default);
+
+    /// <summary>POST …/{id}/pin — fixa ou desafixa a conversa no topo da lista da pessoa. 409 com a frase quando já tem o máximo.</summary>
+    Task<AppPins> FixarAsync(int usuarioId, string conversaId, AppPin fixar, CancellationToken ct = default);
+
+    /// <summary>
+    /// POST …/{id}/typing — o pulso de "estou escrevendo" (vale 6 s: pulse a cada ~3 s enquanto a pessoa digita). Devolve quem MAIS
+    /// da equipe escreve nesta conversa. Com <see cref="AppSession.PatientTyping"/>, o CRM também mostra "digitando…" ao paciente.
+    /// </summary>
+    Task<AppTyping> EscrevendoAsync(int usuarioId, string conversaId, CancellationToken ct = default);
+
+    /// <summary>GET …/{id}/typing — quem da equipe (além da pessoa) está escrevendo agora.</summary>
+    Task<AppTyping> QuemEscreveAsync(int usuarioId, string conversaId, CancellationToken ct = default);
+
+    /// <summary>POST …/{id}/typing/stop — a pessoa parou de escrever (enviou ou apagou): some na hora para as colegas.</summary>
+    Task ParouDeEscreverAsync(int usuarioId, string conversaId, CancellationToken ct = default);
+
     /// <summary>Esquece a sessão do CRM da pessoa (o app chama no logout): a próxima chamada entra de novo.</summary>
     void EsquecerSessao(int usuarioId);
 }
