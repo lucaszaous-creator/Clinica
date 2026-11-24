@@ -31,9 +31,10 @@ public sealed record MidiaDaMensagem(TipoDeMidia Tipo, string Rotulo, string? No
 
     /// <summary>
     /// GIF do WhatsApp (nov/2026): a Meta entrega como vídeo curto ("gif_playback") ou como imagem .gif. A tela o mostra em loop,
-    /// mudo, sem controles e com o selo "GIF". Hoje o sinal é o tipo "GIF" do CRM ou o nome .gif; o campo próprio vem do Raio-X.
+    /// mudo, sem controles e com o selo "GIF". O sinal é o <c>AppMessage.Animated</c> do CRM (a Meta marcou), o tipo "GIF" ou o
+    /// nome .gif. Figurinha animada continua figurinha: ela já se move sozinha e não leva selo.
     /// </summary>
-    public bool Gif => MidiaDaConversa.EhTipo(Mensagem.Type, "GIF")
+    public bool Gif => !Figurinha && (Mensagem.Animated || MidiaDaConversa.EhTipo(Mensagem.Type, "GIF"))
         || string.Equals(Path.GetExtension(Nome ?? Mensagem.FileName ?? ""), ".gif", StringComparison.OrdinalIgnoreCase);
 }
 

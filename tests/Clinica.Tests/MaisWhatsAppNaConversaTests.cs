@@ -89,4 +89,32 @@ public sealed class MaisWhatsAppNaConversaTests
         ConversasNaTela.LinhaDoTempo(c, 1, Agora).Where(i => i.Tipo != TipoNaLinhaDoTempo.Dia).Select(i => i.Tipo).Should()
             .Equal(TipoNaLinhaDoTempo.Recebida, TipoNaLinhaDoTempo.Nota, TipoNaLinhaDoTempo.Enviada, TipoNaLinhaDoTempo.Evento);
     }
+
+    [Fact]
+    public void Com_a_Timeline_do_CRM_a_tela_desenha_na_ordem_do_servidor_e_o_pendente_entra_pela_hora()
+    {
+        // O servidor manda a nota ANTES da mensagem do mesmo minuto (a ordem local poria a mensagem primeiro): vale a do servidor.
+        var t = Agora.AddMinutes(-20);
+        var c = new AppConversation("c1", "Ana", "5522990000000", "whatsapp", "x", "Recepção", null, false, 1, Agora, Agora, null, "",
+            [new AppMessage("m1", "in", "Oi", "TEXT", null, t, "received"),
+             new AppMessage("m2", "out", "Pendente", "TEXT", "bia", Agora.AddMinutes(-15), "pending")],
+            [new AppNote("n1", "Nota", "bia", t)],
+            [new AppAudit(Agora.AddMinutes(-10), "bia", "Transferiu de Recepção para Acupuntura")], [], null,
+            Timeline: [new("note", "n1", t), new("message", "m1", t), new("event", "0", Agora.AddMinutes(-10))]);
+
+        ConversasNaTela.LinhaDoTempo(c, 1, Agora).Where(i => i.Tipo != TipoNaLinhaDoTempo.Dia).Select(i => i.Tipo).Should()
+            .Equal(TipoNaLinhaDoTempo.Nota, TipoNaLinhaDoTempo.Recebida, TipoNaLinhaDoTempo.Enviada, TipoNaLinhaDoTempo.Evento);
+    }
+
+    [Fact]
+    public void Animated_do_CRM_faz_o_GIF_mas_a_figurinha_animada_continua_figurinha()
+    {
+        var gif = MidiaDaConversa.Da("c1", new AppMessage("m1", "in", "", "VIDEO", null, Agora, "received", Animated: true))!;
+        gif.Gif.Should().BeTrue();
+        gif.Rotulo.Should().Be("GIF");
+
+        var figurinha = MidiaDaConversa.Da("c1", new AppMessage("m2", "in", "", "STICKER", null, Agora, "received", Animated: true))!;
+        figurinha.Figurinha.Should().BeTrue();
+        figurinha.Gif.Should().BeFalse("a figurinha animada já se move sozinha e não leva selo");
+    }
 }
