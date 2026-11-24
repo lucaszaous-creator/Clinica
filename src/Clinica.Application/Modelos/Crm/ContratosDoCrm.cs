@@ -56,6 +56,8 @@ public sealed record AppTemplateSelection(string Name, string Language, string[]
 /// "uncertain" (envio não confirmado) | "delivered" | "seen" (lida) | "failed" (Error diz por quê). Type "TEXT" | "IMAGE" | "DOCUMENT" | "AUDIO" | "VIDEO" | "TEMPLATE" |
 /// "INTERACTIVE". AgentId nulo na saída = mensagem automática (lembrete, recall, menu).
 /// Sticker: figurinha do WhatsApp — Type continua "IMAGE" (o app antigo a mostra como foto), e o novo a desenha pequena e sem moldura.
+/// Animated (24/11/2026): figurinha animada ou GIF — a tela toca em laço, mudo e sem controles (só vem quando a Meta marca). ReplyToId na
+/// RECEBIDA: a mensagem que o paciente citou (o Id dela nesta conversa; se a citada é de antes do CRM, o wamid, que a tela não acha e ignora).
 /// Reactions: as reações a esta mensagem (no máximo uma do paciente e uma da clínica). ReactionTo: esta mensagem É a reação
 /// do paciente (texto "Reagiu com 👍") e aponta o Id da reagida — a tela nova a esconde e põe o emoji no balão; a antiga mostra
 /// o texto. Starred: ★ importante, para todos da conversa (§15).
@@ -64,7 +66,8 @@ public sealed record AppMessage(string Id, string Direction, string Text, string
     string Status, string? Error = null, string? AttachmentId = null, string? FileName = null,
     AppTemplateSelection? Template = null, string? ReplyToId = null, bool Sticker = false,
     AppReaction[]? Reactions = null, string? ReactionTo = null, bool Starred = false,
-    AppLocation? Location = null, AppSharedContact? SharedContact = null, string? Transcript = null, string? RetryOf = null);
+    AppLocation? Location = null, AppSharedContact? SharedContact = null, string? Transcript = null, string? RetryOf = null,
+    bool Animated = false);
 /// <summary>Uma reação. FromPatient: do paciente; senão, da clínica, e AgentId diz quem da equipe reagiu.</summary>
 public sealed record AppReaction(string Emoji, string? AgentId, bool FromPatient, DateTimeOffset At);
 public sealed record AppNote(string Id, string Text, string AgentId, DateTimeOffset At);
@@ -76,7 +79,14 @@ public sealed record AppConversation(string Id, string Name, string Contact, str
     string? AgentId, bool Closed, int Version, DateTimeOffset UpdatedAt, DateTimeOffset LastIncoming, int? PatientId,
     string PatientName, AppMessage[] Messages, AppNote[] Notes, AppAudit[] Audit, AppResolution[] Resolutions,
     DateTimeOffset? ClosedAt, AppPendingTransfer? PendingTransfer = null, string[]? Labels = null, string[]? Typing = null,
-    AppScheduledMessage[]? Scheduled = null);
+    AppScheduledMessage[]? Scheduled = null, AppTimelineItem[]? Timeline = null);
+/// <summary>
+/// Um item da LINHA DO TEMPO da conversa (24/11/2026): <see cref="AppConversation.Timeline"/> já vem na ordem certa —
+/// mensagens, notas e eventos intercalados pelo horário real do fato (UTC), com desempate estável. Kind: "message" (Ref =
+/// AppMessage.Id), "note" (Ref = AppNote.Id) ou "event" (Ref = a posição do evento em AppConversation.Audit: "0", "1"…).
+/// A tela desenha NESTA ordem; nula num CRM antigo (a tela cai na ordem de cada lista).
+/// </summary>
+public sealed record AppTimelineItem(string Kind, string Ref, DateTimeOffset At);
 /// <summary>
 /// O pedido de transferência para uma PESSOA que espera o aceite (o setor passa na hora e nunca fica pendente). Nulo
 /// quando não há. From: quem pediu; To: quem recebe (ids de AppAgent); Note: o contexto para quem recebe. Quem recebe
