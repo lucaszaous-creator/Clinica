@@ -793,7 +793,7 @@ public static partial class ConversasNaTela
         DateOnly? dia = null;
         ItemDaConversa? anterior = null;
         var recebidas = 0;
-        foreach (var (at, item) in Limpar(fontes.OrderBy(f => f.At).ThenBy(f => f.Ordem).ThenBy(f => f.Indice)
+        foreach (var (at, item) in Limpar(NaOrdemDoServidor(fontes, conversa.Timeline)
                      .Select(f => (f.At, f.Item, f.Evento)).ToList()))
         {
             var d = DateOnly.FromDateTime(NaClinica(at).DateTime);
@@ -821,6 +821,35 @@ public static partial class ConversasNaTela
             anterior = item.Tipo == TipoNaLinhaDoTempo.Evento ? null : final;
         }
         return itens;
+    }
+
+    /// <summary>
+    /// A ordem da conversa é a do CRM (<c>AppConversation.Timeline</c>, 24/11/2026): a tela desenha nela, sem reordenar. CRM antigo
+    /// (sem Timeline) ou item que o servidor ainda não conhece (a enviada otimista, o "…pendente") cai na ordem local — hora, depois
+    /// mensagem &lt; nota &lt; evento, depois a posição — e entra entre os do servidor pela hora, sem mexer na ordem deles.
+    /// </summary>
+    private static List<(DateTimeOffset At, int Ordem, int Indice, ItemDaConversa Item, EventoDaTrilha? Evento)> NaOrdemDoServidor(
+        List<(DateTimeOffset At, int Ordem, int Indice, ItemDaConversa Item, EventoDaTrilha? Evento)> fontes, AppTimelineItem[]? timeline)
+    {
+        var local = fontes.OrderBy(f => f.At).ThenBy(f => f.Ordem).ThenBy(f => f.Indice).ToList();
+        if (timeline is not { Length: > 0 }) return local;
+
+        var posicao = new Dictionary<(string, string), int>();
+        for (var p = 0; p < timeline.Length; p++)
+            posicao.TryAdd((timeline[p].Kind?.Trim().ToLowerInvariant() ?? "", timeline[p].Ref ?? ""), p);
+        int? Posicao((DateTimeOffset At, int Ordem, int Indice, ItemDaConversa Item, EventoDaTrilha? Evento) f)
+        {
+            var chave = f.Ordem switch { 0 => ("message", f.Item.Id ?? ""), 1 => ("note", f.Item.Id ?? ""), _ => ("event", f.Indice.ToString(CultureInfo.InvariantCulture)) };
+            return posicao.TryGetValue(chave, out var p) ? p : null;
+        }
+
+        var doServidor = fontes.Select(f => (Fonte: f, Pos: Posicao(f))).Where(x => x.Pos is not null).OrderBy(x => x.Pos).Select(x => x.Fonte).ToList();
+        var soLocais = local.Where(f => Posicao(f) is null).ToList();
+        var juntos = new List<(DateTimeOffset At, int Ordem, int Indice, ItemDaConversa Item, EventoDaTrilha? Evento)>(fontes.Count);
+        int s = 0, l = 0;
+        while (s < doServidor.Count || l < soLocais.Count)
+            juntos.Add(l < soLocais.Count && (s >= doServidor.Count || soLocais[l].At < doServidor[s].At) ? soLocais[l++] : doServidor[s++]);
+        return juntos;
     }
 
     private static string Agente(string? id, IReadOnlyDictionary<string, string>? nomes, string semAutor)
