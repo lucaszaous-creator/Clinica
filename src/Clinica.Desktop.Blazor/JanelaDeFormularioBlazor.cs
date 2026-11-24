@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
 using Clinica.Application.Assinatura;
+using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Componentes;
 using Clinica.Ui.Blazor.Hospedagem;
 using Microsoft.AspNetCore.Components.WebView;
@@ -63,26 +64,14 @@ public sealed class JanelaDeFormularioBlazor : Window
                 ["AoPedirDesistencia"] = (Action<Action>)(desistir => _desistir = desistir)
             }
         });
-        _visor.BlazorWebViewInitializing += (_, e) =>
-        {
-            // O MESMO perfil do navegador das telas (fora da pasta da instalação).
-            e.UserDataFolder = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "ClinicaSemDor", "Blazor");
-        };
+        // O MESMO ambiente e as MESMAS regras do navegador das telas (NavegadorEmbutido): o perfil fora
+        // da pasta da instalação, o pt-BR do corretor e o menu só em campo editável. A senha do A1 é
+        // digitada aqui: o navegador não a oferece para guardar (IsPasswordAutosaveEnabled desligado lá).
+        _visor.BlazorWebViewInitializing += (_, e) => NavegadorEmbutido.PrepararAmbiente(e);
         _visor.BlazorWebViewInitialized += (_, e) =>
         {
             e.WebView.DefaultBackgroundColor = System.Drawing.Color.FromArgb(0xF8, 0xFA, 0xFC);
-            var config = e.WebView.CoreWebView2.Settings;
-            config.AreDefaultContextMenusEnabled = false;
-            config.IsStatusBarEnabled = false;
-            // A senha do A1 é digitada aqui: o navegador não a oferece para guardar.
-            config.IsPasswordAutosaveEnabled = false;
-            config.IsGeneralAutofillEnabled = false;
-#if !DEBUG
-            config.AreDevToolsEnabled = false;
-            config.AreBrowserAcceleratorKeysEnabled = false;
-#endif
+            NavegadorEmbutido.ConfigurarNavegador(e.WebView.CoreWebView2);
         };
         _visor.UrlLoading += (_, e) =>
         {
