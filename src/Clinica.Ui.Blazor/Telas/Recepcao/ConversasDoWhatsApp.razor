@@ -128,7 +128,7 @@ else
                                 @if (resumoDaLinha.TryGetValue(l.Id, out var resumo) && resumo.Labels is { Length: > 0 } ids)
                                 {
                                     var dela = ConversasNaTela.EtiquetasDa(ids, _etiquetas);
-                                    @if (dela.Count > 0) { <span class="wa-etiqueta-conversa tom-@ConversasNaTela.TomDaEtiqueta(dela[0].Id)" title="@string.Join(", ", dela.Select(x => x.Name))">@dela[0].Name@if (dela.Count > 1) { <small> +@(dela.Count - 1)</small> }</span> }
+                                    @if (dela.Count > 0) { <span class="wa-etiqueta-conversa @(dela.Count > 1 ? "com-mais" : null) tom-@ConversasNaTela.TomDaEtiqueta(dela[0].Id)" title="@string.Join(", ", dela.Select(x => x.Name))">@if (dela.Count > 1) { <small>+@(dela.Count - 1)</small> }<span class="wa-etiqueta-nome">@dela[0].Name</span></span> }
                                 }
                                 @if (l.TemResponsavel) { <span class="wa-linha-quem @(l.Minha ? "minha" : null)" title="@l.Responsavel"><Icone Nome="pessoa" /><span>@l.Responsavel</span></span> }</span>
                         </span>

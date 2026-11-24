@@ -659,12 +659,25 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px;fon
    endereço/contato, transcrição, "!" + "Tentar de novo", agendadas, pílulas do @SemDor, enviar mais tarde e saudação.
    ==================================================================================================================== */
 .wa-etiqueta-conversa{display:inline-flex;align-items:center;padding:1px 8px;border-radius:var(--radius-pilula);font-size:11px;font-weight:600;white-space:nowrap}
-:is(.wa-etiqueta-conversa,.wa-pilula-etiqueta).tom-laranja{background:var(--wa-etq-laranja);color:var(--wa-etq-laranja-texto)}
-:is(.wa-etiqueta-conversa,.wa-pilula-etiqueta).tom-verde{background:var(--wa-etq-verde);color:var(--wa-etq-verde-texto)}
-:is(.wa-etiqueta-conversa,.wa-pilula-etiqueta).tom-vermelho{background:var(--wa-etq-vermelho);color:var(--wa-etq-vermelho-texto)}
-:is(.wa-etiqueta-conversa,.wa-pilula-etiqueta).tom-azul{background:var(--wa-acao-suave);color:var(--wa-acao)}
+:is(.wa-etiqueta-conversa,.wa-pilula-etiqueta).tom-laranja{--etq-fundo:var(--wa-etq-laranja);--etq-texto:var(--wa-etq-laranja-texto)}
+:is(.wa-etiqueta-conversa,.wa-pilula-etiqueta).tom-verde{--etq-fundo:var(--wa-etq-verde);--etq-texto:var(--wa-etq-verde-texto)}
+:is(.wa-etiqueta-conversa,.wa-pilula-etiqueta).tom-vermelho{--etq-fundo:var(--wa-etq-vermelho);--etq-texto:var(--wa-etq-vermelho-texto)}
+:is(.wa-etiqueta-conversa,.wa-pilula-etiqueta).tom-azul{--etq-fundo:var(--wa-acao-suave);--etq-texto:var(--wa-acao)}
+:is(.wa-etiqueta-conversa,.wa-pilula-etiqueta)[class*="tom-"]{background:var(--etq-fundo);color:var(--etq-texto)}
 .wa-pilula.wa-pilula-etiqueta[aria-pressed="true"]{box-shadow:inset 0 0 0 2px currentColor}
-.wa-linha-rodape .wa-etiqueta-conversa{flex:0 1 auto;min-width:0;max-width:45%;overflow:hidden;text-overflow:ellipsis}
+/* Quem atende nunca é cortado (QA da Jade, 24/11): a etiqueta é que cede — o nome dela encolhe até sumir e fica o "+1". */
+.wa-linha-rodape .wa-linha-quem{flex:none}
+.wa-linha-rodape .wa-etiqueta-conversa{flex:0 1 auto;min-width:0;overflow:hidden}
+.wa-etiqueta-nome{min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+/* Com "+n": o nome inteiro ou nenhum. O "+n" vem primeiro no HTML e, da direita para a esquerda com quebra, fica sempre na
+   linha; o nome que não cabe desce para a segunda linha, escondida — sobra o "+1" limpo, sem letra cortada. */
+.wa-linha-rodape .wa-etiqueta-conversa.com-mais{flex-direction:row-reverse;flex-wrap:wrap;justify-content:flex-end;align-content:flex-start;
+  height:18px;line-height:16px;gap:0 3px}
+.wa-linha-rodape .wa-etiqueta-conversa.com-mais .wa-etiqueta-nome{flex:none;overflow:visible}
+/* A cor fica nos pedaços (o "+1" e o nome), não na caixa: escondido o nome, não sobra rabo de pílula vazio. */
+.wa-linha-rodape .wa-etiqueta-conversa.com-mais[class*="tom-"]{background:transparent;padding:0}
+.wa-linha-rodape .wa-etiqueta-conversa.com-mais > *{padding:1px 8px;border-radius:var(--radius-pilula);background:var(--etq-fundo)}
+.wa-etiqueta-conversa small{flex:none}
 .wa-etiqueta-conversa small{font-size:inherit;font-weight:700;margin-left:2px}
 .wa-camada{display:contents}
 .wa-fixada{display:inline-flex;color:var(--wa-cinza);margin-left:auto;margin-right:4px}
@@ -747,3 +760,8 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px;fon
 @media (prefers-reduced-motion:reduce){.wa-interruptor input,.wa-interruptor input::after{transition:none}}
 /* No celular a automática quebra a linha em vez de cortar o que o paciente escolheu. */
 @media (max-width:760px){.wa-auto{border-radius:var(--radius-card)}.wa-auto-texto{white-space:normal}}
+
+/* O aviso passageiro com a aba WhatsApp à vista (QA da Jade, 24/11): sobe acima do campo (não tapa o enviar nem o texto) e usa o
+   neutro escuro, sem o azul do cinza-900 da suíte. A aba que fica montada e oculta no palco não muda as outras telas. */
+body:has(.pagina.wa):not(:has(.palco-tela[hidden] .pagina.wa)) .notificacoes{bottom:calc(var(--space-12) + var(--space-12) + var(--space-2))}
+body:has(.pagina.wa):not(:has(.palco-tela[hidden] .pagina.wa)) .notificacao:not(.erro){background:var(--wa-aviso-fundo)}
