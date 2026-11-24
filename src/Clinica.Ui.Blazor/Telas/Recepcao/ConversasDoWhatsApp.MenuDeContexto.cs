@@ -50,6 +50,7 @@ public partial class ConversasDoWhatsApp
     {
         _menuDaConversa = null;
         _menuDaMensagem = null;
+        FecharMenusDoWhatsApp();
     }
 
     // O texto selecionado dentro DESTE balão no instante do clique: seleção noutro lugar não vira "Copiar a seleção".
@@ -158,6 +159,8 @@ public partial class ConversasDoWhatsApp
                 if (string.IsNullOrWhiteSpace(r.Texto)) r.Texto = MenuDoWhatsApp.ComecoDaNota(m);
                 _focarCampo = true;
                 break;
+            // Era o botão ao lado do balão do paciente (R10); desde a F1 (nov/2026) é um item do menu do balão, o mesmo handler.
+            case AcaoNaMensagem.PerguntarAoProfissional: await AbrirPerguntaAsync(c, m); break;
             case AcaoNaMensagem.DetalhesDaEntrega:
                 await Dialogos.AvisoAsync("Detalhes da entrega",
                     string.Join("\n", MenuDoWhatsApp.DetalhesDaEntrega(m).Select(l => $"{l.Rotulo}: {l.Texto}")));

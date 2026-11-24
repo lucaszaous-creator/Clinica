@@ -65,11 +65,20 @@ public sealed record FichaDaConversa(EstadoFicha Estado, int Candidatas, string 
     public bool PedeConferir => Estado != EstadoFicha.Conferida;
 }
 
-/// <summary>Os filtros da lista de conversas.</summary>
-public enum FiltroDasConversas { Novas, Minhas, Todas, Encerradas }
+/// <summary>
+/// Os filtros da lista de conversas. <see cref="SemResposta"/> (nov/2026, F1 da tela com cara de WhatsApp) é o modo
+/// da direção: TODAS as conversas abertas em que a última palavra é do paciente, de quem quer que estejam.
+/// </summary>
+public enum FiltroDasConversas { Novas, Minhas, Todas, Encerradas, SemResposta }
 
 /// <summary>Os números do seletor e dos filtros da lista de conversas.</summary>
-public sealed record ContagemDasConversas(int Novas, int Minhas, int Todas, int Encerradas, int NaoLidas);
+public sealed record ContagemDasConversas(int Novas, int Minhas, int Todas, int Encerradas, int NaoLidas, int SemResposta = 0);
+
+/// <summary>
+/// Uma pílula do topo da lista, como as do WhatsApp (Tudo, Não lidas, Minhas, Sem resposta): o filtro que ela liga e
+/// se ela pede só as não lidas. "Encerradas" não é pílula: é a linha de cima da lista, como as Arquivadas.
+/// </summary>
+public sealed record PilulaDaLista(string Rotulo, FiltroDasConversas Filtro, bool SoNaoLidas = false);
 
 /// <summary>O que pede ação dentro da conversa (o aviso acima do campo de escrever).</summary>
 public enum TipoDaAcaoPedida
@@ -132,7 +141,7 @@ public sealed record AcaoPedida(TipoDaAcaoPedida Tipo, string Tom, string Titulo
 public enum TipoNaLinhaDoTempo { Dia, Novas, Evento, Recebida, Enviada, Nota }
 
 /// <summary>
-/// Um item da linha do tempo: o separador de dia, a divisória "N novas mensagens", um evento
+/// Um item da linha do tempo: o separador de dia, a divisória "N mensagens não lidas", um evento
 /// da trilha do CRM, um balão (recebido ou enviado) ou uma nota interna. <see cref="Seguida"/>
 /// diz que o balão continua o anterior (mesmo lado e mesmo autor): ele perde o espaço e o canto.
 /// <see cref="Tom"/> só vale para o evento ("sucesso", "aviso" ou "neutro").
@@ -595,8 +604,48 @@ public static partial class ConversasNaTela
         FiltroDasConversas.Novas => EhNova(c),
         FiltroDasConversas.Minhas => !c.Closed && meuAgente is not null && c.AgentId == meuAgente,
         FiltroDasConversas.Todas => !c.Closed,
+        FiltroDasConversas.SemResposta => EsperaResposta(c),
         _ => c.Closed
     };
+
+    /// <summary>
+    /// A conversa espera a clínica: aberta, fora do menu automático do CRM e com a ÚLTIMA fala do paciente — de quem quer
+    /// que ela seja (o "Sem resposta" da direção). É a regra de <see cref="PedemResposta"/> sem o filtro de dono e sem o
+    /// mínimo de minutos: o sino avisa depois de 5 min, a pílula mostra desde a primeira mensagem.
+    /// </summary>
+    public static bool EsperaResposta(AppConversationSummary c)
+        => !c.Closed && !c.AwaitingMenu && string.Equals(c.PreviewDirection, "in", StringComparison.OrdinalIgnoreCase)
+            && PacienteJaEscreveu(c.LastIncoming);
+
+    /// <summary>As pílulas do topo da lista, na ordem do WhatsApp.</summary>
+    public static readonly IReadOnlyList<PilulaDaLista> Pilulas =
+    [
+        new("Tudo", FiltroDasConversas.Todas),
+        new("Não lidas", FiltroDasConversas.Todas, SoNaoLidas: true),
+        new("Minhas", FiltroDasConversas.Minhas),
+        new("Sem resposta", FiltroDasConversas.SemResposta)
+    ];
+
+    /// <summary>A pílula que corresponde ao filtro e ao "só não lidas" da tela (Encerradas não tem pílula: nulo).</summary>
+    public static PilulaDaLista? PilulaAtual(FiltroDasConversas filtro, bool soNaoLidas)
+        => Pilulas.FirstOrDefault(p => p.Filtro == filtro && p.SoNaoLidas == soNaoLidas)
+            ?? Pilulas.FirstOrDefault(p => p.Filtro == filtro && !p.SoNaoLidas);
+
+    /// <summary>
+    /// O número na pílula: só nas duas que pedem ação (Não lidas e Sem resposta), nada quando é zero, e "99+" acima de 99
+    /// para a pílula não crescer. "Tudo" e "Minhas" não levam número: as quatro pílulas cabem numa linha da coluna de
+    /// 1024 px, e "Minhas" já diz quantas na barra do turno ("4 conversas com você").
+    /// </summary>
+    public static string? ContagemDaPilula(PilulaDaLista p, ContagemDasConversas c)
+    {
+        int? n = p switch
+        {
+            { SoNaoLidas: true } => c.NaoLidas,
+            { Filtro: FiltroDasConversas.SemResposta } => c.SemResposta,
+            _ => null
+        };
+        return n switch { null or <= 0 => null, > 99 => "99+", var x => x.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) };
+    }
 
     /// <summary>
     /// A lista: o filtro, "só não lidas", e a busca pelo nome (da conversa ou da ficha, sem
@@ -613,7 +662,9 @@ public static partial class ConversasNaTela
             .Where(c => NoFiltro(c, filtro, meuAgente) && (!soNaoLidas || c.Unread > 0)
                 && (termo.Length == 0 || Contem(c.Name, termo) || Contem(c.PatientName, termo)
                     || digitos.Length >= DigitosParaBuscarTelefone && Telefone.Normalizar(c.Contact).Contains(digitos, StringComparison.Ordinal)))
-            .OrderBy(c => filtro == FiltroDasConversas.Novas ? c.UpdatedAt.UtcTicks : -c.UpdatedAt.UtcTicks).ThenBy(c => c.Id, StringComparer.Ordinal)
+            // "Sem resposta": quem espera há MAIS tempo primeiro (a última fala do paciente), como a fila do sino.
+            .OrderBy(c => filtro == FiltroDasConversas.SemResposta ? c.LastIncoming.UtcTicks
+                : filtro == FiltroDasConversas.Novas ? c.UpdatedAt.UtcTicks : -c.UpdatedAt.UtcTicks).ThenBy(c => c.Id, StringComparer.Ordinal)
             .ToList();
     }
 
@@ -623,7 +674,7 @@ public static partial class ConversasNaTela
         var lista = conversas as IReadOnlyCollection<AppConversationSummary> ?? conversas.ToList();
         return new(lista.Count(c => NoFiltro(c, FiltroDasConversas.Novas, meuAgente)),
             lista.Count(c => NoFiltro(c, FiltroDasConversas.Minhas, meuAgente)),
-            lista.Count(c => !c.Closed), lista.Count(c => c.Closed), lista.Count(c => !c.Closed && c.Unread > 0));
+            lista.Count(c => !c.Closed), lista.Count(c => c.Closed), lista.Count(c => !c.Closed && c.Unread > 0), lista.Count(EsperaResposta));
     }
 
     public static string Rotulo(FiltroDasConversas f) => f switch
@@ -631,6 +682,7 @@ public static partial class ConversasNaTela
         FiltroDasConversas.Novas => "Novas",
         FiltroDasConversas.Minhas => "Minhas",
         FiltroDasConversas.Todas => "Todas",
+        FiltroDasConversas.SemResposta => "Sem resposta",
         _ => "Encerradas"
     };
 
@@ -648,6 +700,7 @@ public static partial class ConversasNaTela
     public static (string Titulo, string Texto) Vazio(FiltroDasConversas filtro, bool comBusca)
         => comBusca ? ("Nenhuma conversa com esse nome", "Confira o nome ou o número.")
             : filtro == FiltroDasConversas.Novas ? ("Nenhuma conversa nova", "Toda conversa já tem alguém cuidando dela.")
+            : filtro == FiltroDasConversas.SemResposta ? ("Ninguém esperando resposta", "Em toda conversa aberta, a última palavra é da clínica.")
             : ("Nada por aqui", "As conversas aparecem aqui assim que chegam.");
 
     /// <summary>A última mensagem recebida de cada ficha (pelas conversas com ficha conferida) — a entrada da retenção.</summary>
@@ -678,7 +731,7 @@ public static partial class ConversasNaTela
     /// <summary>
     /// A conversa como a recepção lê: mensagens, notas internas e os eventos da trilha
     /// intercalados por <c>At</c> (no empate, a mensagem, depois a nota, depois o evento), com
-    /// o separador de dia, a divisória "N novas mensagens" antes da primeira recebida não lida
+    /// o separador de dia, a divisória "N mensagens não lidas" antes da primeira recebida não lida
     /// (depois das <paramref name="recebidasJaLidas"/>) e <c>Seguida</c> nos balões que
     /// continuam o anterior (mesmo lado e mesmo autor, sem nada entre eles).
     /// <paramref name="nomesDosAgentes"/> é o <c>AppSession.Agents</c> (id → nome); id
@@ -739,7 +792,7 @@ public static partial class ConversasNaTela
             }
             if (item.Tipo == TipoNaLinhaDoTempo.Recebida && ++recebidas == Math.Max(0, recebidasJaLidas) + 1 && naoLidas > 0)
             {
-                itens.Add(new(TipoNaLinhaDoTempo.Novas, naoLidas == 1 ? "1 nova mensagem" : $"{naoLidas} novas mensagens"));
+                itens.Add(new(TipoNaLinhaDoTempo.Novas, naoLidas == 1 ? "1 mensagem não lida" : $"{naoLidas} mensagens não lidas"));
                 anterior = null;
             }
             var seguida = item.Tipo is TipoNaLinhaDoTempo.Recebida or TipoNaLinhaDoTempo.Enviada or TipoNaLinhaDoTempo.Nota

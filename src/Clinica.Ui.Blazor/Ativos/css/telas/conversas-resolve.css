@@ -16,15 +16,7 @@
 /* ---------- Marcar horário: no fim da seção Horários ---------- */
 .wa-marcar{margin-top:var(--space-2)}
 
-/* ---------- Perguntar ao profissional: ao lado do balão recebido ----------
-   Ao passar o mouse ou com o foco do teclado (a linha do tempo não vira uma fileira de botões); fora do
-   balão, na sobra à direita dele (o balão vai até 76% da largura). Em tela de toque, sempre à vista. */
-.wa-m.recebida{position:relative}
-.wa-m-acoes{position:absolute;left:100%;top:var(--space-1);margin-left:var(--space-1);opacity:0;transition:opacity var(--duracao-normal) ease}
-.wa-m.recebida:hover .wa-m-acoes,.wa-m-acoes:focus-within{opacity:1}
-.wa-m-acoes .botao.mini.icone{background:var(--superficie);box-shadow:var(--sombra-cartao)}
-@media (hover:none){.wa-m-acoes{opacity:1}}
-@media (prefers-reduced-motion:reduce){.wa-m-acoes{transition:none}}
+/* "Perguntar ao profissional" saiu do lado do balão (F1, nov/2026): é um item do menu do balão (a setinha e o botão direito). */
 .wa-citacao{margin:0 0 var(--space-3);padding:var(--space-2) var(--space-3);border-left:3px solid var(--acento);border-radius:var(--radius-pequeno);
   background:var(--fundo);white-space:pre-wrap;overflow-wrap:anywhere;max-height:160px;overflow:auto;color:var(--texto-primario)}
 .wa-perguntar-quem{max-height:240px;overflow:auto;margin-bottom:var(--space-3)}

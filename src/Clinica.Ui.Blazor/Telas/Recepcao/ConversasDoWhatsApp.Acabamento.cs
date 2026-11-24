@@ -9,7 +9,7 @@ namespace Clinica.Ui.Blazor.Telas;
 
 /// <summary>
 /// O ACABAMENTO DA TELA DO WHATSAPP (25/10/2026, docs/whatsapp-nativo-implementacao.md §15): o teclado do
-/// WhatsApp Web (Enter envia, Shift+Enter quebra a linha, Esc fecha o que está por cima, o foco vai ao
+/// WhatsApp Web (Enter envia, Shift+Enter quebra a linha, o foco vai ao
 /// campo), a ligação que cai no meio do uso (a faixa amarela) e os botões do modelo sob o balão. Num
 /// arquivo à parte para as outras frentes da tela não esbarrarem; o que a tela AFIRMA vem de
 /// <see cref="ConversasNaTela"/> e <see cref="ModeloDoWhatsApp"/>.
@@ -40,26 +40,7 @@ public partial class ConversasDoWhatsApp
         if (ex is CrmIndisponivel and not CrmNaoConfigurado) _semLigacaoDesde ??= WhatsAppDaRecepcaoService.Agora;
     }
 
-    // ---------------------------------------------------------------- Esc fecha o que está por cima
-
-    private void FecharPorCima()
-    {
-        if (_popover == Popover.Nenhum) return;
-        _popover = Popover.Nenhum;
-        _focarCampo = true;
-    }
-
-    private void TeclaDoPopover(KeyboardEventArgs e)
-    {
-        if (e.Key == "Escape") FecharPorCima();
-    }
-
-    private void TeclaDaBusca(KeyboardEventArgs e)
-    {
-        if (e.Key != "Escape") return;
-        _buscaConversa = null;
-        _focarCampo = true;
-    }
+    // O Esc (fechar o que está por cima) mora desde a F1b num lugar só: o atalho Fechar (ConversasDoWhatsApp.CaraDeWhatsApp.cs).
 
     // ---------------------------------------------------------------- depois do desenho: as teclas e o foco
 

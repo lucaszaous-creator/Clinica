@@ -120,11 +120,13 @@ public sealed class ConversaResolveNaTelaTests : IClassFixture<BancoDasTelas>, I
     public async Task A_mensagem_do_paciente_vai_ao_profissional_pelo_chat_da_equipe()
     {
         var tela = AbrirTela();
-        Filtro(tela, "Todas");
+        Filtro(tela, "Tudo");
         Abrir(tela, "Lúcia");
-        tela.WaitForAssertion(() => tela.FindAll(".wa-m.recebida .wa-m-acoes button").Should().NotBeEmpty(), Prazo);
-
-        tela.Clicar(() => tela.FindAll(".wa-m.recebida").Last(m => m.TextContent.Contains("braço")).QuerySelector(".wa-m-acoes button")!);
+        // Desde a F1 (nov/2026) o "Perguntar ao profissional" é um item do menu do balão (a setinha), não um botão ao lado dele.
+        tela.WaitForAssertion(() => tela.FindAll(".wa-m.recebida .wa-balao-menu").Should().NotBeEmpty(), Prazo);
+        tela.Clicar(() => tela.FindAll(".wa-m.recebida").Last(m => m.TextContent.Contains("braço")).QuerySelector(".wa-balao-menu")!);
+        tela.WaitForAssertion(() => tela.Find(".menu-contexto").TextContent.Should().Contain("Perguntar ao profissional"), Prazo);
+        tela.Clicar(() => tela.FindAll(".menu-contexto [role=menuitem]").First(b => b.TextContent.Trim() == "Perguntar ao profissional"));
         tela.WaitForAssertion(() => tela.Find(".modal").TextContent.Should().Contain("Perguntar ao profissional"), Prazo);
         tela.Find(".modal .wa-citacao").TextContent.Should().Contain("o braço ficou inchado");
         tela.Find(".modal").TextContent.Should().Contain("Não entra no prontuário");

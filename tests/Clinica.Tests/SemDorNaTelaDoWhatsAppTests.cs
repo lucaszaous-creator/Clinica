@@ -59,7 +59,7 @@ public sealed class SemDorNaTelaDoWhatsAppTests : IClassFixture<BancoDasTelas>, 
         var tipo = typeof(IHostDaTela).Assembly.GetType("Clinica.Ui.Blazor.Telas.ConversasDoWhatsApp")!;
         var tela = _ctx.RenderComponent<Raiz>(p => p.Add(r => r.Tela, tipo));
         tela.WaitForAssertion(() => tela.FindAll(".wa-linha").Should().NotBeEmpty(), Prazo);
-        tela.Clicar(() => tela.FindAll(".wa-filtros .segmentado button").First(b => b.TextContent.Trim().StartsWith("Todas", StringComparison.Ordinal)));
+        tela.Clicar(() => tela.FindAll(".wa-filtros .wa-pilula").First(b => b.TextContent.Trim().StartsWith("Tudo", StringComparison.Ordinal)));
         return tela;
     }
 
@@ -118,7 +118,9 @@ public sealed class SemDorNaTelaDoWhatsAppTests : IClassFixture<BancoDasTelas>, 
         var tela = Abrir();
         AbrirConversa(tela, "Maria das Graças");
 
-        tela.Clicar(() => tela.Find("[data-acao=resumo]"));
+        // O Resumo mora no ⋮ do cabeçalho desde a F1 (nov/2026).
+        tela.Clicar(() => tela.Find("[data-acao=menu]"));
+        tela.Clicar(() => tela.FindAll(".menu-contexto [role=menuitem]").First(b => b.TextContent.Trim() == "Resumo do @SemDor"));
         tela.WaitForAssertion(() => tela.Find(".wa-semdor-resumo").TextContent.Should().Contain("O paciente quer").And.Contain("Remarcar a sessão de hoje")
             .And.Contain("Já foi feito").And.Contain("Falta"), Prazo);
 

@@ -566,7 +566,7 @@ public sealed class ConversasNaTelaTests
             (TipoNaLinhaDoTempo.Evento, "A conversa reabriu sozinha com a nova mensagem do paciente", false),
             (TipoNaLinhaDoTempo.Nota, "Ela prefere a tarde.", false),
             (TipoNaLinhaDoTempo.Enviada, "Tenho terça ou quinta", false),
-            (TipoNaLinhaDoTempo.Novas, "1 nova mensagem", false),
+            (TipoNaLinhaDoTempo.Novas, "1 mensagem não lida", false),
             (TipoNaLinhaDoTempo.Recebida, "Terça às 14h fica ótimo", false),
         ], itens.Select(i => (i.Tipo, i.Texto, i.Seguida)));
 
@@ -586,7 +586,7 @@ public sealed class ConversasNaTelaTests
             WhatsAppDeTeste.Recebida("c", WhatsAppDeTeste.Em(24, 9, 2)),
         ]);
         var todas = ConversasNaTela.LinhaDoTempo(conversa, 0, Agora);
-        Assert.Equal((TipoNaLinhaDoTempo.Novas, "3 novas mensagens"), (todas[1].Tipo, todas[1].Texto));
+        Assert.Equal((TipoNaLinhaDoTempo.Novas, "3 mensagens não lidas"), (todas[1].Tipo, todas[1].Texto));
         Assert.Equal("a", todas[2].Id);
         Assert.False(todas[2].Seguida); // a divisória quebra o grupo
         Assert.DoesNotContain(ConversasNaTela.LinhaDoTempo(conversa, 3, Agora), i => i.Tipo == TipoNaLinhaDoTempo.Novas);
@@ -692,8 +692,8 @@ public sealed class ConversasNaTelaTests
         Assert.Equal(["a", "e", "b", "c", "f"], ConversasNaTela.Filtrar(Lista, FiltroDasConversas.Todas, "ana").Select(c => c.Id));
         Assert.Equal(["d"], ConversasNaTela.Filtrar(Lista, FiltroDasConversas.Encerradas, "ana").Select(c => c.Id));
         Assert.Equal(["a", "e"], ConversasNaTela.Filtrar(Lista, FiltroDasConversas.Todas, "ana", soNaoLidas: true).Select(c => c.Id));
-        Assert.Equal(new ContagemDasConversas(2, 1, 5, 1, 2), ConversasNaTela.Contagens(Lista, "ana"));
-        Assert.Equal(["Novas", "Minhas", "Todas", "Encerradas"], Enum.GetValues<FiltroDasConversas>().Select(ConversasNaTela.Rotulo));
+        Assert.Equal(new ContagemDasConversas(2, 1, 5, 1, 2, SemResposta: 4), ConversasNaTela.Contagens(Lista, "ana")); // a, b, e, f: o menu e a encerrada não
+        Assert.Equal(["Novas", "Minhas", "Todas", "Encerradas", "Sem resposta"], Enum.GetValues<FiltroDasConversas>().Select(ConversasNaTela.Rotulo));
     }
 
     [Fact]

@@ -64,7 +64,7 @@ public sealed class RegrasDoWhatsAppNaTelaTests : IClassFixture<BancoDasTelas>, 
         var tipo = typeof(IHostDaTela).Assembly.GetType("Clinica.Ui.Blazor.Telas.ConversasDoWhatsApp")!;
         var tela = _ctx.RenderComponent<Raiz>(p => p.Add(r => r.Tela, tipo));
         tela.WaitForAssertion(() => tela.FindAll(".wa-linha").Should().NotBeEmpty(), Prazo);
-        tela.Clicar(() => tela.FindAll(".wa-filtros .segmentado button").First(b => b.TextContent.Trim().StartsWith("Todas", StringComparison.Ordinal)));
+        tela.Clicar(() => tela.FindAll(".wa-filtros .wa-pilula").First(b => b.TextContent.Trim().StartsWith("Tudo", StringComparison.Ordinal)));
         return tela;
     }
 
@@ -103,7 +103,9 @@ public sealed class RegrasDoWhatsAppNaTelaTests : IClassFixture<BancoDasTelas>, 
         var tela = Abrir();
         // O Roberto está com a Ana e não tem aviso de confirmação (o "não vem" da Maria viria antes da espera).
         AbrirConversa(tela, PessoasDoWhatsApp.Roberto.Nome, PessoasDoWhatsApp.Roberto.Nome);
-        tela.Clicar(() => tela.Find("button[data-acao='transferir']"));
+        // Transferir mora no ⋮ do cabeçalho desde a F1 (nov/2026).
+        tela.Clicar(() => tela.Find("button[data-acao='menu']"));
+        tela.Clicar(() => ItemDoMenu(tela, "Transferir…"));
         tela.WaitForAssertion(() => tela.Find(".modal .wa-opcoes"), Prazo);
 
         // Nada vem marcado (item 20): sem escolher, o botão não transfere.
@@ -116,7 +118,10 @@ public sealed class RegrasDoWhatsAppNaTelaTests : IClassFixture<BancoDasTelas>, 
         // A conversa continua com quem pediu, e o aviso diz que espera o aceite (R3/R7).
         tela.WaitForAssertion(() => tela.Find(".wa-acao strong").TextContent.Should().Be("Aguardando o aceite de Bruna Reis."), Prazo);
         tela.Find(".wa-faixa").TextContent.Should().Contain("Com você");
-        tela.Find("button[data-acao='transferir']").HasAttribute("disabled").Should().BeTrue("um pedido por vez");
+        tela.Clicar(() => tela.Find("button[data-acao='menu']"));
+        ItemDoMenu(tela, "Transferir…").GetAttribute("aria-disabled").Should().Be("true", "um pedido por vez");
+        ItemDoMenu(tela, "Transferir…").GetAttribute("title").Should().Contain("aguardando o aceite");
+        tela.InvokeAsync(() => tela.Find(".menu-contexto-fundo").Click()).GetAwaiter().GetResult();
 
         tela.Clicar(() => Botao(tela, ".wa-acao button", "Cancelar o pedido"));
         tela.WaitForAssertion(() => tela.FindAll(".wa-acao strong").Should().NotContain(e => e.TextContent.Contains("Aguardando o aceite")), Prazo);
@@ -180,14 +185,14 @@ public sealed class RegrasDoWhatsAppNaTelaTests : IClassFixture<BancoDasTelas>, 
         BotaoDireito(tela, () => tela.FindAll(".wa-m.recebida .wa-balao").First(b => b.TextContent.Contains("Serve sim")));
 
         tela.WaitForAssertion(() => tela.Find(".menu-contexto").GetAttribute("aria-label").Should().Be("Ações da mensagem"), Prazo);
-        var responder = ItemDoMenu(tela, "Responder citando");
+        var responder = ItemDoMenu(tela, "Responder");
         if (responder.GetAttribute("aria-disabled") == "true")
         {
             // O relógio da prévia segue a hora da suíte: com a janela de 24 h já fechada, o item diz por quê.
             responder.GetAttribute("title").Should().Contain("Janela de 24 h fechada");
             return;
         }
-        tela.Clicar(() => ItemDoMenu(tela, "Responder citando"));
+        tela.Clicar(() => ItemDoMenu(tela, "Responder"));
         tela.WaitForAssertion(() => tela.Find(".wa-rascunho-citacao").TextContent.Should().Contain("Respondendo a Roberto").And.Contain("Serve sim"), Prazo);
 
         tela.Digitar(() => tela.Find(".wa-escrever textarea"), "Combinado, até lá!");

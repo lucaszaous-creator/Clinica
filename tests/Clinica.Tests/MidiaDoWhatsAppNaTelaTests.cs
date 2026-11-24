@@ -100,7 +100,8 @@ public sealed class MidiaDoWhatsAppNaTelaTests : IClassFixture<BancoDasTelas>, I
 
         // A figurinha (25/10): imagem pequena, sem balão e sem o botão de ampliar da foto.
         tela.WaitForAssertion(() => tela.Find(".wa-balao-figurinha .wa-figurinha").GetAttribute("src").Should().StartWith("data:image/png;base64,"), Prazo);
-        tela.Find(".wa-balao-figurinha").QuerySelector("button").Should().BeNull();
+        // Só a setinha do menu do balão (F1, nov/2026), como em toda mensagem: nenhum botão de ampliar.
+        tela.Find(".wa-balao-figurinha").QuerySelectorAll("button").Should().OnlyContain(b => b.ClassList.Contains("wa-balao-menu"));
         tela.FindAll(".wa-foto").Should().ContainSingle("a foto do pedido continua sendo a única foto que amplia");
 
         // O retrato da FICHA (a foto de perfil do WhatsApp a API da Meta não dá): na linha, no

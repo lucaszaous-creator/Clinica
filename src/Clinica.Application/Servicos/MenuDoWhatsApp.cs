@@ -14,19 +14,22 @@ public sealed record ItemDeMenu<TAcao>(TAcao Acao, string Rotulo, string Icone, 
     public bool Habilitado => Motivo is null;
 }
 
-/// <summary>O que o botão direito faz numa conversa da lista.</summary>
+/// <summary>O que o botão direito faz numa conversa da lista — e o ⋮ do cabeçalho da conversa aberta (Buscar, Dados do contato).</summary>
 public enum AcaoNaConversa
 {
     Abrir, Assumir, Devolver, MarcarNaoLida, MarcarLida, Transferir, Encerrar, Reabrir, NotaInterna,
-    CopiarTelefone, AbrirFicha, ConferirFicha, Resumir
+    CopiarTelefone, AbrirFicha, ConferirFicha, Resumir, Buscar, DadosDoContato
 }
 
 /// <summary>O que o botão direito faz numa mensagem da conversa.</summary>
 public enum AcaoNaMensagem
 {
     Responder, CopiarSelecao, CopiarTexto, CopiarComHora, Reenviar, UsarComoRascunho, SalvarArquivo, GuardarNaFicha,
-    NotaSobre, DetalhesDaEntrega
+    NotaSobre, DetalhesDaEntrega, PerguntarAoProfissional
 }
+
+/// <summary>O que o clipe 📎 do campo oferece (F1, nov/2026): o arquivo, os modelos e as respostas rápidas, que eram três botões escritos.</summary>
+public enum AcaoDoClipe { Arquivo, Modelos, Rapidas }
 
 /// <summary>Quem está vendo e o que o acesso dela alcança — o mesmo que os botões da tela já conferem.</summary>
 /// <param name="PodeEscrever">O bit da aba (escrever no WhatsApp).</param>
@@ -69,7 +72,7 @@ public static class MenuDoWhatsApp
         {
             var pendente = c.PendingTransfer is not null ? "Já há um pedido de transferência aguardando o aceite" : null;
             itens.Add(new(AcaoNaConversa.Transferir, "Transferir…", "transferir", semEscrever ?? (minha ? pendente : SoComVoce)));
-            itens.Add(new(AcaoNaConversa.NotaInterna, "Nota interna", "nota", semEscrever));
+            itens.Add(new(AcaoNaConversa.NotaInterna, "Nota para a equipe", "nota", semEscrever));
         }
 
         // A marca de leitura é de quem vê, não da conversa: não pede o bit de escrever.
@@ -94,6 +97,64 @@ public static class MenuDoWhatsApp
     }
 
     /// <summary>
+    /// O clipe 📎 do campo (F1, nov/2026, como o do WhatsApp): anexar arquivo e os modelos só no WhatsApp (o SMS não tem
+    /// nem um nem outro), o arquivo só com os anexos ligados no CRM, e as respostas rápidas sempre. Os dois últimos também
+    /// saem pelo "/" no começo do campo (<see cref="ConversasNaTela.OpcoesDaBarra"/>).
+    /// </summary>
+    public static IReadOnlyList<ItemDeMenu<AcaoDoClipe>> DoClipe(bool sms, bool anexosLigados, AcessoNoMenu acesso)
+    {
+        var semEscrever = acesso.PodeEscrever ? null : "Seu acesso não alcança escrever no WhatsApp";
+        var itens = new List<ItemDeMenu<AcaoDoClipe>>();
+        if (!sms)
+        {
+            itens.Add(new(AcaoDoClipe.Arquivo, "Documento, foto ou áudio", "clipe",
+                semEscrever ?? (anexosLigados ? null : "O envio de arquivos está desligado no CRM")));
+            itens.Add(new(AcaoDoClipe.Modelos, "Modelos aprovados", "modelo", semEscrever));
+        }
+        itens.Add(new(AcaoDoClipe.Rapidas, "Respostas rápidas", "raio"));
+        return itens;
+    }
+
+    /// <summary>
+    /// O ⋮ do cabeçalho da conversa aberta (nov/2026, F1 — como o do WhatsApp): o que antes eram cinco botões escritos
+    /// (Assumir/Devolver, Transferir, Resumo, Buscar, Encerrar) e o ícone da ficha, num menu só, com a MESMA regra do botão
+    /// direito da lista — quem não pode vê o item apagado com o motivo. <paramref name="conversa"/> nula é o caso da
+    /// retenção sem conversa ainda: só os Dados do contato. <paramref name="mensagens"/> é quantas a conversa tem (sem
+    /// nenhuma, o @SemDor não tem o que resumir).
+    /// </summary>
+    public static IReadOnlyList<ItemDeMenu<AcaoNaConversa>> DoCabecalho(AppConversation? conversa, string? meuAgente, int mensagens,
+        AcessoNoMenu acesso)
+    {
+        var dados = new ItemDeMenu<AcaoNaConversa>(AcaoNaConversa.DadosDoContato, "Dados do contato", "ficha");
+        if (conversa is null) return [dados];
+
+        var minha = !string.IsNullOrWhiteSpace(meuAgente) && conversa.AgentId == meuAgente;
+        var semEscrever = acesso.PodeEscrever ? null : "Seu acesso não alcança escrever no WhatsApp";
+        var itens = new List<ItemDeMenu<AcaoNaConversa>>();
+        if (conversa.Closed)
+            itens.Add(new(AcaoNaConversa.Reabrir, "Reabrir", "atualizar", semEscrever));
+        else
+        {
+            if (minha)
+                itens.Add(new(AcaoNaConversa.Devolver, "Devolver à fila", "devolver", semEscrever));
+            else
+                itens.Add(new(AcaoNaConversa.Assumir, "Assumir", "pessoa",
+                    semEscrever ?? (conversa.AgentId is not null ? "Está com outra pessoa: peça a transferência" : null)));
+            var pendente = conversa.PendingTransfer is not null ? "Já há um pedido de transferência aguardando o aceite" : null;
+            itens.Add(new(AcaoNaConversa.Transferir, "Transferir…", "transferir", semEscrever ?? (minha ? pendente : SoComVoce)));
+            itens.Add(new(AcaoNaConversa.NotaInterna, "Nota para a equipe", "nota", semEscrever));
+        }
+        itens.Add(new(AcaoNaConversa.Buscar, "Buscar na conversa", "busca", GrupoNovo: true));
+        itens.Add(dados);
+        if (acesso.SemDor)
+            itens.Add(new(AcaoNaConversa.Resumir, "Resumo do @SemDor", "raio",
+                semEscrever ?? (mensagens == 0 ? "Ainda não há mensagem para resumir" : null)));
+        if (!conversa.Closed)
+            itens.Add(new(AcaoNaConversa.Encerrar, "Encerrar…", "check", semEscrever ?? (minha ? null : SoComVoce), Perigo: true, GrupoNovo: true));
+        return itens;
+    }
+
+    /// <summary>
     /// O menu de uma mensagem. <paramref name="selecao"/> é o texto selecionado DENTRO do balão no clique (vazio sem seleção);
     /// <paramref name="janelaLivre"/>, se a janela de 24 h aceita texto livre; <paramref name="sms"/>, o canal;
     /// <paramref name="minha"/>, se a conversa está com quem vê.
@@ -105,17 +166,24 @@ public static class MenuDoWhatsApp
         var semEscrever = acesso.PodeEscrever ? null : "Seu acesso não alcança escrever no WhatsApp";
         var itens = new List<ItemDeMenu<AcaoNaMensagem>>();
 
-        itens.Add(new(AcaoNaMensagem.Responder, "Responder citando", "mensagem",
+        // Os quatro do balão (F1, nov/2026 — como o menu do WhatsApp): Responder, Copiar, Nota para a equipe e Perguntar ao
+        // profissional. O resto vem depois da linha, sem sumir nada do que o botão direito já fazia.
+        itens.Add(new(AcaoNaMensagem.Responder, "Responder", "mensagem",
             semEscrever ?? (sms ? "O SMS não cita mensagens"
                 : !janelaLivre ? "Janela de 24 h fechada: só modelo, que não cita"
                 : string.IsNullOrEmpty(m.Id) ? "Esta mensagem ainda não tem o número do WhatsApp" : null)));
+        var temTexto = !string.IsNullOrWhiteSpace(m.Texto);
+        itens.Add(new(AcaoNaMensagem.CopiarTexto, "Copiar", "copiar", temTexto ? null : "A mensagem não tem texto"));
+        itens.Add(new(AcaoNaMensagem.NotaSobre, "Nota para a equipe", "nota", semEscrever));
+        // A mensagem do PACIENTE vai a quem trata pelo chat da equipe (R10); a regra do trecho é a do botão que ficava ao lado do balão.
+        if (m.Tipo == TipoNaLinhaDoTempo.Recebida)
+            itens.Add(new(AcaoNaMensagem.PerguntarAoProfissional, "Perguntar ao profissional", "pessoas",
+                semEscrever ?? (temTexto || m.Midia is not null ? null : "A mensagem não tem texto")));
 
         if (!string.IsNullOrWhiteSpace(selecao))
             itens.Add(new(AcaoNaMensagem.CopiarSelecao, "Copiar a seleção", "copiar", GrupoNovo: true));
-        var temTexto = !string.IsNullOrWhiteSpace(m.Texto);
-        itens.Add(new(AcaoNaMensagem.CopiarTexto, "Copiar o texto", "copiar", temTexto ? null : "A mensagem não tem texto",
+        itens.Add(new(AcaoNaMensagem.CopiarComHora, "Copiar com data e hora", "relogio", temTexto ? null : "A mensagem não tem texto",
             GrupoNovo: string.IsNullOrWhiteSpace(selecao)));
-        itens.Add(new(AcaoNaMensagem.CopiarComHora, "Copiar com data e hora", "relogio", temTexto ? null : "A mensagem não tem texto"));
 
         if (enviada)
         {
@@ -137,7 +205,6 @@ public static class MenuDoWhatsApp
                     : !fichaConferida ? GuardarNaFichaService.SemFicha : null));
         }
 
-        itens.Add(new(AcaoNaMensagem.NotaSobre, "Nota interna sobre esta mensagem", "nota", semEscrever, GrupoNovo: true));
         if (enviada && m.Tick is not null)
             itens.Add(new(AcaoNaMensagem.DetalhesDaEntrega, "Detalhes da entrega", "info"));
         return itens;
