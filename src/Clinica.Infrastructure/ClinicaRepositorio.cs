@@ -74,7 +74,12 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task<IReadOnlyList<ParcelaRecebivelCartao>> ParcelasCartaoDaTransacaoAsync(string idBancario, string? conta, CancellationToken ct = default)
         => await _db.ParcelasRecebiveisCartao.Include(p => p.Lancamento).Where(p => p.IdBancario == idBancario && p.ContaBancaria == conta && p.ConciliadoEm != null).ToListAsync(ct);
 
-    public async Task<T> ExecutarGestaoAtomicaAsync<T>(Func<Task<T>> executar, CancellationToken ct = default)
+    // Transação PRÓPRIA dentro da estratégia de execução (nov/2026: o "Lançar" da Conciliação quebrava em produção com
+    // "does not support user-initiated transactions"). Ver TransacaoResiliente.
+    public Task<T> ExecutarGestaoAtomicaAsync<T>(Func<Task<T>> executar, CancellationToken ct = default)
+        => TransacaoResiliente.ExecutarAsync(_db, c => GestaoAtomicaNaTransacaoAsync(executar, c), ct);
+
+    private async Task<T> GestaoAtomicaNaTransacaoAsync<T>(Func<Task<T>> executar, CancellationToken ct)
     {
         // Uma ordem única de trava evita inversões entre compra, caixa e baixa de insumo.
         // O fechamento da sessão já possui transação: não iniciar outra dentro dela.
@@ -142,8 +147,12 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
                 && a.DataHora.AddMinutes(a.DuracaoMinutos ?? (a.Profissional == null ? null : a.Profissional.DuracaoPadraoMinutos) ?? Agendamento.DuracaoPadraoMinutos) > inicio)
             .ToListAsync(ct);
 
-    public async Task<int> ExecutarEtapaFechamentoAsync(int atendimentoId, string etapa, string pedido,
+    public Task<int> ExecutarEtapaFechamentoAsync(int atendimentoId, string etapa, string pedido,
         Func<Task<int>> executar, CancellationToken ct = default)
+        => TransacaoResiliente.ExecutarAsync(_db, c => EtapaFechamentoNaTransacaoAsync(atendimentoId, etapa, pedido, executar, c), ct);
+
+    private async Task<int> EtapaFechamentoNaTransacaoAsync(int atendimentoId, string etapa, string pedido,
+        Func<Task<int>> executar, CancellationToken ct)
     {
         await using var transacao = await _db.Database.BeginTransactionAsync(ct);
         try
@@ -1995,8 +2004,12 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task AdicionarProblemaAsync(ProblemaPaciente problema, CancellationToken ct = default)
         => await _db.ProblemasPaciente.AddAsync(problema, ct);
 
-    public async Task<T> ExecutarRegistroAlergiaAtomicoAsync<T>(
+    public Task<T> ExecutarRegistroAlergiaAtomicoAsync<T>(
         int pacienteId, Func<Task<T>> executar, CancellationToken ct = default)
+        => TransacaoResiliente.ExecutarAsync(_db, c => RegistroAlergiaNaTransacaoAsync(pacienteId, executar, c), ct);
+
+    private async Task<T> RegistroAlergiaNaTransacaoAsync<T>(
+        int pacienteId, Func<Task<T>> executar, CancellationToken ct)
     {
         var propria = _db.Database.CurrentTransaction is null;
         await using var transacao = propria ? await _db.Database.BeginTransactionAsync(ct) : null;

@@ -30,7 +30,11 @@ public sealed partial class PostoTabletService
         return modelos.Select(DadosModeloEvolucao).ToArray();
     }
 
-    public async Task<ModeloEvolucaoTablet> SalvarModeloEvolucaoAsync(
+    public Task<ModeloEvolucaoTablet> SalvarModeloEvolucaoAsync(
+        SessaoTablet s, SalvarModeloEvolucaoTablet p, CancellationToken ct)
+        => TransacaoResiliente.ExecutarAsync(db, c => SalvarModeloEvolucaoNaTransacaoAsync(s, p, c), ct);
+
+    private async Task<ModeloEvolucaoTablet> SalvarModeloEvolucaoNaTransacaoAsync(
         SessaoTablet s, SalvarModeloEvolucaoTablet p, CancellationToken ct)
     {
         if (p.Idempotencia == Guid.Empty || p.Id < 0)
@@ -110,7 +114,11 @@ public sealed partial class PostoTabletService
         return resultado;
     }
 
-    public async Task<ResultadoFichaTablet> SalvarModeloDocumentoGlobalAsync(
+    public Task<ResultadoFichaTablet> SalvarModeloDocumentoGlobalAsync(
+        SessaoTablet s, NovoModeloDocumentoTablet p, CancellationToken ct)
+        => TransacaoResiliente.ExecutarAsync(db, c => SalvarModeloDocumentoGlobalNaTransacaoAsync(s, p, c), ct);
+
+    private async Task<ResultadoFichaTablet> SalvarModeloDocumentoGlobalNaTransacaoAsync(
         SessaoTablet s, NovoModeloDocumentoTablet p, CancellationToken ct)
     {
         if (p.Idempotencia == Guid.Empty || p.Id < 0)

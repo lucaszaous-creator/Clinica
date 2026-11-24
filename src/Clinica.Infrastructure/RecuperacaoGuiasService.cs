@@ -105,7 +105,10 @@ public sealed class RecuperacaoGuiasService(ClinicaDbContext db, IClinicaReposit
                 : e!.AgendamentoId == null ? $"Vincular evolução #{e.Id} e gerar guias" : "Pronta para recuperar as guias"), versao, escrita), a, e);
     }
 
-    public async Task<ResultadoRecuperacaoGuia> RecuperarAsync(int usuarioId, PedidoRecuperacaoGuia pedido, CancellationToken ct = default)
+    public Task<ResultadoRecuperacaoGuia> RecuperarAsync(int usuarioId, PedidoRecuperacaoGuia pedido, CancellationToken ct = default)
+        => TransacaoResiliente.ExecutarAsync(db, c => RecuperarNaTransacaoAsync(usuarioId, pedido, c), ct);
+
+    private async Task<ResultadoRecuperacaoGuia> RecuperarNaTransacaoAsync(int usuarioId, PedidoRecuperacaoGuia pedido, CancellationToken ct)
     {
         await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
         if (db.Database.IsNpgsql()) await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(20260916, {pedido.Id})", ct);

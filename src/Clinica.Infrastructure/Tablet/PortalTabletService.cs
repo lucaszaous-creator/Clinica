@@ -22,7 +22,10 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
     public static string Token() => Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
     private static string Operador(UsuarioSistema u) => $"{u.Nome} ({u.Login})";
 
-    public async Task<(string Token, SessaoTablet Sessao)> EntrarAsync(UsuarioSistema u, string dispositivo, string? anterior, CancellationToken ct)
+    public Task<(string Token, SessaoTablet Sessao)> EntrarAsync(UsuarioSistema u, string dispositivo, string? anterior, CancellationToken ct)
+        => TransacaoResiliente.ExecutarAsync(db, c => EntrarNaTransacaoAsync(u, dispositivo, anterior, c), ct);
+
+    private async Task<(string Token, SessaoTablet Sessao)> EntrarNaTransacaoAsync(UsuarioSistema u, string dispositivo, string? anterior, CancellationToken ct)
     {
         if (!PodeEntrar(u)) throw new UnauthorizedAccessException();
         await using var tx = await db.Database.BeginTransactionAsync(ct);
@@ -182,7 +185,10 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
         return token; // Só na memória da coleta; nunca substitui o cookie da equipe.
     }
 
-    public async Task PrepararAsync(SessaoTablet s, PrepararTablet pedido, CancellationToken ct)
+    public Task PrepararAsync(SessaoTablet s, PrepararTablet pedido, CancellationToken ct)
+        => TransacaoResiliente.ExecutarAsync(db, c => PrepararNaTransacaoAsync(s, pedido, c), ct);
+
+    private async Task PrepararNaTransacaoAsync(SessaoTablet s, PrepararTablet pedido, CancellationToken ct)
     {
         if(s.Modo!="equipe") throw new AcessoTabletBloqueado();
         if(pedido.Modelos is null || pedido.Modelos.Length is <1 or >2 || pedido.Modelos.Distinct().Count()!=pedido.Modelos.Length)
@@ -365,7 +371,10 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
         }
     }
 
-    public async Task EncerrarAsync(SessaoTablet s,bool recusa,string? motivo,CancellationToken ct)
+    public Task EncerrarAsync(SessaoTablet s,bool recusa,string? motivo,CancellationToken ct)
+        => TransacaoResiliente.ExecutarAsync(db, c => EncerrarNaTransacaoAsync(s, recusa, motivo, c), ct);
+
+    private async Task EncerrarNaTransacaoAsync(SessaoTablet s,bool recusa,string? motivo,CancellationToken ct)
     {
         if(s.Modo!="paciente") throw new AcessoTabletBloqueado();
         if(recusa && (string.IsNullOrWhiteSpace(motivo) || motivo.Length>500))
@@ -401,7 +410,10 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
         }
     }
 
-    public async Task ExpirarAsync(CancellationToken ct)
+    public Task ExpirarAsync(CancellationToken ct)
+        => TransacaoResiliente.ExecutarAsync(db, ExpirarNaTransacaoAsync, ct);
+
+    private async Task ExpirarNaTransacaoAsync(CancellationToken ct)
     {
         await using var tx=await db.Database.BeginTransactionAsync(ct);
         var ids=await db.ColetasTablet.Where(c=>c.Estado=="preparado" && c.ExpiraEm<=Agora)
@@ -421,7 +433,10 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
         await db.SaveChangesAsync(ct);
     }
 
-    public async Task FinalizarAsync(Guid id,CancellationToken ct)
+    public Task FinalizarAsync(Guid id,CancellationToken ct)
+        => TransacaoResiliente.ExecutarAsync(db, c => FinalizarNaTransacaoAsync(id, c), ct);
+
+    private async Task FinalizarNaTransacaoAsync(Guid id,CancellationToken ct)
     {
         await using var tx=await db.Database.BeginTransactionAsync(IsolationLevel.Serializable,ct);
         var c=await db.ColetasTablet.SingleOrDefaultAsync(x=>x.Id==id,ct);
