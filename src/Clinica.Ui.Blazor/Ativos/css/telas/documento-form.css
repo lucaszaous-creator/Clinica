@@ -84,5 +84,6 @@
 .df-sem-assinante{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);color:var(--aviso-texto);font-size:var(--text-small-size)}
 
 /* Maximizada (nov/2026, pedido da Dra.): a folha e o texto da receita crescem com a tela, sem rolagem espremida. */
-.modal.maximizado .df-folha{min-height:calc(100vh - 260px)}
-.modal.maximizado .df-folha .editor-texto{min-height:calc(100vh - 420px)}
+.modal.maximizado .df-folha{flex:none;max-width:none;width:100%;min-height:calc(100vh - 260px)}
+/* O editor traz a altura das linhas no próprio elemento e um teto de 480 px (atendimento.css): maximizada, os dois cedem. */
+.modal.maximizado .df-folha .editor-texto{min-height:calc(100vh - 420px) !important;max-height:none}
