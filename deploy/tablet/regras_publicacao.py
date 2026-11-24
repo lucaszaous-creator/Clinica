@@ -178,3 +178,39 @@ def verificar_criptografia_desativada(
         for linha in _linhas_logicas(unidade_systemd, "unidade systemd")
     ):
         raise ValueError("PAMName= pode substituir a flag de cifra depois dos arquivos de ambiente.")
+
+
+# --------------------------------------------------------------- faxina depois de publicar (nov/2026)
+# Em 24/11/2026 o disco da VPS encheu (82 releases em /opt/clinica-tablet/releases e os pacotes que ficavam
+# em /home/clinica-admin/tablet-stage) e o Postgres parou de gravar ("could not write init file"). A
+# faxina roda SÓ depois de uma publicação SAUDÁVEL e nunca desfaz uma publicação: falhou, vira aviso.
+MANTER_RELEASES = 5
+SUFIXO_RUNTIME = '-runtime'
+
+
+def releases_para_remover(releases: dict[str, float], manter: set[str], quantos: int = MANTER_RELEASES) -> list[str]:
+    """Os releases que saem: fica o que está em `manter` (o current e o anterior) e os `quantos` mais novos
+    (pela data). O `<nome>-runtime` acompanha o seu release: fica e sai junto com ele."""
+    principais = {n: t for n, t in releases.items() if not n.endswith(SUFIXO_RUNTIME)}
+    novos = sorted(principais, key=lambda n: (principais[n], n), reverse=True)[:quantos]
+    ficam = set(manter) | set(novos)
+    ficam |= {n + SUFIXO_RUNTIME for n in ficam}
+    return sorted(n for n in releases if n not in ficam and (n.removesuffix(SUFIXO_RUNTIME) not in ficam))
+
+
+def faxina_depois_de_publicar(base: Path, manter: set[str], pacote: Path, quantos: int = MANTER_RELEASES) -> list[str]:
+    """Apaga os releases antigos de `base/releases` e o pacote já instalado. Devolve o que saiu."""
+    import shutil
+    pasta = base / 'releases'
+    releases = {p.name: p.stat().st_mtime for p in pasta.iterdir() if p.is_dir() and not p.is_symlink()}
+    saiu = []
+    for nome in releases_para_remover(releases, manter, quantos):
+        alvo = pasta / nome
+        if alvo.resolve().parent != pasta.resolve():
+            continue  # nunca sai da pasta de releases
+        shutil.rmtree(alvo)
+        saiu.append(nome)
+    if pacote.is_file() and not pacote.is_symlink():
+        pacote.unlink()
+        saiu.append(pacote.name)
+    return saiu

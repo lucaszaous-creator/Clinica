@@ -1,3 +1,4 @@
+import os
 import sqlite3
 import tempfile
 import subprocess
@@ -6,6 +7,8 @@ import unittest
 from pathlib import Path
 
 from regras_publicacao import (
+    faxina_depois_de_publicar,
+    releases_para_remover,
     FLAG_CRIPTOGRAFIA,
     MENSAGEM_CREDENCIAIS_CIFRADAS,
     PREFIXOS_CIFRADOS_DO_CONECTOR_TISS,
@@ -188,6 +191,32 @@ class TravaDasCredenciaisCifradasTests(unittest.TestCase):
         atualizador = (Path(__file__).parent / "atualizar-posto.py").read_text(encoding="utf-8")
         self.assertIn("_verificar_sem_credenciais_cifradas(sql)", atualizador)
         self.assertNotIn("LIKE 'enc:%'", atualizador)
+
+
+class FaxinaDepoisDePublicarTests(unittest.TestCase):
+    """Nov/2026: o disco da VPS encheu com releases e pacotes antigos e o Postgres parou de gravar."""
+
+    def test_ficam_o_current_o_anterior_e_os_cinco_mais_novos_com_o_runtime_junto(self):
+        releases = {f"r{i:02d}": float(i) for i in range(1, 11)}
+        releases["r01-runtime"] = 1.0
+        releases["r10-runtime"] = 10.0
+        sai = releases_para_remover(releases, {"r03", "r02"})
+        self.assertEqual(sai, ["r01", "r01-runtime", "r04", "r05"])  # ficam r10..r06 (5 mais novos) + r03 e r02 (manter)
+
+    def test_poucos_releases_nada_sai(self):
+        self.assertEqual(releases_para_remover({"a": 1.0, "b": 2.0}, {"a"}), [])
+
+    def test_apaga_na_pasta_e_o_pacote_instalado(self):
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d) / "servico"; pasta = base / "releases"; pasta.mkdir(parents=True)
+            for i in range(1, 9):
+                (pasta / f"r{i}").mkdir()
+                os.utime(pasta / f"r{i}", (i, i))
+            pacote = Path(d) / "pacote.tar.gz"; pacote.write_bytes(b"x")
+            saiu = faxina_depois_de_publicar(base, {"r8", "r1"}, pacote)
+            self.assertEqual(sorted(p.name for p in pasta.iterdir()), ["r1", "r4", "r5", "r6", "r7", "r8"])
+            self.assertIn("pacote.tar.gz", saiu)
+            self.assertFalse(pacote.exists())
 
 if __name__ == "__main__":
     unittest.main()
