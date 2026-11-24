@@ -58,5 +58,10 @@ public sealed class SessaoDoPortalNaGestao(ClinicaDbContext db, TimeProvider rel
     }
 }
 
-/// <summary>As opções da gestão web. <see cref="ExigirSegundoFator"/> desligada por padrão (decisão da direção, nov/2026).</summary>
-public sealed record OpcoesDaGestaoWeb(bool ExigirSegundoFator);
+/// <summary>
+/// As opções da gestão web. <see cref="ExigirSegundoFator"/> desligada por padrão (decisão da direção, nov/2026).
+/// <see cref="AtendimentoNoPortal"/> é a mesma chave <c>Portal:AtendimentoHabilitado</c> da API: com ela, a
+/// porta "Meu dia" aparece para o gerente que também atende. Ligada por padrão porque é como a
+/// clínica roda (nov/2026); quem desligar o atendimento na API desliga aqui também.
+/// </summary>
+public sealed record OpcoesDaGestaoWeb(bool ExigirSegundoFator, bool AtendimentoNoPortal = true);

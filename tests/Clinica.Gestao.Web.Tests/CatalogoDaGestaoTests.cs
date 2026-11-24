@@ -53,6 +53,34 @@ public sealed class CatalogoDaGestaoTests
     }
 
     [Fact]
+    public void Quem_tambem_atende_tem_a_porta_Meu_dia_no_fim_da_barra()
+    {
+        var abriu = 0;
+        var m = new MolduraDaGestao(Catalogo, Sessao(PerfilAcesso.Gerente), () => { }, () => abriu++);
+        var porta = m.Barra[^1];
+        Assert.Equal("Meu dia", porta.Rotulo);
+        Assert.Equal(MolduraDaGestao.ChaveDoPosto, porta.Direto?.Chave);
+        Assert.Empty(porta.Itens);
+        Assert.Equal("painel-direcao", m.ChaveAtual);   // a gestão continua abrindo na Mesa da direção
+        m.Navegar(MolduraDaGestao.ChaveDoPosto);
+        Assert.Equal(1, abriu);
+        Assert.Equal("painel-direcao", m.ChaveAtual);
+        Assert.Null(m.FalhaDaTela);
+        m.TextoPesquisa = "meu dia";
+        Assert.Empty(m.ResultadosPesquisa);
+    }
+
+    [Fact]
+    public void Sem_posto_nao_ha_porta_e_a_chave_nao_navega()
+    {
+        var m = new MolduraDaGestao(Catalogo, Sessao(PerfilAcesso.Gerente), () => { });
+        Assert.Equal(4, m.Barra.Count);
+        Assert.DoesNotContain(m.Barra, g => g.Direto?.Chave == MolduraDaGestao.ChaveDoPosto);
+        m.Navegar(MolduraDaGestao.ChaveDoPosto);
+        Assert.NotNull(m.FalhaDaTela);
+    }
+
+    [Fact]
     public void A_busca_acha_aba_pelo_nome_e_abre_no_pai()
     {
         var m = new MolduraDaGestao(Catalogo, Sessao(PerfilAcesso.Gerente), () => { });

@@ -168,6 +168,37 @@ assinou e roda o aviso nele — sem isso a releitura rodaria como "ninguém" e s
 - **Não rodou:** as pontes têm teste de unidade e o registro tem teste de integração, mas o
   fluxo não foi exercitado num navegador contra o portal de verdade.
 
+## O gerente que também atende: reabrir leva à gestão, "Meu dia" leva ao posto (24/11/2026)
+
+**O defeito** (a Jade, gerente geral com agenda própria): o LOGIN já mandava o gerente à `/gestao/`
+(`PortalTabletService.Destinos` põe a gestão primeiro), mas quem REABRIA o portal com a sessão viva
+— aba nova, atalho do celular, a raiz do endereço — caía no `iniciar()` de
+`clinica-site/portal/profissional/clinico.js`, que só mandava à gestão quem NÃO tinha o posto. Quem
+tinha os dois ficava no "Meu dia". Às vezes sim, às vezes não: dependia de a sessão estar aberta.
+
+**A correção**, nas duas pontas:
+
+- **Portal** (`clinica-site`): reabrir segue a MESMA ordem do login — `destinos[0]==='gestao'` vai à
+  `/gestao/`. O posto fica quando foi PEDIDO: `?posto` na URL, a volta da Safeweb (`?assinatura=`) ou
+  a aba que já estava no posto (`sessionStorage`, some com a aba: F5, Termos, Treinamento e a logo
+  continuam no posto). O item Gestão e o Sair esquecem o pedido. Contra o laço gestão ⇄ portal
+  (a gestão recusa quem ela não aceita — ex.: `Gestao__ExigirSegundoFator` sem autenticador — e
+  devolve a `/profissional/`), a ida automática deixa uma marca de 20 s que o `gestao-web.js`
+  apaga ao abrir; voltar com a marca é recusa, e o portal não manda de novo.
+- **Gestão** (aqui): para quem passa na régua do posto, a barra ganha a entrada direta **"Meu dia"**
+  no fim, que abre `/profissional/?posto`. A régua é UMA função, `AcessoAoPortal.PodePosto`, usada
+  pela API (destinos) e pela gestão (a porta) — botão para um posto que recusaria a pessoa seria
+  função morta. A chave `Portal:AtendimentoHabilitado` da API vale também aqui (padrão ligada, como
+  a clínica roda); quem a desligar na API desliga em `/etc/clinica-gestao/gestao.env` também.
+
+**UX** — a gerente abre o portal e cai sempre na gestão; o "Meu dia" é um clique, à vista na barra.
+Quem só atende ou só gere não vê diferença. **DX** — a régua do posto subiu para `AcessoAoPortal`
+(com teste); a porta é um `GrupoDaBarra` direto, fora do catálogo gerado, e não entra na busca.
+`CatalogoDaGestaoTests` e o roteiro 7c de `ferramentas/testar-portal-entrada-totp.mjs` (clinica-site)
+travam o comportamento. **CX** — some o "o sistema me manda para o lugar errado"; nenhum gerente que
+atende perde o caminho para os pacientes do dia. Publicar as duas metades juntas: a gestão nova sem o
+portal novo só acrescenta a porta; o portal novo sem a gestão nova deixa o posto sem porta.
+
 ## UX · DX · CX
 
 - 🧑‍💻 **UX** — Um login para todos; cada um cai no que faz. A gerente tem as telas que já conhece,

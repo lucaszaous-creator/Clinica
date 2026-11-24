@@ -42,12 +42,10 @@ public sealed class PortalTabletService(ClinicaDbContext db, IClinicaRepositorio
         return (token,sessao);
     }
 
-    public static bool PodeColher(UsuarioSistema u) => u.Ativo && !u.DeveTrocarSenha
-        && u.Pode(Permissao.ColherAssinaturaPaciente) && u.Pode(Permissao.VerAgenda);
+    public static bool PodeColher(UsuarioSistema u) => AcessoAoPortal.PodeColher(u);
 
     /// <summary>A régua do POSTO (as telas do portal de hoje): colher assinatura ou atender.</summary>
-    public bool PodePosto(UsuarioSistema u) => PodeColher(u)
-        || (opcoes.AtendimentoHabilitado && PoliticaAtendimentoTablet.PodeUsarPosto(u));
+    public bool PodePosto(UsuarioSistema u) => AcessoAoPortal.PodePosto(u, opcoes.AtendimentoHabilitado);
 
     /// <summary>
     /// Entra no portal quem tem algum destino: o posto ou a gestão (nov/2026). As rotas do posto
