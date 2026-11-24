@@ -51,6 +51,9 @@ public sealed class MenuDoWhatsAppTests
 
         var daBruna = MenuDoWhatsApp.DaConversa(Linha(agente: "bruna"), "ana", Tudo);
         Item(daBruna, AcaoNaConversa.Assumir).Motivo.Should().Contain("peça a transferência");
+        // Todos escrevem (nov/2026): a nota vale na conversa de outra pessoa; transferir e encerrar, não.
+        Item(daBruna, AcaoNaConversa.NotaInterna).Habilitado.Should().BeTrue();
+        Item(daBruna, AcaoNaConversa.Encerrar).Motivo.Should().Be(MenuDoWhatsApp.SoComVoce);
     }
 
     [Fact]
@@ -120,7 +123,7 @@ public sealed class MenuDoWhatsAppTests
         // Modelo não se reenvia por aqui (escolhe-se em Modelos), nem com a janela fechada, nem a conversa de outra pessoa.
         MenuDoWhatsApp.MotivoParaNaoReenviar(Enviada(EstadoDaEntrega.Falhou, modelo: "semdor_lembrete"), true, true).Should().Contain("Modelos");
         MenuDoWhatsApp.MotivoParaNaoReenviar(Enviada(EstadoDaEntrega.Falhou), janelaLivre: false, true).Should().Contain("Janela");
-        MenuDoWhatsApp.MotivoParaNaoReenviar(Enviada(EstadoDaEntrega.Falhou), true, minha: false).Should().Be(MenuDoWhatsApp.SoComVoce);
+        MenuDoWhatsApp.MotivoParaNaoReenviar(Enviada(EstadoDaEntrega.Falhou), true, minha: false).Should().BeNull("todos escrevem (nov/2026): reenviar não pede ser o responsável");
     }
 
     [Fact]
