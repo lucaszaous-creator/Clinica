@@ -134,6 +134,7 @@ public static class DependencyInjection
         services.AddScoped<AtendimentosPorProfissionalService>();
         services.AddScoped<RelatorioDeAtendimentosService>();
         services.AddScoped<PrecoParticularService>();
+        services.AddScoped<ReceitaDoParticularService>(); // o particular entra no caixa no lançamento (nov/2026)
         services.AddScoped<AuditoriaService>();
 
         // Parcela 52 — a metade de LEITURA da trilha e a guarda de 20 anos.
