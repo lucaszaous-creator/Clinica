@@ -33,5 +33,15 @@ public sealed class SinalDeVolta
     public Task AvisarAtalhoAsync(AtalhoDeTela atalho) => Atalho?.Invoke(atalho) ?? Task.CompletedTask;
 }
 
-/// <summary>Os três atalhos globais que o faturamento WPF roteava para a tela ativa.</summary>
-public enum AtalhoDeTela { Salvar, Imprimir, Atualizar }
+/// <summary>
+/// Os atalhos de teclado que chegam à tela à vista (<see cref="TelaBase.AoAtalhoAsync"/>). Os três primeiros valem para
+/// toda tela (o que o faturamento WPF roteava: Ctrl+S, Ctrl+P, F5). Os três últimos (24/11/2026, F1b do "CRM com cara de
+/// WhatsApp") só chegam à tela que os DECLARA no elemento raiz — <c>data-atalhos="buscar nova fechar"</c> (js/janela.js):
+/// <list type="bullet">
+/// <item><see cref="Buscar"/>: Ctrl+F — a busca DA TELA (sem a declaração, Ctrl+F é a busca de telas da moldura);</item>
+/// <item><see cref="Nova"/>: Ctrl+Alt+N — o "novo" da tela (a nova conversa, no WhatsApp);</item>
+/// <item><see cref="Fechar"/>: Esc — fechar o que a tela tem aberto, do mais de cima para baixo. O Esc não é engolido:
+/// campo e moldura continuam a ouvi-lo, então a tela que o declara não o trata também no campo.</item>
+/// </list>
+/// </summary>
+public enum AtalhoDeTela { Salvar, Imprimir, Atualizar, Buscar, Nova, Fechar }

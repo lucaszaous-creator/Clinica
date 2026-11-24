@@ -16,6 +16,34 @@ window.clinicaAtalhos = {
             e.preventDefault();
             ref.invokeMethodAsync('Atalho', nome);
         });
+        // ATALHOS QUE A TELA PEDE (24/11/2026, F1b do "CRM com cara de WhatsApp"): Ctrl+F busca na tela,
+        // Ctrl+Alt+N abre o "novo" da tela, Esc fecha o que a tela tem aberto. Só para a tela À VISTA que os
+        // declara no elemento raiz: data-atalhos="buscar nova fechar" (um, dois ou os três). Sem a declaração,
+        // nada muda: Ctrl+F continua indo à busca de telas da moldura e Esc só fecha o que a moldura tem por cima.
+        // Na fase de CAPTURA, para o Ctrl+F da tela chegar antes do da moldura (e só ele, com stopPropagation).
+        // O Esc NÃO é engolido: a moldura e os campos continuam ouvindo — a tela decide o que fechar
+        // (TelaBase.AoAtalhoAsync(AtalhoDeTela.Fechar)) e o PalcoDeTelas já não repassa nada com pergunta ou
+        // formulário avulso aberto por cima.
+        document.addEventListener('keydown', function (e) {
+            if (e.isComposing) return;
+            var k = (e.key || '').toLowerCase(), pedido = null, nome = null;
+            if (e.ctrlKey && !e.altKey && !e.shiftKey && k === 'f') { pedido = 'buscar'; nome = 'Buscar'; }
+            else if (e.ctrlKey && e.altKey && !e.shiftKey && k === 'n') { pedido = 'nova'; nome = 'Nova'; }
+            else if (e.key === 'Escape' && !e.ctrlKey && !e.altKey && !e.shiftKey) { pedido = 'fechar'; nome = 'Fechar'; }
+            if (!pedido || !window.clinicaAtalhos.telaPede(pedido)) return;
+            if (pedido !== 'fechar') { e.preventDefault(); e.stopPropagation(); }
+            ref.invokeMethodAsync('Atalho', nome);
+        }, true);
+    },
+    // A tela à vista declara o atalho? (As telas ficam montadas e ocultas: vale a que está VISÍVEL.)
+    telaPede: function (pedido) {
+        var marcadas = document.querySelectorAll('[data-atalhos]');
+        for (var i = 0; i < marcadas.length; i++) {
+            var el = marcadas[i];
+            if (el.offsetParent === null && el.getClientRects().length === 0) continue;
+            if ((' ' + el.getAttribute('data-atalhos') + ' ').indexOf(' ' + pedido + ' ') >= 0) return true;
+        }
+        return false;
     }
 };
 // A MOLDURA (out/2026): Ctrl+F põe o cursor na busca de telas, Ctrl+B leva o foco ao

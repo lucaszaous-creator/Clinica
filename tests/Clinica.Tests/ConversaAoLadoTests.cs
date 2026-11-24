@@ -184,7 +184,7 @@ public sealed class ConversaAoLadoTests : IClassFixture<BancoDasTelas>, IDisposa
 
     [Theory]
     [InlineData(PerfilAcesso.Recepcao, Permissao.Nenhuma, Permissao.EditarAgenda)]  // a recepcionista a quem a direção tirou o bit
-    [InlineData(PerfilAcesso.Faturista, Permissao.EditarAgenda, Permissao.Nenhuma)]  // o bit de agendar dado a outra função
+    [InlineData(PerfilAcesso.Faturista, Permissao.Nenhuma, Permissao.Nenhuma)]  // outra função sem o bit (decisão 4: o perfil não decide)
     public async Task Quem_nao_atende_o_WhatsApp_nao_ve_o_botao(PerfilAcesso perfil, Permissao extras, Permissao negadas)
     {
         var maria = await PacienteAsync(PessoasDoWhatsApp.Maria.Nome);

@@ -12,8 +12,9 @@ namespace Clinica.Desktop.Shell;
 /// <summary>
 /// O BlazorWebView da suíte, configurado num lugar só (out/2026): a página e o CSS servidos de
 /// DENTRO da DLL do Clinica.Ui.Blazor, o perfil do navegador fora da pasta da instalação, o
-/// fundo pintado antes da página e nada de menu de contexto, barra de status ou ferramentas de
-/// desenvolvedor no build de produção.
+/// fundo pintado antes da página e nada de barra de status nem de ferramentas de desenvolvedor no
+/// build de produção. O menu de contexto do navegador só aparece em CAMPO EDITÁVEL, e só com o
+/// corretor ortográfico em pt-BR, recortar, copiar e colar (<see cref="MenuDoCorretor"/>, 24/11/2026).
 ///
 /// Nasceu dentro da <c>NavegadorDaJanela</c>; subiu para cá quando a moldura dos apps passou a
 /// ser Blazor (<see cref="JanelaDoApp"/>) — duas cópias destas regras divergiriam na primeira
@@ -54,26 +55,11 @@ public static class NavegadorEmbutido
             Parameters = parametros
         });
 
-        visor.BlazorWebViewInitializing += (_, e) =>
-        {
-            // O perfil do navegador mora no LocalAppData, fora da pasta da instalação: a pasta
-            // do Velopack é substituída a cada atualização.
-            e.UserDataFolder = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "ClinicaSemDor", "Blazor");
-        };
+        visor.BlazorWebViewInitializing += (_, e) => PrepararAmbiente(e);
         visor.BlazorWebViewInitialized += (_, e) =>
         {
             e.WebView.DefaultBackgroundColor = System.Drawing.Color.FromArgb(0xF8, 0xFA, 0xFC);
-            var config = e.WebView.CoreWebView2.Settings;
-            config.AreDefaultContextMenusEnabled = false;
-            config.IsStatusBarEnabled = false;
-            config.IsPasswordAutosaveEnabled = false;
-            config.IsGeneralAutofillEnabled = false;
-#if !DEBUG
-            config.AreDevToolsEnabled = false;
-            config.AreBrowserAcceleratorKeysEnabled = false;
-#endif
+            ConfigurarNavegador(e.WebView.CoreWebView2);
             // A foto do paciente (CapturaFotoForm) usa a webcam do balcão pelo navegador, e o áudio
             // do WhatsApp (GravadorDeAudio, 24/10/2026) o microfone. Sem isto o WebView2 pergunta com
             // um balão do próprio navegador a cada abertura — e a recepcionista não tem como saber
@@ -98,6 +84,75 @@ public static class NavegadorEmbutido
         };
         return visor;
     }
+
+    /// <summary>
+    /// O ambiente do navegador, IGUAL em toda janela da suíte (a do app e a de formulário avulso,
+    /// <c>JanelaDeFormularioBlazor</c>): as duas usam a mesma pasta de perfil, e o WebView2 recusa
+    /// abrir um segundo ambiente na mesma pasta com opções diferentes.
+    /// <list type="bullet">
+    /// <item>O perfil mora no LocalAppData, fora da pasta da instalação: a pasta do Velopack é
+    /// substituída a cada atualização.</item>
+    /// <item>O idioma é o pt-BR (<see cref="MenuDoCorretor.Idioma"/>): os menus do navegador, o
+    /// <c>accept-language</c> e o dicionário do corretor ortográfico — sem ele, o corretor seguiria o
+    /// idioma do Windows da máquina do balcão.</item>
+    /// </list>
+    /// </summary>
+    public static void PrepararAmbiente(BlazorWebViewInitializingEventArgs e)
+    {
+        e.UserDataFolder = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "ClinicaSemDor", "Blazor");
+        e.EnvironmentOptions = new CoreWebView2EnvironmentOptions { Language = MenuDoCorretor.Idioma };
+    }
+
+    /// <summary>
+    /// As regras do navegador, iguais em toda janela da suíte: sem barra de status, sem guardar senha
+    /// nem preencher formulário, sem ferramentas de desenvolvedor no build de produção, e o menu de
+    /// contexto só em campo editável, só com o corretor, recortar, copiar e colar.
+    /// </summary>
+    public static void ConfigurarNavegador(CoreWebView2 navegador)
+    {
+        var config = navegador.Settings;
+        // O menu precisa estar LIGADO para o corretor aparecer; quem o recorta é o ContextMenuRequested.
+        config.AreDefaultContextMenusEnabled = true;
+        config.IsStatusBarEnabled = false;
+        config.IsPasswordAutosaveEnabled = false;
+        config.IsGeneralAutofillEnabled = false;
+#if !DEBUG
+        config.AreDevToolsEnabled = false;
+        config.AreBrowserAcceleratorKeysEnabled = false;
+#endif
+        navegador.ContextMenuRequested += (_, e) => RecortarMenu(e);
+    }
+
+    /// <summary>Aplica <see cref="MenuDoCorretor.Manter"/>: sem índice nenhum, não há menu (Handled sem menu próprio).</summary>
+    private static void RecortarMenu(CoreWebView2ContextMenuRequestedEventArgs e)
+    {
+        try
+        {
+            var itens = e.MenuItems;
+            var manter = MenuDoCorretor.Manter(e.ContextMenuTarget.IsEditable,
+                itens.Select(i => new ItemDoMenuDoNavegador(i.Name ?? "", Tipo(i.Kind))).ToList());
+            if (manter is null) { e.Handled = true; return; }
+            var ficam = manter.ToHashSet();
+            for (var i = itens.Count - 1; i >= 0; i--)
+                if (!ficam.Contains(i)) itens.RemoveAt(i);
+        }
+        catch (Exception ex)
+        {
+            // Na dúvida, nenhum menu: o do Edge inteiro (Inspecionar, Salvar como) é o que não pode aparecer.
+            e.Handled = true;
+            Clinica.Application.Diagnostico.Registrar("Navegador da suíte — menu do corretor", ex);
+        }
+    }
+
+    private static TipoDoItemDoNavegador Tipo(CoreWebView2ContextMenuItemKind tipo) => tipo switch
+    {
+        CoreWebView2ContextMenuItemKind.Command => TipoDoItemDoNavegador.Comando,
+        CoreWebView2ContextMenuItemKind.Separator => TipoDoItemDoNavegador.Separador,
+        CoreWebView2ContextMenuItemKind.Submenu => TipoDoItemDoNavegador.Submenu,
+        _ => TipoDoItemDoNavegador.Outro
+    };
 
     /// <summary>A página pertence ao próprio app (a origem em que o BlazorWebView serve as telas)?</summary>
     public static bool EhDaPropriaApp(string? endereco)

@@ -4,14 +4,27 @@ using Xunit;
 namespace Clinica.Tests;
 
 /// <summary>
-/// "Só quem terá acesso são as secretárias e o gerente" (25/10/2026): a regra única do
-/// WhatsApp da clínica — menu, tela, conversa ao lado e a entrada no CRM pela ponte.
+/// A regra única do WhatsApp da clínica — menu, tela, conversa ao lado, sino e a entrada no CRM pela
+/// ponte. Desde 24/11/2026 (decisão 4 do "CRM com cara de WhatsApp"): SÓ o bit EditarAgenda, em
+/// qualquer perfil — o diretor que entra como Médico passa a ver quando a direção lhe dá o bit.
 /// </summary>
 public sealed class AcessoAoWhatsAppTests
 {
     private static UsuarioSistema U(PerfilAcesso perfil, Permissao extras = Permissao.Nenhuma, Permissao negadas = Permissao.Nenhuma, bool ativo = true)
         => new() { Login = "x", Nome = "X", Perfil = perfil, PermissoesExtras = extras, PermissoesNegadas = negadas, Ativo = ativo };
 
+    [Theory]
+    [InlineData(PerfilAcesso.Recepcao)]
+    [InlineData(PerfilAcesso.Gerente)]
+    [InlineData(PerfilAcesso.Faturista)]
+    [InlineData(PerfilAcesso.Financeiro)]
+    [InlineData(PerfilAcesso.Profissional)]
+    [InlineData(PerfilAcesso.Psicologia)]
+    [InlineData(PerfilAcesso.Enfermagem)]
+    public void Com_o_bit_de_agendar_qualquer_perfil_atende(PerfilAcesso perfil)
+        => Assert.True(AcessoAoWhatsApp.Pode(U(perfil, extras: Permissao.EditarAgenda)));
+
+    // O padrão dos perfis não muda quem vê: só Recepção e Gerente nascem com o bit.
     [Theory]
     [InlineData(PerfilAcesso.Recepcao, true)]
     [InlineData(PerfilAcesso.Gerente, true)]
@@ -20,13 +33,14 @@ public sealed class AcessoAoWhatsAppTests
     [InlineData(PerfilAcesso.Profissional, false)]
     [InlineData(PerfilAcesso.Psicologia, false)]
     [InlineData(PerfilAcesso.Enfermagem, false)]
-    public void So_recepcao_e_direcao_atendem_mesmo_com_o_bit_de_agendar(PerfilAcesso perfil, bool pode)
-        => Assert.Equal(pode, AcessoAoWhatsApp.Pode(U(perfil, extras: Permissao.EditarAgenda)));
+    public void Sem_mexer_em_Acessos_so_recepcao_e_gerente_veem(PerfilAcesso perfil, bool pode)
+        => Assert.Equal(pode, AcessoAoWhatsApp.Pode(U(perfil)));
 
     [Fact]
-    public void O_bit_continua_sendo_o_ajuste_fino_e_desativado_nao_entra()
+    public void O_bit_negado_tira_e_desativado_nao_entra()
     {
         Assert.False(AcessoAoWhatsApp.Pode(U(PerfilAcesso.Recepcao, negadas: Permissao.EditarAgenda)));
+        Assert.False(AcessoAoWhatsApp.Pode(U(PerfilAcesso.Gerente, negadas: Permissao.EditarAgenda)));
         Assert.False(AcessoAoWhatsApp.Pode(U(PerfilAcesso.Recepcao, ativo: false)));
         Assert.True(AcessoAoWhatsApp.Pode(U(PerfilAcesso.Recepcao)));
     }
@@ -36,10 +50,10 @@ public sealed class AcessoAoWhatsAppTests
         => Assert.True(AcessoAoWhatsApp.Pode(new SessaoUsuario())); // não toca a SessaoUsuario.Atual: outras classes rodam em paralelo
 
     [Fact]
-    public void Com_login_vale_o_perfil_e_o_bit_efetivo()
+    public void Com_login_vale_o_bit_efetivo()
     {
-        Assert.False(AcessoAoWhatsApp.Pode(PerfilAcesso.Faturista, PerfisAcesso.Padrao(PerfilAcesso.Faturista) | Permissao.EditarAgenda));
-        Assert.True(AcessoAoWhatsApp.Pode(PerfilAcesso.Gerente, PerfisAcesso.Padrao(PerfilAcesso.Gerente)));
-        Assert.False(AcessoAoWhatsApp.Pode(PerfilAcesso.Recepcao, PerfisAcesso.Padrao(PerfilAcesso.Recepcao) & ~Permissao.EditarAgenda));
+        Assert.True(AcessoAoWhatsApp.Pode(PerfisAcesso.Padrao(PerfilAcesso.Profissional) | Permissao.EditarAgenda));
+        Assert.False(AcessoAoWhatsApp.Pode(PerfisAcesso.Padrao(PerfilAcesso.Profissional)));
+        Assert.False(AcessoAoWhatsApp.Pode(PerfisAcesso.Padrao(PerfilAcesso.Recepcao) & ~Permissao.EditarAgenda));
     }
 }
