@@ -582,6 +582,41 @@ public sealed class ClienteDoCrmHttpTests : IDisposable
         Assert.Equal((409, "Você já fixou 3 conversas. Desafixe uma para fixar esta."), (recusa.Status, recusa.Message));
     }
 
+    [Fact] public async Task Endereco_contato_servicos_e_agendamento_vao_pelas_rotas_da_secao_16()
+    {
+        await Configurar(EnderecoA);
+        var opcoes = new AppShareOptions(new AppLocation("Clínica Fictícia", "Rua Exemplo, 100", -22.9, -42.1), [], []);
+        var conversa = new AppConversation("c1", "Paciente", "5522988887777", "whatsapp", "5522999990000", "Recepção", "ana", false, 3,
+            DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch, null, "", [], [], [], [], null,
+            Scheduled: [new AppScheduledMessage("s1", "ana", "Mais tarde", DateTimeOffset.UnixEpoch, "agendada", DateTimeOffset.UnixEpoch)]);
+        crm.Rota = (p, _) => p.Caminho.StartsWith("/api/share", StringComparison.Ordinal) && !p.Caminho.EndsWith("/image") || p.Metodo == "POST" && p.Caminho.EndsWith("/image")
+            ? Responder(opcoes)
+            : p.Caminho.EndsWith("/image") ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent("PNG"u8.ToArray()) { Headers = { ContentType = new("image/png") } } }
+            : Responder(conversa);
+
+        Assert.Equal("Clínica Fictícia", (await cliente.OpcoesDoClipeAsync(7)).Location!.Name);
+        await cliente.SalvarEnderecoAsync(7, opcoes.Location!);
+        await cliente.SalvarContatoAsync(7, new AppContactCard("", "Dra. Fictícia", "5522999991111", "Acupuntura", false, 0));
+        await cliente.SalvarServicoAsync(7, new AppService("", "Acupuntura", "Sessões com hora marcada.", null, false, 0));
+        await cliente.ImagemDoServicoAsync(7, "sv1", new MemoryStream("PNG"u8.ToArray()), "servico.png", "image/png");
+        await cliente.ImagemDoServicoAsync(7, "sv1", null);
+        Assert.Equal("image/png", (await cliente.VerImagemDoServicoAsync(7, "sv1")).Mime);
+        await cliente.CompartilharAsync(7, "c1", new AppShare(3, Guid.NewGuid().ToString("D"), "location"));
+        Assert.Equal("agendada", Assert.Single((await cliente.AgendarAsync(7, "c1", new AppSchedule(Guid.NewGuid().ToString("D"), "Mais tarde", DateTimeOffset.UtcNow.AddHours(1)))).Scheduled!).State);
+        await cliente.CancelarAgendamentoAsync(7, "c1", "s1");
+
+        var pedidos = crm.Pedidos.Where(p => p.Caminho != "/api/session" && p.Caminho != "/api/login/ticket").Select(p => $"{p.Metodo} {p.Caminho} {(p.Csrf != "" ? "csrf" : "-")}").ToArray();
+        Assert.Equal(new[]
+        {
+            "GET /api/share -", "POST /api/share/location csrf", "POST /api/share/contacts csrf", "POST /api/share/services csrf",
+            "POST /api/share/services/sv1/image csrf", "POST /api/share/services/sv1/image csrf", "GET /api/share/services/sv1/image -",
+            "POST /api/conversations/c1/share csrf", "POST /api/conversations/c1/scheduled csrf", "POST /api/conversations/c1/scheduled/s1/cancel csrf",
+        }, pedidos);
+        var imagens = crm.Pedidos.Where(p => p.Metodo == "POST" && p.Caminho.EndsWith("/image")).ToList();
+        Assert.Contains("servico.png", imagens[0].Corpo);
+        Assert.Contains("name=remove", imagens[1].Corpo);
+    }
+
     [Fact] public async Task O_anexo_e_reenviado_inteiro_quando_a_sessao_venceu()
     {
         await Configurar(EnderecoA);

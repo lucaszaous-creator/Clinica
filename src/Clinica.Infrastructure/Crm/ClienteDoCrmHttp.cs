@@ -300,6 +300,54 @@ public sealed class ClienteDoCrmHttp : IClienteDoCrm, IDisposable
         => ChamarAsync(usuarioId, Natureza.Escrita, () => Post(Conversa(conversaId, "typing/stop"), JsonContent.Create(new { }, options: Json)),
             (_, _) => Task.FromResult(true), ct);
 
+    // ---------- "Cara de WhatsApp", F2b (semdor-crm §16) ----------
+
+    public Task<AppShareOptions> OpcoesDoClipeAsync(int usuarioId, CancellationToken ct = default)
+        => LerAsync<AppShareOptions>(usuarioId, "/api/share", ct);
+
+    public Task<AppShareOptions> SalvarEnderecoAsync(int usuarioId, AppLocation endereco, CancellationToken ct = default)
+        => EscreverAsync<AppShareOptions>(usuarioId, "/api/share/location", endereco, ct);
+
+    public Task<AppShareOptions> SalvarContatoAsync(int usuarioId, AppContactCard contato, CancellationToken ct = default)
+        => EscreverAsync<AppShareOptions>(usuarioId, "/api/share/contacts", contato, ct);
+
+    public Task<AppShareOptions> SalvarServicoAsync(int usuarioId, AppService servico, CancellationToken ct = default)
+        => EscreverAsync<AppShareOptions>(usuarioId, "/api/share/services", servico, ct);
+
+    public async Task<AppShareOptions> ImagemDoServicoAsync(int usuarioId, string servicoId, Stream? arquivo, string nome = "", string mime = "",
+        CancellationToken ct = default)
+    {
+        var caminho = "/api/share/services/" + Uri.EscapeDataString(servicoId) + "/image";
+        // Lido uma vez para a memória: o 401 repete o envio, e o Stream de quem chama só se lê uma vez.
+        var bytes = arquivo is null ? null : await LerArquivoAsync(arquivo, ct);
+        var tipo = MediaTypeHeaderValue.TryParse(mime, out var m) ? m : new MediaTypeHeaderValue("application/octet-stream");
+        return await ChamarAsync(usuarioId, Natureza.Envio, () =>
+        {
+            var corpo = new MultipartFormDataContent();
+            if (bytes is null) corpo.Add(new StringContent("true"), "remove");
+            else
+            {
+                var parte = new ByteArrayContent(bytes);
+                parte.Headers.ContentType = tipo;
+                corpo.Add(parte, "file", nome.Length > 0 ? nome : "servico.jpg");
+            }
+            return Post(caminho, corpo);
+        }, Desserializar<AppShareOptions>, ct);
+    }
+
+    public Task<ArquivoDaMidia> VerImagemDoServicoAsync(int usuarioId, string servicoId, CancellationToken ct = default)
+        => ChamarAsync(usuarioId, Natureza.Midia, () => new HttpRequestMessage(HttpMethod.Get, "/api/share/services/" + Uri.EscapeDataString(servicoId) + "/image"),
+            LerMidiaAsync, ct);
+
+    public Task<AppConversation> CompartilharAsync(int usuarioId, string conversaId, AppShare envio, CancellationToken ct = default)
+        => EscreverAsync<AppConversation>(usuarioId, Conversa(conversaId, "share"), envio, ct);
+
+    public Task<AppConversation> AgendarAsync(int usuarioId, string conversaId, AppSchedule agendamento, CancellationToken ct = default)
+        => EscreverAsync<AppConversation>(usuarioId, Conversa(conversaId, "scheduled"), agendamento, ct);
+
+    public Task<AppConversation> CancelarAgendamentoAsync(int usuarioId, string conversaId, string agendamentoId, CancellationToken ct = default)
+        => EscreverAsync<AppConversation>(usuarioId, Conversa(conversaId, "scheduled/" + Uri.EscapeDataString(agendamentoId) + "/cancel"), new { }, ct);
+
     public void EsquecerSessao(int usuarioId)
     {
         // O HttpClient antigo não é descartado aqui: uma chamada dele pode estar em andamento

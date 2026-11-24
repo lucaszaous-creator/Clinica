@@ -211,6 +211,42 @@ public interface IClienteDoCrm
     /// <summary>POST …/{id}/typing/stop — a pessoa parou de escrever (enviou ou apagou): some na hora para as colegas.</summary>
     Task ParouDeEscreverAsync(int usuarioId, string conversaId, CancellationToken ct = default);
 
+    // ---------- "Cara de WhatsApp", F2b (semdor-crm §16): endereço, contato do médico, serviços e enviar mais tarde ----------
+
+    /// <summary>GET /api/share — o que o clipe oferece: o endereço da clínica (nulo = não configurado), os contatos e os serviços.</summary>
+    Task<AppShareOptions> OpcoesDoClipeAsync(int usuarioId, CancellationToken ct = default);
+
+    /// <summary>POST /api/share/location — o endereço da clínica (só a gestão; 403 para os outros).</summary>
+    Task<AppShareOptions> SalvarEnderecoAsync(int usuarioId, AppLocation endereco, CancellationToken ct = default);
+
+    /// <summary>POST /api/share/contacts — cria (Id vazio) ou muda um cartão de contato (só a gestão).</summary>
+    Task<AppShareOptions> SalvarContatoAsync(int usuarioId, AppContactCard contato, CancellationToken ct = default);
+
+    /// <summary>POST /api/share/services — cria (Id vazio) ou muda um serviço (só a gestão). Preço no texto é recusado (400).</summary>
+    Task<AppShareOptions> SalvarServicoAsync(int usuarioId, AppService servico, CancellationToken ct = default);
+
+    /// <summary>POST /api/share/services/{id}/image — a imagem do serviço (só a gestão). <paramref name="arquivo"/> nulo tira a imagem.</summary>
+    Task<AppShareOptions> ImagemDoServicoAsync(int usuarioId, string servicoId, Stream? arquivo, string nome = "", string mime = "",
+        CancellationToken ct = default);
+
+    /// <summary>GET /api/share/services/{id}/image — a imagem do serviço, para o cartão na tela.</summary>
+    Task<ArquivoDaMidia> VerImagemDoServicoAsync(int usuarioId, string servicoId, CancellationToken ct = default);
+
+    /// <summary>
+    /// POST …/{id}/share — envia o endereço, um contato ou um serviço, como resposta da pessoa (idempotente pelo <c>Id</c>,
+    /// <c>Guid.NewGuid().ToString("D")</c>). Só na janela de 24 h (409 com a frase), como qualquer mensagem livre.
+    /// </summary>
+    Task<AppConversation> CompartilharAsync(int usuarioId, string conversaId, AppShare envio, CancellationToken ct = default);
+
+    /// <summary>
+    /// POST …/{id}/scheduled — "enviar mais tarde" (1 minuto a 30 dias). Fora da janela de 24 h só modelo: o 409 diz até que horas
+    /// o texto livre ainda vale. A conversa devolvida traz <see cref="AppConversation.Scheduled"/>.
+    /// </summary>
+    Task<AppConversation> AgendarAsync(int usuarioId, string conversaId, AppSchedule agendamento, CancellationToken ct = default);
+
+    /// <summary>POST …/{id}/scheduled/{agendamentoId}/cancel — só quem agendou ou a gestão (403); já enviada é 409.</summary>
+    Task<AppConversation> CancelarAgendamentoAsync(int usuarioId, string conversaId, string agendamentoId, CancellationToken ct = default);
+
     /// <summary>Esquece a sessão do CRM da pessoa (o app chama no logout): a próxima chamada entra de novo.</summary>
     void EsquecerSessao(int usuarioId);
 }
