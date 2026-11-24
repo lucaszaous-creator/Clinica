@@ -302,6 +302,10 @@ public sealed class FechamentoSessaoService
         var (atendimento, recados, jaExistia) =
             await GarantirAtendimentoAsync(agendamentoId, operador, ct);
 
+        // O particular entra no caixa NO LANÇAMENTO (nov/2026, ReceitaDoParticularService): a proposta montada antes
+        // ainda oferecia "cobrar" — relida agora, ela enxerga a entrada e não pergunta de novo.
+        if (proposta.SugereLancamento) proposta = await PrepararAsync(agendamentoId, hoje, ct);
+
         return new RegistroAtendimento(atendimento, proposta, recados, jaExistia);
     }
 
@@ -405,6 +409,11 @@ public sealed class FechamentoSessaoService
                 if (decisao.Valor is not { } valor || valor <= 0)
                     throw new InvalidOperationException(
                         "Sem valor não há o que lançar no caixa.");
+
+                // A sessão particular já entrou no caixa ao ser lançada (nov/2026): uma segunda entrada seria cobrar duas vezes.
+                if ((await _repo.EntradasDoHorarioAsync(decisao.AgendamentoId, ct)).Count > 0)
+                    throw new InvalidOperationException(
+                        "Esta sessão já entrou no caixa quando foi lançada. Para mudar o valor ou a forma, ajuste o lançamento no Financeiro.");
 
                 var descricao = FinanceiroService.DescricaoDaSessao(
                     atendimento.Data,

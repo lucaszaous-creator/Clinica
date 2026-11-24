@@ -484,16 +484,10 @@ public class CircuitoParticularTests : IDisposable
         var agendamentoId = await AgendarAsync(pacienteId);
         var registro = await _fechamento.RegistrarAtendimentoAsync(agendamentoId);
 
-        // Já no REGISTRO: modalidade e especialidade estão no horário, então a proposta
-        // não precisa esperar o atendimento existir.
-        registro.Proposta.ValorSugerido.Should().Be(180m);
-        registro.Proposta.ProcedenciaDoValor.Should().StartWith("tabela do particular:");
-        registro.Proposta.ParticularSemPreco.Should().BeFalse();
-
-        // E a Conciliação propõe o MESMO número para a mesma sessão.
-        var pendente = (await _financeiro.SessoesParticularesSemReceitaAsync(Dia, Dia)).Single();
-        var proposto = await _precos.ProporAsync(pendente);
-        proposto.Valor.Should().Be(180m);
+        // Nov/2026: o particular entra no caixa NO LANÇAMENTO, pelo preço da tabela, e o fechamento não pergunta de novo.
+        _db.Lancamentos.AsNoTracking().Single().Valor.Should().Be(180m);
+        registro.Proposta.SugereLancamento.Should().BeFalse();
+        (await _financeiro.SessoesParticularesSemReceitaAsync(Dia, Dia)).Should().BeEmpty();
     }
 
     /// <summary>
@@ -512,12 +506,11 @@ public class CircuitoParticularTests : IDisposable
         });
 
         var agendamentoId = await AgendarAsync(pacienteId);
-        var registro = await _fechamento.RegistrarAtendimentoAsync(agendamentoId);
-        registro.Proposta.ValorSugerido.Should().Be(250m);
+        await _fechamento.RegistrarAtendimentoAsync(agendamentoId);
 
-        var pendente = (await _financeiro.SessoesParticularesSemReceitaAsync(Dia, Dia)).Single();
-        pendente.ProfissionalId.Should().Be(_profPadrao, "a sessão carrega quem atendeu, lido do horário");
-        (await _precos.ProporAsync(pendente)).Valor.Should().Be(250m, "o MESMO número do Finalizar");
+        // Nov/2026: a entrada automática do lançamento usa o preço de QUEM ATENDEU (lido do horário).
+        _db.Lancamentos.AsNoTracking().Single().Valor.Should().Be(250m);
+        (await _financeiro.SessoesParticularesSemReceitaAsync(Dia, Dia)).Should().BeEmpty();
     }
 
     [Fact]

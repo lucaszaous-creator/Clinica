@@ -1511,6 +1511,11 @@ public sealed class AgendaService
             else pago.Atendimento = atendimento;
         }
 
+        // ===== O PARTICULAR ENTRA NO CAIXA QUANDO É LANÇADO (nov/2026, decisão do dono) =====
+        // Recebido, sem forma de pagamento, no MESMO commit do atendimento — por qualquer porta que passe aqui
+        // (Fila, Consultório, posto, conclusão automática). Regra e exceções em ReceitaDoParticularService.
+        await new ReceitaDoParticularService(_repo).AcrescentarAsync(ag, atendimento, ct);
+
         if (confirmarPresenca)
         {
             if (encerrarClinico && ag.FimAtendimentoEm is null)

@@ -296,6 +296,16 @@ for coluna in ('AtendimentoId','CodigoFaturamentoId','Tipo','Status'):
     if sql(f"SELECT has_column_privilege('{role}','\"Lancamentos\"','{coluna}','SELECT')")!='t':
         conceder.append(f'GRANT SELECT ({ident(coluna)}) ON "Lancamentos" TO {ident(role)};')
         revogar.append(f'REVOKE SELECT ({ident(coluna)}) ON "Lancamentos" FROM {ident(role)};')
+# O particular entra no caixa quando o posto CONCLUI a sessão (nov/2026, ReceitaDoParticularService): o papel lê as
+# entradas do horário/atendimento (idempotência) e INSERE a entrada recebida no mesmo commit do atendimento.
+for priv in ('SELECT','INSERT'):
+    if sql(f"SELECT has_table_privilege('{role}','\"Lancamentos\"','{priv}')")!='t':
+        conceder.append(f'GRANT {priv} ON "Lancamentos" TO {ident(role)};')
+        revogar.append(f'REVOKE {priv} ON "Lancamentos" FROM {ident(role)};')
+for priv in ('USAGE','SELECT'):
+    if sql(f"SELECT has_sequence_privilege('{role}','\"Lancamentos_Id_seq\"','{priv}')")!='t':
+        conceder.append(f'GRANT {priv} ON SEQUENCE "Lancamentos_Id_seq" TO {ident(role)};')
+        revogar.append(f'REVOKE {priv} ON SEQUENCE "Lancamentos_Id_seq" FROM {ident(role)};')
 if sql('SELECT to_regclass(\'"EdicoesEnfermagemTablet"\') IS NOT NULL')=='t':
     for priv in ('SELECT','INSERT','UPDATE','DELETE'):grant(priv,'EdicoesEnfermagemTablet')
 elif migracao=='20260923190924_EdicaoEnfermagemExclusiva':
