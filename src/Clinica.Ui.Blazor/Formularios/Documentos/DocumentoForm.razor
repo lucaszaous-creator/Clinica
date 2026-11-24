@@ -307,7 +307,7 @@
         @if (_ultimo is { } ultimo && _r is not null)
         {
             @* EMITIR VÁRIAS SEGUIDAS (pedido da Dra., nov/2026): a folha não fecha depois de emitir; a próxima sai daqui. *@
-            <button type="button" class="botao" title="Outra folha em branco para o mesmo paciente" @onclick="() => NovaAsync(copiar: false)">Nova receita</button>
+            <button type="button" class="botao" title="Outra folha em branco para o mesmo paciente" @onclick="() => NovaAsync(copiar: false)">@(_r.Tipo == TipoDocumentoClinico.Receita ? "Nova receita" : "Novo documento")</button>
             <button type="button" class="botao" title="Outra folha para o mesmo paciente, já com o texto da que saiu" @onclick="() => NovaAsync(copiar: true)">Com o mesmo texto</button>
             <button type="button" class="botao primario" title="Escolher o próximo paciente sem sair daqui" @onclick="ProximoPaciente">Próximo paciente</button>
         }
