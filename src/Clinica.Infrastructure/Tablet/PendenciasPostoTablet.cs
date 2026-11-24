@@ -1,3 +1,4 @@
+using Clinica.Application.Modelos;
 using Clinica.Application.Tablet;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
@@ -7,17 +8,19 @@ namespace Clinica.Infrastructure.Tablet;
 
 public sealed partial class PostoTabletService
 {
-    public async Task<object> PendenciasAsync(SessaoTablet s,int pagina,CancellationToken ct)
+    public async Task<object> PendenciasAsync(SessaoTablet s,int pagina,CancellationToken ct,string? profissional=null)
     {
         var u=await Autorizar(s,ct);
+        // Sessões sem evolução de quem: as próprias; o Gerente escolhe (AgendaDoConsultorio.Filtro).
+        var filtro=AgendaDoConsultorio.Filtro(u.Perfil,u.ProfissionalId,profissional);
         if(pagina is <0 or >10000)throw ErroFormularioTablet.Criar("Página inválida.");
         var inicio=acesso.Hoje.AddDays(-90).ToDateTime(TimeOnly.MinValue);
         var fim=acesso.Hoje.AddDays(1).ToDateTime(TimeOnly.MinValue);
         var sessoes=await db.Agendamentos.AsNoTracking()
-            .Where(a=>PoliticaAtendimentoTablet.PodeAtender(u)&&a.ProfissionalId==u.ProfissionalId&&a.DataHora>=inicio&&a.DataHora<fim
+            .Where(a=>PoliticaAtendimentoTablet.PodeAtender(u)&&(filtro==null||a.ProfissionalId==filtro)&&a.DataHora>=inicio&&a.DataHora<fim
                 &&(a.Status==StatusAgendamento.Agendado||a.Status==StatusAgendamento.Realizado&&a.FimAtendimentoEm==null))
             .OrderBy(a=>a.DataHora).ThenBy(a=>a.Id).Skip(pagina*50).Take(51)
-            .Select(a=>new {a.Id,a.PacienteId,Paciente=a.Paciente!.Nome,a.DataHora,
+            .Select(a=>new {a.Id,a.PacienteId,Paciente=a.Paciente!.Nome,a.DataHora,a.ProfissionalId,Profissional=a.Profissional==null?null:a.Profissional.Nome,
                 EvolucaoSalva=db.Evolucoes.Any(e=>e.AgendamentoId==a.Id&&e.CanceladaEm==null),a.InicioAtendimentoEm}).ToListAsync(ct);
         var podePrescrever=u.Pode(Permissao.Prescrever);
         var documentos=await db.DocumentosClinicos.AsNoTracking()
@@ -25,7 +28,7 @@ public sealed partial class PostoTabletService
             .OrderBy(d=>d.Id).Skip(pagina*50).Take(51)
             .Select(d=>new {d.Id,d.PacienteId,Paciente=d.Paciente!.Nome,d.Data,d.Numero,Tipo=d.Tipo.ToString()}).ToListAsync(ct);
         var recepcao=await db.Agendamentos.AsNoTracking()
-            .Where(a=>PoliticaAtendimentoTablet.PodeAtender(u)&&a.ProfissionalId==u.ProfissionalId&&a.DataHora>=inicio&&a.DataHora<fim
+            .Where(a=>PoliticaAtendimentoTablet.PodeAtender(u)&&(filtro==null||a.ProfissionalId==filtro)&&a.DataHora>=inicio&&a.DataHora<fim
                 &&a.FimAtendimentoEm!=null&&a.Atendimento!=null&&a.Atendimento.EstornadoEm==null
                 &&(a.Atendimento.Codigos.Any(c=>c.DataBaixa==null&&c.Status!=StatusCodigo.NaoAplicavel)
                     ||!a.Atendimento.Codigos.Any(c=>c.Status!=StatusCodigo.NaoAplicavel)

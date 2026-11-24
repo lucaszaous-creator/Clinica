@@ -2,6 +2,7 @@ using System.Data;
 using System.Text.Json;
 using Clinica.Application.Abstracoes;
 using Clinica.Application.Servicos;
+using Clinica.Application.Modelos;
 using Clinica.Application.Tablet;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
@@ -49,19 +50,23 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
     private async Task<Agendamento> Horario(UsuarioSistema u, int id, CancellationToken ct)
     {
         if (!PoliticaAtendimentoTablet.PodeAtender(u)) throw new UnauthorizedAccessException();
-        return await db.Agendamentos.Include(a => a.Paciente).SingleOrDefaultAsync(a => a.Id == id
-            && a.ProfissionalId == u.ProfissionalId
+        // O Gerente atende a agenda de qualquer profissional (AgendaDoConsultorio); os outros, só a própria.
+        var qualquer = AgendaDoConsultorio.VeQualquerAgenda(u.Perfil);
+        return await db.Agendamentos.Include(a => a.Paciente).Include(a => a.Profissional).SingleOrDefaultAsync(a => a.Id == id
+            && (qualquer || a.ProfissionalId == u.ProfissionalId)
             && (a.Status == StatusAgendamento.Agendado || a.Status == StatusAgendamento.Realizado), ct)
             ?? throw new RecursoClinicoIndisponivel();
     }
 
-    public async Task<object> DiaAsync(SessaoTablet s, DateOnly? dia, CancellationToken ct)
+    public async Task<object> DiaAsync(SessaoTablet s, DateOnly? dia, CancellationToken ct, string? profissional = null)
     {
         var u = await AutorizarAsync(s, ct);
+        // De quem é a agenda: a própria; o Gerente escolhe (AgendaDoConsultorio.Filtro — a régua do servidor).
+        var filtro = AgendaDoConsultorio.Filtro(u.Perfil, u.ProfissionalId, profissional);
         var data = dia ?? Hoje;
         if (Math.Abs(data.DayNumber - Hoje.DayNumber) > 366) throw ErroFormularioTablet.Criar("Escolha uma data no intervalo de um ano.");
         var inicio = data.ToDateTime(TimeOnly.MinValue); var fim = inicio.AddDays(1);
-        var horarios = await db.Agendamentos.AsNoTracking().Where(a => a.ProfissionalId == u.ProfissionalId
+        var horarios = await db.Agendamentos.AsNoTracking().Where(a => (filtro == null || a.ProfissionalId == filtro)
             && a.DataHora >= inicio && a.DataHora < fim
             && (a.Status == StatusAgendamento.Agendado || a.Status == StatusAgendamento.Realizado))
             .OrderBy(a => a.DataHora).Take(300).Select(a => new {
@@ -69,9 +74,13 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
                 a.DataHora, a.ModalidadeCodigo, Modalidade = a.ModalidadePrevista.ToString(),
                 a.ChegadaEm, a.InicioAtendimentoEm, a.FimAtendimentoEm,
                 Finalizado = a.FimAtendimentoEm != null,
-                TemEvolucao = db.Evolucoes.Any(e => e.AgendamentoId == a.Id && e.CanceladaEm == null)
+                TemEvolucao = db.Evolucoes.Any(e => e.AgendamentoId == a.Id && e.CanceladaEm == null),
+                a.ProfissionalId, ProfissionalNome = a.Profissional == null ? null : a.Profissional.Nome
             }).ToListAsync(ct);
-        return new { Data = data, Profissional = u.Profissional!.Nome, PodePrescrever = u.Pode(Permissao.Prescrever), Horarios = horarios };
+        var nomeDaAgenda = filtro is null ? "Todos os profissionais"
+            : filtro == u.ProfissionalId ? u.Profissional!.Nome
+            : await db.Profissionais.AsNoTracking().Where(p => p.Id == filtro).Select(p => p.Nome).SingleOrDefaultAsync(ct) ?? "Profissional";
+        return new { Data = data, Profissional = nomeDaAgenda, ProfissionalId = filtro, PodePrescrever = u.Pode(Permissao.Prescrever), Horarios = horarios };
     }
 
     private async Task<Evolucao?> EvolucaoAtual(int ag, CancellationToken ct)
@@ -126,7 +135,9 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
         await db.SaveChangesAsync(ct);
         var alertas = await conferencia.ContextoAsync(a.PacienteId, ct);
         return new {Agendamento = new {a.Id, a.DataHora, a.PacienteId, a.AtendimentoId, a.InicioAtendimentoEm,
-                Finalizado = a.FimAtendimentoEm != null, a.FimAtendimentoEm},
+                Finalizado = a.FimAtendimentoEm != null, a.FimAtendimentoEm,
+                // "Agenda de Dr. X · registrado por Fulana": a sessão é de outro, o registro sai no nome de quem entrou.
+                AgendaDeOutro = AgendaDoConsultorio.Rotulo(u.ProfissionalId, a.ProfissionalId, a.Profissional?.Nome, u.Nome)},
             Paciente = new {a.Paciente!.Nome, Nascimento = a.Paciente.DataNascimento},
             NovoBsv = u.Pode(Permissao.EditarProntuario)
                 ? await new AcompanhamentoPacienteService(db, repo, new PacoteService(repo)).EstadoBsvAsync(u.Id, id, ct)

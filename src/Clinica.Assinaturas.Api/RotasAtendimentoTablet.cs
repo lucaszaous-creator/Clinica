@@ -2,6 +2,7 @@ using Clinica.Application.Abstracoes;
 using Clinica.Domain;
 using Clinica.Application.Assinatura;
 using Clinica.Application.Servicos;
+using Clinica.Application.Modelos;
 using Clinica.Application.Tablet;
 using Clinica.Domain.Entities;
 using Clinica.Infrastructure;
@@ -39,9 +40,14 @@ internal static class RotasAtendimentoTablet
                     .Select(e=>new {codigo=e.ToString(),nome=EspecialidadeInfo.NomeExibicao(e)}))
                 .GroupBy(e=>e.codigo,StringComparer.OrdinalIgnoreCase).Select(g=>g.First())
                 .Where(e=>u.Profissional?.Atende(nameof(ModalidadeAtendimento.Consulta),e.codigo)==true).ToArray();
-            return Results.Ok(new {continuidadeSemAssinatura=await ContinuidadeSemAssinatura.HabilitadaAsync(repo,c.RequestAborted),nome=u.Nome,sessoesEnfermagem=u.Perfil==PerfilAcesso.Enfermagem && u.Pode(Permissao.RegistrarEvolucaoEnfermagem | Permissao.VerAgenda),atender=PoliticaAtendimentoTablet.PodeAtender(u),enfermagem=u.Pode(Permissao.ChecarPrescricao),prescrever=u.Pode(Permissao.Prescrever),consultaCodigo=(int)ModalidadeAtendimento.Consulta,especialidades,modalidades=Enum.GetValues<ModalidadeAtendimento>().Where(m=>(u.Perfil!=PerfilAcesso.Psicologia||m==ModalidadeAtendimento.Consulta)&&(m==ModalidadeAtendimento.Consulta?especialidades.Length>0:u.Profissional?.Atende(m.ToString())==true)).Select(m=>new {codigo=(int)m,nome=RotulosEnum.De(m)})});});
-        grupo.MapGet("/dia", async(HttpContext c, PortalTabletService portal, AtendimentoTabletService svc, DateOnly? data)
-            => Results.Ok(await svc.DiaAsync(await sessao(c,portal),data,c.RequestAborted)));
+            // O seletor de agenda do Consultório (AgendaDoConsultorio): só o Gerente o recebe; os outros, nada muda.
+            var qualquerAgenda=AgendaDoConsultorio.VeQualquerAgenda(u.Perfil);
+            var profissionais=qualquerAgenda
+                ? await db.Profissionais.AsNoTracking().Where(p=>p.Ativo).OrderBy(p=>p.Nome).Select(p=>new {id=p.Id,nome=p.Nome}).ToListAsync(c.RequestAborted)
+                : null;
+            return Results.Ok(new {qualquerAgenda,profissionais,profissionalId=u.ProfissionalId,continuidadeSemAssinatura=await ContinuidadeSemAssinatura.HabilitadaAsync(repo,c.RequestAborted),nome=u.Nome,sessoesEnfermagem=u.Perfil==PerfilAcesso.Enfermagem && u.Pode(Permissao.RegistrarEvolucaoEnfermagem | Permissao.VerAgenda),atender=PoliticaAtendimentoTablet.PodeAtender(u),enfermagem=u.Pode(Permissao.ChecarPrescricao),prescrever=u.Pode(Permissao.Prescrever),consultaCodigo=(int)ModalidadeAtendimento.Consulta,especialidades,modalidades=Enum.GetValues<ModalidadeAtendimento>().Where(m=>(u.Perfil!=PerfilAcesso.Psicologia||m==ModalidadeAtendimento.Consulta)&&(m==ModalidadeAtendimento.Consulta?especialidades.Length>0:u.Profissional?.Atende(m.ToString())==true)).Select(m=>new {codigo=(int)m,nome=RotulosEnum.De(m)})});});
+        grupo.MapGet("/dia", async(HttpContext c, PortalTabletService portal, AtendimentoTabletService svc, DateOnly? data, string? profissional)
+            => Results.Ok(await svc.DiaAsync(await sessao(c,portal),data,c.RequestAborted,profissional)));
         grupo.MapGet("/atendimentos/{id:int}", async(HttpContext c, PortalTabletService portal, AtendimentoTabletService svc, int id)
             => Results.Ok(await svc.AbrirAsync(await sessao(c,portal),id,c.RequestAborted)));
         grupo.MapGet("/atendimentos/{id:int}/materiais", async(HttpContext c, PortalTabletService portal, AtendimentoTabletService svc, int id)

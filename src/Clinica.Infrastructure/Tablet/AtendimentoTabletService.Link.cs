@@ -1,3 +1,4 @@
+using Clinica.Application.Modelos;
 using Clinica.Application.Tablet;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
@@ -17,7 +18,8 @@ public sealed partial class AtendimentoTabletService
         var u = await AutorizarAsync(s, ct, Permissao.Prescrever);
         if (pedido.Tipo is not ("atestado" or "comparecimento" or "receita" or "exame" or "relatorio"))
             throw ErroFormularioTablet.Criar("Escolha um tipo de documento disponível.");
-        if (!await db.Agendamentos.AnyAsync(a => a.PacienteId == paciente && a.ProfissionalId == u.ProfissionalId
+        var qualquer = AgendaDoConsultorio.VeQualquerAgenda(u.Perfil);
+        if (!await db.Agendamentos.AnyAsync(a => a.PacienteId == paciente && (qualquer || a.ProfissionalId == u.ProfissionalId)
                 && (a.Status == StatusAgendamento.Agendado || a.Status == StatusAgendamento.Realizado), ct))
             throw new RecursoClinicoIndisponivel();
         var r = await EmitirConteudoAsync(u, paciente, null, null, pedido, ct);

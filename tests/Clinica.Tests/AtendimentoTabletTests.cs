@@ -61,6 +61,34 @@ public sealed partial class AtendimentoTabletTests : IDisposable
         var registro=JsonSerializer.Serialize(await svc.AbrirAsync(sessao,horario.Id,default));
         Assert.Contains("Modelo permitido",registro);Assert.DoesNotContain("Modelo restrito",registro);
     }
+    // Decisão do dono (24/11/2026, AgendaDoConsultorio): o Gerente vê e atende a agenda de qualquer profissional pelo
+    // portal; o registro sai no nome de quem entrou (o ProfissionalId e o operador do LOGIN), nunca no do dono da agenda.
+    [Fact] public async Task Gerente_ve_e_atende_a_agenda_de_outro_e_o_registro_sai_no_nome_dela()
+    {
+        await Preparar();
+        usuario.Perfil=PerfilAcesso.Gerente;await db.SaveChangesAsync();
+        // Padrão: a própria agenda; "todos" e o id do outro profissional abrem a dele.
+        var propria=JsonSerializer.Serialize(await svc.DiaAsync(sessao,null,default));
+        Assert.Contains("Paciente autorizado",propria);Assert.DoesNotContain("Paciente restrito",propria);
+        Assert.Contains("Paciente restrito",JsonSerializer.Serialize(await svc.DiaAsync(sessao,null,default,"todos")));
+        var doOutro=JsonSerializer.Serialize(await svc.DiaAsync(sessao,null,default,outro.ProfissionalId.ToString()));
+        Assert.Contains("Paciente restrito",doOutro);Assert.DoesNotContain("Paciente autorizado",doOutro);Assert.Contains("Profissional B",doOutro);
+
+        var aberto=JsonSerializer.SerializeToElement(await svc.AbrirAsync(sessao,outro.Id,default),ContratoTablet.Json);
+        Assert.Equal("Agenda de Profissional B · registrado por A",aberto.GetProperty("agendamento").GetProperty("agendaDeOutro").GetString());
+        var dto=aberto.GetProperty("evolucao").Deserialize<EvolucaoClinicaTablet>(ContratoTablet.Json)!;
+        await svc.SalvarAsync(sessao,outro.Id,new(Guid.NewGuid(),dto with {TextoEvolucao="Evolução fictícia pela direção"}),default);
+        var e=await db.Evolucoes.AsNoTracking().SingleAsync();
+        Assert.Equal((usuario.ProfissionalId,outro.Id),(e.ProfissionalId,e.AgendamentoId));
+        Assert.Equal(usuario.Login,e.CriadoPor);
+    }
+    [Fact] public async Task Profissional_pedindo_todos_continua_so_com_a_propria_agenda()
+    {
+        await Preparar();
+        var todos=JsonSerializer.Serialize(await svc.DiaAsync(sessao,null,default,"todos"));
+        Assert.Contains("Paciente autorizado",todos);Assert.DoesNotContain("Paciente restrito",todos);
+        Assert.DoesNotContain("Paciente restrito",JsonSerializer.Serialize(await svc.DiaAsync(sessao,null,default,outro.ProfissionalId.ToString())));
+    }
     [Fact] public async Task Trocar_id_na_url_nao_abre_nem_grava_outro_paciente()
     {
         await Preparar();

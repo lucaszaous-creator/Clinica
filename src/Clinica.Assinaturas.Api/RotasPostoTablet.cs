@@ -48,8 +48,8 @@ internal static class RotasPostoTablet
             =>Results.Ok(await svc.VincularEnfermagemAsync(await sessao(c,portal),id,evolucao,p,c.RequestAborted)));
         g.MapPost("/pacientes/{id:int}/modelos-documento",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,int id,NovoModeloDocumentoTablet p)
             =>Results.Ok(await svc.CriarModeloAsync(await sessao(c,portal),id,p,c.RequestAborted)));
-        g.MapGet("/pendencias",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,int? pagina)
-            =>Results.Ok(await svc.PendenciasAsync(await sessao(c,portal),pagina??0,c.RequestAborted)));
+        g.MapGet("/pendencias",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,int? pagina,string? profissional)
+            =>Results.Ok(await svc.PendenciasAsync(await sessao(c,portal),pagina??0,c.RequestAborted,profissional)));
         g.MapGet("/modelos-documento",async(HttpContext c,PortalTabletService portal,PostoTabletService svc)
             =>Results.Ok(await svc.ModelosDocumentoAsync(await sessao(c,portal),c.RequestAborted)));
         g.MapPost("/pacientes/{id:int}/anamnese",async(HttpContext c,PortalTabletService portal,PostoTabletService svc,int id,AnamneseTablet p)
