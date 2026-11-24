@@ -796,10 +796,10 @@ public static partial class ConversasNaTela
         foreach (var (at, item) in Limpar(fontes.OrderBy(f => f.At).ThenBy(f => f.Ordem).ThenBy(f => f.Indice)
                      .Select(f => (f.At, f.Item, f.Evento)).ToList()))
         {
-            var d = DateOnly.FromDateTime(at.ToOffset(agora.Offset).DateTime);
+            var d = DateOnly.FromDateTime(NaClinica(at).DateTime);
             if (d != dia)
             {
-                itens.Add(new(TipoNaLinhaDoTempo.Dia, Dia(d, DateOnly.FromDateTime(agora.DateTime))));
+                itens.Add(new(TipoNaLinhaDoTempo.Dia, DiaDoWhatsApp(d, DateOnly.FromDateTime(NaClinica(agora).DateTime))));
                 dia = d;
                 anterior = null;
             }
@@ -933,7 +933,35 @@ public static partial class ConversasNaTela
 
     // ---------------------------------------------------------------- datas
 
-    private static string Hora(DateTimeOffset at, DateTimeOffset agora) => at.ToOffset(agora.Offset).ToString("HH:mm", PtBr);
+    private static string Hora(DateTimeOffset at, DateTimeOffset agora) => NaClinica(at).ToString("HH:mm", PtBr);
+
+    /// <summary>
+    /// O fuso da clínica (America/Sao_Paulo), nunca o do computador nem o UTC do CRM (nov/2026, pedido do dono: "correção do
+    /// tempo"): a hora do balão e o separador de dia são os de quem está no balcão. Sem o fuso no sistema, cai no do computador.
+    /// </summary>
+    public static readonly TimeZoneInfo FusoDaClinica = AcharFuso();
+
+    private static TimeZoneInfo AcharFuso()
+    {
+        foreach (var id in new[] { "America/Sao_Paulo", "E. South America Standard Time" })
+            try { return TimeZoneInfo.FindSystemTimeZoneById(id); } catch (Exception ex) when (ex is TimeZoneNotFoundException or InvalidTimeZoneException) { }
+        return TimeZoneInfo.Local;
+    }
+
+    /// <summary>O momento no relógio da clínica.</summary>
+    public static DateTimeOffset NaClinica(DateTimeOffset at) => TimeZoneInfo.ConvertTime(at, FusoDaClinica);
+
+    /// <summary>
+    /// O separador de dia da conversa, como no WhatsApp: "Hoje", "Ontem", o dia da semana até seis dias atrás ("Quarta-feira") e,
+    /// antes disso, "21/10/2026". (O <see cref="Dia"/> com a data junto continua na Auditoria do Gerente.)
+    /// </summary>
+    public static string DiaDoWhatsApp(DateOnly dia, DateOnly hoje) => (hoje.DayNumber - dia.DayNumber) switch
+    {
+        0 => "Hoje",
+        1 => "Ontem",
+        >= 2 and <= 6 => Maiuscula(DiaPorExtenso(dia.DayOfWeek)),
+        _ => dia.ToString("dd/MM/yyyy", PtBr)
+    };
 
     /// <summary>"hoje às 17:02", "amanhã às 10:09", "ontem às 11:05", "qua 22/10 às 11:05" (com o ano, se não for o deste ano).</summary>
     internal static string Quando(DateTimeOffset momento, DateTimeOffset agora)

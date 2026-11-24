@@ -2006,6 +2006,10 @@ public sealed class CrmDeMentira : IClienteDoCrm
             .Evento(T(-1, 17, 3), "Agenda da clínica", "Clínica confirmou remarcação do horário #1. Nenhuma mensagem enviada ao paciente.")
             .EnviadaComAnexo(T(-1, 17, 3, 10), Eu, "Seguem as orientações para o dia do BSV.", "DOCUMENT", MidiaDeExemplo.Orientacoes, "seen")
             .Enviada(T(-1, 17, 3, 30), Eu, $"Fica combinado então, Roberto. Até {RelogioDaPrevia.DiaDaSemana(sessaoRoberto)}!", "delivered");
+        // O "Serve sim" responde CITANDO a oferta (nov/2026, a citação do WhatsApp na prévia): o balão mostra o bloco e leva a ela.
+        var oferta = roberto.Messages.First(m => m.Direction == "out" && m.Text.StartsWith("Boa tarde, Roberto!", StringComparison.Ordinal));
+        var serveSim = roberto.Messages.FindIndex(m => m.Text == "Serve sim");
+        roberto.Messages[serveSim] = roberto.Messages[serveSim] with { ReplyToId = oferta.Id };
         lista.Add(roberto);
 
         // ----- Fernanda: retenção — o convite foi ontem, pelo modelo (a janela estava fechada desde a última sessão).

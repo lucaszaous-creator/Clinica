@@ -267,7 +267,13 @@ else
                 }
                 _contaAchados = 0;
                 <div class="wa-mensagens" role="log" aria-label="Mensagens" @ref="_mensagensEl">
-                    @foreach (var item in c.LinhaDoTempo)
+                    @* O histórico aos poucos (nov/2026): os últimos itens; chegar ao topo traz os anteriores sem a rolagem pular. *@
+                    @{ var (visiveis, escondidos) = ConversasNaTela.UltimosDaLinha(c.LinhaDoTempo, _itensDesenhados); }
+                    @if (escondidos > 0)
+                    {
+                        <button type="button" class="wa-anteriores" @onclick="CarregarAnteriores">Mensagens anteriores</button>
+                    }
+                    @foreach (var item in visiveis)
                     {
                         @switch (item.Tipo)
                         {
@@ -300,7 +306,7 @@ else
                                     <div class="@(item.TentarDeNovo ? "wa-falhou" : null)">
                                     @if (item.TentarDeNovo) { <span class="wa-bang" title="Não enviada" aria-hidden="true">!</span> }
                                     <div class="wa-balao @(item.Midia?.Figurinha == true ? "wa-balao-figurinha" : null) @(_menuDaMensagem is not null && item.Id is not null && _mensagemDoMenu?.Id == item.Id ? "no-menu" : null)" data-mensagem="@item.Id"
-                                         @oncontextmenu="e => AbrirMenuDaMensagemAsync(c, item, e)" @oncontextmenu:preventDefault="true">@* A setinha do WhatsApp (F1): o MESMO menu do botão direito, para quem não sabe dele. *@<button type="button" class="wa-balao-menu" title="Responder, copiar, nota e mais" aria-label="Mais opções da mensagem" aria-haspopup="menu" @onclick="e => AbrirMenuDaMensagemAsync(c, item, e)"><Icone Nome="abaixo" /></button>@if (item.Automatica is not null && item.Id is { } idAberta) { <button type="button" class="wa-auto-recolher" @onclick="() => _automaticasAbertas.Remove(idAberta)">Automático · recolher</button> }@if (item.Citacao is { } cit) { <span class="wa-citacao"><b>@cit.Autor</b>@cit.Trecho</span> }@if (item.Midia is { } md) { @Midia(md) }@if (item.Local is { } local) { @Local(local) }@if (item.Contato is { } contato) { @Contato(contato) }@Marcar(item.Texto)@if (item.Transcricao is { } transcricao) { <span class="wa-transcricao">"@transcricao"</span> }<span class="wa-m-rodape">@if (item.Estrela) { <span class="wa-estrela" title="Importante"><Icone Nome="estrela" /></span> }@if (enviada && item.Automatica is null && item.Autor is { } autor) { <span class="wa-autor">@autor ·</span> }@if (item.Modelo is { } m) { <span class="wa-autor" title="@($"Modelo aprovado: {ModeloDoWhatsApp.NomeNaTela(m)} ({m})")">modelo ·</span> }<span>@item.Hora</span>@if (item.Tick is { } t) { @Tick(t) }</span>
+                                         @oncontextmenu="e => AbrirMenuDaMensagemAsync(c, item, e)" @oncontextmenu:preventDefault="true">@* A setinha do WhatsApp (F1): o MESMO menu do botão direito, para quem não sabe dele. *@<button type="button" class="wa-balao-menu" title="Responder, copiar, nota e mais" aria-label="Mais opções da mensagem" aria-haspopup="menu" @onclick="e => AbrirMenuDaMensagemAsync(c, item, e)"><Icone Nome="abaixo" /></button>@if (item.Automatica is not null && item.Id is { } idAberta) { <button type="button" class="wa-auto-recolher" @onclick="() => _automaticasAbertas.Remove(idAberta)">Automático · recolher</button> }@if (item.Citacao is { } cit) { <button type="button" class="wa-citacao" title="Ir à mensagem respondida" @onclick="() => IrParaCitadaAsync(c, cit.Id)"><b>@cit.Autor</b>@cit.Trecho</button> }@if (item.Midia is { } md) { @Midia(md) }@if (item.Local is { } local) { @Local(local) }@if (item.Contato is { } contato) { @Contato(contato) }@Marcar(item.Texto)@if (item.Transcricao is { } transcricao) { <span class="wa-transcricao">"@transcricao"</span> }<span class="wa-m-rodape">@if (item.Estrela) { <span class="wa-estrela" title="Importante"><Icone Nome="estrela" /></span> }@if (enviada && item.Automatica is null && item.Autor is { } autor) { <span class="wa-autor">@autor ·</span> }@if (item.Modelo is { } m) { <span class="wa-autor" title="@($"Modelo aprovado: {ModeloDoWhatsApp.NomeNaTela(m)} ({m})")">modelo ·</span> }<span>@item.Hora</span>@if (item.Tick is { } t) { @Tick(t) }</span>
                                         @if (item.TentarDeNovo)
                                         {
                                             <span class="wa-falhou-acao"><span>Não enviada</span>
@@ -1042,6 +1048,7 @@ else
                 _modelo = null;
                 _buscaConversa = null;
                 _recado = null;
+                _itensDesenhados = ConversasNaTela.ItensPorVez;
                 _fichaAberta = false;
             }
         }

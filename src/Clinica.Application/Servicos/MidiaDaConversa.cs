@@ -21,13 +21,20 @@ public sealed record MidiaDaMensagem(TipoDeMidia Tipo, string Rotulo, string? No
     public bool Recebida => string.Equals(Mensagem.Direction, "in", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Foto e áudio chegam sozinhos ao abrir a conversa (são pequenos e é o que se olha primeiro); vídeo e documento, só quando a pessoa pede.</summary>
-    public bool CarregaSozinha => Tipo is TipoDeMidia.Imagem or TipoDeMidia.Audio;
+    public bool CarregaSozinha => Tipo is TipoDeMidia.Imagem or TipoDeMidia.Audio || Gif; // o GIF toca sozinho, como no WhatsApp
 
     /// <summary>
     /// Figurinha do WhatsApp (<c>AppMessage.Sticker</c>): é uma imagem — carrega, baixa e falha como
     /// foto —, mas a tela a desenha pequena, sem balão e sem "Ampliar", como o WhatsApp.
     /// </summary>
-    public bool Figurinha => Tipo == TipoDeMidia.Imagem && Mensagem.Sticker;
+    public bool Figurinha => Tipo == TipoDeMidia.Imagem && (Mensagem.Sticker || MidiaDaConversa.EhTipo(Mensagem.Type, "STICKER"));
+
+    /// <summary>
+    /// GIF do WhatsApp (nov/2026): a Meta entrega como vídeo curto ("gif_playback") ou como imagem .gif. A tela o mostra em loop,
+    /// mudo, sem controles e com o selo "GIF". Hoje o sinal é o tipo "GIF" do CRM ou o nome .gif; o campo próprio vem do Raio-X.
+    /// </summary>
+    public bool Gif => MidiaDaConversa.EhTipo(Mensagem.Type, "GIF")
+        || string.Equals(Path.GetExtension(Nome ?? Mensagem.FileName ?? ""), ".gif", StringComparison.OrdinalIgnoreCase);
 }
 
 /// <summary>
@@ -63,9 +70,9 @@ public static class MidiaDaConversa
     /// <summary>O tipo pelo <c>AppMessage.Type</c> do CRM; nulo para texto, modelo e botão.</summary>
     public static TipoDeMidia? Tipo(string? tipo) => tipo?.Trim().ToUpperInvariant() switch
     {
-        "IMAGE" => TipoDeMidia.Imagem,
+        "IMAGE" or "STICKER" => TipoDeMidia.Imagem,
         "AUDIO" => TipoDeMidia.Audio,
-        "VIDEO" => TipoDeMidia.Video,
+        "VIDEO" or "GIF" => TipoDeMidia.Video,
         "DOCUMENT" => TipoDeMidia.Documento,
         _ => null
     };
@@ -88,8 +95,20 @@ public static class MidiaDaConversa
         var tipo = Tipo(m.Type) ?? (string.IsNullOrWhiteSpace(m.AttachmentId) ? null : TipoDeMidia.Documento);
         if (tipo is not { } t) return null;
         var nome = string.IsNullOrWhiteSpace(m.FileName) ? null : m.FileName.Trim();
-        return new MidiaDaMensagem(t, t == TipoDeMidia.Imagem && m.Sticker ? "Figurinha" : Rotulo(t), nome, conversaId, m);
+        var midia = new MidiaDaMensagem(t, Rotulo(t), nome, conversaId, m);
+        return midia with { Rotulo = midia.Figurinha ? "Figurinha" : midia.Gif ? "GIF" : midia.Rotulo };
     }
+
+    /// <summary>O <c>AppMessage.Type</c> é este (sem caixa).</summary>
+    public static bool EhTipo(string? tipo, string esperado) => string.Equals(tipo?.Trim(), esperado, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// A mídia do histórico que o CRM não tem mais (a importada do celular, de antes da integração): "Foto não disponível
+    /// (anterior à integração)" no lugar do balão vazio. É o 410 (Gone) da rota do arquivo — o 404 continua sendo "o WhatsApp não
+    /// entregou" (a mídia recente que não chegou), e quem diz que é do histórico é o CRM.
+    /// </summary>
+    public static string? Indisponivel(MidiaDaMensagem midia, Exception motivo)
+        => motivo is RecusaDoCrm { Status: 410 } ? $"{(midia.Figurinha ? "Figurinha" : midia.Gif ? "GIF" : Rotulo(midia.Tipo))} não disponível (anterior à integração)" : null;
 
     /// <summary>
     /// A rota do arquivo no CRM, sempre com <c>download=true</c> (a resposta traz o nome no
@@ -194,6 +213,7 @@ public static class MidiaDaConversa
             _ => ("este documento", false)
         };
         if (motivo is CrmIndisponivel) return $"Sem ligação com o WhatsApp da clínica agora: {este} não carregou. Tente de novo em instantes.";
+        if (Indisponivel(midia, motivo) is { } antiga) return antiga;
         if (motivo is RecusaDoCrm { Status: 413 }) return $"{Maiuscula(este)} passa de 16 MB, o limite do WhatsApp: não dá para mostrar aqui.";
         return midia.Recebida
             ? $"O WhatsApp não entregou {este}. Peça à pessoa que {(feminino ? "a" : "o")} envie de novo."
@@ -236,6 +256,8 @@ public static class MidiaDaConversa
     public static string PreviaDaLista(string? previa)
     {
         var p = (previa ?? "").Trim();
+        if (EhTipo(p, "STICKER")) return "Figurinha";
+        if (EhTipo(p, "GIF")) return "GIF";
         return Tipo(p) is { } t && p.Equals(p.ToUpperInvariant(), StringComparison.Ordinal) ? Rotulo(t) : p;
     }
 

@@ -753,3 +753,27 @@ mark.wa-achado{background:var(--aviso-suave);color:inherit;border-radius:2px;fon
    neutro escuro, sem o azul do cinza-900 da suíte. A aba que fica montada e oculta no palco não muda as outras telas. */
 body:has(.pagina.wa):not(:has(.palco-tela[hidden] .pagina.wa)) .notificacoes{bottom:calc(var(--space-12) + var(--space-12) + var(--space-2))}
 body:has(.pagina.wa):not(:has(.palco-tela[hidden] .pagina.wa)) .notificacao:not(.erro){background:var(--wa-aviso-fundo)}
+
+/* ====================================================================================================================
+   Mais WhatsApp (nov/2026, pedido do dono: "o CRM está cru"): figurinha sem balão também na clínica, GIF com selo, citação que
+   leva à original, mídia antiga como nota neutra e o "carregar anteriores" do histórico.
+   ==================================================================================================================== */
+.pagina.wa .wa-m .wa-balao.wa-balao-figurinha{background:transparent;box-shadow:none}
+.wa-gif{position:relative;display:block;max-width:min(280px,100%)}
+.wa-gif video{display:block;width:100%;border-radius:var(--radius-control)}
+.wa-foto{position:relative}
+.wa-selo-gif{position:absolute;left:var(--space-2);bottom:var(--space-2);padding:1px 6px;border-radius:var(--radius-pequeno);
+  background:var(--wa-aviso-fundo);color:var(--texto-invertido);font-size:11px;font-weight:700;letter-spacing:.04em}
+.wa-midia-falha.antiga{color:var(--wa-cinza);font-style:italic}
+.wa-midia-falha.antiga .icone{color:var(--wa-cinza)}
+/* A citação é um botão: leva à mensagem original e a destaca por um instante. */
+button.wa-citacao{display:flex;width:100%;border:0;border-left:3px solid var(--wa-acao);font:inherit;font-size:var(--text-small-size);text-align:left;cursor:pointer}
+button.wa-citacao:hover{background:var(--wa-faixa)}
+button.wa-citacao:focus-visible{outline:2px solid var(--wa-acao);outline-offset:1px}
+.wa-m.enviada button.wa-citacao{background:var(--superficie)}
+.wa-balao.destacada{animation:wa-destaque 1.6s ease-out}
+@keyframes wa-destaque{0%,40%{box-shadow:0 0 0 3px var(--wa-acao-tint)}100%{box-shadow:var(--sombra-cartao)}}
+.wa-anteriores{align-self:center;margin:var(--space-2) 0;padding:4px 12px;border:0;border-radius:var(--radius-pilula);background:var(--superficie);
+  box-shadow:var(--sombra-cartao);color:var(--wa-cinza);font:inherit;font-size:var(--text-small-size);font-weight:600;cursor:pointer}
+.wa-anteriores:hover{color:var(--wa-acao)}
+@media (prefers-reduced-motion:reduce){.wa-balao.destacada{animation:none;box-shadow:0 0 0 3px var(--wa-acao-tint)}}

@@ -66,3 +66,32 @@ export function irAoAchado() {
         if (el) el.scrollIntoView({ block: 'center' });
     }, 60);
 }
+
+// 5) A citação leva à original (nov/2026, como no WhatsApp): rola até ela e a destaca por um instante.
+export function irParaMensagem(id) {
+    setTimeout(function () {
+        const el = document.querySelector('.wa-mensagens [data-mensagem="' + (id || '').replace(/"/g, '') + '"]');
+        if (!el) return;
+        el.scrollIntoView({ block: 'center' });
+        el.classList.remove('destacada'); void el.offsetWidth; el.classList.add('destacada');
+        setTimeout(function () { el.classList.remove('destacada'); }, 1700);
+    }, 60);
+}
+
+// 6) O histórico aos poucos: chegar ao topo pede as anteriores à tela, e a rolagem fica onde estava (nada "pula").
+let ligadoHistorico = false;
+export function ligarHistorico(ref) {
+    if (ligadoHistorico) return;
+    ligadoHistorico = true;
+    let pedindo = false;
+    document.addEventListener('scroll', function (e) {
+        const el = e.target;
+        if (pedindo || !el || !el.classList || !el.classList.contains('wa-mensagens') || el.scrollTop > 40) return;
+        if (!el.querySelector('.wa-anteriores')) return;
+        pedindo = true;
+        const antes = el.scrollHeight;
+        ref.invokeMethodAsync('CarregarAnteriores').then(function () {
+            requestAnimationFrame(function () { el.scrollTop += el.scrollHeight - antes; pedindo = false; });
+        }, function () { pedindo = false; });
+    }, true);
+}

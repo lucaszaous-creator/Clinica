@@ -30,7 +30,7 @@
             }
             else if (Carregada?.Endereco is { } foto)
             {
-                <button type="button" class="wa-foto" aria-label="Ampliar a foto" title="Ampliar a foto" @onclick="AoAmpliar"><img src="@foto" alt="@Midia.Rotulo da conversa" /></button>
+                <button type="button" class="wa-foto" aria-label="Ampliar a foto" title="Ampliar a foto" @onclick="AoAmpliar"><img src="@foto" alt="@Midia.Rotulo da conversa" />@if (Midia.Gif) { <span class="wa-selo-gif">GIF</span> }</button>
             }
             else if (Carregada is null && Falha is null && Esquecida)
             {
@@ -70,7 +70,12 @@
             break;
 
         case TipoDeMidia.Video:
-            @if (Carregada?.Endereco is { } filme)
+            @if (Carregada?.Endereco is { } gif && Midia.Gif)
+            {
+                @* O GIF do WhatsApp (nov/2026): em loop, mudo, sem controles, com o selo — como lá. *@
+                <span class="wa-gif"><video autoplay loop muted playsinline preload="auto" src="@gif" aria-label="GIF da conversa"></video><span class="wa-selo-gif">GIF</span></span>
+            }
+            else if (Carregada?.Endereco is { } filme)
             {
                 <video controls preload="metadata" src="@filme" aria-label="Vídeo da conversa"></video>
             }
@@ -98,7 +103,9 @@
     }
     @if (Falha is { } falha)
     {
-        <div class="wa-midia-falha" role="alert">
+        @* A mídia antiga (importada do celular, de antes da integração) não é erro: é uma nota neutra, sem "Tentar de novo". *@
+        var antiga = falha.EndsWith("(anterior à integração)", StringComparison.Ordinal);
+        <div class="wa-midia-falha @(antiga ? "antiga" : null)" role="@(antiga ? "note" : "alert")">
             <Icone Nome="alerta" /><span>@falha</span>
             @if (PodeTentarDeNovo)
             {
