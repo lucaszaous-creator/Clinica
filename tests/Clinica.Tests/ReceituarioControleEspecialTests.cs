@@ -267,6 +267,56 @@ public sealed class ReceituarioControleEspecialTests : IDisposable
     public void Negrito_so_no_cabecalho_e_no_medicamento_numerado(string linha, bool destacada)
         => ReceituarioControleEspecialPdf.Destacada(linha).Should().Be(destacada);
 
+    // ==================== quem assina ====================
+
+    private static Profissional Medica() => new() { Id = 1, Nome = "Dra. Fictícia", ConselhoProfissional = "06", NumeroConselho = "1", UfConselho = "33" };
+    private static Profissional Enfermeira() => new() { Id = 2, Nome = "Enf. Fictícia", RegistroConselho = "COREN-RJ 123" };
+
+    [Fact]
+    public void Receituario_so_e_assinado_por_quem_prescreve()
+    {
+        AssinanteDoDocumento.PodeAssinar(TipoDocumentoClinico.ReceituarioControleEspecial, Medica()).Should().BeTrue();
+        AssinanteDoDocumento.PodeAssinar(TipoDocumentoClinico.ReceituarioControleEspecial,
+            new Profissional { Nome = "Dentista", RegistroConselho = "CRO-RJ 9" }).Should().BeTrue();
+        AssinanteDoDocumento.PodeAssinar(TipoDocumentoClinico.ReceituarioControleEspecial, Enfermeira()).Should().BeFalse();
+        AssinanteDoDocumento.PodeAssinar(TipoDocumentoClinico.Receita, Enfermeira()).Should().BeTrue(
+            "os outros papéis seguem como sempre: não se tira de ninguém o que já fazia");
+        AssinanteDoDocumento.Elegiveis(TipoDocumentoClinico.ReceituarioControleEspecial, [Medica(), Enfermeira()])
+            .Select(p => p.Id).Should().Equal(1);
+    }
+
+    [Fact]
+    public void Trocar_para_o_receituario_tira_a_enfermeira_e_voltar_devolve()
+    {
+        var r = new RascunhoDeDocumento(10, TipoDocumentoClinico.Receita);
+        r.DefinirAssinante([Medica(), Enfermeira()], profissionalDoLogin: 2);
+        r.Profissional!.Id.Should().Be(2);
+
+        r.TrocarTipo(TipoDocumentoClinico.ReceituarioControleEspecial);
+        r.Profissional.Should().BeNull();
+        r.MotivoSemAssinante.Should().Be(AssinanteDoDocumento.AvisoNaoPrescritor);
+
+        r.TrocarTipo(TipoDocumentoClinico.Receita);
+        r.Profissional!.Id.Should().Be(2, "no papel comum volta a proposta de sempre: quem está logado");
+    }
+
+    [Fact]
+    public async Task O_servico_recusa_receituario_assinado_por_quem_nao_prescreve()
+    {
+        var paciente = new Paciente { Nome = "Paciente Fictícia", Convenio = Convenio.UnimedIntercambio };
+        var enfermeira = new Profissional { Nome = "Enf. Fictícia", RegistroConselho = "COREN-RJ 123" };
+        _db.AddRange(paciente, enfermeira);
+        await _db.SaveChangesAsync();
+        var documentos = new DocumentoClinicoService(_repo, new ProntuarioService(_repo), new ConsentimentoService(_repo));
+        var acao = () => documentos.EmitirAsync(new DocumentoClinico
+        {
+            Tipo = TipoDocumentoClinico.ReceituarioControleEspecial, PacienteId = paciente.Id,
+            ProfissionalId = enfermeira.Id, Corpo = "Medicamento fictício"
+        }, "teste");
+        await acao.Should().ThrowAsync<InvalidOperationException>().WithMessage("*quem prescreve*");
+        (await _db.DocumentosClinicos.CountAsync()).Should().Be(0);
+    }
+
     // ==================== o registro do prescritor e os metadados do ITI ====================
 
     [Theory]

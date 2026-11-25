@@ -239,7 +239,7 @@
                         <Campo Rotulo="Profissional responsável" Classe="largo" Erro="@r.MotivoSemAssinante">
                             <select class="campo" value="@(r.Profissional?.Id.ToString(CultureInfo.InvariantCulture) ?? string.Empty)" @onchange="TrocarProfissional">
                                 <option value="">— escolha —</option>
-                                @foreach (var p in _profissionais) { <option value="@p.Id">@p.Rotulo</option> }
+                                @foreach (var p in AssinanteDoDocumento.Elegiveis(r.Tipo, _profissionais)) { <option value="@p.Id">@p.Rotulo</option> }
                             </select>
                         </Campo>
                         <Campo Rotulo="Título impresso (opcional)" Classe="largo">

@@ -910,8 +910,10 @@ public sealed class DocumentoClinicoService
                 throw new InvalidOperationException(
                     $"{TipoDocumentoInfo.Rotular(dados.Tipo)} precisa do profissional que assina.");
 
-            if (await _repo.ObterProfissionalAsync(profissionalId, ct) is null)
-                throw new InvalidOperationException("Profissional não encontrado.");
+            var assinante = await _repo.ObterProfissionalAsync(profissionalId, ct)
+                ?? throw new InvalidOperationException("Profissional não encontrado.");
+            if (!AssinanteDoDocumento.PodeAssinar(dados.Tipo, assinante))
+                throw new InvalidOperationException(AssinanteDoDocumento.AvisoNaoPrescritor);
         }
 
         if (dados.Tipo == TipoDocumentoClinico.Atestado)

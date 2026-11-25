@@ -51,20 +51,39 @@ public static class AssinanteDoDocumento
                or TipoDocumentoClinico.PedidoExame
                or TipoDocumentoClinico.LaudoMedico;
 
+    /// <summary>Frase quando o logado não prescreve e o papel é o Receituário de Controle Especial.</summary>
+    public const string AvisoNaoPrescritor =
+        "O Receituário de Controle Especial é assinado por quem prescreve (CRM ou CRO) — escolha o prescritor.";
+
+    /// <summary>
+    /// Quem pode assinar ESTE papel (nov/2026, QA de design): o Receituário de Controle Especial só por
+    /// prescritor — médico (CRM) ou dentista (CRO), pelo cadastro TISS ou pelo registro escrito. Os outros papéis
+    /// seguem como sempre (qualquer profissional ativo), para não tirar de ninguém o que já fazia.
+    /// </summary>
+    public static bool PodeAssinar(TipoDocumentoClinico tipo, Profissional profissional)
+        => tipo != TipoDocumentoClinico.ReceituarioControleEspecial
+           || Clinica.Application.Modelos.RegistroDoPrescritor.De(profissional).Conselho is "CRM" or "CRO";
+
+    /// <summary>A lista do "Profissional responsável" para este papel.</summary>
+    public static IReadOnlyList<Profissional> Elegiveis(TipoDocumentoClinico tipo, IEnumerable<Profissional> ativos)
+        => ativos.Where(p => PodeAssinar(tipo, p)).ToList();
+
     /// <summary>
     /// O assinante proposto a partir da lista de profissionais ATIVOS que a tela oferece e
     /// do vínculo do login (<c>SessaoUsuario.ProfissionalId</c>).
     /// </summary>
     public static EscolhaDoAssinante Resolver(
-        IEnumerable<Profissional> ativos, int? profissionalDoLogin)
+        IEnumerable<Profissional> ativos, int? profissionalDoLogin,
+        TipoDocumentoClinico tipo = TipoDocumentoClinico.Receita)
     {
         if (profissionalDoLogin is not { } id || id <= 0)
             return new EscolhaDoAssinante(null, AvisoSemVinculo);
 
         var ligado = ativos.FirstOrDefault(p => p.Id == id);
-        return ligado is null
-            ? new EscolhaDoAssinante(null, AvisoVinculoInativo)
-            : new EscolhaDoAssinante(ligado, null);
+        if (ligado is null) return new EscolhaDoAssinante(null, AvisoVinculoInativo);
+        return PodeAssinar(tipo, ligado)
+            ? new EscolhaDoAssinante(ligado, null)
+            : new EscolhaDoAssinante(null, AvisoNaoPrescritor);
     }
 
     /// <summary>

@@ -391,6 +391,7 @@ public sealed class RascunhoDeDocumento
         if (!PodeTrocarTipo || tipo == _tipo) return false;
         _tipo = tipo;
         AplicarHeranca();
+        ReconferirAssinante();
         ConferirLegalmente();
         return true;
     }
@@ -472,9 +473,33 @@ public sealed class RascunhoDeDocumento
     /// <summary>Resolve o assinante proposto: quem está logado, nunca "o primeiro da lista".</summary>
     public void DefinirAssinante(IEnumerable<Profissional> ativos, int? profissionalDoLogin)
     {
-        var escolha = AssinanteDoDocumento.Resolver(ativos, profissionalDoLogin);
+        _ativos = ativos.ToList();
+        _profissionalDoLogin = profissionalDoLogin;
+        var escolha = AssinanteDoDocumento.Resolver(_ativos, profissionalDoLogin, _tipo);
         AvisoAssinante = escolha.Aviso;
         Profissional = escolha.Profissional;
+    }
+
+    private IReadOnlyList<Profissional>? _ativos;
+    private int? _profissionalDoLogin;
+
+    /// <summary>
+    /// Trocar o papel reconfere quem assina: no Receituário de Controle Especial, quem não prescreve sai (a tela
+    /// diz por quê); voltando a um papel comum com o campo vazio, volta a proposta de sempre (quem está logado).
+    /// </summary>
+    private void ReconferirAssinante()
+    {
+        if (_profissional is { } atual && !AssinanteDoDocumento.PodeAssinar(_tipo, atual))
+        {
+            AvisoAssinante = AssinanteDoDocumento.AvisoNaoPrescritor;
+            Profissional = null;
+        }
+        else if (_profissional is null && _ativos is not null)
+        {
+            var escolha = AssinanteDoDocumento.Resolver(_ativos, _profissionalDoLogin, _tipo);
+            AvisoAssinante = escolha.Aviso;
+            Profissional = escolha.Profissional;
+        }
     }
 
     /// <summary>Por que o "Emitir" está apagado por falta de quem assina — a metade VISÍVEL da barreira.</summary>
