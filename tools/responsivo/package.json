@@ -1,0 +1,7 @@
+{
+  "name": "clinica-responsivo",
+  "private": true,
+  "type": "module",
+  "description": "Checagem de rolagem para o lado no celular (tools/responsivo/varredura.mjs) — roda no CI contra a prévia.",
+  "dependencies": { "playwright": "1.65.1" }
+}

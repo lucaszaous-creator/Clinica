@@ -23,3 +23,6 @@ table.lista tr.contas-vencida td:first-child{color:var(--erro-texto);font-weight
 table.lista tr.contas-fixa-inativa td:not(:last-child){color:var(--texto-secundario)}
 table.lista tr.contas-fixa-inativa td .principal{color:var(--texto-secundario)}
 .contas-fixas-tabela{margin:0 calc(-1 * var(--space-6))}
+
+/* Celular: o corpo do Modal tem 16 px de respiro (clinica.css), e a tabela-cartão sangra só isso. */
+@media (max-width:480px){.contas-fixas-tabela{margin:0 calc(-1 * var(--space-4))}}

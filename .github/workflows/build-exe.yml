@@ -102,6 +102,66 @@ jobs:
         run: dotnet test tests/Clinica.Tests/Clinica.Tests.csproj -c Release
 
   # ============================================================
+  # Responsivo no celular (nov/2026, pedido do dono: "responsividade profissional").
+  # A PRÉVIA (tools/PreviaBlazor, dados fictícios) sobe aqui e o WebKit — o motor do iPhone — abre
+  # cada tela Blazor solta e cada tela da gestão web dentro da moldura, em 390 px, com as janelas que
+  # os botões abrem: reprova se a página ou o corpo de uma janela rolar para o lado. Linux custa 1×.
+  # Fotos das falhas no artefato "responsivo". Localmente: tools/responsivo/varredura.mjs.
+  # ============================================================
+  responsivo:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Cache do NuGet
+        uses: actions/cache@v5
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.*.props', '**/Directory.*.targets') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Compilar a prévia
+        run: dotnet build tools/PreviaBlazor/PreviaBlazor.csproj -c Debug
+
+      - name: Playwright com o WebKit
+        run: |
+          npm install --prefix tools/responsivo --no-audit --no-fund
+          npx --prefix tools/responsivo playwright install --with-deps webkit
+
+      - name: Subir a prévia (com a moldura da gestão)
+        run: |
+          cd tools/PreviaBlazor
+          CLINICA_NAVEGACAO="$GITHUB_WORKSPACE/src/Clinica.Gestao.Web/catalogo-gestao.json" TZ=America/Sao_Paulo \
+            ASPNETCORE_URLS=http://127.0.0.1:5199 nohup dotnet bin/Debug/net8.0/PreviaBlazor.dll > /tmp/previa.log 2>&1 &
+          for i in $(seq 1 180); do curl -sf -o /dev/null http://127.0.0.1:5199/ && exit 0; sleep 1; done
+          cat /tmp/previa.log; exit 1
+
+      - name: Nada rola para o lado em 390 px (WebKit)
+        env:
+          CATALOGO: src/Clinica.Gestao.Web/catalogo-gestao.json
+          MOTOR: webkit
+          LARGURAS: '390'
+        run: node tools/responsivo/varredura.mjs http://127.0.0.1:5199 artifacts/responsivo
+
+      - name: Fotos das falhas
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: responsivo
+          path: artifacts/responsivo
+          if-no-files-found: ignore
+
+  # ============================================================
   # Testes e verificadores que só rodam com o WPF de verdade.
   # ============================================================
   conferencias:
@@ -282,7 +342,7 @@ jobs:
   # ============================================================
   build:
     runs-on: ubuntu-24.04
-    needs: [testes, conferencias, publicar]
+    needs: [testes, responsivo, conferencias, publicar]
     # !cancelled(), não always(): quando um push novo cancela este run (concurrency), o
     # veredito é do run novo — always() fazia este reportar VERMELHO sobre um commit que
     # ninguém reprovou, só substituiu. Job que FALHOU continua chegando aqui e reprovando.
@@ -291,7 +351,7 @@ jobs:
       actions: write   # só para apagar os .exe de um commit reprovado
     steps:
       - name: Apagar os .exe de um commit reprovado
-        if: needs.testes.result != 'success' || needs.conferencias.result != 'success' || needs.publicar.result != 'success'
+        if: needs.testes.result != 'success' || needs.responsivo.result != 'success' || needs.conferencias.result != 'success' || needs.publicar.result != 'success'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -303,9 +363,10 @@ jobs:
             gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/$id"
           done
 
-      - name: Conferir os três jobs
+      - name: Conferir os quatro jobs
         run: |
-          echo "testes=${{ needs.testes.result }} conferencias=${{ needs.conferencias.result }} publicar=${{ needs.publicar.result }}"
+          echo "testes=${{ needs.testes.result }} responsivo=${{ needs.responsivo.result }} conferencias=${{ needs.conferencias.result }} publicar=${{ needs.publicar.result }}"
           test "${{ needs.testes.result }}" = success
+          test "${{ needs.responsivo.result }}" = success
           test "${{ needs.conferencias.result }}" = success
           test "${{ needs.publicar.result }}" = success

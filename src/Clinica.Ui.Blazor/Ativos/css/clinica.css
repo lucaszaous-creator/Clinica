@@ -573,7 +573,7 @@ td .selo{margin-left:0}
   .filtros > .botao{flex:1 1 auto;justify-content:center}
 
   /* Segmentado e seletor de mês ocupam a linha e não cortam opção. */
-  .segmentado{display:flex;width:100%;overflow-x:auto;scrollbar-width:none}
+  .segmentado{display:flex;width:auto;max-width:100%;overflow-x:auto;scrollbar-width:none} /* bloco: ocupa a linha sem somar a margem a 100% */
   .segmentado button{flex:1 0 auto}
   .seletor-mes{display:flex;width:100%;justify-content:space-between}
   .seletor-mes-rotulo{min-width:0;flex:1}
@@ -642,3 +642,35 @@ td .selo{margin-left:0}
 .rel-prof-contagens{display:grid;grid-template-columns:repeat(auto-fit,minmax(18rem,1fr));gap:var(--space-4);margin-top:var(--space-4)}
 .contagens{border:1px solid var(--borda);border-radius:var(--radius-card);padding:var(--space-3) var(--space-4);min-width:0}
 .contagens h3{margin:0 0 var(--space-2);font-weight:700}
+
+/* ==========================================================================
+   Responsivo comum (nov/2026, pedido do dono: "responsividade profissional").
+   Regra: nada rola para o lado. Todo filho de formulário encolhe (min-width:0); o campo de data do Safari, que
+   ignora width:100% e desenha mais largo que a tela, perde a aparência nativa; o corpo do Modal nunca rola para o
+   lado; no celular as abas rolam sozinhas, os campos têm 16 px (sem zoom do Safari) e o rodapé respeita a safe-area.
+   A checagem é a mesma do CI (tools/responsivo/varredura-390.js).
+   ========================================================================== */
+.modal-corpo{overflow-x:hidden}
+.modal-corpo > *, .campos > *, fieldset{min-width:0}
+.campo{max-width:100%;min-width:0}
+input[type="date"].campo, input[type="time"].campo, input[type="datetime-local"].campo, input[type="month"].campo{
+  -webkit-appearance:none;appearance:none;display:block;width:100%;min-width:0}
+input[type="date"].campo::-webkit-date-and-time-value, input[type="time"].campo::-webkit-date-and-time-value{text-align:left}
+.selo{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:480px){
+  .modal-fundo{padding:var(--space-2) var(--space-2) calc(var(--space-2) + env(safe-area-inset-bottom,0px))}
+  .modal{max-height:calc(100dvh - var(--space-4))}
+  .modal-topo{padding:var(--space-4) var(--space-4) var(--space-2);gap:var(--space-2)}
+  .modal-topo h2{overflow-wrap:anywhere}
+  .modal-corpo{padding:0 var(--space-4) var(--space-4)}
+  .modal-rodape{padding:var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom,0px))}
+  .modal-rodape .botao{min-height:44px;height:auto;white-space:normal}
+  .modal-rodape .esquerda{max-width:100%}
+  .abas{overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .abas::-webkit-scrollbar{display:none}
+  .abas button{flex:none;white-space:nowrap}
+  .campo, select.campo, textarea.campo{font-size:16px}
+  .acoes{flex-wrap:wrap;min-width:0}
+  .botoes-linha{flex-wrap:wrap;max-width:100%}
+  .selo{flex-shrink:1;min-width:0}
+}
