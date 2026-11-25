@@ -157,6 +157,22 @@ public static class EmissaoDeDocumentoNaTela
     public const string EmissaoAdiada =
         "Emissão adiada. A prescrição continua nesta janela para você completar o endereço.";
 
+    /// <summary>
+    /// O que falta do COMPRADOR do Receituário de Controle Especial, à vista na folha (25/11/2026): "Faltam na ficha do
+    /// comprador: RG, Órgão emissor, Cidade e UF. Complete para emitir." — nunca "completar o endereço" quando o endereço existe.
+    /// </summary>
+    public static string CompradorPendente(IEnumerable<string> faltas)
+    {
+        var lista = faltas.Where(f => !string.IsNullOrWhiteSpace(f)).ToList();
+        var texto = lista.Count <= 1 ? string.Join("", lista) : string.Join(", ", lista.Take(lista.Count - 1)) + " e " + lista[^1];
+        return $"Faltam na ficha do comprador: {texto}. Complete para emitir o receituário.";
+    }
+
+    public const string EmissaoAguardaComprador =
+        "Nada foi emitido. Complete os dados do comprador para emitir o receituário.";
+
+    public const string CompradorGravado = "Dados do comprador gravados na ficha.";
+
     public const string PreviaAberta =
         "Prévia aberta. Ela não tem número nem valor de documento — nada foi emitido.";
 
