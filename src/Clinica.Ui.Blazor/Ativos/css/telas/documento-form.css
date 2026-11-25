@@ -114,7 +114,7 @@
 .df-modal .df-rodape-avisos .aviso{margin:0;padding:var(--space-2) var(--space-3);font-size:var(--text-small-size)}
 
 /* "Mais" (só no celular) e o menu dele: uma folha que sobe do rodapé. */
-.df-mais{display:none}
+.modal-rodape .df-mais{display:none} /* só no celular; o seletor composto vence o .botao{display:inline-flex} de clinica.css */
 .df-mais-fundo{position:fixed;inset:0;z-index:70;background:rgba(17,24,39,.32)}
 .df-mais-menu{position:fixed;left:var(--space-2);right:var(--space-2);bottom:calc(var(--space-2) + env(safe-area-inset-bottom,0px));z-index:71;
   display:flex;flex-direction:column;gap:var(--space-1);padding:var(--space-2);background:var(--superficie);border-radius:var(--radius-card);box-shadow:var(--sombra-popup)}
