@@ -48,8 +48,14 @@ farmácia por três motivos:
 - o QR no validador do gov.br pedia um código e nada servia, porque o portal assinava SEM publicar;
 - o PDF não tinha os metadados de prescrição do ITI.
 
-**Resposta do dono (24/11/2026):** *"Perfeito, então prossiga com isso"*. O alcance vale **só** para estes três
-pontos; o resto continua congelado:
+**Respostas do dono (24/11/2026):**
+- sobre corrigir a receita (publicar, QR e metadados do ITI): *"Perfeito, então prossiga com isso"*;
+- sobre a assinatura no Controle Especial: *"com a assinatura saindo nesse PDF de receituário também como o safeid
+  porém precisará que a assinatura saia neste campo [ASSINATURA MÉDICO(A)] para não sobrescrever tão pouco
+  exceder"*. Leitura (Jade): muda SÓ a posição e o tamanho da aparência visível no receituário; hash/PAdES iguais;
+  UMA assinatura real de teste (cobrada), feita pela médica com a nossa orientação.
+
+O alcance vale **só** para estes três pontos; o resto continua congelado:
 
 1. **Publicar depois de assinar, em todos os caminhos.**
    - O portal (SafeID/A1, Consultório e gestão) passa a registrar a `PublicacaoDocumentoService`: o token nasce
