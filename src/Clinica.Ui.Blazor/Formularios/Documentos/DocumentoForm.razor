@@ -68,13 +68,6 @@
                     <span class="df-emitente-falta">@falta</span>
                 }
             </div>
-            @if (FaltasDoCompradorAgora is { Count: > 0 } faltasDoComprador)
-            {
-                @* O comprador do receituário (25/11/2026): o que falta fica À VISTA, com a porta para completar — não um "adiada". *@
-                <Aviso Tom="atencao" Texto="@EmissaoDeDocumentoNaTela.CompradorPendente(faltasDoComprador.Select(f => f.Rotulo))">
-                    <button type="button" class="botao" disabled="@(!PodeEditar)" @onclick="AbrirCompradorAsync">Completar dados do comprador</button>
-                </Aviso>
-            }
 
             <div class="abas df-abas" role="tablist" aria-label="Documento">
                 <button type="button" role="tab" aria-selected="@Bool(_aba == AbaFolha)" @onclick="() => _aba = AbaFolha">Folha</button>
@@ -331,6 +324,14 @@
         @* Os AVISOS ficam ACIMA do rodapé, colados nele (nov/2026, responsividade): o rodapé é só para as ações. *@
         <div class="df-rodape-avisos">
             <Aviso Texto="@_mensagem" Tom="@(_mensagemEhErro ? "erro" : "sucesso")" />
+            @if (FaltasDoCompradorAgora is { Count: > 0 } faltasDoComprador)
+            {
+                @* O comprador do receituário (25/11/2026): o que falta fica À VISTA, colado nas ações (no iPhone este bloco
+                   fica preso acima do rodapé), com a porta para completar — não um "adiada". *@
+                <Aviso Tom="atencao" Texto="@EmissaoDeDocumentoNaTela.CompradorPendente(faltasDoComprador.Select(f => f.Rotulo))">
+                    <button type="button" class="botao" disabled="@(!PodeEditar)" @onclick="AbrirCompradorAsync">Completar dados do comprador</button>
+                </Aviso>
+            }
             @if (_r?.MotivoSemAssinante is { } motivo && !_carregando)
             {
                 @* Por que o "Emitir" está apagado; quem emite se escolhe no topo (parcela 41). Na aba "Dados da emissão" a
