@@ -21,8 +21,14 @@ public static class ReceituarioControleEspecialPdf
 {
     public const double Largura = 595, Altura = 842;
 
-    /// <summary>O campo "ASSINATURA MÉDICO(A)" no topo-esquerda da página: x 392–552, y 182–226 (pontos).</summary>
-    public const double AssinaturaX = 392, AssinaturaTopo = 182, AssinaturaLargura = 160, AssinaturaAltura = 44;
+    /// <summary>
+    /// O campo "ASSINATURA MÉDICO(A)": entre o quadro do logo (que termina em y 182) e a linha da assinatura (y 228),
+    /// x 392–552 (pontos, topo da página). O carimbo fica <see cref="Folga"/> para dentro em cima e embaixo, para não
+    /// encostar no quadro nem na linha (QA de design, 25/11: pedia 4 pt ou mais de cada lado).
+    /// </summary>
+    public const double CampoTopo = 182, CampoBase = 228, Folga = 4;
+    public const double AssinaturaX = 392, AssinaturaLargura = 160;
+    public const double AssinaturaTopo = CampoTopo + Folga, AssinaturaAltura = CampoBase - Folga - AssinaturaTopo;
 
     /// <summary>
     /// Onde o carimbo da assinatura é colado — o retângulo do campo, em coordenada de PDF (origem no PÉ), na 1ª via e,
@@ -94,7 +100,9 @@ public static class ReceituarioControleEspecialPdf
         if (qr is not null)
         {
             DesenharQr(g, qr, 40, 30, 56);
-            T(g, 40, 94, "Conferência: " + (d.CodigoVerificacao ?? ""), 6, false, Cinza);
+            // Sem código (prévia ou rascunho), não há o que conferir: o rótulo some em vez de sair vazio.
+            if (!string.IsNullOrWhiteSpace(d.CodigoVerificacao))
+                T(g, 40, 94, "Conferência: " + d.CodigoVerificacao, 6, false, Cinza);
         }
         T(g, 170, 58, "RECEITUÁRIO DE", 17, true);
         T(g, 150, 80, "CONTROLE ESPECIAL", 17, true);
@@ -219,8 +227,7 @@ public static class ReceituarioControleEspecialPdf
     {
         var linhas = new List<(string, bool)>();
         foreach (var l in (d.Corpo ?? "").Replace("\r", "").Split('\n'))
-            linhas.Add((l.TrimEnd(), l.TrimStart().StartsWith("USO", StringComparison.OrdinalIgnoreCase)
-                                     || System.Text.RegularExpressions.Regex.IsMatch(l.TrimStart(), @"^\d+[.)]")));
+            linhas.Add((l.TrimEnd(), Destacada(l)));
         var n = 0;
         foreach (var item in d.Itens.OrderBy(i => i.Ordem).ThenBy(i => i.Id))
         {
@@ -233,6 +240,17 @@ public static class ReceituarioControleEspecialPdf
         }
         while (linhas.Count > 0 && string.IsNullOrWhiteSpace(linhas[^1].Item1)) linhas.RemoveAt(linhas.Count - 1);
         return linhas;
+    }
+
+    /// <summary>
+    /// Negrito só onde o modelo do dono põe: o cabeçalho da via ("USO ORAL", "USO TÓPICO", a linha inteira) e o
+    /// medicamento numerado ("1. Pyloripac®…"). A posologia ("Uso oral, 1 comprimido de 12/12 h") NÃO é cabeçalho.
+    /// </summary>
+    internal static bool Destacada(string linha)
+    {
+        var t = linha.Trim();
+        return System.Text.RegularExpressions.Regex.IsMatch(t, @"^USO(\s+[^\s,;.]+){1,2}$", System.Text.RegularExpressions.RegexOptions.IgnoreCase)
+               || System.Text.RegularExpressions.Regex.IsMatch(t, @"^\d+[.)]\s");
     }
 
     private static void DesenharPrescricao(XGraphics g, DocumentoClinico d)

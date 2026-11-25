@@ -45,7 +45,7 @@ Limite: 15 linhas de cerca de 92 caracteres por via. Prescrição maior é recus
 | regras: termos, comprador, UF, cidade/UF da clínica, tamanho | `Application/Modelos/ReceituarioControleEspecialRegras.cs` |
 | completar o comprador (só o vazio, com auditoria) | `PacienteService.CompletarCompradorAsync` |
 | PDF das duas vias (PdfSharp, QR em vetor) | `Application/Servicos/ReceituarioControleEspecialPdf.cs` |
-| campo da assinatura (x 392–552, y 182–226) | `ReceituarioControleEspecialPdf.AreaDaAssinatura()` |
+| campo da assinatura (x 392–552, y 186–224: 4 pt de folga do logo e da linha) | `ReceituarioControleEspecialPdf.AreaDaAssinatura()` |
 | colunas novas do paciente (RG, órgão, cidade, UF) | migration `20261125004127_ReceituarioControleEspecialComprador` (aditiva) |
 | folha Blazor: sugestão + modal do comprador | `DocumentoForm.razor`, `CompradorDoReceituarioForm.razor` |
 | portal: tipo `controle-especial`, `/assinatura/comprador`, termos, `/documentos/{id}/enviar-whatsapp` | `Assinaturas.Api` + `clinica-site/portal/profissional` |

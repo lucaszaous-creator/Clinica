@@ -199,8 +199,8 @@ public sealed class ReceituarioControleEspecialTests : IDisposable
         var base_ = topo + area.Altura;
         area.X.Should().BeGreaterThanOrEqualTo(392);
         (area.X + area.Largura).Should().BeLessThanOrEqualTo(552);
-        topo.Should().BeGreaterThanOrEqualTo(182, "acima disso é o logo (124–182)");
-        base_.Should().BeLessThan(228, "a linha da assinatura fica em 228 e o rótulo, abaixo dela");
+        topo.Should().BeGreaterThanOrEqualTo(182 + 4, "o quadro do logo termina em 182; o QA pede 4 pt de folga");
+        base_.Should().BeLessThanOrEqualTo(228 - 4, "a linha da assinatura fica em 228; o QA pede 4 pt de folga");
     }
 
     /// <summary>
@@ -215,13 +215,15 @@ public sealed class ReceituarioControleEspecialTests : IDisposable
         AssinaturaDigitalService.GarantirFonte();
         var certificado = Certificado(emissorNoNome);
         var pedido = new PedidoAssinatura("Receituário", nome, "CRM-RJ 000000", ReceituarioControleEspecialPdf.AreaDaAssinatura());
-        var caixa = new XRect(392, 182, 160, 44);
+        var caixa = new XRect(ReceituarioControleEspecialPdf.AssinaturaX, ReceituarioControleEspecialPdf.AssinaturaTopo,
+            ReceituarioControleEspecialPdf.AssinaturaLargura, ReceituarioControleEspecialPdf.AssinaturaAltura);
         using var doc = new PdfDocument();
         var pagina = doc.AddPage();
         using var gfx = XGraphics.FromPdfPage(pagina);
 
         var escala = AssinaturaDigitalService.CarimboDeAssinatura.Escala(gfx, caixa, certificado, pedido);
-        escala.Should().BeInRange(0.55, 1.0);
+        escala.Should().BeInRange(6.0 / 6.5, 1.0);
+        (6.5 * escala).Should().BeGreaterThanOrEqualTo(6.0 - 1e-9, "o corpo do carimbo não sai abaixo de 6 pt (QA)");
         var margem = 4.0 * Math.Max(escala, 0.75);
         (margem + (9 + 8 + 8 + 8) * escala).Should().BeLessThanOrEqualTo(caixa.Height,
             "as quatro linhas e a margem cabem na altura do campo");
@@ -243,6 +245,27 @@ public sealed class ReceituarioControleEspecialTests : IDisposable
         ConteudoDaPagina(assinado.Pdf, 0).Should().Contain("ASSINADO DIGITALMENTE").And.Contain("Dra. Fict");
         ConteudoDaPagina(assinado.Pdf, 1).Should().Contain("ASSINADO DIGITALMENTE").And.Contain("Dra. Fict");
     }
+
+    [Fact]
+    public void Carimbo_no_campo_abrevia_o_emissor()
+    {
+        var certificado = Certificado("Autoridade Certificadora do SERPRO Final v5");
+        var pedido = new PedidoAssinatura("Receituário", "Dra. Fictícia", "CRM-RJ 1", ReceituarioControleEspecialPdf.AreaDaAssinatura());
+        AssinaturaDigitalService.CarimboDeAssinatura.Linhas(certificado, pedido).Data
+            .Should().EndWith("emissor: AC do SERPRO Final v5");
+        var foraDoCampo = pedido with { Area = pedido.Area with { AjustarFonte = false } };
+        AssinaturaDigitalService.CarimboDeAssinatura.Linhas(certificado, foraDoCampo).Data
+            .Should().EndWith("Autoridade Certificadora do SERPRO Final v5", "os outros documentos não mudam");
+    }
+
+    [Theory]
+    [InlineData("USO ORAL", true)]
+    [InlineData("Uso tópico", true)]
+    [InlineData("1. Medicamento fictício 500 mg", true)]
+    [InlineData("Uso oral, 1 comprimido de 12/12 h por 7 dias", false)]
+    [InlineData("Tomar 1 cápsula a cada 8 horas", false)]
+    public void Negrito_so_no_cabecalho_e_no_medicamento_numerado(string linha, bool destacada)
+        => ReceituarioControleEspecialPdf.Destacada(linha).Should().Be(destacada);
 
     // ==================== o registro do prescritor e os metadados do ITI ====================
 

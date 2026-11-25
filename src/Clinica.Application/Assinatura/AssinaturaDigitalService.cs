@@ -19,8 +19,10 @@ namespace Clinica.Application.Assinatura;
 /// não mudam: o desenho é conteúdo de página, coberto pela assinatura como sempre foi.
 /// </param>
 /// <param name="AjustarFonte">
-/// A letra encolhe até as quatro linhas caberem INTEIRAS no retângulo (o do receituário tem 160×44 pt). Sem isto,
-/// o comportamento de sempre: letra fixa e corte com reticências.
+/// O carimbo vai num CAMPO DE FORMULÁRIO impresso (o "ASSINATURA MÉDICO(A)" do receituário, 160×38 pt). A letra
+/// encolhe para as quatro linhas caberem, mas nunca abaixo de 6 pt no corpo, o limite de leitura no papel pedido no
+/// QA de design. A tinta é preta/#333, como a folha. "Autoridade Certificadora" vira "AC" para o emissor caber.
+/// Sem isto, o comportamento de sempre: letra fixa, cores de sempre e corte com reticências.
 /// </param>
 public sealed record AreaAssinatura(int Pagina, double X, double Y, double Largura, double Altura,
     IReadOnlyList<int>? OutrasPaginas = null, bool AjustarFonte = false);
@@ -605,15 +607,16 @@ public sealed class AssinaturaDigitalService
             var escala = pedido.Area.AjustarFonte ? Escala(gfx, caixa, certificado, pedido) : 1.0;
             var titulo = new XFont("SegoeWP", 7.5 * escala, XFontStyleEx.Bold);
             var corpo = new XFont("SegoeWP", 6.5 * escala, XFontStyleEx.Regular);
-            var tinta = new XSolidBrush(XColor.FromArgb(30, 41, 59));
-            var suave = new XSolidBrush(XColor.FromArgb(100, 116, 139));
+            var campo = pedido.Area.AjustarFonte;
+            var tinta = new XSolidBrush(campo ? XColors.Black : XColor.FromArgb(30, 41, 59));
+            var suave = new XSolidBrush(campo ? XColor.FromArgb(51, 51, 51) : XColor.FromArgb(100, 116, 139));
 
             // A moldura recua meia espessura da caneta para dentro, que é como a revisão
             // incremental desenha a da 2ª assinatura: traço centrado na borda deixaria um
             // bloco 0,6 ponto maior que o outro, e lado a lado a diferença se vê.
             const double caneta = 0.6;
             gfx.DrawRectangle(
-                new XPen(XColor.FromArgb(148, 163, 184), caneta),
+                new XPen(campo ? XColor.FromArgb(191, 191, 191) : XColor.FromArgb(148, 163, 184), caneta),
                 new XRect(caixa.X + caneta / 2, caixa.Y + caneta / 2,
                     caixa.Width - caneta, caixa.Height - caneta));
 
@@ -644,14 +647,19 @@ public sealed class AssinaturaDigitalService
                 ? pedido.RegistroConselho ?? string.Empty
                 : string.Join(" · ", new[] { pedido.RegistroConselho, "CPF " + Domain.Cpf.Formatar(certificado.Cpf) }
                     .Where(p => !string.IsNullOrWhiteSpace(p)));
+            var emissor = pedido.Area.AjustarFonte
+                ? System.Text.RegularExpressions.Regex.Replace(certificado.Emissor ?? string.Empty,
+                    @"\bAutoridade\s+Certificadora\b", "AC", System.Text.RegularExpressions.RegexOptions.IgnoreCase)
+                : certificado.Emissor;
             return ("ASSINADO DIGITALMENTE — ICP-Brasil", pedido.NomeExibido, identificacao,
-                $"{DateTime.Now:dd/MM/yyyy HH:mm} · emissor: {certificado.Emissor}");
+                $"{DateTime.Now:dd/MM/yyyy HH:mm} · emissor: {emissor}");
         }
 
         /// <summary>
         /// A escala que faz as linhas caberem INTEIRAS (nov/2026, o campo "ASSINATURA MÉDICO(A)" do receituário):
-        /// pela altura (quatro linhas e a margem) e pela largura da linha mais longa. Nunca aumenta; o piso de
-        /// 0,55 (≈ 3,6 pt) é o limite de leitura — abaixo dele, o corte com reticências de sempre.
+        /// pela altura (quatro linhas e a margem) e pela largura da linha mais longa. Nunca aumenta; o piso é
+        /// <see cref="EscalaMinima"/> (corpo de 6 pt, o limite de leitura no papel). Abaixo dele vale o corte com
+        /// reticências de sempre.
         /// </summary>
         internal static double Escala(XGraphics gfx, XRect caixa, CertificadoAssinatura certificado, PedidoAssinatura pedido)
         {
@@ -663,8 +671,11 @@ public sealed class AssinaturaDigitalService
             var maior = new[] { gfx.MeasureString(l1, titulo).Width, gfx.MeasureString(l2, corpo).Width,
                 gfx.MeasureString(l3, corpo).Width, gfx.MeasureString(l4, corpo).Width }.Max();
             var porLargura = (caixa.Width - 6) / Math.Max(maior, 1);
-            return Math.Clamp(Math.Min(porAltura, porLargura), 0.55, 1.0);
+            return Math.Clamp(Math.Min(porAltura, porLargura), EscalaMinima, 1.0);
         }
+
+        /// <summary>O corpo (6,5 pt na escala 1) nunca sai abaixo de 6 pt.</summary>
+        internal const double EscalaMinima = 6.0 / 6.5;
 
         /// <summary>
         /// Corta o texto com reticências até caber na largura útil do bloco.
