@@ -90,26 +90,23 @@ dialog.assinatura-gestao .ag-acoes{display:flex;flex-wrap:wrap;gap:var(--space-2
   }
   const pdf = documento => `/api/clinico/atendimentos/0/documento/${encodeURIComponent(documento)}/pdf`;
 
-  // Assinou, o PDF ABRE sozinho (nov/2026, o fluxo do receituário em todos os documentos). A aba nasce NO CLIQUE
-  // (o bloqueador de janelas só deixa abrir no gesto da pessoa) e recebe o PDF quando a assinatura termina — como
-  // blob, porque a rota do PDF responde como anexo (abriria um download). Sem aba (bloqueada), cai no download.
-  function abaParaOPdf() {
-    const aba = window.open('', '_blank');
-    if (aba) {
-      aba.opener = null;
-      try { aba.document.title = 'Abrindo o PDF…'; aba.document.body.textContent = 'Abrindo o PDF assinado…'; } catch { /* nada */ }
-    }
-    return aba;
-  }
-  async function mostrarPdf(aba, documento, nome) {
+  // Assinou, o PDF ABRE sozinho (nov/2026, o fluxo do receituário em todos os documentos) — NA PÁGINA, numa janela com o
+  // PDF embutido (o visualizador do navegador tem imprimir e baixar), e não numa aba nova: pop-up é barrado no Safari
+  // do iPhone, e esta tela não abre pop-up nenhum. O PDF vem como blob porque a rota responde como anexo.
+  async function mostrarPdf(documento, nome, titulo) {
     const r = await fetch(pdf(documento), { credentials: 'same-origin', cache: 'no-store' });
-    if (!r.ok || (r.headers.get('Content-Type') || '').split(';')[0] !== 'application/pdf') { aba?.close(); return false; }
+    if (!r.ok || (r.headers.get('Content-Type') || '').split(';')[0] !== 'application/pdf') return false;
     const url = URL.createObjectURL(await r.blob());
-    if (aba && !aba.closed) { aba.location.replace(url); setTimeout(() => URL.revokeObjectURL(url), 120000); return true; }
-    const a = document.createElement('a'); a.href = url; a.download = (nome || 'documento') + '.pdf';
-    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 10000);
+    const arquivo = (nome || 'documento').replace(/[^\w.-]+/g, '-') + '.pdf';
+    const d = janela(titulo || 'Documento assinado', `<iframe class="ag-pdf" title="PDF do documento" src="${url}" style="width:100%;height:min(70vh,900px);border:0"></iframe>`);
+    d.addEventListener('close', () => URL.revokeObjectURL(url));
+    botao(d, 'Baixar PDF', false, async () => {
+      const a = document.createElement('a'); a.href = url; a.download = arquivo; document.body.appendChild(a); a.click(); a.remove();
+    });
+    botao(d, 'Fechar', true, async () => d.close());
     return true;
   }
+
 
   function janela(titulo, html) {
     const d = document.createElement('dialog');
@@ -239,18 +236,16 @@ dialog.assinatura-gestao .ag-acoes{display:flex;flex-wrap:wrap;gap:var(--space-2
     botao(d, 'Assinar', true, async () => {
       const campo = d.querySelector('.ag-senha');
       if (!campo.value) throw new Error('Informe a senha do certificado.');
-      const aba = abaParaOPdf();
       const pedido = { senha: campo.value }; campo.value = '';
       try {
         await api(`/clinico/a1/${encodeURIComponent(a.id)}/assinar`, pedido);
       } catch (e) {
-        aba?.close();
         throw new Error(e.message + ' Feche esta janela e confira o documento antes de autorizar novamente.');
       } finally { pedido.senha = ''; }
-      let abriu = false;
-      try { abriu = await mostrarPdf(aba, documento, 'Documento-' + String(numero || documento).replace('/', '-')); } catch { aba?.close(); }
-      responder({ frase: abriu ? 'Documento assinado com A1 e arquivado. O PDF foi aberto.' : 'Documento assinado com A1 e arquivado.', erro: false });
       d.close();
+      let abriu = false;
+      try { abriu = await mostrarPdf(documento, 'Documento-' + String(numero || documento).replace('/', '-')); } catch { /* fica o "Abrir PDF" da lista */ }
+      responder({ frase: abriu ? 'Documento assinado com A1 e arquivado. O PDF foi aberto.' : 'Documento assinado com A1 e arquivado.', erro: false });
     });
     botao(d, 'Cancelar', false, async () => d.close());
     d.querySelector('.ag-senha').focus();
@@ -276,15 +271,12 @@ dialog.assinatura-gestao .ag-acoes{display:flex;flex-wrap:wrap;gap:var(--space-2
       if (a.situacao !== 'autorizado') { aviso('Assinatura não concluída', 'A autorização do SafeID não foi concluída ou expirou. Confira o documento antes de assinar novamente.', a.documento); return; }
       const d = janela('Confirmar assinatura', `<p><strong>${esc(nome)}</strong></p><p>A autorização do SafeID foi recebida. Confirme para assinar e arquivar o documento.</p><p><a href="${pdf(a.documento)}" target="_blank" rel="noopener">Conferir o PDF</a></p>`);
       botao(d, 'Assinar e arquivar', true, async () => {
-        const aba = abaParaOPdf();
-        try {
-          await renovarAtividade();
-          await api('/clinico/safeid/' + encodeURIComponent(id) + '/concluir', {});
-        } catch (e) { aba?.close(); throw e; }
+        await renovarAtividade();
+        await api('/clinico/safeid/' + encodeURIComponent(id) + '/concluir', {});
         d.close();
         let abriu = false;
-        try { abriu = await mostrarPdf(aba, a.documento, nome.replace(/[^\w-]+/g, '-')); } catch { aba?.close(); }
-        aviso('Documento assinado', `${nome}: assinado com SafeID e arquivado.${abriu ? ' O PDF foi aberto.' : ''}`, a.documento);
+        try { abriu = await mostrarPdf(a.documento, nome, `${nome}: assinado com SafeID e arquivado`); } catch { /* cai no aviso com o link */ }
+        if (!abriu) aviso('Documento assinado', `${nome}: assinado com SafeID e arquivado.`, a.documento);
       });
       botao(d, 'Cancelar', false, async () => d.close());
     } catch (e) {
