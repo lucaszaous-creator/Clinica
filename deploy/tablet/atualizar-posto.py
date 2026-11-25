@@ -5,6 +5,9 @@ Produção exige relatórios HML do mesmo pacote, salvo dispensa explícita regi
 """
 import hashlib, json, os, pathlib, pwd, re, shutil, stat, subprocess, sys, tarfile, time
 from regras_publicacao import (
+    PAPEL_PONTE,
+    conferencia_papel_ponte,
+    papel_ponte_para_deploy,
     faxina_depois_de_publicar,
     incluir_flag_false_se_ausente,
     verificar_sem_credenciais_cifradas as _verificar_sem_credenciais_cifradas,
@@ -428,6 +431,16 @@ try:
         sql("SET lock_timeout='5s'; SET statement_timeout='60s';\n"+schema)
         assert sql(f'SELECT count(*) FROM "__EFMigrationsHistory" WHERE "MigrationId"=\'{migracao}\'')=='1'
     sql('BEGIN;\n'+'\n'.join(conceder)+'\nCOMMIT;');aplicado=True
+    # O papel da ponte do CRM (nov/2026): o MESMO deploy/ponte-crm/papel-ponte-crm.sql, reaplicado a cada
+    # publicação (numa transação: o REVOKE e o GRANT valem juntos) e conferido — falta de concessão
+    # reprova o deploy aqui, e não na fila de envios da clínica com 42501. Só em produção e só se a
+    # ponte estiver instalada (o papel existe); a senha não muda.
+    if ambiente=='producao' and sql("SELECT count(*) FROM pg_roles WHERE rolname='ponte_crm'")=='1':
+        papel=(release/PAPEL_PONTE).read_text(encoding='utf-8-sig')
+        assert database=='clinica'
+        sql('BEGIN;\n'+papel_ponte_para_deploy(papel)+'\nCOMMIT;')
+        faltando=sql(conferencia_papel_ponte(papel))
+        assert faltando=='','ponte_crm sem concessão: '+faltando.replace('\n','; ')
     if pular_hml:
         verificar_sem_credenciais_cifradas()
     if config_publicacao!=config:

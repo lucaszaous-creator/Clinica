@@ -7,6 +7,10 @@ import unittest
 from pathlib import Path
 
 from regras_publicacao import (
+    LINHA_SENHA_PONTE,
+    papel_ponte_para_deploy,
+    concessoes_papel_ponte,
+    conferencia_papel_ponte,
     faxina_depois_de_publicar,
     releases_para_remover,
     FLAG_CRIPTOGRAFIA,
@@ -217,6 +221,40 @@ class FaxinaDepoisDePublicarTests(unittest.TestCase):
             self.assertEqual(sorted(p.name for p in pasta.iterdir()), ["r1", "r4", "r5", "r6", "r7", "r8"])
             self.assertIn("pacote.tar.gz", saiu)
             self.assertFalse(pacote.exists())
+
+PAPEL = (Path(__file__).resolve().parents[1] / "ponte-crm" / "papel-ponte-crm.sql").read_text(encoding="utf-8-sig")
+
+
+class PapelDaPonteNoDeploy(unittest.TestCase):
+    """O deploy reaplica o papel da ponte e confere (nov/2026: a fila de envios parou com 42501)."""
+
+    def test_reaplica_sem_trocar_a_senha(self):
+        script = papel_ponte_para_deploy(PAPEL)
+        self.assertNotIn(LINHA_SENHA_PONTE, script)
+        self.assertNotIn("PASSWORD :senha", script)
+        self.assertIn("REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON ALL TABLES IN SCHEMA public FROM ponte_crm", script)
+
+    def test_linha_da_senha_mudou_recusa(self):
+        with self.assertRaises(ValueError):
+            papel_ponte_para_deploy(PAPEL.replace(LINHA_SENHA_PONTE, "ALTER ROLE ponte_crm PASSWORD 'x';"))
+
+    def test_le_as_concessoes_do_arquivo(self):
+        c = set(concessoes_papel_ponte(PAPEL))
+        for esperado in [("EnviosPacienteCrm", "UPDATE", ()), ("LiberacoesDeTrava", "UPDATE", ()),
+                         ("AvisosDeLiberacao", "INSERT", ()), ("AvisosDeLiberacao", "UPDATE", ()),
+                         ("Auditoria", "INSERT", ()), ("BilhetesEntradaCrm", "UPDATE", ("UsadoEm",)),
+                         ("Usuarios", "UPDATE", ("TentativasFalhas", "BloqueadoAte", "UltimoAcessoEm"))]:
+            self.assertIn(esperado, c)
+        self.assertNotIn(("EnviosPacienteCrm", "INSERT", ()), c, "quem põe o pedido é o desktop")
+
+    def test_conferencia_pergunta_cada_concessao(self):
+        q = conferencia_papel_ponte(PAPEL)
+        self.assertIn("has_table_privilege('ponte_crm', 'public.\"EnviosPacienteCrm\"', 'UPDATE')", q)
+        self.assertIn("has_column_privilege('ponte_crm', 'public.\"Usuarios\"', 'BloqueadoAte', 'UPDATE')", q)
+        esperadas = sum(max(1, len(colunas)) for _, _, colunas in concessoes_papel_ponte(PAPEL))
+        self.assertEqual(q.count("SELECT '"), esperadas, "uma pergunta por tabela-privilégio e por coluna")
+        self.assertTrue(q.rstrip().endswith(";"))
+
 
 if __name__ == "__main__":
     unittest.main()
