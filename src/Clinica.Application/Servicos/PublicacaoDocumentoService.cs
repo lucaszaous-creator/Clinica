@@ -163,6 +163,26 @@ public sealed class PublicacaoDocumentoService
     }
 
     /// <summary>
+    /// A PUBLICAÇÃO PENDENTE (nov/2026): sobe o arquivo dos documentos assinados COM token e ainda não publicados.
+    /// O portal assinava sem publicar, e a receita chegava à farmácia com o QR pedindo um código que nada servia.
+    /// Idempotente: o que já subiu tem <c>PublicadoEm</c> e sai da fila; o que falhou fica para a próxima volta.
+    /// Documento assinado SEM token não entra — o QR dele foi selado apontando para o validador e não muda
+    /// sem assinar de novo. Devolve quantos subiram.
+    /// </summary>
+    public async Task<int> PublicarPendentesAsync(int limite = 20, CancellationToken ct = default)
+    {
+        if (await _parametros.ObterUrlPublicacaoAsync(ct) is null) return 0;
+        var subiram = 0;
+        foreach (var documento in await _repo.DocumentosAssinadosSemPublicacaoAsync(limite, ct))
+        {
+            if (documento.ArquivoAssinadoId is not { } arquivoId
+                || await _repo.ObterArquivoAssinadoAsync(arquivoId, ct) is not { Conteudo.Length: > 0 } arquivo) continue;
+            if ((await PublicarAsync(documento, arquivo.Conteudo, ct)).Publicou) subiram++;
+        }
+        return subiram;
+    }
+
+    /// <summary>
     /// Caminho do objeto que o teste de conexão grava. Fica FORA do prefixo dos documentos
     /// (<see cref="PublicacaoDocumento.CaminhoDoObjeto"/>) para que um teste jamais possa
     /// colidir com uma receita publicada.

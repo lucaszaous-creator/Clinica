@@ -25,4 +25,16 @@ class FronteiraProxy(unittest.IsolatedAsyncioTestCase):
             self.assertNotIn(b'200',await asyncio.wait_for(r.read(),2))
             w.close();await w.wait_closed()
 
+class HostsExtras(unittest.TestCase):
+    def test_extras_validos_entram_e_o_safeweb_continua(self):
+        self.assertEqual(proxy.hosts_extras(' 94b82c7e061b5bbcccec573b41ce2d84.r2.cloudflarestorage.com ,'),
+                         {'94b82c7e061b5bbcccec573b41ce2d84.r2.cloudflarestorage.com'})
+        self.assertEqual(proxy.hosts_extras(None), set())
+        self.assertIn('pscsafeweb.safewebpss.com.br', proxy.HOSTS)
+
+    def test_extras_invalidos_derrubam(self):
+        for ruim in ['*.r2.cloudflarestorage.com', '10.0.0.1', 'r2.exemplo:443', 'localhost', 'http://x.exemplo']:
+            with self.assertRaises(ValueError, msg=ruim):
+                proxy.hosts_extras(ruim)
+
 if __name__=='__main__':unittest.main()

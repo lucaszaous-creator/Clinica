@@ -40,6 +40,28 @@ linha) e há teste que a fixa (`AssinaturaNaTelaTests`). O roteiro do que a dire
 testar em homologação, caminho por caminho, está em
 [`docs/safeid-telas-blazor-out2026.md`](safeid-telas-blazor-out2026.md).
 
+## ✅ Autorização expressa de 24/11/2026 (2ª) — PUBLICAR, METADADOS ITI E RECEITUÁRIO DE CONTROLE ESPECIAL
+
+**Contexto:** a receita 2026/0484, assinada com SafeID pelo portal e com assinatura PAdES válida, foi recusada na
+farmácia por três motivos:
+- tinha antibiótico, que pede o Receituário de Controle Especial;
+- o QR no validador do gov.br pedia um código e nada servia, porque o portal assinava SEM publicar;
+- o PDF não tinha os metadados de prescrição do ITI.
+
+**Resposta do dono (24/11/2026):** *"Perfeito, então prossiga com isso"*. O alcance vale **só** para estes três
+pontos; o resto continua congelado:
+
+1. **Publicar depois de assinar, em todos os caminhos.**
+   - O portal (SafeID/A1, Consultório e gestão) passa a registrar a `PublicacaoDocumentoService`: o token nasce
+     ANTES do PDF e o arquivo sobe depois de assinar.
+   - A fila `PublicarPendentesAsync` (no portal, a cada 2 min) sobe o que falhou.
+   - A saída do portal ganha o host do armazenamento no proxy restrito (`PROXY_HOSTS_EXTRAS`).
+   - O assinado SEM token não muda: o QR dele foi selado apontando para o validador, e é preciso assinar de novo.
+2. **Metadados de prescrição do ITI:** só com fonte oficial (Guia de Orientações aos Desenvolvedores do VALIDAR).
+3. **Receituário de Controle Especial** (modelo ITI v2.0): documento novo, assinável com SafeID/A1. A aparência
+   visível da assinatura fica no campo "ASSINATURA MÉDICO(A)"; só a posição e o tamanho mudam, e hash/PAdES
+   continuam iguais.
+
 ## ✅ Autorização expressa de 24/11/2026 — ASSINAR NA GESTÃO WEB
 
 **Pergunta feita ao dono:** *"Autoriza levar a assinatura digital (SafeID e A1) para a Gestão do portal? O motor da
