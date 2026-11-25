@@ -25,6 +25,13 @@ public class Paciente
     /// </summary>
     public string? Endereco { get; set; }
 
+    // O COMPRADOR do Receituário de Controle Especial (nov/2026, modelo ITI v2.0): a farmácia confere RG, órgão
+    // emissor, cidade e UF. Faltando, a emissão abre a pergunta e grava aqui, com auditoria.
+    public string? Rg { get; set; }
+    public string? RgOrgaoEmissor { get; set; }
+    public string? Cidade { get; set; }
+    public string? Uf { get; set; }
+
     public DateOnly? DataNascimento { get; set; }
 
     /// <summary>Número da carteirinha do convênio (vai na guia).</summary>

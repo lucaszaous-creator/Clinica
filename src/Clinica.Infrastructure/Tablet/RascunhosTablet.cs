@@ -9,7 +9,7 @@ public sealed partial class PostoTabletService
 {
     private DocumentoClinicoService Documentos => new(repo,new(repo),new(repo));
     private PrescricaoInternaService Prescricoes => new(repo,conferencia);
-    private static readonly TipoDocumentoClinico[] TiposEditaveis = [TipoDocumentoClinico.Receita,TipoDocumentoClinico.Atestado,
+    private static readonly TipoDocumentoClinico[] TiposEditaveis = [TipoDocumentoClinico.Receita,TipoDocumentoClinico.ReceituarioControleEspecial,TipoDocumentoClinico.Atestado,
         TipoDocumentoClinico.PedidoExame,TipoDocumentoClinico.Comparecimento,TipoDocumentoClinico.RelatorioEvolucao,TipoDocumentoClinico.Anamnese];
     private static string VersaoDocumento(DocumentoClinico d) => Hash(new {d.Id,d.Numero,d.Corpo,d.CorpoFormatado,d.Observacoes,d.ObservacoesFormatadas,d.DiasAfastamento,
         d.AssinadoEm,d.PacienteAssinadoEm,d.CanceladoEm,d.Titulo,d.Cid,d.CidAutorizado,d.PeriodoInicio,d.PeriodoFim,d.HoraChegada,d.HoraSaida,

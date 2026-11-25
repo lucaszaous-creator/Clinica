@@ -155,7 +155,7 @@ public sealed class AssinaturaDeDocumentoClinicoService
             Motivo: $"{TipoDocumentoInfo.Rotular(documento.Tipo)} {documento.Numero}",
             NomeExibido: documento.Profissional?.Nome ?? certificado.Titular,
             RegistroConselho: documento.Profissional?.RegistroConselho,
-            Area: DocumentosClinicosPdfService.AreaDaAssinatura(ContarPaginas(pdf)),
+            Area: DocumentosClinicosPdfService.AreaDaAssinatura(documento.Tipo, ContarPaginas(pdf)),
             CarimbadoraDeTempo: await _parametros.ObterCarimbadoraDeTempoAsync(ct)));
 
         // Conferir ANTES de gravar: assinatura que não fecha na própria máquina que a

@@ -15,6 +15,10 @@ internal static class RotasSafeIdTablet
         var grupo = app.MapGroup("/api/clinico");
         grupo.MapGet("/safeid",async(HttpContext c,PortalTabletService portal,AtendimentoTabletService acesso,SafeIdTabletService svc)=>
         {await acesso.AutorizarAsync(await sessao(c,portal),c.RequestAborted,Permissao.VerProntuario);return Results.Ok(new {habilitado=svc.Habilitado,tipos=SafeIdTabletService.Tipos});});
+        // Os termos que sugerem o Receituário de Controle Especial (antimicrobiano/C1): a lista mora na Application.
+        grupo.MapGet("/receituario-controle-especial/termos",async(HttpContext c,PortalTabletService portal,AtendimentoTabletService acesso)=>
+        {await acesso.AutorizarAsync(await sessao(c,portal),c.RequestAborted,Permissao.Prescrever);
+         return Results.Ok(new {termos=Clinica.Application.Modelos.ReceituarioControleEspecialRegras.Termos});});
         // O endereço da receita era conferido em .../safeid/endereco; hoje mora em .../assinatura/endereco.
         // As duas respondem o mesmo serviço, para a página antiga e a atual.
         grupo.MapGet("/atendimentos/{id:int}/documento/{documento:int}/safeid/endereco",

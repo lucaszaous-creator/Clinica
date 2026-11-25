@@ -48,8 +48,14 @@ farmácia por três motivos:
 - o QR no validador do gov.br pedia um código e nada servia, porque o portal assinava SEM publicar;
 - o PDF não tinha os metadados de prescrição do ITI.
 
-**Resposta do dono (24/11/2026):** *"Perfeito, então prossiga com isso"*. O alcance vale **só** para estes três
-pontos; o resto continua congelado:
+**Respostas do dono (24/11/2026):**
+- sobre corrigir a receita (publicar, QR e metadados do ITI): *"Perfeito, então prossiga com isso"*;
+- sobre a assinatura no Controle Especial: *"com a assinatura saindo nesse PDF de receituário também como o safeid
+  porém precisará que a assinatura saia neste campo [ASSINATURA MÉDICO(A)] para não sobrescrever tão pouco
+  exceder"*. Leitura (Jade): muda SÓ a posição e o tamanho da aparência visível no receituário; hash/PAdES iguais;
+  UMA assinatura real de teste (cobrada), feita pela médica com a nossa orientação.
+
+O alcance vale **só** para estes três pontos; o resto continua congelado:
 
 1. **Publicar depois de assinar, em todos os caminhos.**
    - O portal (SafeID/A1, Consultório e gestão) passa a registrar a `PublicacaoDocumentoService`: o token nasce
@@ -61,6 +67,20 @@ pontos; o resto continua congelado:
 3. **Receituário de Controle Especial** (modelo ITI v2.0): documento novo, assinável com SafeID/A1. A aparência
    visível da assinatura fica no campo "ASSINATURA MÉDICO(A)"; só a posição e o tamanho mudam, e hash/PAdES
    continuam iguais.
+   - **O que mudou no motor (nov/2026), e só isto:** `AreaAssinatura` ganhou dois campos opcionais —
+     `OutrasPaginas` (o mesmo bloco visível desenhado também na 2ª via, ANTES de assinar, então coberto pelo hash)
+     e `AjustarFonte` (a letra encolhe até 0,55 para as quatro linhas caberem no campo de 160 × 44 pt). Sem eles
+     (todos os outros documentos), o desenho é o de sempre, byte a byte. `CarimboDeAssinatura` passou de `private`
+     a `internal` só para o teste medir a escala. CMS, ByteRange, carimbo de tempo, certificado e token: intocados.
+   - **Metadados (ponto 2) — `MetadadosDePrescricaoIti`:** os OIDs vêm do guia oficial do VALIDAR
+     (validar.iti.gov.br/guia-desenvolvedor.html): no cap. V, 2.16.76.1.12.1.1 = "Prescrição de medicamento" e
+     2.16.76.1.4.2.2.1/.2/.3 = CFM número/UF/especialidade; no cap. I, item 3, eles "devem ser incluídos como
+     metadados". **O guia NÃO diz o lugar no PDF nem o formato do valor.** Decisão de 25/11 (Jade, opção a), na
+     leitura literal: uma entrada do dicionário **Info** por OID, com o OID como chave. O valor é o rótulo do guia
+     para o tipo e o dado do prescritor (número, UF por sigla, especialidade) para os do CFM. Os do CFM só vão
+     quando o conselho é CRM. Tudo isso é gravado ANTES de assinar, fica coberto pelo hash e não muda a validade
+     da assinatura. Na primeira assinatura real, conferir se o validador reconhece a prescrição; se não
+     reconhecer, a mudança fica só nesta classe.
 
 ## ✅ Autorização expressa de 24/11/2026 — ASSINAR NA GESTÃO WEB
 

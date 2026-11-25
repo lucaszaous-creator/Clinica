@@ -109,6 +109,16 @@
                             </div>
                         }
 
+                        @if (r.SugestaoControleEspecial is { Count: > 0 } termos)
+                        {
+                            @* Antimicrobiano/C1 numa receita comum (nov/2026): a farmácia recusa — a 2026/0484 voltou assim. *@
+                            <div class="df-sugestao-rce" role="status">
+                                <p>@ReceituarioControleEspecialRegras.FraseDaSugestao(termos)</p>
+                                <button type="button" class="botao mini" disabled="@(!PodeEditar)"
+                                        @onclick="() => TrocarTipoAsync(TipoDocumentoClinico.ReceituarioControleEspecial)">Emitir como Receituário de Controle Especial</button>
+                            </div>
+                        }
+
                         @if (r.MostraAtestado)
                         {
                             <div class="campos tres">
@@ -229,7 +239,7 @@
                         <Campo Rotulo="Profissional responsável" Classe="largo" Erro="@r.MotivoSemAssinante">
                             <select class="campo" value="@(r.Profissional?.Id.ToString(CultureInfo.InvariantCulture) ?? string.Empty)" @onchange="TrocarProfissional">
                                 <option value="">— escolha —</option>
-                                @foreach (var p in _profissionais) { <option value="@p.Id">@p.Rotulo</option> }
+                                @foreach (var p in AssinanteDoDocumento.Elegiveis(r.Tipo, _profissionais)) { <option value="@p.Id">@p.Rotulo</option> }
                             </select>
                         </Campo>
                         <Campo Rotulo="Título impresso (opcional)" Classe="largo">
@@ -307,7 +317,7 @@
         @if (_ultimo is { } ultimo && _r is not null)
         {
             @* EMITIR VÁRIAS SEGUIDAS (pedido da Dra., nov/2026): a folha não fecha depois de emitir; a próxima sai daqui. *@
-            <button type="button" class="botao" title="Outra folha em branco para o mesmo paciente" @onclick="() => NovaAsync(copiar: false)">@(_r.Tipo == TipoDocumentoClinico.Receita ? "Nova receita" : "Novo documento")</button>
+            <button type="button" class="botao" title="Outra folha em branco para o mesmo paciente" @onclick="() => NovaAsync(copiar: false)">@(TipoDocumentoInfo.EhReceita(_r.Tipo) ? "Nova receita" : "Novo documento")</button>
             <button type="button" class="botao" title="Outra folha para o mesmo paciente, já com o texto da que saiu" @onclick="() => NovaAsync(copiar: true)">Com o mesmo texto</button>
             <button type="button" class="botao primario" title="Escolher o próximo paciente sem sair daqui" @onclick="ProximoPaciente">Próximo paciente</button>
         }
@@ -327,6 +337,11 @@
 @if (_buscandoCid && _r is not null)
 {
     <BuscaCidForm TermoInicial="@_r.Cid" AoEscolher="EscolherCid" AoFechar="() => _buscandoCid = false" />
+}
+
+@if (_comprador is not null)
+{
+    <CompradorDoReceituarioForm Paciente="_comprador" AoConcluir="CompradorCompletadoAsync" AoFechar="CompradorAdiado" />
 }
 
 @if (_envioPendente is not null)
@@ -395,6 +410,9 @@
     private string? _mensagem;
     private bool _mensagemEhErro;
     private bool _buscandoCid;
+    /// <summary>O paciente cujo bloco de comprador está incompleto: o modal está aberto e a emissão, parada antes do número.</summary>
+    private Paciente? _comprador;
+    private bool _assinarAposComprador;
     private IReadOnlyList<Profissional> _profissionais = [];
     private IReadOnlyList<ModeloDocumento> _modelos = [];
     private ModeloDocumento? _modelo;
@@ -622,6 +640,7 @@
             await ConferirClinicamenteAsync();
             if (r.RecusaDaAlergia() is { } alergia) { Erro(alergia); return; }
 
+            if (!await CompletarCompradorDoReceituarioAsync(assinar)) return;
             if (!await CompletarEnderecoDaReceitaAsync()) return;
             r.ConferirLegalmente();
             var dados = r.MontarDocumento();
@@ -722,6 +741,36 @@
         if (r is { Silencioso: false } && !string.IsNullOrWhiteSpace(r.Frase))
             await Dialogos.AvisoAsync("Enviar ao paciente", r.Frase);
         await ConcluirAsync(concluido);
+    }
+
+    /// <summary>
+    /// Receituário de Controle Especial: relê a ficha e, faltando algum dado do COMPRADOR, abre o modal e PÁRA a
+    /// emissão (nada numerado). Gravado o modal, a emissão recomeça sozinha com o mesmo "assinar".
+    /// </summary>
+    private async Task<bool> CompletarCompradorDoReceituarioAsync(bool assinar)
+    {
+        if (_r is not { Tipo: TipoDocumentoClinico.ReceituarioControleEspecial } r) return true;
+        using var escopo = Escopo();
+        r.Paciente = await escopo.ServiceProvider.GetRequiredService<PacienteService>().ObterAsync(r.PacienteId)
+            ?? throw new InvalidOperationException("Paciente não encontrado.");
+        if (ReceituarioControleEspecialRegras.FaltasDoComprador(r.Paciente).Count == 0) return true;
+        _assinarAposComprador = assinar;
+        _comprador = r.Paciente;
+        return false;
+    }
+
+    private async Task CompradorCompletadoAsync(Paciente atualizado)
+    {
+        _comprador = null;
+        if (_r is not { } r) return;
+        r.Paciente = atualizado;
+        await EmitirAsync(_assinarAposComprador);
+    }
+
+    private void CompradorAdiado()
+    {
+        _comprador = null;
+        Informar(EmissaoDeDocumentoNaTela.EmissaoAdiada);
     }
 
     /// <summary>
