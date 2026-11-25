@@ -32,6 +32,10 @@ public sealed class EquipeService
     public Task<Profissional?> ObterProfissionalAsync(int id, CancellationToken ct = default)
         => _repo.ObterProfissionalAsync(id, ct);
 
+    /// <summary>A validade do A1 do profissional (nulo sem A1) — o "com o quê" da janela de emitir.</summary>
+    public Task<DateTime?> ValidadeDoA1Async(int profissionalId, CancellationToken ct = default)
+        => _repo.ValidadeDoA1Async(profissionalId, ct);
+
     /// <summary>Cria ou atualiza um profissional. Devolve a entidade persistida.</summary>
     public async Task<Profissional> SalvarProfissionalAsync(Profissional dados, CancellationToken ct = default,
         SessaoUsuario? solicitante = null)

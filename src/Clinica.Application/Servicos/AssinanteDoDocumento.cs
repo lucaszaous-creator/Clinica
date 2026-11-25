@@ -60,9 +60,15 @@ public static class AssinanteDoDocumento
     /// prescritor — médico (CRM) ou dentista (CRO), pelo cadastro TISS ou pelo registro escrito. Os outros papéis
     /// seguem como sempre (qualquer profissional ativo), para não tirar de ninguém o que já fazia.
     /// </summary>
+    /// <remarks>
+    /// Nov/2026 (pedido do dono): conselho DESCONHECIDO não exclui. O cadastro da clínica traz, em muitos médicos, só o
+    /// número em texto livre ("52-0115854-6", sem "CRM" nem UF) — exigir a sigla tirava da lista a própria médica logada,
+    /// e a janela dizia "escolha o prescritor" para quem prescreve. Sai só quem tem conselho CONHECIDO que não prescreve
+    /// (COREN, CRP, CREFITO…); o que falta no cadastro vira aviso (<see cref="EmitenteDoDocumento.FaltaNoCadastro"/>).
+    /// </remarks>
     public static bool PodeAssinar(TipoDocumentoClinico tipo, Profissional profissional)
         => tipo != TipoDocumentoClinico.ReceituarioControleEspecial
-           || Clinica.Application.Modelos.RegistroDoPrescritor.De(profissional).Conselho is "CRM" or "CRO";
+           || Clinica.Application.Modelos.RegistroDoPrescritor.De(profissional).Conselho is null or "CRM" or "CRO";
 
     /// <summary>A lista do "Profissional responsável" para este papel.</summary>
     public static IReadOnlyList<Profissional> Elegiveis(TipoDocumentoClinico tipo, IEnumerable<Profissional> ativos)

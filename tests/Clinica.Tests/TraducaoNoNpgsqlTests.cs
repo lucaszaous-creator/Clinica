@@ -48,6 +48,14 @@ public class TraducaoNoNpgsqlTests
     }
 
     [Fact]
+    public void Validade_do_A1_do_emitente_traduz_so_a_data()
+    {
+        using var db = Postgres();
+        var sql = new ClinicaRepositorio(db).ConsultaValidadeDoA1(7).ToQueryString();
+        sql.Should().Contain("ValidoAte").And.Contain("ProfissionalId").And.NotContain("ArquivoProtegido");
+    }
+
+    [Fact]
     public void Relatorio_de_atendimentos_traduz_todos_os_filtros_no_banco()
     {
         using var db = Postgres();

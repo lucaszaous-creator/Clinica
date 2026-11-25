@@ -24,7 +24,7 @@
 @inject IAssinaturaNaTela Assinatura
 
 @* Maximizar (pedido da Dra., nov/2026): a receita longa ganha a tela inteira, e a escolha fica lembrada para quem está logado. *@
-<Modal Titulo="@TituloDoModal" Subtitulo="@SubtituloDoModal" Largura="largo" AoFechar="FecharAsync" Maximizavel="true"
+<Modal Titulo="@TituloDoModal" Subtitulo="@SubtituloDoModal" Largura="largo df-modal" AoFechar="FecharAsync" Maximizavel="true"
        MaximizadoInicial="@PreferenciaDaFolha.Maximizada(SessaoUsuario.Atual.UsuarioId)" AoMaximizar="m => PreferenciaDaFolha.Guardar(SessaoUsuario.Atual.UsuarioId, m)">
     <ChildContent>
         @if (_recusa is not null)
@@ -43,6 +43,32 @@
         }
         else
         {
+            @* QUEM EMITE, no topo e sempre à vista (nov/2026, pedido do dono): o profissional logado já vem escolhido; só a
+               direção, ou quem não tem profissional ligado ao login, troca. A regra mora em EmitenteDoDocumento. *@
+            <div class="df-emitente" role="group" aria-label="Emitente">
+                <span class="df-emitente-rotulo">Emitindo como</span>
+                @if (PodeEscolherOutro)
+                {
+                    <select class="campo df-emitente-escolha" aria-label="Emitente do documento" disabled="@(!PodeEditar)"
+                            value="@(r.Profissional?.Id.ToString(CultureInfo.InvariantCulture) ?? string.Empty)" @onchange="TrocarProfissionalAsync">
+                        <option value="">— escolha quem emite —</option>
+                        @foreach (var p in AssinanteDoDocumento.Elegiveis(r.Tipo, _profissionais)) { <option value="@p.Id">@EmitenteDoDocumento.Rotulo(p)</option> }
+                    </select>
+                }
+                else if (r.Profissional is { } eu)
+                {
+                    <strong class="df-emitente-nome">@EmitenteDoDocumento.Rotulo(eu)</strong>
+                }
+                else
+                {
+                    <span class="df-falta-assinante">@r.FaltaAssinante</span>
+                }
+                @if (r.Profissional is { } emitente && EmitenteDoDocumento.FaltaNoCadastro(r.Tipo, emitente) is { } falta)
+                {
+                    <span class="df-emitente-falta">@falta</span>
+                }
+            </div>
+
             <div class="abas df-abas" role="tablist" aria-label="Documento">
                 <button type="button" role="tab" aria-selected="@Bool(_aba == AbaFolha)" @onclick="() => _aba = AbaFolha">Folha</button>
                 <button type="button" role="tab" aria-selected="@Bool(_aba == AbaDados)" @onclick="() => _aba = AbaDados">Dados da emissão</button>
@@ -218,7 +244,6 @@
                             else
                             {
                                 <span class="df-falta-assinante">@r.FaltaAssinante</span>
-                                <button type="button" class="botao mini fantasma" @onclick="() => _aba = AbaDados">Escolher quem assina…</button>
                             }
                         </div>
                     </fieldset>
@@ -237,9 +262,9 @@
                             <input class="campo" type="date" value="@Iso(r.Data)" @onchange="TrocarData" />
                         </Campo>
                         <Campo Rotulo="Profissional responsável" Classe="largo" Erro="@r.MotivoSemAssinante">
-                            <select class="campo" value="@(r.Profissional?.Id.ToString(CultureInfo.InvariantCulture) ?? string.Empty)" @onchange="TrocarProfissional">
+                            <select class="campo" value="@(r.Profissional?.Id.ToString(CultureInfo.InvariantCulture) ?? string.Empty)" disabled="@(!PodeEscolherOutro)" @onchange="TrocarProfissionalAsync">
                                 <option value="">— escolha —</option>
-                                @foreach (var p in AssinanteDoDocumento.Elegiveis(r.Tipo, _profissionais)) { <option value="@p.Id">@p.Rotulo</option> }
+                                @foreach (var p in AssinanteDoDocumento.Elegiveis(r.Tipo, _profissionais)) { <option value="@p.Id">@EmitenteDoDocumento.Rotulo(p)</option> }
                             </select>
                         </Campo>
                         <Campo Rotulo="Título impresso (opcional)" Classe="largo">
@@ -302,10 +327,23 @@
             <Aviso Texto="@_mensagem" Tom="@(_mensagemEhErro ? "erro" : "sucesso")" />
             @if (_r?.MotivoSemAssinante is { } motivo && !_carregando)
             {
-                @* Por que o "Emitir" está apagado — ao lado do botão, com a porta para escolher (parcela 41). *@
-                <div class="df-sem-assinante">
-                    <span>@motivo</span>
-                    <button type="button" class="botao mini fantasma" disabled="@(!PodeEditar)" @onclick="() => _aba = AbaDados">Escolher quem assina…</button>
+                @* Por que o "Emitir" está apagado — ao lado do botão; quem emite se escolhe no topo (parcela 41). *@
+                <div class="df-sem-assinante"><span>@motivo</span></div>
+            }
+            else if (_r is not null && _jaEmitido is null && !_carregando && _ultimo is null)
+            {
+                @* QUEM assina e COM O QUÊ (nov/2026): só o emitente; o A1 de "Meu certificado" e o SafeID da clínica, com o estado. *@
+                <div class="df-quem-assina" aria-live="polite">
+                    <span class="df-quem-assina-frase">@QuemAssinaAgora.Frase</span>
+                    @if (QuemAssinaAgora.LogadoAssina)
+                    {
+                        <span class="df-meios">
+                            @foreach (var m in MeiosDoEmitente)
+                            {
+                                <span class="df-meio @(m.Disponivel ? "ok" : "falta")"><b>@m.Meio</b> @m.Estado</span>
+                            }
+                        </span>
+                    }
                 </div>
             }
         </div>
@@ -313,7 +351,7 @@
         {
             <button type="button" class="botao fantasma esquerda" disabled="@(!PodeEditar)" @onclick="PedirNomeModeloAsync">Salvar como modelo</button>
         }
-        <button type="button" class="botao" disabled="@_emitindo" @onclick="FecharAsync">Fechar</button>
+        <button type="button" class="botao df-fechar" disabled="@_emitindo" @onclick="FecharAsync">Fechar</button>
         @if (_ultimo is { } ultimo && _r is not null)
         {
             @* EMITIR VÁRIAS SEGUIDAS (pedido da Dra., nov/2026): a folha não fecha depois de emitir; a próxima sai daqui. *@
@@ -327,7 +365,8 @@
                     @onclick="PreverAsync">@(_gerandoPrevia ? "Gerando a prévia…" : "Pré-visualizar")</button>
             @* Assinar na hora (A1 ou SafeID, out/2026): emite, abre o seletor e entrega o PDF ASSINADO.
                Desistir no seletor entrega a via de sempre; a assinatura fica para a central. *@
-            <button type="button" class="botao" disabled="@(!PodeEmitir)" title="Emite e assina com o seu certificado (A1 ou SafeID)"
+            <button type="button" class="botao" disabled="@(!PodeEmitir || !QuemAssinaAgora.LogadoAssina)"
+                    title="@(QuemAssinaAgora.LogadoAssina ? "Emite e assina com o seu certificado (A1 ou SafeID)" : QuemAssinaAgora.Frase)"
                     @onclick="() => EmitirAsync(assinar: true)">Emitir e assinar</button>
             <button type="button" class="botao primario" disabled="@(!PodeEmitir)" @onclick="() => EmitirAsync(assinar: false)">@(_emitindo ? "Emitindo…" : "Emitir e imprimir")</button>
         }
@@ -485,6 +524,7 @@
                 r.DefinirAssinante(_profissionais, SessaoUsuario.Atual.ProfissionalId);
                 r.Paciente = await sp.GetRequiredService<PacienteService>().ObterComHistoricoAsync(r.PacienteId);
             }
+            await LerMeiosDoEmitenteAsync();
             if (Descartada) return;
             await CarregarModelosAsync();
             r.LigarConferenciaLegal();
@@ -549,9 +589,11 @@
     private async Task TrocarTipoAsync(TipoDocumentoClinico tipo)
     {
         if (_r is not { } r || !PodeEditar) return;
+        var antes = r.Profissional;
         if (!r.TrocarTipo(tipo)) return;
         _modelo = null;
         await CarregarModelosAsync();
+        if (!ReferenceEquals(antes, r.Profissional)) await LerMeiosDoEmitenteAsync(); // o receituário pode ter trocado quem assina
     }
 
     private Task TrocarTipoPeloComboAsync(ChangeEventArgs e)
@@ -562,12 +604,43 @@
         if (_r is not null && LerData(e) is { } d) _r.Data = d;
     }
 
-    private void TrocarProfissional(ChangeEventArgs e)
+    private async Task TrocarProfissionalAsync(ChangeEventArgs e)
     {
-        if (_r is null) return;
+        if (_r is null || !PodeEscolherOutro) return;
         _r.Profissional = int.TryParse(e.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var id)
             ? _profissionais.FirstOrDefault(p => p.Id == id)
             : null;
+        await LerMeiosDoEmitenteAsync();
+    }
+
+    // ===================== quem emite, quem assina e com o quê (nov/2026) =====================
+
+    /// <summary>A direção (ou quem não tem profissional ligado ao login) troca o emitente; o profissional emite como ele mesmo.</summary>
+    private static bool PodeEscolherOutro => EmitenteDoDocumento.PodeEscolherOutro(SessaoUsuario.Atual.Perfil, SessaoUsuario.Atual.ProfissionalId);
+
+    private AssinaturaDoEmitente QuemAssinaAgora => EmitenteDoDocumento.Assinante(_r?.Profissional, SessaoUsuario.Atual.ProfissionalId);
+
+    private IReadOnlyList<MeioDeAssinatura> MeiosDoEmitente => EmitenteDoDocumento.Meios(_validadeDoA1, _safeIdHabilitado, DateTime.Now);
+
+    private DateTime? _validadeDoA1;
+    private bool _safeIdHabilitado;
+
+    /// <summary>
+    /// O A1 do emitente ("Meu certificado": só a validade, o arquivo não sai do banco) e o SafeID da clínica. Falhar aqui não
+    /// impede emitir: o bloco diz "não cadastrado", e o seletor de certificado continua decidindo na hora de assinar.
+    /// </summary>
+    private async Task LerMeiosDoEmitenteAsync()
+    {
+        _validadeDoA1 = null;
+        if (_r?.Profissional is not { } emitente) return;
+        try
+        {
+            using var escopo = Escopo();
+            _validadeDoA1 = await escopo.ServiceProvider.GetRequiredService<EquipeService>().ValidadeDoA1Async(emitente.Id);
+            _safeIdHabilitado = await Clinica.Application.Assinatura.SafeID.BuscaNoSafeID.ConfiguradoAsync(
+                escopo.ServiceProvider.GetService<IServiceScopeFactory>());
+        }
+        catch (Exception ex) { Clinica.Application.Diagnostico.Registrar("Documento clínico — o certificado do emitente não pôde ser lido", ex); }
     }
 
     /// <summary>

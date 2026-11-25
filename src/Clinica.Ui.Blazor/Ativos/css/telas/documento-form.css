@@ -93,3 +93,48 @@
   padding:var(--space-2) var(--space-3);border:1px solid var(--aviso);border-left-width:3px;border-radius:var(--radius-pequeno);
   background:var(--aviso-suave);color:var(--aviso-texto);font-size:var(--text-small-size);line-height:1.45}
 .df-sugestao-rce p{margin:0;flex:1 1 240px;overflow-wrap:anywhere}
+
+/* ===== Quem emite, quem assina e com o quê (nov/2026, pedido do dono) ===== */
+.df-emitente{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2) var(--space-3);
+  padding:var(--space-2) var(--space-3);border:1px solid var(--borda);border-radius:var(--radius-control);background:var(--fundo)}
+.df-emitente-rotulo{font-size:var(--text-small-size);font-weight:600;color:var(--texto-secundario);letter-spacing:var(--text-secao-tracking)}
+.df-emitente-nome{color:var(--texto-primario);overflow-wrap:anywhere;min-width:0}
+.df-emitente-escolha{flex:1 1 280px;width:auto;min-width:0}
+.df-emitente-falta{flex-basis:100%;font-size:var(--text-small-size);color:var(--aviso-texto);line-height:1.45}
+.df-quem-assina{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2) var(--space-3);font-size:var(--text-small-size);color:var(--texto-primario)}
+.df-meios{display:flex;flex-wrap:wrap;gap:var(--space-2)}
+.df-meio{display:inline-flex;align-items:center;gap:4px;padding:2px var(--space-2);border-radius:var(--radius-pequeno);border:1px solid var(--borda)}
+.df-meio.ok{border-color:var(--sucesso);background:var(--sucesso-suave);color:var(--sucesso-forte)}
+.df-meio.falta{color:var(--texto-secundario);background:var(--superficie)}
+
+/* ===== iPhone (≤ 480 px): a janela vira FOLHA de tela cheia =====
+   Cabeçalho e "Emitindo como" fixos, corpo rolável, ações fixas no rodapé com alvos de 44 px; o campo a 16 px não deixa o
+   Safari dar zoom, e o scroll-padding mantém o campo ativo acima das ações quando o teclado sobe. Em 1024/1366 segue janela. */
+@media (max-width:480px){
+  .modal-fundo:has(> .modal.df-modal){padding:0;align-items:stretch}
+  .modal.df-modal{max-width:none;max-height:none;height:100dvh;border-radius:0}
+  .df-modal .modal-topo{padding:var(--space-4) var(--space-4) var(--space-2)}
+  .df-modal .modal-topo-acoes > button:not(:last-child){display:none} /* maximizar não faz sentido em tela cheia */
+  .df-modal .modal-topo-acoes > button{width:44px;height:44px}
+  .df-modal .modal-corpo{padding:0 var(--space-4) var(--space-4);gap:var(--space-3);scroll-padding:var(--space-12) 0 var(--space-8);overscroll-behavior:contain}
+  .df-modal .modal-corpo > *{flex-shrink:0} /* o corpo rola; as abas e o topo não encolhem até sumir */
+  .df-modal .modal-rodape .df-fechar{display:none} /* o × do topo fecha; o rodapé fica para as ações */
+  .df-modal .df-quem-assina{gap:var(--space-1) var(--space-2)}
+  .df-modal .df-emitente{position:sticky;top:0;z-index:2;box-shadow:0 var(--space-2) var(--space-2) calc(-1 * var(--space-2)) rgba(17,24,39,.12)}
+  .df-modal .df-abas{overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none}
+  .df-modal .df-abas button{min-height:44px;white-space:nowrap}
+  .df-modal .df-tipos{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;max-width:100%}
+  .df-modal .df-tipos .chip{flex:none;min-height:40px}
+  .df-modal .df-topo{flex-wrap:nowrap;flex-direction:column;align-items:stretch}
+  .df-modal .df-folha{padding:var(--space-3);border-radius:var(--radius-control)}
+  .df-modal .df-cabecalho{flex-direction:column;align-items:flex-start;gap:var(--space-2)}
+  .df-modal .df-numero{align-items:flex-start;text-align:left}
+  .df-modal .campo, .df-modal select, .df-modal textarea, .df-modal [contenteditable]{font-size:16px}
+  .df-modal .modal-rodape{border-radius:0;display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2);
+    padding:var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom))}
+  .df-modal .modal-rodape > *{grid-column:span 1;min-width:0}
+  .df-modal .modal-rodape .botao{height:auto;min-height:44px;justify-content:center;white-space:normal;text-align:center}
+  .df-modal .modal-rodape .df-rodape-avisos, .df-modal .modal-rodape .botao.primario, .df-modal .modal-rodape .esquerda{grid-column:1 / -1}
+  .df-modal .modal-rodape .esquerda{max-width:none;margin:0;order:9}
+  .df-modal .modal-rodape .botao.primario{order:8}
+}

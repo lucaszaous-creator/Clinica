@@ -1513,6 +1513,14 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .OrderBy(p => p.Ordem).ThenBy(p => p.Nome)
             .ToListAsync(ct);
 
+    // Só a data: o arquivo protegido do A1 não sai do banco para a janela de emitir.
+    public async Task<DateTime?> ValidadeDoA1Async(int profissionalId, CancellationToken ct = default)
+        => await ConsultaValidadeDoA1(profissionalId).MaxAsync(ct);
+
+    /// <summary>A consulta de <see cref="ValidadeDoA1Async"/>, exposta para a rede de tradução (TraducaoNoNpgsqlTests).</summary>
+    public IQueryable<DateTime?> ConsultaValidadeDoA1(int profissionalId)
+        => _db.CertificadosA1.AsNoTracking().Where(c => c.ProfissionalId == profissionalId).Select(c => (DateTime?)c.ValidoAte);
+
     public Task<Profissional?> ObterProfissionalAsync(int profissionalId, CancellationToken ct = default)
         => _db.Profissionais.FirstOrDefaultAsync(p => p.Id == profissionalId, ct);
 

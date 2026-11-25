@@ -453,6 +453,8 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<Profissional>> ProfissionaisAsync(CancellationToken ct = default);
 
     Task<Profissional?> ObterProfissionalAsync(int profissionalId, CancellationToken ct = default);
+    /// <summary>A validade do A1 mais novo cadastrado em "Meu certificado" para o profissional; nulo sem A1 (nov/2026, janela de emitir).</summary>
+    Task<DateTime?> ValidadeDoA1Async(int profissionalId, CancellationToken ct = default);
     Task AdicionarProfissionalAsync(Profissional profissional, CancellationToken ct = default);
 
     /// <summary>Há agendamento (ou pedido na lista de espera) apontando para este profissional?</summary>

@@ -2312,6 +2312,12 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   duas. `SessaoUsuario.Atual` é estática porque metade dos formulários é construída à mão pela
   tela e não passa pelo DI; **sem sessão autenticada, `Pode` libera** (tela vazia parece defeito,
   e no app real o login é obrigatório).
+- **Emitente do documento clínico (nov/2026, `EmitenteDoDocumento`)**: o logado vem escolhido e aparece no topo da
+  janela ("Emitindo como … · CRM nº/UF"); só a direção (perfil Gerente) ou quem não tem profissional ligado ao login
+  troca. **Só o emitente assina**: escolhido outro, "Emitir e assinar" apaga e a janela manda emitir sem assinar (vai
+  a "Para assinar" dele). O bloco mostra o A1 de "Meu certificado" (só a validade) e o SafeID da clínica. No
+  Receituário de Controle Especial, conselho DESCONHECIDO não exclui (o cadastro real traz só o número em texto
+  livre); sai só conselho conhecido que não prescreve (COREN, CRP…), e a falta de CRM/UF vira aviso.
 - **Quem assina a ação é quem fez login**, nunca o usuário do Windows: `SessaoUsuario.Atual.Operador`
   é o que vai para a auditoria e para o `EnviadoPor` da campanha. `Environment.UserName` só
   aparece como fallback dentro do próprio `Operador` — no balcão duas pessoas dividem a mesma
