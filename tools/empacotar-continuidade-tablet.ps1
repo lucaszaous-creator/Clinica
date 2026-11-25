@@ -21,6 +21,8 @@ if ($LASTEXITCODE -ne 0) { throw 'Falha ao preparar interface.' }
 Copy-Item -LiteralPath (Join-Path $sitePortal 'artifacts/portal-release') -Destination (Join-Path $saidaPortal 'portal') -Recurse
 Copy-Item -LiteralPath (Join-Path $raizPortal 'deploy/tablet/atualizar-posto.py') -Destination $saidaPortal
 Copy-Item -LiteralPath (Join-Path $raizPortal 'deploy/tablet/regras_publicacao.py') -Destination $saidaPortal
+# O papel da ponte do CRM, reaplicado e conferido pelo atualizador a cada publicação (nov/2026).
+Copy-Item -LiteralPath (Join-Path $raizPortal 'deploy/ponte-crm/papel-ponte-crm.sql') -Destination $saidaPortal
 Copy-Item -LiteralPath (Join-Path $raizPortal 'deploy/tablet/migracao-a1.sql') -Destination $saidaPortal
 Copy-Item -LiteralPath (Join-Path $raizPortal 'deploy/tablet/migracao-pedidos-enfermagem.sql') -Destination $saidaPortal
 Copy-Item -LiteralPath (Join-Path $raizPortal 'docs/assinatura-a1.md') -Destination $saidaPortal

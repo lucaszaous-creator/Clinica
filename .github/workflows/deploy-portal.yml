@@ -31,6 +31,7 @@ on:
       - 'src/Clinica.Application/**'
       - 'src/Clinica.Domain/**'
       - 'deploy/tablet/**'
+      - 'deploy/ponte-crm/**'
       - 'deploy/gestao/**'
       - 'tools/empacotar-continuidade-tablet.ps1'
       - 'tools/empacotar-gestao-web.sh'
@@ -71,7 +72,7 @@ jobs:
           set -euo pipefail
           # O último commit que muda o que vai para a VPS (os mesmos caminhos do gatilho de push).
           clinica=$(git log -1 --format=%H -- src/Clinica.Assinaturas.Api src/Clinica.Gestao.Web src/Clinica.Ui.Blazor \
-            src/Clinica.Infrastructure src/Clinica.Application src/Clinica.Domain deploy/tablet deploy/gestao \
+            src/Clinica.Infrastructure src/Clinica.Application src/Clinica.Domain deploy/tablet deploy/ponte-crm deploy/gestao \
             tools/empacotar-continuidade-tablet.ps1 tools/empacotar-gestao-web.sh)
           # O clinica-site é PRIVADO: lido com um token só de leitura (secret SITE_READ_TOKEN).
           site=sem-token; publicado=nenhum

@@ -214,3 +214,63 @@ def faxina_depois_de_publicar(base: Path, manter: set[str], pacote: Path, quanto
         pacote.unlink()
         saiu.append(pacote.name)
     return saiu
+
+
+# ---- O papel da ponte do CRM (ponte_crm), reaplicado a cada deploy (nov/2026) ----
+#
+# Por que existe: o deploy/ponte-crm/papel-ponte-crm.sql era rodado À MÃO, uma vez. Tabela que o
+# arquivo ganhou depois (EnviosPacienteCrm, LiberacoesDeTrava, AvisosDeLiberacao) ficava só com o
+# SELECT dos privilégios padrão até alguém lembrar — e o primeiro "Enviar ao paciente pelo WhatsApp"
+# parou em "queued" com 42501 no claim. Agora o deploy do portal reaplica o MESMO arquivo (sem a
+# senha, que não muda) e reprova se faltar qualquer concessão da lista.
+
+PAPEL_PONTE = "papel-ponte-crm.sql"
+LINHA_SENHA_PONTE = "ALTER ROLE ponte_crm PASSWORD :senha;"
+
+_PAR_DA_LISTA = re.compile(r"\['(\w+)','([^']+)'\]")
+_GRANT_DE_COLUNA = re.compile(r'GRANT (\w+) \(([^)]*)\) ON public\."(\w+)"')
+
+
+def papel_ponte_para_deploy(texto: str) -> str:
+    """O arquivo do papel SEM a troca de senha (o deploy não sabe nem muda a senha da ponte)."""
+    if texto.count(LINHA_SENHA_PONTE) != 1:
+        raise ValueError("papel-ponte-crm.sql: a linha da senha mudou; confira antes de reaplicar.")
+    return texto.replace(LINHA_SENHA_PONTE, "-- (senha: não muda no deploy)")
+
+
+def concessoes_papel_ponte(texto: str) -> list[tuple[str, str, tuple[str, ...]]]:
+    """(tabela, privilégio, colunas) que o arquivo concede à ponte — colunas vazias = a tabela toda."""
+    saida: list[tuple[str, str, tuple[str, ...]]] = []
+    for tabela, privs in _PAR_DA_LISTA.findall(texto):
+        for priv in privs.split(","):
+            m = re.fullmatch(r"\s*(\w+)\s*(?:\(([^)]*)\))?\s*", priv)
+            if not m:
+                raise ValueError(f"Privilégio ilegível para {tabela}: {priv!r}")
+            colunas = tuple(c.strip().strip('"') for c in (m.group(2) or "").split(",") if c.strip())
+            saida.append((tabela, m.group(1).upper(), colunas))
+    for priv, colunas, tabela in _GRANT_DE_COLUNA.findall(texto):
+        saida.append((tabela, priv.upper(), tuple(c.strip().strip('"') for c in colunas.split(","))))
+    if not saida:
+        raise ValueError("papel-ponte-crm.sql sem concessões legíveis.")
+    return saida
+
+
+def conferencia_papel_ponte(texto: str) -> str:
+    """SQL que devolve UMA linha por concessão que falta (tabela existente); vazio = tudo concedido."""
+    linhas = []
+    for tabela, priv, colunas in concessoes_papel_ponte(texto):
+        if not re.fullmatch(r"\w+", tabela) or priv not in ("SELECT", "INSERT", "UPDATE", "DELETE"):
+            raise ValueError(f"Concessão inesperada: {tabela} {priv}")
+        alvo = f"public.\"{tabela}\""
+        if colunas:
+            for coluna in colunas:
+                if not re.fullmatch(r"\w+", coluna):
+                    raise ValueError(f"Coluna inesperada: {coluna}")
+                linhas.append(
+                    f"SELECT '{priv} ({coluna}) em {tabela}' WHERE to_regclass('{alvo}') IS NOT NULL "
+                    f"AND NOT has_column_privilege('ponte_crm', '{alvo}', '{coluna}', '{priv}')")
+        else:
+            linhas.append(
+                f"SELECT '{priv} em {tabela}' WHERE to_regclass('{alvo}') IS NOT NULL "
+                f"AND NOT has_table_privilege('ponte_crm', '{alvo}', '{priv}')")
+    return "\nUNION ALL\n".join(linhas) + ";"
