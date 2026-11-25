@@ -25,6 +25,8 @@ public sealed class ReceituarioLivreTests : IDisposable
         _documentos = new DocumentoClinicoService(_repo, new ProntuarioService(_repo), new ConsentimentoService(_repo));
     }
 
+    private static PacienteService.DadosDoComprador Endereco(string endereco) => new(null, null, endereco, null, null, null);
+
     private async Task<(Paciente, Profissional)> PessoasAsync(string? endereco = "Rua de teste, 10, Centro, Cidade")
     {
         var paciente = new Paciente { Nome = "Paciente de teste", Endereco = endereco, Convenio = Convenio.UnimedIntercambio };
@@ -76,14 +78,14 @@ public sealed class ReceituarioLivreTests : IDisposable
         paciente.Carteirinha = "carteirinha preservada";
         paciente.Telefone = "11999999999";
         await _db.SaveChangesAsync();
-        await new PacienteService(_repo).CompletarEnderecoAsync(paciente.Id, "  Rua Nova, 42, Centro, Cidade  ", "medica.teste");
+        await new PacienteService(_repo).CompletarParaDocumentoAsync(paciente.Id, TipoDocumentoClinico.Receita, Endereco("  Rua Nova, 42, Centro, Cidade  "), "medica.teste");
         _db.ChangeTracker.Clear();
         var salvo = (await _repo.ObterPacienteAsync(paciente.Id))!;
         salvo.Endereco.Should().Be("Rua Nova, 42, Centro, Cidade");
         salvo.Carteirinha.Should().Be("carteirinha preservada");
         salvo.Telefone.Should().Be("11999999999");
         salvo.Convenio.Should().Be(Convenio.UnimedIntercambio);
-        var evento = await _db.Set<EventoAuditoria>().SingleAsync(e => e.Acao == "EnderecoCompletadoNaEmissao");
+        var evento = await _db.Set<EventoAuditoria>().SingleAsync(e => e.Acao == "DadosPacienteCompletadosNaEmissao");
         evento.Operador.Should().Be("medica.teste");
         evento.PacienteId.Should().Be(paciente.Id);
     }
@@ -92,10 +94,10 @@ public sealed class ReceituarioLivreTests : IDisposable
     public async Task Endereco_ja_preenchido_por_outro_operador_nao_e_sobrescrito()
     {
         var (paciente, _) = await PessoasAsync("Endereço atualizado pelo balcão");
-        await new PacienteService(_repo).CompletarEnderecoAsync(paciente.Id, "Resposta em janela antiga", "medica.teste");
+        await new PacienteService(_repo).CompletarParaDocumentoAsync(paciente.Id, TipoDocumentoClinico.Receita, Endereco("Resposta em janela antiga"), "medica.teste");
         _db.ChangeTracker.Clear();
         (await _repo.ObterPacienteAsync(paciente.Id))!.Endereco.Should().Be("Endereço atualizado pelo balcão");
-        (await _db.Set<EventoAuditoria>().CountAsync(e => e.Acao == "EnderecoCompletadoNaEmissao")).Should().Be(0);
+        (await _db.Set<EventoAuditoria>().CountAsync(e => e.Acao == "DadosPacienteCompletadosNaEmissao")).Should().Be(0);
     }
 
     [Theory]
@@ -104,7 +106,7 @@ public sealed class ReceituarioLivreTests : IDisposable
     public async Task Endereco_invalido_nao_altera_cadastro(int tamanho)
     {
         var (paciente, _) = await PessoasAsync(null);
-        var acao = () => new PacienteService(_repo).CompletarEnderecoAsync(paciente.Id, new string('x', tamanho), "medica.teste");
+        var acao = () => new PacienteService(_repo).CompletarParaDocumentoAsync(paciente.Id, TipoDocumentoClinico.Receita, Endereco(new string('x', tamanho)), "medica.teste");
         await acao.Should().ThrowAsync<InvalidOperationException>();
         paciente.Endereco.Should().BeNull();
     }

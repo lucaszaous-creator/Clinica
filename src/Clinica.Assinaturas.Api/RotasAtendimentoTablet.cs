@@ -91,14 +91,16 @@ internal static class RotasAtendimentoTablet
                 if(!r.Ok) throw ErroFormularioTablet.Criar(r.Frase);
                 return Results.Ok(new {frase=r.Frase});
             });
-        // Receituário de Controle Especial: os dados do comprador (o paciente) que faltam na ficha.
-        grupo.MapPost("/atendimentos/{id:int}/documento/{documento:int}/assinatura/comprador",
-            async(HttpContext c, PortalTabletService portal, EnderecoPrescricaoTabletService svc, int id, int documento, CompradorPrescricaoTablet pedido) =>
-            {
-                await svc.CompletarCompradorAsync(await sessao(c,portal),id,documento,
-                    new(pedido.Rg,pedido.OrgaoEmissor,pedido.Endereco,pedido.Cidade,pedido.Uf,pedido.Telefone),c.RequestAborted);
-                return Results.NoContent();
-            });
+        // Os dados do paciente que o papel exige e faltam na ficha (o comprador no receituário, o endereço na receita).
+        // "/paciente" é o nome de todos os papéis (nov/2026); "/comprador" fica para a página que ainda esteja aberta.
+        foreach (var rota in new[] { "comprador", "paciente" })
+            grupo.MapPost("/atendimentos/{id:int}/documento/{documento:int}/assinatura/" + rota,
+                async(HttpContext c, PortalTabletService portal, EnderecoPrescricaoTabletService svc, int id, int documento, CompradorPrescricaoTablet pedido) =>
+                {
+                    await svc.CompletarCompradorAsync(await sessao(c,portal),id,documento,
+                        new(pedido.Rg,pedido.OrgaoEmissor,pedido.Endereco,pedido.Cidade,pedido.Uf,pedido.Telefone),c.RequestAborted);
+                    return Results.NoContent();
+                });
     }
 }
 public sealed record EnderecoPrescricaoTablet(string? Endereco);

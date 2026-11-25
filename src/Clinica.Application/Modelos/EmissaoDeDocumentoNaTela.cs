@@ -146,21 +146,19 @@ public static class EmissaoDeDocumentoNaTela
             ? "Endereço: será solicitado ao emitir."
             : $"Endereço: {endereco}";
 
-    public const string TituloPerguntaEndereco = "Endereço para a receita";
-
-    /// <summary>A pergunta do endereço que falta — antes de qualquer número ser gasto.</summary>
-    public static string PerguntaEndereco(string paciente)
-        => $"Qual é o endereço residencial de {paciente}? "
-           + "Informe rua, número, complemento, bairro e cidade. "
-           + "O endereço será guardado no cadastro para as próximas receitas.";
-
-    public const string EmissaoAdiada =
-        "Emissão adiada. A prescrição continua nesta janela para você completar o endereço.";
-
     /// <summary>
     /// O que falta do COMPRADOR do Receituário de Controle Especial, à vista na folha (25/11/2026): "Faltam na ficha do
     /// comprador: RG, Órgão emissor, Cidade e UF. Complete para emitir." — nunca "completar o endereço" quando o endereço existe.
     /// </summary>
+    /// <summary>O aviso da folha para QUALQUER papel (nov/2026): no receituário fala do comprador; nos outros, do paciente.</summary>
+    public static string PacientePendente(TipoDocumentoClinico tipo, IEnumerable<string> faltas)
+    {
+        if (tipo == TipoDocumentoClinico.ReceituarioControleEspecial) return CompradorPendente(faltas);
+        var lista = faltas.Where(f => !string.IsNullOrWhiteSpace(f)).ToList();
+        var texto = lista.Count <= 1 ? string.Join("", lista) : string.Join(", ", lista.Take(lista.Count - 1)) + " e " + lista[^1];
+        return $"Falta na ficha do paciente: {texto}. Complete para emitir {TipoDocumentoInfo.Rotular(tipo).ToLowerInvariant()}.";
+    }
+
     public static string CompradorPendente(IEnumerable<string> faltas)
     {
         var lista = faltas.Where(f => !string.IsNullOrWhiteSpace(f)).ToList();

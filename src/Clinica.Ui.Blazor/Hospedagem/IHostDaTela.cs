@@ -41,6 +41,14 @@ public interface IHostDaTela
     Task<string?> AbrirPreviaAsync(byte[] pdf, string nomeSugerido)
         => SalvarEAbrirAsync(pdf, nomeSugerido, "PDF (*.pdf)|*.pdf", ".pdf");
 
+    /// <summary>
+    /// ABRE o PDF de um documento recém-emitido ou recém-assinado, sem perguntar onde salvar (nov/2026, "o mesmo modus
+    /// operandi do receituário" em todos os documentos: emitiu ou assinou, o PDF já está aberto — imprimir é opção DENTRO
+    /// dele, nunca um passo). O documento está guardado no sistema; quem quer o arquivo usa "Salvar em PDF". No app vai
+    /// para a pasta temporária (a mesma das prévias); no navegador, numa aba. Null = abriu; a frase = falhou.
+    /// </summary>
+    Task<string?> AbrirPdfAsync(byte[] pdf, string nomeSugerido) => AbrirPreviaAsync(pdf, nomeSugerido);
+
     /// <summary>Pede um arquivo existente para LER (extrato OFX). Null = desistiu.</summary>
     Task<ArquivoEscolhido?> EscolherArquivoAsync(string filtro, string titulo);
 

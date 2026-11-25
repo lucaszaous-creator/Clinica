@@ -90,6 +90,27 @@ dialog.assinatura-gestao .ag-acoes{display:flex;flex-wrap:wrap;gap:var(--space-2
   }
   const pdf = documento => `/api/clinico/atendimentos/0/documento/${encodeURIComponent(documento)}/pdf`;
 
+  // Assinou, o PDF ABRE sozinho (nov/2026, o fluxo do receituário em todos os documentos). A aba nasce NO CLIQUE
+  // (o bloqueador de janelas só deixa abrir no gesto da pessoa) e recebe o PDF quando a assinatura termina — como
+  // blob, porque a rota do PDF responde como anexo (abriria um download). Sem aba (bloqueada), cai no download.
+  function abaParaOPdf() {
+    const aba = window.open('', '_blank');
+    if (aba) {
+      aba.opener = null;
+      try { aba.document.title = 'Abrindo o PDF…'; aba.document.body.textContent = 'Abrindo o PDF assinado…'; } catch { /* nada */ }
+    }
+    return aba;
+  }
+  async function mostrarPdf(aba, documento, nome) {
+    const r = await fetch(pdf(documento), { credentials: 'same-origin', cache: 'no-store' });
+    if (!r.ok || (r.headers.get('Content-Type') || '').split(';')[0] !== 'application/pdf') { aba?.close(); return false; }
+    const url = URL.createObjectURL(await r.blob());
+    if (aba && !aba.closed) { aba.location.replace(url); setTimeout(() => URL.revokeObjectURL(url), 120000); return true; }
+    const a = document.createElement('a'); a.href = url; a.download = (nome || 'documento') + '.pdf';
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 10000);
+    return true;
+  }
+
   function janela(titulo, html) {
     const d = document.createElement('dialog');
     d.className = 'assinatura-gestao';
@@ -203,13 +224,13 @@ dialog.assinatura-gestao .ag-acoes{display:flex;flex-wrap:wrap;gap:var(--space-2
       revisei();
       if (!c.a1?.cadastrado) throw new Error('Cadastre seu A1 em Meu certificado (no Consultório do portal) antes de assinar.');
       const a = await api(`/clinico/atendimentos/0/documento/${c.documento}/a1`, { confirmouAlergia: true });
-      pedirSenhaA1(d, a, responder);
+      pedirSenhaA1(d, a, responder, c.documento, c.numero);
     }));
     botao(d, 'Cancelar', false, async () => d.close());
     if (c.endereco?.precisaEndereco) bloqueados.forEach(b => b.hidden = true);
   }
 
-  function pedirSenhaA1(d, a, responder) {
+  function pedirSenhaA1(d, a, responder, documento, numero) {
     d.querySelector('#ag-titulo').textContent = 'Autorizar assinatura A1';
     d.querySelector('.ag-corpo').innerHTML = `<p><strong>${esc(a.documento)}</strong></p><p>Assinar com o certificado de <strong>${esc(a.titular)}</strong>.</p>
       <label class="ag-campo"><span>Senha do certificado A1</span><input class="ag-senha" type="password" autocomplete="off" maxlength="200"></label>
@@ -218,13 +239,17 @@ dialog.assinatura-gestao .ag-acoes{display:flex;flex-wrap:wrap;gap:var(--space-2
     botao(d, 'Assinar', true, async () => {
       const campo = d.querySelector('.ag-senha');
       if (!campo.value) throw new Error('Informe a senha do certificado.');
+      const aba = abaParaOPdf();
       const pedido = { senha: campo.value }; campo.value = '';
       try {
         await api(`/clinico/a1/${encodeURIComponent(a.id)}/assinar`, pedido);
       } catch (e) {
+        aba?.close();
         throw new Error(e.message + ' Feche esta janela e confira o documento antes de autorizar novamente.');
       } finally { pedido.senha = ''; }
-      responder({ frase: 'Documento assinado com A1 e arquivado.', erro: false });
+      let abriu = false;
+      try { abriu = await mostrarPdf(aba, documento, 'Documento-' + String(numero || documento).replace('/', '-')); } catch { aba?.close(); }
+      responder({ frase: abriu ? 'Documento assinado com A1 e arquivado. O PDF foi aberto.' : 'Documento assinado com A1 e arquivado.', erro: false });
       d.close();
     });
     botao(d, 'Cancelar', false, async () => d.close());
@@ -251,10 +276,15 @@ dialog.assinatura-gestao .ag-acoes{display:flex;flex-wrap:wrap;gap:var(--space-2
       if (a.situacao !== 'autorizado') { aviso('Assinatura não concluída', 'A autorização do SafeID não foi concluída ou expirou. Confira o documento antes de assinar novamente.', a.documento); return; }
       const d = janela('Confirmar assinatura', `<p><strong>${esc(nome)}</strong></p><p>A autorização do SafeID foi recebida. Confirme para assinar e arquivar o documento.</p><p><a href="${pdf(a.documento)}" target="_blank" rel="noopener">Conferir o PDF</a></p>`);
       botao(d, 'Assinar e arquivar', true, async () => {
-        await renovarAtividade();
-        await api('/clinico/safeid/' + encodeURIComponent(id) + '/concluir', {});
+        const aba = abaParaOPdf();
+        try {
+          await renovarAtividade();
+          await api('/clinico/safeid/' + encodeURIComponent(id) + '/concluir', {});
+        } catch (e) { aba?.close(); throw e; }
         d.close();
-        aviso('Documento assinado', `${nome}: assinado com SafeID e arquivado.`, a.documento);
+        let abriu = false;
+        try { abriu = await mostrarPdf(aba, a.documento, nome.replace(/[^\w-]+/g, '-')); } catch { aba?.close(); }
+        aviso('Documento assinado', `${nome}: assinado com SafeID e arquivado.${abriu ? ' O PDF foi aberto.' : ''}`, a.documento);
       });
       botao(d, 'Cancelar', false, async () => d.close());
     } catch (e) {

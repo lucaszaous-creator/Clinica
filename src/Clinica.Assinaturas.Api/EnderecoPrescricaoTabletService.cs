@@ -32,12 +32,17 @@ public sealed class EnderecoPrescricaoTabletService(AtendimentoTabletService ace
         var faltas = controle
             ? ReceituarioControleEspecialRegras.FaltasDoComprador(d.Paciente!).Select(f => new { chave = f.Chave, rotulo = f.Rotulo }).ToArray()
             : [];
+        // Todos os papéis (nov/2026): o que ESTE papel exige da ficha e falta — a MESMA regra da folha do desktop
+        // (DadosDoPacienteNoDocumento). Os campos antigos ficam para a página que ainda esteja aberta no navegador.
+        var doPapel = DadosDoPacienteNoDocumento.Faltas(d.Tipo, d.Paciente).Select(f => new { chave = f.Chave, rotulo = f.Rotulo }).ToArray();
         return new
         {
             precisaEndereco = !controle && TipoDocumentoInfo.EhReceita(d.Tipo) && string.IsNullOrWhiteSpace(d.Paciente?.Endereco),
             controleEspecial = controle,
             faltasComprador = faltas,
-            ufs = controle && faltas.Length > 0 ? ReceituarioControleEspecialRegras.Ufs.Order().ToArray() : []
+            faltasPaciente = doPapel,
+            motivoPaciente = DadosDoPacienteNoDocumento.Motivo(d.Tipo),
+            ufs = doPapel.Length > 0 ? ReceituarioControleEspecialRegras.Ufs.Order().ToArray() : []
         };
     }
 
@@ -50,10 +55,10 @@ public sealed class EnderecoPrescricaoTabletService(AtendimentoTabletService ace
         PacienteService.DadosDoComprador dados, CancellationToken ct)
     {
         var (usuario, d) = await Documento(sessao, agendamento, documento, ct);
-        if (d.Tipo != TipoDocumentoClinico.ReceituarioControleEspecial) throw new RecursoClinicoIndisponivel();
         try
         {
-            await pacientes.CompletarCompradorAsync(d.PacienteId, dados, usuario.Login, ct);
+            // O que o papel exige (o comprador no receituário, o endereço na receita) — só campo vazio, com auditoria.
+            await pacientes.CompletarParaDocumentoAsync(d.PacienteId, d.Tipo, dados, usuario.Login, ct);
         }
         catch (InvalidOperationException ex)
         {
