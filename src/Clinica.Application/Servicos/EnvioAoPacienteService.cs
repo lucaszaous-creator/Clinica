@@ -1,4 +1,5 @@
 using Clinica.Application.Abstracoes;
+using Clinica.Application.Modelos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
 
@@ -112,7 +113,7 @@ public sealed class EnvioAoPacienteService
     /// arquivo não diz "assinado", e a tela avisa o caso do atestado (art. 13).
     /// </summary>
     public static bool EnviavelSemAssinatura(TipoDocumentoClinico tipo)
-        => tipo is TipoDocumentoClinico.Receita or TipoDocumentoClinico.Atestado
+        => TipoDocumentoInfo.EhReceita(tipo) || tipo is TipoDocumentoClinico.Atestado
             or TipoDocumentoClinico.PedidoExame or TipoDocumentoClinico.Comparecimento;
 
     /// <summary>Pode sair como arquivo: válido, e assinado ou de um dos quatro tipos acima.</summary>
@@ -295,7 +296,10 @@ public sealed class EnvioAoPacienteService
 
     /// <summary>O mesmo nome que a entrega local grava ("Receita-2026-0001.pdf").</summary>
     public static string NomeDoArquivo(DocumentoClinico d)
-        => $"{TipoDocumentoInfo.Rotular(d.Tipo)}-{d.Numero.Replace('/', '-')}"
+        => d.Tipo == TipoDocumentoClinico.ReceituarioControleEspecial
+            // O nome que a farmácia vê (pedido do dono, nov/2026): sem acento nem espaço.
+            ? EmissaoDeDocumentoNaTela.NomeDoArquivo(d.Tipo, d.Numero)
+            : $"{TipoDocumentoInfo.Rotular(d.Tipo)}-{d.Numero.Replace('/', '-')}"
            + (d.AssinadoEletronicamente ? "-assinado" : string.Empty) + ".pdf";
 }
 

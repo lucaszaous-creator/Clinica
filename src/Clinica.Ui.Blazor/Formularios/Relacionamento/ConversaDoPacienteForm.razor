@@ -23,7 +23,7 @@
 @inject IHostDaTela Host
 @inject IServiceProvider Servicos
 
-<Modal Titulo="@Linha.Paciente" Subtitulo="@ConversaDoAcompanhamento.Cabecalho(Linha)" Largura="largo" AoFechar="AoFechar">
+<Modal Titulo="@Linha.Paciente" Subtitulo="@("Ficha 360 · " + ConversaDoAcompanhamento.Cabecalho(Linha))" Largura="largo" AoFechar="AoFechar">
     <ChildContent>
         <div class="acomp-conversa">
             <div class="acomp-conversa-principal">
@@ -78,14 +78,12 @@
                     {
                         <Aviso Tom="atencao" Texto="@(string.IsNullOrWhiteSpace(Linha.Telefone)
                             ? "Sem telefone no cadastro — atualize a ficha do paciente antes de falar com ele."
-                            : !Linha.Consentimento ? "A mensagem não está autorizada (LGPD) — colha a autorização na ficha; ligar ou falar no balcão continua possível."
+                            : !Linha.Consentimento ? "A mensagem não está autorizada (LGPD) — a recepção colhe a autorização na próxima visita ao balcão."
                             : "Este caso não pede contato agora.")" />
                     }
                     <div class="acomp-acoes">
                         <button type="button" class="botao acomp-whats" disabled="@(!Linha.PodeContatar || _ocupado)" @onclick="WhatsappAsync"
                                 title="@(Linha.PodeContatar ? "Abre a conversa no WhatsApp da clínica com a mensagem pronta para você revisar e enviar" : "Sem telefone ou sem autorização de mensagem")"><Icone Nome="enviar" />Escrever no WhatsApp</button>
-                        <button type="button" class="botao" disabled="@string.IsNullOrWhiteSpace(Linha.Telefone)" @onclick="CopiarTelefoneAsync"
-                                title="Copiar o número para ligar"><Icone Nome="copiar" />Copiar o telefone para ligar</button>
                         <button type="button" class="botao primario" disabled="@(!PodeMarcar || _ocupado)" @onclick="MarcarAsync"
                                 title="@(PodeMarcar ? "Abrir a marcação já com o paciente" : "A marcação exige acesso à agenda da recepção.")"><Icone Nome="calendario" />Marcar horário</button>
                     </div>
@@ -141,6 +139,32 @@
             </div>
 
             <aside class="acomp-conversa-lado">
+                @if (Linha.Pendente)
+                {
+                    @* O risco da Fila 360 (Fila360NaTela.Risco): a nota, a faixa e CADA motivo com os pontos — sem caixa-preta. *@
+                    var risco = Fila360NaTela.Risco(Linha);
+                    <section class="f360-ficha-risco" aria-label="Por que está em risco">
+                        <p class="acomp-rotulo">Por que está em risco</p>
+                        <div class="f360-ficha-nota">
+                            <b class="f360-nota">@risco.Pontos.ToString(Formato.PtBr)</b>
+                            <span class="texto-secundario pequeno">de 100</span>
+                            <Selo Tom="@risco.Tom">@risco.Rotulo</Selo>
+                        </div>
+                        @if (risco.Motivos.Count == 0)
+                        {
+                            <p class="texto-secundario pequeno">Nenhum sinal de risco agora.</p>
+                        }
+                        else
+                        {
+                            <ul class="f360-motivos">
+                                @foreach (var m in risco.Motivos)
+                                {
+                                    <li><span>@m.Texto</span><b class="@(m.Pontos > 0 ? "f360-soma" : "f360-tira")">@(m.Pontos > 0 ? "+" : "")@m.Pontos.ToString(Formato.PtBr)</b></li>
+                                }
+                            </ul>
+                        }
+                    </section>
+                }
                 <dl class="pares acomp-ficha">
                     <dt>Convênio</dt><dd>@Linha.Convenio</dd>
                     <dt>Sessões</dt><dd>@Linha.TotalSessoes.ToString(Formato.PtBr)@(Linha.TratamentoLongo ? " · tratamento longo" : "")</dd>
@@ -202,6 +226,8 @@
     [Parameter] public IReadOnlyList<OpcaoAcompanhamento> Motivos { get; set; } = [];
     /// <summary>WhatsApp quando a conversa abre logo depois de o WhatsApp ter sido aberto.</summary>
     [Parameter] public CanalContato? CanalInicial { get; set; }
+    /// <summary>O desfecho já escolhido fora do formulário (o "Como foi?" da coluna das Conversas da Fila 360).</summary>
+    [Parameter] public DesfechoContato? DesfechoInicial { get; set; }
     [Parameter] public EventCallback AoFechar { get; set; }
     /// <summary>Gravou — com a frase da confirmação.</summary>
     [Parameter] public EventCallback<string> AoConcluir { get; set; }
@@ -210,7 +236,9 @@
         [DesfechoContato.NaoRespondeu, DesfechoContato.PediuOutraData, DesfechoContato.QuerMarcar, DesfechoContato.AguardandoPlano, DesfechoContato.NaoQuerVoltar];
 
     private static readonly (CanalContato? Canal, string Rotulo)[] Canais =
-        [(CanalContato.WhatsApp, "WhatsApp"), (CanalContato.Telefone, "Telefone"), (CanalContato.Presencial, "Presencial"), (CanalContato.Email, "E-mail"), (null, "Sem contato")];
+        // A retenção é só por mensagem (nov/2026, decisão da direção): sem "Telefone" para o contato novo. O que já foi
+        // gravado por telefone continua aparecendo no histórico, com o nome do canal.
+        [(CanalContato.WhatsApp, "WhatsApp"), (CanalContato.Presencial, "Presencial"), (CanalContato.Email, "E-mail"), (null, "Sem contato")];
 
     // Uma idempotência por ABERTURA: o segundo clique no Registrar (ou a volta depois de uma
     // falha de rede) não grava o mesmo contato duas vezes.
@@ -242,6 +270,7 @@
         // vazio APAGARIA a legenda num simples "não respondeu".
         _motivoId = Motivos.FirstOrDefault(m => m.Nome == Linha.Motivo)?.Id;
         if (Encerrado) _data = Hoje;
+        if (DesfechoInicial is { } inicial && !Encerrado) Escolher(inicial);
         try
         {
             using var escopo = Escopos.CreateScope();
@@ -353,13 +382,6 @@
         _mensagem = copiou
             ? "Não foi possível abrir o WhatsApp — o endereço da conversa foi copiado; cole-o no navegador."
             : "Não foi possível abrir o WhatsApp neste computador.";
-    }
-
-    private async Task CopiarTelefoneAsync()
-    {
-        if (string.IsNullOrWhiteSpace(Linha.Telefone)) return;
-        _mensagem = await Host.CopiarAsync(Linha.Telefone) ? null : "A área de transferência não aceitou agora. Tente de novo.";
-        if (_mensagem is null) _canal ??= CanalContato.Telefone;
     }
 
     private async Task MarcarAsync()

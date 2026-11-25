@@ -41,6 +41,8 @@ public sealed class ModuloFinanceiro : IModuloApp
     public const string ChavePacotes = ChavesSuite.Pacotes;
     public const string ChaveEstoque = "estoque";
     public const string ChaveRepasses = "repasses";
+    /// <summary>A tabela de repasse (nov/2026) — a MESMA chave que o Gerente publica (ChavesSuite).</summary>
+    public const string ChaveRepasseMedico = ChavesSuite.RepasseMedico;
     public const string ChaveTaxas = "taxas";
     public const string ChavePlanoContas = "plano-contas";
 
@@ -123,6 +125,15 @@ public sealed class ModuloFinanceiro : IModuloApp
         {
             Chave = ChaveRepasses, Rotulo = "Repasses", Glifo = "\uE72D", Icone = "repasse",
             Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
+        },
+        // Repasse médico (nov/2026): sem linha própria no menu do Financeiro — chega-se a ela pelo
+        // botão "Repasse médico" da tela de Repasses (uma porta por pergunta: o financeiro
+        // pergunta "quanto pagar", e a tabela é o porquê do número). `Oculto` não bloqueia a
+        // rota: o NavegarAsync da tela continua abrindo. No Gerente ela é aba da Tabela de preços.
+        new ItemMenuModulo
+        {
+            Chave = ChaveRepasseMedico, Rotulo = "Repasse m\u00E9dico", Glifo = "\uE8EF", Icone = "etiqueta",
+            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro, Oculto = true
         },
 
         // ===== Sub-telas =====
@@ -244,6 +255,7 @@ public sealed class ModuloFinanceiro : IModuloApp
         ChavePacotes => Blazor(typeof(Clinica.Ui.Blazor.Telas.PacotesDaClinica), servicos),
         ChaveEstoque => Blazor(typeof(Clinica.Ui.Blazor.Telas.Estoque), servicos),
         ChaveRepasses => Blazor(typeof(Clinica.Ui.Blazor.Telas.Repasses), servicos),
+        ChaveRepasseMedico => Blazor(typeof(Clinica.Ui.Blazor.Telas.TabelaDeRepasse), servicos),
         ChaveTaxas => Blazor(typeof(Clinica.Ui.Blazor.Telas.TaxasEImpostos), servicos),
         ChavePlanoContas => Blazor(typeof(Clinica.Ui.Blazor.Telas.PlanoDeContas), servicos),
         // Tela do shell, ESTÁTICA: conteúdo literal, sem ViewModel — não há o que resolver.

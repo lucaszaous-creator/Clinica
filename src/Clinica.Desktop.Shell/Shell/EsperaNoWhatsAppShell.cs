@@ -17,7 +17,9 @@ public sealed record EsperaNoWhatsAppShell(string Chave, string ConversaId, stri
 /// <item>o <b>pulso de presença</b> a cada 30 s (decisão da direção: quem usa só o app conta como conectado);</item>
 /// <item><b>quem espera resposta</b> a cada 60 s: o número no item "WhatsApp" do menu e UMA linha no sino por
 /// espera (a marca de leitura é a do sino: a mesma espera não pisca de novo a cada minuto), com a notificação
-/// passageira só para a espera NOVA e só fora da aba.</item>
+/// passageira só para a espera NOVA e só fora da aba;</item>
+/// <item>com o app em <b>segundo plano</b> (24/11/2026, F1b): a notificação do Windows a cada mensagem de paciente que
+/// chega e o número de não lidas no ícone da barra de tarefas (<see cref="AvisosDoWindows"/>).</item>
 /// </list>
 /// Só para quem tem a aba (o item do menu existe — <see cref="Permissao.EditarAgenda"/>), e só com o CRM com
 /// endereço (sem ele, nada aparece). A regra mora em <see cref="ConversasNaTela.PedemResposta"/> e o leitor em
@@ -33,6 +35,9 @@ public sealed partial class ShellViewModel
     private DateTimeOffset _ultimaLeituraDaEspera;
 
     public ObservableCollection<EsperaNoWhatsAppShell> EsperasNoWhatsApp { get; } = [];
+
+    /// <summary>A notificação do Windows e o número no ícone — da janela do app, que a entrega na moldura.</summary>
+    public AvisosDoWindows? AvisosDoWindows { get; set; }
 
     /// <summary>O CRM respondeu com endereço: a seção do sino e o número do menu existem.</summary>
     public bool WhatsAppLigado { get; private set; }
@@ -72,6 +77,7 @@ public sealed partial class ShellViewModel
         _relogioWhatsApp?.Stop();
         _vigia?.Parar();
         _vigia = null;
+        AvisosDoWindows?.Limpar();
     }
 
     // A espera é relida de minuto em minuto; o pulso, a cada batida (30 s). A folga de 5 s evita que um tick
@@ -117,6 +123,13 @@ public sealed partial class ShellViewModel
             _esperaFalhou = false;
             EsperasMudaram(linhas.Select(l => l.Chave));
             OnPropertyChanged(nameof(ContadorDoWhatsApp));
+            // O ícone da barra de tarefas leva o MESMO número do menu; a notificação do Windows só com o app em segundo
+            // plano (quem está olhando a tela já vê a lista e o número).
+            if (AvisosDoWindows is { } windows)
+            {
+                windows.Contar(leitura.Ligado ? leitura.NaoLidas : 0);
+                if (windows.EmSegundoPlano && NotificacaoDoWhatsApp.Aviso(leitura.Chegaram) is { } aviso) windows.Notificar(aviso);
+            }
             // A notificação passageira só para a espera NOVA, e não para quem já está olhando a lista.
             if (Snackbar is not null && !NaAbaDoWhatsApp)
                 foreach (var n in leitura.Novas.Take(3)) Snackbar.Info(ConversasNaTela.FraseDaEspera(n));
@@ -131,6 +144,23 @@ public sealed partial class ShellViewModel
             _esperaFalhou = true;
         }
         finally { _lendoEspera = false; }
+    }
+
+    /// <summary>
+    /// O clique na notificação do Windows: a conversa dela, pelo MESMO caminho do sino; sem conversa (várias chegaram),
+    /// a aba WhatsApp com a lista.
+    /// </summary>
+    public void AbrirConversaDoAviso(string? conversaId)
+    {
+        if (!PodeVigiarWhatsApp) return;
+        if (string.IsNullOrEmpty(conversaId)
+            || _servicos.GetService<Clinica.Ui.Blazor.Hospedagem.PedidoDeConversaNoCrm>() is not { } fila)
+        {
+            IrPara(ConversaNoCrm.ChaveDaAba, apenasConferir: false);
+            return;
+        }
+        fila.Definir(new PedidoDeConversa("", "", null, null, conversaId));
+        if (!IrPara(ConversaNoCrm.ChaveDaAba, apenasConferir: false)) fila.Consumir();
     }
 
     /// <summary>

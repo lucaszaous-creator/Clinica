@@ -45,6 +45,7 @@ public sealed class FaturamentoService
             if (erros.Count > 0)
                 throw new InvalidOperationException("A guia ANS não pode ser gravada: " + string.Join(" ", erros.Values));
             GuiaAnsNaBaixa.Aplicar(codigo, guiaAns, usuario, DateTime.Now);
+            await AuditarDivergenciaDaAutorizacaoAsync(codigo, guiaAns, usuario, ct);
         }
 
         codigo.DarBaixa(dataBaixa, numeroGuia, usuario, observacao);
@@ -59,6 +60,25 @@ public sealed class FaturamentoService
             PacienteId = codigo.Atendimento?.PacienteId
         }, ct);
         await _repo.SalvarAsync(ct);
+    }
+
+    /// <summary>
+    /// A senha e o token vieram da autorização pedida pelo sistema e da recepção. Mudá-los na baixa é
+    /// EXCEÇÃO: fica na trilha quem mudou e o quê — nunca o token em si (dado de autenticação do
+    /// beneficiário). Mesmo salvamento da baixa.
+    /// </summary>
+    private async Task AuditarDivergenciaDaAutorizacaoAsync(CodigoFaturamento codigo, DadosGuiaConsultaAns guia, string? operador, CancellationToken ct)
+    {
+        if (guia.AutorizacaoId is not { } id || await _repo.ObterAutorizacaoTissAsync(id, ct) is not { } a) return;
+        if (AutorizacaoTissService.DivergenciaNaBaixa(a, guia) is not { } detalhe) return;
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador.Trim(),
+            Acao = "GuiaAnsDiferenteDaAutorizacao",
+            Detalhe = detalhe,
+            CodigoId = codigo.Id,
+            PacienteId = codigo.Atendimento?.PacienteId
+        }, ct);
     }
 
     /// <summary>
@@ -87,6 +107,7 @@ public sealed class FaturamentoService
             throw new InvalidOperationException("A guia ANS não pode ser gravada: " + string.Join(" ", erros.Values));
 
         GuiaAnsNaBaixa.Aplicar(codigo, guia, operador, DateTime.Now);
+        await AuditarDivergenciaDaAutorizacaoAsync(codigo, guia, operador, ct);
         await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
         {
             Operador = operador.Trim(),

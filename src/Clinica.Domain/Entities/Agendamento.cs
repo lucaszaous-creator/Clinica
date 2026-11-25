@@ -260,6 +260,15 @@ public class Agendamento
     /// </summary>
     public DateTime? FimAtendimentoEm { get; set; }
 
+    /// <summary>
+    /// Quando a sessão foi concluída SOZINHA pela regra do profissional (nov/2026,
+    /// <see cref="Profissional.ConcluirAutomaticamenteHoras"/>): o paciente chegou e ninguém concluiu.
+    /// Nulo = concluída por uma pessoa (ou ainda aberta). É o que tira a sessão da lista de "sessões
+    /// sem evolução": a conclusão foi do sistema, não um esquecimento do médico. Entra no bloco que a
+    /// remarcação e o estorno limpam, como todo carimbo da fila.
+    /// </summary>
+    public DateTime? ConcluidoAutomaticamenteEm { get; set; }
+
     /// <summary>Resposta explícita do médico ao concluir; nulo identifica sessões anteriores à confirmação.</summary>
     public bool? HouveAtendimentoEnfermagem { get; set; }
     public DateTime? EnfermagemConferidaEm { get; set; }

@@ -66,3 +66,12 @@
 .orc-livre-total{display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-3);margin:var(--space-3) 0 0;
   padding:var(--space-3) var(--space-4);border:1px solid var(--borda);border-radius:var(--radius-control);background:var(--fundo)}
 .orc-livre-total strong{font-size:var(--text-h3-size);font-variant-numeric:tabular-nums}
+
+/* ===== O ⋯ da lista (nov/2026) =====
+   O menu sai da tabela e é irmão do fundo que o fecha. Na tela estreita (o cartão do celular), vira uma folha
+   no rodapé, inteira na tela e com alvos de toque de 44px — no iPhone o menu solto ficava sob o fundo. */
+@media (max-width: 760px) {
+  .rd-menu-lista.dc-menu-folha{left:var(--space-2)!important;right:var(--space-2);top:auto!important;bottom:var(--space-2);
+    width:auto;max-height:70vh}
+  .rd-menu-lista.dc-menu-folha button{min-height:44px;white-space:normal}
+}

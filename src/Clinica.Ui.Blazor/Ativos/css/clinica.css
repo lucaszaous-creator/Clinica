@@ -102,10 +102,10 @@
 /* A moldura dos apps e a entrada (out/2026): o que era a ShellWindow, a LoginWindow e a SetupWindow. */
 @import url("telas/moldura.css");
 @import url("telas/chat-equipe.css");
-@import url("telas/treinamento.css");
 @import url("telas/assinatura.css");
 /* A conversa do WhatsApp ao lado das telas da Recepção (fase 2, 24/10): a gaveta e o modo painel. */
 @import url("telas/conversa-ao-lado.css");
+@import url("telas/fila360.css");
 
 :root{
   /* A fonte da casa é a Segoe UI; a Variable é a que o Windows 11 desenha nos apps novos.
@@ -328,7 +328,7 @@ svg.icone{width:16px;height:16px;flex:none}
   background:var(--superficie);transition:border-color var(--duracao-rapida)}
 .campo:hover{border-color:var(--borda-hover)}
 .campo:focus{outline:none;border-color:var(--foco);box-shadow:0 0 0 3px var(--acento-tint)}
-.campo:disabled{background:var(--cinza-100);color:var(--texto-secundario)}
+.campo:disabled,.campo[readonly]{background:var(--cinza-100);color:var(--texto-secundario)}
 textarea.campo{resize:vertical;min-height:72px;line-height:1.45}
 select.campo{appearance:none;padding-right:32px;cursor:pointer;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
@@ -573,7 +573,7 @@ td .selo{margin-left:0}
   .filtros > .botao{flex:1 1 auto;justify-content:center}
 
   /* Segmentado e seletor de mês ocupam a linha e não cortam opção. */
-  .segmentado{display:flex;width:100%;overflow-x:auto;scrollbar-width:none}
+  .segmentado{display:flex;width:auto;max-width:100%;overflow-x:auto;scrollbar-width:none} /* bloco: ocupa a linha sem somar a margem a 100% */
   .segmentado button{flex:1 0 auto}
   .seletor-mes{display:flex;width:100%;justify-content:space-between}
   .seletor-mes-rotulo{min-width:0;flex:1}
@@ -642,3 +642,35 @@ td .selo{margin-left:0}
 .rel-prof-contagens{display:grid;grid-template-columns:repeat(auto-fit,minmax(18rem,1fr));gap:var(--space-4);margin-top:var(--space-4)}
 .contagens{border:1px solid var(--borda);border-radius:var(--radius-card);padding:var(--space-3) var(--space-4);min-width:0}
 .contagens h3{margin:0 0 var(--space-2);font-weight:700}
+
+/* ==========================================================================
+   Responsivo comum (nov/2026, pedido do dono: "responsividade profissional").
+   Regra: nada rola para o lado. Todo filho de formulário encolhe (min-width:0); o campo de data do Safari, que
+   ignora width:100% e desenha mais largo que a tela, perde a aparência nativa; o corpo do Modal nunca rola para o
+   lado; no celular as abas rolam sozinhas, os campos têm 16 px (sem zoom do Safari) e o rodapé respeita a safe-area.
+   A checagem é a mesma do CI (tools/responsivo/varredura-390.js).
+   ========================================================================== */
+.modal-corpo{overflow-x:hidden}
+.modal-corpo > *, .campos > *, fieldset{min-width:0}
+.campo{max-width:100%;min-width:0}
+input[type="date"].campo, input[type="time"].campo, input[type="datetime-local"].campo, input[type="month"].campo{
+  -webkit-appearance:none;appearance:none;display:block;width:100%;min-width:0}
+input[type="date"].campo::-webkit-date-and-time-value, input[type="time"].campo::-webkit-date-and-time-value{text-align:left}
+.selo{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:480px){
+  .modal-fundo{padding:var(--space-2) var(--space-2) calc(var(--space-2) + env(safe-area-inset-bottom,0px))}
+  .modal{max-height:calc(100dvh - var(--space-4))}
+  .modal-topo{padding:var(--space-4) var(--space-4) var(--space-2);gap:var(--space-2)}
+  .modal-topo h2{overflow-wrap:anywhere}
+  .modal-corpo{padding:0 var(--space-4) var(--space-4)}
+  .modal-rodape{padding:var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom,0px))}
+  .modal-rodape .botao{min-height:44px;height:auto;white-space:normal}
+  .modal-rodape .esquerda{max-width:100%}
+  .abas{overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .abas::-webkit-scrollbar{display:none}
+  .abas button{flex:none;white-space:nowrap}
+  .campo, select.campo, textarea.campo{font-size:16px}
+  .acoes{flex-wrap:wrap;min-width:0}
+  .botoes-linha{flex-wrap:wrap;max-width:100%}
+  .selo{flex-shrink:1;min-width:0}
+}

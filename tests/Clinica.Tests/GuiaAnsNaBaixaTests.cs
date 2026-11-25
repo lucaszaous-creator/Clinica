@@ -28,7 +28,7 @@ namespace Clinica.Tests;
 public class GuiaAnsNaBaixaTests : IDisposable
 {
     private static readonly XNamespace Ans = "http://www.ans.gov.br/padroes/tiss/schemas";
-    private static readonly string PastaXsd = Path.Combine(AppContext.BaseDirectory, "Tiss", "xsd-4.01.00");
+    private static readonly string PastaXsd = Path.Combine(AppContext.BaseDirectory, "Tiss", "xsd-4.03.00");
 
     private readonly SqliteConnection _conn;
     private readonly ClinicaDbContext _db;
@@ -98,7 +98,11 @@ public class GuiaAnsNaBaixaTests : IDisposable
         ["dm_UF", DominiosTiss.Uf],
         ["dm_cobEsp", DominiosTiss.CoberturaEspecial],
         ["dm_saudeOcupacional", DominiosTiss.SaudeOcupacional],
-        ["dm_CBOS", DominiosTiss.Cbos]
+        ["dm_CBOS", DominiosTiss.Cbos],
+        ["dm_tipoAtendimento", DominiosTiss.TipoAtendimento],
+        ["dm_caraterAtendimento", DominiosTiss.CaraterAtendimento],
+        ["dm_ausenciaCodValidacao", DominiosTiss.AusenciaCodigoValidacao],
+        ["dm_grauPart", DominiosTiss.GrauParticipacao]
     ];
 
     [Theory]
@@ -135,7 +139,7 @@ public class GuiaAnsNaBaixaTests : IDisposable
     private static HashSet<string> EnumeracaoDoXsd(string tipo)
     {
         XNamespace xs = "http://www.w3.org/2001/XMLSchema";
-        var doc = XDocument.Load(Path.Combine(PastaXsd, "tissSimpleTypesV4_01_00.xsd"));
+        var doc = XDocument.Load(Path.Combine(PastaXsd, "tissSimpleTypesV4_03_00.xsd"));
         return doc.Descendants(xs + "simpleType").Single(t => (string?)t.Attribute("name") == tipo)
             .Descendants(xs + "enumeration").Select(e => (string)e.Attribute("value")!).ToHashSet();
     }
@@ -301,7 +305,10 @@ public class GuiaAnsNaBaixaTests : IDisposable
         salvo.NumeroGuiaReal.Should().Be("PB123");
         var guia = salvo.GuiaAns;
         Assert.NotNull(guia);
-        guia.Should().BeEquivalentTo(GuiaCompleta(), o => o.ExcludingMissingMembers());
+        // Os campos da SP/SADT (Amil) ficam nulos na guia de consulta: não entram na comparação.
+        guia.Should().BeEquivalentTo(GuiaCompleta(), o => o.ExcludingMissingMembers().Excluding(d => d.AnexosNoPortal));
+        guia.AnexosNoPortal.Should().BeNull();
+        guia.FormaConfirmacao.Should().BeNull();
         guia.ValorProcedimento.Should().Be(139.00m);
         guia.ConferidaPor.Should().Be("secretaria");
         guia.ConferidaEm.Should().BeCloseTo(DateTime.Now, TimeSpan.FromMinutes(1));
@@ -487,7 +494,30 @@ public class GuiaAnsNaBaixaTests : IDisposable
 
     // ==================== a proposta que o formulário recebe ====================
 
-    private GuiaAnsNaBaixaService Proposta() => new(_repo, new ParametrosService(_repo), new PrecoConvenioService(_repo));
+    // O relógio é FIXO (dois dias depois do atendimento, dentro da janela 1–20 da Saúde Petrobras): os avisos
+    // de prazo e de dias de envio dependem do dia, e o teste não pode quebrar só porque rodou no dia 21.
+    private static readonly DateTime Agora = Dia.AddDays(2).ToDateTime(new TimeOnly(10, 0));
+
+    private GuiaAnsNaBaixaService Proposta(DateTime? agora = null) => new(_repo, new ParametrosService(_repo), new PrecoConvenioService(_repo),
+        new CredenciaisTissService(_repo, new ProtecaoSegredoGlobal(Convert.ToBase64String(new byte[32]))), relogio: () => agora ?? Agora);
+
+    // A janela de envio da Saúde Petrobras (lotes do dia 1 ao 20): só aviso, nos dois lados da janela.
+    [Fact]
+    public async Task Petrobras_no_dia_20_a_proposta_nao_avisa_dos_dias_de_envio()
+    {
+        var (_, codigo) = await LancarAsync(Convenio.Petrobras);
+        var proposta = await Proposta(new DateTime(2026, 11, 20, 17, 0, 0)).PrepararAsync(codigo.Id);
+        proposta.Avisos.Should().NotContain(a => a.Contains("recebe lotes do dia"));
+    }
+
+    [Fact]
+    public async Task Petrobras_no_dia_21_a_proposta_avisa_que_o_proximo_periodo_abre_no_dia_1()
+    {
+        var (_, codigo) = await LancarAsync(Convenio.Petrobras);
+        var proposta = await Proposta(new DateTime(2026, 11, 21, 9, 0, 0)).PrepararAsync(codigo.Id);
+        proposta.Avisos.Should().ContainSingle(a => a.Contains("recebe lotes do dia 1 ao dia 20"))
+            .Which.Should().Contain("hoje é dia 21").And.Contain("01/12");
+    }
 
     [Fact]
     public async Task Guia_que_nao_exige_recebe_proposta_vazia()
@@ -525,9 +555,12 @@ public class GuiaAnsNaBaixaTests : IDisposable
         d.NomeProfissional.Should().BeEmpty();
         d.CodigoProcedimento.Should().BeEmpty();
         d.ValorProcedimento.Should().BeNull();
+        // O registro ANS da operadora é dado PÚBLICO do catálogo (nov/2026): sem o do cadastro do
+        // convênio, vem o do catálogo — a mesma regra do conector — e não falta mais.
+        d.RegistroAns.Should().Be(OperadorasTiss.SaudePetrobras.RegistroAns);
         proposta.Avisos.Should().Contain(a => a.Contains("profissional"))
             .And.Contain(a => a.Contains("CNPJ"))
-            .And.Contain(a => a.Contains("registro ANS"))
+            .And.NotContain(a => a.Contains("registro ANS"))
             .And.Contain(a => a.Contains("código do procedimento"))
             .And.Contain(a => a.Contains("preço"))
             .And.Contain(a => a.Contains("carteira"));
@@ -794,7 +827,9 @@ public class GuiaAnsNaBaixaTests : IDisposable
     private static List<string> ValidarNoXsd(XDocument doc)
     {
         var schemas = new XmlSchemaSet { XmlResolver = new XmlUrlResolver() };
-        schemas.Add(Ans.NamespaceName, Path.Combine(PastaXsd, "tissV4_01_00.xsd"));
+        // O lote sai na versão do registro ANS dele (Petrobras 4.03.00; os outros 4.01.00): valida no XSD dela.
+        var versao = doc.Descendants(Ans + "Padrao").Single().Value;
+        schemas.Add(Ans.NamespaceName, Path.Combine(AppContext.BaseDirectory, "Tiss", "xsd-" + versao, $"tissV{versao.Replace('.', '_')}.xsd"));
         schemas.Compile();
         var problemas = new List<string>();
         doc.Validate(schemas, (_, e) => problemas.Add(e.Message));

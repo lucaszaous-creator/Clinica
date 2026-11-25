@@ -44,6 +44,24 @@ public static class ConfiguracoesFaturamentoNaTela
 
     public static string Categoria(Categoria categoria) => RotulosEnum.De(categoria);
 
+    /// <summary>
+    /// A nota da coluna "Validade da consulta" nas regras da família (nov/2026). Em branco sempre quis
+    /// dizer "não lembra a renovação"; até aqui desligava também, calada, a trava de consulta — e a
+    /// Petrobras glosou a consulta marcada 15 dias depois da anterior. Agora a trava fica com o prazo
+    /// do convênio (<see cref="ParametrosSnapshot.PrazoDaTravaDeConsulta"/>), e a tela diz isso.
+    /// </summary>
+    public const string NotaDaValidadeDaConsulta =
+        "Validade da consulta em branco: a família não exige renovar a consulta. A trava de consulta (Configurações) "
+        + "continua com o prazo do convênio, mostrado na linha; para desligá-la só nesta família, escreva 0.";
+
+    /// <summary>
+    /// O prazo que a trava usa quando a validade está EM BRANCO, para a linha dizer: "Trava: 30 dias".
+    /// Nulo quando há número (é ele que vale) ou quando o convênio não tem prazo no código.
+    /// </summary>
+    public static string? TravaComValidadeEmBranco(Convenio familia, int? validadeConsultaDias)
+        => validadeConsultaDias is null && ConvenioInfo.ValidadeConsultaDias(familia) is { } dias and > 0
+            ? $"Trava: {dias} dias" : null;
+
     public static string Formato(FormatoNumeroGuia formato) => RotulosEnum.De(formato);
 
     /// <summary>

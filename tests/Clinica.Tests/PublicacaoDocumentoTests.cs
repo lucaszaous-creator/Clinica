@@ -134,6 +134,40 @@ public class PublicacaoDocumentoTests : IDisposable
         return doc;
     }
 
+    // ======================================= a publicação pendente (nov/2026)
+
+    /// <summary>
+    /// O portal assinava sem publicar (a receita 2026/0484 foi recusada na farmácia). A fila pendente sobe o arquivo
+    /// dos assinados COM token e não publicados, uma vez só; o assinado SEM token fica de fora (o QR dele foi selado
+    /// apontando para o validador); quando o armazenamento falha, ele tenta de novo na volta seguinte.
+    /// </summary>
+    [Fact]
+    public async Task Publicacao_pendente_sobe_uma_vez_so_e_tenta_de_novo_quando_falha()
+    {
+        await LigarAsync();
+        var comToken = await DocumentoAsync();
+        await _servico.GarantirTokenAsync(comToken);
+        var arquivo = new ArquivoAssinado { Conteudo = [1, 2, 3], NomeArquivo = "receita.pdf" };
+        _db.Add(arquivo); await _db.SaveChangesAsync();
+        comToken.ArquivoAssinadoId = arquivo.Id; comToken.AssinadoEm = DateTime.Now;
+        var semToken = new DocumentoClinico { Numero = "2026/0088", CodigoVerificacao = "SEMTOKEN1", Tipo = TipoDocumentoClinico.Receita,
+            PacienteId = comToken.PacienteId, Data = Hoje, ArquivoAssinadoId = arquivo.Id, AssinadoEm = DateTime.Now };
+        _db.DocumentosClinicos.Add(semToken);
+        await _db.SaveChangesAsync();
+
+        _armazenamento.Quebrado = true;
+        (await _servico.PublicarPendentesAsync()).Should().Be(0);
+        comToken.PublicadoEm.Should().BeNull("falhou: fica na fila");
+
+        _armazenamento.Quebrado = false;
+        (await _servico.PublicarPendentesAsync()).Should().Be(1);
+        comToken.PublicadoEm.Should().NotBeNull();
+        _armazenamento.Objetos.Should().ContainSingle();
+
+        (await _servico.PublicarPendentesAsync()).Should().Be(0, "idempotente: o publicado saiu da fila");
+        semToken.TokenPublicacao.Should().BeNull("o QR dele foi selado para o validador; não se inventa token depois");
+    }
+
     // ======================================= o que pode e o que NUNCA pode virar link
 
     [Fact]

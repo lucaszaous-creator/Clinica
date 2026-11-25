@@ -8,6 +8,19 @@
    Fora dela, de propósito: o verde, o laranja e o vermelho (sucesso, aviso, erro são de ESTADO). Amarelo e verde-água
    ficam abaixo de 3:1 no branco: a tela traz o nome na ponta da linha e a tabela (a regra de alívio). */
 --categoria-1:#2A78D6;--categoria-2:#EDA100;--categoria-3:#1BAF7A;--categoria-4:#E87BA4;--categoria-outras:var(--cinza-500);
+/* A conversa com cara de WhatsApp (nov/2026, F1 — propostas v2 a v4 aprovadas pelo dono). Só a aba WhatsApp da Recepção usa.
+   A ação é o azul de ação da SemDor (#1E62AC, regra do dono), não o acento da suíte; os verdes são os do WhatsApp, aceitos pela
+   familiaridade que o dono pediu: o balão da clínica, o botão redondo (ícone branco 3,03:1, mínimo de ícone) e o verde escuro
+   do texto e do número de não lidas (4,89:1 no branco). Contraste medido: cinza 5,37–6,06:1, nota 5,12:1, ação 5,42–6,18:1. */
+--wa-acao:#1E62AC;--wa-acao-hover:#174F8A;--wa-acao-suave:#E8F1FB;--wa-acao-tint:#CFE0F5;
+--wa-balao-enviado:#D9FDD3;--wa-verde:#00A884;--wa-verde-escuro:#008069;
+--wa-papel:#F4F1EC;--wa-cinza:#54656F;--wa-linha:#E9EDEF;--wa-faixa:#F0F2F5;
+--wa-nota:#FFF6D6;--wa-nota-texto:#8A6100;
+/* F3: as quatro cores das etiquetas (texto no fundo: 5,32 · 5,78 · 5,72 · 5,42:1) e o vermelho do "!" e do "Não enviada" (5,44:1). */
+--wa-etq-laranja:#FFF1E6;--wa-etq-laranja-texto:#A44A12;--wa-etq-verde:#E6F6F1;--wa-etq-verde-texto:#0B6B57;
+/* O aviso passageiro na aba WhatsApp: neutro escuro, sem azul (marinho é proibido); branco nele 13,4:1. */
+--wa-aviso-fundo:#2F2F2F;
+--wa-etq-vermelho:#FDECEC;--wa-etq-vermelho-texto:#B4232A;--wa-erro:#C62F35;
 /* Sombras — só popups, tooltips e snackbar (cartões são flat) */
 --sombra-popup:0 12px 32px rgba(17,24,39,.16); /* @kind shadow */
 --sombra-tooltip:0 4px 16px rgba(17,24,39,.12); /* @kind shadow */

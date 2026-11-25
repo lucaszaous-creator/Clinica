@@ -77,9 +77,10 @@ public sealed class AssinaturaNaTela(
 
             if (assinado is null) return new ResultadoDoAto(Silencioso: true);
 
-            // O arquivo assinado é SALVO E ABERTO, nunca mandado para a impressora: a assinatura
-            // vive nos BYTES, e a via impressa de um documento assinado é CÓPIA.
-            var erro = await host.SalvarEAbrirAsync(assinado.Pdf, assinado.NomeArquivo, "PDF (*.pdf)|*.pdf", ".pdf");
+            // O arquivo assinado ABRE sozinho (nov/2026, o fluxo do receituário em todos os documentos), nunca vai
+            // direto para a impressora: a assinatura vive nos BYTES, e a via impressa é CÓPIA. Guardar o arquivo é o
+            // "Salvar em PDF", à parte.
+            var erro = await host.AbrirPdfAsync(assinado.Pdf, assinado.NomeArquivo);
             if (erro is not null)
                 return new ResultadoDoAto(Mudou: true,
                     Frase: $"{erro} O documento foi assinado e está guardado no sistema.", EhErro: true);
@@ -102,8 +103,8 @@ public sealed class AssinaturaNaTela(
             SessaoUsuario.Atual.Operador);
         if (assinado is null) return null;
 
-        // É o ARQUIVO que vale: salva e abre; a frase diz se o salvamento falhou.
-        var erro = await host.SalvarEAbrirAsync(assinado.Pdf, assinado.NomeArquivo, "PDF (*.pdf)|*.pdf", ".pdf");
+        // É o ARQUIVO que vale: abre sozinho (sem perguntar onde salvar); a frase diz se não abriu.
+        var erro = await host.AbrirPdfAsync(assinado.Pdf, assinado.NomeArquivo);
         return (erro ?? "Documento assinado.", erro is not null);
     }
 }

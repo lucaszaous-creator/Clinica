@@ -73,6 +73,33 @@ public sealed class SafeIdTabletTests
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"/api/clinico/atendimentos/0/documento/{doc}/safeid/endereco")).StatusCode);
     }
 
+    [Fact]
+    public async Task Prazo_clinico_vencido_recusa_safeid_e_a1_com_401_e_a_sessao_do_portal_continua_valida()
+    {
+        // 25/11/2026, a assinatura na gestão: a médica entrou pelo portal, usou a gestão por mais de 15 minutos sem o
+        // ping de atividade e TODA rota clínica respondeu 401 — a tela dizia "não habilitada". Aqui o mesmo cenário: o
+        // prazo clínico vence, a sessão do portal segue válida (/api/sessao em "equipe", o que a tela usa para dizer o
+        // motivo certo), e o ping NÃO reabre o que venceu (nada afrouxa: é preciso entrar de novo).
+        await using var factory = CriarFactory(new PscDeMentira());
+        using var client = factory.CreateClient(new() { AllowAutoRedirect = false });
+        await Entrar(client, "medica.demo");
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/clinico/safeid")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync("/api/clinico/atividade", new { })).StatusCode);
+        using (var escopo = factory.Services.CreateScope())
+        {
+            var db = escopo.ServiceProvider.GetRequiredService<ClinicaDbContext>();
+            var vencida = DateTimeOffset.UtcNow.AddMinutes(-16).ToUnixTimeMilliseconds();
+            foreach (var s in await db.SessoesTablet.Where(x => x.Modo == "equipe").ToListAsync()) s.AtividadeClinicaEm = vencida;
+            await db.SaveChangesAsync();
+        }
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/clinico/safeid")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/clinico/a1")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/clinico/atividade", new { })).StatusCode);
+        Assert.Equal("equipe", (string?)JsonNode.Parse(await client.GetStringAsync("/api/sessao"))!["modo"]);
+        await Entrar(client, "medica.demo"); // entrar de novo reabre
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/clinico/safeid")).StatusCode);
+    }
+
     [Theory]
     [InlineData("infusao")]
     [InlineData("execucao")]

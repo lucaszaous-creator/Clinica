@@ -63,6 +63,7 @@ builder.Services.AddScoped<IAcompanhamentoPacienteService,AcompanhamentoPaciente
 builder.Services.AddScoped<IPlanejamentoEnfermagemService,Clinica.Infrastructure.Planejamento.PlanejamentoEnfermagemService>();
 builder.Services.AddScoped<AcessoService>();
 builder.Services.AddScoped<DocumentoClinicoService>();
+builder.Services.AddScoped<PacienteService>();
 builder.Services.AddScoped<ProntuarioService>();
 builder.Services.AddScoped<ConsentimentoService>();
 builder.Services.AddScoped<AssinaturaDoPacienteService>();
@@ -85,6 +86,13 @@ builder.Services.AddScoped<PrescricaoInternaService>();
 builder.Services.AddScoped<PrescricaoInternaPdfService>();
 builder.Services.AddScoped<Clinica.Application.Assinatura.AssinaturaDigitalService>();
 builder.Services.AddScoped<AssinaturaDeDocumentoClinicoService>();
+// PUBLICAÇÃO depois de assinar (nov/2026, autorização do dono — docs/safeid-congelado.md, ponto 1). Sem estes três, o
+// AssinaturaDeDocumentoClinicoService recebia null: o token não nascia antes do PDF (o QR apontava para o validador
+// genérico, que pede um código que nada serve) e nada subia. A receita 2026/0484 foi recusada na farmácia assim.
+builder.Services.AddScoped<PublicacaoDocumentoService>();
+builder.Services.AddScoped<ProvedorOpcoesArmazenamento>();
+builder.Services.AddScoped<Clinica.Application.Abstracoes.IArmazenamentoPublico, Clinica.Infrastructure.ArmazenamentoS3>();
+builder.Services.AddHostedService<Clinica.Assinaturas.Api.PublicacaoPendenteDoPortal>();
 builder.Services.AddScoped<AssinaturaDePrescricaoService>();
 builder.Services.AddScoped<ConferenciaAssinaturaTablet>();
 builder.Services.AddScoped<CofreA1Tablet>();

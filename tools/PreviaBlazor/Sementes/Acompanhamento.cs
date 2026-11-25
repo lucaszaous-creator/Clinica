@@ -153,7 +153,12 @@ public sealed class SementeAcompanhamento : ISemente
         Sessoes(vera, ModalidadeAtendimento.AcupunturaComEletro, 6, 90);
         var cVera = Caso(vera, TipoAcompanhamento.Recall, ModalidadeAtendimento.AcupunturaComEletro, 90, ana, 0, EtapaAcompanhamento.ProntoParaAgendar);
         Tentativa(cVera, ana, 12, "Pronto para agendar");
-        db.Add(new Atendimento { PacienteId = vera.Id, Modalidade = ModalidadeAtendimento.AcupunturaComEletro, Data = hoje.AddDays(-5), RealizadoEm = Dia(-5).AddHours(10) });
+        var voltaVera = new Atendimento { PacienteId = vera.Id, Modalidade = ModalidadeAtendimento.AcupunturaComEletro, Data = hoje.AddDays(-5), RealizadoEm = Dia(-5).AddHours(10) };
+        db.Add(voltaVera);
+        db.SaveChanges();
+        // A sessão de volta tem horário com a Dra. Helena: é ela quem aparece na Escuta pós-sessão (nov/2026).
+        db.Add(new Agendamento { PacienteId = vera.Id, ProfissionalId = helena.Id, DataHora = Dia(-5).AddHours(10), ModalidadePrevista = ModalidadeAtendimento.AcupunturaComEletro,
+            Status = StatusAgendamento.Realizado, DuracaoMinutos = 30, AtendimentoId = voltaVera.Id });
 
         // Encerrado com motivo.
         var gilberto = P("Gilberto Assis", "(21) 98765-1113", true);
@@ -172,6 +177,22 @@ public sealed class SementeAcompanhamento : ISemente
         Tentativa(cIgor, ana, 1, "Sem resposta");
         var cecilia = P("Cecília Andrade", null, false);
         Caso(cecilia, TipoAcompanhamento.NovoBsv, ModalidadeAtendimento.BsvApenas, 2, ana, 0, profissional: marcos.Id);
+
+        // ===== Escuta pós-sessão (nov/2026) =====
+        // A 1ª sessão de BSV de ontem pede escuta; a Maria já foi escutada e disse que piorou (o aviso da Dra. Helena).
+        var livia = P("Lívia Prado", "(21) 98765-1130", true);
+        var primeiraLivia = new Atendimento { PacienteId = livia.Id, Modalidade = ModalidadeAtendimento.BsvApenas, Data = hoje.AddDays(-1), RealizadoEm = Dia(-1).AddHours(11) };
+        db.Add(primeiraLivia);
+        db.SaveChanges();
+        db.Add(new Agendamento { PacienteId = livia.Id, ProfissionalId = marcos.Id, DataHora = Dia(-1).AddHours(11), ModalidadePrevista = ModalidadeAtendimento.BsvApenas,
+            Status = StatusAgendamento.Realizado, DuracaoMinutos = 40, AtendimentoId = primeiraLivia.Id });
+        var sessaoMaria = db.Atendimentos.Where(a => a.PacienteId == maria.Id).OrderBy(a => a.Data).First();
+        db.Add(new EscutaPosSessao { PacienteId = maria.Id, AtendimentoId = sessaoMaria.Id, SessaoEm = sessaoMaria.Data, Modalidade = sessaoMaria.Modalidade,
+            ProfissionalId = helena.Id, Motivo = MotivoDaEscuta.PrimeiraSessao, Como = ComoEstaPaciente.Pior, Relato = "A dor lombar voltou depois da sessão",
+            Canal = CanalContato.WhatsApp, RegistradoEm = agora.AddHours(-3), RegistradoPor = ana.Login });
+        db.Add(new EscutaPosSessao { PacienteId = maria.Id, AtendimentoId = sessaoMaria.Id + 100000, SessaoEm = sessaoMaria.Data.AddDays(7), Modalidade = sessaoMaria.Modalidade,
+            ProfissionalId = helena.Id, Motivo = MotivoDaEscuta.PrimeiraSessao, Como = ComoEstaPaciente.Melhor, Relato = "Dormiu melhor",
+            Canal = CanalContato.WhatsApp, RegistradoEm = agora.AddDays(-60), RegistradoPor = ana.Login });
 
         db.SaveChanges();
 

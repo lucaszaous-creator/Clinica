@@ -77,6 +77,14 @@ public sealed class DesfechoTiss
     /// </summary>
     public static DesfechoTiss NaoSeSabe(string motivo) => new() { Falha = motivo, Incerto = true };
 
+    /// <summary>
+    /// A operadora recusou o lote por estar FORA DA JANELA de envio (glosa <see cref="FilaTiss.GlosaForaDaJanela"/>):
+    /// o executor o devolve à fila agendado para a próxima janela, sem gastar tentativa.
+    /// </summary>
+    public static DesfechoTiss ForaDaJanela(string motivo) => new() { Falha = motivo, RecusaForaDaJanela = true };
+
+    public bool RecusaForaDaJanela { get; private init; }
+
     /// <summary>Verdadeiro quando não dá para afirmar nem que foi, nem que não foi.</summary>
     public bool Incerto { get; private init; }
 }

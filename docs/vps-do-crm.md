@@ -104,6 +104,13 @@ mudar). Rode o arquivo **depois** de o banco ter as tabelas (abra um dos apps um
 sudo -u postgres psql -p 45432 -d clinica -v senha="'SENHA_FORTE'" -f papel-ponte-crm.sql
 ```
 
+**Depois da 1ª vez, ninguém roda à mão (nov/2026).** O deploy do portal (`deploy/tablet/atualizar-posto.py`)
+reaplica este arquivo a cada publicação, sem a linha da senha e numa transação, e confere cada concessão da lista.
+Se faltar alguma, o deploy reprova. No CI, `PontePapelRestritoTests` roda os fluxos da ponte no SQLite, anota cada
+INSERT/UPDATE/DELETE e reprova o PR quando uma tabela gravada não está no arquivo. A lição veio da produção: a
+linha de `EnviosPacienteCrm` existia no arquivo, mas a base nunca a recebeu, e o primeiro envio ao paciente parou
+com 42501 no claim. Fluxo novo da ponte que grave em outra tabela? Acrescente a linha no arquivo e pronto.
+
 No `pg_hba.conf`, **antes** das linhas `hostssl`: `local clinica ponte_crm scram-sha-256`. Depois,
 `systemctl reload postgresql`. A ponte entra só pelo socket local, nunca por TCP.
 

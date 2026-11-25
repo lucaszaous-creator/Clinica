@@ -27,8 +27,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="../../src/Clinica.Desktop.Shell/Treinamento/AulaTreinamento.cs" Link="Treinamento/AulaTreinamento.cs" />
-    <Compile Include="../../src/Clinica.Desktop.Shell/Treinamento/AcervoTreinamento.cs" Link="Treinamento/AcervoTreinamento.cs" />
     <Compile Include="../../src/Clinica.Desktop.Shell/Atualizacao/FonteAtualizacaoGithub.cs" Link="Atualizacao/FonteAtualizacaoGithub.cs" />
     <Compile Include="../../src/Clinica.Desktop.Shell/Atualizacao/DownloadComPrazo.cs" Link="Atualizacao/DownloadComPrazo.cs" />
     <Compile Include="../../src/Clinica.Desktop.Shell/Atualizacao/TentativasDeAtualizacao.cs" Link="Atualizacao/TentativasDeAtualizacao.cs" />
@@ -57,5 +55,7 @@
     <!-- Os XSD oficiais do padrão TISS 4.01.00 (os mesmos que o web service da operadora publica):
          a mensagem de elegibilidade é validada contra eles em TissElegibilidadeWsTests. -->
     <None Include="Tiss/xsd-4.01.00/*.xsd" CopyToOutputDirectory="PreserveNewest" />
+    <!-- E os da 4.03.00 (Componente de Comunicação 202511, gov.br/ans): o lote da Amil (nov/2026). -->
+    <None Include="Tiss/xsd-4.03.00/*.xsd" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

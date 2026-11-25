@@ -159,7 +159,11 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
         return await Mapa(evolucao, ct);
     }
 
-    public async Task<T> Escrever<T>(SessaoTablet s, int agendamento, Guid chave, object pedido,
+    public Task<T> Escrever<T>(SessaoTablet s, int agendamento, Guid chave, object pedido,
+        Func<UsuarioSistema, Agendamento, Task<T>> acao, CancellationToken ct)
+        => TransacaoResiliente.ExecutarAsync(db, c => EscreverNaTransacao(s, agendamento, chave, pedido, acao, c), ct);
+
+    private async Task<T> EscreverNaTransacao<T>(SessaoTablet s, int agendamento, Guid chave, object pedido,
         Func<UsuarioSistema, Agendamento, Task<T>> acao, CancellationToken ct)
     {
         if (chave == Guid.Empty) throw ErroFormularioTablet.Criar("Atualize a página antes de salvar.");
@@ -262,7 +266,8 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
                 await Auditar(u, paciente, "TabletClinicoPrescricao", "Infusão em rascunho", ct);
                 return new(p.Id, "infusao", p.Numero);
             }
-            var tipo = pedido.Tipo switch {"receita" => TipoDocumentoClinico.Receita, "exame" => TipoDocumentoClinico.PedidoExame,
+            var tipo = pedido.Tipo switch {"receita" => TipoDocumentoClinico.Receita,
+                "controle-especial" => TipoDocumentoClinico.ReceituarioControleEspecial, "exame" => TipoDocumentoClinico.PedidoExame,
                 "atestado" => TipoDocumentoClinico.Atestado, "comparecimento" => TipoDocumentoClinico.Comparecimento,
                 "relatorio" => TipoDocumentoClinico.RelatorioEvolucao, "anamnese" => TipoDocumentoClinico.Anamnese, _ => throw ErroFormularioTablet.Criar("Escolha um tipo de documento disponível.")};
             var doc = await documentos.EmitirAsync(new DocumentoClinico {PacienteId = paciente,
@@ -286,7 +291,7 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
                     && (!assinar || tipo!="execucao" || !p.OrigemEnfermagem || p.RegistradaPorUsuarioId==profissional.Id)
                     && (!assinar || tipo=="execucao" || p.ProfissionalId==profissional.ProfissionalId)).Select(p=>(int?)p.PacienteId).SingleOrDefaultAsync(ct)
                 : tipo=="documento" ? await db.DocumentosClinicos.Where(d=>d.Id==documento && d.CanceladoEm==null
-                    && (!assinar || d.ProfissionalId==profissional.ProfissionalId&&(d.Tipo==TipoDocumentoClinico.Receita||d.Tipo==TipoDocumentoClinico.Atestado||d.Tipo==TipoDocumentoClinico.PedidoExame||d.Tipo==TipoDocumentoClinico.Comparecimento||d.Tipo==TipoDocumentoClinico.RelatorioEvolucao||d.Tipo==TipoDocumentoClinico.Anamnese))).Select(d=>(int?)d.PacienteId).SingleOrDefaultAsync(ct) : null;
+                    && (!assinar || d.ProfissionalId==profissional.ProfissionalId&&(d.Tipo==TipoDocumentoClinico.Receita||d.Tipo==TipoDocumentoClinico.ReceituarioControleEspecial||d.Tipo==TipoDocumentoClinico.Atestado||d.Tipo==TipoDocumentoClinico.PedidoExame||d.Tipo==TipoDocumentoClinico.Comparecimento||d.Tipo==TipoDocumentoClinico.RelatorioEvolucao||d.Tipo==TipoDocumentoClinico.Anamnese))).Select(d=>(int?)d.PacienteId).SingleOrDefaultAsync(ct) : null;
             if(paciente is null) throw new RecursoClinicoIndisponivel();
             return(profissional,paciente.Value);
         }
@@ -297,7 +302,7 @@ public sealed partial class AtendimentoTabletService(ClinicaDbContext db, IClini
                 && p.CanceladaEm == null && (!assinar || (p.ProfissionalId == u.ProfissionalId && p.AgendamentoId == a.Id)), ct)
             : tipo == "documento" && await db.DocumentosClinicos.AnyAsync(d => d.Id == documento && d.PacienteId == a.PacienteId
                 && d.CanceladoEm == null && (!assinar || (d.ProfissionalId == u.ProfissionalId && d.AgendamentoId == a.Id
-                    && (d.Tipo == TipoDocumentoClinico.Receita || d.Tipo == TipoDocumentoClinico.Atestado || d.Tipo == TipoDocumentoClinico.PedidoExame || d.Tipo == TipoDocumentoClinico.Comparecimento || d.Tipo == TipoDocumentoClinico.RelatorioEvolucao || d.Tipo == TipoDocumentoClinico.Anamnese))), ct);
+                    && (d.Tipo == TipoDocumentoClinico.Receita || d.Tipo == TipoDocumentoClinico.ReceituarioControleEspecial || d.Tipo == TipoDocumentoClinico.Atestado || d.Tipo == TipoDocumentoClinico.PedidoExame || d.Tipo == TipoDocumentoClinico.Comparecimento || d.Tipo == TipoDocumentoClinico.RelatorioEvolucao || d.Tipo == TipoDocumentoClinico.Anamnese))), ct);
         if (!existe) throw new RecursoClinicoIndisponivel();
         return (u, a.PacienteId);
     }

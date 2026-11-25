@@ -31,6 +31,7 @@ on:
       - 'src/Clinica.Application/**'
       - 'src/Clinica.Domain/**'
       - 'deploy/tablet/**'
+      - 'deploy/ponte-crm/**'
       - 'deploy/gestao/**'
       - 'tools/empacotar-continuidade-tablet.ps1'
       - 'tools/empacotar-gestao-web.sh'
@@ -71,7 +72,7 @@ jobs:
           set -euo pipefail
           # O último commit que muda o que vai para a VPS (os mesmos caminhos do gatilho de push).
           clinica=$(git log -1 --format=%H -- src/Clinica.Assinaturas.Api src/Clinica.Gestao.Web src/Clinica.Ui.Blazor \
-            src/Clinica.Infrastructure src/Clinica.Application src/Clinica.Domain deploy/tablet deploy/gestao \
+            src/Clinica.Infrastructure src/Clinica.Application src/Clinica.Domain deploy/tablet deploy/ponte-crm deploy/gestao \
             tools/empacotar-continuidade-tablet.ps1 tools/empacotar-gestao-web.sh)
           # O clinica-site é PRIVADO: lido com um token só de leitura (secret SITE_READ_TOKEN).
           site=sem-token; publicado=nenhum
@@ -286,6 +287,18 @@ jobs:
             exit 1
           fi
           echo "acesso à VPS ok"
+      # Nov/2026: em 24/11 o disco da VPS encheu e o scp do pacote falhou ("write remote … Failure") — e,
+      # pior, o Postgres parou de gravar. Antes de copiar qualquer pacote, o espaço livre é conferido e o
+      # deploy PARA com a frase certa em vez de piorar o disco. A faxina de releases antigos roda no atualizador.
+      - name: Espaço livre na VPS
+        run: |
+          set -euo pipefail
+          livre=$(ssh -o ConnectTimeout=30 -o BatchMode=yes vps df --output=avail -BG / | tail -1 | tr -dc '0-9')
+          echo "Livre em / na VPS: ${livre}G"
+          if [ -z "$livre" ] || [ "$livre" -lt 5 ]; then
+            echo "::error title=Disco da VPS quase cheio::Só ${livre:-?}G livres em / (mínimo 5G). Nada foi copiado nem trocado. Libere espaço (releases antigos em /opt/clinica-tablet/releases, pacotes em /home/clinica-admin/tablet-stage) e rode de novo. Disco cheio também para o Postgres."
+            exit 1
+          fi
       - name: Publicar o site público
         id: pub_site
         if: env.SITE_PUBLICO == 'true'

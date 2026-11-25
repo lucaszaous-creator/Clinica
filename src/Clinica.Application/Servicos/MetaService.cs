@@ -81,14 +81,21 @@ public sealed class MetaService
     private readonly FinanceiroService _financeiro;
     private readonly IndicadoresService _indicadores;
     private readonly TendenciaAtendimentosService _tendencia;
+    private readonly IAcompanhamentoPacienteService? _acompanhamento;
 
+    /// <param name="acompanhamento">
+    /// Quem apura a meta de <see cref="IndicadorMeta.Retornos"/> (nov/2026). Sem ele (testes antigos, a prévia
+    /// sem banco), o realizado dessa meta sai NULO — "não medido", nunca zero, que pareceria meta perdida.
+    /// </param>
     public MetaService(
-        IClinicaRepositorio repo, FinanceiroService financeiro, IndicadoresService indicadores)
+        IClinicaRepositorio repo, FinanceiroService financeiro, IndicadoresService indicadores,
+        IAcompanhamentoPacienteService? acompanhamento = null)
     {
         _repo = repo;
         _financeiro = financeiro;
         _indicadores = indicadores;
         _tendencia = new TendenciaAtendimentosService(repo);
+        _acompanhamento = acompanhamento;
     }
 
     // ==================== Cadastro ====================
@@ -110,11 +117,17 @@ public sealed class MetaService
     {
         var modalidade = (modalidadeCodigo ?? string.Empty).Trim();
         var especialidade = (especialidadeCodigo ?? string.Empty).Trim();
+        if ((modalidade.Length > 0 || especialidade.Length > 0) && indicador == IndicadorMeta.Retornos)
+            throw new InvalidOperationException("A meta de quem voltou é da clínica inteira: ela não se recorta por modalidade nem especialidade.");
         if ((modalidade.Length > 0 || especialidade.Length > 0) && !MetaMensal.AceitaSegmento(indicador))
             throw new InvalidOperationException(
                 "Ocupação não se recorta por modalidade ou especialidade: ela mede a agenda inteira "
                 + "contra o horário de atendimento, e horário não tem modalidade. Recorte por profissional, ou use "
                 + "a meta de sessões.");
+
+        if (profissionalId is not null && !MetaMensal.AceitaProfissional(indicador))
+            throw new InvalidOperationException(
+                "A meta de quem voltou é da clínica inteira: quem traz o paciente de volta é a retenção, não um profissional.");
 
         if (mes is < 1 or > 12)
             throw new InvalidOperationException("Mês precisa estar entre 1 e 12.");
@@ -232,6 +245,12 @@ public sealed class MetaService
             ocupacao = agenda.OcupacaoPercentual is { } o ? (decimal)o : null;
         }
 
+        // Quem voltou pela retenção (nov/2026): a MESMA regra da Fila 360 (a primeira sessão realizada da
+        // modalidade depois da referência do caso), contada no banco pelo serviço do acompanhamento.
+        decimal? retornos = null;
+        if (_acompanhamento is not null && metas.Any(m => m.Indicador == IndicadorMeta.Retornos))
+            retornos = await _acompanhamento.VoltaramNoPeriodoAsync(inicio, ate, ct);
+
         var diasCorridos = ate.Day;
         var diasDoMes = fimDoMes.Day;
 
@@ -268,6 +287,7 @@ public sealed class MetaService
                     IndicadorMeta.Faturamento => faturamento,
                     IndicadorMeta.Sessoes => sessoes,
                     IndicadorMeta.Ocupacao => ocupacao,
+                    IndicadorMeta.Retornos => retornos,
                     _ => null
                 };
 

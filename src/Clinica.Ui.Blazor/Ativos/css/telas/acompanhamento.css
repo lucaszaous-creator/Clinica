@@ -109,3 +109,4 @@
 
 /* O selo da situação não quebra: duas linhas de selo numa linha de tabela se leem como dois selos. */
 .acompanhamento .acomp-lista .selo{white-space:nowrap}
+

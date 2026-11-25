@@ -53,12 +53,15 @@ public sealed class SementeElegibilidadeNaAgenda : ISemente
                 CriadoPor = "recepcao", CriadoEm = hoje.AddDays(-3).AddHours(9)
             });
 
-        // A consulta de hoje da Marina, já respondida: o sinal "Elegível hoje" na lista do painel.
+        // A consulta de hoje da Marina, já respondida: o sinal "Elegível hoje" na lista do painel. O
+        // "hoje" da fila é o da CLÍNICA (HoraDaClinica, America/Sao_Paulo): com o relógio do servidor
+        // em UTC, à noite a consulta caía no dia seguinte e o avulso não a reaproveitava.
+        var consultadaEm = HoraDaClinica.Agora().AddMinutes(-30);
         db.Add(new TransacaoTiss
         {
             Tipo = TipoTransacaoTiss.Elegibilidade, ConvenioCodigo = "Petrobras", NumeroCarteira = marina.Carteirinha,
             PacienteId = marina.Id, Estado = EstadoTransacaoTiss.Concluida, Tentativas = 1, PedidoPor = "recepcao",
-            PedidoEm = hoje.AddHours(8), EnvioIniciadoEm = hoje.AddHours(8), ProcessadaEm = hoje.AddHours(8).AddSeconds(4),
+            PedidoEm = consultadaEm, EnvioIniciadoEm = consultadaEm, ProcessadaEm = consultadaEm.AddSeconds(4),
             Resultado = "Elegível. Nome na operadora: MARINA TEIXEIRA LOBO."
         });
         db.SaveChanges();

@@ -226,6 +226,15 @@ public class ConjuntoClinicoTests : IDisposable
             [0x25, 0x50, 0x44, 0x46], "application/pdf",
             "Importado do Smart Clinic", "gerente");
 
+        // A ESCUTA PÓS-SESSÃO (nov/2026) — a décima terceira natureza: o que o paciente disse depois da sessão.
+        _db.EscutasPosSessao.Add(new EscutaPosSessao
+        {
+            PacienteId = paciente.Id, AtendimentoId = 4242, SessaoEm = Dia, Modalidade = ModalidadeAtendimento.BsvApenas,
+            Motivo = MotivoDaEscuta.PrimeiraSessao, Como = ComoEstaPaciente.Pior, Relato = "Dor nas costas aumentou",
+            Canal = CanalContato.WhatsApp, RegistradoEm = MeioDia, RegistradoPor = "patrycia"
+        });
+        await _db.SaveChangesAsync();
+
         return paciente.Id;
     }
 
@@ -313,6 +322,7 @@ public class ConjuntoClinicoTests : IDisposable
         texto.Should().Contain("Peso");
         texto.Should().Contain("tolerou bem a infusão");
         texto.Should().Contain("receita-antiga.pdf");
+        texto.Should().Contain("Dor nas costas aumentou");
     }
 
     [Fact]

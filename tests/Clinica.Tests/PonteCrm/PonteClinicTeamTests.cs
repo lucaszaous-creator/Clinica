@@ -58,18 +58,20 @@ public sealed class PonteClinicTeamTests : IDisposable
         Assert.Equal("Nome de ana", team.Single(t => t.Login == "ana").Name);
     }
 
-    // "Só as secretárias e o gerente" (25/10/2026): o bit de agendar concedido a outra função em
-    // Acessos não leva junto o WhatsApp da clínica — nem a lista da equipe, nem a senha, nem o bilhete.
-    [Fact] public async Task Bit_de_agendar_em_outro_perfil_nao_entra_no_CRM()
+    // Decisão 4 (24/11/2026): o bit de agendar dado em Acessos leva junto o WhatsApp da clínica, em
+    // qualquer perfil — o diretor que entra como Médico entra no CRM pela senha e pelo bilhete. Sem o
+    // bit, o mesmo perfil continua fora (a regra é a da tela: AcessoAoWhatsApp).
+    [Fact] public async Task Bit_de_agendar_em_qualquer_perfil_entra_no_CRM_e_sem_ele_nao()
     {
-        var fatura = Usuario("fatura", PerfilAcesso.Faturista, extras: Permissao.EditarAgenda);
-        var medica = Usuario("medica", PerfilAcesso.Profissional, extras: Permissao.EditarAgenda);
+        var medico = Usuario("medico", PerfilAcesso.Profissional, extras: Permissao.EditarAgenda);
+        Usuario("outra-medica", PerfilAcesso.Profissional);
+        Usuario("fatura", PerfilAcesso.Faturista);
         Usuario("ana", PerfilAcesso.Recepcao);
 
-        Assert.Equal(["ana"], (await bridge.Team(default)).Select(t => t.Login).ToArray());
-        Assert.True(fatura.Pode(Permissao.EditarAgenda)); // o bit vale na agenda dela; o WhatsApp é que não
+        Assert.Equal(["ana", "medico"], (await bridge.Team(default)).Select(t => t.Login).Order().ToArray());
+        Assert.Equal(200, Status(await bridge.Enter(new("medico", Senha), default)));
         Assert.Equal(403, Status(await bridge.Enter(new("fatura", Senha), default)));
-        Assert.NotEqual(200, Status(await bridge.EnterByTicket(new(await entrada.EmitirAsync(medica.Id)), default)));
+        Assert.Equal(200, Status(await bridge.EnterByTicket(new(await entrada.EmitirAsync(medico.Id)), default)));
     }
 
     // A aba "WhatsApp" da Recepção (docs/crm-na-recepcao.md): o bilhete do app entra sem senha,

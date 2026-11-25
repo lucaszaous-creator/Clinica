@@ -5,7 +5,12 @@ Produção exige relatórios HML do mesmo pacote, salvo dispensa explícita regi
 """
 import hashlib, json, os, pathlib, pwd, re, shutil, stat, subprocess, sys, tarfile, time
 from regras_publicacao import (
+    PAPEL_PONTE,
+    conferencia_papel_ponte,
+    papel_ponte_para_deploy,
+    faxina_depois_de_publicar,
     incluir_flag_false_se_ausente,
+    verificar_sem_credenciais_cifradas as _verificar_sem_credenciais_cifradas,
     verificar_criptografia_desativada,
     verificar_flag_desativada_no_processo,
 )
@@ -82,12 +87,9 @@ def sql(query):
 def status(s):
     return run(['systemctl','show',s,'-p','MainPID','--value'])
 
-consulta_credenciais_cifradas='''SELECT count(*) FROM "Configuracoes"
-    WHERE "Valor" LIKE 'enc:%' '''
-
 def verificar_sem_credenciais_cifradas():
-    if sql(consulta_credenciais_cifradas)!='0':
-        raise RuntimeError('A base contém credenciais protegidas; dispensa recusada sem exibir valores.')
+    # A regra (e a única exceção: as chaves do conector TISS) mora em regras_publicacao.py.
+    _verificar_sem_credenciais_cifradas(sql)
 
 if ambiente=='producao' and pular_hml:
     # Registrar a tentativa antes de qualquer consulta de elegibilidade, migration,
@@ -298,6 +300,16 @@ for coluna in ('AtendimentoId','CodigoFaturamentoId','Tipo','Status'):
     if sql(f"SELECT has_column_privilege('{role}','\"Lancamentos\"','{coluna}','SELECT')")!='t':
         conceder.append(f'GRANT SELECT ({ident(coluna)}) ON "Lancamentos" TO {ident(role)};')
         revogar.append(f'REVOKE SELECT ({ident(coluna)}) ON "Lancamentos" FROM {ident(role)};')
+# O particular entra no caixa quando o posto CONCLUI a sessão (nov/2026, ReceitaDoParticularService): o papel lê as
+# entradas do horário/atendimento (idempotência) e INSERE a entrada recebida no mesmo commit do atendimento.
+for priv in ('SELECT','INSERT'):
+    if sql(f"SELECT has_table_privilege('{role}','\"Lancamentos\"','{priv}')")!='t':
+        conceder.append(f'GRANT {priv} ON "Lancamentos" TO {ident(role)};')
+        revogar.append(f'REVOKE {priv} ON "Lancamentos" FROM {ident(role)};')
+for priv in ('USAGE','SELECT'):
+    if sql(f"SELECT has_sequence_privilege('{role}','\"Lancamentos_Id_seq\"','{priv}')")!='t':
+        conceder.append(f'GRANT {priv} ON SEQUENCE "Lancamentos_Id_seq" TO {ident(role)};')
+        revogar.append(f'REVOKE {priv} ON SEQUENCE "Lancamentos_Id_seq" FROM {ident(role)};')
 if sql('SELECT to_regclass(\'"EdicoesEnfermagemTablet"\') IS NOT NULL')=='t':
     for priv in ('SELECT','INSERT','UPDATE','DELETE'):grant(priv,'EdicoesEnfermagemTablet')
 elif migracao=='20260923190924_EdicaoEnfermagemExclusiva':
@@ -419,6 +431,16 @@ try:
         sql("SET lock_timeout='5s'; SET statement_timeout='60s';\n"+schema)
         assert sql(f'SELECT count(*) FROM "__EFMigrationsHistory" WHERE "MigrationId"=\'{migracao}\'')=='1'
     sql('BEGIN;\n'+'\n'.join(conceder)+'\nCOMMIT;');aplicado=True
+    # O papel da ponte do CRM (nov/2026): o MESMO deploy/ponte-crm/papel-ponte-crm.sql, reaplicado a cada
+    # publicação (numa transação: o REVOKE e o GRANT valem juntos) e conferido — falta de concessão
+    # reprova o deploy aqui, e não na fila de envios da clínica com 42501. Só em produção e só se a
+    # ponte estiver instalada (o papel existe); a senha não muda.
+    if ambiente=='producao' and sql("SELECT count(*) FROM pg_roles WHERE rolname='ponte_crm'")=='1':
+        papel=(release/PAPEL_PONTE).read_text(encoding='utf-8-sig')
+        assert database=='clinica'
+        sql('BEGIN;\n'+papel_ponte_para_deploy(papel)+'\nCOMMIT;')
+        faltando=sql(conferencia_papel_ponte(papel))
+        assert faltando=='','ponte_crm sem concessão: '+faltando.replace('\n','; ')
     if pular_hml:
         verificar_sem_credenciais_cifradas()
     if config_publicacao!=config:
@@ -467,3 +489,12 @@ except Exception as causa:
     if erros_recuo:
         raise RuntimeError(f'Publicação falhou e o recuo teve {len(erros_recuo)} erro(s); conferir backup privado {backup}.') from causa
     raise
+
+# Faxina (nov/2026): só chega aqui a publicação SAUDÁVEL (o except acima relança). Ficam o release novo, o
+# anterior (o recuo) e os 5 mais novos; sai o pacote já instalado do stage. O disco cheio de 24/11/2026 parou
+# o Postgres. Falha aqui é aviso: a publicação já está no ar e conferida.
+try:
+    saiu = faxina_depois_de_publicar(base, {release.name, anterior}, pacote)
+    print(f'Faxina: {len(saiu)} item(ns) removido(s) ({", ".join(saiu[:8])}{"…" if len(saiu) > 8 else ""}).')
+except Exception as erro:
+    print(f'Aviso: a faxina depois da publicação não terminou ({type(erro).__name__}: {erro}). A publicação está saudável.')

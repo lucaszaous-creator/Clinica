@@ -74,7 +74,12 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task<IReadOnlyList<ParcelaRecebivelCartao>> ParcelasCartaoDaTransacaoAsync(string idBancario, string? conta, CancellationToken ct = default)
         => await _db.ParcelasRecebiveisCartao.Include(p => p.Lancamento).Where(p => p.IdBancario == idBancario && p.ContaBancaria == conta && p.ConciliadoEm != null).ToListAsync(ct);
 
-    public async Task<T> ExecutarGestaoAtomicaAsync<T>(Func<Task<T>> executar, CancellationToken ct = default)
+    // Transação PRÓPRIA dentro da estratégia de execução (nov/2026: o "Lançar" da Conciliação quebrava em produção com
+    // "does not support user-initiated transactions"). Ver TransacaoResiliente.
+    public Task<T> ExecutarGestaoAtomicaAsync<T>(Func<Task<T>> executar, CancellationToken ct = default)
+        => TransacaoResiliente.ExecutarAsync(_db, c => GestaoAtomicaNaTransacaoAsync(executar, c), ct);
+
+    private async Task<T> GestaoAtomicaNaTransacaoAsync<T>(Func<Task<T>> executar, CancellationToken ct)
     {
         // Uma ordem única de trava evita inversões entre compra, caixa e baixa de insumo.
         // O fechamento da sessão já possui transação: não iniciar outra dentro dela.
@@ -142,8 +147,12 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
                 && a.DataHora.AddMinutes(a.DuracaoMinutos ?? (a.Profissional == null ? null : a.Profissional.DuracaoPadraoMinutos) ?? Agendamento.DuracaoPadraoMinutos) > inicio)
             .ToListAsync(ct);
 
-    public async Task<int> ExecutarEtapaFechamentoAsync(int atendimentoId, string etapa, string pedido,
+    public Task<int> ExecutarEtapaFechamentoAsync(int atendimentoId, string etapa, string pedido,
         Func<Task<int>> executar, CancellationToken ct = default)
+        => TransacaoResiliente.ExecutarAsync(_db, c => EtapaFechamentoNaTransacaoAsync(atendimentoId, etapa, pedido, executar, c), ct);
+
+    private async Task<int> EtapaFechamentoNaTransacaoAsync(int atendimentoId, string etapa, string pedido,
+        Func<Task<int>> executar, CancellationToken ct)
     {
         await using var transacao = await _db.Database.BeginTransactionAsync(ct);
         try
@@ -897,6 +906,8 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
            // que a entidade nasceu — a regra que a parcela 60 fixou depois de a oitava
            // ter sido esquecida com o cenário descrito logo acima.
            || await _db.ResultadosExame.AnyAsync(r => r.PacienteId == pacienteId, ct)
+           // A Escuta pós-sessão (nov/2026) — raiz clínica com FK cascata, no MESMO commit em que nasceu.
+           || await _db.EscutasPosSessao.AnyAsync(x => x.PacienteId == pacienteId, ct)
            // A DÉCIMA raiz: o arquivo da ficha (set/2026) — a receita do sistema anterior é o
            // único registro clínico de muita ficha importada, e a FK dele é cascata.
            || await _db.AnexosPaciente.AnyAsync(a => a.PacienteId == pacienteId, ct)
@@ -1414,6 +1425,61 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         return linhas.Select(l => l.Agendamento).ToList();
     }
 
+    /// <summary>
+    /// A consulta do relatório de atendimentos, exposta para a rede de tradução do Npgsql. Cada filtro vira
+    /// WHERE; o enum embutido entra pelo VALOR (a coluna guarda o nome) e o código do catálogo pela coluna de
+    /// código — o horário antigo, sem código, casa pelo enum da família.
+    /// </summary>
+    internal IQueryable<LinhaBrutaRelatorioAtendimento> ConsultaRelatorioDeAtendimentos(FiltroRelatorioAtendimentos f)
+    {
+        var inicio = f.Inicio.ToDateTime(TimeOnly.MinValue);
+        var fim = f.Fim.AddDays(1).ToDateTime(TimeOnly.MinValue);
+        var situacoes = f.SituacoesEfetivas.ToList();
+        var q = _db.Agendamentos.AsNoTracking()
+            .Where(a => a.DataHora >= inicio && a.DataHora < fim && situacoes.Contains(a.Status));
+        if (f.ProfissionalId is { } prof) q = q.Where(a => a.ProfissionalId == prof);
+        if (!string.IsNullOrWhiteSpace(f.Modalidade))
+        {
+            var codigo = f.Modalidade.Trim();
+            q = Enum.TryParse<ModalidadeAtendimento>(codigo, out var familia) && familia.ToString() == codigo
+                ? q.Where(a => a.ModalidadeCodigo == codigo || (a.ModalidadeCodigo == null && a.ModalidadePrevista == familia))
+                : q.Where(a => a.ModalidadeCodigo == codigo);
+        }
+        if (!string.IsNullOrWhiteSpace(f.Especialidade))
+        {
+            var codigo = f.Especialidade.Trim();
+            q = Enum.TryParse<Especialidade>(codigo, out var esp) && esp.ToString() == codigo
+                ? q.Where(a => a.EspecialidadeConsultaCodigo == codigo || (a.EspecialidadeConsultaCodigo == null && a.EspecialidadeConsulta == esp))
+                : q.Where(a => a.EspecialidadeConsultaCodigo == codigo);
+        }
+        if (!string.IsNullOrWhiteSpace(f.Convenio) && f.Convenio != RelatorioDeAtendimentosRegras.Particular)
+        {
+            var codigo = f.Convenio.Trim();
+            q = Enum.TryParse<Convenio>(codigo, out var conv) && conv.ToString() == codigo
+                ? q.Where(a => a.Paciente!.ConvenioCodigo == codigo || (a.Paciente.ConvenioCodigo == null && a.Paciente.Convenio == conv))
+                : q.Where(a => a.Paciente!.ConvenioCodigo == codigo);
+        }
+        if (!string.IsNullOrWhiteSpace(f.Paciente))
+        {
+            var nome = f.Paciente.Trim().ToLower();
+            q = q.Where(a => a.Paciente!.Nome.ToLower().Contains(nome));
+        }
+        return q.OrderBy(a => a.DataHora).ThenBy(a => a.Id)
+            .Select(a => new LinhaBrutaRelatorioAtendimento(
+                a.Id, a.DataHora, a.PacienteId, a.Paciente!.Nome, a.Paciente.Convenio, a.Paciente.ConvenioCodigo,
+                a.Paciente.Carteirinha, a.Particular, a.ModalidadePrevista, a.ModalidadeCodigo,
+                a.EspecialidadeConsulta, a.EspecialidadeConsultaCodigo,
+                a.Profissional == null ? null : (a.Profissional.NomeCurto ?? a.Profissional.Nome),
+                a.Status,
+                a.Atendimento == null ? null : a.Atendimento.Numero,
+                a.Atendimento == null
+                    ? new List<GuiaDoRelatorio>()
+                    : a.Atendimento.Codigos.Select(c => new GuiaDoRelatorio(c.Tipo, c.Ordem, c.Status, c.NumeroGuiaReal, c.DataBaixa)).ToList()));
+    }
+
+    public async Task<IReadOnlyList<LinhaBrutaRelatorioAtendimento>> RelatorioDeAtendimentosAsync(FiltroRelatorioAtendimentos filtro, CancellationToken ct = default)
+        => await ConsultaRelatorioDeAtendimentos(filtro).ToListAsync(ct);
+
     public async Task<IReadOnlyList<Agendamento>> AgendamentosNoPeriodoAsync(DateTime inicio, DateTime fim, CancellationToken ct = default)
         => await _db.Agendamentos
             .Include(a => a.Paciente)
@@ -1447,6 +1513,14 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .OrderBy(p => p.Ordem).ThenBy(p => p.Nome)
             .ToListAsync(ct);
 
+    // Só a data: o arquivo protegido do A1 não sai do banco para a janela de emitir.
+    public async Task<DateTime?> ValidadeDoA1Async(int profissionalId, CancellationToken ct = default)
+        => await ConsultaValidadeDoA1(profissionalId).MaxAsync(ct);
+
+    /// <summary>A consulta de <see cref="ValidadeDoA1Async"/>, exposta para a rede de tradução (TraducaoNoNpgsqlTests).</summary>
+    public IQueryable<DateTime?> ConsultaValidadeDoA1(int profissionalId)
+        => _db.CertificadosA1.AsNoTracking().Where(c => c.ProfissionalId == profissionalId).Select(c => (DateTime?)c.ValidoAte);
+
     public Task<Profissional?> ObterProfissionalAsync(int profissionalId, CancellationToken ct = default)
         => _db.Profissionais.FirstOrDefaultAsync(p => p.Id == profissionalId, ct);
 
@@ -1472,6 +1546,7 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
            || await _db.Evolucoes.AnyAsync(e => e.ProfissionalId == profissionalId, ct)
            || await _db.DocumentosClinicos.AnyAsync(d => d.ProfissionalId == profissionalId, ct)
            || await _db.RepassesApurados.AnyAsync(r => r.ProfissionalId == profissionalId, ct)
+           || await _db.RepassesFechamentos.AnyAsync(r => r.ProfissionalId == profissionalId, ct)
            || await _db.RegrasRepasse.AnyAsync(r => r.ProfissionalId == profissionalId, ct)
            || await _db.Metas.AnyAsync(m => m.ProfissionalId == profissionalId, ct)
            || await _db.BloqueiosAgenda.AnyAsync(b => b.ProfissionalId == profissionalId, ct)
@@ -1855,6 +1930,10 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
     // ---- Resultados de exame estruturados (ago/2026) ----
 
+    public async Task<IReadOnlyList<EscutaPosSessao>> EscutasDoPacienteAsync(int pacienteId, CancellationToken ct = default)
+        => await _db.EscutasPosSessao.AsNoTracking().Where(x => x.PacienteId == pacienteId)
+            .OrderByDescending(x => x.SessaoEm).ThenByDescending(x => x.Id).ToListAsync(ct);
+
     public async Task AdicionarResultadoExameAsync(ResultadoExame resultado, CancellationToken ct = default)
         => await _db.ResultadosExame.AddAsync(resultado, ct);
 
@@ -1933,8 +2012,12 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task AdicionarProblemaAsync(ProblemaPaciente problema, CancellationToken ct = default)
         => await _db.ProblemasPaciente.AddAsync(problema, ct);
 
-    public async Task<T> ExecutarRegistroAlergiaAtomicoAsync<T>(
+    public Task<T> ExecutarRegistroAlergiaAtomicoAsync<T>(
         int pacienteId, Func<Task<T>> executar, CancellationToken ct = default)
+        => TransacaoResiliente.ExecutarAsync(_db, c => RegistroAlergiaNaTransacaoAsync(pacienteId, executar, c), ct);
+
+    private async Task<T> RegistroAlergiaNaTransacaoAsync<T>(
+        int pacienteId, Func<Task<T>> executar, CancellationToken ct)
     {
         var propria = _db.Database.CurrentTransaction is null;
         await using var transacao = propria ? await _db.Database.BeginTransactionAsync(ct) : null;
@@ -2212,6 +2295,19 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Where(d => d.TokenPublicacao != null
                         && d.PublicadoAte != null
                         && d.PublicadoAte < hoje)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<DocumentoClinico>> DocumentosAssinadosSemPublicacaoAsync(int limite = 20, CancellationToken ct = default)
+        => await _db.DocumentosClinicos
+            .Where(d => d.AssinadoEm != null && d.TokenPublicacao != null && d.PublicadoEm == null && d.CanceladoEm == null
+                        && d.ArquivoAssinadoId != null && PublicacaoDocumento.Publicaveis.Contains(d.Tipo))
+            .OrderBy(d => d.Id).Take(Math.Clamp(limite, 1, 200))
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<DocumentoClinico>> DocumentosParaAssinarAsync(int profissionalId, int limite = 200, CancellationToken ct = default)
+        => await _db.DocumentosClinicos.AsNoTracking().Include(d => d.Paciente)
+            .Where(Clinica.Domain.Regras.DocumentosParaAssinar.Do(profissionalId))
+            .OrderBy(d => d.Id).Take(Math.Clamp(limite, 1, 500))
             .ToListAsync(ct);
 
     public async Task<IReadOnlyList<DocumentoClinico>> DocumentosDoPacienteAsync(
@@ -2820,6 +2916,271 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
     public async Task AdicionarRepasseApuradoAsync(RepasseApurado repasse, CancellationToken ct = default)
         => await _db.RepassesApurados.AddAsync(repasse, ct);
+
+    // ---- Repasse por guia recebida (nov/2026) ----
+    //
+    // ⚠️ Só COLUNAS dentro das consultas (`CanceladoEm == null`, `EstornadoEm == null`), nunca
+    // as derivadas `Cancelado`/`Estornado`: o EF recusa em runtime. Todas estão em
+    // `TraducaoNoNpgsqlTests` e executadas nos testes do FechamentoRepasseService.
+
+    /// <summary>Entrada REALIZADA (nem prevista, nem cancelada) — a única que prova recebimento.</summary>
+    private IQueryable<LancamentoFinanceiro> EntradasRealizadas()
+        => _db.Lancamentos.AsNoTracking()
+            .Where(l => l.Tipo == TipoLancamento.Entrada && l.Status == StatusLancamento.Realizado);
+
+    public async Task<IReadOnlyList<ReceitaParaRepasse>> ReceitasDeGuiaParaRepasseAsync(
+        DateOnly? desde, DateOnly ate, CancellationToken ct = default)
+        => await ConsultaReceitasDeGuiaParaRepasse(desde, ate).ToListAsync(ct);
+
+    public IQueryable<ReceitaParaRepasse> ConsultaReceitasDeGuiaParaRepasse(DateOnly? desde, DateOnly ate)
+        => EntradasRealizadas()
+            .Where(l => l.CodigoFaturamentoId != null
+                        && (l.DataPagamento ?? l.Data) <= ate
+                        && (desde == null || (l.DataPagamento ?? l.Data) >= desde)
+                        && l.CodigoFaturamento!.Atendimento!.EstornadoEm == null
+                        && !_db.ItensRepasse.Any(i => i.CanceladoEm == null
+                                                      && i.Natureza == NaturezaItemRepasse.Credito
+                                                      && i.Origem == OrigemItemRepasse.Convenio
+                                                      && i.CodigoFaturamentoId == l.CodigoFaturamentoId))
+            .OrderBy(l => l.Id)
+            .Select(l => new ReceitaParaRepasse(
+                l.Id,
+                l.CodigoFaturamento!.AtendimentoId,
+                l.CodigoFaturamentoId,
+                l.CodigoFaturamento.Atendimento!.PacienteId,
+                l.CodigoFaturamento.Atendimento.Paciente!.Nome,
+                l.CodigoFaturamento.Atendimento.Data,
+                l.DataPagamento ?? l.Data,
+                l.Valor,
+                l.DocumentoReferencia,
+                l.ConvenioCodigo,
+                l.CodigoFaturamento.Atendimento.Paciente.ConvenioCodigo,
+                l.CodigoFaturamento.Atendimento.Paciente.Convenio,
+                l.CodigoFaturamento.Tipo,
+                l.CodigoFaturamento.NumeroGuiaReal,
+                l.CodigoFaturamento.LoteTissId == null ? null : (int?)l.CodigoFaturamento.Lote!.Numero,
+                l.CodigoFaturamento.Atendimento.ModalidadeCodigo,
+                l.CodigoFaturamento.Atendimento.Modalidade));
+
+    public async Task<IReadOnlyList<ReceitaParaRepasse>> ReceitasParticularesParaRepasseAsync(
+        DateOnly? desde, DateOnly ate, CancellationToken ct = default)
+        => await ConsultaReceitasParticularesParaRepasse(desde, ate).ToListAsync(ct);
+
+    public IQueryable<ReceitaParaRepasse> ConsultaReceitasParticularesParaRepasse(DateOnly? desde, DateOnly ate)
+        => EntradasRealizadas()
+            .Where(l => l.AtendimentoId != null && l.CodigoFaturamentoId == null
+                        && (l.DataPagamento ?? l.Data) <= ate
+                        && (desde == null || (l.DataPagamento ?? l.Data) >= desde)
+                        && l.Atendimento!.EstornadoEm == null
+                        // Particular: a MESMA definição da aba Particulares da Conciliação —
+                        // todos os códigos NaoAplicavel (convênio tem ao menos um faturável).
+                        && l.Atendimento.Codigos.Any()
+                        && !l.Atendimento.Codigos.Any(c => c.Status != StatusCodigo.NaoAplicavel)
+                        && !_db.ItensRepasse.Any(i => i.CanceladoEm == null
+                                                      && i.Natureza == NaturezaItemRepasse.Credito
+                                                      && i.Origem == OrigemItemRepasse.Particular
+                                                      && i.AtendimentoId == l.AtendimentoId))
+            .OrderBy(l => l.Id)
+            .Select(l => new ReceitaParaRepasse(
+                l.Id,
+                l.AtendimentoId!.Value,
+                null,
+                l.Atendimento!.PacienteId,
+                l.Atendimento.Paciente!.Nome,
+                l.Atendimento.Data,
+                l.DataPagamento ?? l.Data,
+                l.Valor,
+                l.DocumentoReferencia,
+                l.ConvenioCodigo,
+                l.Atendimento.Paciente.ConvenioCodigo,
+                l.Atendimento.Paciente.Convenio,
+                null,
+                null,
+                null,
+                l.Atendimento.ModalidadeCodigo,
+                l.Atendimento.Modalidade));
+
+    public async Task<IReadOnlyList<ItemRepasse>> CreditosRepasseSemReceitaAsync(CancellationToken ct = default)
+        => await ConsultaCreditosRepasseSemReceita().ToListAsync(ct);
+
+    public IQueryable<ItemRepasse> ConsultaCreditosRepasseSemReceita()
+        => _db.ItensRepasse.AsNoTracking()
+            .Include(i => i.Fechamento)
+            .Where(i => i.CanceladoEm == null && i.Natureza == NaturezaItemRepasse.Credito
+                        && !_db.ItensRepasse.Any(e => e.CanceladoEm == null && e.ItemEstornadoId == i.Id))
+            .Where(i => _db.Atendimentos.Any(a => a.Id == i.AtendimentoId && a.EstornadoEm != null)
+                        || (i.Origem == OrigemItemRepasse.Convenio
+                            && !_db.Lancamentos.Any(l => l.CodigoFaturamentoId == i.CodigoFaturamentoId
+                                                         && l.Tipo == TipoLancamento.Entrada
+                                                         && l.Status == StatusLancamento.Realizado))
+                        || (i.Origem == OrigemItemRepasse.Particular
+                            && !_db.Lancamentos.Any(l => l.AtendimentoId == i.AtendimentoId
+                                                         && l.CodigoFaturamentoId == null
+                                                         && l.Tipo == TipoLancamento.Entrada
+                                                         && l.Status == StatusLancamento.Realizado)))
+            .OrderBy(i => i.Id);
+
+    public async Task<IReadOnlyList<HorarioDoAtendimento>> HorariosDosAtendimentosAsync(
+        IReadOnlyCollection<int> atendimentoIds, CancellationToken ct = default)
+    {
+        if (atendimentoIds.Count == 0) return [];
+        var ids = atendimentoIds.Distinct().ToList();
+        var diretos = await _db.Agendamentos.AsNoTracking()
+            .Where(g => g.AtendimentoId != null && ids.Contains(g.AtendimentoId.Value))
+            .Select(g => new HorarioDoAtendimento(g.Id, g.AtendimentoId!.Value, g.ProfissionalId, g.ModalidadeCodigo, false))
+            .ToListAsync(ct);
+        var substituidos = await _db.Agendamentos.AsNoTracking()
+            .Where(g => g.AtendimentoSubstitutoId != null && ids.Contains(g.AtendimentoSubstitutoId.Value))
+            .Select(g => new HorarioDoAtendimento(g.Id, g.AtendimentoSubstitutoId!.Value, g.ProfissionalId, g.ModalidadeCodigo, true))
+            .ToListAsync(ct);
+        return [.. diretos, .. substituidos];
+    }
+
+    public async Task<IReadOnlyList<GuiaBaixadaSemRecebimento>> GuiasBaixadasSemRecebimentoAsync(
+        DateOnly de, DateOnly ate, CancellationToken ct = default)
+        => await ConsultaGuiasBaixadasSemRecebimento(de, ate).ToListAsync(ct);
+
+    public IQueryable<GuiaBaixadaSemRecebimento> ConsultaGuiasBaixadasSemRecebimento(DateOnly de, DateOnly ate)
+        => _db.Codigos.AsNoTracking()
+            .Where(c => c.DataBaixa != null && c.DataBaixa >= de && c.DataBaixa <= ate
+                        && c.Status != StatusCodigo.NaoAplicavel
+                        && c.Atendimento!.EstornadoEm == null
+                        && !_db.Lancamentos.Any(l => l.CodigoFaturamentoId == c.Id
+                                                     && l.Tipo == TipoLancamento.Entrada
+                                                     && l.Status == StatusLancamento.Realizado))
+            .OrderBy(c => c.DataBaixa).ThenBy(c => c.Id)
+            .Select(c => new GuiaBaixadaSemRecebimento(
+                c.Id,
+                c.AtendimentoId,
+                c.Atendimento!.Paciente!.Nome,
+                c.Atendimento.Data,
+                c.DataBaixa,
+                c.Atendimento.Paciente.ConvenioCodigo,
+                c.Atendimento.Paciente.Convenio,
+                c.Tipo,
+                c.NumeroGuiaReal,
+                _db.Lancamentos.Any(l => l.CodigoFaturamentoId == c.Id
+                                         && l.Tipo == TipoLancamento.Entrada
+                                         && l.Status == StatusLancamento.Previsto),
+                c.Glosa));
+
+    public async Task<IReadOnlyList<RepasseFechamento>> FechamentosRepasseAsync(
+        DateOnly? competencia = null, int? profissionalId = null, CancellationToken ct = default)
+        => await _db.RepassesFechamentos.AsNoTracking()
+            .Include(f => f.Itens)
+            .Include(f => f.Lancamento)
+            .Where(f => (competencia == null || f.Competencia == competencia)
+                        && (profissionalId == null || f.ProfissionalId == profissionalId))
+            .OrderByDescending(f => f.Competencia).ThenByDescending(f => f.Id)
+            .AsSplitQuery()
+            .ToListAsync(ct);
+
+    public Task<RepasseFechamento?> ObterFechamentoRepasseAsync(int fechamentoId, CancellationToken ct = default)
+        => _db.RepassesFechamentos
+            .Include(f => f.Itens)
+            .Include(f => f.Lancamento)
+            .AsSplitQuery()
+            .FirstOrDefaultAsync(f => f.Id == fechamentoId, ct);
+
+    public async Task AdicionarFechamentoRepasseAsync(RepasseFechamento fechamento, CancellationToken ct = default)
+        => await _db.RepassesFechamentos.AddAsync(fechamento, ct);
+
+    public Task<bool> RegraRepasseEmUsoAsync(int regraId, CancellationToken ct = default)
+        => _db.ItensRepasse.AnyAsync(i => i.RegraRepasseId == regraId && i.CanceladoEm == null, ct);
+
+    public async Task<IReadOnlyList<LinhaRelatorioRepasse>> RelatorioRepasseAsync(
+        FiltroRelatorioRepasse filtro, CancellationToken ct = default)
+        => await ConsultaRelatorioRepasse(filtro).ToListAsync(ct);
+
+    /// <summary>
+    /// O relatório de repasse no BANCO. ⚠️ A situação lê a COLUNA <c>CanceladoEm</c> do
+    /// fechamento (o item copia a mesma data) e o status do lançamento — nunca as derivadas
+    /// <c>Cancelado</c>/<c>Pago</c>, que o EF recusa. O trecho do paciente vai como LIKE tolerante a
+    /// acento (<see cref="PadraoDoPaciente"/>); o serviço confere o trecho exato depois.
+    /// </summary>
+    public IQueryable<LinhaRelatorioRepasse> ConsultaRelatorioRepasse(FiltroRelatorioRepasse f)
+    {
+        var de = new DateOnly(f.CompetenciaDe.Year, f.CompetenciaDe.Month, 1);
+        var ate = new DateOnly(f.CompetenciaAte.Year, f.CompetenciaAte.Month, 1);
+        var q = _db.ItensRepasse.AsNoTracking()
+            .Where(i => i.Fechamento!.Competencia >= de && i.Fechamento.Competencia <= ate);
+
+        if (f.ProfissionalId is { } profissional)
+            q = q.Where(i => i.Fechamento!.ProfissionalId == profissional);
+        if (!string.IsNullOrWhiteSpace(f.ConvenioCodigo))
+        {
+            var codigo = f.ConvenioCodigo.Trim();
+            q = q.Where(i => i.ConvenioCodigo == codigo);
+        }
+
+        q = f.Situacao switch
+        {
+            SituacaoNoRelatorioRepasse.SoPagos => q.Where(i => i.Fechamento!.CanceladoEm == null
+                && i.Fechamento.Lancamento != null && i.Fechamento.Lancamento.Status == StatusLancamento.Realizado),
+            SituacaoNoRelatorioRepasse.SoAPagar => q.Where(i => i.Fechamento!.CanceladoEm == null
+                && (i.Fechamento.Lancamento == null || i.Fechamento.Lancamento.Status != StatusLancamento.Realizado)),
+            SituacaoNoRelatorioRepasse.IncluirCancelados => q,
+            _ => q.Where(i => i.Fechamento!.CanceladoEm == null)
+        };
+
+        var termo = Clinica.Application.Servicos.RelatorioRepasseService.TextoDeBusca(f.Paciente);
+        if (termo.Length > 0)
+        {
+            var padrao = PadraoDoPaciente(termo);
+            q = q.Where(i => EF.Functions.Like(i.PacienteNome.ToLower(), padrao, "\\"));
+        }
+
+        return q.Select(i => new LinhaRelatorioRepasse(
+            i.RepasseFechamentoId,
+            i.Fechamento!.ProfissionalId,
+            i.Fechamento.ProfissionalNome,
+            i.Fechamento.ProfissionalRegistro,
+            i.Fechamento.Competencia,
+            i.Fechamento.CanceladoEm != null ? "Cancelado"
+                : i.Fechamento.Lancamento != null && i.Fechamento.Lancamento.Status == StatusLancamento.Realizado
+                    ? "Pago" : "Conferido",
+            i.Fechamento.CanceladoEm != null,
+            i.Fechamento.ConferidoEm,
+            i.Fechamento.ConferidoPor,
+            i.Fechamento.CanceladoEm == null && i.Fechamento.Lancamento != null
+                && i.Fechamento.Lancamento.Status == StatusLancamento.Realizado
+                ? (DateOnly?)(i.Fechamento.Lancamento.DataPagamento ?? i.Fechamento.Lancamento.Data)
+                : null,
+            i.Origem,
+            i.Natureza,
+            i.PacienteNome,
+            i.DataAtendimento,
+            i.ConvenioCodigo,
+            i.ConvenioNome,
+            i.Descricao,
+            i.NumeroGuia,
+            i.ReferenciaPagamento,
+            i.DataRecebimento,
+            i.ValorRecebido,
+            i.RegraDescricao,
+            i.Valor));
+    }
+
+    /// <summary>
+    /// O padrão LIKE do trecho do paciente, que tolera acento nos DOIS bancos: cada letra que
+    /// pode vir acentuada no nome (vogais, ç, ñ) vira o curinga de UM caractere. O
+    /// <c>lower</c> do SQLite só baixa ASCII, mas as letras que ele não baixa são justamente as
+    /// que viraram curinga. O resultado é um SUPERCONJUNTO ("jose" casa "Jusa"); o serviço
+    /// confere o trecho exato, sem acento, sobre o recorte já pequeno. (A primeira versão
+    /// encadeava um <c>replace</c> por letra acentuada: o SQLite recusa com "parser stack overflow".)
+    /// </summary>
+    public static string PadraoDoPaciente(string termoSemAcento)
+    {
+        var sb = new System.Text.StringBuilder("%");
+        foreach (var ch in termoSemAcento)
+            sb.Append(ch switch
+            {
+                'a' or 'e' or 'i' or 'o' or 'u' or 'c' or 'n' => "_",
+                '%' or '_' or '\\' => "\\" + ch,
+                _ => ch.ToString()
+            });
+        return sb.Append('%').ToString();
+    }
 
     public async Task<IReadOnlyList<Agendamento>> AgendamentosComAtendimentoAsync(
         DateOnly inicio, DateOnly fim, CancellationToken ct = default)
@@ -4254,6 +4615,35 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .OrderByDescending(t => t.Id)
             .Take(1)
             .Select(ResumoDaTransacaoTiss);
+
+    public Task<AutorizacaoTiss?> ObterAutorizacaoTissAsync(int id, CancellationToken ct = default)
+        => _db.AutorizacoesTiss.FirstOrDefaultAsync(a => a.Id == id, ct);
+
+    public async Task<IReadOnlyList<AutorizacaoTiss>> AutorizacoesDoAgendamentoAsync(int agendamentoId, CancellationToken ct = default)
+        => await _db.AutorizacoesTiss.Where(a => a.AgendamentoId == agendamentoId).OrderBy(a => a.Id).ToListAsync(ct);
+
+    public async Task<IReadOnlyList<AutorizacaoTiss>> AutorizacoesDosAgendamentosAsync(IReadOnlyCollection<int> agendamentoIds, CancellationToken ct = default)
+        => await ConsultaAutorizacoesDosAgendamentos(agendamentoIds).ToListAsync(ct);
+
+    /// <summary>A consulta das autorizações dos horários, exposta para <c>TraducaoNoNpgsqlTests</c>.</summary>
+    public IQueryable<AutorizacaoTiss> ConsultaAutorizacoesDosAgendamentos(IReadOnlyCollection<int> agendamentoIds)
+        => _db.AutorizacoesTiss.AsNoTracking().Where(a => agendamentoIds.Contains(a.AgendamentoId)).OrderBy(a => a.Id);
+
+    public async Task<IReadOnlyList<int>> GuiasIguaisJaEnviadasAsync(string carteira, string procedimento, DateOnly data,
+        IReadOnlyCollection<int> exceto, CancellationToken ct = default)
+        => await ConsultaGuiasIguaisJaEnviadas(carteira, procedimento, data, exceto).ToListAsync(ct);
+
+    /// <summary>A consulta da duplicidade, exposta para <c>TraducaoNoNpgsqlTests</c>. Uma ida, só números.</summary>
+    public IQueryable<int> ConsultaGuiasIguaisJaEnviadas(string carteira, string procedimento, DateOnly data, IReadOnlyCollection<int> exceto)
+        => _db.TransacoesTissGuias.AsNoTracking()
+            .Where(i => i.CodigoId != null && !exceto.Contains(i.CodigoId.Value)
+                        && (i.Transacao!.Estado == EstadoTransacaoTiss.Pendente || i.Transacao.Estado == EstadoTransacaoTiss.EmEnvio
+                            || (i.Transacao.Estado == EstadoTransacaoTiss.Concluida
+                                && (i.Situacao == SituacaoGuiaTiss.Recebida || i.Situacao == SituacaoGuiaTiss.Pendente)))
+                        && _db.GuiasTissConsulta.Any(g => g.CodigoId == i.CodigoId && g.NumeroCarteira == carteira
+                                                          && g.CodigoProcedimento == procedimento && g.DataAtendimento == data))
+            .Select(i => i.CodigoId!.Value)
+            .Distinct();
 
     public async Task<IReadOnlyList<TransacaoTiss>> ElegibilidadesTissDoDiaAsync(DateTime desde, DateTime ate, CancellationToken ct = default)
         => await ConsultaElegibilidadesTissDoDia(desde, ate).ToListAsync(ct);

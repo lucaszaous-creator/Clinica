@@ -24,6 +24,12 @@ public sealed record RemetenteTissWs
     /// A senha em claro nunca entra na mensagem, e por isso também não entra neste objeto.
     /// </summary>
     public required string SenhaMd5 { get; init; }
+
+    /// <summary>
+    /// A versão do padrão no cabeçalho (<c>Padrao</c>): a da operadora para esta transação
+    /// (<see cref="OperadoraTiss.VersaoTiss"/>). Sem nada dito, 4.01.00 — a Saúde Petrobras.
+    /// </summary>
+    public string VersaoTiss { get; init; } = OperadorasTiss.VersaoPadrao;
 }
 
 /// <summary>
@@ -103,10 +109,17 @@ public static class TissMensagemWs
                     new XElement(Ans + "codigoPrestadorNaOperadora", remetente.CodigoPrestadorNaOperadora))),
             new XElement(Ans + "destino",
                 new XElement(Ans + "registroANS", remetente.RegistroAnsOperadora)),
-            new XElement(Ans + "Padrao", VersaoPadrao),
+            new XElement(Ans + "Padrao", Versao(remetente)),
             new XElement(Ans + "loginSenhaPrestador",
                 new XElement(Ans + "loginPrestador", remetente.Login),
                 new XElement(Ans + "senhaPrestador", remetente.SenhaMd5)));
+    }
+
+    private static string Versao(RemetenteTissWs remetente)
+    {
+        Exigir(OperadorasTiss.VersoesConhecidas.Contains(remetente.VersaoTiss),
+            $"Versão do padrão TISS desconhecida: {remetente.VersaoTiss}. O sistema escreve {string.Join(" e ", OperadorasTiss.VersoesConhecidas)}.");
+        return remetente.VersaoTiss;
     }
 
     /// <summary>O bloco <c>dadosPrestador</c> (<c>ct_contratadoDados</c>): UMA identificação só.</summary>

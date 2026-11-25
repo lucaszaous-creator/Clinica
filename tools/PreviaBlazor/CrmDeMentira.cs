@@ -416,6 +416,322 @@ public sealed class CrmDeMentira : IClienteDoCrm
 
     public void EsquecerSessao(int usuarioId) { }
 
+    // ---------- "Cara de WhatsApp", F2a (§15 do CRM): com as regras e as frases do RecursosDaConversa.cs ----------
+
+    /// <summary>As etiquetas da clínica: as quatro de partida do CRM (ids fixos).</summary>
+    public List<AppLabel> EtiquetasDaClinica { get; } =
+        [new("agendar", "Agendar", false, 0), new("convenio", "Convênio", false, 0), new("retorno", "Retorno", false, 0), new("novo-paciente", "Novo paciente", false, 0)];
+
+    /// <summary>Quem "está escrevendo" em cada conversa (a prévia mostra a Bruna escrevendo na conversa da Maria).</summary>
+    public Dictionary<string, string[]> EscrevendoNaPrevia { get; } = new() { [Ids.Maria] = ["bruna"] };
+
+    private readonly List<string> fixadas = new();
+
+    // ---------- F2b (§16): endereço, contatos e serviços fictícios, como a gestão os teria configurado ----------
+
+    /// <summary>O que o clipe oferece na prévia (dados fictícios).</summary>
+    public AppShareOptions Clipe { get; set; } = new(
+        new AppLocation("Clínica SemDor (fictícia)", "Rua do Exemplo, 100 — Centro", -22.9, -42.0),
+        [new AppContactCard("8b1e2c3d-0001-4a00-9a00-000000000001", "Dra. Helena Fictícia", "5522999990101", "Acupuntura", false, 1),
+         new AppContactCard("8b1e2c3d-0002-4a00-9a00-000000000002", "Dr. Rafael Exemplo", "5522999990102", "Clínico geral", false, 1)],
+        [new AppService("8b1e2c3d-0101-4a00-9a00-000000000101", "Acupuntura", "Sessões com hora marcada, para dor crônica e ansiedade.", null, false, 1),
+         new AppService("8b1e2c3d-0102-4a00-9a00-000000000102", "Avaliação inicial", "Uma conversa com o profissional para montar o plano.", null, false, 1)]);
+
+    public async Task<AppShareOptions> OpcoesDoClipeAsync(int usuarioId, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava) return Clipe;
+    }
+
+    private AppShareOptions MudarClipe(Func<AppShareOptions, AppShareOptions> mudar)
+    {
+        if (!DaGestao) throw new RecusaDoCrm("Esta função está disponível para supervisores e administradores.", 403);
+        return Clipe = mudar(Clipe);
+    }
+
+    public async Task<AppShareOptions> SalvarEnderecoAsync(int usuarioId, AppLocation endereco, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava) return MudarClipe(o => o with { Location = endereco });
+    }
+
+    public async Task<AppShareOptions> SalvarContatoAsync(int usuarioId, AppContactCard contato, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava) return MudarClipe(o =>
+        {
+            var novo = contato with { Id = string.IsNullOrEmpty(contato.Id) ? Guid.NewGuid().ToString("D") : contato.Id, Version = contato.Version + 1 };
+            return o with { Contacts = o.Contacts.Where(x => x.Id != novo.Id).Append(novo).ToArray() };
+        });
+    }
+
+    public async Task<AppShareOptions> SalvarServicoAsync(int usuarioId, AppService servico, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava)
+        {
+            if (System.Text.RegularExpressions.Regex.IsMatch(servico.Title + " " + servico.Text, @"R\$\s*\d"))
+                throw new RecusaDoCrm("O cartão de serviço não leva preço. Tire o valor do texto.", 400);
+            return MudarClipe(o =>
+            {
+                var novo = servico with { Id = string.IsNullOrEmpty(servico.Id) ? Guid.NewGuid().ToString("D") : servico.Id, Version = servico.Version + 1 };
+                return o with { Services = o.Services.Where(x => x.Id != novo.Id).Append(novo).ToArray() };
+            });
+        }
+    }
+
+    public async Task<AppShareOptions> ImagemDoServicoAsync(int usuarioId, string servicoId, Stream? arquivo, string nome = "", string mime = "", CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava) return MudarClipe(o => o with { Services = o.Services.Select(s => s.Id == servicoId ? s with { ImageId = arquivo is null ? null : Guid.NewGuid().ToString("N") } : s).ToArray() });
+    }
+
+    public async Task<ArquivoDaMidia> VerImagemDoServicoAsync(int usuarioId, string servicoId, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        throw new RecusaDoCrm("Serviço sem imagem.", 404);
+    }
+
+    public async Task<AppConversation> CompartilharAsync(int usuarioId, string conversaId, AppShare envio, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava)
+        {
+            var c = Achar(conversaId);
+            if (c.Messages.Any(m => m.Id == envio.Id)) return Foto(c);
+            if (c.Sender == RemetenteSms) throw new RecusaDoCrm("Endereço, contato e serviço só vão pelo WhatsApp.", 400);
+            if (DateTimeOffset.UtcNow - c.LastIncoming >= ConversasNaTela.DuracaoDaJanela)
+                throw new RecusaDoCrm("A janela de 24 horas terminou. Use um modelo aprovado do WhatsApp ou continue por SMS.", 409);
+            var agora = DateTimeOffset.UtcNow;
+            AppMessage mensagem = envio.Kind switch
+            {
+                "location" => Clipe.Location is { } l
+                    ? new AppMessage(envio.Id, "out", "📍 " + l.Name + " — " + l.Address, "LOCATION", Eu, agora, "accepted", Location: l)
+                    : throw new RecusaDoCrm("O endereço da clínica ainda não foi configurado (Configurações).", 409),
+                "contact" => Clipe.Contacts.FirstOrDefault(k => k.Id == envio.ItemId && !k.Archived) is { } k
+                    ? new AppMessage(envio.Id, "out", "👤 " + k.Name + " — " + k.Role, "CONTACTS", Eu, agora, "accepted", SharedContact: new AppSharedContact(k.Name, k.Phone, k.Role))
+                    : throw new RecusaDoCrm("Contato não encontrado.", 404),
+                "service" => Clipe.Services.FirstOrDefault(s => s.Id == envio.ItemId && !s.Archived) is { } s
+                    ? new AppMessage(envio.Id, "out", "*" + s.Title + "*\n" + s.Text, "TEXT", Eu, agora, "accepted")
+                    : throw new RecusaDoCrm("Serviço não encontrado.", 404),
+                _ => throw new RecusaDoCrm("Escolha endereço, contato ou serviço.", 400),
+            };
+            c.Messages.Add(mensagem);
+            c.Version++; c.UpdatedAt = agora;
+            return Foto(c);
+        }
+    }
+
+    public async Task<AppConversation> AgendarAsync(int usuarioId, string conversaId, AppSchedule agendamento, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava)
+        {
+            var c = Achar(conversaId);
+            if (c.Agendadas.Any(a => a.Id == agendamento.Id)) return Foto(c);
+            var agora = DateTimeOffset.UtcNow;
+            if (agendamento.At - agora < TimeSpan.FromMinutes(1) || agendamento.At - agora > TimeSpan.FromDays(30))
+                throw new RecusaDoCrm("Escolha um horário de 1 minuto a 30 dias à frente.", 400);
+            if (agendamento.Template is null && c.Sender != RemetenteSms && agendamento.At >= c.LastIncoming + ConversasNaTela.DuracaoDaJanela)
+                throw new RecusaDoCrm("Nesse horário a janela de 24 horas já terá fechado. Agende até " +
+                    (c.LastIncoming + ConversasNaTela.DuracaoDaJanela).ToLocalTime().ToString("dd/MM 'às' HH:mm") + " ou use um modelo aprovado.", 409);
+            c.Agendadas.Add(new AppScheduledMessage(agendamento.Id, Eu, agendamento.Text, agendamento.At, "agendada", agora, agendamento.AttachmentId, agendamento.Template));
+            c.UpdatedAt = agora;
+            return Foto(c);
+        }
+    }
+
+    // ---------- F2c (§17): opções do @SemDor, transcrição (desligada, como em produção), tentar de novo e saudação ----------
+
+    /// <summary>A saudação do menu na prévia.</summary>
+    public AppGreeting Saudacao { get; set; } = new(true, "Olá! Bem-vindo(a) à Clínica SemDor (fictícia). Como podemos ajudar?", 1);
+
+    public async Task<AppSemDorOptions> OpcoesDoSemDorAsync(int usuarioId, string conversaId, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        ConferirSemDor();
+        lock (trava)
+        {
+            var c = Achar(conversaId);
+            if (c.Recebidas == 0) throw new RecusaDoCrm("O paciente ainda não escreveu nada para o @SemDor responder.", 409);
+            var nome = PrimeiroNome(c.PatientName.Length > 0 ? c.PatientName : c.Name);
+            return new AppSemDorOptions([
+                $"Olá{(nome.Length > 0 ? ", " + nome : "")}! Vou verificar na agenda e já te retorno.",
+                "Pode me dizer qual dia e período ficam melhores para você?",
+                "Obrigada pela mensagem! Um momento, por favor.",
+            ]);
+        }
+    }
+
+    public async Task<AppConversation> TranscreverAsync(int usuarioId, string conversaId, string mensagemId, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        throw new RecusaDoCrm("A transcrição de áudio está desligada neste CRM.", 409);
+    }
+
+    public async Task<AppConversation> TentarDeNovoAsync(int usuarioId, string conversaId, string mensagemId, AppRetry pedido, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava)
+        {
+            var c = Achar(conversaId);
+            if (c.Messages.Any(m => m.Id == pedido.Id && m.RetryOf == mensagemId)) return Foto(c);
+            var original = c.Messages.FirstOrDefault(m => m.Id == mensagemId && m.Direction == "out") ?? throw new RecusaDoCrm("Mensagem não encontrada nesta conversa.", 404);
+            if (original.Status is not ("failed" or "uncertain")) throw new RecusaDoCrm("Esta mensagem não falhou.", 409);
+            if (original.Status == "uncertain" && DateTimeOffset.UtcNow - original.At < TimeSpan.FromMinutes(10))
+                throw new RecusaDoCrm("Ainda não se sabe se esta mensagem saiu. Espere alguns minutos: se não aparecer como entregue, tente de novo.", 409);
+            if (c.Messages.Any(m => m.RetryOf == mensagemId && m.Status != "failed")) throw new RecusaDoCrm("Esta mensagem já foi enviada de novo.", 409);
+            var agora = DateTimeOffset.UtcNow;
+            c.Messages.Add(original with { Id = pedido.Id, AgentId = Eu, At = agora, Status = "accepted", Error = null, RetryOf = mensagemId, Reactions = null, Starred = false });
+            c.Version++; c.UpdatedAt = agora;
+            return Foto(c);
+        }
+    }
+
+    public async Task<AppGreeting> SaudacaoAsync(int usuarioId, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava) return Saudacao;
+    }
+
+    public async Task<AppGreeting> SalvarSaudacaoAsync(int usuarioId, AppGreeting saudacao, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava)
+        {
+            if (!DaGestao) throw new RecusaDoCrm("Esta função está disponível para supervisores e administradores.", 403);
+            if (saudacao.Version != Saudacao.Version) throw new RecusaDoCrm("A saudação mudou. Atualize antes de salvar.", 409);
+            if ((saudacao.Text ?? "").Trim().Length is < 5 or > 700) throw new RecusaDoCrm("Escreva a saudação com 5 a 700 caracteres.", 400);
+            return Saudacao = new AppGreeting(saudacao.Enabled, saudacao.Text!.Trim(), Saudacao.Version + 1);
+        }
+    }
+
+    public async Task<AppConversation> CancelarAgendamentoAsync(int usuarioId, string conversaId, string agendamentoId, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava)
+        {
+            var c = Achar(conversaId);
+            var i = c.Agendadas.FindIndex(a => a.Id == agendamentoId);
+            if (i < 0) throw new RecusaDoCrm("Agendamento não encontrado nesta conversa.", 404);
+            if (c.Agendadas[i].State is "enviada" or "enviando") throw new RecusaDoCrm("Esta mensagem já foi enviada.", 409);
+            c.Agendadas[i] = c.Agendadas[i] with { State = "cancelada" };
+            c.UpdatedAt = DateTimeOffset.UtcNow;
+            return Foto(c);
+        }
+    }
+
+    public async Task<AppConversation> ReagirAsync(int usuarioId, string conversaId, AppReact reacao, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava)
+        {
+            var c = Achar(conversaId);
+            var emoji = (reacao.Emoji ?? "").Trim();
+            if (emoji.Length > 20 || emoji.Any(char.IsAsciiLetterOrDigit)) throw new RecusaDoCrm("Escolha um emoji para reagir.", 400);
+            var i = c.Messages.FindIndex(m => m.Id == reacao.MessageId);
+            if (i < 0) throw new RecusaDoCrm("Mensagem não encontrada nesta conversa.", 404);
+            if (DateTimeOffset.UtcNow - c.LastIncoming >= TimeSpan.FromHours(24)) throw new RecusaDoCrm("A janela de 24 horas terminou: a reação não chega ao paciente.", 409);
+            var m = c.Messages[i];
+            var reacoes = (m.Reactions ?? []).Where(r => r.FromPatient).ToList();
+            if (emoji.Length > 0) reacoes.Add(new AppReaction(emoji, Eu, false, DateTimeOffset.UtcNow));
+            c.Messages[i] = m with { Reactions = reacoes.ToArray() };
+            c.UpdatedAt = DateTimeOffset.UtcNow;
+            return Foto(c);
+        }
+    }
+
+    public async Task<AppLabel[]> EtiquetasAsync(int usuarioId, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava) return EtiquetasDaClinica.ToArray();
+    }
+
+    public async Task<AppLabel[]> SalvarEtiquetaAsync(int usuarioId, AppLabelSave etiqueta, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava)
+        {
+            if (!DaGestao) throw new RecusaDoCrm("Esta função está disponível para supervisores e administradores.", 403);
+            var nome = (etiqueta.Name ?? "").Trim();
+            if (nome.Length is 0 or > 30) throw new RecusaDoCrm("Nome da etiqueta: preencha até 30 caracteres.", 400);
+            var i = EtiquetasDaClinica.FindIndex(e => e.Id == etiqueta.Id);
+            if (i >= 0) EtiquetasDaClinica[i] = EtiquetasDaClinica[i] with { Name = nome, Archived = etiqueta.Archived, Version = EtiquetasDaClinica[i].Version + 1 };
+            else EtiquetasDaClinica.Add(new AppLabel(Guid.NewGuid().ToString("D"), nome, etiqueta.Archived, 1));
+            return EtiquetasDaClinica.ToArray();
+        }
+    }
+
+    public async Task<AppConversation> EtiquetarConversaAsync(int usuarioId, string conversaId, AppConversationLabels etiquetas, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava)
+        {
+            var c = Achar(conversaId);
+            var novas = (etiquetas.Labels ?? []).Distinct().ToList();
+            if (novas.Count > 10) throw new RecusaDoCrm("Use até 10 etiquetas por conversa.", 400);
+            if (novas.FirstOrDefault(x => !EtiquetasDaClinica.Any(e => e.Id == x && !e.Archived) && !c.Labels.Contains(x)) is { } estranha)
+                throw new RecusaDoCrm($"Etiqueta desconhecida: {estranha}.", 400);
+            c.Labels.Clear(); c.Labels.AddRange(novas);
+            c.UpdatedAt = DateTimeOffset.UtcNow;
+            return Foto(c);
+        }
+    }
+
+    public async Task<AppConversation> EstrelarAsync(int usuarioId, string conversaId, string mensagemId, AppStar estrela, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava)
+        {
+            var c = Achar(conversaId);
+            var i = c.Messages.FindIndex(m => m.Id == mensagemId);
+            if (i < 0) throw new RecusaDoCrm("Mensagem não encontrada nesta conversa.", 404);
+            c.Messages[i] = c.Messages[i] with { Starred = estrela.Starred };
+            c.UpdatedAt = DateTimeOffset.UtcNow;
+            return Foto(c);
+        }
+    }
+
+    public async Task<AppPins> FixadasAsync(int usuarioId, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava) return new AppPins(fixadas.ToArray(), 3);
+    }
+
+    public async Task<AppPins> FixarAsync(int usuarioId, string conversaId, AppPin fixar, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava)
+        {
+            _ = Achar(conversaId);
+            if (fixar.Pinned && !fixadas.Contains(conversaId))
+            {
+                if (fixadas.Count >= 3) throw new RecusaDoCrm("Você já fixou 3 conversas. Desafixe uma para fixar esta.", 409);
+                fixadas.Add(conversaId);
+            }
+            else if (!fixar.Pinned) fixadas.Remove(conversaId);
+            return new AppPins(fixadas.ToArray(), 3);
+        }
+    }
+
+    public async Task<AppTyping> EscrevendoAsync(int usuarioId, string conversaId, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava) { _ = Achar(conversaId); return new AppTyping(EscrevendoNaPrevia.GetValueOrDefault(conversaId, [])); }
+    }
+
+    public async Task<AppTyping> QuemEscreveAsync(int usuarioId, string conversaId, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava) { _ = Achar(conversaId); return new AppTyping(EscrevendoNaPrevia.GetValueOrDefault(conversaId, [])); }
+    }
+
+    public async Task ParouDeEscreverAsync(int usuarioId, string conversaId, CancellationToken ct = default)
+    {
+        await EntrarAsync(ct);
+        lock (trava) _ = Achar(conversaId);
+    }
+
     /// <summary>Os pulsos de presença que chegaram (25/10): o teste confere que o vigia pulsa e que para.</summary>
     public int Pulsos { get; private set; }
 
@@ -1423,7 +1739,8 @@ public sealed class CrmDeMentira : IClienteDoCrm
 
     private AppConversation Foto(Conversa c) => new(c.Id, c.Name, c.Contact, c.Channel, c.Sender, c.Queue, c.AgentId, c.Closed,
         c.Version, c.UpdatedAt, c.LastIncoming, c.PatientId, c.PatientName, c.Messages.ToArray(), c.Notes.ToArray(),
-        c.Audit.OrderBy(a => a.At).ToArray(), c.Resolutions.ToArray(), c.ClosedAt, c.Pedido);
+        c.Audit.OrderBy(a => a.At).ToArray(), c.Resolutions.ToArray(), c.ClosedAt, c.Pedido,
+        Labels: c.Labels.ToArray(), Typing: EscrevendoNaPrevia.GetValueOrDefault(c.Id, []), Scheduled: c.Agendadas.ToArray());
 
     private AppConversationSummary Linha(Conversa c, int usuarioId)
     {
@@ -1437,7 +1754,7 @@ public sealed class CrmDeMentira : IClienteDoCrm
             PreviewDirection: ultima?.Direction ?? "in", PreviewStatus: ultima?.Status ?? "",
             // A regra do CRM (Program.cs): a etiqueta só vale enquanto o paciente espera a clínica.
             Semdor: SemDor != ModoDoSemDor.Desligado && !c.Closed && ultima?.Direction == "in" ? Etiquetas.GetValueOrDefault(c.Id) : null,
-            PendingTransfer: c.Pedido);
+            PendingTransfer: c.Pedido, Labels: c.Labels.ToArray(), Pinned: fixadas.Contains(c.Id));
     }
 
     private sealed record Anexo(string Id, string ConversaId, string Nome, string Mime, byte[] Bytes);
@@ -1464,6 +1781,10 @@ public sealed class CrmDeMentira : IClienteDoCrm
         public List<AppAudit> Audit { get; } = new();
         public List<AppResolution> Resolutions { get; } = new();
         public int NaoLidasIniciais { get; set; }
+        /// <summary>As etiquetas da conversa (ids de <see cref="EtiquetasDaClinica"/>), como o CRM guarda (§15).</summary>
+        public List<string> Labels { get; } = new();
+        /// <summary>"Enviar mais tarde" (§16), como o CRM devolve em AppConversation.Scheduled.</summary>
+        public List<AppScheduledMessage> Agendadas { get; } = new();
 
         /// <summary>O pedido de transferência para uma pessoa que espera o aceite (o AppPendingTransfer do CRM).</summary>
         public AppPendingTransfer? Pedido { get; private set; }
@@ -1624,7 +1945,12 @@ public sealed class CrmDeMentira : IClienteDoCrm
         // ----- Novo contato: sem ficha, duas mensagens sem resposta.
         var novo = new Conversa(Ids.NovoContato, PessoasDoWhatsApp.NovoContato.NoCrm, PessoasDoWhatsApp.NovoContato.NoCrm, RemetenteWhatsApp)
             { NaoLidasIniciais = 2 };
-        novo.Recebida(T(0, 9, 29), "Bom dia, gostaria de saber o valor da acupuntura")
+        // O menu automático do CRM antes de alguém entrar (F3, pedido do dono 24/11: a tela o mostra COMPACTO, numa linha).
+        novo.Enviada(T(0, 9, 26), "automation", "Olá! Para agilizar, escolha o atendimento:\n\n1. Clínica da dor\n_Bloqueios e infiltrações._\n\n"
+                + "2. Acupuntura\n_Sessões com hora marcada._\n\n3. Outras especialidades\n_Consultas com a equipe._", "seen")
+            .Recebida(T(0, 9, 27), "2")
+            .Enviada(T(0, 9, 27), "automation", "Certo! Seu atendimento foi encaminhado para *Acupuntura*. Em instantes nossa equipe continua por aqui.", "seen")
+            .Recebida(T(0, 9, 29), "Bom dia, gostaria de saber o valor da acupuntura")
             .Recebida(T(0, 9, 30), "É para a minha mãe, 72 anos, dor no joelho");
         lista.Add(novo);
 
@@ -1680,6 +2006,10 @@ public sealed class CrmDeMentira : IClienteDoCrm
             .Evento(T(-1, 17, 3), "Agenda da clínica", "Clínica confirmou remarcação do horário #1. Nenhuma mensagem enviada ao paciente.")
             .EnviadaComAnexo(T(-1, 17, 3, 10), Eu, "Seguem as orientações para o dia do BSV.", "DOCUMENT", MidiaDeExemplo.Orientacoes, "seen")
             .Enviada(T(-1, 17, 3, 30), Eu, $"Fica combinado então, Roberto. Até {RelogioDaPrevia.DiaDaSemana(sessaoRoberto)}!", "delivered");
+        // O "Serve sim" responde CITANDO a oferta (nov/2026, a citação do WhatsApp na prévia): o balão mostra o bloco e leva a ela.
+        var oferta = roberto.Messages.First(m => m.Direction == "out" && m.Text.StartsWith("Boa tarde, Roberto!", StringComparison.Ordinal));
+        var serveSim = roberto.Messages.FindIndex(m => m.Text == "Serve sim");
+        roberto.Messages[serveSim] = roberto.Messages[serveSim] with { ReplyToId = oferta.Id };
         lista.Add(roberto);
 
         // ----- Fernanda: retenção — o convite foi ontem, pelo modelo (a janela estava fechada desde a última sessão).

@@ -16,7 +16,13 @@ namespace Clinica.Tests;
 // leitura. A lista de tabelas é a parte frágil: uma que faltar vira 42501 na clínica, e os
 // outros testes rodam como superusuário e nunca veriam. Aqui os fluxos da ponte rodam com
 // ESTE arquivo aplicado, conectados como ponte_crm e com a estratégia que repete do
-// AddClinica. Só no Postgres (CLINICA_TESTES_POSTGRES): o SQLite não tem permissão nenhuma.
+// AddClinica — no Postgres (CLINICA_TESTES_POSTGRES), onde a permissão é de verdade.
+//
+// ⚠️ E no CI, que roda SÓ SQLite (nov/2026): o SQLite não tem permissão, então os MESMOS fluxos
+// rodam com um interceptador que anota cada INSERT/UPDATE/DELETE da ponte e, ao fim do teste,
+// confere contra a lista do papel-ponte-crm.sql. Foi assim que a fila de envios parou em
+// produção (42501 no claim): a regra estava no arquivo, mas nada rodava este teste no CI. Fluxo
+// novo que grave em tabela fora da lista agora reprova no PR.
 public sealed class PontePapelRestritoTests : IDisposable
 {
     const string Fone = "5511999990001";
@@ -24,13 +30,20 @@ public sealed class PontePapelRestritoTests : IDisposable
     readonly SqliteConnection conexao = new("Data Source=:memory:");
     readonly ClinicaDbContext admin;
     readonly ClinicaDbContext? ponte;
+    readonly GravacoesDaPonte? gravacoes;
 
     public PontePapelRestritoTests()
     {
         conexao.Open();
         admin = new(new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(conexao).Options);
         admin.Database.EnsureCreated();
-        if (!BancoDosTestes.NoPostgres) return;
+        if (!BancoDosTestes.NoPostgres)
+        {
+            // SQLite (o CI): a mesma base, e cada gravação da ponte anotada para a conferência do fim.
+            gravacoes = new GravacoesDaPonte();
+            ponte = new(new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(conexao).AddInterceptors(gravacoes).Options);
+            return;
+        }
 
         var cadeia = new NpgsqlConnectionStringBuilder(admin.Database.GetConnectionString());
         var dono = cadeia.Username!;
@@ -43,6 +56,41 @@ public sealed class PontePapelRestritoTests : IDisposable
         cadeia.Username = "ponte_crm"; cadeia.Password = Senha;
         ponte = new(new DbContextOptionsBuilder<ClinicaDbContext>()
             .UseNpgsql(cadeia.ConnectionString, o => o.EnableRetryOnFailure(3, TimeSpan.FromSeconds(1), null)).Options);
+    }
+
+    /// <summary>
+    /// O que a ponte NÃO pode fazer. No Postgres, recusado com 42501; no SQLite não há permissão para
+    /// provar, e rodar o comando anotaria uma gravação que não existe — a conferência é a do Postgres.
+    /// </summary>
+    async Task Negado(Func<Task> acao)
+    {
+        if (!BancoDosTestes.NoPostgres) return;
+        var e = await Assert.ThrowsAnyAsync<Exception>(acao);
+        Assert.Contains("42501", e.ToString());
+    }
+
+    /// <summary>{tabela → privilégios} que o papel-ponte-crm.sql concede (a lista do FOREACH e o GRANT por coluna).</summary>
+    internal static IReadOnlyDictionary<string, HashSet<string>> Concessoes(string sql)
+    {
+        var mapa = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        void Add(string tabela, string priv) { if (!mapa.TryGetValue(tabela, out var c)) mapa[tabela] = c = new(StringComparer.Ordinal); c.Add(priv); }
+        foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(sql, @"\['(\w+)','([^']+)'\]"))
+            foreach (var priv in m.Groups[2].Value.Split(','))
+                Add(m.Groups[1].Value, System.Text.RegularExpressions.Regex.Replace(priv, @"\(.*\)", "").Trim());
+        foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(sql, @"GRANT (\w+) \([^)]*\) ON public\.""(\w+)"""))
+            Add(m.Groups[2].Value, m.Groups[1].Value);
+        return mapa;
+    }
+
+    [Fact] public void A_lista_do_arquivo_e_lida_pela_conferencia()
+    {
+        var c = Concessoes(File.ReadAllText(Arquivo()));
+        Assert.Contains("UPDATE", c["EnviosPacienteCrm"]);
+        Assert.DoesNotContain("INSERT", c["EnviosPacienteCrm"]);
+        Assert.Contains("INSERT", c["AvisosDeLiberacao"]);
+        Assert.Contains("UPDATE", c["LiberacoesDeTrava"]);
+        Assert.Contains("UPDATE", c["Usuarios"]);
+        Assert.Equal(["INSERT"], c["Auditoria"]);
     }
 
     static string Arquivo()
@@ -68,17 +116,13 @@ public sealed class PontePapelRestritoTests : IDisposable
 
     [Fact] public async Task O_papel_nao_grava_fora_da_lista()
     {
-        if (!BancoDosTestes.NoPostgres) return;
         await Horario();
-        var e = await Assert.ThrowsAnyAsync<Exception>(() => ponte!.Database.ExecuteSqlRawAsync("UPDATE \"Usuarios\" SET \"Nome\" = \"Nome\""));
-        Assert.Contains("42501", e.ToString());
-        e = await Assert.ThrowsAnyAsync<Exception>(() => ponte!.Database.ExecuteSqlRawAsync("DELETE FROM \"Agendamentos\""));
-        Assert.Contains("42501", e.ToString());
+        await Negado(() => ponte!.Database.ExecuteSqlRawAsync("UPDATE \"Usuarios\" SET \"Nome\" = \"Nome\""));
+        await Negado(() => ponte!.Database.ExecuteSqlRawAsync("DELETE FROM \"Agendamentos\""));
     }
 
     [Fact] public async Task Confirmar_pelo_lembrete()
     {
-        if (!BancoDosTestes.NoPostgres) return;
         var a = await Horario(); var (_, agenda) = Servicos();
         var r = await new ClinicAgendaBridge(ponte!, agenda).Decide(new(Guid.NewGuid().ToString("N"), a.Id, ClinicAgendaBridge.Revision(a), Fone, "confirm", "msg-1"), default);
         Assert.Equal("confirmed", r.Status);
@@ -86,7 +130,6 @@ public sealed class PontePapelRestritoTests : IDisposable
 
     [Fact] public async Task Marcar_com_guia_no_agendamento_e_cancelar()
     {
-        if (!BancoDosTestes.NoPostgres) return;
         await new ParametrosService(new ClinicaRepositorio(admin)).DefinirGuiaNoAgendamentoAsync(true);
         var a = await Horario(); var (repo, agenda) = Servicos();
         var bridge = new ClinicBookingBridge(ponte!, agenda, repo);
@@ -105,7 +148,6 @@ public sealed class PontePapelRestritoTests : IDisposable
 
     [Fact] public async Task Remarcar()
     {
-        if (!BancoDosTestes.NoPostgres) return;
         var a = await Horario(); var (repo, agenda) = Servicos();
         var bridge = new ClinicSchedulingBridge(ponte!, agenda, new BuscaDeVagasService(repo));
         var from = new DateTimeOffset(DateTime.SpecifyKind(DateTime.Today.AddDays(1).AddHours(9), DateTimeKind.Unspecified), TimeSpan.FromHours(-3));
@@ -117,7 +159,6 @@ public sealed class PontePapelRestritoTests : IDisposable
 
     [Fact] public async Task Registrar_o_recall()
     {
-        if (!BancoDosTestes.NoPostgres) return;
         var a = await Horario();
         await new ClinicRecallBridge(ponte!).Notice(new(Guid.NewGuid().ToString("N"), a.PacienteId, null, "sms:1", DateTimeOffset.UtcNow, "sms"), default);
         Assert.Single(await admin.Contatos.ToListAsync());
@@ -125,7 +166,6 @@ public sealed class PontePapelRestritoTests : IDisposable
 
     [Fact] public async Task Gravar_o_resumo_do_dia()
     {
-        if (!BancoDosTestes.NoPostgres) return;
         var bridge = new ClinicSummaryBridge(ponte!);
         var dia = DateOnly.FromDateTime(DateTime.Today.AddDays(-1));
         await bridge.Daily(new(dia, DateTimeOffset.UtcNow.AddMinutes(-1), 3, 2, 1, 10, 9, 90, 4, 2, 2, 0, 3, 2, 1, 1, 0), default);
@@ -138,7 +178,6 @@ public sealed class PontePapelRestritoTests : IDisposable
     // SMS 24h que este arquivo testava saiu: quem manda SMS é só o CRM.)
     [Fact] public async Task O_PARAR_revoga_a_autorizacao_de_mensagens()
     {
-        if (!BancoDosTestes.NoPostgres) return;
         var a = await Horario();
         admin.Consentimentos.Add(new() { PacienteId = a.PacienteId, Finalidade = FinalidadeConsentimento.ComunicacaoEMarketing, Concedido = true });
         await admin.SaveChangesAsync();
@@ -152,7 +191,6 @@ public sealed class PontePapelRestritoTests : IDisposable
     // EnviosPacienteCrm e mais nada. Sem a linha no papel-ponte-crm.sql, reprova com 42501.
     [Fact] public async Task Fila_de_envios_ao_paciente()
     {
-        if (!BancoDosTestes.NoPostgres) return;
         QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
         var a = await Horario();
         var repoAdmin = new ClinicaRepositorio(admin);
@@ -168,15 +206,13 @@ public sealed class PontePapelRestritoTests : IDisposable
         Assert.Equal("accepted", (await fila.RegistrarAsync(item.Id, "crm-1", "accepted", "ok")).Estado);
         Assert.Equal("accepted", (await admin.EnviosPacienteCrm.AsNoTracking().SingleAsync()).Estado);
 
-        var e = await Assert.ThrowsAnyAsync<Exception>(() => ponte!.Database.ExecuteSqlRawAsync("DELETE FROM \"EnviosPacienteCrm\""));
-        Assert.Contains("42501", e.ToString());
+        await Negado(() => ponte!.Database.ExecuteSqlRawAsync("DELETE FROM \"EnviosPacienteCrm\""));
     }
 
     // O documento pedido pelo WhatsApp (@SemDor fase 4): a ponte grava a conversa e o RASCUNHO,
     // e nada em DocumentosClinicos — quem emite é o portal.
     [Fact] public async Task Documento_pelo_WhatsApp_grava_so_o_rascunho()
     {
-        if (!BancoDosTestes.NoPostgres) return;
         var a = await Horario();
         admin.Usuarios.Add(new UsuarioSistema { Login = "medica", Nome = "Médica fictícia", Perfil = PerfilAcesso.Profissional,
             ProfissionalId = a.ProfissionalId, TelefoneWhatsApp = "5522999422253", WhatsAppLigadoEm = DateTime.Today.AddDays(-1) });
@@ -188,15 +224,13 @@ public sealed class PontePapelRestritoTests : IDisposable
         var p = await admin.PedidosDocumentoWhatsApp.AsNoTracking().SingleAsync();
         Assert.Equal((a.PacienteId, "comparecimento"), (p.PacienteId, p.Tipo));
 
-        var e = await Assert.ThrowsAnyAsync<Exception>(() => ponte!.Database.ExecuteSqlRawAsync("UPDATE \"PedidosDocumentoWhatsApp\" SET \"AbertoEm\" = now()"));
-        Assert.Contains("42501", e.ToString());
+        await Negado(() => ponte!.Database.ExecuteSqlRawAsync("UPDATE \"PedidosDocumentoWhatsApp\" SET \"AbertoEm\" = now()"));
     }
 
     // O CRM dentro da Recepção: o app grava o bilhete; a ponte só o gasta (UsadoEm), e não cria
     // bilhete nem mexe em outra coluna — com esta credencial ninguém fabrica entrada no CRM.
     [Fact] public async Task Bilhete_da_Recepcao_a_ponte_so_gasta()
     {
-        if (!BancoDosTestes.NoPostgres) return;
         var ana = new UsuarioSistema { Login = "ana-bilhete", Nome = "Ana", Perfil = PerfilAcesso.Recepcao };
         admin.Usuarios.Add(ana); await admin.SaveChangesAsync();
         var bilhete = await new EntradaNoCrmService(admin).EmitirAsync(ana.Id);
@@ -204,17 +238,14 @@ public sealed class PontePapelRestritoTests : IDisposable
         Assert.Equal(ana.Id, await new EntradaNoCrmService(ponte!).ConferirAsync(bilhete));
         Assert.Null(await new EntradaNoCrmService(ponte!).ConferirAsync(bilhete));
 
-        var e = await Assert.ThrowsAnyAsync<Exception>(() => new EntradaNoCrmService(ponte!).EmitirAsync(ana.Id));
-        Assert.Contains("42501", e.ToString());
-        e = await Assert.ThrowsAnyAsync<Exception>(() => ponte!.Database.ExecuteSqlRawAsync("UPDATE \"BilhetesEntradaCrm\" SET \"VenceEm\" = now()"));
-        Assert.Contains("42501", e.ToString());
+        await Negado(() => new EntradaNoCrmService(ponte!).EmitirAsync(ana.Id));
+        await Negado(() => ponte!.Database.ExecuteSqlRawAsync("UPDATE \"BilhetesEntradaCrm\" SET \"VenceEm\" = now()"));
     }
 
     // O @SemDor com IA nos apps (Clinica#307): ler a fila (pulso), responder a releitura no chat e
     // substituir a lista de avisos — e nada além: a pergunta não se apaga pela ponte.
     [Fact] public async Task SemDor_nos_apps_fila_e_avisos()
     {
-        if (!BancoDosTestes.NoPostgres) return;
         await Horario(0, DateTime.Today.AddHours(10));
         var ana = new UsuarioSistema { Login = "ana-semdor", Nome = "Ana", Perfil = PerfilAcesso.Recepcao };
         admin.Usuarios.Add(ana);
@@ -234,15 +265,13 @@ public sealed class PontePapelRestritoTests : IDisposable
         Assert.Equal("recorded", (await bridge.Alerts(new(agora, []), default)).Status);
         Assert.Equal(0, await admin.AvisosDoSemDor.CountAsync());
 
-        var e = await Assert.ThrowsAnyAsync<Exception>(() => ponte!.Database.ExecuteSqlRawAsync("DELETE FROM \"PerguntasAoSemDor\""));
-        Assert.Contains("42501", e.ToString());
+        await Negado(() => ponte!.Database.ExecuteSqlRawAsync("DELETE FROM \"PerguntasAoSemDor\""));
     }
 
     // O login do CRM conta tentativas, trava e marca o último acesso — e só essas colunas: a
     // senha e as permissões continuam fora do alcance do usuário da ponte.
     [Fact] public async Task Login_do_CRM_com_o_usuario_do_sistema()
     {
-        if (!BancoDosTestes.NoPostgres) return;
         var (hash, sal) = HashSenha.Gerar("senha-boa-do-balcao");
         admin.Usuarios.Add(new UsuarioSistema { Login = "ana", Nome = "Ana", Perfil = PerfilAcesso.Recepcao, SenhaHash = hash, SenhaSalt = sal });
         await admin.SaveChangesAsync();
@@ -254,13 +283,93 @@ public sealed class PontePapelRestritoTests : IDisposable
         // A migration da fase 1 do @SemDor semeia o usuário técnico: procurar pelo login.
         Assert.NotNull((await admin.Usuarios.AsNoTracking().SingleAsync(u => u.Login == "ana")).BloqueadoAte);
 
-        var e = await Assert.ThrowsAnyAsync<Exception>(() => ponte!.Database.ExecuteSqlRawAsync("UPDATE \"Usuarios\" SET \"SenhaHash\" = 'x'"));
-        Assert.Contains("42501", e.ToString());
+        await Negado(() => ponte!.Database.ExecuteSqlRawAsync("UPDATE \"Usuarios\" SET \"SenhaHash\" = 'x'"));
+    }
+
+    // A liberação da trava de consulta (nov/2026): o pedido nasce no app (aqui, o admin); pelo
+    // WhatsApp a gerência decide — a ponte grava a decisão, marca o horário pela agenda, conta à
+    // secretária e registra o aviso que o CRM entrega. Sem LiberacoesDeTrava/AvisosDeLiberacao no
+    // papel, isto parava com 42501 na clínica (foi aplicado à mão em nov/2026).
+    [Fact] public async Task Liberacao_da_trava_pela_gerencia_no_WhatsApp()
+    {
+        var a = await Horario();
+        var secretaria = new UsuarioSistema { Login = "rayssa", Nome = "Rayssa", Perfil = PerfilAcesso.Recepcao, Ativo = true,
+            TelefoneWhatsApp = "5522999990002", WhatsAppLigadoEm = DateTime.Today.AddDays(-1) };
+        var gerente = new UsuarioSistema { Login = "ana-gerente", Nome = "Ana Gerente", Perfil = PerfilAcesso.Gerente, Ativo = true,
+            AprovaLiberacaoDeTrava = true, TelefoneWhatsApp = "5522999990001", WhatsAppLigadoEm = DateTime.Today.AddDays(-1) };
+        admin.Usuarios.AddRange(secretaria, gerente);
+        await admin.SaveChangesAsync();
+        var quando = DateTime.Today.AddDays(6).AddHours(15);
+        admin.LiberacoesDeTrava.Add(new LiberacaoDeTrava
+        {
+            PacienteId = a.PacienteId, PacienteNome = "Pessoa fictícia", ConvenioNome = "Unimed", DataHora = quando,
+            ProfissionalId = a.ProfissionalId, ProfissionalNome = "Profissional fictício", DuracaoMinutos = 30,
+            ModalidadeCodigo = "Consulta", PrazoDias = 15, ConsultaAnteriorEm = a.DataHora, Motivo = "Retorno com exames (fictício)",
+            PedidoPorId = secretaria.Id, PedidoPorNome = secretaria.Nome, PedidoEm = DateTime.Now, ExpiraEm = DateTime.Now.AddHours(12)
+        });
+        await admin.SaveChangesAsync();
+        var eu = await ponte!.Usuarios.AsNoTracking().SingleAsync(u => u.Id == gerente.Id);
+
+        var resposta = await LiberacaoDeTravaService.Sobre(ponte).DecidirPorTextoAsync(eu, "sim", "whatsapp");
+        Assert.Contains("LIBERADO", resposta);
+        Assert.Equal(LiberacaoDeTrava.Liberada, (await admin.LiberacoesDeTrava.AsNoTracking().SingleAsync()).Estado);
+
+        var avisos = await LiberacaoDeTravaService.Sobre(ponte).AvisosParaEquipeAsync();
+        Assert.NotEmpty(avisos);
+        foreach (var aviso in avisos) await LiberacaoDeTravaService.Sobre(ponte).ConfirmarAvisoAsync(aviso.Id, true, null);
+
+        await Negado(() => ponte.Database.ExecuteSqlRawAsync("DELETE FROM \"LiberacoesDeTrava\""));
     }
 
     public void Dispose()
     {
+        // SQLite (o CI): toda gravação que a ponte fez neste teste precisa estar no papel-ponte-crm.sql.
+        if (gravacoes is not null)
+        {
+            var concedido = Concessoes(File.ReadAllText(Arquivo()));
+            var fora = gravacoes.Feitas.Where(g => !concedido.TryGetValue(g.Tabela, out var p) || !p.Contains(g.Privilegio))
+                .Select(g => $"{g.Privilegio} em \"{g.Tabela}\"").Distinct().OrderBy(x => x).ToList();
+            ponte?.Dispose(); admin.Dispose(); conexao.Dispose();
+            Assert.True(fora.Count == 0,
+                "A ponte grava fora do papel-ponte-crm.sql (em produção, 42501): " + string.Join(", ", fora)
+                + ". Acrescente a linha no arquivo — o deploy do portal a reaplica.");
+            return;
+        }
         if (ponte is not null) { NpgsqlConnection.ClearPool(new NpgsqlConnection(ponte.Database.GetConnectionString())); ponte.Dispose(); }
         admin.Dispose(); conexao.Dispose();
     }
+}
+
+/// <summary>Anota as gravações (INSERT/UPDATE/DELETE, por tabela) que um contexto manda ao banco.</summary>
+internal sealed class GravacoesDaPonte : Microsoft.EntityFrameworkCore.Diagnostics.DbCommandInterceptor
+{
+    static readonly System.Text.RegularExpressions.Regex Comando = new(
+        @"\b(INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+""(\w+)""", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+    readonly System.Collections.Concurrent.ConcurrentBag<(string Privilegio, string Tabela)> feitas = [];
+    public IReadOnlyCollection<(string Privilegio, string Tabela)> Feitas => feitas;
+
+    void Anotar(System.Data.Common.DbCommand c)
+    {
+        foreach (System.Text.RegularExpressions.Match m in Comando.Matches(c.CommandText))
+            feitas.Add((m.Groups[1].Value.Split(' ', '\t', '\n', '\r')[0].ToUpperInvariant(), m.Groups[2].Value));
+    }
+
+    public override Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<int> NonQueryExecuting(System.Data.Common.DbCommand c,
+        Microsoft.EntityFrameworkCore.Diagnostics.CommandEventData e, Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<int> r)
+    { Anotar(c); return r; }
+    public override ValueTask<Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<int>> NonQueryExecutingAsync(System.Data.Common.DbCommand c,
+        Microsoft.EntityFrameworkCore.Diagnostics.CommandEventData e, Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<int> r, CancellationToken ct = default)
+    { Anotar(c); return ValueTask.FromResult(r); }
+    public override Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<System.Data.Common.DbDataReader> ReaderExecuting(System.Data.Common.DbCommand c,
+        Microsoft.EntityFrameworkCore.Diagnostics.CommandEventData e, Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<System.Data.Common.DbDataReader> r)
+    { Anotar(c); return r; }
+    public override ValueTask<Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<System.Data.Common.DbDataReader>> ReaderExecutingAsync(System.Data.Common.DbCommand c,
+        Microsoft.EntityFrameworkCore.Diagnostics.CommandEventData e, Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<System.Data.Common.DbDataReader> r, CancellationToken ct = default)
+    { Anotar(c); return ValueTask.FromResult(r); }
+    public override Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<object> ScalarExecuting(System.Data.Common.DbCommand c,
+        Microsoft.EntityFrameworkCore.Diagnostics.CommandEventData e, Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<object> r)
+    { Anotar(c); return r; }
+    public override ValueTask<Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<object>> ScalarExecutingAsync(System.Data.Common.DbCommand c,
+        Microsoft.EntityFrameworkCore.Diagnostics.CommandEventData e, Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<object> r, CancellationToken ct = default)
+    { Anotar(c); return ValueTask.FromResult(r); }
 }

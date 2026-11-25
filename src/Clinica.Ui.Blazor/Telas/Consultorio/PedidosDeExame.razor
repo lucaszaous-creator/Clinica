@@ -109,7 +109,7 @@
 @if (_novoPedido)
 {
     <DocumentoForm Tipo="TipoDocumentoClinico.PedidoExame" TituloDaEscolha="Novo pedido de exame — para quem?"
-                   AoFechar="FecharPedidoAsync" AoConcluir="ConcluirPedidoAsync" />
+                   AoFechar="FecharPedidoAsync" AoConcluir="ConcluirPedidoAsync" Continuar="true" AoEmitir="EmitiuPedidoAsync" />
 }
 @if (_registrandoDe is { } registro)
 {
@@ -210,6 +210,9 @@
         _novoPedido = false;
         await CarregarAsync(silencioso: true);
     }
+
+    /// <summary>Saiu um pedido com a folha aberta (várias seguidas, nov/2026): a lista relê, e a folha fica para o próximo.</summary>
+    private Task EmitiuPedidoAsync(DocumentoForm.Emitido emitido) => CarregarAsync(silencioso: true);
 
     private async Task ConcluirPedidoAsync(DocumentoForm.Emitido emitido)
     {

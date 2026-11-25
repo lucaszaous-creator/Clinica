@@ -56,7 +56,13 @@ public enum OrigemAcessoProntuario
     /// TEXTO dentro da ação e a leitura casa por prefixo — nenhuma consulta de app velho
     /// quebra por causa dela.
     /// </summary>
-    WebDeLeitura
+    WebDeLeitura,
+
+    /// <summary>
+    /// A ESCUTA PÓS-SESSÃO (nov/2026): a Ficha 360 mostrou como o paciente disse que está. Origem própria: quem
+    /// cuida da retenção lê um pedaço de dado de saúde fora do prontuário, e a trilha precisa dizer onde.
+    /// </summary>
+    EscutaPosSessao
 }
 
 /// <summary>
@@ -251,6 +257,7 @@ public sealed class AcessoProntuarioService
         // justamente a distinção que o valor novo existe para dar.
         OrigemAcessoProntuario.SalaInfusao => "Sala de infusão aberta",
         OrigemAcessoProntuario.WebDeLeitura => "Prontuário aberto pela web de leitura (fora da clínica)",
+        OrigemAcessoProntuario.EscutaPosSessao => "Escuta pós-sessão lida (Fila 360)",
         _ => "Prontuário acessado"
     };
 }

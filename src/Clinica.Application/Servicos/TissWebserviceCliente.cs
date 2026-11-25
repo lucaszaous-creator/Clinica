@@ -20,8 +20,6 @@ public sealed class TissWebserviceCliente(HttpClient http)
     /// <summary>Registro ANS da Saúde Petrobras (APS), o destino das mensagens.</summary>
     public const string RegistroAnsSaudePetrobras = "422631";
 
-    private const string BaseSaudePetrobras = "https://webservices.crc.com.br/tiss/ws/40100/";
-
     /// <summary>Envio de lote de guias da Saúde Petrobras (<see cref="TissLoteGuiasWs"/>).</summary>
     public static readonly Uri LoteGuiasSaudePetrobras = OperadorasTiss.SaudePetrobras.Endereco(Clinica.Domain.Entities.TipoTransacaoTiss.EnvioGuia)!;
 
@@ -35,7 +33,7 @@ public sealed class TissWebserviceCliente(HttpClient http)
     /// Demonstrativo de retorno (análise de conta e pagamento) da Saúde Petrobras. Só o endereço:
     /// a mensagem desta transação ainda não tem classe que a monte e leia.
     /// </summary>
-    public static readonly Uri DemonstrativoRetornoSaudePetrobras = new(BaseSaudePetrobras + "tissSolicitacaoDemonstrativoRetorno");
+    public static readonly Uri DemonstrativoRetornoSaudePetrobras = OperadorasTiss.SaudePetrobras.EnderecoDemonstrativo!;
 
     /// <summary>
     /// Verifica a elegibilidade de uma carteira. Falha de rede e resposta HTTP de erro sem corpo
@@ -61,7 +59,7 @@ public sealed class TissWebserviceCliente(HttpClient http)
     /// nunca como exceção — e nunca com a cara de recusa da operadora.
     /// </summary>
     public async Task<RespostaBrutaTissWs> EnviarAsync(Uri endereco, string envelope, CancellationToken cancelamento = default,
-        CodificacaoTissWs codificacao = CodificacaoTissWs.Iso88591)
+        CodificacaoTissWs codificacao = CodificacaoTissWs.Iso88591, string? soapAction = null)
     {
         Exigir(endereco.Scheme == Uri.UriSchemeHttps, "O web service TISS só é chamado por HTTPS: a mensagem leva login e dado de beneficiário.");
 
@@ -70,7 +68,9 @@ public sealed class TissWebserviceCliente(HttpClient http)
         using var conteudo = new ByteArrayContent(bytes);
         conteudo.Headers.ContentType = new MediaTypeHeaderValue("text/xml") { CharSet = charset };
         using var requisicao = new HttpRequestMessage(HttpMethod.Post, endereco) { Content = conteudo };
-        requisicao.Headers.TryAddWithoutValidation("SOAPAction", "\"\"");
+        // O WSDL do padrão diz soapAction="" (vai entre aspas). Um ponto único (a homologação da Amil)
+        // pode pedir outro: só os comandos de teste do servidor o mudam.
+        requisicao.Headers.TryAddWithoutValidation("SOAPAction", "\"" + (soapAction ?? string.Empty).Trim('"') + "\"");
 
         string corpo;
         int status;

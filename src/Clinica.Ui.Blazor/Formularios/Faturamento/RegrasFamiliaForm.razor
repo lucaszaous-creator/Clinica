@@ -32,6 +32,10 @@
                                 <input type="number" min="0" max="9999" class="campo" placeholder="Não renova" disabled="@(!PodeEditar)"
                                        aria-label="Validade da consulta, em dias" value="@p.ValidadeConsultaDias"
                                        @onchange="@(e => Mudar(() => p.ValidadeConsultaDias = int.TryParse(e.Value?.ToString(), out var v) && v >= 0 ? v : null))" />
+                                @if (ConfiguracoesFaturamentoNaTela.TravaComValidadeEmBranco(p.Convenio, p.ValidadeConsultaDias) is { } trava)
+                                {
+                                    <span class="campo-dica" data-trava-em-branco>@trava</span>
+                                }
                             </td>
                             <td>
                                 <input type="number" min="0" max="999" class="campo" disabled="@(!PodeEditar)"
@@ -55,7 +59,7 @@
                 </tbody>
             </table>
         </div>
-        <span class="campo-dica">Validade da consulta em branco: a família não exige renovar a consulta.</span>
+        <span class="campo-dica">@ConfiguracoesFaturamentoNaTela.NotaDaValidadeDaConsulta</span>
     </ChildContent>
     <Rodape>
         <span class="esquerda">As alterações valem quando você clicar em “Salvar configurações”, na tela de trás.</span>

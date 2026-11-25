@@ -1,7 +1,6 @@
-// As pontes da página com as telas (out/2026): atalhos de teclado, a moldura e o vídeo do
-// Treinamento. Num arquivo próprio para a página do app (index.html) e a prévia
-// (tools/PreviaBlazor) carregarem o MESMO código — uma cópia na prévia divergiria na primeira
-// mudança, e a gravação das videoaulas mostraria um atalho que o app não tem.
+// As pontes da página com as telas (out/2026): atalhos de teclado e a moldura. Num arquivo
+// próprio para a página do app (index.html) e a prévia (tools/PreviaBlazor) carregarem o MESMO
+// código — uma cópia na prévia divergiria na primeira mudança.
 // Atalhos de teclado das telas (Ctrl+S salvar, Ctrl+P imprimir/exportar, F5 atualizar):
 // com o navegador em foco o WPF não recebe a tecla, então a página a repassa à tela à
 // vista (PalcoDeTelas.Atalho). preventDefault impede o navegador de recarregar (F5) ou
@@ -17,6 +16,34 @@ window.clinicaAtalhos = {
             e.preventDefault();
             ref.invokeMethodAsync('Atalho', nome);
         });
+        // ATALHOS QUE A TELA PEDE (24/11/2026, F1b do "CRM com cara de WhatsApp"): Ctrl+F busca na tela,
+        // Ctrl+Alt+N abre o "novo" da tela, Esc fecha o que a tela tem aberto. Só para a tela À VISTA que os
+        // declara no elemento raiz: data-atalhos="buscar nova fechar" (um, dois ou os três). Sem a declaração,
+        // nada muda: Ctrl+F continua indo à busca de telas da moldura e Esc só fecha o que a moldura tem por cima.
+        // Na fase de CAPTURA, para o Ctrl+F da tela chegar antes do da moldura (e só ele, com stopPropagation).
+        // O Esc NÃO é engolido: a moldura e os campos continuam ouvindo — a tela decide o que fechar
+        // (TelaBase.AoAtalhoAsync(AtalhoDeTela.Fechar)) e o PalcoDeTelas já não repassa nada com pergunta ou
+        // formulário avulso aberto por cima.
+        document.addEventListener('keydown', function (e) {
+            if (e.isComposing) return;
+            var k = (e.key || '').toLowerCase(), pedido = null, nome = null;
+            if (e.ctrlKey && !e.altKey && !e.shiftKey && k === 'f') { pedido = 'buscar'; nome = 'Buscar'; }
+            else if (e.ctrlKey && e.altKey && !e.shiftKey && k === 'n') { pedido = 'nova'; nome = 'Nova'; }
+            else if (e.key === 'Escape' && !e.ctrlKey && !e.altKey && !e.shiftKey) { pedido = 'fechar'; nome = 'Fechar'; }
+            if (!pedido || !window.clinicaAtalhos.telaPede(pedido)) return;
+            if (pedido !== 'fechar') { e.preventDefault(); e.stopPropagation(); }
+            ref.invokeMethodAsync('Atalho', nome);
+        }, true);
+    },
+    // A tela à vista declara o atalho? (As telas ficam montadas e ocultas: vale a que está VISÍVEL.)
+    telaPede: function (pedido) {
+        var marcadas = document.querySelectorAll('[data-atalhos]');
+        for (var i = 0; i < marcadas.length; i++) {
+            var el = marcadas[i];
+            if (el.offsetParent === null && el.getClientRects().length === 0) continue;
+            if ((' ' + el.getAttribute('data-atalhos') + ' ').indexOf(' ' + pedido + ' ') >= 0) return true;
+        }
+        return false;
     }
 };
 // A MOLDURA (out/2026): Ctrl+F põe o cursor na busca de telas, Ctrl+B leva o foco ao
@@ -37,26 +64,6 @@ window.clinicaMoldura = {
             }
         });
     }
-};
-// O vídeo do Treinamento: começa de onde a pessoa parou, avisa a posição a cada 5 s e
-// ao pausar (é o que guarda o progresso), e avisa o fim e a falha.
-window.clinicaVideo = {
-    ligar: function (el, ref, inicio) {
-        if (!el) return;
-        var ultimo = -1;
-        el.addEventListener('loadedmetadata', function () {
-            if (inicio > 0 && isFinite(el.duration)) el.currentTime = Math.min(inicio, Math.max(0, el.duration - 1));
-        }, { once: true });
-        el.addEventListener('timeupdate', function () {
-            var bloco = Math.floor(el.currentTime / 5);
-            if (bloco !== ultimo) { ultimo = bloco; ref.invokeMethodAsync('Posicao', el.currentTime); }
-        });
-        el.addEventListener('pause', function () { if (!el.ended) ref.invokeMethodAsync('Posicao', el.currentTime); });
-        el.addEventListener('ended', function () { ref.invokeMethodAsync('Terminou'); });
-        el.addEventListener('error', function () { ref.invokeMethodAsync('Falhou'); });
-    },
-    ir: function (el, segundos) { if (el) { el.currentTime = segundos; el.play(); } },
-    pausar: function (el) { if (el && !el.paused) el.pause(); }
 };
 // A altura da janela, para o menu "⋯" da Agenda do dia abrir para CIMA quando não cabe
 // embaixo (out/2026). Sem ela o menu cobria o próprio botão na última linha.

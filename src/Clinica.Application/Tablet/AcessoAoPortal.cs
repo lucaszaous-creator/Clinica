@@ -23,6 +23,19 @@ public static class AcessoAoPortal
     public static bool PodeGestao(UsuarioSistema u)
         => u.Ativo && !u.DeveTrocarSenha && u.Perfil == PerfilAcesso.Gerente;
 
+    /// <summary>Colher assinatura de paciente no tablet (a coleta dos termos).</summary>
+    public static bool PodeColher(UsuarioSistema u) => u.Ativo && !u.DeveTrocarSenha
+        && u.Pode(Permissao.ColherAssinaturaPaciente) && u.Pode(Permissao.VerAgenda);
+
+    /// <summary>
+    /// A régua do POSTO (as telas do portal em /profissional/): colher assinatura ou atender. A API
+    /// decide os destinos com ela e a gestão web decide se mostra a porta "Meu dia" com ela —
+    /// a mesma função, para a porta nunca levar a um posto que recusaria a pessoa.
+    /// </summary>
+    /// <param name="atendimentoHabilitado">A chave <c>Portal:AtendimentoHabilitado</c> da instalação.</param>
+    public static bool PodePosto(UsuarioSistema u, bool atendimentoHabilitado)
+        => PodeColher(u) || (atendimentoHabilitado && PoliticaAtendimentoTablet.PodeUsarPosto(u));
+
     /// <param name="podePosto">A régua do posto, que mora no serviço do portal (depende da configuração do atendimento).</param>
     public static IReadOnlyList<string> Destinos(UsuarioSistema u, bool podePosto)
     {

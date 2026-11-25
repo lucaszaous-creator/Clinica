@@ -36,6 +36,40 @@ namespace Clinica.Tests;
 public class TraducaoNoNpgsqlTests
 {
     [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Conclusao_por_profissional_traduz_o_recorte_com_o_prazo_do_cadastro(bool comChegada)
+    {
+        using var db = Postgres();
+        var repo = new ClinicaRepositorio(db);
+        var sql = new ConclusaoAutomaticaService(db, repo, new(repo, new(repo)), new(repo))
+            .ConsultaAbertosDosProfissionaisComPrazo(new DateTime(2026, 11, 10, 19, 0, 0), comChegada, 0).ToQueryString();
+        sql.Should().Contain("ConcluirAutomaticamenteHoras").And.Contain("ChegadaEm").And.Contain("LIMIT");
+    }
+
+    [Fact]
+    public void Validade_do_A1_do_emitente_traduz_so_a_data()
+    {
+        using var db = Postgres();
+        var sql = new ClinicaRepositorio(db).ConsultaValidadeDoA1(7).ToQueryString();
+        sql.Should().Contain("ValidoAte").And.Contain("ProfissionalId").And.NotContain("ArquivoProtegido");
+    }
+
+    [Fact]
+    public void Relatorio_de_atendimentos_traduz_todos_os_filtros_no_banco()
+    {
+        using var db = Postgres();
+        var sql = new ClinicaRepositorio(db).ConsultaRelatorioDeAtendimentos(new FiltroRelatorioAtendimentos(
+            new DateOnly(2026, 11, 1), new DateOnly(2026, 11, 30), Modalidade: "BsvApenas", Especialidade: "Psiquiatria",
+            Convenio: "Amil", ProfissionalId: 3, Paciente: "ana")).ToQueryString();
+        sql.Should().Contain("ModalidadeCodigo").And.Contain("EspecialidadeConsultaCodigo").And.Contain("ConvenioCodigo")
+            .And.Contain("ProfissionalId").And.Contain("lower(").And.Contain("Codigos");
+        new ClinicaRepositorio(db).ConsultaRelatorioDeAtendimentos(new FiltroRelatorioAtendimentos(
+            new DateOnly(2026, 11, 1), new DateOnly(2026, 11, 30), Modalidade: "MODALIDADE-PERSONALIZADA", Convenio: "CVsulamerica"))
+            .ToQueryString().Should().Contain("ModalidadeCodigo");
+    }
+
+    [Theory]
     [InlineData(FiltroListaPacientes.Todos)]
     [InlineData(FiltroListaPacientes.EmTratamento)]
     [InlineData(FiltroListaPacientes.CadastroIncompleto)]
@@ -55,6 +89,15 @@ public class TraducaoNoNpgsqlTests
         using var db = Postgres();
         var sql = new ClinicaRepositorio(db).ConsultaFichasComTelefone(["22998765432", "5522998765432"], 6).ToQueryString();
         sql.Should().Contain("replace").And.Contain("LIMIT").And.NotContain("FotoMiniatura").And.NotContain("Observacoes");
+    }
+
+    [Fact]
+    public void Documentos_para_assinar_traduzem_com_a_lista_de_tipos()
+    {
+        // A MESMA leitura do /posto/pendencias e da aba "Para assinar" (nov/2026): Contains sobre o array de tipos.
+        using var db = Postgres();
+        var sql = db.DocumentosClinicos.Where(Clinica.Domain.Regras.DocumentosParaAssinar.Do(7)).ToQueryString();
+        sql.Should().Contain("AssinadoEm").And.Contain("PacienteAssinadoEm").And.Contain("CanceladoEm").And.Contain("ProfissionalId");
     }
 
     [Fact]
@@ -542,6 +585,31 @@ public class TraducaoNoNpgsqlTests
     /// arrastar os PDFs dos laudos — é por isso que os bytes moram em tabela 1:1
     /// (o padrão do retrato do paciente; a lição da parcela 74).
     /// </summary>
+    /// <summary>
+    /// A Escuta pós-sessão (nov/2026): a leitura por paciente (enum como texto) e a conferência das sessões já
+    /// escutadas (Contains + o filtro da escuta vigente) traduzem no Npgsql.
+    /// </summary>
+    [Fact]
+    public void As_consultas_da_escuta_pos_sessao_traduzem_no_postgres()
+    {
+        using var db = Postgres();
+
+        var pioras = db.EscutasPosSessao.AsNoTracking()
+            .Where(e => e.PacienteId == 1 && e.Como == ComoEstaPaciente.Pior && e.CanceladaEm == null)
+            .OrderByDescending(e => e.SessaoEm)
+            .ToQueryString();
+        pioras.Should().Contain("'Pior'", "o enum é gravado como TEXTO — a linha tem de ser legível em 20 anos");
+
+        var ids = new List<int> { 1, 2 };
+        var escutadas = db.EscutasPosSessao.AsNoTracking().Where(e => e.CanceladaEm == null && ids.Contains(e.AtendimentoId))
+            .Select(e => e.AtendimentoId).ToQueryString();
+        escutadas.Should().Contain("AtendimentoId");
+
+        var contatos = db.ContatosAcompanhamento.AsNoTracking().Where(c => c.Canal != null && c.Em >= new DateTime(2026, 6, 1))
+            .Select(c => new Clinica.Application.Abstracoes.ContatoNoTempo(c.AcompanhamentoPacienteId, c.Em)).ToQueryString();
+        contatos.Should().Contain("ContatosAcompanhamento");
+    }
+
     [Fact]
     public void A_lista_de_resultados_NAO_traz_os_bytes_do_laudo()
     {
@@ -987,6 +1055,27 @@ public class TraducaoNoNpgsqlTests
     }
 
     [Fact]
+    public void A_duplicidade_da_guia_no_envio_traduz_numa_ida_so_com_numeros()
+    {
+        using var db = Postgres();
+
+        var sql = new ClinicaRepositorio(db).ConsultaGuiasIguaisJaEnviadas("000123456789", "10101012", new DateOnly(2026, 11, 3), [1, 2]).ToQueryString();
+
+        sql.Should().Contain("\"TransacoesTissGuias\"").And.Contain("\"GuiasTissConsulta\"").And.Contain("EXISTS").And.Contain("DISTINCT")
+            .And.NotContain("XmlEnviado").And.NotContain("XmlRecebido");
+    }
+
+    [Fact]
+    public void Autorizacoes_dos_horarios_do_dia_traduzem_numa_ida()
+    {
+        using var db = Postgres();
+
+        var sql = new ClinicaRepositorio(db).ConsultaAutorizacoesDosAgendamentos([1, 2, 3]).ToQueryString();
+
+        sql.Should().Contain("\"AutorizacoesTiss\"").And.Contain("\"AgendamentoId\"").And.NotContain("JOIN");
+    }
+
+    [Fact]
     public void Elegibilidades_do_dia_para_a_agenda_traduzem_numa_ida_sem_os_xml()
     {
         using var db = Postgres();
@@ -1025,5 +1114,37 @@ public class TraducaoNoNpgsqlTests
         sql.Should().Contain("\"GuiasTissConsulta\"").And.Contain("\"Pacientes\"").And.Contain("NOT EXISTS")
             .And.Contain("\"TransacoesTissGuias\"").And.Contain("\"DataBaixa\" IS NULL").And.Contain("LIMIT");
         sql.Should().NotContain("FotoMiniatura");
+    }
+    [Fact]
+    public void Leituras_do_repasse_por_guia_recebida_traduzem_no_postgres()
+    {
+        using var db = Postgres();
+        var repo = new ClinicaRepositorio(db);
+        var ate = new DateOnly(2026, 9, 30);
+
+        var guias = repo.ConsultaReceitasDeGuiaParaRepasse(new DateOnly(2026, 1, 1), ate).ToQueryString();
+        var particulares = repo.ConsultaReceitasParticularesParaRepasse(null, ate).ToQueryString();
+        var estornos = repo.ConsultaCreditosRepasseSemReceita().ToQueryString();
+        var aguardando = repo.ConsultaGuiasBaixadasSemRecebimento(new DateOnly(2025, 10, 1), ate).ToQueryString();
+
+        guias.Should().Contain("\"ItensRepasse\"").And.Contain("NOT EXISTS").And.Contain("COALESCE").And.Contain("\"Lotes");
+        particulares.Should().Contain("\"ItensRepasse\"").And.Contain("\"Codigos\"").And.Contain("\"EstornadoEm\" IS NULL");
+        estornos.Should().Contain("\"ItemEstornadoId\"").And.Contain("\"Lancamentos").And.Contain("\"Atendimentos\"");
+        aguardando.Should().Contain("\"DataBaixa\"").And.Contain("EXISTS").And.Contain("ORDER BY");
+    }
+    [Theory]
+    [InlineData(SituacaoNoRelatorioRepasse.ConferidosEPagos)]
+    [InlineData(SituacaoNoRelatorioRepasse.SoPagos)]
+    [InlineData(SituacaoNoRelatorioRepasse.SoAPagar)]
+    [InlineData(SituacaoNoRelatorioRepasse.IncluirCancelados)]
+    public void Relatorio_de_repasse_traduz_todos_os_filtros_no_postgres(SituacaoNoRelatorioRepasse situacao)
+    {
+        using var db = Postgres();
+        var sql = new ClinicaRepositorio(db).ConsultaRelatorioRepasse(new FiltroRelatorioRepasse(
+            new DateOnly(2026, 9, 1), new DateOnly(2026, 11, 1), 3, "Amil", situacao, "José")).ToQueryString();
+
+        sql.Should().Contain("\"ItensRepasse\"").And.Contain("\"RepassesFechamentos\"").And.Contain("\"Competencia\"")
+            .And.Contain("\"ProfissionalId\"").And.Contain("\"ConvenioCodigo\"").And.Contain("LIKE").And.Contain("lower(");
+        if (situacao != SituacaoNoRelatorioRepasse.IncluirCancelados) sql.Should().Contain("\"CanceladoEm\" IS NULL");
     }
 }

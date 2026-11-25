@@ -9,7 +9,7 @@
 .df-abas{margin-bottom:var(--space-2)}
 
 /* Topo da aba Folha: a régua dos papéis e o atalho para os modelos. */
-.df-topo{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3)}
+.df-topo{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--space-3);margin-top:var(--space-2)}
 .df-tipos{display:flex;flex-wrap:wrap;gap:var(--space-2)}
 
 /* A folha: o papel sobre o fundo, com a assinatura logo depois do texto. */
@@ -79,6 +79,82 @@
 .df-acoes-modelo{display:flex;flex-wrap:wrap;gap:var(--space-2)}
 
 /* Rodapé: a mensagem e o "falta quem assina" ocupam a linha inteira, perto dos botões que os escrevem. */
-.df-rodape-avisos{flex-basis:100%;display:flex;flex-direction:column;gap:var(--space-2)}
+.df-rodape-avisos{flex:none;display:flex;flex-direction:column;gap:var(--space-2)} /* no corpo (coluna): altura do conteúdo, nunca 100% */
 .df-rodape-avisos:empty{display:none}
 .df-sem-assinante{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);color:var(--aviso-texto);font-size:var(--text-small-size)}
+
+/* Maximizada (nov/2026, pedido da Dra.): a folha e o texto da receita crescem com a tela, sem rolagem espremida. */
+.modal.maximizado .df-folha{flex:none;max-width:none;width:100%;min-height:calc(100vh - 260px)}
+/* O editor traz a altura das linhas no próprio elemento e um teto de 480 px (atendimento.css): maximizada, os dois cedem. */
+.modal.maximizado .df-folha .editor-texto{min-height:calc(100vh - 420px) !important;max-height:none}
+
+/* Sugestão do Receituário de Controle Especial (nov/2026): antimicrobiano/C1 numa receita comum. */
+.df-sugestao-rce{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2) var(--space-3);margin:0 0 var(--space-3);
+  padding:var(--space-2) var(--space-3);border:1px solid var(--aviso);border-left-width:3px;border-radius:var(--radius-pequeno);
+  background:var(--aviso-suave);color:var(--aviso-texto);font-size:var(--text-small-size);line-height:1.45}
+.df-sugestao-rce p{margin:0;flex:1 1 240px;overflow-wrap:anywhere}
+
+/* ===== Quem emite, quem assina e com o quê (nov/2026, pedido do dono) ===== */
+.df-emitente{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2) var(--space-3);
+  padding:var(--space-2) var(--space-3);border:1px solid var(--borda);border-radius:var(--radius-control);background:var(--fundo)}
+.df-emitente-rotulo{font-size:var(--text-small-size);font-weight:600;color:var(--texto-secundario);letter-spacing:var(--text-secao-tracking)}
+.df-emitente-nome{color:var(--texto-primario);overflow-wrap:anywhere;min-width:0}
+.df-emitente-escolha{flex:1 1 280px;width:auto;min-width:0}
+.df-emitente-falta{flex-basis:100%;font-size:var(--text-small-size);color:var(--aviso-texto);line-height:1.45}
+.df-quem-assina{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2) var(--space-3);font-size:var(--text-small-size);color:var(--texto-primario)}
+.df-meios{display:flex;flex-wrap:wrap;gap:var(--space-2)}
+.df-meio{display:inline-flex;align-items:center;gap:4px;padding:2px var(--space-2);border-radius:var(--radius-pequeno);border:1px solid var(--borda)}
+.df-meio.ok{border-color:var(--sucesso);background:var(--sucesso-suave);color:var(--sucesso-forte)}
+.df-meio.falta{color:var(--texto-secundario);background:var(--superficie)}
+
+/* Avisos ACIMA do rodapé, colados nele (o rodapé é só ação). */
+.df-modal .modal-corpo > .df-rodape-avisos{position:sticky;bottom:calc(-1 * var(--space-6));z-index:2;margin:0 calc(-1 * var(--space-6)) calc(-1 * var(--space-6));
+  padding:var(--space-2) var(--space-6);background:var(--superficie);border-top:1px solid var(--borda)}
+.df-modal .modal-corpo > .df-rodape-avisos:empty{display:none}
+.df-modal .df-rodape-avisos .aviso{margin:0;padding:var(--space-2) var(--space-3);font-size:var(--text-small-size)}
+
+/* "Mais" (só no celular) e o menu dele: uma folha que sobe do rodapé. */
+.modal-rodape .df-mais{display:none} /* só no celular; o seletor composto vence o .botao{display:inline-flex} de clinica.css */
+.df-mais-fundo{position:fixed;inset:0;z-index:70;background:rgba(17,24,39,.32)}
+.df-mais-menu{position:fixed;left:var(--space-2);right:var(--space-2);bottom:calc(var(--space-2) + env(safe-area-inset-bottom,0px));z-index:71;
+  display:flex;flex-direction:column;gap:var(--space-1);padding:var(--space-2);background:var(--superficie);border-radius:var(--radius-card);box-shadow:var(--sombra-popup)}
+.df-mais-menu button{min-height:44px;border:0;background:transparent;text-align:left;padding:0 var(--space-4);font:inherit;font-weight:600;color:var(--texto-primario);border-radius:var(--radius-control);cursor:pointer}
+.df-mais-menu button:hover,.df-mais-menu button:focus-visible{background:var(--superficie-hover)}
+.df-mais-menu button:disabled{color:var(--texto-secundario);cursor:default}
+
+/* ===== Celular (≤ 480 px): a janela vira FOLHA de tela cheia =====
+   Nada rola para o lado (todo filho encolhe); topo com "Emitindo como" fixo, corpo rolável, avisos acima do rodapé,
+   rodapé com UMA primária + "Mais" (alvos de 44 px, safe-area do iPhone); campos a 16 px (o Safari não dá zoom) e
+   scroll-padding para o teclado não cobrir o campo ativo. Em 1024/1366 continua janela. */
+@media (max-width:480px){
+  .modal-fundo:has(> .modal.df-modal){padding:0;align-items:stretch}
+  .modal.df-modal{max-width:none;max-height:none;height:100dvh;border-radius:0;width:100%}
+  .df-modal .modal-topo{padding:calc(var(--space-3) + env(safe-area-inset-top,0px)) var(--space-4) var(--space-2)}
+  .df-modal .modal-topo h2{font-size:var(--text-h3-size)}
+  .df-modal .modal-topo-acoes > button:not(:last-child){display:none} /* maximizar não faz sentido em tela cheia */
+  .df-modal .modal-topo-acoes > button{width:44px;height:44px}
+  .df-modal .modal-corpo{padding:0 var(--space-4) var(--space-4);gap:var(--space-3);scroll-padding:var(--space-16) 0 var(--space-16);overscroll-behavior:contain}
+  .df-modal .modal-corpo > *{flex-shrink:0;min-width:0;max-width:100%} /* o corpo rola; nada encolhe até sumir nem estoura para o lado */
+  .df-modal .modal-corpo > .df-rodape-avisos{bottom:calc(-1 * var(--space-4));margin:0 calc(-1 * var(--space-4)) calc(-1 * var(--space-4));padding:var(--space-2) var(--space-4);max-width:none}
+  .df-modal .df-emitente{position:sticky;top:0;z-index:3;box-shadow:0 var(--space-2) var(--space-2) calc(-1 * var(--space-2)) rgba(17,24,39,.12)}
+  .df-modal .df-emitente-escolha{flex:1 1 100%}
+  .df-modal .df-abas{overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .df-modal .df-abas::-webkit-scrollbar{display:none}
+  .df-modal .df-abas button{min-height:44px;white-space:nowrap;flex:none;padding:0 var(--space-3)}
+  .df-modal .df-tipos{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;max-width:100%}
+  .df-modal .df-tipos::-webkit-scrollbar{display:none}
+  .df-modal .df-tipos .chip{flex:none;min-height:40px}
+  .df-modal .df-topo{flex-wrap:nowrap;flex-direction:column;align-items:stretch}
+  .df-modal .df-folha{padding:var(--space-3);border-radius:var(--radius-control)}
+  .df-modal .df-cabecalho{flex-direction:column;align-items:flex-start;gap:var(--space-2)}
+  .df-modal .df-numero{align-items:flex-start;text-align:left}
+  .df-modal .campos{grid-template-columns:minmax(0,1fr)}
+  .df-modal .campo, .df-modal select, .df-modal textarea, .df-modal [contenteditable]{font-size:16px}
+  .df-modal .df-quem-assina{gap:var(--space-1) var(--space-2)}
+  .df-modal .modal-rodape{border-radius:0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--space-2);
+    padding:var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom,0px))}
+  .df-modal .modal-rodape .df-secundaria, .df-modal .modal-rodape .df-fechar{display:none}
+  .df-modal .modal-rodape .df-mais{display:inline-flex}
+  .df-modal .modal-rodape .botao{height:auto;min-height:44px;justify-content:center;white-space:normal;text-align:center;margin:0;max-width:none}
+  .df-modal .modal-rodape .df-mais{padding:0 var(--space-4)}
+}

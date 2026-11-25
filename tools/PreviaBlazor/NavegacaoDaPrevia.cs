@@ -4,10 +4,10 @@ using Clinica.Ui.Blazor.Hospedagem;
 namespace PreviaBlazor;
 
 /// <summary>
-/// A navegação REAL dos cinco apps, lida do <c>navegacao.json</c> que a ferramenta do
-/// Windows grava (tools/treinamento/captura) — out/2026, para as videoaulas. O menu do topo,
-/// as abas e o componente de cada chave vêm do ShellViewModel de verdade; escrevê-los aqui à
-/// mão seria uma segunda definição do menu, e o vídeo mostraria um caminho que o app não tem.
+/// A navegação de um app, lida de um <c>navegacao.json</c> (o menu do topo, as abas e o componente
+/// de cada chave). O da gestão web é o próprio <c>src/Clinica.Gestao.Web/catalogo-gestao.json</c>
+/// (gerado por <c>tools/gerar-catalogo-gestao-web.py</c>). A ferramenta do Windows que gravava o dos
+/// apps saiu com as videoaulas (nov/2026).
 /// Sem o arquivo (variável <c>CLINICA_NAVEGACAO</c> ausente), a página da aula diz isso.
 /// </summary>
 public sealed class NavegacaoDaPrevia
@@ -15,7 +15,7 @@ public sealed class NavegacaoDaPrevia
     public sealed record Grupo(string Rotulo, string? Direto, string[] Itens);
     public sealed record Aba(string Rotulo, string Chave);
     public sealed record Item(string Chave, string Rotulo, string? Descricao, bool Oculto, Aba[] Abas, string? Componente);
-    public sealed record App(string AppId, string Nome, string Perfil, Grupo[] Barra, string[] TelasTreinamento, Item[] Itens)
+    public sealed record App(string AppId, string Nome, string Perfil, Grupo[] Barra, Item[] Itens)
     {
         public Item? ItemDe(string chave) => Itens.FirstOrDefault(i => i.Chave == chave);
     }
@@ -51,7 +51,6 @@ public sealed class NavegacaoDaPrevia
                     g.GetProperty("rotulo").GetString()!,
                     g.GetProperty("direto").ValueKind == JsonValueKind.String ? g.GetProperty("direto").GetString() : null,
                     g.GetProperty("itens").EnumerateArray().Select(x => x.GetString()!).ToArray())).ToArray(),
-                a.GetProperty("telasTreinamento").EnumerateArray().Select(x => x.GetString()!).ToArray(),
                 a.GetProperty("itens").EnumerateArray().Select(i => new Item(
                     i.GetProperty("chave").GetString()!,
                     i.GetProperty("rotulo").GetString()!,

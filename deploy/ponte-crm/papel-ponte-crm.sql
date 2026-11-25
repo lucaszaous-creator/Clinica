@@ -1,6 +1,10 @@
 -- O usuário do Postgres da ponte do CRM (docs/vps-do-crm.md §4). Rode como postgres:
 --   sudo -u postgres psql -p 45432 -d clinica -v senha="'SENHA_FORTE'" -f papel-ponte-crm.sql
--- Rodar de novo é seguro (depois de uma atualização que crie tabela que a ponte precise gravar).
+-- Rodar de novo é seguro — e o DEPLOY DO PORTAL o reaplica a cada publicação (nov/2026,
+-- deploy/tablet/atualizar-posto.py): mesmo arquivo, sem a linha da senha, numa transação, e depois
+-- confere cada concessão da lista (reprova o deploy se faltar). À mão, só a 1ª vez (cria o papel e a
+-- senha). Foi a falta disto que parou a fila de envios em 42501: o arquivo tinha a linha, a base não.
+-- ⚠️ O deploy procura a linha da senha (o ALTER ROLE abaixo) LITERALMENTE e uma vez só — não a mude nem a cite.
 --
 -- Ele LÊ tudo, mas só GRAVA onde a ponte grava: a agenda, a guia que nasce ou é suspensa com
 -- ela, o contato da rodada, o recall, a revogação do PARAR, a fila de envios ao paciente e a trilha. Não apaga nada, não cria nem altera

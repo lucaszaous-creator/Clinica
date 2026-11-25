@@ -25,6 +25,7 @@ public static class EmissaoDeDocumentoNaTela
     public static IReadOnlyList<TipoDocumentoClinico> Tipos { get; } =
     [
         TipoDocumentoClinico.Receita,
+        TipoDocumentoClinico.ReceituarioControleEspecial,
         TipoDocumentoClinico.Atestado,
         TipoDocumentoClinico.LaudoMedico,
         TipoDocumentoClinico.Comparecimento,
@@ -86,6 +87,7 @@ public static class EmissaoDeDocumentoNaTela
     public static string TituloDocumento(TipoDocumentoClinico tipo) => tipo switch
     {
         TipoDocumentoClinico.Receita => "Receita médica",
+        TipoDocumentoClinico.ReceituarioControleEspecial => "Receituário de Controle Especial",
         TipoDocumentoClinico.Atestado => "Atestado médico",
         TipoDocumentoClinico.Comparecimento => "Declaração de comparecimento",
         TipoDocumentoClinico.PedidoExame => "Pedido de exames",
@@ -96,7 +98,7 @@ public static class EmissaoDeDocumentoNaTela
     /// <summary>O rótulo do campo de texto, dentro da folha.</summary>
     public static string RotuloDoTexto(TipoDocumentoClinico tipo) => tipo switch
     {
-        TipoDocumentoClinico.Receita => "Prescrição e modo de usar",
+        TipoDocumentoClinico.Receita or TipoDocumentoClinico.ReceituarioControleEspecial => "Prescrição e modo de usar",
         TipoDocumentoClinico.LaudoMedico => "Texto do laudo",
         _ => "Texto complementar · opcional"
     };
@@ -105,7 +107,7 @@ public static class EmissaoDeDocumentoNaTela
     public static string AjudaDoTexto(TipoDocumentoClinico tipo) => tipo switch
     {
         TipoDocumentoClinico.LaudoMedico => "Descreva o quadro clínico, achados e conclusão…",
-        TipoDocumentoClinico.Receita => "Medicamento, dose e modo de usar…",
+        TipoDocumentoClinico.Receita or TipoDocumentoClinico.ReceituarioControleEspecial => "Medicamento, dose e modo de usar…",
         _ => "Texto complementar (opcional)…"
     };
 
@@ -144,16 +146,30 @@ public static class EmissaoDeDocumentoNaTela
             ? "Endereço: será solicitado ao emitir."
             : $"Endereço: {endereco}";
 
-    public const string TituloPerguntaEndereco = "Endereço para a receita";
+    /// <summary>
+    /// O que falta do COMPRADOR do Receituário de Controle Especial, à vista na folha (25/11/2026): "Faltam na ficha do
+    /// comprador: RG, Órgão emissor, Cidade e UF. Complete para emitir." — nunca "completar o endereço" quando o endereço existe.
+    /// </summary>
+    /// <summary>O aviso da folha para QUALQUER papel (nov/2026): no receituário fala do comprador; nos outros, do paciente.</summary>
+    public static string PacientePendente(TipoDocumentoClinico tipo, IEnumerable<string> faltas)
+    {
+        if (tipo == TipoDocumentoClinico.ReceituarioControleEspecial) return CompradorPendente(faltas);
+        var lista = faltas.Where(f => !string.IsNullOrWhiteSpace(f)).ToList();
+        var texto = lista.Count <= 1 ? string.Join("", lista) : string.Join(", ", lista.Take(lista.Count - 1)) + " e " + lista[^1];
+        return $"Falta na ficha do paciente: {texto}. Complete para emitir {TipoDocumentoInfo.Rotular(tipo).ToLowerInvariant()}.";
+    }
 
-    /// <summary>A pergunta do endereço que falta — antes de qualquer número ser gasto.</summary>
-    public static string PerguntaEndereco(string paciente)
-        => $"Qual é o endereço residencial de {paciente}? "
-           + "Informe rua, número, complemento, bairro e cidade. "
-           + "O endereço será guardado no cadastro para as próximas receitas.";
+    public static string CompradorPendente(IEnumerable<string> faltas)
+    {
+        var lista = faltas.Where(f => !string.IsNullOrWhiteSpace(f)).ToList();
+        var texto = lista.Count <= 1 ? string.Join("", lista) : string.Join(", ", lista.Take(lista.Count - 1)) + " e " + lista[^1];
+        return $"Faltam na ficha do comprador: {texto}. Complete para emitir o receituário.";
+    }
 
-    public const string EmissaoAdiada =
-        "Emissão adiada. A prescrição continua nesta janela para você completar o endereço.";
+    public const string EmissaoAguardaComprador =
+        "Nada foi emitido. Complete os dados do comprador para emitir o receituário.";
+
+    public const string CompradorGravado = "Dados do comprador gravados na ficha.";
 
     public const string PreviaAberta =
         "Prévia aberta. Ela não tem número nem valor de documento — nada foi emitido.";
@@ -196,7 +212,9 @@ public static class EmissaoDeDocumentoNaTela
 
     /// <summary>O nome do arquivo do documento emitido, sem os caracteres que o Windows recusa.</summary>
     public static string NomeDoArquivo(TipoDocumentoClinico tipo, string numero)
-        => NomeSeguro($"{TipoDocumentoInfo.Rotular(tipo)}-{numero.Replace('/', '-')}.pdf");
+        => tipo == TipoDocumentoClinico.ReceituarioControleEspecial
+            ? NomeSeguro($"Receituario-Controle-Especial-{numero.Replace('/', '-')}.pdf")
+            : NomeSeguro($"{TipoDocumentoInfo.Rotular(tipo)}-{numero.Replace('/', '-')}.pdf");
 
     /// <summary>O nome da prévia — sem número, porque ela não tem.</summary>
     public static string NomeDaPrevia(TipoDocumentoClinico tipo) => NomeSeguro($"Previa-{TipoDocumentoInfo.Rotular(tipo)}.pdf");
@@ -387,9 +405,20 @@ public sealed class RascunhoDeDocumento
         if (!PodeTrocarTipo || tipo == _tipo) return false;
         _tipo = tipo;
         AplicarHeranca();
+        ReconferirAssinante();
         ConferirLegalmente();
         return true;
     }
+
+    /// <summary>
+    /// Antimicrobiano ou C1 numa RECEITA comum: os termos que a farmácia vai cobrar no controle especial. Vazio quando
+    /// o papel já é o receituário, quando o tipo não pode mais trocar (nova versão) ou quando nada da lista aparece.
+    /// É sugestão — a folha mostra a frase e o botão; quem decide é quem prescreve.
+    /// </summary>
+    public IReadOnlyList<string> SugestaoControleEspecial
+        => _tipo == TipoDocumentoClinico.Receita && PodeTrocarTipo
+            ? ReceituarioControleEspecialRegras.TermosEncontrados(_corpo)
+            : [];
 
     public DateOnly Data { get; set; }
     public string? Titulo { get; set; }
@@ -458,9 +487,33 @@ public sealed class RascunhoDeDocumento
     /// <summary>Resolve o assinante proposto: quem está logado, nunca "o primeiro da lista".</summary>
     public void DefinirAssinante(IEnumerable<Profissional> ativos, int? profissionalDoLogin)
     {
-        var escolha = AssinanteDoDocumento.Resolver(ativos, profissionalDoLogin);
+        _ativos = ativos.ToList();
+        _profissionalDoLogin = profissionalDoLogin;
+        var escolha = AssinanteDoDocumento.Resolver(_ativos, profissionalDoLogin, _tipo);
         AvisoAssinante = escolha.Aviso;
         Profissional = escolha.Profissional;
+    }
+
+    private IReadOnlyList<Profissional>? _ativos;
+    private int? _profissionalDoLogin;
+
+    /// <summary>
+    /// Trocar o papel reconfere quem assina: no Receituário de Controle Especial, quem não prescreve sai (a tela
+    /// diz por quê); voltando a um papel comum com o campo vazio, volta a proposta de sempre (quem está logado).
+    /// </summary>
+    private void ReconferirAssinante()
+    {
+        if (_profissional is { } atual && !AssinanteDoDocumento.PodeAssinar(_tipo, atual))
+        {
+            AvisoAssinante = AssinanteDoDocumento.AvisoNaoPrescritor;
+            Profissional = null;
+        }
+        else if (_profissional is null && _ativos is not null)
+        {
+            var escolha = AssinanteDoDocumento.Resolver(_ativos, _profissionalDoLogin, _tipo);
+            AvisoAssinante = escolha.Aviso;
+            Profissional = escolha.Profissional;
+        }
     }
 
     /// <summary>Por que o "Emitir" está apagado por falta de quem assina — a metade VISÍVEL da barreira.</summary>
@@ -632,7 +685,7 @@ public sealed class RascunhoDeDocumento
 
     // ===================== o que a folha mostra =====================
 
-    public bool ReceitaLivre => Tipo == TipoDocumentoClinico.Receita;
+    public bool ReceitaLivre => TipoDocumentoInfo.EhReceita(Tipo);
 
     /// <summary>O pedido de exame é lista; os outros, não.</summary>
     public bool MostraItens => TipoDocumentoInfo.ExigeItens(Tipo);

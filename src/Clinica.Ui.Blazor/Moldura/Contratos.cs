@@ -71,6 +71,13 @@ public sealed record AvisoDoSemDorNoSino(object Alvo, string Paciente, string As
 /// </summary>
 public sealed record EsperaNoSino(object Alvo, string Nome, string Quando, bool NaoLida = false);
 
+/// <summary>
+/// Os horários de um profissional com a conclusão automática ligada que passaram do prazo SEM chegada
+/// (nov/2026): <paramref name="Frase"/> é "3 horários sem chegada na agenda de Dra. Ana: confirme falta ou
+/// presença"; <paramref name="Desde"/>, "desde 10/11 09:00". O clique abre a agenda.
+/// </summary>
+public sealed record SemChegadaNoSino(object Alvo, string Frase, string Desde, bool NaoLida = false);
+
 /// <summary>Uma seção do sino: só aparece para quem a tela que resolve existe.</summary>
 public sealed record SecaoDoSino<T>(bool Visivel, string Contador, IReadOnlyList<T> Linhas, string Situacao)
 {
@@ -117,7 +124,6 @@ public interface IMolduraDoApp
     // ----- navegação -----
     void Navegar(string chave);
     void SelecionarAba(int indice);
-    void AbrirTreinamento();
 
     // ----- assinaturas de infusão pendentes -----
     int AssinaturasPendentes { get; }
@@ -148,6 +154,10 @@ public interface IMolduraDoApp
     SecaoDoSino<EsperaNoSino> EsperasNoWhatsApp => SecaoDoSino<EsperaNoSino>.Oculta;
     /// <summary>Abre a conversa que espera na aba WhatsApp e marca a leitura. Padrão: não faz nada.</summary>
     void AbrirEspera(EsperaNoSino espera) { }
+    /// <summary>Horários sem chegada da conclusão automática por profissional (nov/2026). Padrão: oculta.</summary>
+    SecaoDoSino<SemChegadaNoSino> HorariosSemChegada => SecaoDoSino<SemChegadaNoSino>.Oculta;
+    /// <summary>Abre a agenda para a recepção confirmar falta ou presença, e marca a leitura. Padrão: não faz nada.</summary>
+    void AbrirSemChegada(SemChegadaNoSino aviso) { }
     void AbrirConfirmacoes();
 
     /// <summary>
@@ -162,9 +172,6 @@ public interface IMolduraDoApp
 
     /// <summary>Reabre o app na tela de entrada (a confirmação é da moldura, antes).</summary>
     void TrocarUsuario();
-
-    /// <summary>O botão "Treinamento" (as videoaulas do app). A gestão web não tem: as aulas são do app.</summary>
-    bool TemTreinamento => true;
 
     /// <summary>O sino. A gestão web (nov/2026) ainda não vigia pedidos e respostas — o vigia é do shell do app.</summary>
     bool TemSino => true;

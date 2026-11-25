@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Roda um comando de operação do conector TISS na VPS (credencial, envio, endereco, codigo, situacao, cancelar).
+# Roda um comando de operação do conector TISS na VPS (credencial, envio, endereco, codigo, situacao, cancelar, ambiente, testar-*).
 # Uso (como root):   /opt/clinica-tiss-conector/current/deploy/comando.sh situacao Petrobras
 # Roteiro: docs/tiss-conector.md §4 e §5.
 #
@@ -41,6 +41,9 @@ case "$1" in
   # Tirar uma transação Pendente da fila: o usuário do serviço já grava a fila e acrescenta à
   # trilha (papel-tiss-conector.sql); o de operação (admin.env) não alcança a fila.
   cancelar) ;;
+  # Os testes na homologação só LEEM a configuração e a guia e acrescentam à trilha: o usuário do
+  # serviço basta. O "ambiente" muda a configuração, então vai pelo admin.env (o caso de baixo).
+  testar-elegibilidade|testar-lote|testar-protocolo|testar-autorizacao) ;;
   *)
     [ -r "$dir/admin.env" ] || { echo "Falta $dir/admin.env (a conexão com escrita na configuração). Ver docs/tiss-conector.md §4." >&2; exit 1; }
     carregar "$dir/admin.env"

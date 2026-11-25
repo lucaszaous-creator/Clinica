@@ -233,12 +233,10 @@ public sealed class ConversasNaTelaTests
     [Fact]
     public void O_selo_segue_a_ordem_do_que_pede_acao()
     {
-        var resultados = new Dictionary<string, string> { ["scheduled"] = "Agendado" };
-        var encerrada = WhatsAppDeTeste.Resumo(encerrada: true, paciente: 101,
+        // Sem selo de "encerrada" (24/11, pedido do dono): a conversa que o CRM separou segue as regras de todas.
+        var encerrada = WhatsAppDeTeste.Resumo(encerrada: true, paciente: 101, direcao: "out",
             resultado: new AppResolution("scheduled", "Marcou o BSV", "bruna", Agora));
-        Assert.Equal(new SeloDoWhatsApp("Encerrada · Agendado", "neutro"), ConversasNaTela.Selo(encerrada, AvisosDoSino(), 1, null, Agora, resultados));
-        var semRotulo = encerrada with { Resolution = new AppResolution("chave-nova", "x", "bruna", Agora) };
-        Assert.Equal("Encerrada", ConversasNaTela.Selo(semRotulo, [], 1, null, Agora, resultados).Texto);
+        Assert.DoesNotContain("Encerrada", ConversasNaTela.Selo(encerrada, [], 1, null, Agora).Texto);
 
         Assert.Equal(new SeloDoWhatsApp("Mensagem não entregue · conferir", "perigo"),
             ConversasNaTela.Selo(WhatsAppDeTeste.Resumo(paciente: 101, falhaDeEntrega: true), [], 1, null, Agora));
@@ -390,9 +388,9 @@ public sealed class ConversasNaTelaTests
     {
         var pedido = new AppPendingTransfer("p1", "bruna", "ana", "", Agora);
         Assert.Equal(new SeloDoWhatsApp("Transferência para você", "aviso"),
-            ConversasNaTela.Selo(WhatsAppDeTeste.Resumo(agente: "bruna", paciente: 101) with { PendingTransfer = pedido }, [], 1, null, Agora, null, "ana", WhatsAppDeTeste.Agentes));
+            ConversasNaTela.Selo(WhatsAppDeTeste.Resumo(agente: "bruna", paciente: 101) with { PendingTransfer = pedido }, [], 1, null, Agora, "ana", WhatsAppDeTeste.Agentes));
         Assert.Equal(new SeloDoWhatsApp("Aguardando aceite · Bruna", "neutro"),
-            ConversasNaTela.Selo(WhatsAppDeTeste.Resumo(agente: "ana", paciente: 101) with { PendingTransfer = pedido with { From = "ana", To = "bruna" } }, [], 1, null, Agora, null, "ana", WhatsAppDeTeste.Agentes));
+            ConversasNaTela.Selo(WhatsAppDeTeste.Resumo(agente: "ana", paciente: 101) with { PendingTransfer = pedido with { From = "ana", To = "bruna" } }, [], 1, null, Agora, "ana", WhatsAppDeTeste.Agentes));
     }
 
     [Fact]
@@ -420,10 +418,13 @@ public sealed class ConversasNaTelaTests
     }
 
     [Fact]
-    public void Conversa_encerrada_nao_pede_nada()
+    public void Conversa_separada_pelo_CRM_pede_o_mesmo_que_as_outras_e_encerrar_nao_aparece_na_trilha()
     {
+        // Pedido do dono (24/11): encerrar some da tela. O "não vem" da Maria pede ação mesmo na conversa que o CRM separou.
         var avisos = ConversasNaTela.AvisosDaConversa(101, AvisosDoSino(), PacienteDoAgendamento);
-        Assert.Null(ConversasNaTela.PedeAcao(WhatsAppDeTeste.Conversa(encerrada: true), avisos, 1, WhatsAppDeTeste.Caso(), Agora));
+        Assert.NotNull(ConversasNaTela.PedeAcao(WhatsAppDeTeste.Conversa(encerrada: true), avisos, 1, WhatsAppDeTeste.Caso(), Agora));
+        foreach (var acao in new[] { "Encerrou o atendimento", "Concluiu: Agendado", "Reaberta após nova mensagem", "Reabriu e assumiu o atendimento humano" })
+            Assert.Null(ConversasNaTela.Evento(new AppAudit(Agora, "Bruna", acao), Agora));
     }
 
     [Fact]
@@ -558,15 +559,14 @@ public sealed class ConversasNaTelaTests
         var itens = ConversasNaTela.LinhaDoTempo(conversa, 2, Agora, WhatsAppDeTeste.Agentes);
         Assert.Equal(
         [
-            (TipoNaLinhaDoTempo.Dia, "Ontem · sexta-feira, 23/10", false),
+            (TipoNaLinhaDoTempo.Dia, "Ontem", false),
             (TipoNaLinhaDoTempo.Enviada, "Boa tarde, Maria!", false),
-            (TipoNaLinhaDoTempo.Dia, "Hoje · sábado, 24/10", false),
+            (TipoNaLinhaDoTempo.Dia, "Hoje", false),
             (TipoNaLinhaDoTempo.Recebida, "Não vou conseguir ir hoje", false),
             (TipoNaLinhaDoTempo.Recebida, "Surgiu um compromisso", true),
-            (TipoNaLinhaDoTempo.Evento, "A conversa reabriu sozinha com a nova mensagem do paciente", false),
             (TipoNaLinhaDoTempo.Nota, "Ela prefere a tarde.", false),
             (TipoNaLinhaDoTempo.Enviada, "Tenho terça ou quinta", false),
-            (TipoNaLinhaDoTempo.Novas, "1 nova mensagem", false),
+            (TipoNaLinhaDoTempo.Novas, "1 mensagem não lida", false),
             (TipoNaLinhaDoTempo.Recebida, "Terça às 14h fica ótimo", false),
         ], itens.Select(i => (i.Tipo, i.Texto, i.Seguida)));
 
@@ -586,7 +586,7 @@ public sealed class ConversasNaTelaTests
             WhatsAppDeTeste.Recebida("c", WhatsAppDeTeste.Em(24, 9, 2)),
         ]);
         var todas = ConversasNaTela.LinhaDoTempo(conversa, 0, Agora);
-        Assert.Equal((TipoNaLinhaDoTempo.Novas, "3 novas mensagens"), (todas[1].Tipo, todas[1].Texto));
+        Assert.Equal((TipoNaLinhaDoTempo.Novas, "3 mensagens não lidas"), (todas[1].Tipo, todas[1].Texto));
         Assert.Equal("a", todas[2].Id);
         Assert.False(todas[2].Seguida); // a divisória quebra o grupo
         Assert.DoesNotContain(ConversasNaTela.LinhaDoTempo(conversa, 3, Agora), i => i.Tipo == TipoNaLinhaDoTempo.Novas);
@@ -618,8 +618,6 @@ public sealed class ConversasNaTelaTests
     [Theory]
     [InlineData("Ana Paula", "Assumiu o atendimento humano; respostas automáticas suspensas", "Ana Paula assumiu a conversa")]
     [InlineData("Ana Paula", "Assumiu ao escrever para o paciente", "Ana Paula assumiu a conversa ao responder")]
-    [InlineData("Bruna", "Concluiu: Agendado", "Encerrada por Bruna · Agendado")]
-    [InlineData("Bruna", "Encerrou o atendimento", "Encerrada por Bruna")]
     [InlineData("Ana Paula", "Transferiu de Recepção / Ana Paula para Financeiro / fila sem responsável",
         "Ana Paula transferiu de Recepção / Ana Paula para Financeiro / fila sem responsável")]
     [InlineData("Ana Paula", "Identificou o paciente: ficha Pedro Henrique Souza (nº 2231).", "Ana Paula ligou a ficha de Pedro Henrique Souza a esta conversa")]
@@ -689,21 +687,22 @@ public sealed class ConversasNaTelaTests
         Assert.Equal(["f", "a"], ConversasNaTela.Filtrar(Lista, FiltroDasConversas.Novas, "ana").Select(c => c.Id)); // a fila: a mais antiga primeiro
         Assert.Equal(["b"], ConversasNaTela.Filtrar(Lista, FiltroDasConversas.Minhas, "ana").Select(c => c.Id));
         Assert.Empty(ConversasNaTela.Filtrar(Lista, FiltroDasConversas.Minhas, null));
-        Assert.Equal(["a", "e", "b", "c", "f"], ConversasNaTela.Filtrar(Lista, FiltroDasConversas.Todas, "ana").Select(c => c.Id));
-        Assert.Equal(["d"], ConversasNaTela.Filtrar(Lista, FiltroDasConversas.Encerradas, "ana").Select(c => c.Id));
-        Assert.Equal(["a", "e"], ConversasNaTela.Filtrar(Lista, FiltroDasConversas.Todas, "ana", soNaoLidas: true).Select(c => c.Id));
-        Assert.Equal(new ContagemDasConversas(2, 1, 5, 1, 2), ConversasNaTela.Contagens(Lista, "ana"));
-        Assert.Equal(["Novas", "Minhas", "Todas", "Encerradas"], Enum.GetValues<FiltroDasConversas>().Select(ConversasNaTela.Rotulo));
+        // Uma lista só (24/11, pedido do dono): a encerrada pelo CRM ("d") aparece misturada, pela última mensagem.
+        Assert.Equal(["d", "a", "e", "b", "c", "f"], ConversasNaTela.Filtrar(Lista, FiltroDasConversas.Todas, "ana").Select(c => c.Id));
+        Assert.Equal(["a", "d", "e"], ConversasNaTela.Filtrar(Lista, FiltroDasConversas.Todas, "ana", soNaoLidas: true).Select(c => c.Id).Order());
+        Assert.Equal(new ContagemDasConversas(2, 1, 6, 3, SemResposta: 4), ConversasNaTela.Contagens(Lista, "ana")); // sem resposta: a, b, e, f
+        Assert.Equal(["Novas", "Minhas", "Todas", "Sem resposta"], Enum.GetValues<FiltroDasConversas>().Select(ConversasNaTela.Rotulo));
+        // A busca acha a conversa que o CRM encerrou (o pedido do dono: "não aparece na busca").
+        Assert.Equal(["d"], ConversasNaTela.Filtrar(Lista, FiltroDasConversas.Todas, "ana", "encerrado").Select(c => c.Id));
     }
 
     [Fact]
     public void So_Novas_e_Minhas_levam_numero_e_acima_de_99_vira_99_mais()
     {
-        var c = new ContagemDasConversas(3, 120, 250, 9, 4);
+        var c = new ContagemDasConversas(3, 120, 250, 4);
         Assert.Equal("3", ConversasNaTela.ContagemDoFiltro(FiltroDasConversas.Novas, c));
         Assert.Equal("99+", ConversasNaTela.ContagemDoFiltro(FiltroDasConversas.Minhas, c));
         Assert.Null(ConversasNaTela.ContagemDoFiltro(FiltroDasConversas.Todas, c));
-        Assert.Null(ConversasNaTela.ContagemDoFiltro(FiltroDasConversas.Encerradas, c));
     }
 
     [Fact]

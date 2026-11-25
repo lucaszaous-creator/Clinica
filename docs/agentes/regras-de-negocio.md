@@ -514,6 +514,12 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   horário passa a disputá-la (virou consulta pelo convênio, mudou de DIA, voltou de cancelado).
   Concluir, confirmar presença e lançar sobre o horário que já existe NÃO conferem — senão a
   consulta marcada antes de a chave ligar ficaria presa na Fila.
+  ⚠️ **18/11/2026**: lançar sobre o horário (`LancarNoHorarioAsync`) CONFERE quando o lançamento
+  muda o que a trava compara (médico, especialidade, particular, modalidade) — foi a porta que
+  faltava. E **validade em branco na linha da família NÃO desliga a trava** (cai no prazo do
+  `ConvenioInfo`; 0 desliga): a linha da Petrobras em branco deixou passar três consultas em 22
+  dias. A janela (especialidade, ou especialidade + médico) é dado do convênio
+  (`ConvenioInfo.JanelaDaTravaDeConsulta`), nunca `if` de operadora. Ver `docs/trava-de-consulta.md`.
   ⚠️ **Quem aprova é COLUNA do usuário, não bit de `Permissao`**
   (`UsuarioSistema.AprovaLiberacaoDeTrava`, só perfil Gerente — `PodeAprovarLiberacao`): há mais
   de um gerente e a direção escolhe quais; e o enum está no último bit de um `int` de produção.
@@ -1112,6 +1118,36 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   para travar o período: repasse pago duas vezes é dinheiro que não volta; cancelar a
   apuração cancela junto a saída no caixa. Regra tem vigência — mudar o percentual hoje
   não reescreve o mês já pago.
+- **Repasse por GUIA RECEBIDA** (`FechamentoRepasseService`, nov/2026, pedido da clínica):
+  o repasse só conta depois de a guia ser **conciliada** — entrada REALIZADA e viva com
+  `CodigoFaturamentoId` (prevista é "aguardando o convênio", informada e nunca somada). Um
+  item por guia (`G:{id}`) e por sessão particular paga (`P:{atendimentoId}`); a competência
+  é a do **pagamento** (`DataPagamento ?? Data`), a regra é a da **data do atendimento**, e
+  ganha a mais específica (convênio + tipo de guia + modalidade). A trava de pagar duas vezes
+  é o índice único filtrado de `ItensRepasse.Chave`; cancelar o fechamento copia
+  `CanceladoEm` para cada item, senão eles nunca voltam à prévia. Crédito cuja receita sumiu
+  (cancelada, atendimento estornado) volta **negativo** no próximo fechamento (`E:{chave}`);
+  o fechamento antigo não se reescreve. Quem atendeu: horário por `AtendimentoId`; sem
+  profissional, o horário **substituído** (`AtendimentoSubstitutoId`). Item cujo atendimento
+  cai num `RepasseApurado` vivo é bloqueado (o modelo antigo pagava toda sessão, convênio
+  incluso). ⚠️ **Marco da virada**: sem `Repasse.GuiaRecebida.RecebidosDesde`, a primeira
+  prévia traz TODO recebimento histórico ainda sem item — o que foi pago à mão aparece pronto
+  para fechar. Por isso `FecharAsync` **recusa** sem o marco (`MensagemSemMarco`) e a tela
+  Repasses mostra o campo antes do primeiro fechamento: motor sem porta é garantia aparente.
+  ⚠️ **A Conciliação lançava a receita da guia SEMPRE como prevista** — o "recebi" só
+  existia no Caixa, e nenhuma guia viraria repasse sem um segundo passo que ninguém lembraria.
+  `LancarReceitaDaGuiaAsync(recebidoEm:)` (campo "Recebido em" do lote, ao lado do GRD) faz
+  a receita nascer REALIZADA; vazio continua "a receber", como sempre. ⚠️ **Valor de regra
+  muda por reajuste** (`ReajustarRegraAsync`: encerra a antiga na véspera e cria a nova), e
+  toda mudança de regra vai à auditoria; a tabela é a tela **Repasse médico**
+  (`ChavesSuite.RepasseMedico`), no Gerente (Tabela de preços) e no Financeiro, uma só. A
+  margem (`MargemService`) continua lendo o cálculo antigo por período — decisão pendente.
+  **Relatório para os médicos** (`RelatorioRepasseService`): lê só fechamentos GRAVADOS;
+  cancelado aparece só com `IncluirCancelados`, marcado e fora de todo total; estorno é linha
+  negativa e soma. ⚠️ **Busca sem acento que roda nos dois bancos**: `replace` encadeado por
+  letra acentuada estoura o SQLite ("parser stack overflow"), e o `lower` dele só baixa ASCII.
+  A saída foi LIKE com curinga onde pode haver acento (`PadraoDoPaciente`) — superconjunto no
+  banco, conferência exata em C# sobre o recorte. O trecho do paciente NÃO vai à trilha.
 - **Estoque** (`EstoqueService`, parcela 4): o **saldo é a soma dos movimentos**, nunca um
   campo — total guardado é como o estoque para de bater. A **validade fica no movimento
   de entrada** (o lote), não no item, senão o lote que vence primeiro some. Saída maior
@@ -2276,6 +2312,12 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   duas. `SessaoUsuario.Atual` é estática porque metade dos formulários é construída à mão pela
   tela e não passa pelo DI; **sem sessão autenticada, `Pode` libera** (tela vazia parece defeito,
   e no app real o login é obrigatório).
+- **Emitente do documento clínico (nov/2026, `EmitenteDoDocumento`)**: o logado vem escolhido e aparece no topo da
+  janela ("Emitindo como … · CRM nº/UF"); só a direção (perfil Gerente) ou quem não tem profissional ligado ao login
+  troca. **Só o emitente assina**: escolhido outro, "Emitir e assinar" apaga e a janela manda emitir sem assinar (vai
+  a "Para assinar" dele). O bloco mostra o A1 de "Meu certificado" (só a validade) e o SafeID da clínica. No
+  Receituário de Controle Especial, conselho DESCONHECIDO não exclui (o cadastro real traz só o número em texto
+  livre); sai só conselho conhecido que não prescreve (COREN, CRP…), e a falta de CRM/UF vira aviso.
 - **Quem assina a ação é quem fez login**, nunca o usuário do Windows: `SessaoUsuario.Atual.Operador`
   é o que vai para a auditoria e para o `EnviadoPor` da campanha. `Environment.UserName` só
   aparece como fallback dentro do próprio `Operador` — no balcão duas pessoas dividem a mesma
@@ -4910,21 +4952,22 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/regras-de-negocio.md
   l.CodigoFaturamento.Atendimento`); a rede do Npgsql pegou, e o SQLite nunca teria executado a
   consulta porque nenhum teste a chamava. Resolva o ID como escalar e entre por JOIN.
 
-- **O WHATSAPP DA CLÍNICA É DAS SECRETÁRIAS E DA DIREÇÃO** (25/10/2026, a direção: *"só quem terá
-  acesso são as secretárias e o gerente"*). A regra mora em `Domain/Entities/AcessoAoWhatsApp.cs`:
-  perfil **Recepção** ou **Gerente** E o bit `EditarAgenda` (o ajuste fino por pessoa em Acessos
-  continua: negar o bit tira o WhatsApp de uma recepcionista). Antes valia só o bit, e ele pode ser
-  concedido a qualquer função — a faturista que também agenda (parcela 58) levava junto o número
-  oficial. A MESMA regra guarda as cinco portas: o item "WhatsApp" do menu (`ShellViewModel`), a tela
-  (`ConversasDoWhatsApp`, `TelaBase.PodeWhatsApp`), o botão da conversa ao lado e o "Escrever no
-  WhatsApp" (`BotaoDaConversaAoLado`, `PedidoDeConversaNoCrm`, `ConversaAoLado`), o aviso do @SemDor no
-  sino (`AvisosDoSemDorShell`) e — a que decide de verdade — a entrada no CRM pela ponte
-  (`ClinicTeamBridge.PodeEntrar`: equipe, senha e bilhete). Quem não atende não vê o botão (função
-  que não é dela não aparece apagada); a ponte responde "Seu usuário não tem acesso ao CRM". Não é
-  um bit novo: o enum é gravado como inteiro e o último bit livre antes do sinal não se gasta com o
-  que o perfil já responde. Testes: `AcessoAoWhatsAppTests`, `PonteClinicTeamTests.
-  Bit_de_agendar_em_outro_perfil_nao_entra_no_CRM`, `ConversaAoLadoTests.Quem_nao_atende_o_WhatsApp_nao_ve_o_botao`.
-  Para valer no CRM web, a ponte precisa ser publicada na VPS 1 (roteiro da manhã §1.1).
+- **O WHATSAPP DA CLÍNICA É DE QUEM TEM O BIT `EditarAgenda`, EM QUALQUER PERFIL** (24/11/2026,
+  decisão 4 do "CRM com cara de WhatsApp", aprovada pelo dono). A regra mora em
+  `Domain/Entities/AcessoAoWhatsApp.cs`. De 25/10 a 24/11 valia perfil **Recepção** ou **Gerente**
+  E o bit (*"só quem terá acesso são as secretárias e o gerente"*); com isso o diretor que entra com
+  o perfil Médico ficava sem a aba mesmo com o bit dado em Acessos. Agora quem decide é a direção,
+  por pessoa, em Acessos: o bit de marcar e remarcar é o de quem fala com o paciente. Os perfis-padrão
+  não mudam quem vê — só Recepção e Gerente nascem com o bit; a faturista a quem a direção der o bit
+  para agendar (parcela 58) leva junto o WhatsApp, e é isso que a direção aceitou. A MESMA regra
+  guarda as portas: o item "WhatsApp" do menu (`ShellViewModel`), a tela (`ConversasDoWhatsApp`,
+  `TelaBase.PodeWhatsApp`), o botão da conversa ao lado e o "Escrever no WhatsApp"
+  (`BotaoDaConversaAoLado`, `PedidoDeConversaNoCrm`, `ConversaAoLado`), o aviso do @SemDor e a espera
+  no sino (`AvisosDoSemDorShell`, `EsperaNoWhatsAppShell`) e — a que decide de verdade — a entrada no
+  CRM pela ponte (`ClinicTeamBridge.PodeEntrar`: equipe, senha e bilhete). Testes:
+  `AcessoAoWhatsAppTests`, `PonteClinicTeamTests.Bit_de_agendar_em_qualquer_perfil_entra_no_CRM_e_sem_ele_nao`,
+  `ConversaAoLadoTests.Quem_nao_atende_o_WhatsApp_nao_ve_o_botao`. Para valer no CRM web, a ponte
+  precisa ser publicada na VPS 1 (roteiro da manhã §1.1).
 
 - **A FICHA ÚNICA LIGA EM UM CLIQUE — e quem confere continua sendo a recepção** (25/10/2026, pedido
   da direção; `docs/whatsapp-nativo-implementacao.md` §17.2). Quando só UMA ficha tem o telefone da

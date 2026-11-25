@@ -180,11 +180,9 @@ public static partial class ConversasNaTela
 
     // ---------------------------------------------------------------- o vazio do centro
 
-    /// <summary>O centro sem conversa aberta: uma frase por modo (a retenção começa por um paciente, não por uma conversa).</summary>
-    public static (string Titulo, string Texto) SemConversaAberta(bool retencao)
-        => retencao
-            ? ("Escolha um paciente para preparar o convite", "O convite, a conversa e o \"Como foi?\" aparecem aqui.")
-            : ("Escolha uma conversa", "Ela abre aqui, com a ficha e os horários do paciente ao lado.");
+    /// <summary>O centro sem conversa aberta.</summary>
+    public static (string Titulo, string Texto) SemConversaAberta()
+        => ("Escolha uma conversa", "Ela abre aqui. Clique no nome para ver a ficha e os horários.");
 
     // ---------------------------------------------------------------- sem ligação
 

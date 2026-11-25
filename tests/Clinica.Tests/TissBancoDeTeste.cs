@@ -37,9 +37,9 @@ public sealed class TissBancoDeTeste : IDisposable
     }
 
     /// <summary>Outro contexto sobre o MESMO banco: outro processo, do ponto de vista do EF.</summary>
-    public ClinicaDbContext NovoContexto()
+    public ClinicaDbContext NovoContexto(params Microsoft.EntityFrameworkCore.Diagnostics.IInterceptor[] interceptadores)
     {
-        var db = new ClinicaDbContext(new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(_conn).Options);
+        var db = new ClinicaDbContext(new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(_conn).AddInterceptors(interceptadores).Options);
         _contextos.Add(db);
         return db;
     }

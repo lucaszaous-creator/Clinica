@@ -54,8 +54,7 @@ public sealed class JanelaDoApp : Window
         catch (Exception ex) { LogSuite.Registrar("Janela do app — ícone não carregou", ex); }
 
         _visor = NavegadorEmbutido.Criar(servicos, typeof(RaizDoApp),
-            new Dictionary<string, object?> { ["Estado"] = _estado },
-            core => servicos.GetService<Treinamento.TreinamentoDaSuite>()?.MapearPastas(core));
+            new Dictionary<string, object?> { ["Estado"] = _estado });
         Content = _visor;
 
         // A primeira renderização libera o navegador; o BeginInvoke em Background deixa o lote
@@ -74,6 +73,7 @@ public sealed class JanelaDoApp : Window
             if (_shell is not null)
             {
                 _shell.PararAvisosGlobais();
+                _shell.AvisosDoWindows?.Dispose();
                 _shell.LiberarTelas();
             }
             _moldura?.Dispose();
@@ -150,6 +150,8 @@ public sealed class JanelaDoApp : Window
         _shell = shell;
         _moldura = new MolduraDaSuite(shell, _servicos, this);
         _estado.MostrarMoldura(_moldura);
+        // A notificação do Windows e o número no ícone da barra de tarefas são DESTA janela (F1b, 24/11/2026).
+        shell.AvisosDoWindows = new AvisosDoWindows(this, shell.AbrirConversaDoAviso);
         // O ciclo dos avisos pertence à janela inteira: trocar de tela não o interrompe.
         shell.IniciarAvisosGlobais();
     }

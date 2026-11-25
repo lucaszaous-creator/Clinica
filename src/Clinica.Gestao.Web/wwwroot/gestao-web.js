@@ -1,6 +1,10 @@
 // A gestão no navegador (nov/2026): o que o hospedeiro das telas pede ao navegador — baixar um
 // arquivo, escolher um arquivo para enviar, copiar texto, abrir um endereço. Os bytes vêm e vão
 // por STREAM (DotNetStreamReference / IJSStreamReference), nunca numa mensagem gigante do WebSocket.
+// A gestão ABRIU: apaga a marca da ida automática que o portal deixa (clinica-site, clinico.js,
+// areaPosto.irAGestao). Sem isto, voltar ao portal logo depois pareceria a gestão recusando a pessoa.
+try { sessionStorage.removeItem('portal-ida-gestao'); } catch { /* sem armazenamento: nada a apagar */ }
+
 window.gestaoWeb = {
   async baixar(nome, tipo, referencia, abrir) {
     const dados = await referencia.arrayBuffer();
@@ -19,6 +23,29 @@ window.gestaoWeb = {
     } finally {
       if (!abrir) setTimeout(() => URL.revokeObjectURL(url), 10000);
     }
+  },
+
+  // O PDF de um documento recém-emitido ABRE na página (nov/2026, o fluxo do receituário em todos os documentos): uma
+  // janela com o PDF embutido — o visualizador do navegador tem imprimir e baixar —, sem aba nova (barrada no iPhone).
+  async mostrarPdf(nome, referencia) {
+    const url = URL.createObjectURL(new Blob([await referencia.arrayBuffer()], { type: 'application/pdf' }));
+    const d = document.createElement('dialog');
+    d.className = 'assinatura-gestao';
+    d.setAttribute('aria-label', 'PDF do documento');
+    d.innerHTML = '<div class="ag-corpo"><iframe class="ag-pdf" title="PDF do documento" style="width:100%;height:min(70vh,900px);border:0"></iframe></div><div class="ag-acoes"></div>';
+    d.querySelector('iframe').src = url;
+    const botao = (texto, primario, acao) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'botao' + (primario ? ' primario' : ''); b.textContent = texto; b.onclick = acao;
+      d.querySelector('.ag-acoes').append(b);
+    };
+    botao('Baixar PDF', false, () => {
+      const a = document.createElement('a'); a.href = url; a.download = nome; document.body.appendChild(a); a.click(); a.remove();
+    });
+    botao('Fechar', true, () => d.close());
+    d.addEventListener('close', () => { URL.revokeObjectURL(url); d.remove(); });
+    document.body.append(d);
+    d.showModal();
   },
 
   escolher(aceitar, teto) {

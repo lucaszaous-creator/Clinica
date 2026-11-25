@@ -25,7 +25,7 @@
                 {
                     <button type="button" class="fechar" aria-pressed="@(_maximizado ? "true" : "false")"
                             aria-label="@(_maximizado ? "Restaurar o tamanho" : "Maximizar")" title="@(_maximizado ? "Restaurar o tamanho" : "Maximizar")"
-                            @onclick="() => _maximizado = !_maximizado">@(_maximizado ? "❐" : "□")</button>
+                            @onclick="AlternarMaximizadoAsync">@(_maximizado ? "❐" : "□")</button>
                 }
                 <button type="button" class="fechar" aria-label="Fechar" @onclick="Fechar">×</button>
             </div>
@@ -56,6 +56,20 @@
 
     private ElementReference _caixa;
     private bool _maximizado;
+
+    /// <summary>Abre já maximizado (a folha que lembra a escolha de quem usa — a receita, nov/2026).</summary>
+    [Parameter] public bool MaximizadoInicial { get; set; }
+
+    /// <summary>A pessoa maximizou ou restaurou: quem abriu guarda a escolha, se quiser.</summary>
+    [Parameter] public EventCallback<bool> AoMaximizar { get; set; }
+
+    protected override void OnInitialized() => _maximizado = MaximizadoInicial;
+
+    private Task AlternarMaximizadoAsync()
+    {
+        _maximizado = !_maximizado;
+        return AoMaximizar.InvokeAsync(_maximizado);
+    }
 
     // O foco fica no botão que ABRIU o formulário, atrás do fundo — e ali o Esc não chega ao
     // modal. Ao abrir, o foco entra na caixa: Esc e Tab passam a valer dentro dela.

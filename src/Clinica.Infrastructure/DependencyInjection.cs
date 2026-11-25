@@ -24,6 +24,7 @@ public static class DependencyInjection
         services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<ILeituraParalela, LeituraParalela>();
         services.AddScoped<IAcompanhamentoPacienteService, AcompanhamentoPacienteService>();
+        services.AddScoped<IEscutaPosSessaoService>(sp => new EscutaPosSessaoService(sp.GetRequiredService<ClinicaDbContext>(), sp.GetRequiredService<IClinicaRepositorio>()));
         services.AddScoped<IEntradaNoCrmService, EntradaNoCrmService>();
         // A API do CRM para a tela nativa do WhatsApp (out/2026): SINGLETON — as sessões (uma por
         // usuário do app) sobrevivem aos escopos por operação da tela; o banco, ele lê por escopo próprio.
@@ -45,6 +46,7 @@ public static class DependencyInjection
         services.AddScoped<EstornoAtendimentoService>();
         services.AddScoped<FaturamentoService>();
         services.AddScoped<GuiaAnsNaBaixaService>();
+        services.AddScoped<AutorizacaoTissService>();
         services.AddScoped<PendenciaService>();
         services.AddScoped<RodadaPendenciasService>();
         services.AddScoped<RelatorioService>();
@@ -130,7 +132,9 @@ public static class DependencyInjection
         services.AddScoped<RentabilidadeConvenioService>();
         services.AddScoped<PrecoConvenioService>();
         services.AddScoped<AtendimentosPorProfissionalService>();
+        services.AddScoped<RelatorioDeAtendimentosService>();
         services.AddScoped<PrecoParticularService>();
+        services.AddScoped<ReceitaDoParticularService>(); // o particular entra no caixa no lançamento (nov/2026)
         services.AddScoped<AuditoriaService>();
 
         // Parcela 52 — a metade de LEITURA da trilha e a guarda de 20 anos.
@@ -160,6 +164,8 @@ public static class DependencyInjection
         services.AddScoped<TaxaService>();
         services.AddScoped<PacoteService>();
         services.AddScoped<RepasseService>();
+        services.AddScoped<FechamentoRepasseService>();
+        services.AddScoped<RelatorioRepasseService>();
         services.AddScoped<EstoqueService>();
         services.AddScoped<MargemService>();
         services.AddScoped<CrmNaDirecaoService>();

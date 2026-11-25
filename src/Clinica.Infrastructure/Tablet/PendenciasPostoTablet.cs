@@ -21,7 +21,8 @@ public sealed partial class PostoTabletService
                 EvolucaoSalva=db.Evolucoes.Any(e=>e.AgendamentoId==a.Id&&e.CanceladaEm==null),a.InicioAtendimentoEm}).ToListAsync(ct);
         var podePrescrever=u.Pode(Permissao.Prescrever);
         var documentos=await db.DocumentosClinicos.AsNoTracking()
-            .Where(d=>podePrescrever&&d.ProfissionalId==u.ProfissionalId&&d.CanceladoEm==null&&d.AssinadoEm==null&&d.PacienteAssinadoEm==null&&TiposEditaveis.Contains(d.Tipo))
+            // A MESMA leitura da aba "Para assinar" da central de Documentos (Clinica.Domain.Regras.DocumentosParaAssinar).
+            .Where(d=>podePrescrever&&u.ProfissionalId!=null).Where(Clinica.Domain.Regras.DocumentosParaAssinar.Do(u.ProfissionalId??0))
             .OrderBy(d=>d.Id).Skip(pagina*50).Take(51)
             .Select(d=>new {d.Id,d.PacienteId,Paciente=d.Paciente!.Nome,d.Data,d.Numero,Tipo=d.Tipo.ToString()}).ToListAsync(ct);
         var recepcao=await db.Agendamentos.AsNoTracking()

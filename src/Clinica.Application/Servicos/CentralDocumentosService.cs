@@ -329,6 +329,16 @@ public sealed class CentralDocumentosService
             PermissaoEmitir = Permissao.Prescrever
         },
 
+        // Nov/2026: a farmácia exige o modelo do ITI para antimicrobiano e para a lista C1 (Portaria 344).
+        new("receita-controle-especial", "Receituário de Controle Especial",
+            "Antimicrobiano e lista C1 (Portaria 344). Modelo ITI v2.0, duas vias, com o comprador identificado.",
+            NaturezaFolha.Clinico, ExigenciaFolha.Paciente)
+        {
+            TipoClinico = TipoDocumentoClinico.ReceituarioControleEspecial,
+            PermissaoVer = Permissao.VerProntuario,
+            PermissaoEmitir = Permissao.Prescrever
+        },
+
         new("atestado", "Atestado",
             "Afastamento por N dias. O CID só sai impresso com autorização expressa do paciente.",
             NaturezaFolha.Clinico, ExigenciaFolha.Paciente)

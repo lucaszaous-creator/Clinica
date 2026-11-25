@@ -80,10 +80,9 @@ public sealed class ConversasNaTelaAcabamentoTests
             new AppAudit(Em(24, 10, 5), "Sistema", "Reaberta após nova mensagem"),
         ]);
         var eventos = ConversasNaTela.LinhaDoTempo(c, 1, Agora, Agentes).Where(i => i.Tipo == TipoNaLinhaDoTempo.Evento).ToList();
-        Assert.Equal(2, eventos.Count);
-        Assert.Equal(("Encerrada por Bruna. Bruna desligou a ficha de Maria desta conversa", "aviso", "10:00"),
-            (eventos[0].Texto, eventos[0].Tom, eventos[0].Hora));
-        Assert.Equal("A conversa reabriu sozinha com a nova mensagem do paciente", eventos[1].Texto);
+        // Encerrar e reabrir não aparecem (24/11, pedido do dono): sobra a ficha desligada, com o tom dela.
+        Assert.Single(eventos);
+        Assert.Equal(("Bruna desligou a ficha de Maria desta conversa", "aviso", "10:00"), (eventos[0].Texto, eventos[0].Tom, eventos[0].Hora));
     }
 
     [Fact]
@@ -188,14 +187,11 @@ public sealed class ConversasNaTelaAcabamentoTests
     // ------------------------------------------------------------ frases
 
     [Fact]
-    public void O_centro_vazio_tem_uma_frase_por_modo_sem_detalhe_tecnico()
+    public void O_centro_vazio_tem_uma_frase_sem_detalhe_tecnico()
     {
-        var (conversas, textoConversas) = ConversasNaTela.SemConversaAberta(retencao: false);
-        var (retencao, textoRetencao) = ConversasNaTela.SemConversaAberta(retencao: true);
-        Assert.Equal("Escolha uma conversa", conversas);
-        Assert.Equal("Escolha um paciente para preparar o convite", retencao);
-        foreach (var frase in new[] { textoConversas, textoRetencao })
-            Assert.DoesNotContain("segundos", frase);
+        var (titulo, texto) = ConversasNaTela.SemConversaAberta();
+        Assert.Equal("Escolha uma conversa", titulo);
+        Assert.DoesNotContain("segundos", texto);
     }
 
     [Fact]

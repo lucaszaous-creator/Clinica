@@ -13,7 +13,19 @@ namespace Clinica.Application.Assinatura;
 
 /// <summary>Onde o carimbo visual da assinatura fica na página, em pontos.</summary>
 /// <param name="Pagina">Índice da página (0 = primeira).</param>
-public sealed record AreaAssinatura(int Pagina, double X, double Y, double Largura, double Altura);
+/// <param name="OutrasPaginas">
+/// O MESMO carimbo, no mesmo retângulo, em outras páginas (nov/2026, autorização do dono — só a aparência visível):
+/// o Receituário de Controle Especial tem duas vias, e a farmácia confere a assinatura na via dela. O hash e o PAdES
+/// não mudam: o desenho é conteúdo de página, coberto pela assinatura como sempre foi.
+/// </param>
+/// <param name="AjustarFonte">
+/// O carimbo vai num CAMPO DE FORMULÁRIO impresso (o "ASSINATURA MÉDICO(A)" do receituário, 160×38 pt). A letra
+/// encolhe para as quatro linhas caberem, mas nunca abaixo de 6 pt no corpo, o limite de leitura no papel pedido no
+/// QA de design. A tinta é preta/#333, como a folha. "Autoridade Certificadora" vira "AC" para o emissor caber.
+/// Sem isto, o comportamento de sempre: letra fixa, cores de sempre e corte com reticências.
+/// </param>
+public sealed record AreaAssinatura(int Pagina, double X, double Y, double Largura, double Altura,
+    IReadOnlyList<int>? OutrasPaginas = null, bool AjustarFonte = false);
 
 /// <summary>O que a assinatura precisa saber sobre o ato que ela está selando.</summary>
 /// <param name="CarimbadoraDeTempo">
@@ -162,6 +174,9 @@ public sealed class AssinaturaDigitalService
         // errado da parcela 42 até aqui — todo documento assinado foi para a clínica sem o
         // bloco visível, com a assinatura criptográfica perfeita por baixo.
         DesenharCarimbo(documento.Pages[pagina], certificado, pedido);
+        // As outras vias (o Receituário de Controle Especial): o mesmo bloco, no mesmo lugar de cada página.
+        foreach (var outra in (pedido.Area.OutrasPaginas ?? []).Where(p => p >= 0 && p < documento.PageCount && p != pagina).Distinct())
+            DesenharCarimbo(documento.Pages[outra], certificado, pedido);
 
         var opcoes = new DigitalSignatureOptions
         {
@@ -518,7 +533,7 @@ public sealed class AssinaturaDigitalService
     /// Escrever num estático de processo é feio, e é o contrato da biblioteca. O que dá
     /// para fazer é não atropelar quem já configurou o seu.
     /// </summary>
-    private static void GarantirFonte()
+    internal static void GarantirFonte()
     {
         if (_fonteResolvida) return;
 
@@ -580,7 +595,7 @@ public sealed class AssinaturaDigitalService
     /// o que só a assinatura digital oferece — o titular do certificado, o CPF que veio
     /// DE DENTRO dele e o emissor —, porque é isso que se confere no leitor de PDF.
     /// </summary>
-    private static class CarimboDeAssinatura
+    internal static class CarimboDeAssinatura
     {
         /// <summary>
         /// Desenha o bloco dentro de <paramref name="caixa"/>, nas coordenadas do próprio
@@ -589,21 +604,23 @@ public sealed class AssinaturaDigitalService
         public static void Desenhar(
             XGraphics gfx, XRect caixa, CertificadoAssinatura certificado, PedidoAssinatura pedido)
         {
-            var titulo = new XFont("SegoeWP", 7.5, XFontStyleEx.Bold);
-            var corpo = new XFont("SegoeWP", 6.5, XFontStyleEx.Regular);
-            var tinta = new XSolidBrush(XColor.FromArgb(30, 41, 59));
-            var suave = new XSolidBrush(XColor.FromArgb(100, 116, 139));
+            var escala = pedido.Area.AjustarFonte ? Escala(gfx, caixa, certificado, pedido) : 1.0;
+            var titulo = new XFont("SegoeWP", 7.5 * escala, XFontStyleEx.Bold);
+            var corpo = new XFont("SegoeWP", 6.5 * escala, XFontStyleEx.Regular);
+            var campo = pedido.Area.AjustarFonte;
+            var tinta = new XSolidBrush(campo ? XColors.Black : XColor.FromArgb(30, 41, 59));
+            var suave = new XSolidBrush(campo ? XColor.FromArgb(51, 51, 51) : XColor.FromArgb(100, 116, 139));
 
             // A moldura recua meia espessura da caneta para dentro, que é como a revisão
             // incremental desenha a da 2ª assinatura: traço centrado na borda deixaria um
             // bloco 0,6 ponto maior que o outro, e lado a lado a diferença se vê.
             const double caneta = 0.6;
             gfx.DrawRectangle(
-                new XPen(XColor.FromArgb(148, 163, 184), caneta),
+                new XPen(campo ? XColor.FromArgb(191, 191, 191) : XColor.FromArgb(148, 163, 184), caneta),
                 new XRect(caixa.X + caneta / 2, caixa.Y + caneta / 2,
                     caixa.Width - caneta, caixa.Height - caneta));
 
-            var margem = 4.0;
+            var margem = 4.0 * Math.Max(escala, 0.75);
             var largura = caixa.Width - margem * 2;
             var linha = caixa.Y + margem;
 
@@ -615,18 +632,50 @@ public sealed class AssinaturaDigitalService
                 linha += altura;
             }
 
-            Escrever("ASSINADO DIGITALMENTE — ICP-Brasil", titulo, tinta, 9);
-            Escrever(pedido.NomeExibido, corpo, tinta, 8);
+            var (l1, l2, l3, l4) = Linhas(certificado, pedido);
+            Escrever(l1, titulo, tinta, 9 * escala);
+            Escrever(l2, corpo, tinta, 8 * escala);
+            if (l3.Length > 0) Escrever(l3, corpo, suave, 8 * escala);
+            Escrever(l4, corpo, suave, 8 * escala);
+        }
 
+        /// <summary>As quatro linhas do bloco — as MESMAS de sempre, num lugar só para desenhar e para medir.</summary>
+        internal static (string Titulo, string Nome, string Identificacao, string Data) Linhas(
+            CertificadoAssinatura certificado, PedidoAssinatura pedido)
+        {
             var identificacao = certificado.Cpf is null
                 ? pedido.RegistroConselho ?? string.Empty
                 : string.Join(" · ", new[] { pedido.RegistroConselho, "CPF " + Domain.Cpf.Formatar(certificado.Cpf) }
                     .Where(p => !string.IsNullOrWhiteSpace(p)));
-
-            if (identificacao.Length > 0) Escrever(identificacao, corpo, suave, 8);
-
-            Escrever($"{DateTime.Now:dd/MM/yyyy HH:mm} · emissor: {certificado.Emissor}", corpo, suave, 8);
+            var emissor = pedido.Area.AjustarFonte
+                ? System.Text.RegularExpressions.Regex.Replace(certificado.Emissor ?? string.Empty,
+                    @"\bAutoridade\s+Certificadora\b", "AC", System.Text.RegularExpressions.RegexOptions.IgnoreCase)
+                : certificado.Emissor;
+            return ("ASSINADO DIGITALMENTE — ICP-Brasil", pedido.NomeExibido, identificacao,
+                $"{DateTime.Now:dd/MM/yyyy HH:mm} · emissor: {emissor}");
         }
+
+        /// <summary>
+        /// A escala que faz as linhas caberem INTEIRAS (nov/2026, o campo "ASSINATURA MÉDICO(A)" do receituário):
+        /// pela altura (quatro linhas e a margem) e pela largura da linha mais longa. Nunca aumenta; o piso é
+        /// <see cref="EscalaMinima"/> (corpo de 6 pt, o limite de leitura no papel). Abaixo dele vale o corte com
+        /// reticências de sempre.
+        /// </summary>
+        internal static double Escala(XGraphics gfx, XRect caixa, CertificadoAssinatura certificado, PedidoAssinatura pedido)
+        {
+            var (l1, l2, l3, l4) = Linhas(certificado, pedido);
+            var alturaBase = 9 + 8 + (l3.Length > 0 ? 8 : 0) + 8 + 8.0;
+            var porAltura = caixa.Height / alturaBase;
+            var titulo = new XFont("SegoeWP", 7.5, XFontStyleEx.Bold);
+            var corpo = new XFont("SegoeWP", 6.5, XFontStyleEx.Regular);
+            var maior = new[] { gfx.MeasureString(l1, titulo).Width, gfx.MeasureString(l2, corpo).Width,
+                gfx.MeasureString(l3, corpo).Width, gfx.MeasureString(l4, corpo).Width }.Max();
+            var porLargura = (caixa.Width - 6) / Math.Max(maior, 1);
+            return Math.Clamp(Math.Min(porAltura, porLargura), EscalaMinima, 1.0);
+        }
+
+        /// <summary>O corpo (6,5 pt na escala 1) nunca sai abaixo de 6 pt.</summary>
+        internal const double EscalaMinima = 6.0 / 6.5;
 
         /// <summary>
         /// Corta o texto com reticências até caber na largura útil do bloco.

@@ -112,6 +112,18 @@ public sealed partial class HostDaTelaWeb(
         return await BaixarAsync(conteudo, nome, Tipo(Path.GetExtension(nome)));
     }
 
+    /// <summary>O PDF do documento recém-emitido ou assinado ABRE na própria página (janela com o PDF embutido), sem aba nova.</summary>
+    public async Task<string?> AbrirPdfAsync(byte[] pdf, string nomeSugerido)
+    {
+        try
+        {
+            using var referencia = new DotNetStreamReference(new MemoryStream(pdf));
+            await js.InvokeVoidAsync("gestaoWeb.mostrarPdf", NomeSeguro(Garantir(nomeSugerido, ".pdf")), referencia);
+            return null;
+        }
+        catch (JSException) { return "O navegador não abriu o PDF. Use \"Salvar em PDF\"."; }
+    }
+
     private async Task<string?> BaixarAsync(byte[] conteudo, string nome, string tipo, bool abrir = false)
     {
         try

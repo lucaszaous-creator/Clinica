@@ -105,6 +105,61 @@ public class GuiaTissConsulta
     /// <summary>23 - Observação / justificativa.</summary>
     public string? Observacao { get; set; }
 
+    // ---------- Guia SP/SADT (nov/2026, Amil) ----------
+    // A Amil não recebe guia de consulta: a consulta e a sessão vão em SP/SADT, com a senha de
+    // autorização e o token do beneficiário. Os campos abaixo só existem nessa guia; nulos = guia
+    // de consulta, como todas as que já estavam gravadas (a migration é aditiva).
+
+    /// <summary>Modelo da guia: nulo ou "consulta" = guia de consulta; "sp-sadt" = guia SP/SADT.</summary>
+    public string? ModeloGuia { get; set; }
+
+    /// <summary>Senha de autorização da operadora (<c>dadosAutorizacao/senha</c>).</summary>
+    public string? Senha { get; set; }
+
+    /// <summary>Data da autorização (<c>dadosAutorizacao/dataAutorizacao</c>, obrigatória no bloco).</summary>
+    public DateOnly? DataAutorizacao { get; set; }
+
+    /// <summary>Validade da senha (<c>dadosAutorizacao/dataValidadeSenha</c>).</summary>
+    public DateOnly? ValidadeSenha { get; set; }
+
+    /// <summary>O token do beneficiário (<c>dadosAutorizacao/codValidacao</c>; na Amil, 6 dígitos).</summary>
+    public string? CodigoValidacao { get; set; }
+
+    /// <summary>Por que não há token (<c>dm_ausenciaCodValidacao</c>, "01" a "07").</summary>
+    public string? AusenciaCodigoValidacao { get; set; }
+
+    /// <summary>Tipo de atendimento (<c>dm_tipoAtendimento</c>: "04" consulta, "03" outras terapias).</summary>
+    public string? TipoAtendimento { get; set; }
+
+    /// <summary>Caráter do atendimento ("1" eletivo, "2" urgência).</summary>
+    public string? CaraterAtendimento { get; set; }
+
+    /// <summary>Descrição do procedimento (<c>descricaoProcedimento</c>, obrigatória na SP/SADT).</summary>
+    public string? DescricaoProcedimento { get; set; }
+
+    /// <summary>
+    /// Como o beneficiário confirmou o atendimento (nov/2026, decisão do dono: a Amil é faturada só pelo
+    /// sistema, com o TOKEN na guia): "token" ou "nao" (<c>GuiaAnsNaBaixa.Confirmacao*</c>). Nulo nas
+    /// guias anteriores a este campo.
+    /// </summary>
+    public string? FormaConfirmacao { get; set; }
+
+    /// <summary>Sem confirmação: quem conferiu declarou que a guia assinada e o documento com foto foram anexados no portal.</summary>
+    public bool? AnexosNoPortal { get; set; }
+
+    /// <summary>Hora inicial e final do procedimento (campos 37/38), do consultório ou da agenda.</summary>
+    public TimeOnly? HoraInicial { get; set; }
+    public TimeOnly? HoraFinal { get; set; }
+
+    /// <summary>
+    /// Equipe (campos 49–50): o CPF do profissional executante (11 dígitos) — é por ele que a Amil
+    /// identifica o profissional (cadastrado em "Meus Dados" no portal; não existe código de profissional).
+    /// </summary>
+    public string? EquipeCpf { get; set; }
+
+    /// <summary>Grau de participação (<c>dm_grauPart</c>; "12" = clínico).</summary>
+    public string? GrauParticipacao { get; set; }
+
     // ---------- Trilha ----------
 
     /// <summary>Quem conferiu a guia na baixa (o operador que fez login).</summary>

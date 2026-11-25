@@ -109,8 +109,20 @@ public sealed class TissExportService
                     new XElement(Ans + "codigoPrestadorNaOperadora", prestador.CodigoNaOperadora ?? string.Empty))),
             new XElement(Ans + "destino",
                 new XElement(Ans + "registroANS", prestador.RegistroAnsOperadora ?? string.Empty)),
-            new XElement(Ans + "Padrao", VersaoPadrao));
+            new XElement(Ans + "Padrao", VersaoDoArquivo(prestador.RegistroAnsOperadora)));
     }
+
+    /// <summary>
+    /// A versão do arquivo (lote e recurso), pelo registro ANS do destino — o lote já sai separado por
+    /// operadora. A operadora do catálogo marcada com <see cref="OperadoraTiss.ArquivoNaVersaoDoWebService"/>
+    /// (Saúde Petrobras: recusa a 4.01.00 desde 01/08/2026) recebe o arquivo na versão do web service dela;
+    /// as outras continuam em <see cref="VersaoPadrao"/> (a Amil, segurada, inclusive). A estrutura da guia
+    /// de consulta, do lote e do recurso é a mesma nas duas versões.
+    /// </summary>
+    public static string VersaoDoArquivo(string? registroAnsOperadora)
+        => OperadorasTiss.Todas.FirstOrDefault(o => o.ArquivoNaVersaoDoWebService && o.RegistroAns == registroAnsOperadora?.Trim())
+               ?.VersaoTiss(TipoTransacaoTiss.EnvioGuia)
+           ?? VersaoPadrao;
 
     /// <summary>Consulta (de qualquer tipo) — o que sai em guia de consulta, e não SP/SADT.</summary>
     public static bool EhConsulta(TipoCodigo tipo) => tipo is TipoCodigo.Consulta or TipoCodigo.ConsultaEspecialidade;
@@ -198,7 +210,20 @@ public sealed class TissExportService
     /// social e nome do contratado não saem: não existem na guia de consulta do padrão.
     /// </summary>
     private static XElement CriarGuiaConsultaConferida(CodigoFaturamento codigo, GuiaTissConsulta ans, int numeroGuia)
-        => CriarGuiaConsultaConferida(ans, codigo.NumeroGuiaReal ?? numeroGuia.ToString());
+        => CriarGuiaConferida(ans, codigo.NumeroGuiaReal ?? numeroGuia.ToString(), codigo.NumeroGuiaReal);
+
+    /// <summary>
+    /// A guia conferida no modelo em que foi conferida: guia de consulta (Saúde Petrobras) ou SP/SADT
+    /// (Amil, nov/2026). É a porta do lote do web service e também a do arquivo de lote — que é o
+    /// que se sobe no SisAmil (TISS &gt; Importação de arquivos XML) enquanto o web service não está ligado.
+    /// </summary>
+    public static XElement GuiaConferida(CodigoFaturamento codigo, string numeroGuiaPrestador)
+        => GuiaConsultaConferida(codigo, numeroGuiaPrestador);
+
+    private static XElement CriarGuiaConferida(GuiaTissConsulta ans, string numeroGuiaPrestador, string? numeroGuiaOperadora)
+        => GuiaAnsNaBaixa.ModeloDe(ans) == ModeloDaGuiaTiss.SpSadt
+            ? CriarGuiaSpSadtConferida(ans, numeroGuiaPrestador, numeroGuiaOperadora)
+            : CriarGuiaConsultaConferida(ans, numeroGuiaPrestador);
 
     /// <summary>
     /// A guia de consulta conferida na baixa, como elemento do padrão (<c>guiaConsulta</c>), com o
@@ -214,8 +239,102 @@ public sealed class TissExportService
             throw new ArgumentException("Só a guia conferida na baixa (com a guia ANS gravada) sai pelo web service.");
         if (string.IsNullOrWhiteSpace(numeroGuiaPrestador) || numeroGuiaPrestador.Length > NumeroGuiaPrestadorTiss.TamanhoMaximo)
             throw new ArgumentException($"O número da guia no prestador é obrigatório e tem até {NumeroGuiaPrestadorTiss.TamanhoMaximo} caracteres.");
-        return CriarGuiaConsultaConferida(ans, numeroGuiaPrestador);
+        // O número da guia NA OPERADORA (campo 7), quando o sistema o tem (NumeroGuiaReal): opcional.
+        return CriarGuiaConferida(ans, numeroGuiaPrestador, codigo.NumeroGuiaReal);
     }
+
+    /// <summary>
+    /// A guia SP/SADT na ORDEM e com as tags do XSD 4.03.00 (<c>ctm_sp-sadtGuia</c>; a mesma estrutura da
+    /// 4.01.00), a partir da guia conferida na baixa (Amil, nov/2026). Uma consulta ou sessão = UM
+    /// procedimento executado. Em <c>dadosAutorizacao</c>: o número da guia na operadora quando há, a
+    /// senha, a data dela e a CONFIRMAÇÃO — o token do beneficiário em <c>codValidacao</c>, ou,
+    /// sem confirmação, o motivo em <c>ausenciaCodValidacao</c>. O solicitante é a clínica e o profissional
+    /// que atendeu; o EXECUTANTE vai na equipe (<c>equipeSadt</c>), pelo CPF — na SP/SADT 4.03,
+    /// <c>dadosExecutante</c> só leva a clínica e o CNES. As horas vão quando há.
+    /// </summary>
+    private static XElement CriarGuiaSpSadtConferida(GuiaTissConsulta ans, string numeroGuiaPrestador, string? numeroGuiaOperadora)
+    {
+        var data = ans.DataAtendimento.ToString("yyyy-MM-dd");
+        var valor = GuiaAnsNaBaixa.ValorNoXml(ans.ValorProcedimento);
+        var consulta = ans.TipoAtendimento == Domain.Regras.DominiosTiss.TipoAtendimentoConsulta;
+        return new XElement(Ans + "guiaSP-SADT",
+            new XElement(Ans + "cabecalhoGuia",
+                new XElement(Ans + "registroANS", ans.RegistroAns),
+                new XElement(Ans + "numeroGuiaPrestador", numeroGuiaPrestador)),
+            new XElement(Ans + "dadosAutorizacao",
+                ElementoOpcional("numeroGuiaOperadora", numeroGuiaOperadora?.Trim() is { Length: > 0 and <= 20 } n ? n : null),
+                new XElement(Ans + "dataAutorizacao", ans.DataAutorizacao?.ToString("yyyy-MM-dd") ?? data),
+                ElementoOpcional("senha", ans.Senha),
+                ElementoOpcional("dataValidadeSenha", ans.ValidadeSenha?.ToString("yyyy-MM-dd")),
+                ElementoOpcional("ausenciaCodValidacao", ans.AusenciaCodigoValidacao),
+                ElementoOpcional("codValidacao", ans.CodigoValidacao)),
+            new XElement(Ans + "dadosBeneficiario",
+                new XElement(Ans + "numeroCarteira", ans.NumeroCarteira),
+                new XElement(Ans + "atendimentoRN", ans.AtendimentoRn ? "S" : "N")),
+            new XElement(Ans + "dadosSolicitante",
+                new XElement(Ans + "contratadoSolicitante",
+                    new XElement(Ans + "codigoPrestadorNaOperadora", ans.CodigoPrestadorNaOperadora)),
+                new XElement(Ans + "nomeContratadoSolicitante", Cortar(ans.NomeContratado ?? string.Empty, 70)),
+                new XElement(Ans + "profissionalSolicitante",
+                    ElementoOpcional("nomeProfissional", ans.NomeProfissional),
+                    new XElement(Ans + "conselhoProfissional", ans.ConselhoProfissional),
+                    new XElement(Ans + "numeroConselhoProfissional", ans.NumeroConselho),
+                    new XElement(Ans + "UF", ans.UfConselho),
+                    new XElement(Ans + "CBOS", ans.Cbos))),
+            new XElement(Ans + "dadosSolicitacao",
+                new XElement(Ans + "dataSolicitacao", data),
+                new XElement(Ans + "caraterAtendimento", ans.CaraterAtendimento ?? "1"),
+                ElementoOpcional("indCobEspecial", ans.CoberturaEspecial)),
+            new XElement(Ans + "dadosExecutante",
+                new XElement(Ans + "contratadoExecutante",
+                    new XElement(Ans + "codigoPrestadorNaOperadora", ans.CodigoPrestadorNaOperadora)),
+                new XElement(Ans + "CNES", ans.Cnes)),
+            new XElement(Ans + "dadosAtendimento",
+                new XElement(Ans + "tipoAtendimento", ans.TipoAtendimento),
+                new XElement(Ans + "indicacaoAcidente", ans.IndicacaoAcidente),
+                consulta ? ElementoOpcional("tipoConsulta", ans.TipoConsulta) : null,
+                new XElement(Ans + "regimeAtendimento", ans.RegimeAtendimento),
+                ElementoOpcional("saudeOcupacional", ans.SaudeOcupacional)),
+            new XElement(Ans + "procedimentosExecutados",
+                new XElement(Ans + "procedimentoExecutado",
+                    new XElement(Ans + "sequencialItem", "1"),
+                    new XElement(Ans + "dataExecucao", data),
+                    ElementoOpcional("horaInicial", ans.HoraInicial?.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)),
+                    ElementoOpcional("horaFinal", ans.HoraFinal?.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)),
+                    new XElement(Ans + "procedimento",
+                        new XElement(Ans + "codigoTabela", ans.CodigoTabela),
+                        new XElement(Ans + "codigoProcedimento", ans.CodigoProcedimento),
+                        new XElement(Ans + "descricaoProcedimento", Cortar(ans.DescricaoProcedimento ?? string.Empty, 150))),
+                    new XElement(Ans + "quantidadeExecutada", "1"),
+                    new XElement(Ans + "reducaoAcrescimo", "1.00"),
+                    new XElement(Ans + "valorUnitario", valor),
+                    new XElement(Ans + "valorTotal", valor),
+                    EquipeSadt(ans))),
+            ElementoOpcional("observacao", ans.Observacao),
+            new XElement(Ans + "valorTotal",
+                new XElement(Ans + "valorProcedimentos", valor),
+                new XElement(Ans + "valorTotalGeral", valor)));
+    }
+
+    /// <summary>
+    /// A equipe com o profissional executante (<c>ct_identEquipeSADT</c>), pelo CPF. Sem CPF, não vai (a
+    /// conferência da operadora que a exige não deixa chegar aqui).
+    /// </summary>
+    private static XElement? EquipeSadt(GuiaTissConsulta ans)
+    {
+        if (string.IsNullOrWhiteSpace(ans.EquipeCpf)) return null;
+        return new XElement(Ans + "equipeSadt",
+            ElementoOpcional("grauPart", ans.GrauParticipacao),
+            // A Amil identifica o profissional pelo CPF (não há "código do profissional" nela).
+            new XElement(Ans + "codProfissional", new XElement(Ans + "cpfContratado", ans.EquipeCpf.Trim())),
+            new XElement(Ans + "nomeProf", Cortar(ans.NomeProfissional, 70)),
+            new XElement(Ans + "conselho", ans.ConselhoProfissional),
+            new XElement(Ans + "numeroConselhoProfissional", ans.NumeroConselho),
+            new XElement(Ans + "UF", ans.UfConselho),
+            new XElement(Ans + "CBOS", ans.Cbos));
+    }
+
+    private static string Cortar(string texto, int maximo) => texto.Length <= maximo ? texto : texto[..maximo];
 
     private static XElement CriarGuiaConsultaConferida(GuiaTissConsulta ans, string numeroGuiaPrestador)
         => new(Ans + "guiaConsulta",

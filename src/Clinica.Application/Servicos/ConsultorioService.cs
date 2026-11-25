@@ -502,6 +502,7 @@ public sealed class ConsultorioService
             ChegadaEm = a.ChegadaEm,
             InicioAtendimentoEm = a.InicioAtendimentoEm,
             FimAtendimentoEm = a.FimAtendimentoEm,
+            ConcluidoAutomaticamenteEm = a.ConcluidoAutomaticamenteEm,
             Observacoes = string.IsNullOrWhiteSpace(a.Observacoes) ? null : a.Observacoes.Trim(),
             DuracaoMinutos = a.DuracaoEfetiva
         };

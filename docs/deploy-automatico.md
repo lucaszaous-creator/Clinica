@@ -66,6 +66,28 @@ em nada.
 - **Voltar uma versão:** reverta o commit na `main` (o deploy publica o revert) ou, no console,
   aponte `current` para o release anterior e reinicie o serviço.
 - **Desligar o deploy automático:** apague o secret `VPS_DEPLOY`.
+- **"A base contém credenciais protegidas; dispensa recusada sem exibir valores."** A publicação
+  em produção sem homologação (`--pular-hml`) roda com a cifra de credenciais DESLIGADA e sem a
+  chave, então recusa qualquer valor `enc:` em `Configuracoes` que o portal precisaria abrir. A
+  regra mora em `deploy/tablet/regras_publicacao.py` (`verificar_sem_credenciais_cifradas`).
+
+### A exceção do conector TISS (nov/2026)
+
+O deploy de 18/11/2026 (run 44372401783) parou nesse passo por causa de `TissSenha:Amil` e
+`TissSenha:Petrobras`, gravadas cifradas pelo conector TISS. Desde então a trava **dispensa só os
+prefixos de `PREFIXOS_CIFRADOS_DO_CONECTOR_TISS`** — hoje **`TissSenha:`**, a única chave que o
+`CredenciaisTissService` cifra (o login `TissLogin:` fica em claro) — e continua recusando qualquer
+outra credencial cifrada, inclusive a mistura das duas.
+
+- **Por que é seguro:** quem abre `TissSenha:*` é só o conector (`AbrirParaEnvioAsync`), no servidor
+  dele, com a chave dele. O portal (`Clinica.Assinaturas.Api`) não referencia nada do TISS; a /gestao
+  hospeda telas que só perguntam se a senha EXISTE (`ParaATelaAsync`: `!IsNullOrEmpty`, sem decifrar);
+  `deploy/tablet` não lê essas chaves.
+- **Um lugar só:** a lista é a mesma no C# (`CredenciaisTissService.PrefixosCifradosForaDoPortal`) e no
+  Python; `CredenciaisCifradasForaDoPortalTests` falha se as duas divergirem, se o serviço cifrar uma
+  chave fora delas ou se surgir um método que grava sem entrar no teste.
+- **Testes:** `python3 -m unittest discover -s deploy/tablet -p 'test_*.py'` (a consulta de verdade, em
+  SQLite: só `TissSenha:` passa; outra cifrada recusa com a mesma frase; a mistura recusa).
 
 ## UX · DX · CX
 
@@ -79,3 +101,32 @@ em nada.
 - 🤝 **CX:** sem máquina nova. O job das 15 min para em segundos num runner Linux, então o custo é
   baixo. O merge passa a ser a decisão de publicar. Dois secrets, e a chave da VPS só executa um
   comando, chegando pelo túnel.
+
+## Disco da VPS: faxina e conferência (nov/2026)
+
+**O que aconteceu em 24/11/2026:**
+- O disco da VPS encheu: 82 releases em `/opt/clinica-tablet/releases` e os pacotes de todos os deploys em
+  `/home/clinica-admin/tablet-stage`.
+- O Postgres caiu às 19:40:23 (PANIC: sem espaço) e voltou às 19:40:56. Às 20:23 ele recusou conexões novas até a
+  limpeza.
+- O deploy da assinatura na gestão falhou no `scp`.
+
+**O que mudou:**
+- **Faxina depois de publicar** (`deploy/tablet/regras_publicacao.py` → `faxina_depois_de_publicar`, chamada no fim
+  do `atualizar-posto.py`):
+  - roda só depois de uma publicação saudável;
+  - mantém o release novo, o anterior (o recuo) e os 5 mais novos, cada um com o seu `-runtime`;
+  - apaga o pacote já instalado do stage;
+  - se falhar, é aviso: nunca desfaz a publicação;
+  - vai dentro do pacote, então não precisa reinstalar o `clinica-deploy`.
+- **Espaço livre na VPS** (`deploy-portal.yml`): antes de qualquer `scp`, o workflow confere `df /`. Com menos de
+  5G livres, para com "Disco da VPS quase cheio" e não copia nem troca nada.
+- **Ficam para a direção decidir** (nada apagado):
+  - `/opt/clinica-posto-hml/releases` (46 releases, 7,9G);
+  - os backups por publicação em `/var/backups/clinica-tablet-continuidade-*` (81, cerca de 5G);
+  - os dumps diários em `/var/backups/clinica` (1,5G).
+
+**UX · DX · CX:**
+- 🧑‍💻 **UX:** a clínica não fica sem banco por causa do disco do deploy.
+- 🛠️ **DX:** a regra é pura e tem teste (`test_regras_publicacao.py`); o aviso do workflow diz o que fazer.
+- 🤝 **CX:** um risco de produção a menos, sem custo de Actions.

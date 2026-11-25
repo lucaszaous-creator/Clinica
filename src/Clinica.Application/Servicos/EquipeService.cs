@@ -32,6 +32,10 @@ public sealed class EquipeService
     public Task<Profissional?> ObterProfissionalAsync(int id, CancellationToken ct = default)
         => _repo.ObterProfissionalAsync(id, ct);
 
+    /// <summary>A validade do A1 do profissional (nulo sem A1) — o "com o quê" da janela de emitir.</summary>
+    public Task<DateTime?> ValidadeDoA1Async(int profissionalId, CancellationToken ct = default)
+        => _repo.ValidadeDoA1Async(profissionalId, ct);
+
     /// <summary>Cria ou atualiza um profissional. Devolve a entidade persistida.</summary>
     public async Task<Profissional> SalvarProfissionalAsync(Profissional dados, CancellationToken ct = default,
         SessaoUsuario? solicitante = null)
@@ -47,6 +51,9 @@ public sealed class EquipeService
             throw new InvalidOperationException("A duração padrão precisa ser maior que zero.");
         if (dados.LimitePreventivoPorDia is { } limite && limite < 0)
             throw new InvalidOperationException("O limite de preventivos por dia não pode ser negativo (0 = não faz preventivo).");
+        if (dados.ConcluirAutomaticamenteHoras is { } horas and (< 0 or > Profissional.ConcluirAutomaticamenteHorasMaximo))
+            throw new InvalidOperationException(
+                $"Concluir automaticamente: de 1 a {Profissional.ConcluirAutomaticamenteHorasMaximo} horas depois do horário (0 ou vazio = desligado).");
 
         // A jornada (set/2026): horário vem em PAR, e o fim depois do início. A recusa mora
         // aqui e não na tela porque o cadastro tem mais de uma porta (a tela da Recepção e o
@@ -125,6 +132,17 @@ public sealed class EquipeService
         destino.Cor = Limpar(dados.Cor);
         destino.DuracaoPadraoMinutos = dados.DuracaoPadraoMinutos;
         destino.LimitePreventivoPorDia = dados.LimitePreventivoPorDia;
+        // Concluir automaticamente (nov/2026). NULO = "o chamador não sabe" e fica o que estava (a tela
+        // de Acessos regrava o profissional sem este campo — quem não edita, PRESERVA); 0 = desligado.
+        if (dados.ConcluirAutomaticamenteHoras is { } concluirEm)
+        {
+            destino.ConcluirAutomaticamenteHoras = concluirEm == 0 ? null : concluirEm;
+            // "A partir de" (pedido do dono): a data que a tela mandou; sem data, a que já estava; sem
+            // nenhuma, o DIA DA GRAVAÇÃO — a regra nunca anda para trás. Desligar apaga a data, para
+            // religar começar de novo do dia em que se religou.
+            destino.ConcluirAutomaticamenteDesde = destino.ConcluirAutomaticamenteHoras is null ? null
+                : (dados.ConcluirAutomaticamenteDesde ?? destino.ConcluirAutomaticamenteDesde ?? DateTime.Today).Date;
+        }
         // Os convênios que NÃO atende (nov/2026). NULO = "o chamador não sabe" e fica o que
         // estava (a tela de Acessos regrava o profissional só para o CPF — quem não edita,
         // PRESERVA); vazio = atende todos. Guardado limpo: sem repetido, sem espaço.

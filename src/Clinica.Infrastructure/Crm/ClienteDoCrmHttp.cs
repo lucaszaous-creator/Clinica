@@ -113,8 +113,21 @@ public sealed class ClienteDoCrmHttp : IClienteDoCrm, IDisposable
     public async Task<bool> ConfiguradoAsync(CancellationToken ct = default)
         => await EnderecoAsync(forcar: true, ct) is not null;
 
-    public Task<AppSession> SessaoAsync(int usuarioId, CancellationToken ct = default)
-        => LerAsync<AppSession>(usuarioId, "/api/session", ct);
+    /// <summary>
+    /// A sessão de quem está usando. ⚠️ O CRM responde /api/session com 200 ANÔNIMO (sem AgentId, sem Inboxes) quando
+    /// o cookie dele venceu (2 h) — não com 401, que é o que renova as outras rotas. Sem esta conferência a tela
+    /// guardava a sessão anônima: as listas seguiam (elas tomam 401 e renovam), e "Nova conversa" dizia que o
+    /// CRM não tem caixa de saída. Aqui a sessão anônima vale como a 401: entra de novo UMA vez e relê.
+    /// </summary>
+    public async Task<AppSession> SessaoAsync(int usuarioId, CancellationToken ct = default)
+    {
+        var lida = await LerAsync<AppSession>(usuarioId, "/api/session", ct);
+        if (!string.IsNullOrEmpty(lida.AgentId)) return lida;
+        var sessao = await SessaoDoUsuarioAsync(usuarioId, ct);
+        await EntrarAsync(sessao, sessao.Atual, ct);
+        lida = await LerAsync<AppSession>(usuarioId, "/api/session", ct);
+        return string.IsNullOrEmpty(lida.AgentId) ? throw new CrmIndisponivel(CrmIndisponivel.AcessoRecusado) : lida;
+    }
 
     public Task<AppConversationSummary[]> ListarConversasAsync(int usuarioId, CancellationToken ct = default)
         => LerAsync<AppConversationSummary[]>(usuarioId, "/api/conversations", ct);
@@ -253,6 +266,107 @@ public sealed class ClienteDoCrmHttp : IClienteDoCrm, IDisposable
 
     public Task<AppQualityTrend> EvolucaoDaAuditoriaAsync(int usuarioId, int semanas, CancellationToken ct = default)
         => LerAsync<AppQualityTrend>(usuarioId, "/api/quality/evolucao?semanas=" + semanas.ToString(System.Globalization.CultureInfo.InvariantCulture), ct);
+
+    // ---------- "Cara de WhatsApp", F2a (semdor-crm docs/api-para-os-apps.md §15) ----------
+
+    public Task<AppConversation> ReagirAsync(int usuarioId, string conversaId, AppReact reacao, CancellationToken ct = default)
+        => EscreverAsync<AppConversation>(usuarioId, Conversa(conversaId, "react"), reacao, ct);
+
+    public Task<AppLabel[]> EtiquetasAsync(int usuarioId, CancellationToken ct = default)
+        => LerAsync<AppLabel[]>(usuarioId, "/api/labels", ct);
+
+    public Task<AppLabel[]> SalvarEtiquetaAsync(int usuarioId, AppLabelSave etiqueta, CancellationToken ct = default)
+        => EscreverAsync<AppLabel[]>(usuarioId, "/api/labels", etiqueta, ct);
+
+    public Task<AppConversation> EtiquetarConversaAsync(int usuarioId, string conversaId, AppConversationLabels etiquetas, CancellationToken ct = default)
+        => EscreverAsync<AppConversation>(usuarioId, Conversa(conversaId, "labels"), etiquetas, ct);
+
+    public Task<AppConversation> EstrelarAsync(int usuarioId, string conversaId, string mensagemId, AppStar estrela, CancellationToken ct = default)
+        => EscreverAsync<AppConversation>(usuarioId, Conversa(conversaId, "messages/" + Uri.EscapeDataString(mensagemId) + "/star"), estrela, ct);
+
+    public Task<AppPins> FixadasAsync(int usuarioId, CancellationToken ct = default)
+        => LerAsync<AppPins>(usuarioId, "/api/pins", ct);
+
+    public Task<AppPins> FixarAsync(int usuarioId, string conversaId, AppPin fixar, CancellationToken ct = default)
+        => EscreverAsync<AppPins>(usuarioId, Conversa(conversaId, "pin"), fixar, ct);
+
+    public Task<AppTyping> EscrevendoAsync(int usuarioId, string conversaId, CancellationToken ct = default)
+        => EscreverAsync<AppTyping>(usuarioId, Conversa(conversaId, "typing"), new { }, ct);
+
+    public Task<AppTyping> QuemEscreveAsync(int usuarioId, string conversaId, CancellationToken ct = default)
+        => LerAsync<AppTyping>(usuarioId, Conversa(conversaId, "typing"), ct);
+
+    public Task ParouDeEscreverAsync(int usuarioId, string conversaId, CancellationToken ct = default)
+        => ChamarAsync(usuarioId, Natureza.Escrita, () => Post(Conversa(conversaId, "typing/stop"), JsonContent.Create(new { }, options: Json)),
+            (_, _) => Task.FromResult(true), ct);
+
+    // ---------- "Cara de WhatsApp", F2b (semdor-crm §16) ----------
+
+    public Task<AppShareOptions> OpcoesDoClipeAsync(int usuarioId, CancellationToken ct = default)
+        => LerAsync<AppShareOptions>(usuarioId, "/api/share", ct);
+
+    public Task<AppShareOptions> SalvarEnderecoAsync(int usuarioId, AppLocation endereco, CancellationToken ct = default)
+        => EscreverAsync<AppShareOptions>(usuarioId, "/api/share/location", endereco, ct);
+
+    public Task<AppShareOptions> SalvarContatoAsync(int usuarioId, AppContactCard contato, CancellationToken ct = default)
+        => EscreverAsync<AppShareOptions>(usuarioId, "/api/share/contacts", contato, ct);
+
+    public Task<AppShareOptions> SalvarServicoAsync(int usuarioId, AppService servico, CancellationToken ct = default)
+        => EscreverAsync<AppShareOptions>(usuarioId, "/api/share/services", servico, ct);
+
+    public async Task<AppShareOptions> ImagemDoServicoAsync(int usuarioId, string servicoId, Stream? arquivo, string nome = "", string mime = "",
+        CancellationToken ct = default)
+    {
+        var caminho = "/api/share/services/" + Uri.EscapeDataString(servicoId) + "/image";
+        // Lido uma vez para a memória: o 401 repete o envio, e o Stream de quem chama só se lê uma vez.
+        var bytes = arquivo is null ? null : await LerArquivoAsync(arquivo, ct);
+        var tipo = MediaTypeHeaderValue.TryParse(mime, out var m) ? m : new MediaTypeHeaderValue("application/octet-stream");
+        return await ChamarAsync(usuarioId, Natureza.Envio, () =>
+        {
+            var corpo = new MultipartFormDataContent();
+            if (bytes is null) corpo.Add(new StringContent("true"), "remove");
+            else
+            {
+                var parte = new ByteArrayContent(bytes);
+                parte.Headers.ContentType = tipo;
+                corpo.Add(parte, "file", nome.Length > 0 ? nome : "servico.jpg");
+            }
+            return Post(caminho, corpo);
+        }, Desserializar<AppShareOptions>, ct);
+    }
+
+    public Task<ArquivoDaMidia> VerImagemDoServicoAsync(int usuarioId, string servicoId, CancellationToken ct = default)
+        => ChamarAsync(usuarioId, Natureza.Midia, () => new HttpRequestMessage(HttpMethod.Get, "/api/share/services/" + Uri.EscapeDataString(servicoId) + "/image"),
+            LerMidiaAsync, ct);
+
+    public Task<AppConversation> CompartilharAsync(int usuarioId, string conversaId, AppShare envio, CancellationToken ct = default)
+        => EscreverAsync<AppConversation>(usuarioId, Conversa(conversaId, "share"), envio, ct);
+
+    public Task<AppConversation> AgendarAsync(int usuarioId, string conversaId, AppSchedule agendamento, CancellationToken ct = default)
+        => EscreverAsync<AppConversation>(usuarioId, Conversa(conversaId, "scheduled"), agendamento, ct);
+
+    public Task<AppConversation> CancelarAgendamentoAsync(int usuarioId, string conversaId, string agendamentoId, CancellationToken ct = default)
+        => EscreverAsync<AppConversation>(usuarioId, Conversa(conversaId, "scheduled/" + Uri.EscapeDataString(agendamentoId) + "/cancel"), new { }, ct);
+
+    // ---------- "Cara de WhatsApp", F2c (semdor-crm §17) ----------
+
+    // A rota não lê corpo; vai "{}", como no resumo. Prazo da IA (Natureza.IA), como a sugestão.
+    public Task<AppSemDorOptions> OpcoesDoSemDorAsync(int usuarioId, string conversaId, CancellationToken ct = default)
+        => ChamarAsync(usuarioId, Natureza.IA, () => Post(Conversa(conversaId, "semdor/opcoes"), new StringContent("{}", System.Text.Encoding.UTF8, "application/json")),
+            Desserializar<AppSemDorOptions>, ct);
+
+    public Task<AppConversation> TranscreverAsync(int usuarioId, string conversaId, string mensagemId, CancellationToken ct = default)
+        => ChamarAsync(usuarioId, Natureza.IA, () => Post(Conversa(conversaId, "messages/" + Uri.EscapeDataString(mensagemId) + "/transcribe"),
+            new StringContent("{}", System.Text.Encoding.UTF8, "application/json")), Desserializar<AppConversation>, ct);
+
+    public Task<AppConversation> TentarDeNovoAsync(int usuarioId, string conversaId, string mensagemId, AppRetry pedido, CancellationToken ct = default)
+        => EscreverAsync<AppConversation>(usuarioId, Conversa(conversaId, "messages/" + Uri.EscapeDataString(mensagemId) + "/retry"), pedido, ct);
+
+    public Task<AppGreeting> SaudacaoAsync(int usuarioId, CancellationToken ct = default)
+        => LerAsync<AppGreeting>(usuarioId, "/api/greeting", ct);
+
+    public Task<AppGreeting> SalvarSaudacaoAsync(int usuarioId, AppGreeting saudacao, CancellationToken ct = default)
+        => EscreverAsync<AppGreeting>(usuarioId, "/api/greeting", saudacao, ct);
 
     public void EsquecerSessao(int usuarioId)
     {

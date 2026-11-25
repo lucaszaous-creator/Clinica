@@ -128,6 +128,10 @@
         }
         else
         {
+            @if (_autorizacoes.AvisoDeToken is { } avisoDoToken)
+            {
+                <div class="rd-aviso-token" data-aviso-token-faltando><Aviso Tom="atencao" Texto="@avisoDoToken" /></div>
+            }
             <div class="tabela-rolagem">
                 <table class="lista rd-tabela">
                     <thead>
@@ -187,6 +191,16 @@
                                 <td class="rd-col-status">
                                     <span class="rd-status grupo-@l.Grupo"><i class="rd-ponto"></i>@l.Status</span>
                                     @if (l.StatusDetalhe.Length > 0) { <span class="secundario">@l.StatusDetalhe</span> }
+                                    @if (_autorizacoes.HorariosQuePedem.Contains(l.AgendamentoId))
+                                    {
+                                        @* A autorização pelo sistema (nov/2026): o selo e, autorizada, o token ali mesmo. *@
+                                        <AutorizacaoNaLinha Autorizacao="@(_autorizacoes.PorHorario.TryGetValue(l.AgendamentoId, out var aut) ? aut : null)"
+                                                            Hoje="Hoje" EhHoje="l.EhHoje" EmAberto="@(l.Situacao == StatusAgendamento.Agendado)"
+                                                            PodeAgir="PodeAutorizar" Ocupado="_ocupado"
+                                                            Erro="@(_erroDoToken.TryGetValue(l.AgendamentoId, out var erroToken) ? erroToken : null)"
+                                                            AoPedir="() => PedirAutorizacaoAsync(l)"
+                                                            AoGuardarToken="t => GuardarTokenAsync(l, t)" AoSemToken="m => SemTokenAsync(l, m)" />
+                                    }
                                 </td>
                                 <td class="direita rd-col-acoes nao-quebra">
                                     <span class="botoes-linha">
@@ -293,6 +307,11 @@
     private FechamentoDaSessao _fechamento = default!;
     private (int Id, string Paciente)? _editando;
     private int? _horarioAberto;
+    private AutorizacoesDaAgenda _autorizacoes = AutorizacoesDaAgenda.Nenhuma;
+    private Dictionary<int, string> _erroDoToken = [];
+
+    /// <summary>Quem registra a chegada pede a autorização e digita o token (as mesmas mãos, no balcão).</summary>
+    private static bool PodeAutorizar => SessaoUsuario.Atual.PodeAlgum(Permissao.EditarAgenda | Permissao.MovimentarFila);
 
     private static DateOnly Hoje => DateOnly.FromDateTime(DateTime.Today);
     private static PermissoesDaAgendaDoDia Permissoes => PermissoesDaAgendaDoDia.Da(SessaoUsuario.Atual);
@@ -414,9 +433,21 @@
             using var escopo = Escopo();
             var leitura = ActivatorUtilities.CreateInstance<LeituraAgendaDoDia>(escopo.ServiceProvider);
             var dados = await leitura.LerAsync(dia, Hoje);
+            // A autorização pelo sistema: DEPOIS da agenda, no mesmo escopo (nunca em paralelo). Falha
+            // aqui não derruba a agenda — só some o selo (e vai ao log).
+            var autorizacoes = AutorizacoesDaAgenda.Nenhuma;
+            try
+            {
+                autorizacoes = await escopo.ServiceProvider.GetRequiredService<AutorizacaoTissService>().LerDaAgendaAsync(dados.Horarios, dia);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                Clinica.Application.Diagnostico.Registrar("Recepção — autorizações do dia não puderam ser lidas", ex);
+            }
             if (geracao != _geracao || Descartada) return;
 
             _dados = dados;
+            _autorizacoes = autorizacoes;
             _ultimaLeitura = DateTime.Now;
             _naoVerificado = false;
             _carregou = true;
@@ -555,6 +586,58 @@
         {
             _ocupado = false;
         }
+    }
+
+    // ==================== autorização pelo sistema (nov/2026) ====================
+
+    /// <summary>"Pedir autorização" / "Pedir de novo": o mesmo pedido do Chegou, por clique. Nunca dois valendo.</summary>
+    private Task PedirAutorizacaoAsync(LinhaAgendaDoDia l) => AtoAsync(async () =>
+    {
+        if (!ExigirAlgum(Permissao.EditarAgenda | Permissao.MovimentarFila, "pedir a autorização")) return false;
+        using var escopo = Escopo();
+        var r = await escopo.ServiceProvider.GetRequiredService<AutorizacaoTissService>().PedirAsync(l.AgendamentoId, Operador);
+        if (r.Impedimento is { } impedimento) { Notificacoes.Erro(impedimento); return false; }
+        Notificacoes.Sucesso(r.Nova ? $"Autorização de {l.Paciente} pedida à operadora." : $"{l.Paciente} já tem uma autorização em andamento ou valendo.");
+        return true;
+    }, "pedido de autorização");
+
+    /// <summary>O token que o paciente mostra no app, digitado com ele no balcão.</summary>
+    private async Task<bool> GuardarTokenAsync(LinhaAgendaDoDia l, string token)
+    {
+        if (!ExigirAlgum(Permissao.EditarAgenda | Permissao.MovimentarFila, "registrar o token do paciente")) return false;
+        if (!_autorizacoes.PorHorario.TryGetValue(l.AgendamentoId, out var a)) return false;
+        string? erro = null;
+        await AtoAsync(async () =>
+        {
+            using var escopo = Escopo();
+            erro = await escopo.ServiceProvider.GetRequiredService<AutorizacaoTissService>().RegistrarTokenAsync(a.Id, token, Operador);
+            if (erro is null) Notificacoes.Sucesso($"Token de {l.Paciente} guardado.");
+            return erro is null;
+        }, "registro do token");
+        Anotar(l.AgendamentoId, erro);
+        return erro is null;
+    }
+
+    /// <summary>O paciente não confirmou: o motivo fica no atendimento e vai para a guia.</summary>
+    private async Task<bool> SemTokenAsync(LinhaAgendaDoDia l, string motivo)
+    {
+        if (!ExigirAlgum(Permissao.EditarAgenda | Permissao.MovimentarFila, "registrar que o paciente não confirmou")) return false;
+        if (!_autorizacoes.PorHorario.TryGetValue(l.AgendamentoId, out var a)) return false;
+        string? erro = null;
+        await AtoAsync(async () =>
+        {
+            using var escopo = Escopo();
+            erro = await escopo.ServiceProvider.GetRequiredService<AutorizacaoTissService>().RegistrarSemTokenAsync(a.Id, motivo, Operador);
+            return erro is null;
+        }, "registro do paciente sem token");
+        Anotar(l.AgendamentoId, erro);
+        return erro is null;
+    }
+
+    private void Anotar(int agendamentoId, string? erro)
+    {
+        if (erro is null) _erroDoToken.Remove(agendamentoId);
+        else _erroDoToken[agendamentoId] = erro;
     }
 
     /// <summary>CHEGOU NO LOCAL — o check-in do balcão, só no dia da sessão.</summary>

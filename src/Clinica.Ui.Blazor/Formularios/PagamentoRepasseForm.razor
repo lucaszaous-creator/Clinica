@@ -1,0 +1,71 @@
+@*
+  REGISTRAR O PAGAMENTO de um fechamento de repasse (nov/2026): o médico foi pago. Realiza a saída
+  prevista que o fechamento criou no caixa (FechamentoRepasseService.RegistrarPagamentoAsync), na
+  data e forma informadas. O caixa do dia precisa estar aberto — a recusa do serviço vem INLINE.
+*@
+@using Clinica.Application.Modelos
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="Registrar pagamento do repasse" Largura="pequeno" AoFechar="AoFechar"
+       Subtitulo="@($"{Fechamento.ProfissionalNome} · {RepasseNaTela.Competencia(Fechamento.Competencia)} · {Formato.Dinheiro(Fechamento.Valor)}")">
+    <ChildContent>
+        <div class="campos">
+            <Campo Rotulo="Pago em" Obrigatorio="true">
+                <input type="date" class="campo" aria-label="Pago em" value="@_data.ToString("yyyy-MM-dd")"
+                       @onchange="e => { if (DateOnly.TryParse(e.Value?.ToString(), CultureInfo.InvariantCulture, out var d)) _data = d; }" />
+            </Campo>
+            <Campo Rotulo="Forma" Obrigatorio="true">
+                <select class="campo" aria-label="Forma" value="@_forma.ToString()"
+                        @onchange="e => { if (Enum.TryParse<FormaPagamento>(e.Value?.ToString(), out var f)) _forma = f; }">
+                    @foreach (var f in RepasseNaTela.FormasDePagamento)
+                    {
+                        <option value="@f">@RotulosEnum.De(f)</option>
+                    }
+                </select>
+            </Campo>
+        </div>
+        <p class="campo-dica">A saída prevista no caixa passa a realizada nesta data. Depois de pago, o fechamento não se cancela — estorna-se o pagamento no Caixa.</p>
+        <Aviso Tom="erro" Texto="@_mensagem" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" @onclick="SalvarAsync" disabled="@(_ocupado || !PodeEditar)"
+                title="@(PodeEditar ? null : "Seu acesso não permite registrar pagamento de repasse.")">
+            <Icone Nome="check" />@(_ocupado ? "Gravando…" : "Registrar pagamento")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public RepasseFechamento Fechamento { get; set; } = default!;
+    [Parameter] public EventCallback AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private DateOnly _data = DateOnly.FromDateTime(DateTime.Today);
+    private FormaPagamento _forma = FormaPagamento.Pix;
+    private string? _mensagem;
+    private bool _ocupado;
+
+    private static bool PodeEditar => SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
+
+    private async Task SalvarAsync()
+    {
+        if (_ocupado) return;
+        _mensagem = null;
+        try
+        {
+            _ocupado = true;
+            SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "registrar pagamento de repasse");
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<FechamentoRepasseService>().RegistrarPagamentoAsync(
+                Fechamento.Id, _data, _forma, SessaoUsuario.Atual.Operador);
+            await AoConcluir.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — pagamento do repasse não pôde ser registrado", ex);
+            _mensagem = ex.Message;
+        }
+        finally { _ocupado = false; }
+    }
+}

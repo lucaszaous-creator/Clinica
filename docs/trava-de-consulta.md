@@ -188,3 +188,87 @@ médico"). Agora:
   (sem um dos dois, devolve nulo); `ConsultaParaTrava` carrega os dois. Testes novos em
   `TravaDeConsultaTests`; a leitura continua em `TraducaoNoNpgsqlTests`.
 - 🤝 **CX** — publicar Recepção e Gerente; a ponte do CRM, para valer na marcação pelo WhatsApp.
+
+---
+
+## Correção de 18/11/2026: todas as portas, prazo em branco e janela por convênio
+
+**O que aconteceu.** Com a trava ligada e sem liberação nenhuma, um paciente da Saúde Petrobras
+teve três consultas de Psiquiatria com o mesmo médico em 22 dias (20/10, 04/11 e um encaixe em
+11/11); a operadora glosa consulta a menos de 30 dias da anterior. (Os números reais ficaram na
+investigação; aqui e nos testes só há dados fictícios.)
+
+**A causa não foi uma porta sem trava.** O horário nasceu pelo `AgendaService.AgendarAsync`,
+que confere a trava. Quem a desligou foi o PRAZO: o `TravaDeConsultaAsync` lia a validade da
+consulta da linha da família (`ParametrosSnapshot.ValidadeConsultaDias`), e a linha da Petrobras
+estava gravada **em branco** ("Não renova", pela tela Números das regras). Prazo nulo devolvia
+"sem trava" — calado.
+
+### O inventário das portas
+
+| Porta (Application) | Quem chama | Trava |
+|---|---|---|
+| `AgendaService.AgendarAsync` | AgendamentoForm, AtendimentoDoBalcao, lista de espera, ponte do CRM, posto do tablet, série, liberação aprovada | ✓ |
+| `AgendaService.RemarcarAsync` | remarcar | ✓ quando o horário passa a disputar o prazo |
+| `AgendaService.LancarAvulsoAsync` | lançamento sem horário | ✓ |
+| `AgendaService.LancarNoHorarioAsync` | AtendimentoDoBalcao, ConciliacaoAgendaForm | **antes ✗ — agora ✓** quando o lançamento muda o que a trava compara (vira consulta pelo convênio, deixa de ser particular, troca médico ou especialidade) |
+| chegada, chamar, entrada, confirmar presença | recepção | não confere, de propósito: o horário já passou pela trava ao nascer |
+| importação do SmartClinic | migração | não confere: é histórico |
+| `TravaDeConsultaBox` (tela) | AgendamentoForm, AtendimentoDoBalcao | usa o MESMO `TravaDeConsultaAsync` |
+
+Todas recusam com a mesma `TravaDeConsultaException` (mesma frase, mesma saída: liberação da
+gerência ou particular). A conta mora num lugar só, `ConsultaNoPrazoDoConvenio`, usada pela trava
+e pelo aviso da baixa.
+
+### O que mudou
+
+1. **Prazo em branco não desliga a trava.** `ParametrosSnapshot.PrazoDaTravaDeConsulta`: número na
+   linha vale; linha em branco cai no prazo do convênio (`ConvenioInfo`: Petrobras e Amil 30,
+   Unimed 22); **0** desliga a trava só daquela família. A pendência "consulta a renovar" continua
+   lendo a linha como antes (em branco = não renova).
+2. **A janela é dado do convênio**, não `if` no código: `ConvenioInfo.JanelaDaTravaDeConsulta`.
+   Saúde Petrobras compara **a mesma especialidade com qualquer médico** (pedido da direção,
+   18/11); os demais continuam com especialidade + médico (a correção de 10/11). Convênio novo
+   entra como uma linha nessa tabela; a variante cadastrada de uma família embutida herda a dela.
+   Sem médico escolhido, a Petrobras já confere (a especialidade basta).
+3. **`LancarNoHorarioAsync` confere** quando o lançamento muda o que a trava compara. Lançar o
+   horário como ele foi marcado não confere de novo (a consulta marcada antes de a chave ligar
+   não fica presa).
+4. **Aviso na baixa da guia** (`GuiaAnsNaBaixaService.PrepararAsync`): "Consulta Saúde Petrobras a
+   menos de 30 dias da anterior (atendimento 2026-000101 em 20/10) — risco de glosa. Confira se a
+   operadora aceita antes de enviar." Com a mesma janela do convênio, independente da chave e da
+   liberação — o que já entrou (antes da chave, liberado, ou por porta antiga) ainda é glosado.
+5. **Tela Números das regras**: com a validade em branco, a linha mostra "Trava: 30 dias", e a nota
+   explica que a trava continua e que 0 a desliga.
+
+![Números das regras, Petrobras em branco](evidencias/trava-de-consulta/regras-validade-em-branco-1366.png)
+
+### A escolha do item (a): prazo em branco cai no padrão OU a tela avisa que desliga
+
+| | A — em branco cai no padrão do convênio (feito) | B — em branco desliga, e a tela avisa |
+|---|---|---|
+| 🧑‍💻 UX | quem apaga a validade para tirar a pendência de renovação não perde a trava sem saber; a linha mostra "Trava: 30 dias" | um aviso a mais para ler; quem não lê continua desligando |
+| 🛠️ DX | renovação e trava passam a ser perguntas separadas (`ValidadeConsultaDias` × `PrazoDaTravaDeConsulta`); sem migration | uma frase na tela; a confusão das duas perguntas continua no código |
+| 🤝 CX | o caso que gerou a glosa não se repete; desligar continua possível (0), agora de propósito | depende de alguém ler; foi exatamente o que falhou |
+| 🎨 UI | uma dica pequena sob o campo, no padrão `campo-dica`; nota do rodapé reescrita | aviso na linha, mesma posição |
+
+**Recomendação: A.** Renovar a consulta e o intervalo que a operadora aceita entre consultas são
+perguntas diferentes que dividiam o mesmo campo; separar as duas é o que impede o silêncio. B só
+documentaria o defeito.
+
+### As quatro lentes da mudança inteira
+
+- 🧑‍💻 **UX** — a recepção vê a mesma box e a mesma frase em toda porta; no lançamento de um
+  encaixe que troca o médico, a recusa chega com a saída (liberação ou particular). Quem dá a baixa
+  vê o aviso de glosa com o número do atendimento anterior, antes de mandar a guia.
+- 🛠️ **DX** — uma classe nova (`ConsultaNoPrazoDoConvenio`), um enum (`JanelaDaTravaDeConsulta`) e
+  uma linha por convênio em `ConvenioInfo`. Testes em `TravaDeConsultaTodasAsPortasTests`
+  (encaixe de 04/11 recusado, prazo em branco = 30, 0 desliga, Petrobras médico B barrado e outra
+  especialidade passa, aviso da baixa). Convênio personalizado ainda não tem campo de cadastro
+  para a janela: fica com especialidade + médico.
+- 🤝 **CX** — fecha a glosa que a operadora já aplicou. Para valer: publicar Recepção e Gerente (e
+  o faturamento, onde a baixa avisa). A linha da Petrobras no banco **não foi corrigida**: com esta
+  versão ela deixa de importar (em branco = 30); a decisão de gravar 30 ou manter em branco é da
+  direção.
+- 🎨 **UI** — nenhum componente novo; dica `campo-dica` sob o campo e texto do rodapé. Fotografado
+  em 1366 e 1024 (`docs/evidencias/trava-de-consulta/regras-validade-em-branco-*.png`).

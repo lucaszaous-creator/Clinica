@@ -32,7 +32,10 @@ public sealed class LinkDocumentoTabletService(ClinicaDbContext db, IClinicaRepo
         && u.Pode(Permissao.Prescrever) && u.Profissional?.Ativo == true && !u.Travado(DateTime.Now);
 
     /// <summary>Abre o link (uma vez só) e devolve o token da sessão restrita, que vai num cookie próprio.</summary>
-    public async Task<(string Token, SessaoTablet Sessao)> AbrirAsync(string? token, CancellationToken ct)
+    public Task<(string Token, SessaoTablet Sessao)> AbrirAsync(string? token, CancellationToken ct)
+        => TransacaoResiliente.ExecutarAsync(db, c => AbrirNaTransacaoAsync(token, c), ct);
+
+    private async Task<(string Token, SessaoTablet Sessao)> AbrirNaTransacaoAsync(string? token, CancellationToken ct)
     {
         if (token?.Length != 64 || !token.All(Uri.IsHexDigit)) throw ErroFormularioTablet.Criar(LinkGasto);
         var hash = ContratoTablet.Hash(token.ToUpperInvariant());
@@ -98,7 +101,10 @@ public sealed class LinkDocumentoTabletService(ClinicaDbContext db, IClinicaRepo
     /// Emite o documento a partir do rascunho revisado. Repetir (o toque duplo, a rede que caiu)
     /// devolve o MESMO documento: o rascunho guarda qual foi.
     /// </summary>
-    public async Task<ResultadoDocumentoTablet> EmitirAsync(SessaoTablet s, PedidoDocumentoWhatsApp p, string? texto, int? dias, CancellationToken ct)
+    public Task<ResultadoDocumentoTablet> EmitirAsync(SessaoTablet s, PedidoDocumentoWhatsApp p, string? texto, int? dias, CancellationToken ct)
+        => TransacaoResiliente.ExecutarAsync(db, c => EmitirNaTransacaoAsync(s, p, texto, dias, c), ct);
+
+    private async Task<ResultadoDocumentoTablet> EmitirNaTransacaoAsync(SessaoTablet s, PedidoDocumentoWhatsApp p, string? texto, int? dias, CancellationToken ct)
     {
         texto = (texto ?? "").Trim();
         if (texto.Length == 0) throw ErroFormularioTablet.Criar("Escreva o conteúdo do documento.");

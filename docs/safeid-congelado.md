@@ -40,6 +40,72 @@ linha) e há teste que a fixa (`AssinaturaNaTelaTests`). O roteiro do que a dire
 testar em homologação, caminho por caminho, está em
 [`docs/safeid-telas-blazor-out2026.md`](safeid-telas-blazor-out2026.md).
 
+## ✅ Autorização expressa de 24/11/2026 (2ª) — PUBLICAR, METADADOS ITI E RECEITUÁRIO DE CONTROLE ESPECIAL
+
+**Contexto:** a receita 2026/0484, assinada com SafeID pelo portal e com assinatura PAdES válida, foi recusada na
+farmácia por três motivos:
+- tinha antibiótico, que pede o Receituário de Controle Especial;
+- o QR no validador do gov.br pedia um código e nada servia, porque o portal assinava SEM publicar;
+- o PDF não tinha os metadados de prescrição do ITI.
+
+**Respostas do dono (24/11/2026):**
+- sobre corrigir a receita (publicar, QR e metadados do ITI): *"Perfeito, então prossiga com isso"*;
+- sobre a assinatura no Controle Especial: *"com a assinatura saindo nesse PDF de receituário também como o safeid
+  porém precisará que a assinatura saia neste campo [ASSINATURA MÉDICO(A)] para não sobrescrever tão pouco
+  exceder"*. Leitura (Jade): muda SÓ a posição e o tamanho da aparência visível no receituário; hash/PAdES iguais;
+  UMA assinatura real de teste (cobrada), feita pela médica com a nossa orientação.
+
+O alcance vale **só** para estes três pontos; o resto continua congelado:
+
+1. **Publicar depois de assinar, em todos os caminhos.**
+   - O portal (SafeID/A1, Consultório e gestão) passa a registrar a `PublicacaoDocumentoService`: o token nasce
+     ANTES do PDF e o arquivo sobe depois de assinar.
+   - A fila `PublicarPendentesAsync` (no portal, a cada 2 min) sobe o que falhou.
+   - A saída do portal ganha o host do armazenamento no proxy restrito (`PROXY_HOSTS_EXTRAS`).
+   - O assinado SEM token não muda: o QR dele foi selado apontando para o validador, e é preciso assinar de novo.
+2. **Metadados de prescrição do ITI:** só com fonte oficial (Guia de Orientações aos Desenvolvedores do VALIDAR).
+3. **Receituário de Controle Especial** (modelo ITI v2.0): documento novo, assinável com SafeID/A1. A aparência
+   visível da assinatura fica no campo "ASSINATURA MÉDICO(A)"; só a posição e o tamanho mudam, e hash/PAdES
+   continuam iguais.
+   - **O que mudou no motor (nov/2026), e só isto:** `AreaAssinatura` ganhou dois campos opcionais —
+     `OutrasPaginas` (o mesmo bloco visível desenhado também na 2ª via, ANTES de assinar, então coberto pelo hash)
+     e `AjustarFonte` (a letra encolhe até 0,55 para as quatro linhas caberem no campo de 160 × 44 pt). Sem eles
+     (todos os outros documentos), o desenho é o de sempre, byte a byte. `CarimboDeAssinatura` passou de `private`
+     a `internal` só para o teste medir a escala. CMS, ByteRange, carimbo de tempo, certificado e token: intocados.
+   - **Metadados (ponto 2) — `MetadadosDePrescricaoIti`:** os OIDs vêm do guia oficial do VALIDAR
+     (validar.iti.gov.br/guia-desenvolvedor.html): no cap. V, 2.16.76.1.12.1.1 = "Prescrição de medicamento" e
+     2.16.76.1.4.2.2.1/.2/.3 = CFM número/UF/especialidade; no cap. I, item 3, eles "devem ser incluídos como
+     metadados". **O guia NÃO diz o lugar no PDF nem o formato do valor.** Decisão de 25/11 (Jade, opção a), na
+     leitura literal: uma entrada do dicionário **Info** por OID, com o OID como chave. O valor é o rótulo do guia
+     para o tipo e o dado do prescritor (número, UF por sigla, especialidade) para os do CFM. Os do CFM só vão
+     quando o conselho é CRM. Tudo isso é gravado ANTES de assinar, fica coberto pelo hash e não muda a validade
+     da assinatura. Na primeira assinatura real, conferir se o validador reconhece a prescrição; se não
+     reconhecer, a mudança fica só nesta classe.
+
+## ✅ Autorização expressa de 24/11/2026 — ASSINAR NA GESTÃO WEB
+
+**Pergunta feita ao dono:** *"Autoriza levar a assinatura digital (SafeID e A1) para a Gestão do portal? O motor da
+assinatura não muda; a Gestão passa a usar os mesmos serviços do Consultório, e é preciso 1 assinatura real de
+teste, que é cobrada."*
+
+**Resposta do dono (24/11/2026):** *"Autorizo, na Gestão"*.
+
+O alcance:
+
+- ✅ **Pode**: a gestão web (`/gestao`) assinar receitas e documentos clínicos chamando, pelo navegador, as MESMAS
+  rotas da API do portal que o Consultório usa, na MESMA ordem e com a mesma sessão e o mesmo CSRF:
+  - `.../atendimentos/0/documento/{id}/safeid` → Safeweb **na mesma aba** → `/safeid/retorno` → de volta à
+    `/gestao/?assinatura=` → confirmação explícita "Assinar e arquivar" → `/safeid/{id}/concluir`;
+  - `.../atendimentos/0/documento/{id}/a1` → senha → `/a1/{id}/assinar`.
+
+  Peças: `Gestao.Web/Hospedagem/AssinaturaNaGestao.cs`, `Gestao.Web/wwwroot/assinatura-na-gestao.js`, a volta no
+  `clinica-site` (`clinico.js`, `safeid.js`) e a aba "Para assinar" de Clínico → Prescrições.
+- ❌ **Não pode**: nada muda no motor. `Assinatura/`, `SafeID/`, `SafeIdTabletService`, `A1TabletService`,
+  `PublicacaoDocumentoService`, hash, PDF/PAdES, certificado e token continuam congelados. A infusão (prescrição,
+  folha de execução) segue só no Consultório, com o A1. A anamnese segue no aplicativo do computador.
+- 🧪 **Teste real**: UMA assinatura de teste, feita pela própria médica, guiada, depois do deploy. O CI usa só
+  falsos (`AssinaturaNaGestaoTests`).
+
 ---
 
 ## Por que

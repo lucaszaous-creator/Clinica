@@ -9,7 +9,7 @@ namespace Clinica.Ui.Blazor.Telas;
 
 /// <summary>
 /// O ACABAMENTO DA TELA DO WHATSAPP (25/10/2026, docs/whatsapp-nativo-implementacao.md §15): o teclado do
-/// WhatsApp Web (Enter envia, Shift+Enter quebra a linha, Esc fecha o que está por cima, o foco vai ao
+/// WhatsApp Web (Enter envia, Shift+Enter quebra a linha, o foco vai ao
 /// campo), a ligação que cai no meio do uso (a faixa amarela) e os botões do modelo sob o balão. Num
 /// arquivo à parte para as outras frentes da tela não esbarrarem; o que a tela AFIRMA vem de
 /// <see cref="ConversasNaTela"/> e <see cref="ModeloDoWhatsApp"/>.
@@ -20,9 +20,6 @@ public partial class ConversasDoWhatsApp
 
     /// <summary>Desde quando o WhatsApp da clínica não responde (a faixa amarela e o rodapé); nulo = ligado.</summary>
     private DateTimeOffset? _semLigacaoDesde;
-
-    /// <summary>O "Quem aparece aqui?" do modo Retenção aberto.</summary>
-    private bool _quemAparece;
 
     private ElementReference _campoEl, _buscaEl;
     private bool _focarCampo, _focarBusca;
@@ -43,31 +40,7 @@ public partial class ConversasDoWhatsApp
         if (ex is CrmIndisponivel and not CrmNaoConfigurado) _semLigacaoDesde ??= WhatsAppDaRecepcaoService.Agora;
     }
 
-    // ---------------------------------------------------------------- Esc fecha o que está por cima
-
-    private void FecharPorCima()
-    {
-        if (_popover == Popover.Nenhum) return;
-        _popover = Popover.Nenhum;
-        _focarCampo = true;
-    }
-
-    private void TeclaDoPopover(KeyboardEventArgs e)
-    {
-        if (e.Key == "Escape") FecharPorCima();
-    }
-
-    private void TeclaDaBusca(KeyboardEventArgs e)
-    {
-        if (e.Key != "Escape") return;
-        _buscaConversa = null;
-        _focarCampo = true;
-    }
-
-    private void TeclaDoQuemAparece(KeyboardEventArgs e)
-    {
-        if (e.Key == "Escape") _quemAparece = false;
-    }
+    // O Esc (fechar o que está por cima) mora desde a F1b num lugar só: o atalho Fechar (ConversasDoWhatsApp.CaraDeWhatsApp.cs).
 
     // ---------------------------------------------------------------- depois do desenho: as teclas e o foco
 
@@ -79,7 +52,10 @@ public partial class ConversasDoWhatsApp
             {
                 // Sem o módulo (o teste, sem navegador) o Enter continua enviando; só a quebra de linha não é impedida.
                 if (await JS.InvokeAsync<IJSObjectReference>("import", ModuloDaConversa) is { } modulo)
+                {
                     await modulo.InvokeVoidAsync("ligar");
+                    await LigarColarEArrastarAsync(modulo); // colar print e arrastar arquivo (F3)
+                }
             }
             catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException)
             {

@@ -54,14 +54,16 @@ public sealed class AgendaService
     private readonly IClinicaRepositorio _repo;
     private readonly AtendimentoService _atendimentos;
     private readonly ParametrosService? _parametros;
+    private readonly AutorizacaoTissService? _autorizacoes;
 
     public AgendaService(
         IClinicaRepositorio repo, AtendimentoService atendimentos,
-        ParametrosService? parametros = null)
+        ParametrosService? parametros = null, AutorizacaoTissService? autorizacoes = null)
     {
         _repo = repo;
         _atendimentos = atendimentos;
         _parametros = parametros;
+        _autorizacoes = autorizacoes;
     }
 
     /// <summary>O regime "guia no agendamento" está ligado? (parcela 70, atrás da chave.)</summary>
@@ -92,6 +94,11 @@ public sealed class AgendaService
     /// convênio — e barrou a Clínica da Dor de quem tinha consultado outra especialidade dias
     /// antes. Sem especialidade ou sem profissional escolhidos ainda não há o que comparar:
     /// a tela não acende a box, e a gravação exige os dois antes de chegar aqui.
+    ///
+    /// ⚠️ (18/11/2026) O critério é DADO DO CONVÊNIO (<see cref="ConvenioInfo.JanelaDaTravaDeConsulta"/>):
+    /// na Saúde Petrobras o prazo é por ESPECIALIDADE, com qualquer médico — e aí o médico não é preciso
+    /// para comparar. E o prazo em branco na linha da família não desliga mais a trava
+    /// (<see cref="ParametrosSnapshot.PrazoDaTravaDeConsulta"/>).
     /// </remarks>
     public async Task<TravaAcesa?> TravaDeConsultaAsync(
         int pacienteId, DateTime dataHora, ModalidadeAtendimento modalidade, bool particular,
@@ -99,7 +106,7 @@ public sealed class AgendaService
         string? especialidadeCodigo = null, int? profissionalId = null)
     {
         if (modalidade != ModalidadeAtendimento.Consulta || particular) return null;
-        if (string.IsNullOrWhiteSpace(especialidadeCodigo) || profissionalId is null) return null;
+        if (string.IsNullOrWhiteSpace(especialidadeCodigo)) return null;
         if (_parametros is null || !await _parametros.TravaDeConsultaAsync(ct)) return null;
 
         var paciente = await _repo.ObterPacienteAsync(pacienteId, ct);
@@ -111,21 +118,13 @@ public sealed class AgendaService
         // consulta, barraria a ginecologia por causa da geriatria da mesma semana.
         if (await _parametros.CoberturaDoPacienteAsync(paciente, ct) is { IntervaloDias: > 0 }) return null;
 
-        var prazo = paciente.Convenio == Convenio.Personalizado
-            ? CatalogoConvenios.ValidadeConsultaDias(paciente.ConvenioCodigo)
-            : (await _parametros.ObterAsync(ct)).ValidadeConsultaDias(paciente.Convenio);
-        if (prazo is not { } dias || dias <= 0) return null;
-
+        // A conta (prazo e critério do convênio) mora num lugar só: o aviso
+        // de glosa da baixa faz a mesma pergunta (ConsultaNoPrazoDoConvenio).
         var dia = DateOnly.FromDateTime(dataHora);
-        var outras = (await _repo.ConsultasPeloConvenioDoPacienteAsync(
-                pacienteId, dia.AddDays(-dias).ToDateTime(TimeOnly.MinValue),
-                dia.AddDays(dias + 1).ToDateTime(TimeOnly.MinValue), ct))
-            .Where(c => c.AgendamentoId != ignorarAgendamentoId)
-            // Só a MESMA especialidade com o MESMO médico disputa o prazo.
-            .Where(c => c.ProfissionalId == profissionalId
-                        && string.Equals(c.EspecialidadeCodigo, especialidadeCodigo, StringComparison.OrdinalIgnoreCase))
-            .ToList();
-        if (TravaDeConsulta.Conferir(dia, dias, outras) is not { } consulta) return null;
+        if (await ConsultaNoPrazoDoConvenio.ProcurarAsync(_repo, await _parametros.ObterAsync(ct), paciente, dataHora,
+                especialidadeCodigo, profissionalId, ignorarAgendamentoId, soAnteriores: false, ct) is not { } achada)
+            return null;
+        var (dias, consulta, outras) = (achada.Dias, achada.Consulta, achada.NoPrazo);
 
         // A gerência já liberou uma consulta deste paciente NESTE dia: a trava está atravessada.
         if (await _repo.ExisteLiberacaoDeTravaAsync(pacienteId, dia, ct)) return null;
@@ -133,7 +132,9 @@ public sealed class AgendaService
         // Solta depois da ÚLTIMA consulta da janela — com duas marcadas, soltar depois da
         // primeira mandaria marcar em cima do prazo da segunda.
         var solta = DateOnly.FromDateTime(outras.Max(c => c.DataHora)).AddDays(dias);
-        var medico = await _repo.ObterProfissionalAsync(profissionalId.Value, ct);
+        // "com Dr. X" só quando o médico é parte do que trava (o convênio compara por médico).
+        var medico = ConsultaNoPrazoDoConvenio.ComparaProfissional(paciente) && profissionalId is { } id
+            ? await _repo.ObterProfissionalAsync(id, ct) : null;
         return new TravaAcesa(paciente.ConvenioNome, dias, consulta.DataHora, consulta.AtendimentoNumero, solta, consulta.Atendida)
         {
             Especialidade = CatalogoEspecialidades.Nome(especialidadeCodigo),
@@ -550,6 +551,7 @@ public sealed class AgendaService
             // balcão como sessão pronta para fechar. Cada carimbo novo da fila tem de entrar
             // NESTE bloco: é a lição da parcela 69, e a parcela 74 a repetiu.
             ag.FimAtendimentoEm = null;
+            ag.ConcluidoAutomaticamenteEm = null;
         }
 
         // GUIA NO AGENDAMENTO (parcela 70): o atendimento acompanha o horário, no MESMO
@@ -573,6 +575,29 @@ public sealed class AgendaService
                            || novoParticular != particularAnterior;
         Anexar(avisosGuia, await _atendimentos.AjustarAoRemarcarAsync(
             ag, DateOnly.FromDateTime(horarioAnterior), regerarGuias, operador, ct));
+
+        // ===== REMARCOU → A CONFIRMAÇÃO RECOMEÇA NA DATA NOVA (nov/2026) =====
+        // Uma regra só para as três portas (balcão, CRM e a escolha do paciente), todas passam por aqui. O pedido
+        // de confirmação já enviado era do horário ANTIGO: o contato vai para a rodada do dia novo, PENDENTE, e o
+        // que ele dizia fica na auditoria. Sem isto (25/11) a rodada de amanhã mostrou como "Não avisado" quatro
+        // horários que a recepção tinha remarcado à tarde — o contato continuava preso à data antiga.
+        if (dataHora != horarioAnterior
+            && await _repo.ContatoDeConfirmacaoDoAgendamentoAsync(ag.Id, ct) is { } confirmacao)
+        {
+            await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+            {
+                Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
+                Acao = "ConfirmacaoReaberta",
+                Detalhe = $"Horário {ag.Id} remarcado: a confirmação de {confirmacao.Referencia:dd/MM/yyyy} "
+                          + $"({confirmacao.Status}{(confirmacao.EnviadoEm is { } enviado ? $", enviada em {enviado:dd/MM HH:mm}" : "")}"
+                          + $"{(confirmacao.RespondidoEm is { } resp ? $", respondida em {resp:dd/MM HH:mm}" : "")}) "
+                          + $"recomeça em {dataHora:dd/MM/yyyy}, pendente.",
+                PacienteId = ag.PacienteId
+            }, ct);
+            confirmacao.Referencia = DateOnly.FromDateTime(dataHora);
+            confirmacao.Status = StatusContato.Pendente;
+            confirmacao.EnviadoEm = null; confirmacao.EnviadoPor = null; confirmacao.RespondidoEm = null;
+        }
 
         await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
         {
@@ -925,6 +950,7 @@ public sealed class AgendaService
             // que chegava à rodada bloqueante e, num convênio com intervalo mínimo (Sul
             // América), ainda empurrava as guias reais para depois de sessões que não houve.
             await _atendimentos.RefletirStatusDoHorarioAsync(a, operador, ct);
+            await AutorizacaoTissService.CancelarDoHorarioAsync(_repo, a, operador, HoraDaClinica.Agora(), ct);
             cancelados++;
         }
 
@@ -1023,6 +1049,13 @@ public sealed class AgendaService
         if (mudou) await AuditarFilaAsync(ag, operador, "FilaChegada",
             $"Check-in às {ag.ChegadaEm:HH:mm} — horário de {ag.DataHora:dd/MM/yyyy HH:mm}", ct);
         await _repo.SalvarAsync(ct);
+
+        // AUTORIZAÇÃO PELO SISTEMA (nov/2026): o paciente chegou → o pedido vai à fila do conector,
+        // sozinho, quando a chave do convênio está ligada. Aqui, e não nas telas: são três portas de
+        // check-in (aba Dia, Início, formulário do horário). Recusa (chave desligada, falta carteira
+        // ou CBO) não impede a chegada: o botão "Pedir autorização" da linha diz o porquê.
+        if (mudou && _autorizacoes is not null && !string.IsNullOrWhiteSpace(operador))
+            await _autorizacoes.PedirAsync(ag.Id, operador, ct);
         return ag;
     }
 
@@ -1501,6 +1534,11 @@ public sealed class AgendaService
             else pago.Atendimento = atendimento;
         }
 
+        // ===== O PARTICULAR ENTRA NO CAIXA QUANDO É LANÇADO (nov/2026, decisão do dono) =====
+        // Recebido, sem forma de pagamento, no MESMO commit do atendimento — por qualquer porta que passe aqui
+        // (Fila, Consultório, posto, conclusão automática). Regra e exceções em ReceitaDoParticularService.
+        await new ReceitaDoParticularService(_repo).AcrescentarAsync(ag, atendimento, ct);
+
         if (confirmarPresenca)
         {
             if (encerrarClinico && ag.FimAtendimentoEm is null)
@@ -1764,6 +1802,21 @@ public sealed class AgendaService
         ag.Particular = particular ?? ag.Particular;
         var mudouParticular = ag.Particular != particularAnterior;
 
+        // A TRAVA DE CONSULTA também vale aqui (nov/2026): esta porta muda modalidade, especialidade,
+        // profissional e particular de um horário que JÁ existe, e era a única que fazia isso sem
+        // perguntar à trava. Mesma regra do Remarcar: confere quando o horário PASSA a disputar o
+        // prazo — virou consulta, deixou de ser particular, ou trocou de médico ou de especialidade.
+        // O que já estava marcado como consulta pelo convênio, com o mesmo médico e a mesma
+        // especialidade, não é conferido de novo (foi na marcação). A frase e a liberação da gerência
+        // são as mesmas, e a box do balcão já mostrava a trava antes deste clique.
+        var ehConsultaPeloConvenio = ag.ModalidadePrevista == ModalidadeAtendimento.Consulta && !ag.Particular;
+        var especialidadeAgora = ag.EspecialidadeConsultaCodigo ?? ag.EspecialidadeConsulta?.ToString();
+        if (ehConsultaPeloConvenio
+            && (mudouModalidade || mudouParticular || ag.ProfissionalId != profissionalAnterior
+                || !string.Equals(especialidadeAgora, especialidadeAnterior, StringComparison.OrdinalIgnoreCase)))
+            await GarantirSemTravaDeConsultaAsync(ag.PacienteId, ag.DataHora, ag.ModalidadePrevista, false, ag.Id,
+                especialidadeAgora, ag.ProfissionalId, ct);
+
         if (salaId is not null) ag.SalaId = salaId;
         if (!string.IsNullOrWhiteSpace(observacoes))
         {
@@ -1844,6 +1897,10 @@ public sealed class AgendaService
         // no-show viraria pendência eterna e, dez dias depois, rodada bloqueante por uma
         // guia que nunca vai a operadora nenhuma.
         var avisos = await _atendimentos.RefletirStatusDoHorarioAsync(ag, operador, ct);
+
+        // AUTORIZAÇÃO PELO SISTEMA (nov/2026): a senha emitida para um horário que não aconteceu é
+        // cancelada na operadora (pela fila do conector); o pedido ainda na fila nem sai.
+        await AutorizacaoTissService.CancelarDoHorarioAsync(_repo, ag, operador, HoraDaClinica.Agora(), ct);
 
         // HORÁRIO PAGO AO MARCAR (nov/2026): o dinheiro NÃO é devolvido sozinho — devolver é
         // decisão de quem está com o paciente, e ato de quem mexe no Financeiro. O que não pode

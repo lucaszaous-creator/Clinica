@@ -73,6 +73,8 @@ public static class DocumentosDoConsultorio
     public static string Icone(FolhaCatalogo folha) => folha.TipoClinico switch
     {
         TipoDocumentoClinico.Receita => "rx",
+        // Controle especial: papel distinto na régua (o ícone é o que separa um papel do outro).
+        TipoDocumentoClinico.ReceituarioControleEspecial => "cadeado",
         TipoDocumentoClinico.Atestado => "document",
         TipoDocumentoClinico.LaudoMedico => "record",
         TipoDocumentoClinico.Comparecimento => "check",

@@ -43,6 +43,6 @@
   .fat-glosas .motivos-recorrentes{padding:var(--space-4)}
   .fat-glosas .motivos-recorrentes ul{gap:var(--space-4)}
   .fat-glosas .motivos-recorrentes li{flex-wrap:wrap;align-items:flex-start;gap:var(--space-2)}
-  .fat-glosas .motivos-recorrentes li .selo{max-width:none}
+  .fat-glosas .motivos-recorrentes li .selo{max-width:100%;flex:0 1 auto;white-space:normal;overflow-wrap:anywhere} /* rótulo longo quebra, não estoura */
   .fat-glosas .motivos-recorrentes .como-evitar{flex:1 1 100%}
 }

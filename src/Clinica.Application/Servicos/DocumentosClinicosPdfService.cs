@@ -129,6 +129,11 @@ public sealed class DocumentosClinicosPdfService
     /// margem de baixo, e a faixa da assinatura é o PRIMEIRO item da coluna dele — ou
     /// seja, o topo dessa faixa. Os 2 pontos são o respiro de cada lado (a altura tira 4).
     /// </summary>
+    public static AreaAssinatura AreaDaAssinatura(TipoDocumentoClinico tipo, int totalPaginas)
+        => tipo == TipoDocumentoClinico.ReceituarioControleEspecial
+            ? ReceituarioControleEspecialPdf.AreaDaAssinatura()
+            : AreaDaAssinatura(totalPaginas);
+
     public static AreaAssinatura AreaDaAssinatura(int totalPaginas)
         => new(
             Pagina: Math.Max(0, totalPaginas - 1),
@@ -225,11 +230,19 @@ public sealed class DocumentosClinicosPdfService
     {
         QuestPDF.Settings.License = LicenseType.Community;
 
+        // O Receituário de Controle Especial tem desenho PRÓPRIO (modelo ITI v2.0, duas vias, o campo da assinatura
+        // num retângulo fixo) — ver ReceituarioControleEspecialPdf.
+        if (documento.Tipo == TipoDocumentoClinico.ReceituarioControleEspecial)
+            return ComMetadados(ReceituarioControleEspecialPdf.Gerar(documento, prestador, urlDoArquivo, previa, ValidadorFarmaceutico));
+
+        // Metadados de prescrição do ITI (nov/2026): no PDF que vai ser assinado, nunca na prévia.
+        byte[] ComMetadados(byte[] pdf) => previa ? pdf : MetadadosDePrescricaoIti.Aplicar(pdf, documento);
+
         var paciente = documento.Paciente;
         var nomeClinica = PrimeiroPreenchido(prestador?.NomeFantasia, prestador?.RazaoSocial) ?? "Clínica";
         var itens = documento.Itens.OrderBy(i => i.Ordem).ThenBy(i => i.Id).ToList();
 
-        return Document.Create(container =>
+        return ComMetadados(Document.Create(container =>
         {
             container.Page(page =>
             {
@@ -408,7 +421,7 @@ public sealed class DocumentosClinicosPdfService
 
                 Rodape(page, documento, paraAssinaturaEletronica, urlDoArquivo, previa);
             });
-        }).GeneratePdf();
+        }).GeneratePdf());
     }
 
     // ==================== Blocos ====================

@@ -14,6 +14,8 @@
 /* Formulário aberto: a bolinha sobe acima do rodapé dele (Salvar/Cancelar ficam livres) —
    inclusive arrastada: a posição guardada usa o mesmo piso (EstiloDaPosicao). */
 body:has(.modal-rodape){--chat-piso:calc(var(--space-16) + var(--space-6))}
+/* No celular, com uma janela aberta, a bolinha SAI (nov/2026, print do dono: ela cobria "Emitir e assinar"). */
+@media (max-width:760px){body:has(.modal-fundo) .chat-flutuante{display:none}}
 .chat-bola{position:relative;width:56px;height:56px;border-radius:var(--radius-pilula);border:0;background:var(--acento);color:var(--texto-invertido);
   display:grid;place-items:center;cursor:pointer;box-shadow:var(--sombra-popup);transition:transform var(--duracao-rapida)}
 .chat-bola:hover{transform:translateY(-2px)}

@@ -12,6 +12,9 @@ public sealed record ConclusaoTransacaoTiss
     /// <summary>A frase curta para a tela.</summary>
     public required string Resultado { get; init; }
 
+    /// <summary>A resposta da operadora a um pedido (ou à situação) de autorização, ou ao cancelamento dela.</summary>
+    public DesfechoDaAutorizacaoTiss? Autorizacao { get; init; }
+
     public string? Protocolo { get; init; }
 
     public string? NumeroGuiaOperadora { get; init; }
@@ -26,11 +29,53 @@ public sealed record ConclusaoTransacaoTiss
     public IReadOnlyList<ResultadoDaGuiaTiss> Guias { get; init; } = [];
 }
 
+/// <summary>O que a operadora disse da autorização: a situação e, autorizada, a senha, a data e a validade.</summary>
+public sealed record DesfechoDaAutorizacaoTiss(SituacaoAutorizacaoTiss Situacao, string? Senha = null, DateOnly? DataAutorizacao = null,
+    DateOnly? ValidadeSenha = null, string? NumeroGuiaOperadora = null, string? Motivo = null);
+
 /// <summary>As constantes da fila: quantas vezes se tenta, quanto se espera e quando uma reserva vence.</summary>
+
 public static class FilaTiss
 {
+    /// <summary>Em análise na operadora, a situação da autorização é perguntada de novo depois deste intervalo…</summary>
+    public static readonly TimeSpan IntervaloDaSituacaoDaAutorizacao = TimeSpan.FromMinutes(30);
+
+    /// <summary>…até este teto de perguntas (16 × 30 min = 8 h). Passado o teto, a tela diz para conferir no portal.</summary>
+    public const int TetoDeConsultasDaAutorizacao = 16;
+
     /// <summary>Elegibilidade e status: até três idas à operadora antes de pedir que alguém olhe.</summary>
     public const int MaximoDeTentativas = 3;
+
+    /// <summary>
+    /// As guias de um envio em LOTES de até <see cref="TransacaoTissLimites.GuiasPorLote"/> (o
+    /// máximo do XSD e o que a Amil confirmou, nov/2026), na ordem em que vieram.
+    /// </summary>
+    public static IReadOnlyList<IReadOnlyList<int>> DividirEmLotes(IReadOnlyList<int> codigoIds)
+        => codigoIds.Chunk(TransacaoTissLimites.GuiasPorLote).Select(l => (IReadOnlyList<int>)l).ToList();
+
+    /// <summary>
+    /// A glosa que a Amil devolve ao lote fora da janela de envio (homologação, nov/2026: "COBRANÇA FORA
+    /// DO PRAZO ESTIPULADO NO CONTRATO - ENVIO DO FATURAMENTO SÓ PODE SER REALIZADO NOS DIAS 01; 02; 03;
+    /// 04; 05"). Só vira AGENDAMENTO para operadora com janela no catálogo; nas outras é recusa comum.
+    /// </summary>
+    public const string GlosaForaDaJanela = "3091";
+
+    /// <summary>Como começa a frase de um lote agendado para a janela (a tela o reconhece por ela).</summary>
+    public const string PrefixoAgendado = "Agendado para ";
+
+    public static string FraseAgendado(OperadoraTiss operadora, DateTime quando, string? porque = null)
+        => $"{PrefixoAgendado}{quando:dd/MM/yyyy 'às' HH:mm}: a {operadora.Nome} só aceita o envio do "
+           + $"{operadora.JanelaDeEnvio!.PrimeiroDiaUtil}º ao {operadora.JanelaDeEnvio.UltimoDiaUtil}º dia útil do mês, "
+           + $"das {operadora.JanelaDeEnvio.Abre:HH\\:mm} às {operadora.JanelaDeEnvio.Fecha:HH\\:mm}"
+           + (porque is null ? "." : $" ({porque}).")
+           + " Pode ser cancelado até lá.";
+
+    /// <summary>O lote está na fila esperando a janela da operadora (não é atraso do serviço).</summary>
+    public static bool Agendado(TransacaoTiss t)
+        => t.Estado == EstadoTransacaoTiss.Pendente && t.Resultado?.StartsWith(PrefixoAgendado, StringComparison.Ordinal) == true;
+
+    /// <summary>Quantos lotes um envio de <paramref name="guias"/> guias vira.</summary>
+    public static int Lotes(int guias) => guias <= 0 ? 0 : (guias + TransacaoTissLimites.GuiasPorLote - 1) / TransacaoTissLimites.GuiasPorLote;
 
     /// <summary>
     /// A operadora recusou a mensagem por HTTP de CLIENTE (4xx) — formato (415), endereço (404),
@@ -113,7 +158,7 @@ public static class FilaTiss
     /// tela usam esta mesma pergunta. Quem a faz precisa ter lido o <see cref="TransacaoTiss.Erro"/>.
     /// </summary>
     public static bool NaoSeSabeSeChegou(TransacaoTiss? t)
-        => t is { EscreveNaOperadora: true, Estado: EstadoTransacaoTiss.Falhou, EnvioIniciadoEm: not null }
+        => t is { NaoRepeteDepoisDeSair: true, Estado: EstadoTransacaoTiss.Falhou, EnvioIniciadoEm: not null }
            && t.Erro is { } erro && erro.Contains(MarcaDeDuvida, StringComparison.Ordinal);
 
     /// <summary>Tira a senha de qualquer XML TISS antes de ele ser guardado.</summary>
@@ -229,6 +274,52 @@ public sealed class FilaTissService
         => (await MontarLoteAsync(convenioCodigo, codigoIds, conferidasNoPortal, ct)).Conferencia;
 
     /// <summary>
+    /// A conferência de um envio de QUALQUER tamanho: a de cada lote de até 100 (<see cref="FilaTiss.DividirEmLotes"/>),
+    /// somada. Guia repetida em lotes diferentes também é recusada.
+    /// </summary>
+    public async Task<ConferenciaDeEnvioTiss> ConferirEnvioEmLotesAsync(
+        string convenioCodigo, IReadOnlyList<int> codigoIds, CancellationToken ct = default,
+        IReadOnlyCollection<int>? conferidasNoPortal = null)
+    {
+        if (codigoIds is null || codigoIds.Count <= TransacaoTissLimites.GuiasPorLote)
+            return await ConferirEnvioAsync(convenioCodigo, codigoIds!, ct, conferidasNoPortal);
+        var partes = new List<ConferenciaDeEnvioTiss>();
+        // SEQUENCIAL: é o mesmo repositório (o mesmo DbContext).
+        foreach (var lote in FilaTiss.DividirEmLotes(codigoIds))
+            partes.Add(await ConferirEnvioAsync(convenioCodigo, lote, ct, conferidasNoPortal));
+        var porGuia = partes.SelectMany(p => p.PorGuia).GroupBy(p => p.Key).ToDictionary(g => g.Key, g => g.First().Value);
+        foreach (var repetida in codigoIds.GroupBy(id => id).Where(g => g.Count() > 1))
+            porGuia[repetida.Key] = "Esta guia aparece mais de uma vez na lista.";
+        return new ConferenciaDeEnvioTiss
+        {
+            Impedimento = partes.Select(p => p.Impedimento).FirstOrDefault(i => i is not null),
+            PorGuia = porGuia,
+            Avisos = partes.SelectMany(p => p.Avisos).Distinct().ToList(),
+            AvisosPorGuia = partes.SelectMany(p => p.AvisosPorGuia).GroupBy(p => p.Key).ToDictionary(g => g.Key, g => g.First().Value),
+            PrazoGrave = partes.SelectMany(p => p.PrazoGrave).ToHashSet()
+        };
+    }
+
+    /// <summary>
+    /// Pede o envio de QUALQUER número de guias (nov/2026): acima de 100, o sistema divide em lotes de
+    /// até 100, um pedido por lote. A conferência de TODOS vem antes de qualquer um entrar na fila — uma
+    /// guia recusada recusa o envio inteiro (<see cref="EnvioTissRecusadoException"/>) e nada sai pela metade.
+    /// </summary>
+    public async Task<IReadOnlyList<TransacaoTiss>> EnfileirarEnvioEmLotesAsync(
+        string convenioCodigo, IReadOnlyList<int> codigoIds, string operador, CancellationToken ct = default,
+        IReadOnlyCollection<int>? conferidasNoPortal = null)
+    {
+        Operador(operador);
+        var conferencia = await ConferirEnvioEmLotesAsync(convenioCodigo, codigoIds, ct, conferidasNoPortal);
+        if (!conferencia.PodeEnviar)
+            throw new EnvioTissRecusadoException(conferencia);
+        var pedidos = new List<TransacaoTiss>();
+        foreach (var lote in FilaTiss.DividirEmLotes(codigoIds))
+            pedidos.Add(await EnfileirarEnvioAsync(convenioCodigo, lote, operador, ct, conferidasNoPortal));
+        return pedidos;
+    }
+
+    /// <summary>
     /// Pede o envio de um LOTE de guias à operadora (de 1 a 100, do mesmo convênio). É este pedido, feito por quem está logado, que autoriza o envio DAQUELAS guias — o
     /// conector não envia nada que não tenha passado por aqui. Qualquer guia recusada recusa o
     /// pedido inteiro (<see cref="EnvioTissRecusadoException"/>, com a frase de cada linha): lote
@@ -258,8 +349,15 @@ public sealed class FilaTissService
             }, ct);
 
         var unica = lote.Guias.Count == 1 ? lote.Guias[0] : null;
+        // A JANELA de envio da operadora (catálogo): fora dela, o lote entra AGENDADO para a próxima
+        // abertura, e o conector só o pega então (ProximaTentativaEm). Pode ser cancelado até lá.
+        var operadora = OperadorasTiss.Da(Clinica.Domain.Regras.CatalogoConvenios.Familia(convenioCodigo.Trim()));
+        DateTime? agendadoPara = operadora?.JanelaDeEnvio is { } janela && !PrazosTiss.DentroDaJanela(janela, _agora())
+            ? PrazosTiss.ProximaAbertura(janela, _agora()) : null;
         return await EnfileirarAsync(new TransacaoTiss
         {
+            ProximaTentativaEm = agendadoPara,
+            Resultado = agendadoPara is { } quando ? FilaTiss.FraseAgendado(operadora!, quando) : null,
             Tipo = TipoTransacaoTiss.EnvioGuia,
             // Com uma guia só, a transação aponta para ela e para o paciente (a trilha diz de quem é).
             CodigoId = unica?.Codigo.Id,
@@ -350,6 +448,7 @@ public sealed class FilaTissService
 
         Encerrar(t, EstadoTransacaoTiss.Cancelada, _agora());
         t.Resultado = Cortar($"Cancelada por {quem} antes de ir à operadora.", TransacaoTissLimites.Resultado);
+        await AutorizacaoSemIdaAsync(t, $"Pedido cancelado por {quem} antes de ir à operadora.", ct);
         GuiasSemEnvio(t, "O envio foi cancelado antes de ir à operadora.");
         await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
         {
@@ -433,7 +532,7 @@ public sealed class FilaTissService
                 // A reserva foi um UPDATE direto: se a linha já estava rastreada neste escopo, relê.
                 await _repo.RecarregarTransacaoTissAsync(t, ct);
 
-                if (t.EscreveNaOperadora && t.EnvioIniciadoEm is not null)
+                if (t.NaoRepeteDepoisDeSair && t.EnvioIniciadoEm is not null)
                 {
                     // Estava EmEnvio com a reserva vencida E a mensagem já tinha saído.
                     Encerrar(t, EstadoTransacaoTiss.Falhou, agora);
@@ -479,6 +578,34 @@ public sealed class FilaTissService
     {
         var t = await EmEnvioAsync(id, ct);
         var agora = _agora();
+        // A AUTORIZAÇÃO (nov/2026): o desfecho vai para a linha dela; em análise, a MESMA transação volta
+        // à fila para perguntar a situação depois do intervalo — até o teto, sem laço e sem gastar tentativa.
+        // O horário desmarcado no meio do caminho manda: a resposta do pedido não desfaz o cancelamento.
+        if (conclusao.Autorizacao is { } desfecho && t.AutorizacaoId is { } autorizacaoId
+            && await _repo.ObterAutorizacaoTissAsync(autorizacaoId, ct) is { } autorizacao
+            && (t.Tipo == TipoTransacaoTiss.CancelaAutorizacao || autorizacao.Situacao is SituacaoAutorizacaoTiss.Pedida or SituacaoAutorizacaoTiss.EmAnalise))
+        {
+            AplicarNaAutorizacao(autorizacao, desfecho, agora);
+            if (t.Tipo == TipoTransacaoTiss.Autorizacao && desfecho.Situacao == SituacaoAutorizacaoTiss.EmAnalise
+                && autorizacao.ConsultasDeStatus < FilaTiss.TetoDeConsultasDaAutorizacao)
+            {
+                autorizacao.ConsultasDeStatus++;
+                t.Estado = EstadoTransacaoTiss.Pendente;
+                t.Consumidor = null;
+                t.ReservadaEm = null;
+                t.EnvioIniciadoEm = null;
+                t.Tentativas = 0;
+                t.ProximaTentativaEm = agora + FilaTiss.IntervaloDaSituacaoDaAutorizacao;
+                t.Resultado = Cortar($"{conclusao.Resultado} O sistema pergunta a situação de novo às {t.ProximaTentativaEm:HH:mm}.", TransacaoTissLimites.Resultado);
+                t.XmlRecebido = FilaTiss.SemSenha(conclusao.XmlRecebido);
+                t.Versao++;
+                await _repo.SalvarAsync(ct);
+                return;
+            }
+            if (desfecho.Situacao == SituacaoAutorizacaoTiss.EmAnalise)
+                autorizacao.Motivo = Cortar("A operadora ainda analisa depois de "
+                    + $"{FilaTiss.TetoDeConsultasDaAutorizacao} perguntas: confira no portal ou peça a autorização de novo.", 500);
+        }
         Encerrar(t, EstadoTransacaoTiss.Concluida, agora);
         t.Resultado = Cortar(conclusao.Resultado, TransacaoTissLimites.Resultado);
         t.Erro = null;
@@ -500,12 +627,19 @@ public sealed class FilaTissService
         else if (t.Tipo == TipoTransacaoTiss.CancelamentoGuia && t.CodigoId is { } guiaCancelada)
             await MarcarCanceladaNoEnvioAsync(guiaCancelada, t.NumeroGuiaPrestador, agora, ct);
 
-        if (t.EscreveNaOperadora)
-            // O que mudou algo na operadora deixa rastro próprio, no mesmo salvamento.
+        if (t.NaoRepeteDepoisDeSair)
+            // O que mudou algo na operadora deixa rastro próprio, no mesmo salvamento (a senha e o
+            // token não entram na trilha: só a situação).
             await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
             {
                 Operador = t.PedidoPor,
-                Acao = t.Tipo == TipoTransacaoTiss.EnvioGuia ? "EnvioGuiaTissConcluido" : "CancelamentoGuiaTissConcluido",
+                Acao = t.Tipo switch
+                {
+                    TipoTransacaoTiss.EnvioGuia => "EnvioGuiaTissConcluido",
+                    TipoTransacaoTiss.Autorizacao => "AutorizacaoTissRespondida",
+                    TipoTransacaoTiss.CancelaAutorizacao => "CancelamentoAutorizacaoTissConcluido",
+                    _ => "CancelamentoGuiaTissConcluido"
+                },
                 Detalhe = Cortar(t.Resultado + (t.Protocolo is null ? "" : $" (protocolo {t.Protocolo})"), 500),
                 CodigoId = t.CodigoId,
                 PacienteId = t.PacienteId
@@ -543,6 +677,37 @@ public sealed class FilaTissService
         return true;
     }
 
+    /// <summary>
+    /// O lote reservado volta para a fila AGENDADO para a janela de envio da operadora, SEM gastar
+    /// tentativa: fora da janela (<paramref name="recusaDaOperadora"/> nulo: só adia se estiver fora), ou
+    /// porque a operadora o recusou por prazo (glosa <see cref="FilaTiss.GlosaForaDaJanela"/>). A recusa 3091 é resposta clara de que o
+    /// lote não foi recebido: o carimbo de envio é limpo, e o lote pode sair de novo — no próximo dia útil
+    /// da janela, nunca no mesmo dia.
+    /// Falso = está dentro da janela (ou a operadora não tem janela) e nada mudou.
+    /// </summary>
+    public async Task<bool> AgendarNaJanelaAsync(int id, OperadoraTiss? operadora, string? recusaDaOperadora = null, CancellationToken ct = default)
+    {
+        if (operadora?.JanelaDeEnvio is not { } janela) return false;
+        var agora = _agora();
+        if (recusaDaOperadora is null && PrazosTiss.DentroDaJanela(janela, agora)) return false;
+        var t = await EmEnvioAsync(id, ct);
+        if (t.Tipo != TipoTransacaoTiss.EnvioGuia) return false;
+        // Recusada pela operadora: o próximo dia útil da janela (uma ida por dia, sem laço); acabou a
+        // janela, a do mês seguinte. Um feriado que a operadora não conta custa um dia, não o mês.
+        var quando = PrazosTiss.ProximaAbertura(janela, agora, aPartirDeAmanha: recusaDaOperadora is not null);
+        t.Estado = EstadoTransacaoTiss.Pendente;
+        t.Consumidor = null;
+        t.ReservadaEm = null;
+        t.EnvioIniciadoEm = null;
+        t.Tentativas = Math.Max(0, t.Tentativas - 1);
+        t.ProximaTentativaEm = quando;
+        t.Resultado = Cortar(FilaTiss.FraseAgendado(operadora, quando,
+            recusaDaOperadora is null ? null : $"a {operadora.Nome} recusou fora do prazo: {recusaDaOperadora}"), TransacaoTissLimites.Resultado);
+        t.Versao++;
+        await _repo.SalvarAsync(ct);
+        return true;
+    }
+
     /// <summary>As idas reais à operadora das elegibilidades do convênio hoje (o que o teto conta).</summary>
     public Task<int> IdasDeElegibilidadeHojeAsync(string convenioCodigo, CancellationToken ct = default)
     {
@@ -566,7 +731,7 @@ public sealed class FilaTissService
 
         var mensagemSaiu = t.EnvioIniciadoEm is not null;
         var repete = podeTentarDeNovo
-                     && !(t.EscreveNaOperadora && mensagemSaiu)
+                     && !(t.NaoRepeteDepoisDeSair && mensagemSaiu)
                      && t.Tentativas < FilaTiss.MaximoDeTentativas;
         if (repete)
         {
@@ -580,13 +745,14 @@ public sealed class FilaTissService
         else
         {
             Encerrar(t, EstadoTransacaoTiss.Falhou, agora);
-            if (t.EscreveNaOperadora && mensagemSaiu && podeTentarDeNovo)
+            if (t.NaoRepeteDepoisDeSair && mensagemSaiu && podeTentarDeNovo)
                 t.Erro = FilaTiss.CortarErro(t.Erro + " " + FilaTiss.FraseSemNovaTentativa, TransacaoTissLimites.Erro);
-            t.Resultado = Cortar(t.EscreveNaOperadora && mensagemSaiu
+            t.Resultado = Cortar(t.NaoRepeteDepoisDeSair && mensagemSaiu
                 ? "Falhou: confira no portal da operadora antes de pedir de novo."
                 : "Falhou: " + t.Erro, TransacaoTissLimites.Resultado);
             // O lote falhou inteiro: cada guia dele fica marcada, com o mesmo motivo na linha.
             GuiasSemEnvio(t, t.Erro);
+            await AutorizacaoSemIdaAsync(t, t.Erro, ct, mensagemSaiu);
         }
         await _repo.SalvarAsync(ct);
         return t.Estado;
@@ -604,7 +770,46 @@ public sealed class FilaTissService
         Encerrar(t, EstadoTransacaoTiss.Cancelada, _agora());
         t.Resultado = Cortar(motivo, TransacaoTissLimites.Resultado);
         GuiasSemEnvio(t, motivo);
+        await AutorizacaoSemIdaAsync(t, motivo, ct);
         await _repo.SalvarAsync(ct);
+    }
+
+    /// <summary>A situação nova da autorização, com a senha, a data e a validade quando autorizada.</summary>
+    private static void AplicarNaAutorizacao(AutorizacaoTiss a, DesfechoDaAutorizacaoTiss d, DateTime agora)
+    {
+        a.Situacao = d.Situacao;
+        a.AtualizadaEm = agora;
+        if (!string.IsNullOrWhiteSpace(d.NumeroGuiaOperadora)) a.NumeroGuiaOperadora = Cortar(d.NumeroGuiaOperadora.Trim(), 20);
+        if (d.Situacao == SituacaoAutorizacaoTiss.Autorizada)
+        {
+            a.Senha = Cortar(d.Senha?.Trim(), 20);
+            a.DataAutorizacao = d.DataAutorizacao ?? DateOnly.FromDateTime(agora);
+            a.ValidadeSenha = d.ValidadeSenha;
+        }
+        a.Motivo = Cortar(d.Motivo, 500);
+    }
+
+    /// <summary>
+    /// A transação da autorização terminou SEM resposta da operadora: recusada antes de sair (chave
+    /// desligada, falta dado), cancelada por quem pediu, ou a mensagem saiu e não se sabe.
+    /// </summary>
+    private async Task AutorizacaoSemIdaAsync(TransacaoTiss t, string motivo, CancellationToken ct, bool mensagemSaiu = false)
+    {
+        if (t.AutorizacaoId is not { } id || await _repo.ObterAutorizacaoTissAsync(id, ct) is not { } a) return;
+        if (t.Tipo == TipoTransacaoTiss.Autorizacao)
+        {
+            // Já desmarcada (cancelada ou com o cancelamento pedido): a situação é a do horário.
+            if (a.Situacao is not (SituacaoAutorizacaoTiss.Pedida or SituacaoAutorizacaoTiss.EmAnalise)) return;
+            a.Situacao = mensagemSaiu ? SituacaoAutorizacaoTiss.NaoSeSabe : SituacaoAutorizacaoTiss.Cancelada;
+            a.Motivo = Cortar(motivo, 500);
+            a.AtualizadaEm = _agora();
+        }
+        // O cancelamento que não se completou: a senha pode continuar aberta na operadora.
+        else if (t.Tipo == TipoTransacaoTiss.CancelaAutorizacao)
+        {
+            a.Motivo = Cortar("O cancelamento da autorização não se completou: " + motivo, 500);
+            a.AtualizadaEm = _agora();
+        }
     }
 
     // ==================== peças ====================
@@ -638,9 +843,16 @@ public sealed class FilaTissService
         var anteriores = (await _repo.ItensDeEnvioTissDasGuiasAsync(distintas, ct))
             .Where(i => i.CodigoId is not null).ToLookup(i => i.CodigoId!.Value);
 
-        // "Um só tipo de guia por lote" (regra do padrão) está garantido pela conferência: toda guia
-        // conferida sai como GUIA DE CONSULTA (TissExportService.GuiaConsultaConferida), seja qual
-        // for o tipo no sistema — inclusive o BSV da Petrobras, que a clínica lança nessa tela.
+        // "Um só tipo de guia por lote" (regra do padrão) está garantido pela conferência: o lote é de
+        // UM convênio, e toda guia conferida sai no modelo da operadora dele (TissExportService.GuiaConferida):
+        // guia de consulta na Petrobras (inclusive o BSV), SP/SADT na Amil.
+        var operadora = OperadorasTiss.Da(Clinica.Domain.Regras.CatalogoConvenios.Familia(convenio));
+        var avisos = new List<string>();
+        var avisosPorGuia = new Dictionary<int, string>();
+        var graves = new HashSet<int>();
+        var hoje = DateOnly.FromDateTime(_agora());
+        var cobrancasDoLote = new HashSet<(string, string, DateOnly DataAtendimento)>();
+        if (PrazosTiss.JanelaDeEnvio(operadora, _agora()) is { } janela) avisos.Add(janela);
 
         var guias = new List<GuiaDoLote>();
         foreach (var id in distintas)
@@ -677,8 +889,36 @@ public sealed class FilaTissService
             // O número muda a cada envio da mesma guia (C12, C12R2, C12R3…): a operadora nunca vê
             // o mesmo número duas vezes, e a resposta acha a guia de volta por ele.
             guias.Add(new GuiaDoLote(codigo, NumeroDoPrestador(id, anteriores[id].Count() + 1), declarada));
+            var atendidoEm = codigo.GuiaAns?.DataAtendimento ?? codigo.Atendimento?.Data ?? default;
+            // As regras da OPERADORA (catálogo) que bloqueiam a guia na prévia dela — ela não entra no lote.
+            if (operadora is not null && codigo.GuiaAns is { } ans)
+            {
+                string? daOperadora = null;
+                if (PrazosTiss.BloqueadaPeloPrazo(operadora, ans.DataAtendimento, hoje))
+                    daOperadora = PrazosTiss.FraseBloqueadaPeloPrazo(operadora, ans.DataAtendimento);
+                else if (operadora.RecusaDuplicidade)
+                {
+                    var cobranca = (ans.NumeroCarteira.Trim(), ans.CodigoProcedimento.Trim(), ans.DataAtendimento);
+                    if (!cobrancasDoLote.Add(cobranca))
+                        daOperadora = $"Este lote já tem outra guia do mesmo paciente, procedimento e dia: a {operadora.Nome} cobra uma só (glosa 1807).";
+                    else if ((await _repo.GuiasIguaisJaEnviadasAsync(cobranca.Item1, cobranca.Item2, cobranca.DataAtendimento, distintas, ct)) is { Count: > 0 } iguais)
+                        daOperadora = $"Já há guia deste paciente, deste procedimento e deste dia enviada à {operadora.Nome} (guia {iguais[0]}): "
+                                      + "ela bloqueia a duplicidade (glosa 1807). Confira antes de enviar de novo.";
+                }
+                if (daOperadora is not null)
+                {
+                    guias.RemoveAt(guias.Count - 1);
+                    recusas[id] = daOperadora;
+                    continue;
+                }
+            }
+            if (PrazosTiss.AvisoDaGuia(operadora, atendidoEm, _agora()) is { } prazo)
+            {
+                avisosPorGuia[id] = prazo.Texto;
+                if (prazo.Grave) graves.Add(id);
+            }
         }
-        return (new ConferenciaDeEnvioTiss { PorGuia = recusas }, guias);
+        return (new ConferenciaDeEnvioTiss { PorGuia = recusas, Avisos = avisos, AvisosPorGuia = avisosPorGuia, PrazoGrave = graves }, guias);
     }
 
     /// <summary>

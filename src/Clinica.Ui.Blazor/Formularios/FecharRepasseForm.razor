@@ -1,0 +1,77 @@
+@*
+  FECHAR E CONFERIR o repasse de um profissional numa competência (nov/2026). É o momento em que
+  alguém AFIRMA que conferiu: o nome de quem fez login vai ao demonstrativo como "Responsável pela
+  conferência", e a saída prevista nasce no caixa. Por isso é formulário (total, quantidade, quem
+  confere e observação à vista), e não um "tem certeza?".
+
+  O serviço FECHA o que estiver pronto NA HORA do clique (FechamentoRepasseService.FecharAsync) e
+  recusa com frase quando outro posto fechou antes ou não sobrou nada — a frase aparece aqui,
+  INLINE, e a tela recarrega ao fechar o formulário.
+*@
+@using Clinica.Application.Modelos
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="Fechar e conferir o repasse" Subtitulo="@RepasseNaTela.ResumoDoFechamento(Previa, Competencia)" Largura="medio" AoFechar="AoFechar">
+    <ChildContent>
+        <dl class="pares repasse-fechar-pares">
+            <dt>Profissional</dt><dd>@Previa.Profissional@(Previa.Registro is { } reg ? $" · {reg}" : "")</dd>
+            <dt>Competência</dt><dd>@RepasseNaTela.Competencia(Competencia)</dd>
+            <dt>Guias pagas</dt><dd>@Previa.QuantidadeAFechar</dd>
+            <dt>Total do repasse</dt><dd><strong class="repasse-valor">@Formato.Dinheiro(Previa.ValorAFechar)</strong></dd>
+            <dt>Responsável pela conferência</dt><dd>@SessaoUsuario.Atual.Operador</dd>
+        </dl>
+        @if (Previa.Bloqueados.Any())
+        {
+            <Aviso Tom="atencao" Texto="@($"{Previa.Bloqueados.Count()} recebimento(s) bloqueado(s) NÃO entram neste fechamento — ficam para o próximo, depois de resolvidos.")" />
+        }
+        <Campo Rotulo="Observação (vai ao demonstrativo)">
+            <textarea class="campo" aria-label="Observação" rows="2" maxlength="500" @bind="_observacoes"></textarea>
+        </Campo>
+        <p class="campo-dica">Fechar cria a saída PREVISTA no caixa. O pagamento ao profissional se registra depois, no fechamento.</p>
+        <Aviso Tom="erro" Texto="@_mensagem" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" @onclick="FecharAsync" disabled="@(_ocupado || !PodeEditar || !Previa.PodeFechar)"
+                title="@RepasseNaTela.DicaDeFechar(Previa, PodeEditar)">
+            <Icone Nome="cadeado" />@(_ocupado ? "Fechando…" : "Confirmar fechamento")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public PreviaRepasseProfissional Previa { get; set; } = default!;
+    [Parameter, EditorRequired] public DateOnly Competencia { get; set; }
+    /// <summary>Devolve o fechamento gravado (para a tela oferecer o demonstrativo).</summary>
+    [Parameter] public EventCallback<RepasseFechamento> AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private string? _observacoes;
+    private string? _mensagem;
+    private bool _ocupado;
+
+    private static bool PodeEditar => SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
+
+    private async Task FecharAsync()
+    {
+        if (_ocupado) return;
+        _mensagem = null;
+        try
+        {
+            _ocupado = true;
+            SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "fechar repasses");
+            RepasseFechamento fechamento;
+            using (var escopo = Escopos.CreateScope())
+                fechamento = await escopo.ServiceProvider.GetRequiredService<FechamentoRepasseService>().FecharAsync(
+                    Previa.ProfissionalId, Competencia, SessaoUsuario.Atual.Operador,
+                    string.IsNullOrWhiteSpace(_observacoes) ? null : _observacoes.Trim());
+            await AoConcluir.InvokeAsync(fechamento);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Blazor — repasse não pôde ser fechado", ex);
+            _mensagem = ex.Message;
+        }
+        finally { _ocupado = false; }
+    }
+}

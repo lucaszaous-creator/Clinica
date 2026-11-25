@@ -27,6 +27,12 @@ public static class RegistroDoConector
         services.AddScoped<IProcessadorTransacaoTiss>(sp => new ProcessadorDeCancelamentoDeGuia(
             sp.GetRequiredService<IClinicaRepositorio>(), sp.GetRequiredService<ParametrosService>(),
             sp.GetRequiredService<CredenciaisTissService>(), HoraDaClinica.Agora));
+        services.AddScoped<IProcessadorTransacaoTiss>(sp => new ProcessadorDeAutorizacao(
+            sp.GetRequiredService<IClinicaRepositorio>(), sp.GetRequiredService<ParametrosService>(),
+            sp.GetRequiredService<CredenciaisTissService>(), HoraDaClinica.Agora));
+        services.AddScoped<IProcessadorTransacaoTiss>(sp => new ProcessadorDeCancelamentoDeAutorizacao(
+            sp.GetRequiredService<IClinicaRepositorio>(), sp.GetRequiredService<ParametrosService>(),
+            sp.GetRequiredService<CredenciaisTissService>(), HoraDaClinica.Agora));
         services.AddScoped<ExecutorDeTransacoesTiss>();
         return services;
     }

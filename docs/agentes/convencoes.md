@@ -5,11 +5,12 @@ sessão). O texto é o MESMO, sem reescrita: design system, WPF/XAML, Blazor, EF
 `verificar-suite`, assinatura digital, impressão, CRM e as rodadas de UI, cada uma com o defeito que a
 originou. Antes de escrever uma tela, uma consulta ou uma checagem, procure aqui a lição da área.
 
-## Índice (214 tópicos, na ordem do arquivo)
+## Índice (215 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e leia o tópico inteiro antes de mexer nela.
 
 - ⛔ TELA, BARRA OU BOX NOVO SEGUE O DESIGN SYSTEM — SEMPRE
+- Nada rola para o lado no celular (360/390/430) — e o CI confere no WebKit
 - Degradação silenciosa tem que deixar rastro.
 - A sidebar da suíte é agrupada por TEMA, não por módulo
 - O circuito entre os módulos é testado de PONTA A PONTA
@@ -5372,3 +5373,26 @@ laço (`TelasAnunciadas` na verificação).
   estava certo (`Found newer remote release` em cada volta), quem falhava era a troca de pasta.
   O faturamento (`UpdateService`, fora da suíte) tem o mesmo desenho e já registrou dois `apply`
   simultâneos para o mesmo processo em set/2026; não foi mexido aqui porque está em produção.
+
+## Nada rola para o lado no celular (360/390/430) — e o CI confere no WebKit
+
+Nov/2026, print do dono no iPhone: a janela de emitir documento da gestão web estava deslocada para a esquerda,
+com o texto cortado ("omo", "tencourt"). Três defeitos juntos, nenhum pego por teste nem por foto no Chromium:
+
+1. **O campo de data do Safari ignora `width:100%`** e desenha mais largo que a tela; o corpo do Modal, com
+   `overflow-y:auto`, ganhava rolagem lateral. Regra comum (`clinica.css`): `.modal-corpo{overflow-x:hidden}`,
+   `input[type=date].campo{-webkit-appearance:none;display:block;min-width:0}` e `min-width:0` nos filhos de
+   formulário (`.campos > *`, `fieldset`). **O WebKit é a rede**: o Chromium não reproduz.
+2. **Margem negativa amarrada ao respiro do Modal** (`margin:0 calc(-1 * var(--space-6))` nas tabelas-cartão) estoura
+   quando o respiro muda no celular (16 px): quem sangra até a borda acompanha o respiro da largura.
+3. **Item de flex em coluna com `flex-basis:100%`** (herdado de quando morava numa linha) vira altura cheia e cobre o
+   resto com o fundo branco — tela "em branco" só no WebKit.
+
+E as regras da folha de emitir valem para toda janela de ação no celular: UMA ação primária + "Mais"; avisos acima do
+rodapé, nunca dentro; alvos de 44 px; campo a 16 px (o Safari não dá zoom); `env(safe-area-inset-bottom)`; a bolinha
+do chat SAI quando há janela aberta (`chat-equipe.css`).
+
+**Rede:** `tools/responsivo/varredura.mjs` abre na prévia cada tela solta e cada tela da gestão dentro da moldura
+(`CATALOGO=…catalogo-gestao.json`), com as janelas que os botões abrem, e reprova o que passa da borda fora de uma
+faixa que rola sozinha. O job `responsivo` do CI roda em 390 px no WebKit; localmente, rode também 360 e 430. No
+portal (clinica-site), o equivalente é `ferramentas/testar-portal-responsivo.mjs`.

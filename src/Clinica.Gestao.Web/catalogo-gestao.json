@@ -61,7 +61,6 @@
     ]
    }
   ],
-  "telasTreinamento": [],
   "itens": [
    {
     "chave": "acessos",
@@ -529,7 +528,7 @@
     "requerAlgum": [],
     "perfilExclusivo": null,
     "abas": [],
-    "componente": "DocumentosDaRecepcao"
+    "componente": "PrescricoesEDocumentos"
    },
    {
     "chave": "consultorio-prontuario",
@@ -1414,6 +1413,10 @@
      {
       "rotulo": "Particular",
       "chave": "precos-particular"
+     },
+     {
+      "rotulo": "Repasse médico",
+      "chave": "repasse-medico"
      }
     ],
     "componente": null
@@ -1564,7 +1567,7 @@
       "chave": "agenda-confirmacoes"
      },
      {
-      "rotulo": "Acompanhamento",
+      "rotulo": "Fila 360",
       "chave": "retorno-pacientes"
      },
      {
@@ -1586,6 +1589,19 @@
     "perfilExclusivo": null,
     "abas": [],
     "componente": "RentabilidadePorConvenio"
+   },
+   {
+    "chave": "repasse-medico",
+    "rotulo": "Repasse médico",
+    "descricao": null,
+    "oculto": true,
+    "requer": [
+     "VerFinanceiro"
+    ],
+    "requerAlgum": [],
+    "perfilExclusivo": null,
+    "abas": [],
+    "componente": "TabelaDeRepasse"
    },
    {
     "chave": "repasses",
@@ -1615,7 +1631,7 @@
    },
    {
     "chave": "retorno-pacientes",
-    "rotulo": "Acompanhamento de pacientes",
+    "rotulo": "Fila 360",
     "descricao": null,
     "oculto": false,
     "requer": [
@@ -1627,7 +1643,7 @@
     ],
     "perfilExclusivo": null,
     "abas": [],
-    "componente": "AcompanhamentoDePacientes"
+    "componente": "Fila360"
    },
    {
     "chave": "taxas",

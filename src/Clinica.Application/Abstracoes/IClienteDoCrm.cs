@@ -172,6 +172,107 @@ public interface IClienteDoCrm
     /// </summary>
     Task<AppQualityTrend> EvolucaoDaAuditoriaAsync(int usuarioId, int semanas, CancellationToken ct = default);
 
+    // ---------- "Cara de WhatsApp", F2a (nov/2026 — semdor-crm docs/api-para-os-apps.md §15) ----------
+    // CRM anterior a esta versão responde 404 nestas rotas (RecusaDoCrm 404): a tela esconde o recurso.
+
+    /// <summary>
+    /// POST …/{id}/react — a clínica reage a uma mensagem (emoji vazio tira). Uma reação da clínica por mensagem. Pela Meta só
+    /// dentro da janela de 24 h, em mensagem de até 30 dias, que não seja reação nem importada do celular (409 com a frase).
+    /// </summary>
+    Task<AppConversation> ReagirAsync(int usuarioId, string conversaId, AppReact reacao, CancellationToken ct = default);
+
+    /// <summary>GET /api/labels — as etiquetas da clínica (as quatro de partida enquanto a gestão não salvar nenhuma).</summary>
+    Task<AppLabel[]> EtiquetasAsync(int usuarioId, CancellationToken ct = default);
+
+    /// <summary>POST /api/labels — cria ou muda uma etiqueta (só a gestão: 403 para os outros). Devolve a lista inteira.</summary>
+    Task<AppLabel[]> SalvarEtiquetaAsync(int usuarioId, AppLabelSave etiqueta, CancellationToken ct = default);
+
+    /// <summary>POST …/{id}/labels — as etiquetas da conversa, exatamente estas (até 10).</summary>
+    Task<AppConversation> EtiquetarConversaAsync(int usuarioId, string conversaId, AppConversationLabels etiquetas, CancellationToken ct = default);
+
+    /// <summary>POST …/{id}/messages/{mensagemId}/star — ★ marca ou desmarca a mensagem como importante (para toda a equipe).</summary>
+    Task<AppConversation> EstrelarAsync(int usuarioId, string conversaId, string mensagemId, AppStar estrela, CancellationToken ct = default);
+
+    /// <summary>GET /api/pins — as conversas que a pessoa fixou no topo, na ordem em que fixou, e o máximo (3).</summary>
+    Task<AppPins> FixadasAsync(int usuarioId, CancellationToken ct = default);
+
+    /// <summary>POST …/{id}/pin — fixa ou desafixa a conversa no topo da lista da pessoa. 409 com a frase quando já tem o máximo.</summary>
+    Task<AppPins> FixarAsync(int usuarioId, string conversaId, AppPin fixar, CancellationToken ct = default);
+
+    /// <summary>
+    /// POST …/{id}/typing — o pulso de "estou escrevendo" (vale 6 s: pulse a cada ~3 s enquanto a pessoa digita). Devolve quem MAIS
+    /// da equipe escreve nesta conversa. Com <see cref="AppSession.PatientTyping"/>, o CRM também mostra "digitando…" ao paciente.
+    /// </summary>
+    Task<AppTyping> EscrevendoAsync(int usuarioId, string conversaId, CancellationToken ct = default);
+
+    /// <summary>GET …/{id}/typing — quem da equipe (além da pessoa) está escrevendo agora.</summary>
+    Task<AppTyping> QuemEscreveAsync(int usuarioId, string conversaId, CancellationToken ct = default);
+
+    /// <summary>POST …/{id}/typing/stop — a pessoa parou de escrever (enviou ou apagou): some na hora para as colegas.</summary>
+    Task ParouDeEscreverAsync(int usuarioId, string conversaId, CancellationToken ct = default);
+
+    // ---------- "Cara de WhatsApp", F2b (semdor-crm §16): endereço, contato do médico, serviços e enviar mais tarde ----------
+
+    /// <summary>GET /api/share — o que o clipe oferece: o endereço da clínica (nulo = não configurado), os contatos e os serviços.</summary>
+    Task<AppShareOptions> OpcoesDoClipeAsync(int usuarioId, CancellationToken ct = default);
+
+    /// <summary>POST /api/share/location — o endereço da clínica (só a gestão; 403 para os outros).</summary>
+    Task<AppShareOptions> SalvarEnderecoAsync(int usuarioId, AppLocation endereco, CancellationToken ct = default);
+
+    /// <summary>POST /api/share/contacts — cria (Id vazio) ou muda um cartão de contato (só a gestão).</summary>
+    Task<AppShareOptions> SalvarContatoAsync(int usuarioId, AppContactCard contato, CancellationToken ct = default);
+
+    /// <summary>POST /api/share/services — cria (Id vazio) ou muda um serviço (só a gestão). Preço no texto é recusado (400).</summary>
+    Task<AppShareOptions> SalvarServicoAsync(int usuarioId, AppService servico, CancellationToken ct = default);
+
+    /// <summary>POST /api/share/services/{id}/image — a imagem do serviço (só a gestão). <paramref name="arquivo"/> nulo tira a imagem.</summary>
+    Task<AppShareOptions> ImagemDoServicoAsync(int usuarioId, string servicoId, Stream? arquivo, string nome = "", string mime = "",
+        CancellationToken ct = default);
+
+    /// <summary>GET /api/share/services/{id}/image — a imagem do serviço, para o cartão na tela.</summary>
+    Task<ArquivoDaMidia> VerImagemDoServicoAsync(int usuarioId, string servicoId, CancellationToken ct = default);
+
+    /// <summary>
+    /// POST …/{id}/share — envia o endereço, um contato ou um serviço, como resposta da pessoa (idempotente pelo <c>Id</c>,
+    /// <c>Guid.NewGuid().ToString("D")</c>). Só na janela de 24 h (409 com a frase), como qualquer mensagem livre.
+    /// </summary>
+    Task<AppConversation> CompartilharAsync(int usuarioId, string conversaId, AppShare envio, CancellationToken ct = default);
+
+    /// <summary>
+    /// POST …/{id}/scheduled — "enviar mais tarde" (1 minuto a 30 dias). Fora da janela de 24 h só modelo: o 409 diz até que horas
+    /// o texto livre ainda vale. A conversa devolvida traz <see cref="AppConversation.Scheduled"/>.
+    /// </summary>
+    Task<AppConversation> AgendarAsync(int usuarioId, string conversaId, AppSchedule agendamento, CancellationToken ct = default);
+
+    /// <summary>POST …/{id}/scheduled/{agendamentoId}/cancel — só quem agendou ou a gestão (403); já enviada é 409.</summary>
+    Task<AppConversation> CancelarAgendamentoAsync(int usuarioId, string conversaId, string agendamentoId, CancellationToken ct = default);
+
+    // ---------- "Cara de WhatsApp", F2c (semdor-crm §17) ----------
+
+    /// <summary>
+    /// POST …/{id}/semdor/opcoes — de 2 a 3 respostas curtas do @SemDor para as pílulas; a escolhida vai para o CAMPO, nunca é
+    /// enviada sozinha. As falhas como na sugestão (409 desligado; 502 = <see cref="CrmIndisponivel"/>). Prazo da IA.
+    /// </summary>
+    Task<AppSemDorOptions> OpcoesDoSemDorAsync(int usuarioId, string conversaId, CancellationToken ct = default);
+
+    /// <summary>
+    /// POST …/{id}/messages/{mensagemId}/transcribe — a transcrição do áudio (em <see cref="AppMessage.Transcript"/>). Hoje o CRM
+    /// responde 409 ("desligada"): a IA do @SemDor não ouve áudio. Só chame com <see cref="AppSession.TranscriptionEnabled"/>.
+    /// </summary>
+    Task<AppConversation> TranscreverAsync(int usuarioId, string conversaId, string mensagemId, CancellationToken ct = default);
+
+    /// <summary>
+    /// POST …/{id}/messages/{mensagemId}/retry — "Tentar de novo": envio NOVO (o <c>Id</c> é um Guid "D" novo) com o mesmo
+    /// conteúdo da que falhou. A nova vem com <see cref="AppMessage.RetryOf"/>. 409: não falhou, incerta há menos de 10 min ou já reenviada.
+    /// </summary>
+    Task<AppConversation> TentarDeNovoAsync(int usuarioId, string conversaId, string mensagemId, AppRetry pedido, CancellationToken ct = default);
+
+    /// <summary>GET /api/greeting — a saudação do menu e se o menu está ligado.</summary>
+    Task<AppGreeting> SaudacaoAsync(int usuarioId, CancellationToken ct = default);
+
+    /// <summary>POST /api/greeting — muda a saudação e o liga/desliga do menu (só a gestão: 403; versão velha: 409).</summary>
+    Task<AppGreeting> SalvarSaudacaoAsync(int usuarioId, AppGreeting saudacao, CancellationToken ct = default);
+
     /// <summary>Esquece a sessão do CRM da pessoa (o app chama no logout): a próxima chamada entra de novo.</summary>
     void EsquecerSessao(int usuarioId);
 }

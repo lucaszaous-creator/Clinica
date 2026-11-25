@@ -91,11 +91,15 @@ public static class PublicacaoDocumento
     /// menos o que estiver na lista de exceções — faria o próximo tipo clínico nascer
     /// exposto por esquecimento.
     /// </summary>
-    public static bool PodePublicar(TipoDocumentoClinico tipo) => tipo
-        is TipoDocumentoClinico.Receita
-        or TipoDocumentoClinico.Atestado
-        or TipoDocumentoClinico.PedidoExame
-        or TipoDocumentoClinico.Comparecimento;
+    public static bool PodePublicar(TipoDocumentoClinico tipo) => Publicaveis.Contains(tipo);
+
+    /// <summary>A MESMA lista fechada, como array: a consulta do banco (publicação pendente) a usa no <c>Contains</c>.</summary>
+    public static readonly TipoDocumentoClinico[] Publicaveis =
+    [
+        TipoDocumentoClinico.Receita, TipoDocumentoClinico.Atestado,
+        TipoDocumentoClinico.PedidoExame, TipoDocumentoClinico.Comparecimento,
+        TipoDocumentoClinico.ReceituarioControleEspecial
+    ];
 
     /// <summary>
     /// Sorteia um token novo. <see cref="RandomNumberGenerator"/>, nunca

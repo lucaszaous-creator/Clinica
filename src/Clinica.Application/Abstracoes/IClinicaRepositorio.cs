@@ -412,6 +412,14 @@ public interface IClinicaRepositorio
     /// </summary>
     Task<IReadOnlyList<Agendamento>> AgendamentosMarcadosNoPeriodoAsync(DateTime inicio, DateTime fimExclusivo, CancellationToken ct = default);
 
+    /// <summary>
+    /// O RELATÓRIO DE ATENDIMENTOS (nov/2026): os horários do período (pela data do horário) que batem com
+    /// o filtro — situação, profissional, modalidade, especialidade, convênio da ficha e parte do nome —,
+    /// TUDO filtrado no banco, com as guias do atendimento. Só colunas de cadastro e faturamento: nada clínico.
+    /// O "Particular" (que depende do catálogo) é conferido depois, em <c>RelatorioDeAtendimentosRegras</c>.
+    /// </summary>
+    Task<IReadOnlyList<LinhaBrutaRelatorioAtendimento>> RelatorioDeAtendimentosAsync(FiltroRelatorioAtendimentos filtro, CancellationToken ct = default);
+
     Task<IReadOnlyList<Agendamento>> AgendamentosQueSobrepoemAsync(DateTime inicio, DateTime fim, CancellationToken ct = default);
 
     /// <summary>
@@ -445,6 +453,8 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<Profissional>> ProfissionaisAsync(CancellationToken ct = default);
 
     Task<Profissional?> ObterProfissionalAsync(int profissionalId, CancellationToken ct = default);
+    /// <summary>A validade do A1 mais novo cadastrado em "Meu certificado" para o profissional; nulo sem A1 (nov/2026, janela de emitir).</summary>
+    Task<DateTime?> ValidadeDoA1Async(int profissionalId, CancellationToken ct = default);
     Task AdicionarProfissionalAsync(Profissional profissional, CancellationToken ct = default);
 
     /// <summary>Há agendamento (ou pedido na lista de espera) apontando para este profissional?</summary>
@@ -684,6 +694,13 @@ public interface IClinicaRepositorio
     Task AdicionarResultadoExameAsync(ResultadoExame resultado, CancellationToken ct = default);
 
     /// <summary>
+    /// As escutas pós-sessão do paciente (nov/2026), canceladas incluídas e marcadas, da sessão mais recente para a
+    /// mais antiga — o que a exportação, a guarda e o documento do titular leem. Dado de saúde: quem chama já exigiu
+    /// <c>VerProntuario</c>.
+    /// </summary>
+    Task<IReadOnlyList<EscutaPosSessao>> EscutasDoPacienteAsync(int pacienteId, CancellationToken ct = default);
+
+    /// <summary>
     /// Guarda os BYTES do laudo do resultado (tabela 1:1, o padrão do retrato do
     /// paciente). Separado do resultado de propósito: a lista de resultados é lida a
     /// cada abertura de tela e não pode arrastar os PDFs (a lição da parcela 74).
@@ -920,6 +937,12 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<DocumentoClinico>> DocumentosPublicadosVencidosAsync(
         DateOnly hoje, CancellationToken ct = default);
 
+    /// <summary>
+    /// Os documentos que o profissional ainda precisa assinar (<see cref="Clinica.Domain.Regras.DocumentosParaAssinar"/>),
+    /// com o paciente, do mais antigo ao mais novo, até <paramref name="limite"/>. A aba "Para assinar" da central.
+    /// </summary>
+    Task<IReadOnlyList<DocumentoClinico>> DocumentosParaAssinarAsync(int profissionalId, int limite = 200, CancellationToken ct = default);
+
     Task<IReadOnlyList<DocumentoClinico>> DocumentosDoPacienteAsync(
         int pacienteId, CancellationToken ct = default);
 
@@ -1081,6 +1104,13 @@ public interface IClinicaRepositorio
     /// </summary>
     Task<ArquivoAssinado?> ObterArquivoAssinadoAsync(
         int arquivoId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Os documentos ASSINADOS, com token (o QR já aponta para o arquivo) e ainda NÃO publicados — a fila que a
+    /// publicação pendente esvazia (nov/2026: o portal assinava sem publicar). RASTREADOS: a publicação grava
+    /// <c>PublicadoEm</c> neles. Do mais antigo ao mais novo, até <paramref name="limite"/>.
+    /// </summary>
+    Task<IReadOnlyList<DocumentoClinico>> DocumentosAssinadosSemPublicacaoAsync(int limite = 20, CancellationToken ct = default);
 
     /// <summary>Guarda o PDF assinado. Não persiste — chame <c>SalvarAsync</c>.</summary>
     Task AdicionarArquivoAssinadoAsync(
@@ -1295,6 +1325,60 @@ public interface IClinicaRepositorio
         int? profissionalId = null, CancellationToken ct = default);
 
     Task<RepasseApurado?> ObterRepasseApuradoAsync(int repasseId, CancellationToken ct = default);
+
+    // ---- Repasse por guia recebida (nov/2026) — ver RepasseFechamento ----
+
+    /// <summary>
+    /// Receitas de GUIA realizadas e vivas, recebidas entre <paramref name="desde"/> (nulo =
+    /// sem piso) e <paramref name="ate"/>, de atendimento não estornado, cuja guia ainda não
+    /// tem crédito de repasse vivo.
+    /// </summary>
+    Task<IReadOnlyList<ReceitaParaRepasse>> ReceitasDeGuiaParaRepasseAsync(
+        DateOnly? desde, DateOnly ate, CancellationToken ct = default);
+
+    /// <summary>
+    /// Receitas realizadas e vivas de sessão PARTICULAR (todos os códigos NaoAplicavel, não
+    /// estornada), sem guia, cujo atendimento ainda não tem crédito de repasse vivo. Uma
+    /// linha por lançamento: o serviço soma por atendimento.
+    /// </summary>
+    Task<IReadOnlyList<ReceitaParaRepasse>> ReceitasParticularesParaRepasseAsync(
+        DateOnly? desde, DateOnly ate, CancellationToken ct = default);
+
+    /// <summary>
+    /// Créditos de repasse vivos cuja receita deixou de existir (nenhuma receita realizada
+    /// viva da guia / da sessão, ou atendimento estornado) e que ainda não têm estorno vivo.
+    /// Vêm com o fechamento (para saber o profissional).
+    /// </summary>
+    Task<IReadOnlyList<ItemRepasse>> CreditosRepasseSemReceitaAsync(CancellationToken ct = default);
+
+    /// <summary>Horários que apontam para os atendimentos (por AtendimentoId ou AtendimentoSubstitutoId).</summary>
+    Task<IReadOnlyList<HorarioDoAtendimento>> HorariosDosAtendimentosAsync(
+        IReadOnlyCollection<int> atendimentoIds, CancellationToken ct = default);
+
+    /// <summary>Guias baixadas no intervalo, faturáveis, de atendimento vivo, sem receita realizada viva.</summary>
+    Task<IReadOnlyList<GuiaBaixadaSemRecebimento>> GuiasBaixadasSemRecebimentoAsync(
+        DateOnly de, DateOnly ate, CancellationToken ct = default);
+
+    /// <summary>Fechamentos (com itens e lançamento), do mais novo ao mais antigo. Somente leitura.</summary>
+    Task<IReadOnlyList<RepasseFechamento>> FechamentosRepasseAsync(
+        DateOnly? competencia = null, int? profissionalId = null, CancellationToken ct = default);
+
+    /// <summary>Fechamento RASTREADO (com itens e lançamento), para cancelar ou pagar.</summary>
+    Task<RepasseFechamento?> ObterFechamentoRepasseAsync(int fechamentoId, CancellationToken ct = default);
+
+    Task AdicionarFechamentoRepasseAsync(RepasseFechamento fechamento, CancellationToken ct = default);
+
+    /// <summary>A regra já está num item de repasse vivo (não pode ser excluída, só desativada).</summary>
+    Task<bool> RegraRepasseEmUsoAsync(int regraId, CancellationToken ct = default);
+
+    /// <summary>
+    /// As linhas do relatório de repasse (itens de fechamentos GRAVADOS), filtradas no banco:
+    /// competência (de/até, primeiro dia do mês), médico, convênio, situação e trecho do
+    /// paciente (LIKE tolerante a acento — um SUPERCONJUNTO; o serviço confere o trecho exato).
+    /// Sem ordem garantida: quem ordena é o serviço (pt-BR).
+    /// </summary>
+    Task<IReadOnlyList<LinhaRelatorioRepasse>> RelatorioRepasseAsync(
+        FiltroRelatorioRepasse filtro, CancellationToken ct = default);
 
     // ---- Taxas de cartao e imposto (parcela 9) ----
 
@@ -2033,6 +2117,24 @@ public interface IClinicaRepositorio
     /// agenda usa para marcar "consultado hoje" numa ida só ao banco — e não uma por paciente.
     /// </summary>
     Task<IReadOnlyList<TransacaoTiss>> ElegibilidadesTissDoDiaAsync(DateTime desde, DateTime ate, CancellationToken ct = default);
+
+    /// <summary>A autorização (rastreada: quem chama grava o desfecho nela).</summary>
+    Task<AutorizacaoTiss?> ObterAutorizacaoTissAsync(int id, CancellationToken ct = default);
+
+    /// <summary>As autorizações de um horário, rastreadas (para não pedir em duplicidade e para cancelar).</summary>
+    Task<IReadOnlyList<AutorizacaoTiss>> AutorizacoesDoAgendamentoAsync(int agendamentoId, CancellationToken ct = default);
+
+    /// <summary>As autorizações dos horários (só leitura): o selo da agenda e a senha da baixa, numa ida.</summary>
+    Task<IReadOnlyList<AutorizacaoTiss>> AutorizacoesDosAgendamentosAsync(IReadOnlyCollection<int> agendamentoIds, CancellationToken ct = default);
+
+
+    /// <summary>
+    /// As guias (fora de <paramref name="exceto"/>) com a MESMA cobrança — carteira, procedimento e data
+    /// na guia ANS conferida — que estão num envio à operadora que ainda as prende (na fila, em envio, ou
+    /// concluído com a guia recebida ou sem resposta). É a duplicidade que a Amil bloqueia (1807/882).
+    /// </summary>
+    Task<IReadOnlyList<int>> GuiasIguaisJaEnviadasAsync(string carteira, string procedimento, DateOnly data,
+        IReadOnlyCollection<int> exceto, CancellationToken ct = default);
 
     Task<IReadOnlyList<ContatoCampanha>> ContatosDoPacienteAsync(
         int pacienteId, int limite = 20, CancellationToken ct = default);

@@ -126,6 +126,24 @@ public sealed class ClienteDoCrmHttpTests : IDisposable
         Assert.Equal(["csrf-s1", "csrf-s2"], reply.Select(p => p.Csrf));
     }
 
+    /// <summary>
+    /// O cookie do CRM vence (2 h) e /api/session responde 200 ANÔNIMO, não 401: sem renovar, a tela ficava com
+    /// uma sessão sem AgentId e sem Inboxes — as listas renovavam sozinhas (401), e "Nova conversa" dizia
+    /// "O CRM não tem caixa de saída do WhatsApp ligada" (portal /gestao, 17/11/2026).
+    /// </summary>
+    [Fact] public async Task Sessao_vencida_no_CRM_entra_de_novo_e_volta_com_a_caixa_de_saida()
+    {
+        await Configurar(EnderecoA);
+        Assert.NotEmpty((await cliente.SessaoAsync(7)).Inboxes);
+        crm.Revogar();
+
+        var sessao = await cliente.SessaoAsync(7);
+
+        Assert.Equal("u7", sessao.AgentId);
+        Assert.NotEmpty(sessao.Inboxes);
+        Assert.Equal(2, Bilhetes());
+    }
+
     [Fact] public async Task Dois_401_seguidos_viram_CrmIndisponivel_e_pausam_as_entradas()
     {
         await Configurar(EnderecoA);
@@ -517,6 +535,114 @@ public sealed class ClienteDoCrmHttpTests : IDisposable
         Assert.True((await cliente.PulsoDePresencaAsync(7)).Connected);
         Assert.Equal([401, 200], crm.Pedidos.Where(p => p.Caminho == "/api/presence").Skip(1).Select(p => p.Status));
         Assert.Equal(2, Bilhetes());
+    }
+
+    // ---------- "Cara de WhatsApp", F2a (nov/2026, semdor-crm §15) ----------
+
+    [Fact] public async Task Reacao_etiquetas_estrela_fixar_e_escrevendo_vao_pelas_rotas_da_secao_15()
+    {
+        await Configurar(EnderecoA);
+        var conversa = new AppConversation("c1", "Paciente", "5522988887777", "whatsapp", "5522999990000", "Recepção", "ana", false, 3,
+            DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch, null, "", [], [], [], [], null, Labels: ["agendar"]);
+        crm.Rota = (p, _) => p.Caminho switch
+        {
+            "/api/labels" => Responder(new[] { new AppLabel("agendar", "Agendar", false, 0) }),
+            "/api/pins" or "/api/conversations/c1/pin" => Responder(new AppPins(["c1"], 3)),
+            "/api/conversations/c1/typing" => Responder(new AppTyping(["bruna"])),
+            "/api/conversations/c1/typing/stop" => new HttpResponseMessage(HttpStatusCode.OK),
+            _ => Responder(conversa),
+        };
+
+        Assert.Equal(["agendar"], (await cliente.ReagirAsync(7, "c1", new AppReact("wamid.1", "👍"))).Labels);
+        Assert.Equal("Agendar", Assert.Single(await cliente.EtiquetasAsync(7)).Name);
+        await cliente.SalvarEtiquetaAsync(7, new AppLabelSave(null, "Urgente", false, 0));
+        await cliente.EtiquetarConversaAsync(7, "c1", new AppConversationLabels(["agendar"]));
+        await cliente.EstrelarAsync(7, "c1", "wamid.1", new AppStar(true));
+        Assert.Equal(["c1"], (await cliente.FixadasAsync(7)).ConversationIds);
+        Assert.Equal(3, (await cliente.FixarAsync(7, "c1", new AppPin(true))).Max);
+        Assert.Equal(["bruna"], (await cliente.EscrevendoAsync(7, "c1")).Agents);
+        Assert.Equal(["bruna"], (await cliente.QuemEscreveAsync(7, "c1")).Agents);
+        await cliente.ParouDeEscreverAsync(7, "c1");
+
+        var pedidos = crm.Pedidos.Where(p => p.Caminho != "/api/session" && p.Caminho != "/api/login/ticket")
+            .Select(p => (p.Metodo, p.Caminho, p.Csrf != "")).ToArray();
+        Assert.Equal(new[]
+        {
+            ("POST", "/api/conversations/c1/react", true), ("GET", "/api/labels", false), ("POST", "/api/labels", true),
+            ("POST", "/api/conversations/c1/labels", true), ("POST", "/api/conversations/c1/messages/wamid.1/star", true),
+            ("GET", "/api/pins", false), ("POST", "/api/conversations/c1/pin", true), ("POST", "/api/conversations/c1/typing", true),
+            ("GET", "/api/conversations/c1/typing", false), ("POST", "/api/conversations/c1/typing/stop", true),
+        }, pedidos);
+        Assert.Contains("\"emoji\":\"", crm.Pedidos.Single(p => p.Caminho.EndsWith("/react")).Corpo);
+        Assert.Contains("\"starred\":true", crm.Pedidos.Single(p => p.Caminho.EndsWith("/star")).Corpo);
+
+        // A recusa do CRM chega com a frase dele (a quarta fixada).
+        crm.Rota = (_, _) => Erro(409, "Você já fixou 3 conversas. Desafixe uma para fixar esta.");
+        var recusa = await Assert.ThrowsAsync<RecusaDoCrm>(() => cliente.FixarAsync(7, "c2", new AppPin(true)));
+        Assert.Equal((409, "Você já fixou 3 conversas. Desafixe uma para fixar esta."), (recusa.Status, recusa.Message));
+    }
+
+    [Fact] public async Task Endereco_contato_servicos_e_agendamento_vao_pelas_rotas_da_secao_16()
+    {
+        await Configurar(EnderecoA);
+        var opcoes = new AppShareOptions(new AppLocation("Clínica Fictícia", "Rua Exemplo, 100", -22.9, -42.1), [], []);
+        var conversa = new AppConversation("c1", "Paciente", "5522988887777", "whatsapp", "5522999990000", "Recepção", "ana", false, 3,
+            DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch, null, "", [], [], [], [], null,
+            Scheduled: [new AppScheduledMessage("s1", "ana", "Mais tarde", DateTimeOffset.UnixEpoch, "agendada", DateTimeOffset.UnixEpoch)]);
+        crm.Rota = (p, _) => p.Caminho.StartsWith("/api/share", StringComparison.Ordinal) && !p.Caminho.EndsWith("/image") || p.Metodo == "POST" && p.Caminho.EndsWith("/image")
+            ? Responder(opcoes)
+            : p.Caminho.EndsWith("/image") ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent("PNG"u8.ToArray()) { Headers = { ContentType = new("image/png") } } }
+            : Responder(conversa);
+
+        Assert.Equal("Clínica Fictícia", (await cliente.OpcoesDoClipeAsync(7)).Location!.Name);
+        await cliente.SalvarEnderecoAsync(7, opcoes.Location!);
+        await cliente.SalvarContatoAsync(7, new AppContactCard("", "Dra. Fictícia", "5522999991111", "Acupuntura", false, 0));
+        await cliente.SalvarServicoAsync(7, new AppService("", "Acupuntura", "Sessões com hora marcada.", null, false, 0));
+        await cliente.ImagemDoServicoAsync(7, "sv1", new MemoryStream("PNG"u8.ToArray()), "servico.png", "image/png");
+        await cliente.ImagemDoServicoAsync(7, "sv1", null);
+        Assert.Equal("image/png", (await cliente.VerImagemDoServicoAsync(7, "sv1")).Mime);
+        await cliente.CompartilharAsync(7, "c1", new AppShare(3, Guid.NewGuid().ToString("D"), "location"));
+        Assert.Equal("agendada", Assert.Single((await cliente.AgendarAsync(7, "c1", new AppSchedule(Guid.NewGuid().ToString("D"), "Mais tarde", DateTimeOffset.UtcNow.AddHours(1)))).Scheduled!).State);
+        await cliente.CancelarAgendamentoAsync(7, "c1", "s1");
+
+        var pedidos = crm.Pedidos.Where(p => p.Caminho != "/api/session" && p.Caminho != "/api/login/ticket").Select(p => $"{p.Metodo} {p.Caminho} {(p.Csrf != "" ? "csrf" : "-")}").ToArray();
+        Assert.Equal(new[]
+        {
+            "GET /api/share -", "POST /api/share/location csrf", "POST /api/share/contacts csrf", "POST /api/share/services csrf",
+            "POST /api/share/services/sv1/image csrf", "POST /api/share/services/sv1/image csrf", "GET /api/share/services/sv1/image -",
+            "POST /api/conversations/c1/share csrf", "POST /api/conversations/c1/scheduled csrf", "POST /api/conversations/c1/scheduled/s1/cancel csrf",
+        }, pedidos);
+        var imagens = crm.Pedidos.Where(p => p.Metodo == "POST" && p.Caminho.EndsWith("/image")).ToList();
+        Assert.Contains("servico.png", imagens[0].Corpo);
+        Assert.Contains("name=remove", imagens[1].Corpo);
+    }
+
+    [Fact] public async Task Opcoes_transcricao_tentar_de_novo_e_saudacao_vao_pelas_rotas_da_secao_17()
+    {
+        await Configurar(EnderecoA);
+        var conversa = new AppConversation("c1", "Paciente", "5522988887777", "whatsapp", "5522999990000", "Recepção", "ana", false, 3,
+            DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch, null, "", [], [], [], [], null);
+        crm.Rota = (p, _) => p.Caminho switch
+        {
+            "/api/conversations/c1/semdor/opcoes" => Responder(new AppSemDorOptions(["Uma", "Outra"])),
+            "/api/conversations/c1/messages/m1/transcribe" => Erro(409, "A transcrição de áudio está desligada neste CRM."),
+            "/api/greeting" => Responder(new AppGreeting(true, "Olá!", 2)),
+            _ => Responder(conversa),
+        };
+
+        Assert.Equal(["Uma", "Outra"], (await cliente.OpcoesDoSemDorAsync(7, "c1")).Options);
+        var desligada = await Assert.ThrowsAsync<RecusaDoCrm>(() => cliente.TranscreverAsync(7, "c1", "m1"));
+        Assert.Equal((409, "A transcrição de áudio está desligada neste CRM."), (desligada.Status, desligada.Message));
+        await cliente.TentarDeNovoAsync(7, "c1", "m1", new AppRetry(3, Guid.NewGuid().ToString("D")));
+        Assert.Equal(2, (await cliente.SaudacaoAsync(7)).Version);
+        await cliente.SalvarSaudacaoAsync(7, new AppGreeting(true, "Olá, bem-vindo(a)!", 2));
+
+        var pedidos = crm.Pedidos.Where(p => p.Caminho != "/api/session" && p.Caminho != "/api/login/ticket").Select(p => $"{p.Metodo} {p.Caminho} {(p.Csrf != "" ? "csrf" : "-")}").ToArray();
+        Assert.Equal(new[]
+        {
+            "POST /api/conversations/c1/semdor/opcoes csrf", "POST /api/conversations/c1/messages/m1/transcribe csrf",
+            "POST /api/conversations/c1/messages/m1/retry csrf", "GET /api/greeting -", "POST /api/greeting csrf",
+        }, pedidos);
     }
 
     [Fact] public async Task O_anexo_e_reenviado_inteiro_quando_a_sessao_venceu()

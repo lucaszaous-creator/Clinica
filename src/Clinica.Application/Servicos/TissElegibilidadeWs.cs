@@ -21,6 +21,9 @@ public sealed record PedidoElegibilidadeTiss
     /// <summary>Número da carteira do beneficiário (até 20 caracteres), como a operadora o grava.</summary>
     public required string NumeroCarteira { get; init; }
 
+    /// <summary>A versão do padrão no cabeçalho (a da operadora: Saúde Petrobras 4.03.00, Amil 4.01.00).</summary>
+    public string VersaoTiss { get; init; } = TissElegibilidadeWs.VersaoPadrao;
+
     /// <summary>Validade da carteira; opcional no padrão.</summary>
     public DateOnly? ValidadeCarteira { get; init; }
 
@@ -97,6 +100,13 @@ public static class TissElegibilidadeWs
     /// <summary>Versão do padrão em que as mensagens deste arquivo são escritas.</summary>
     public const string VersaoPadrao = "4.01.00";
 
+    private static string Versao(string versao)
+    {
+        Exigir(OperadorasTiss.VersoesConhecidas.Contains(versao),
+            $"Versão do padrão TISS desconhecida: {versao}. O sistema escreve {string.Join(" e ", OperadorasTiss.VersoesConhecidas)}.");
+        return versao;
+    }
+
     private static readonly XNamespace Ans = "http://www.ans.gov.br/padroes/tiss/schemas";
     private static readonly XNamespace Soap = "http://schemas.xmlsoap.org/soap/envelope/";
 
@@ -131,7 +141,7 @@ public static class TissElegibilidadeWs
                     new XElement(Ans + "codigoPrestadorNaOperadora", pedido.CodigoPrestadorNaOperadora))),
             new XElement(Ans + "destino",
                 new XElement(Ans + "registroANS", pedido.RegistroAnsOperadora)),
-            new XElement(Ans + "Padrao", VersaoPadrao),
+            new XElement(Ans + "Padrao", Versao(pedido.VersaoTiss)),
             new XElement(Ans + "loginSenhaPrestador",
                 new XElement(Ans + "loginPrestador", pedido.Login),
                 new XElement(Ans + "senhaPrestador", pedido.SenhaMd5)));

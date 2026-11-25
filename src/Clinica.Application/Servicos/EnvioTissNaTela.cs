@@ -227,6 +227,8 @@ public static class EnvioTissNaTela
         var protocolo = string.IsNullOrWhiteSpace(envio.Protocolo) ? null : envio.Protocolo;
         return envio.Estado switch
         {
+            // Esperando a janela da operadora (o "quando" está na frase): não é atraso do serviço.
+            EstadoTransacaoTiss.Pendente when FilaTiss.Agendado(envio) => new("Agendado", "info", false, envio.Resultado),
             EstadoTransacaoTiss.Pendente when envio.Tentativas > 0
                 => new("Na fila", "info", false, envio.Resultado ?? "Na fila: o sistema vai tentar de novo."),
             EstadoTransacaoTiss.Pendente => new("Na fila", "info", false, "Aguardando o serviço de envio. Ainda não foi à operadora."),
@@ -264,15 +266,12 @@ public static class EnvioTissNaTela
     /// que desfazer depois não é um clique.
     /// </summary>
     public static string PerguntaDoEnvio(int guias, string convenioNome)
-        => $"Enviar {guias} guia(s) à {convenioNome} pelo web service?\n\n"
+        => $"Enviar {guias} guia(s) à {convenioNome} pelo web service"
+           + (FilaTiss.Lotes(guias) > 1 ? $", em {FilaTiss.Lotes(guias)} lotes de até {TransacaoTissLimites.GuiasPorLote}" : string.Empty)
+           + "?\n\n"
            + "É a COBRANÇA de verdade: a operadora recebe essas guias como apresentadas pela clínica. "
            + "Depois de enviado, não há como desfazer por aqui — só cancelando a guia na operadora.";
 
-    /// <summary>O que impede marcar mais guias (nulo = pode): o lote leva até 100.</summary>
-    public static string? ImpedimentoDaMarcacao(int marcadas)
-        => marcadas > TransacaoTissLimites.GuiasPorLote
-            ? $"Um envio leva até {TransacaoTissLimites.GuiasPorLote} guias e há {marcadas} marcadas: desmarque algumas e envie em dois lotes."
-            : null;
 
     /// <summary>
     /// O aviso da tela quando o envio está desligado para o convênio (nulo = está ligado). Diz
@@ -322,6 +321,17 @@ public static class EnvioTissNaTela
         + "(docs/tiss-conector.md). Com esta chave ligada, a baixa da guia ganha \"Conferir e deixar pronta para envio\" "
         + "e a tela Guias TISS ganha o envio à operadora.";
 
+    /// <summary>
+    /// O lembrete depois de um envio RECEBIDO pela operadora que só considera o faturamento entregue
+    /// depois da confirmação no portal dela (Amil, nov/2026: "a confirmação de entrega do faturamento
+    /// continua no portal"). Nulo = não há o que lembrar (outra operadora, ou ainda sem protocolo).
+    /// </summary>
+    public static string? LembreteDeEntrega(OperadoraTiss? operadora, TransacaoTiss envio)
+        => operadora is { EntregaConfirmadaNoPortal: true } && envio.Tipo == TipoTransacaoTiss.EnvioGuia
+           && envio.Estado == EstadoTransacaoTiss.Concluida && !string.IsNullOrWhiteSpace(envio.Protocolo)
+            ? $"Enviado. Confirme a entrega no portal da {operadora.Nome} (protocolo {envio.Protocolo.Trim()}): enviado não é entregue."
+            : null;
+
     // ==================== a elegibilidade ====================
 
     /// <summary>
@@ -345,16 +355,18 @@ public static class EnvioTissNaTela
     /// A linha de conferência do nome: o da operadora ao lado do da ficha, e se batem. A comparação
     /// ignora maiúsculas, acentos e espaços a mais — a operadora costuma devolver tudo em maiúsculas
     /// e sem acento, e isso não é divergência. Nulo = a operadora não devolveu nome.
+    /// <c>Diverge</c> é o único caso que a tela pinta de vermelho (nov/2026): sem ficha para comparar
+    /// (consulta avulsa pela carteirinha), o nome aparece NEUTRO — não há divergência a apontar.
     /// </summary>
-    public static (string Texto, bool Confere)? ConferenciaDoNome(string? resultado, string? nomeDaFicha)
+    public static (string Texto, bool Confere, bool Diverge)? ConferenciaDoNome(string? resultado, string? nomeDaFicha)
     {
         if (NomeNaOperadora(resultado) is not { } daOperadora) return null;
         var ficha = (nomeDaFicha ?? string.Empty).Trim();
-        if (ficha.Length == 0) return ($"Na operadora: {daOperadora}.", false);
+        if (ficha.Length == 0) return ($"Na operadora: {daOperadora}.", false, false);
         var confere = string.Equals(SemAcentos(daOperadora), SemAcentos(ficha), StringComparison.OrdinalIgnoreCase);
         return confere
-            ? ($"Na operadora: {daOperadora} · na ficha: {ficha}. Os nomes conferem.", true)
-            : ($"Na operadora: {daOperadora} · na ficha: {ficha}. Os nomes são DIFERENTES: confira se é a carteira certa. A ficha não foi alterada.", false);
+            ? ($"Na operadora: {daOperadora} · na ficha: {ficha}. Os nomes conferem.", true, false)
+            : ($"Na operadora: {daOperadora} · na ficha: {ficha}. Os nomes são DIFERENTES: confira se é a carteira certa. A ficha não foi alterada.", false, true);
     }
 
     private static string SemAcentos(string texto)

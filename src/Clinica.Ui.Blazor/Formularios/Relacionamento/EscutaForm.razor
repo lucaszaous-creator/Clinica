@@ -1,0 +1,115 @@
+@*
+  COMO ESTÁ — registrar a ESCUTA PÓS-SESSÃO (nov/2026, Fila 360): o que o paciente respondeu a "como você está
+  depois da sessão?". Dado de saúde: o botão nasce desabilitado sem VerProntuario e o serviço recusa de novo.
+  A regra da recusa é EscutaNaTela.Recusa, a MESMA do serviço, dita antes do clique.
+*@
+@namespace Clinica.Ui.Blazor.Formularios
+@using Clinica.Application.Abstracoes
+@using Clinica.Application.Servicos
+@inject IServiceScopeFactory Escopos
+
+<Modal Titulo="@($"Como {Primeiro} está?")"
+       Subtitulo="@($"Sessão de {Formato.Data(Sessao.Data)} · {RotulosEnum.De(Sessao.Modalidade)} · {EscutaNaTela.Rotulo(Sessao.Motivo)}. O que o paciente disse fica no prontuário dele.")"
+       AoFechar="AoFechar">
+    <ChildContent>
+        <p class="acomp-rotulo">O que o paciente respondeu</p>
+        <div class="acomp-desfechos f360-escuta-respostas" role="radiogroup" aria-label="Como o paciente está">
+            @foreach (var c in EscutaNaTela.Respostas)
+            {
+                <button type="button" role="radio" aria-checked="@Bool(_como == c)" class="acomp-desfecho @(c == ComoEstaPaciente.Pior ? "encerrar" : null)"
+                        @onclick="() => Escolher(c)">
+                    <b>@EscutaNaTela.Rotulo(c)</b>
+                    <span>@Explicacao(c)</span>
+                </button>
+            }
+        </div>
+        @if (_como is { } escolhido && escolhido != ComoEstaPaciente.NaoRespondeu)
+        {
+            <div class="campos">
+                <Campo Rotulo="@(escolhido == ComoEstaPaciente.Pior ? "O que piorou" : "O que o paciente disse")" Dica="Opcional, nas palavras dele.">
+                    <textarea class="campo" rows="3" maxlength="@EscutaNaTela.RelatoMaximo" @bind="_relato" @bind:event="oninput"
+                              placeholder="@(escolhido == ComoEstaPaciente.Pior ? "Ex.: a dor no ombro aumentou depois da sessão" : "Ex.: dormiu melhor, a dor diminuiu")"></textarea>
+                </Campo>
+                <Campo Rotulo="Por onde respondeu">
+                    <select class="campo" value="@_canal" @onchange="e => _canal = Enum.TryParse<CanalContato>(e.Value?.ToString(), out var c) ? c : CanalContato.WhatsApp">
+                        <option value="@CanalContato.WhatsApp">WhatsApp</option>
+                        <option value="@CanalContato.Presencial">Pessoalmente, na clínica</option>
+                    </select>
+                </Campo>
+            </div>
+        }
+        <Aviso Tom="erro" Texto="@_erro" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" disabled="@(_ocupado || _como is null || !PodeRegistrar)" @onclick="RegistrarAsync"
+                title="@(!PodeRegistrar ? "Como o paciente está é dado de saúde: registrar pede o acesso ao prontuário." : _como is null ? "Escolha o que o paciente respondeu" : null)">
+            <Icone Nome="check" />@(_ocupado ? "Gravando…" : "Registrar")
+        </button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public SessaoParaEscutar Sessao { get; set; } = default!;
+    [Parameter] public int UsuarioId { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+    /// <summary>Gravou — com a frase da confirmação.</summary>
+    [Parameter] public EventCallback<string> AoConcluir { get; set; }
+
+    private ComoEstaPaciente? _como;
+    private string? _relato;
+    private CanalContato _canal = CanalContato.WhatsApp;
+    private string? _erro;
+    private bool _ocupado;
+    private readonly Guid _tentativa = Guid.NewGuid();
+
+    private static bool PodeRegistrar => SessaoUsuario.Atual.Pode(Permissao.VerProntuario);
+    private string Primeiro => Sessao.Paciente.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? Sessao.Paciente;
+
+    private static string Explicacao(ComoEstaPaciente c) => c switch
+    {
+        ComoEstaPaciente.Melhor => "A dor ou o sintoma diminuiu",
+        ComoEstaPaciente.Igual => "Nada mudou ainda",
+        ComoEstaPaciente.Pior => "Algo piorou depois da sessão",
+        _ => "Perguntei e não houve resposta"
+    };
+
+    private void Escolher(ComoEstaPaciente c)
+    {
+        _como = c;
+        _erro = null;
+    }
+
+    private async Task RegistrarAsync()
+    {
+        if (_ocupado || _como is not { } como) return;
+        if (!SessaoUsuario.Atual.Pode(Permissao.VerProntuario))
+        {
+            _erro = "Como o paciente está é dado de saúde: registrar pede o acesso ao prontuário. Fale com a direção.";
+            return;
+        }
+        var relato = como == ComoEstaPaciente.NaoRespondeu ? null : _relato;
+        if (EscutaNaTela.Recusa(como, relato) is { } recusa) { _erro = recusa; return; }
+        _ocupado = true;
+        _erro = null;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<IEscutaPosSessaoService>()
+                .RegistrarAsync(UsuarioId, new RegistrarEscuta(Sessao.AtendimentoId, como, relato, _canal));
+            await AoConcluir.InvokeAsync($"Escuta de {Sessao.Paciente} registrada: {EscutaNaTela.Rotulo(como).ToLowerInvariant()}.");
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or UnauthorizedAccessException)
+        {
+            _erro = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar($"Blazor — escuta pós-sessão não pôde ser gravada ({_tentativa})", ex);
+            _erro = "Não foi possível gravar agora. Nada foi registrado; tente de novo.";
+        }
+        finally { _ocupado = false; }
+    }
+
+    private static string Bool(bool v) => v ? "true" : "false";
+}

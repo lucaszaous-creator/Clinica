@@ -65,11 +65,22 @@ public sealed record FichaDaConversa(EstadoFicha Estado, int Candidatas, string 
     public bool PedeConferir => Estado != EstadoFicha.Conferida;
 }
 
-/// <summary>Os filtros da lista de conversas.</summary>
-public enum FiltroDasConversas { Novas, Minhas, Todas, Encerradas }
+/// <summary>
+/// Os filtros da lista de conversas. <see cref="SemResposta"/> (nov/2026, F1 da tela com cara de WhatsApp) é o modo
+/// da direção: TODAS as conversas abertas em que a última palavra é do paciente, de quem quer que estejam.
+/// Não há mais "Encerradas" (24/11/2026, pedido do dono): como no WhatsApp, a lista é UMA só, e a conversa que o CRM
+/// separou por inatividade aparece misturada às outras (e na busca). Escrever nela já a reabre no CRM.
+/// </summary>
+public enum FiltroDasConversas { Novas, Minhas, Todas, SemResposta }
 
 /// <summary>Os números do seletor e dos filtros da lista de conversas.</summary>
-public sealed record ContagemDasConversas(int Novas, int Minhas, int Todas, int Encerradas, int NaoLidas);
+public sealed record ContagemDasConversas(int Novas, int Minhas, int Todas, int NaoLidas, int SemResposta = 0);
+
+/// <summary>
+/// Uma pílula do topo da lista, como as do WhatsApp (Tudo, Não lidas, Minhas, Sem resposta): o filtro que ela liga e
+/// se ela pede só as não lidas.
+/// </summary>
+public sealed record PilulaDaLista(string Rotulo, FiltroDasConversas Filtro, bool SoNaoLidas = false);
 
 /// <summary>O que pede ação dentro da conversa (o aviso acima do campo de escrever).</summary>
 public enum TipoDaAcaoPedida
@@ -132,7 +143,7 @@ public sealed record AcaoPedida(TipoDaAcaoPedida Tipo, string Tom, string Titulo
 public enum TipoNaLinhaDoTempo { Dia, Novas, Evento, Recebida, Enviada, Nota }
 
 /// <summary>
-/// Um item da linha do tempo: o separador de dia, a divisória "N novas mensagens", um evento
+/// Um item da linha do tempo: o separador de dia, a divisória "N mensagens não lidas", um evento
 /// da trilha do CRM, um balão (recebido ou enviado) ou uma nota interna. <see cref="Seguida"/>
 /// diz que o balão continua o anterior (mesmo lado e mesmo autor): ele perde o espaço e o canto.
 /// <see cref="Tom"/> só vale para o evento ("sucesso", "aviso" ou "neutro").
@@ -140,7 +151,9 @@ public enum TipoNaLinhaDoTempo { Dia, Novas, Evento, Recebida, Enviada, Nota }
 public sealed record ItemDaConversa(TipoNaLinhaDoTempo Tipo, string Texto, string Hora = "", string? Autor = null,
     bool Seguida = false, TickDaMensagem? Tick = null, string? Anexo = null, string? Modelo = null,
     string Tom = "neutro", string? Erro = null, string? Id = null, DateTimeOffset? At = null, MidiaDaMensagem? Midia = null,
-    CitacaoNaConversa? Citacao = null);
+    CitacaoNaConversa? Citacao = null, IReadOnlyList<ReacaoNoBalao>? Reacoes = null, bool Estrela = false,
+    AppLocation? Local = null, AppSharedContact? Contato = null, string? Transcricao = null, bool TentarDeNovo = false,
+    string? Automatica = null);
 
 /// <summary>
 /// A mensagem que um balão cita ("Responder citando", out/2026): quem escreveu e o começo do texto, como o WhatsApp
@@ -386,11 +399,9 @@ public static partial class ConversasNaTela
     /// </summary>
     public static SeloDoWhatsApp Selo(AppConversationSummary c, IReadOnlyList<AvisoDeConfirmacao> avisosDoPaciente,
         int fichasComOTelefone, LinhaAcompanhamento? caso, DateTimeOffset agora,
-        IReadOnlyDictionary<string, string>? resultados = null, string? meuAgente = null, IReadOnlyDictionary<string, string>? agentes = null)
+        string? meuAgente = null, IReadOnlyDictionary<string, string>? agentes = null)
     {
-        if (c.Closed)
-            return new(c.Resolution is { } r && resultados is not null && resultados.TryGetValue(r.Outcome, out var rotulo)
-                       && !string.IsNullOrWhiteSpace(rotulo) ? $"Encerrada · {rotulo}" : "Encerrada", "neutro");
+        // A conversa que o CRM separou por inatividade não leva selo de "encerrada" (24/11/2026): segue as regras de todas.
         if (ParaMim(c.PendingTransfer, meuAgente)) return new("Transferência para você", "aviso");
 
         var aviso = c.PatientId is null ? null : Principal(avisosDoPaciente);
@@ -455,7 +466,6 @@ public static partial class ConversasNaTela
         int fichasComOTelefone, LinhaAcompanhamento? caso, DateTimeOffset agora,
         string? meuAgente = null, IReadOnlyDictionary<string, string>? agentes = null, FichaCandidata? fichaUnica = null)
     {
-        if (conversa is { Closed: true }) return null;
         var nomeCompleto = conversa is null ? caso?.Paciente : NomeDaConversa(conversa);
         var nome = PrimeiroNomeOu(nomeCompleto, "A pessoa");
 
@@ -593,10 +603,50 @@ public static partial class ConversasNaTela
     private static bool NoFiltro(AppConversationSummary c, FiltroDasConversas filtro, string? meuAgente) => filtro switch
     {
         FiltroDasConversas.Novas => EhNova(c),
+        // "Minhas" é o que a pessoa tem aberto agora (e o que o "passar o turno" leva); a separada pelo CRM fica em Tudo e na busca.
         FiltroDasConversas.Minhas => !c.Closed && meuAgente is not null && c.AgentId == meuAgente,
-        FiltroDasConversas.Todas => !c.Closed,
-        _ => c.Closed
+        FiltroDasConversas.SemResposta => EsperaResposta(c),
+        _ => true // Tudo: uma lista só, com as que o CRM separou por inatividade misturadas (e achadas na busca).
     };
+
+    /// <summary>
+    /// A conversa espera a clínica: aberta, fora do menu automático do CRM e com a ÚLTIMA fala do paciente — de quem quer
+    /// que ela seja (o "Sem resposta" da direção). É a regra de <see cref="PedemResposta"/> sem o filtro de dono e sem o
+    /// mínimo de minutos: o sino avisa depois de 5 min, a pílula mostra desde a primeira mensagem.
+    /// </summary>
+    public static bool EsperaResposta(AppConversationSummary c)
+        => !c.Closed && !c.AwaitingMenu && string.Equals(c.PreviewDirection, "in", StringComparison.OrdinalIgnoreCase)
+            && PacienteJaEscreveu(c.LastIncoming);
+
+    /// <summary>As pílulas do topo da lista, na ordem do WhatsApp.</summary>
+    public static readonly IReadOnlyList<PilulaDaLista> Pilulas =
+    [
+        new("Tudo", FiltroDasConversas.Todas),
+        new("Não lidas", FiltroDasConversas.Todas, SoNaoLidas: true),
+        new("Minhas", FiltroDasConversas.Minhas),
+        new("Sem resposta", FiltroDasConversas.SemResposta)
+    ];
+
+    /// <summary>A pílula que corresponde ao filtro e ao "só não lidas" da tela .</summary>
+    public static PilulaDaLista? PilulaAtual(FiltroDasConversas filtro, bool soNaoLidas)
+        => Pilulas.FirstOrDefault(p => p.Filtro == filtro && p.SoNaoLidas == soNaoLidas)
+            ?? Pilulas.FirstOrDefault(p => p.Filtro == filtro && !p.SoNaoLidas);
+
+    /// <summary>
+    /// O número na pílula: só nas duas que pedem ação (Não lidas e Sem resposta), nada quando é zero, e "99+" acima de 99
+    /// para a pílula não crescer. "Tudo" e "Minhas" não levam número: as quatro pílulas cabem numa linha da coluna de
+    /// 1024 px, e "Minhas" já diz quantas na barra do turno ("4 conversas com você").
+    /// </summary>
+    public static string? ContagemDaPilula(PilulaDaLista p, ContagemDasConversas c)
+    {
+        int? n = p switch
+        {
+            { SoNaoLidas: true } => c.NaoLidas,
+            { Filtro: FiltroDasConversas.SemResposta } => c.SemResposta,
+            _ => null
+        };
+        return n switch { null or <= 0 => null, > 99 => "99+", var x => x.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) };
+    }
 
     /// <summary>
     /// A lista: o filtro, "só não lidas", e a busca pelo nome (da conversa ou da ficha, sem
@@ -610,20 +660,24 @@ public static partial class ConversasNaTela
         var termo = busca?.Trim() ?? "";
         var digitos = Telefone.Normalizar(termo);
         return conversas
-            .Where(c => NoFiltro(c, filtro, meuAgente) && (!soNaoLidas || c.Unread > 0)
+            // Com busca, a conversa que o CRM separou por inatividade entra em qualquer pílula (24/11: "não aparece na busca").
+            .Where(c => (NoFiltro(c, filtro, meuAgente) || termo.Length > 0 && c.Closed && NoFiltro(c with { Closed = false }, filtro, meuAgente))
+                && (!soNaoLidas || c.Unread > 0)
                 && (termo.Length == 0 || Contem(c.Name, termo) || Contem(c.PatientName, termo)
                     || digitos.Length >= DigitosParaBuscarTelefone && Telefone.Normalizar(c.Contact).Contains(digitos, StringComparison.Ordinal)))
-            .OrderBy(c => filtro == FiltroDasConversas.Novas ? c.UpdatedAt.UtcTicks : -c.UpdatedAt.UtcTicks).ThenBy(c => c.Id, StringComparer.Ordinal)
+            // "Sem resposta": quem espera há MAIS tempo primeiro (a última fala do paciente), como a fila do sino.
+            .OrderBy(c => filtro == FiltroDasConversas.SemResposta ? c.LastIncoming.UtcTicks
+                : filtro == FiltroDasConversas.Novas ? c.UpdatedAt.UtcTicks : -c.UpdatedAt.UtcTicks).ThenBy(c => c.Id, StringComparer.Ordinal)
             .ToList();
     }
 
-    /// <summary>Os números do seletor e dos filtros (não lidas = conversas abertas com recebida não lida).</summary>
+    /// <summary>Os números do seletor e dos filtros (não lidas = conversas com recebida não lida).</summary>
     public static ContagemDasConversas Contagens(IEnumerable<AppConversationSummary> conversas, string? meuAgente)
     {
         var lista = conversas as IReadOnlyCollection<AppConversationSummary> ?? conversas.ToList();
         return new(lista.Count(c => NoFiltro(c, FiltroDasConversas.Novas, meuAgente)),
             lista.Count(c => NoFiltro(c, FiltroDasConversas.Minhas, meuAgente)),
-            lista.Count(c => !c.Closed), lista.Count(c => c.Closed), lista.Count(c => !c.Closed && c.Unread > 0));
+            lista.Count, lista.Count(c => c.Unread > 0), lista.Count(EsperaResposta));
     }
 
     public static string Rotulo(FiltroDasConversas f) => f switch
@@ -631,7 +685,7 @@ public static partial class ConversasNaTela
         FiltroDasConversas.Novas => "Novas",
         FiltroDasConversas.Minhas => "Minhas",
         FiltroDasConversas.Todas => "Todas",
-        _ => "Encerradas"
+        _ => "Sem resposta"
     };
 
     /// <summary>
@@ -648,6 +702,7 @@ public static partial class ConversasNaTela
     public static (string Titulo, string Texto) Vazio(FiltroDasConversas filtro, bool comBusca)
         => comBusca ? ("Nenhuma conversa com esse nome", "Confira o nome ou o número.")
             : filtro == FiltroDasConversas.Novas ? ("Nenhuma conversa nova", "Toda conversa já tem alguém cuidando dela.")
+            : filtro == FiltroDasConversas.SemResposta ? ("Ninguém esperando resposta", "Em toda conversa aberta, a última palavra é da clínica.")
             : ("Nada por aqui", "As conversas aparecem aqui assim que chegam.");
 
     /// <summary>A última mensagem recebida de cada ficha (pelas conversas com ficha conferida) — a entrada da retenção.</summary>
@@ -678,7 +733,7 @@ public static partial class ConversasNaTela
     /// <summary>
     /// A conversa como a recepção lê: mensagens, notas internas e os eventos da trilha
     /// intercalados por <c>At</c> (no empate, a mensagem, depois a nota, depois o evento), com
-    /// o separador de dia, a divisória "N novas mensagens" antes da primeira recebida não lida
+    /// o separador de dia, a divisória "N mensagens não lidas" antes da primeira recebida não lida
     /// (depois das <paramref name="recebidasJaLidas"/>) e <c>Seguida</c> nos balões que
     /// continuam o anterior (mesmo lado e mesmo autor, sem nada entre eles).
     /// <paramref name="nomesDosAgentes"/> é o <c>AppSession.Agents</c> (id → nome); id
@@ -694,11 +749,15 @@ public static partial class ConversasNaTela
         for (var i = 0; i < conversa.Messages.Length; i++)
         {
             var m = conversa.Messages[i];
+            // A reação chega como mensagem própria ("Reagiu com 👍", F2): ela aparece no balão que reagiu, não sozinha (F3).
+            if (!string.IsNullOrEmpty(m.ReactionTo)) continue;
             var recebida = EhRecebida(m);
             // Foto, áudio, vídeo e documento aparecem no balão (MidiaDaConversa): o texto é só a legenda, e sem
             // legenda o balão não inventa "Mensagem sem texto" nem repete o nome que o cartão do arquivo já mostra.
             var midia = MidiaDaConversa.Da(conversa.Id, m);
-            var texto = !string.IsNullOrWhiteSpace(m.Text) ? m.Text
+            // Endereço e contato (F3) aparecem como cartão: o texto que o CRM guarda junto ("📍 …", "👤 …") não se repete.
+            var texto = m.Location is not null || m.SharedContact is not null ? ""
+                : !string.IsNullOrWhiteSpace(m.Text) ? m.Text
                 : midia is not null ? ""
                 : m.FileName ?? (recebida ? "Mensagem sem texto" : "Arquivo");
             var tick = recebida ? null : Tick(m.Status);
@@ -707,7 +766,11 @@ public static partial class ConversasNaTela
                 Tick: tick, Anexo: midia is not null || string.IsNullOrWhiteSpace(m.FileName) ? null : m.FileName, Modelo: m.Template?.Name,
                 Erro: ErroDaEntrega(tick, m.Error), Id: m.Id, At: m.At, Midia: midia,
                 Citacao: m.ReplyToId is { } citada && porId.TryGetValue(citada, out var original)
-                    ? Citacao(original, NomeDaConversa(conversa), nomesDosAgentes) : null), null));
+                    ? Citacao(original, NomeDaConversa(conversa), nomesDosAgentes) : null,
+                Reacoes: Reacoes(m), Estrela: m.Starred, Local: m.Location, Contato: m.SharedContact,
+                Transcricao: string.IsNullOrWhiteSpace(m.Transcript) ? null : m.Transcript.Trim(),
+                TentarDeNovo: !recebida && PedeTentarDeNovo(m, conversa.Messages),
+                Automatica: !recebida && EhAutomatica(m) ? ResumoDaAutomatica(m, ProximaRecebida(conversa.Messages, i)) : null), null));
         }
         for (var i = 0; i < conversa.Notes.Length; i++)
         {
@@ -722,30 +785,33 @@ public static partial class ConversasNaTela
             fontes.Add((a.At, 2, i, new ItemDaConversa(TipoNaLinhaDoTempo.Evento, e.Texto, Hora(a.At, agora), Tom: e.Tom, At: a.At), e));
         }
 
-        var naoLidas = conversa.Messages.Count(EhRecebida) - Math.Max(0, recebidasJaLidas);
+        // A marca de leitura do CRM conta as reações recebidas como mensagens; a linha do tempo não as desenha (F3).
+        var reacoesRecebidas = conversa.Messages.Count(m => EhRecebida(m) && !string.IsNullOrEmpty(m.ReactionTo));
+        recebidasJaLidas = Math.Max(0, recebidasJaLidas - reacoesRecebidas);
+        var naoLidas = conversa.Messages.Count(m => EhRecebida(m) && string.IsNullOrEmpty(m.ReactionTo)) - recebidasJaLidas;
         var itens = new List<ItemDaConversa>();
         DateOnly? dia = null;
         ItemDaConversa? anterior = null;
         var recebidas = 0;
-        foreach (var (at, item) in Limpar(fontes.OrderBy(f => f.At).ThenBy(f => f.Ordem).ThenBy(f => f.Indice)
+        foreach (var (at, item) in Limpar(NaOrdemDoServidor(fontes, conversa.Timeline)
                      .Select(f => (f.At, f.Item, f.Evento)).ToList()))
         {
-            var d = DateOnly.FromDateTime(at.ToOffset(agora.Offset).DateTime);
+            var d = DateOnly.FromDateTime(NaClinica(at).DateTime);
             if (d != dia)
             {
-                itens.Add(new(TipoNaLinhaDoTempo.Dia, Dia(d, DateOnly.FromDateTime(agora.DateTime))));
+                itens.Add(new(TipoNaLinhaDoTempo.Dia, DiaDoWhatsApp(d, DateOnly.FromDateTime(NaClinica(agora).DateTime))));
                 dia = d;
                 anterior = null;
             }
             if (item.Tipo == TipoNaLinhaDoTempo.Recebida && ++recebidas == Math.Max(0, recebidasJaLidas) + 1 && naoLidas > 0)
             {
-                itens.Add(new(TipoNaLinhaDoTempo.Novas, naoLidas == 1 ? "1 nova mensagem" : $"{naoLidas} novas mensagens"));
+                itens.Add(new(TipoNaLinhaDoTempo.Novas, naoLidas == 1 ? "1 mensagem não lida" : $"{naoLidas} mensagens não lidas"));
                 anterior = null;
             }
             var seguida = item.Tipo is TipoNaLinhaDoTempo.Recebida or TipoNaLinhaDoTempo.Enviada or TipoNaLinhaDoTempo.Nota
                 && anterior is not null && anterior.Tipo == item.Tipo && anterior.Autor == item.Autor;
             var final = seguida ? item with { Seguida = true } : item;
-            // Dois eventos seguidos no mesmo minuto são UMA nota de rodapé ("Encerrada por Bruna. A conversa reabriu…").
+            // Dois eventos seguidos no mesmo minuto são UMA nota de rodapé ("Bruna assumiu a conversa. Bruna transferiu…").
             if (item.Tipo == TipoNaLinhaDoTempo.Evento && itens.Count > 0 && itens[^1] is { Tipo: TipoNaLinhaDoTempo.Evento } ultimo && ultimo.Hora == item.Hora)
             {
                 itens[^1] = ultimo with { Texto = ultimo.Texto + ". " + item.Texto, Tom = TomMaisForte(ultimo.Tom, item.Tom) };
@@ -755,6 +821,35 @@ public static partial class ConversasNaTela
             anterior = item.Tipo == TipoNaLinhaDoTempo.Evento ? null : final;
         }
         return itens;
+    }
+
+    /// <summary>
+    /// A ordem da conversa é a do CRM (<c>AppConversation.Timeline</c>, 24/11/2026): a tela desenha nela, sem reordenar. CRM antigo
+    /// (sem Timeline) ou item que o servidor ainda não conhece (a enviada otimista, o "…pendente") cai na ordem local — hora, depois
+    /// mensagem &lt; nota &lt; evento, depois a posição — e entra entre os do servidor pela hora, sem mexer na ordem deles.
+    /// </summary>
+    private static List<(DateTimeOffset At, int Ordem, int Indice, ItemDaConversa Item, EventoDaTrilha? Evento)> NaOrdemDoServidor(
+        List<(DateTimeOffset At, int Ordem, int Indice, ItemDaConversa Item, EventoDaTrilha? Evento)> fontes, AppTimelineItem[]? timeline)
+    {
+        var local = fontes.OrderBy(f => f.At).ThenBy(f => f.Ordem).ThenBy(f => f.Indice).ToList();
+        if (timeline is not { Length: > 0 }) return local;
+
+        var posicao = new Dictionary<(string, string), int>();
+        for (var p = 0; p < timeline.Length; p++)
+            posicao.TryAdd((timeline[p].Kind?.Trim().ToLowerInvariant() ?? "", timeline[p].Ref ?? ""), p);
+        int? Posicao((DateTimeOffset At, int Ordem, int Indice, ItemDaConversa Item, EventoDaTrilha? Evento) f)
+        {
+            var chave = f.Ordem switch { 0 => ("message", f.Item.Id ?? ""), 1 => ("note", f.Item.Id ?? ""), _ => ("event", f.Indice.ToString(CultureInfo.InvariantCulture)) };
+            return posicao.TryGetValue(chave, out var p) ? p : null;
+        }
+
+        var doServidor = fontes.Select(f => (Fonte: f, Pos: Posicao(f))).Where(x => x.Pos is not null).OrderBy(x => x.Pos).Select(x => x.Fonte).ToList();
+        var soLocais = local.Where(f => Posicao(f) is null).ToList();
+        var juntos = new List<(DateTimeOffset At, int Ordem, int Indice, ItemDaConversa Item, EventoDaTrilha? Evento)>(fontes.Count);
+        int s = 0, l = 0;
+        while (s < doServidor.Count || l < soLocais.Count)
+            juntos.Add(l < soLocais.Count && (s >= doServidor.Count || soLocais[l].At < doServidor[s].At) ? soLocais[l++] : doServidor[s++]);
+        return juntos;
     }
 
     private static string Agente(string? id, IReadOnlyDictionary<string, string>? nomes, string semAutor)
@@ -790,11 +885,10 @@ public static partial class ConversasNaTela
     [
         R(@"^Assumiu (o atendimento humano|o controle humano)", (_, a, _) => $"{a} assumiu a conversa"),
         R(@"^Assumiu ao escrever para o paciente$", (_, a, _) => $"{a} assumiu a conversa ao responder"),
-        R(@"^Reabriu ao escrever para o paciente$", (_, a, _) => $"{a} reabriu a conversa ao responder"),
-        R(@"^Reabriu e assumiu o atendimento humano$", (_, a, _) => $"{a} reabriu a conversa"),
-        R(@"^Reaberta após nova mensagem$", (_, _, _) => "A conversa reabriu sozinha com a nova mensagem do paciente"),
-        R(@"^Encerrou o atendimento$", (_, a, _) => $"Encerrada por {a}", "sucesso"),
-        R(@"^Concluiu: (?<r>.+?)( · retorno registrado)?$", (m, a, _) => $"Encerrada por {a} · {m.Groups["r"].Value}", "sucesso"),
+        // Encerrar e reabrir não aparecem para a equipe (24/11/2026, pedido do dono): o CRM separa os atendimentos sozinho,
+        // por baixo (a Auditoria conta), e a conversa é uma só, como no WhatsApp. "Reabriu ao escrever" é o mesmo que assumir.
+        R(@"^Reabriu ao escrever para o paciente$", (_, a, _) => $"{a} assumiu a conversa ao responder"),
+        R(@"^(Reabriu e assumiu o atendimento humano|Reaberta após nova mensagem|Encerrou o atendimento|Encerr.*|Concluiu: .+)$", (_, _, _) => null),
         R(@"^Transferiu de (?<de>.+) para (?<para>.+)$", (m, a, _) => $"{a} transferiu de {m.Groups["de"].Value} para {m.Groups["para"].Value}"),
         R(@"^Encaminhou para (?<d>(o setor|a fila) .+)$", (m, a, _) => $"{a} encaminhou para {m.Groups["d"].Value}"),
         R(@"^Solicitou transferência para (?<d>.+); aguardando aceite$", (m, a, _) => $"{a} pediu a transferência para {m.Groups["d"].Value}; aguardando aceite"),
@@ -868,7 +962,35 @@ public static partial class ConversasNaTela
 
     // ---------------------------------------------------------------- datas
 
-    private static string Hora(DateTimeOffset at, DateTimeOffset agora) => at.ToOffset(agora.Offset).ToString("HH:mm", PtBr);
+    private static string Hora(DateTimeOffset at, DateTimeOffset agora) => NaClinica(at).ToString("HH:mm", PtBr);
+
+    /// <summary>
+    /// O fuso da clínica (America/Sao_Paulo), nunca o do computador nem o UTC do CRM (nov/2026, pedido do dono: "correção do
+    /// tempo"): a hora do balão e o separador de dia são os de quem está no balcão. Sem o fuso no sistema, cai no do computador.
+    /// </summary>
+    public static readonly TimeZoneInfo FusoDaClinica = AcharFuso();
+
+    private static TimeZoneInfo AcharFuso()
+    {
+        foreach (var id in new[] { "America/Sao_Paulo", "E. South America Standard Time" })
+            try { return TimeZoneInfo.FindSystemTimeZoneById(id); } catch (Exception ex) when (ex is TimeZoneNotFoundException or InvalidTimeZoneException) { }
+        return TimeZoneInfo.Local;
+    }
+
+    /// <summary>O momento no relógio da clínica.</summary>
+    public static DateTimeOffset NaClinica(DateTimeOffset at) => TimeZoneInfo.ConvertTime(at, FusoDaClinica);
+
+    /// <summary>
+    /// O separador de dia da conversa, como no WhatsApp: "Hoje", "Ontem", o dia da semana até seis dias atrás ("Quarta-feira") e,
+    /// antes disso, "21/10/2026". (O <see cref="Dia"/> com a data junto continua na Auditoria do Gerente.)
+    /// </summary>
+    public static string DiaDoWhatsApp(DateOnly dia, DateOnly hoje) => (hoje.DayNumber - dia.DayNumber) switch
+    {
+        0 => "Hoje",
+        1 => "Ontem",
+        >= 2 and <= 6 => Maiuscula(DiaPorExtenso(dia.DayOfWeek)),
+        _ => dia.ToString("dd/MM/yyyy", PtBr)
+    };
 
     /// <summary>"hoje às 17:02", "amanhã às 10:09", "ontem às 11:05", "qua 22/10 às 11:05" (com o ano, se não for o deste ano).</summary>
     internal static string Quando(DateTimeOffset momento, DateTimeOffset agora)

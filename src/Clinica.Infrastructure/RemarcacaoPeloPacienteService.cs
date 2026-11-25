@@ -185,14 +185,7 @@ public sealed class RemarcacaoPeloPacienteService : IRemarcacaoPeloPacienteServi
             var momento = agora();
             await using var tx = await db.Database.BeginTransactionAsync(ct);
             await agenda.RemarcarAsync(ap.Id, novo, ap.Observacoes, operador: operador, ct: ct);
-            // A confirmação do horário recomeça: o lembrete do horário novo é outro (como na ponte).
-            var contato = await db.Contatos.SingleOrDefaultAsync(c => c.Tipo == TipoContato.ConfirmacaoSessao && c.AgendamentoId == ap.Id, ct);
-            if (contato is not null)
-            {
-                contato.Referencia = DateOnly.FromDateTime(novo);
-                contato.Status = StatusContato.Pendente;
-                contato.EnviadoEm = null; contato.EnviadoPor = null; contato.RespondidoEm = null;
-            }
+            // A confirmação do horário recomeça na data nova dentro do AgendaService.RemarcarAsync (regra única, com auditoria).
             pedido.Situacao = PedidosRecepcaoRegras.Concluido;
             pedido.Desfecho = $"Remarcado para {PedidosRecepcaoRegras.Horario(novo)}, o horário que o paciente escolheu. A confirmação vai a ele pelo WhatsApp.";
             pedido.EncerradoEm = momento;

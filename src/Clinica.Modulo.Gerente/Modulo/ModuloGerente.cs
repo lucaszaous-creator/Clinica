@@ -166,7 +166,8 @@ public sealed class ModuloGerente : IModuloApp
             Abas =
             [
                 new AbaMenu("Convênios", ChavePrecos),
-                new AbaMenu("Particular", ChavesSuite.PrecosParticular)
+                new AbaMenu("Particular", ChavesSuite.PrecosParticular),
+                new AbaMenu("Repasse m\u00E9dico", ChavesSuite.RepasseMedico)
             ]
         },
         // As perguntas de quem fiscaliza: quem MEXEU (auditoria), o que SAIU (documentos) e o
@@ -233,6 +234,14 @@ public sealed class ModuloGerente : IModuloApp
         new ItemMenuModulo
         {
             Chave = ChavesSuite.PrecosParticular, Rotulo = "Pre\u00E7os do particular", Glifo = "\uE8EF", Icone = "etiqueta",
+            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro, Oculto = true
+        },
+        // Repasse médico (nov/2026): a mesma regra do item acima — tela do shell, declarada
+        // OCULTA, que o composto "Tabela de preços" reivindica. O Financeiro publica a MESMA
+        // chave (destino do botão da tela de Repasses); no Gerente Geral a dedupe mantém uma.
+        new ItemMenuModulo
+        {
+            Chave = ChavesSuite.RepasseMedico, Rotulo = "Repasse m\u00E9dico", Glifo = "\uE8EF", Icone = "etiqueta",
             Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro, Oculto = true
         },
         new ItemMenuModulo
@@ -341,6 +350,8 @@ public sealed class ModuloGerente : IModuloApp
         ChavePrecos => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PrecosPorConvenio), servicos),
         // Blazor desde out/2026 (a mesma tela que a Recepção publica pela mesma chave).
         ChavesSuite.PrecosParticular => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PrecosDoParticular), servicos),
+        // A mesma tela que o Financeiro publica pela mesma chave (nov/2026).
+        ChavesSuite.RepasseMedico => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.TabelaDeRepasse), servicos),
         ChaveCusto => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.CustoDeTaxasEImpostos), servicos),
         ChaveRentabilidade => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.RentabilidadePorConvenio), servicos),
         ChaveCampanhas => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.CampanhasDaClinica), servicos),

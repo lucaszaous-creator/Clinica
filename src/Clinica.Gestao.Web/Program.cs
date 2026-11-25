@@ -48,7 +48,8 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<SessaoDoPortalNaGestao>();
 // Desligada por padrão: o gerente entra só com a senha até ativar o segundo fator no portal.
 // Ligue (Gestao__ExigirSegundoFator=true) para a gestão abrir só para quem já ativou.
-builder.Services.AddSingleton(new OpcoesDaGestaoWeb(cfg.GetValue<bool>("Gestao:ExigirSegundoFator")));
+builder.Services.AddSingleton(new OpcoesDaGestaoWeb(cfg.GetValue<bool>("Gestao:ExigirSegundoFator"),
+    cfg.GetValue("Portal:AtendimentoHabilitado", true)));
 
 // Os pedidos entre telas ("abra a ficha deste paciente") são SINGLETON no desktop, onde há uma
 // pessoa por processo. Aqui são POR CONEXÃO — registrados antes do AddTelasBlazor, que só os
@@ -61,8 +62,9 @@ builder.Services.AddScoped<PedidoDeDocumento>();
 builder.Services.AddScoped<PedidoDeConversaNoCrm>();
 builder.Services.AddScoped<PedidoDoAcompanhamento>();
 builder.Services.AddTelasBlazor();
-// Assinatura digital: área congelada — a gestão web não assina (AssinaturaForaDaGestao).
-builder.Services.AddScoped<IAssinaturaNaTela, AssinaturaForaDaGestao>();
+// Assinatura digital (nov/2026, autorização do dono — docs/safeid-congelado.md): as MESMAS rotas do Consultório,
+// pelo navegador (wwwroot/assinatura-na-gestao.js). O motor não muda.
+builder.Services.AddScoped<IAssinaturaNaTela, AssinaturaNaGestao>();
 
 builder.Services.AddSingleton(CatalogoDaGestao.Embutido());
 // Convênios, modalidades e especialidades em memória: nos apps quem carrega é a abertura; aqui,

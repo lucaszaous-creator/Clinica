@@ -108,7 +108,10 @@ public sealed partial class PostoTabletService(ClinicaDbContext db, IClinicaRepo
     }
 
     // O recibo avulso não depende de criar uma sessão de atendimento fictícia.
-    private async Task<T> Escrever<T>(SessaoTablet s,int paciente,Guid chave,object pedido,string acao,Permissao permissao,Func<UsuarioSistema,Task<T>> executar,CancellationToken ct)
+    private Task<T> Escrever<T>(SessaoTablet s,int paciente,Guid chave,object pedido,string acao,Permissao permissao,Func<UsuarioSistema,Task<T>> executar,CancellationToken ct)
+        => TransacaoResiliente.ExecutarAsync(db, c => EscreverNaTransacao(s, paciente, chave, pedido, acao, permissao, executar, c), ct);
+
+    private async Task<T> EscreverNaTransacao<T>(SessaoTablet s,int paciente,Guid chave,object pedido,string acao,Permissao permissao,Func<UsuarioSistema,Task<T>> executar,CancellationToken ct)
     {
         if(chave==Guid.Empty) throw ErroFormularioTablet.Criar("Atualize antes de enviar.");
         await using var tx=await db.Database.BeginTransactionAsync(IsolationLevel.Serializable,ct);

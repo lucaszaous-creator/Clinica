@@ -120,3 +120,12 @@
   .rd-situacoes{flex:1 1 100%}
   .rd-pilula{white-space:nowrap}
 }
+
+/* A autorização pelo sistema na linha (nov/2026): selo, campo do token e o botão de pedir. */
+.rd-autorizacao{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-1);margin-top:var(--space-1)}
+.rd-autorizacao .selo{margin:0}
+.rd-token{display:inline-flex;flex-wrap:wrap;align-items:center;gap:var(--space-1)}
+.rd-token .rd-token-campo{width:6.5em;flex:none;font-variant-numeric:tabular-nums;letter-spacing:.08em}
+.rd-token .rd-sem-token{width:10.5em;min-width:0;flex:none}
+.rd-token-erro{flex-basis:100%;color:var(--erro-texto);font-size:var(--text-small-size)}
+.rd-aviso-token{margin-bottom:var(--space-2)}

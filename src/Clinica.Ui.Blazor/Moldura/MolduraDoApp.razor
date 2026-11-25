@@ -64,11 +64,6 @@
                     </li>
                 }
             </ul>
-            @if (Moldura.TemTreinamento)
-            {
-                <button type="button" class="moldura-treinamento" title="Videoaulas das telas deste módulo"
-                        @onclick="Moldura.AbrirTreinamento">Treinamento</button>
-            }
         </nav>
 
         <div class="moldura-busca" @onfocusout="AoSairDaBusca">
@@ -137,6 +132,7 @@
                     var pedidos = Moldura.Pedidos.Linhas.Where(x => !soNaoLidas || x.NaoLida).ToList();
                     var semdor = Moldura.AvisosDoSemDor.Linhas.Where(x => !soNaoLidas || x.NaoLida).ToList();
                     var esperas = Moldura.EsperasNoWhatsApp.Linhas.Where(x => !soNaoLidas || x.NaoLida).ToList();
+                    var semChegada = Moldura.HorariosSemChegada.Linhas.Where(x => !soNaoLidas || x.NaoLida).ToList();
                     <div class="moldura-popover sino" role="dialog" aria-label="Notificações">
                         <div class="sino-cab">
                             <h2>Notificações</h2>
@@ -208,6 +204,34 @@
                                     @if (!soNaoLidas && !string.IsNullOrWhiteSpace(Moldura.EsperasNoWhatsApp.Situacao))
                                     {
                                         <p class="moldura-situacao">@Moldura.EsperasNoWhatsApp.Situacao</p>
+                                    }
+                                </section>
+                            }
+                            @* Horários sem chegada da conclusão automática por profissional (nov/2026): a recepção
+                               confirma falta ou presença na agenda. Uma linha por profissional. *@
+                            @if (Moldura.HorariosSemChegada.Visivel && (semChegada.Count > 0 || (!soNaoLidas && !string.IsNullOrWhiteSpace(Moldura.HorariosSemChegada.Situacao))))
+                            {
+                                <section>
+                                    <header><h3>Horários sem chegada</h3><span>@Moldura.HorariosSemChegada.Contador</span></header>
+                                    @foreach (var c in semChegada)
+                                    {
+                                        var aviso = c;
+                                        <button type="button" class="moldura-aviso @(aviso.NaoLida ? "nao-lida" : null)" title="Abrir a agenda"
+                                                @onclick="() => Moldura.AbrirSemChegada(aviso)">
+                                            <span class="sino-ic sem-resposta" aria-hidden="true"><Icone Nome="relogio" /></span>
+                                            <span class="sino-texto">
+                                                <span class="sino-tit">@aviso.Frase</span>
+                                                <span class="sino-meta">@aviso.Desde · conclusão automática</span>
+                                            </span>
+                                            @if (aviso.NaoLida)
+                                            {
+                                                <span class="sino-ponto" title="Não lida"></span>
+                                            }
+                                        </button>
+                                    }
+                                    @if (!soNaoLidas && !string.IsNullOrWhiteSpace(Moldura.HorariosSemChegada.Situacao))
+                                    {
+                                        <p class="moldura-situacao">@Moldura.HorariosSemChegada.Situacao</p>
                                     }
                                 </section>
                             }

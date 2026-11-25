@@ -174,19 +174,6 @@ internal static partial class Program
             {
                 try
                 {
-                    // O treinamento pertence ao shell compartilhado, não a uma fábrica de módulo.
-                    if (item.Chave == "treinamento")
-                    {
-                        var anterior = shell.TelaAtual;
-                        Conferir(NavegacaoSuite.Ir(item.Chave), $"{nome}: treinamento acessível pela navegação");
-                        // Blazor desde out/2026: o treinamento é a tela Treinamento no navegador da janela.
-                        Conferir(shell.TelaAtual is ITelaDoNavegador { Componente.Name: "Treinamento" },
-                            $"{nome}: treinamento materializa a biblioteca compartilhada");
-                        await Dispatcher.Yield(DispatcherPriority.Background);
-                        Conferir(NavegacaoSuite.Voltar() && ReferenceEquals(anterior, shell.TelaAtual),
-                            $"{nome}: sair do treinamento preserva a tela de origem");
-                        continue;
-                    }
                     var dono = modulos.First(m=>m.Nome==item.ModuloNome);
                     var tela = dono.CriarTela(item.Chave,provider);
                     // Toda rota devolve uma tela do NAVEGADOR (out/2026: a moldura é Blazor).

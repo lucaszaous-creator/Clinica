@@ -15,7 +15,7 @@ public sealed class AcompanhamentoPacienteService(ClinicaDbContext db, IClinicaR
     private static DateTime Agora => DateTime.SpecifyKind(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,
         TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo")), DateTimeKind.Unspecified);
     private static DateOnly Hoje => DateOnly.FromDateTime(Agora);
-    private static bool PodeAcompanhar(UsuarioSistema u) => u.Pode(Permissao.VerFichaPaciente)
+    internal static bool PodeAcompanhar(UsuarioSistema u) => u.Pode(Permissao.VerFichaPaciente)
         && (u.Pode(Permissao.GerenciarCampanhas) || u.Pode(Permissao.VerFaturamento));
 
     private Task<UsuarioSistema> Usuario(int id, Permissao permissao, CancellationToken ct)
@@ -231,9 +231,8 @@ public sealed class AcompanhamentoPacienteService(ClinicaDbContext db, IClinicaR
         foreach (var c in casos)
         {
             bool Corresponde(ModalidadeAtendimento m) => RegrasAcompanhamento.Corresponde(c.Tipo, c.Modalidade, m);
-            var voltou = sessoesPorPaciente[c.PacienteId].Where(a => Corresponde(a.Modalidade)
-                && (c.Tipo == TipoAcompanhamento.Recall ? a.Data > DateOnly.FromDateTime(c.ReferenciaEm) : a.RealizadoEm >= c.ReferenciaEm))
-                .Select(a => (DateOnly?)a.Data).Min();
+            var voltou = PrimeiraVolta(c.Tipo, c.Modalidade, c.ReferenciaEm,
+                sessoesPorPaciente[c.PacienteId].Select(a => (a.Modalidade, a.Data, a.RealizadoEm)));
             var realizou = voltou != null;
             var correspondentes = horariosPorPaciente[c.PacienteId].Where(a => Corresponde(a.ModalidadePrevista) && a.DataHora >= c.ReferenciaEm).ToList();
             var agendado = correspondentes.Where(a => a.Status == StatusAgendamento.Agendado && a.DataHora.Date >= Agora.Date).OrderBy(a => a.DataHora).FirstOrDefault();
@@ -257,6 +256,42 @@ public sealed class AcompanhamentoPacienteService(ClinicaDbContext db, IClinicaR
         return resultado.OrderByDescending(x => x.Atrasado).ThenBy(x => x.ProximoContato).ThenBy(x => x.Paciente).ToList();
     }
 
+    /// <summary>
+    /// A sessão de VOLTA de um caso: a primeira realizada da modalidade que o caso acompanha, depois da referência
+    /// (recall: depois do DIA da última sessão; novo no BSV: a partir da indicação). Uma regra só para a fila
+    /// (<see cref="LinhaAcompanhamento.VoltouEm"/>) e para a meta de quem voltou (<see cref="VoltaramNoPeriodoAsync"/>).
+    /// </summary>
+    internal static DateOnly? PrimeiraVolta(TipoAcompanhamento tipo, ModalidadeAtendimento alvo, DateTime referencia,
+        IEnumerable<(ModalidadeAtendimento Modalidade, DateOnly Data, DateTime? RealizadoEm)> sessoes)
+        => sessoes.Where(a => RegrasAcompanhamento.Corresponde(tipo, alvo, a.Modalidade)
+                && (tipo == TipoAcompanhamento.Recall ? a.Data > DateOnly.FromDateTime(referencia) : a.RealizadoEm >= referencia))
+            .Select(a => (DateOnly?)a.Data).Min();
+
+    public async Task<int> VoltaramNoPeriodoAsync(DateOnly inicio, DateOnly fim, CancellationToken ct = default)
+    {
+        // Só o caso que PODE ter voltado no período: referência antes do fim. As sessões, só as realizadas até o
+        // fim e dos pacientes desses casos — projeção curta, filtrada no banco.
+        var limite = fim.ToDateTime(TimeOnly.MaxValue);
+        var casos = await db.Acompanhamentos.AsNoTracking().Where(c => c.ReferenciaEm <= limite)
+            .Select(c => new { c.PacienteId, c.Tipo, c.Modalidade, c.ReferenciaEm }).ToListAsync(ct);
+        if (casos.Count == 0) return 0;
+        var ids = casos.Select(c => c.PacienteId).Distinct().ToList();
+        var menor = DateOnly.FromDateTime(casos.Min(c => c.ReferenciaEm));
+        var sessoes = (await db.Atendimentos.AsNoTracking()
+            .Where(a => ids.Contains(a.PacienteId) && a.RealizadoEm != null && a.EstornadoEm == null && a.Data >= menor && a.Data <= fim)
+            .Select(a => new { a.PacienteId, a.Modalidade, a.Data, a.RealizadoEm }).ToListAsync(ct)).ToLookup(a => a.PacienteId);
+        return casos.Count(c => PrimeiraVolta(c.Tipo, c.Modalidade, c.ReferenciaEm,
+                sessoes[c.PacienteId].Select(a => (a.Modalidade, a.Data, a.RealizadoEm))) is { } v && v >= inicio && v <= fim);
+    }
+
+    public async Task<IReadOnlyList<ContatoNoTempo>> ContatosDesdeAsync(int usuarioId, DateOnly desde, CancellationToken ct = default)
+    {
+        await Usuario(usuarioId, Permissao.GerenciarCampanhas, ct);
+        var inicio = desde.ToDateTime(TimeOnly.MinValue);
+        return await db.ContatosAcompanhamento.AsNoTracking().Where(c => c.Canal != null && c.Em >= inicio)
+            .Select(c => new ContatoNoTempo(c.AcompanhamentoPacienteId, c.Em)).ToListAsync(ct);
+    }
+
     public async Task<IReadOnlyList<ContatoAcompanhamento>> HistoricoAsync(int usuarioId, int id, CancellationToken ct = default)
     {
         await Usuario(usuarioId, Permissao.GerenciarCampanhas, ct);
@@ -266,6 +301,16 @@ public sealed class AcompanhamentoPacienteService(ClinicaDbContext db, IClinicaR
         foreach (var c in contatos)
             c.Resultado = (c.AcompanhamentoPaciente!.Tipo == TipoAcompanhamento.NovoBsv ? "Novos BSV" : "Recall " + RotulosEnum.De(c.AcompanhamentoPaciente.Modalidade)) + " · " + c.Resultado;
         return contatos;
+    }
+
+    public async Task<IReadOnlyList<SessaoDaJornada>> JornadaAsync(int usuarioId, int id, DateOnly desde, CancellationToken ct = default)
+    {
+        await Usuario(usuarioId, Permissao.GerenciarCampanhas, ct);
+        var paciente = await db.Acompanhamentos.Where(c => c.Id == id).Select(c => c.PacienteId).SingleAsync(ct);
+        var inicio = desde.ToDateTime(TimeOnly.MinValue);
+        // Projeção curta, filtrada no banco: um tratamento longo tem dezenas de horários, e a ficha só desenha meses recentes.
+        return await db.Agendamentos.AsNoTracking().Where(a => a.PacienteId == paciente && a.DataHora >= inicio)
+            .OrderBy(a => a.DataHora).Select(a => new SessaoDaJornada(a.DataHora, a.Status)).ToListAsync(ct);
     }
 
     public async Task ValidarContatoAsync(int usuarioId, int id, CancellationToken ct = default)

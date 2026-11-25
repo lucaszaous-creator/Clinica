@@ -13,7 +13,16 @@ namespace Clinica.Application.Servicos;
 public sealed record LeituraDaEspera(bool Ligado, IReadOnlyList<ConversaQueEspera> Esperando, IReadOnlyList<ConversaQueEspera> Novas, int NaoLidas = 0)
 {
     public static LeituraDaEspera Desligada { get; } = new(false, [], []);
+
+    /// <summary>
+    /// As mensagens de paciente que CHEGARAM desde a leitura anterior (24/11/2026, F1b: a notificação do Windows com
+    /// o app em segundo plano). Uma por conversa, a mais antiga primeiro. A primeira leitura semeia (vazia).
+    /// </summary>
+    public IReadOnlyList<MensagemQueChegou> Chegaram { get; init; } = [];
 }
+
+/// <summary>Uma conversa em que o paciente escreveu desde a última leitura do vigia.</summary>
+public sealed record MensagemQueChegou(string ConversaId, string Nome, DateTimeOffset Em);
 
 /// <summary>
 /// O VIGIA DO WHATSAPP (25/10, R8 e D12 da revisão dos casos de uso): o que a janela do app faz com o CRM
@@ -49,6 +58,7 @@ public sealed class VigiaDoWhatsApp(IClienteDoCrm crm)
 
     private readonly CancellationTokenSource _parada = new();
     private readonly HashSet<string> _anunciadas = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, DateTimeOffset> _ultimaDoPaciente = new(StringComparer.Ordinal);
     private IReadOnlyList<AppConversationSummary>? _conversas;
     private DateTimeOffset _lidoEm, _ultimaInteira;
     private string? _meuAgente;
@@ -81,6 +91,7 @@ public sealed class VigiaDoWhatsApp(IClienteDoCrm crm)
         if (Parado || usuarioId <= 0) return LeituraDaEspera.Desligada;
         var ct = _parada.Token;
         var primeira = _conversas is null;
+        var leituraAnterior = _lidoEm;
         try
         {
             if (primeira || agora - _ultimaInteira >= LeituraInteira)
@@ -110,6 +121,31 @@ public sealed class VigiaDoWhatsApp(IClienteDoCrm crm)
         // Cada espera é anunciada UMA vez na vida da janela — mesmo que saia da lista e volte (assumida e
         // devolvida sem resposta): a chave carrega a hora da recebida, então só uma mensagem NOVA anuncia de novo.
         var novas = esperando.Where(e => _anunciadas.Add(e.Chave)).ToList();
-        return new LeituraDaEspera(true, esperando, primeira ? [] : novas, ConversasNaTela.Contagens(_conversas, _meuAgente).NaoLidas);
+        var chegaram = QueChegaram(_conversas, primeira, leituraAnterior);
+        return new LeituraDaEspera(true, esperando, primeira ? [] : novas, ConversasNaTela.Contagens(_conversas, _meuAgente).NaoLidas)
+            { Chegaram = chegaram };
+    }
+
+    /// <summary>
+    /// O paciente escreveu desde a leitura anterior: conversa aberta cuja ÚLTIMA mensagem é dele e cuja hora da última
+    /// recebida passou da que o vigia guardou. Conversa que o vigia ainda não conhecia só conta se a mensagem é de depois
+    /// da leitura anterior (<paramref name="leituraAnterior"/>): a conversa antiga que entra na visão da pessoa (uma
+    /// transferência, a leitura inteira de 10 em 10 min) não é mensagem nova. A mesma régua do número do menu: TODAS as
+    /// conversas que a pessoa vê, não só as dela — é o que faz o número subir. A primeira leitura só guarda as horas
+    /// (abrir o app não é uma rajada de notificações).
+    /// </summary>
+    private List<MensagemQueChegou> QueChegaram(IReadOnlyList<AppConversationSummary> conversas, bool primeira, DateTimeOffset leituraAnterior)
+    {
+        var chegaram = new List<MensagemQueChegou>();
+        foreach (var c in conversas)
+        {
+            var conhecida = _ultimaDoPaciente.TryGetValue(c.Id, out var antes);
+            if (c.LastIncoming != default) _ultimaDoPaciente[c.Id] = c.LastIncoming;
+            if (primeira || c.Closed || c.LastIncoming == default
+                || !string.Equals(c.PreviewDirection, "in", StringComparison.OrdinalIgnoreCase)) continue;
+            if (conhecida ? c.LastIncoming > antes : c.LastIncoming >= leituraAnterior)
+                chegaram.Add(new MensagemQueChegou(c.Id, ConversasNaTela.NomeDaConversa(c), c.LastIncoming));
+        }
+        return chegaram.OrderBy(m => m.Em).ThenBy(m => m.ConversaId, StringComparer.Ordinal).ToList();
     }
 }

@@ -62,7 +62,7 @@ public static class OrganizacaoNavegacao
                 rotulo = "Campanhas, origem e comissão"; grupo = GrupoSidebar.Relacionamento;
                 abas = [.. item.Abas.Where(a => a.Chave != ChavesSuite.RetornoPacientes)];
                 break;
-            case "retorno-pacientes": rotulo = "Acompanhamento de pacientes"; grupo = GrupoSidebar.Relacionamento; break;
+            case "retorno-pacientes": rotulo = "Fila 360"; grupo = GrupoSidebar.Relacionamento; break;
             case ChavesSuite.ConfirmacoesAgenda: rotulo = "Confirmações"; grupo = GrupoSidebar.Relacionamento; break;
             case "producao": case "consultorio-meus-numeros": grupo = GrupoSidebar.Inteligencia; break;
             case "resultado": grupo = GrupoSidebar.Inteligencia; rotulo = "Resultado e teto de despesas"; break;

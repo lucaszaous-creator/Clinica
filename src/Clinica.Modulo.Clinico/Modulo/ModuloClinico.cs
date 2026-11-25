@@ -560,7 +560,7 @@ public sealed class ModuloClinico : IModuloApp
         ChaveRegistrosPendentes => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.SessoesSemEvolucao), servicos),
         ChaveMinhaSemana => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.MinhaSemana), servicos),
         ChaveMedicamentos => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.Medicamentos), servicos),
-        ChavePrescricoes => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.DocumentosDaRecepcao), servicos),
+        ChavePrescricoes => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PrescricoesEDocumentos), servicos), // a central com a aba "Para assinar" (nov/2026)
         ChavePrescricaoInfusao => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.PrescricaoDeInfusao), servicos),
         ChaveSalaInfusao => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.SalaDeInfusao), servicos),
         ChaveEnfermagem => Clinica.Desktop.Blazor.HospedagemBlazor.Tela(typeof(Clinica.Ui.Blazor.Telas.Enfermagem), servicos),

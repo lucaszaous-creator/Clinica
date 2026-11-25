@@ -48,6 +48,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<CodigoFaturamento> Codigos => Set<CodigoFaturamento>();
     public DbSet<GuiaTissConsulta> GuiasTissConsulta => Set<GuiaTissConsulta>();
     public DbSet<TransacaoTiss> TransacoesTiss => Set<TransacaoTiss>();
+    public DbSet<AutorizacaoTiss> AutorizacoesTiss => Set<AutorizacaoTiss>();
     public DbSet<TransacaoTissGuia> TransacoesTissGuias => Set<TransacaoTissGuia>();
     public DbSet<Agendamento> Agendamentos => Set<Agendamento>();
     public DbSet<ParametroConvenio> Parametros => Set<ParametroConvenio>();
@@ -88,6 +89,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<ConsentimentoLgpd> Consentimentos => Set<ConsentimentoLgpd>();
     public DbSet<MedidaClinica> MedidasClinicas => Set<MedidaClinica>();
     public DbSet<ResultadoExame> ResultadosExame => Set<ResultadoExame>();
+    public DbSet<EscutaPosSessao> EscutasPosSessao => Set<EscutaPosSessao>();
     public DbSet<ArquivoResultadoExame> ArquivosResultadoExame => Set<ArquivoResultadoExame>();
     public DbSet<AnexoPaciente> AnexosPaciente => Set<AnexoPaciente>();
     public DbSet<ArquivoAnexoPaciente> ArquivosAnexoPaciente => Set<ArquivoAnexoPaciente>();
@@ -125,6 +127,8 @@ public class ClinicaDbContext : DbContext
     public DbSet<PrecoConvenio> PrecosConvenio => Set<PrecoConvenio>();
     public DbSet<PrecoParticular> PrecosParticular => Set<PrecoParticular>();
     public DbSet<RepasseApurado> RepassesApurados => Set<RepasseApurado>();
+    public DbSet<RepasseFechamento> RepassesFechamentos => Set<RepasseFechamento>();
+    public DbSet<ItemRepasse> ItensRepasse => Set<ItemRepasse>();
     public DbSet<ItemEstoque> ItensEstoque => Set<ItemEstoque>();
     public DbSet<MovimentoEstoque> MovimentosEstoque => Set<MovimentoEstoque>();
     public DbSet<DocumentoFinanceiro> DocumentosFinanceiros => Set<DocumentoFinanceiro>();
@@ -262,6 +266,11 @@ public class ClinicaDbContext : DbContext
             // Endereço residencial: exigência do art. 35 da Lei 5.991/1973 para a receita
             // poder ser aviada. Uma linha só, como a clínica escreve no papel.
             e.Property(p => p.Endereco).HasMaxLength(300);
+            // O comprador do Receituário de Controle Especial (nov/2026).
+            e.Property(p => p.Rg).HasMaxLength(20);
+            e.Property(p => p.RgOrgaoEmissor).HasMaxLength(20);
+            e.Property(p => p.Cidade).HasMaxLength(100);
+            e.Property(p => p.Uf).HasMaxLength(2);
             e.Property(p => p.Carteirinha).HasMaxLength(40);
             e.Property(p => p.Convenio).HasConversion<string>().HasMaxLength(40);
             e.Property(p => p.ConvenioCodigo).HasMaxLength(40);
@@ -404,6 +413,8 @@ public class ClinicaDbContext : DbContext
             e.HasOne<Paciente>().WithMany().HasForeignKey(t => t.PacienteId).OnDelete(DeleteBehavior.SetNull);
             // O conector pergunta "o que há para fazer?" a cada poucos segundos.
             e.HasIndex(t => new { t.Estado, t.PedidoEm });
+            // A autorização pedida por esta transação (nov/2026): a linha da autorização não se apaga.
+            e.HasOne(t => t.Autorizacao).WithMany().HasForeignKey(t => t.AutorizacaoId).OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(t => t.CodigoId);
             // A consulta de status aponta para o envio que ela consulta; apagar um não apaga o outro.
             e.HasOne<TransacaoTiss>().WithMany().HasForeignKey(t => t.TransacaoDeEnvioId).OnDelete(DeleteBehavior.SetNull);
@@ -455,6 +466,17 @@ public class ClinicaDbContext : DbContext
             // st_decimal8-2 do padrão: 8 dígitos no total, 2 decimais.
             e.Property(g => g.ValorProcedimento).HasPrecision(8, 2);
             e.Property(g => g.Observacao).HasMaxLength(500);
+            // Guia SP/SADT (nov/2026, Amil): tamanhos do XSD 4.01.00. Nulos nas guias de consulta.
+            e.Property(g => g.ModeloGuia).HasMaxLength(10);
+            e.Property(g => g.Senha).HasMaxLength(20);
+            e.Property(g => g.CodigoValidacao).HasMaxLength(10);
+            e.Property(g => g.AusenciaCodigoValidacao).HasMaxLength(2);
+            e.Property(g => g.TipoAtendimento).HasMaxLength(2);
+            e.Property(g => g.CaraterAtendimento).HasMaxLength(1);
+            e.Property(g => g.DescricaoProcedimento).HasMaxLength(150);
+            e.Property(g => g.FormaConfirmacao).HasMaxLength(10);
+            e.Property(g => g.EquipeCpf).HasMaxLength(11);
+            e.Property(g => g.GrauParticipacao).HasMaxLength(2);
             e.Property(g => g.ConferidaPor).HasMaxLength(80);
             e.Property(g => g.ConferidaEm).HasColumnType("timestamp without time zone");
             // A guia do sistema não se apaga (só é estornada); a cascata existe para a exclusão de
@@ -464,6 +486,37 @@ public class ClinicaDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
             // "A última guia deste profissional" pré-preenche conselho, UF e CBO da próxima.
             e.HasIndex(g => new { g.NomeProfissional, g.ConferidaEm });
+        });
+
+        // A autorização de um atendimento na operadora (nov/2026, Amil). Tamanhos do XSD 4.03.00.
+        b.Entity<AutorizacaoTiss>(e =>
+        {
+            e.ToTable("AutorizacoesTiss");
+            e.HasKey(a => a.Id);
+            e.Property(a => a.ConvenioCodigo).HasMaxLength(40);
+            e.Property(a => a.Situacao).HasConversion<string>().HasMaxLength(20);
+            e.Property(a => a.NumeroCarteira).HasMaxLength(20);
+            e.Property(a => a.CodigoTabela).HasMaxLength(2);
+            e.Property(a => a.CodigoProcedimento).HasMaxLength(10);
+            e.Property(a => a.DescricaoProcedimento).HasMaxLength(150);
+            e.Property(a => a.CaraterAtendimento).HasMaxLength(1);
+            e.Property(a => a.ProfissionalNome).HasMaxLength(70);
+            e.Property(a => a.ConselhoProfissional).HasMaxLength(2);
+            e.Property(a => a.NumeroConselho).HasMaxLength(15);
+            e.Property(a => a.UfConselho).HasMaxLength(2);
+            e.Property(a => a.Cbos).HasMaxLength(6);
+            e.Property(a => a.NumeroGuiaPrestador).HasMaxLength(20);
+            e.Property(a => a.NumeroGuiaOperadora).HasMaxLength(20);
+            e.Property(a => a.Senha).HasMaxLength(20);
+            e.Property(a => a.Motivo).HasMaxLength(500);
+            e.Property(a => a.PedidaPor).HasMaxLength(80);
+            e.Property(a => a.PedidaEm).HasColumnType("timestamp without time zone");
+            e.Property(a => a.AtualizadaEm).HasColumnType("timestamp without time zone");
+            e.Property(a => a.Token).HasMaxLength(20);
+            e.Property(a => a.AusenciaToken).HasMaxLength(2);
+            e.Property(a => a.TokenRegistradoPor).HasMaxLength(80);
+            e.Property(a => a.TokenRegistradoEm).HasColumnType("timestamp without time zone");
+            e.HasIndex(a => a.AgendamentoId);
         });
 
         b.Entity<LoteTiss>(e =>
@@ -577,6 +630,7 @@ public class ClinicaDbContext : DbContext
             e.Property(a => a.ChamadoEm).HasColumnType("timestamp without time zone");
             e.Property(a => a.InicioAtendimentoEm).HasColumnType("timestamp without time zone");
             e.Property(a => a.FimAtendimentoEm).HasColumnType("timestamp without time zone");
+            e.Property(a => a.ConcluidoAutomaticamenteEm).HasColumnType("timestamp without time zone");
             e.Property(a => a.EnfermagemConferidaEm).HasColumnType("timestamp without time zone");
             e.Ignore(a => a.AtendimentoEncerrado);
             e.HasOne(a => a.Profissional).WithMany()
@@ -598,6 +652,7 @@ public class ClinicaDbContext : DbContext
         // é quem entra quando um deles vaga.
         b.Entity<Profissional>(e =>
         {
+            e.Property(p => p.ConcluirAutomaticamenteDesde).HasColumnType("timestamp without time zone");
             e.HasKey(p => p.Id);
             e.Property(p => p.Nome).IsRequired().HasMaxLength(120);
             e.Property(p => p.NomeCurto).HasMaxLength(40);
@@ -1001,6 +1056,34 @@ public class ClinicaDbContext : DbContext
             e.Ignore(x => x.ValorComUnidade);
             e.Ignore(x => x.TemArquivo);
             e.Ignore(x => x.ResumoDoResultado);
+        });
+
+        // ---- Escuta pós-sessão (nov/2026, Fila 360): dado de saúde, raiz clínica ----
+        b.Entity<EscutaPosSessao>(e =>
+        {
+            e.ToTable("EscutasPosSessao");
+            e.HasKey(x => x.Id);
+            // Enum como TEXTO: a linha tem de ser legível daqui a 20 anos, sem o código do enum ao lado.
+            e.Property(x => x.Modalidade).HasConversion<string>().HasMaxLength(40);
+            e.Property(x => x.Motivo).HasConversion<string>().HasMaxLength(30);
+            e.Property(x => x.Como).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Canal).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Relato).HasMaxLength(1000);
+            e.Property(x => x.RegistradoPor).IsRequired().HasMaxLength(80);
+            e.Property(x => x.CanceladaPor).HasMaxLength(80);
+            e.Property(x => x.MotivoCancelamento).HasMaxLength(500);
+            // Hora de PAREDE (o Npgsql recusa Kind=Local em "with time zone").
+            e.Property(x => x.RegistradoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.CanceladaEm).HasColumnType("timestamp without time zone");
+
+            // Cascata como as outras raízes: a ficha com escuta NÃO é removível (PacienteTemRegistroClinicoAsync).
+            e.HasOne(x => x.Paciente).WithMany().HasForeignKey(x => x.PacienteId);
+
+            e.HasIndex(x => new { x.PacienteId, x.SessaoEm });
+            // UMA escuta vigente por sessão: o segundo clique (ou a outra máquina) não cria a segunda.
+            e.HasIndex(x => x.AtendimentoId).IsUnique().HasFilter("\"CanceladaEm\" IS NULL");
+
+            e.Ignore(x => x.Cancelada);
         });
 
         // Os BYTES do laudo, à parte — o padrão do retrato do paciente (PacientesFotos):
@@ -2423,6 +2506,7 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.ValorPorAtendimento).HasPrecision(14, 2);
             e.Property(x => x.ModalidadeCodigo).HasMaxLength(40);
             e.Property(x => x.ConvenioCodigo).HasMaxLength(40);
+            e.Property(x => x.TipoGuia).HasConversion<string>().HasMaxLength(40);
             e.Property(x => x.Observacoes).HasMaxLength(500);
             e.Property(x => x.CriadoPor).HasMaxLength(80);
             e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
@@ -2431,6 +2515,61 @@ public class ClinicaDbContext : DbContext
 
             e.HasIndex(x => x.ProfissionalId);
             e.Ignore(x => x.Descricao);
+        });
+
+        // Repasse por guia recebida (nov/2026) — ver RepasseFechamento.
+        b.Entity<RepasseFechamento>(e =>
+        {
+            e.ToTable("RepassesFechamentos");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.ProfissionalNome).HasMaxLength(200);
+            e.Property(x => x.ProfissionalRegistro).HasMaxLength(80);
+            e.Property(x => x.Valor).HasPrecision(14, 2);
+            e.Property(x => x.ConferidoPor).HasMaxLength(80);
+            e.Property(x => x.ConferidoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.Observacoes).HasMaxLength(1000);
+            e.Property(x => x.CanceladoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.CanceladoPor).HasMaxLength(80);
+            e.Property(x => x.MotivoCancelamento).HasMaxLength(500);
+
+            e.HasOne(x => x.Profissional).WithMany().HasForeignKey(x => x.ProfissionalId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.Lancamento).WithMany()
+                .HasForeignKey(x => x.LancamentoFinanceiroId).OnDelete(DeleteBehavior.Restrict);
+            e.HasMany(x => x.Itens).WithOne(i => i.Fechamento!)
+                .HasForeignKey(i => i.RepasseFechamentoId).OnDelete(DeleteBehavior.Restrict);
+
+            e.HasIndex(x => new { x.ProfissionalId, x.Competencia });
+            e.HasIndex(x => x.Competencia);
+            e.Ignore(x => x.Cancelado);
+            e.Ignore(x => x.Pago);
+        });
+
+        b.Entity<ItemRepasse>(e =>
+        {
+            e.ToTable("ItensRepasse");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Origem).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Natureza).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Chave).HasMaxLength(40);
+            e.Property(x => x.CanceladoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.PacienteNome).HasMaxLength(200);
+            e.Property(x => x.ConvenioCodigo).HasMaxLength(40);
+            e.Property(x => x.ConvenioNome).HasMaxLength(120);
+            e.Property(x => x.TipoGuia).HasConversion<string>().HasMaxLength(40);
+            e.Property(x => x.Descricao).HasMaxLength(120);
+            e.Property(x => x.NumeroGuia).HasMaxLength(60);
+            e.Property(x => x.ReferenciaPagamento).HasMaxLength(120);
+            e.Property(x => x.ValorRecebido).HasPrecision(14, 2);
+            e.Property(x => x.RegraDescricao).HasMaxLength(200);
+            e.Property(x => x.Valor).HasPrecision(14, 2);
+
+            // A trava de pagar duas vezes mora no BANCO: duas máquinas fechando o mesmo
+            // profissional ao mesmo tempo esbarram aqui, não numa conferência da tela.
+            e.HasIndex(x => x.Chave).IsUnique().HasFilter("\"CanceladoEm\" IS NULL");
+            e.HasIndex(x => x.RepasseFechamentoId);
+            e.HasIndex(x => x.CodigoFaturamentoId);
+            e.HasIndex(x => x.AtendimentoId);
         });
 
         b.Entity<ParcelaRecebivelCartao>(e =>

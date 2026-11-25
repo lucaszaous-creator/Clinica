@@ -18,7 +18,8 @@ namespace Clinica.Ui.Blazor.Telas;
 /// horários como a remarcação faz e deixa "Marquei a sua …" no campo. Cancelar também deixa o rascunho.</item>
 /// <item><b>Guardar na ficha</b> (R9): a foto ou o PDF recebidos vão aos arquivos da ficha conferida, e a nota
 /// interna "Guardado na ficha por …" fica na conversa (quando a conversa é de quem guardou).</item>
-/// <item><b>Perguntar ao profissional</b> (R10): a mensagem do paciente vai a quem trata pelo chat da equipe.</item>
+/// <item><b>Perguntar ao profissional</b> (R10): a mensagem do paciente vai a quem trata pelo chat da equipe — desde a F1
+/// (nov/2026) pelo menu do balão (a setinha ou o botão direito), não mais por um botão ao lado dele.</item>
 /// <item><b>Passar o turno</b> (D12): as conversas abertas de quem sai voltam à fila, com uma nota.</item>
 /// </list>
 /// Tudo o que a tela afirma vem da Application (<see cref="RascunhosDaConversa"/>, <see cref="GuardarNaFichaService"/>,
@@ -81,6 +82,9 @@ public partial class ConversasDoWhatsApp
         }
     };
 
+    /// <summary>Um formulário desta parte está aberto (o Esc é dele, não do atalho Fechar da tela — F1b).</summary>
+    private bool FormularioQueResolveAberto => _marcando is not null || _guardando is not null || _perguntando is not null || _passandoTurno;
+
     /// <summary>
     /// Os formulários chamam a tela por <c>Func</c> (precisam da frase da recusa), e <c>Func</c> não redesenha a tela
     /// sozinha (lição de 24/10, o gravador): sem isto o formulário ficava aberto e a lista velha até a releitura
@@ -130,7 +134,7 @@ public partial class ConversasDoWhatsApp
         _marcando = null;
         await ReleiaDepoisDoAtoAsync();
         bool preparou = false, janelaFechada = false;
-        if (_aberta is { Conversa: not null, Encerrada: false } a && a.Paciente?.Id == paciente
+        if (_aberta is { Conversa: not null } a && a.Paciente?.Id == paciente
             && RascunhosDaConversa.HorarioNovo(antes, a.Dados.Horarios) is { } novo)
         {
             if (!a.Janela.PodeEscreverLivre) janelaFechada = true;
@@ -152,7 +156,7 @@ public partial class ConversasDoWhatsApp
     /// <summary>Depois de cancelar: o rascunho "Cancelei o seu horário de …", se a janela está aberta e o campo vazio. Verdadeiro = preparou.</summary>
     private bool PrepararRascunhoDoCancelamento(HorarioDoPaciente h)
     {
-        if (_aberta is not { Conversa: not null, Encerrada: false } a || !a.Janela.PodeEscreverLivre) return false;
+        if (_aberta is not { Conversa: not null } a || !a.Janela.PodeEscreverLivre) return false;
         var r = Rascunho(a);
         if (!string.IsNullOrWhiteSpace(r.Texto)) return false;
         r.Nota = false;
@@ -217,15 +221,6 @@ public partial class ConversasDoWhatsApp
     private IReadOnlyList<ProfissionalDoChat> _profissionaisDoChat = [];
 
     /// <summary>A ação da mensagem recebida (no balão do paciente).</summary>
-    private RenderFragment AcoesDaRecebida(ConversaDoWhatsApp c, ItemDaConversa item) => b =>
-    {
-        b.OpenComponent<AcoesDaMensagemRecebida>(0);
-        b.AddAttribute(1, nameof(AcoesDaMensagemRecebida.Desabilitado), !PodeEscrever || string.IsNullOrWhiteSpace(Trecho(item)));
-        b.AddAttribute(2, nameof(AcoesDaMensagemRecebida.Dica), PodeEscrever ? null : "Seu acesso não inclui o WhatsApp da clínica.");
-        b.AddAttribute(3, nameof(AcoesDaMensagemRecebida.AoPerguntar), EventCallback.Factory.Create(this, () => AbrirPerguntaAsync(c, item)));
-        b.CloseComponent();
-    };
-
     /// <summary>O que o paciente escreveu; sem texto, o que ele mandou ("Foto recebida").</summary>
     private static string Trecho(ItemDaConversa item) => !string.IsNullOrWhiteSpace(item.Texto) ? item.Texto : item.Midia?.Rotulo ?? "";
 
