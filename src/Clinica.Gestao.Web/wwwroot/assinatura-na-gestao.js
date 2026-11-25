@@ -90,6 +90,24 @@ dialog.assinatura-gestao .ag-acoes{display:flex;flex-wrap:wrap;gap:var(--space-2
   }
   const pdf = documento => `/api/clinico/atendimentos/0/documento/${encodeURIComponent(documento)}/pdf`;
 
+  // Assinou, o PDF ABRE sozinho (nov/2026, o fluxo do receituário em todos os documentos) — NA PÁGINA, numa janela com o
+  // PDF embutido (o visualizador do navegador tem imprimir e baixar), e não numa aba nova: pop-up é barrado no Safari
+  // do iPhone, e esta tela não abre pop-up nenhum. O PDF vem como blob porque a rota responde como anexo.
+  async function mostrarPdf(documento, nome, titulo) {
+    const r = await fetch(pdf(documento), { credentials: 'same-origin', cache: 'no-store' });
+    if (!r.ok || (r.headers.get('Content-Type') || '').split(';')[0] !== 'application/pdf') return false;
+    const url = URL.createObjectURL(await r.blob());
+    const arquivo = (nome || 'documento').replace(/[^\w.-]+/g, '-') + '.pdf';
+    const d = janela(titulo || 'Documento assinado', `<iframe class="ag-pdf" title="PDF do documento" src="${url}" style="width:100%;height:min(70vh,900px);border:0"></iframe>`);
+    d.addEventListener('close', () => URL.revokeObjectURL(url));
+    botao(d, 'Baixar PDF', false, async () => {
+      const a = document.createElement('a'); a.href = url; a.download = arquivo; document.body.appendChild(a); a.click(); a.remove();
+    });
+    botao(d, 'Fechar', true, async () => d.close());
+    return true;
+  }
+
+
   function janela(titulo, html) {
     const d = document.createElement('dialog');
     d.className = 'assinatura-gestao';
@@ -203,13 +221,13 @@ dialog.assinatura-gestao .ag-acoes{display:flex;flex-wrap:wrap;gap:var(--space-2
       revisei();
       if (!c.a1?.cadastrado) throw new Error('Cadastre seu A1 em Meu certificado (no Consultório do portal) antes de assinar.');
       const a = await api(`/clinico/atendimentos/0/documento/${c.documento}/a1`, { confirmouAlergia: true });
-      pedirSenhaA1(d, a, responder);
+      pedirSenhaA1(d, a, responder, c.documento, c.numero);
     }));
     botao(d, 'Cancelar', false, async () => d.close());
     if (c.endereco?.precisaEndereco) bloqueados.forEach(b => b.hidden = true);
   }
 
-  function pedirSenhaA1(d, a, responder) {
+  function pedirSenhaA1(d, a, responder, documento, numero) {
     d.querySelector('#ag-titulo').textContent = 'Autorizar assinatura A1';
     d.querySelector('.ag-corpo').innerHTML = `<p><strong>${esc(a.documento)}</strong></p><p>Assinar com o certificado de <strong>${esc(a.titular)}</strong>.</p>
       <label class="ag-campo"><span>Senha do certificado A1</span><input class="ag-senha" type="password" autocomplete="off" maxlength="200"></label>
@@ -224,8 +242,10 @@ dialog.assinatura-gestao .ag-acoes{display:flex;flex-wrap:wrap;gap:var(--space-2
       } catch (e) {
         throw new Error(e.message + ' Feche esta janela e confira o documento antes de autorizar novamente.');
       } finally { pedido.senha = ''; }
-      responder({ frase: 'Documento assinado com A1 e arquivado.', erro: false });
       d.close();
+      let abriu = false;
+      try { abriu = await mostrarPdf(documento, 'Documento-' + String(numero || documento).replace('/', '-')); } catch { /* fica o "Abrir PDF" da lista */ }
+      responder({ frase: abriu ? 'Documento assinado com A1 e arquivado. O PDF foi aberto.' : 'Documento assinado com A1 e arquivado.', erro: false });
     });
     botao(d, 'Cancelar', false, async () => d.close());
     d.querySelector('.ag-senha').focus();
@@ -254,7 +274,9 @@ dialog.assinatura-gestao .ag-acoes{display:flex;flex-wrap:wrap;gap:var(--space-2
         await renovarAtividade();
         await api('/clinico/safeid/' + encodeURIComponent(id) + '/concluir', {});
         d.close();
-        aviso('Documento assinado', `${nome}: assinado com SafeID e arquivado.`, a.documento);
+        let abriu = false;
+        try { abriu = await mostrarPdf(a.documento, nome, `${nome}: assinado com SafeID e arquivado`); } catch { /* cai no aviso com o link */ }
+        if (!abriu) aviso('Documento assinado', `${nome}: assinado com SafeID e arquivado.`, a.documento);
       });
       botao(d, 'Cancelar', false, async () => d.close());
     } catch (e) {

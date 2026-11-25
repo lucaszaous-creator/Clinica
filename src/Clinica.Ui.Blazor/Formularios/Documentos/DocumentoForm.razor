@@ -326,10 +326,11 @@
             <Aviso Texto="@_mensagem" Tom="@(_mensagemEhErro ? "erro" : "sucesso")" />
             @if (FaltasDoCompradorAgora is { Count: > 0 } faltasDoComprador)
             {
-                @* O comprador do receituário (25/11/2026): o que falta fica À VISTA, colado nas ações (no iPhone este bloco
-                   fica preso acima do rodapé), com a porta para completar — não um "adiada". *@
-                <Aviso Tom="atencao" Texto="@EmissaoDeDocumentoNaTela.CompradorPendente(faltasDoComprador.Select(f => f.Rotulo))">
-                    <button type="button" class="botao" disabled="@(!PodeEditar)" @onclick="AbrirCompradorAsync">Completar dados do comprador</button>
+                @* O que o papel exige da ficha (DadosDoPacienteNoDocumento — o comprador no receituário, o endereço na receita,
+                   nov/2026): UM aviso para todos os papéis, À VISTA e colado nas ações (no iPhone este bloco fica preso acima do
+                   rodapé), com a porta para completar — não um "adiada". *@
+                <Aviso Tom="atencao" Texto="@EmissaoDeDocumentoNaTela.PacientePendente(_r!.Tipo, faltasDoComprador.Select(f => f.Rotulo))">
+                    <button type="button" class="botao" disabled="@(!PodeEditar)" @onclick="AbrirCompradorAsync">@(_r!.Tipo == TipoDocumentoClinico.ReceituarioControleEspecial ? "Completar dados do comprador" : "Completar dados do paciente")</button>
                 </Aviso>
             }
             @if (_r?.MotivoSemAssinante is { } motivo && !_carregando)
@@ -386,6 +387,12 @@
             @* EMITIR VÁRIAS SEGUIDAS (pedido da Dra., nov/2026): a folha não fecha depois de emitir; a próxima sai daqui. *@
             <button type="button" class="botao df-secundaria" title="Outra folha em branco para o mesmo paciente" @onclick="() => NovaAsync(copiar: false)">@RotuloNova</button>
             <button type="button" class="botao df-secundaria" title="Outra folha para o mesmo paciente, já com o texto da que saiu" @onclick="() => NovaAsync(copiar: true)">Com o mesmo texto</button>
+            @* Depois de emitir (nov/2026, o fluxo do receituário em todos os papéis): o PDF já abriu; guardar o arquivo e mandar ao paciente ficam aqui (no celular, no "Mais" — AcoesSecundarias). *@
+            <button type="button" class="botao df-secundaria" title="Guarda o PDF deste documento (assinado, quando foi assinado)" @onclick="() => SalvarPdfAsync(ultimo)">Salvar em PDF</button>
+            @if (_podeEnviarUltimo)
+            {
+                <button type="button" class="botao df-secundaria" title="Manda o PDF ao paciente pelo WhatsApp oficial da clínica" @onclick="() => EnviarUltimoAsync(ultimo)">Enviar ao paciente pelo WhatsApp</button>
+            }
             <button type="button" class="botao primario" title="Escolher o próximo paciente sem sair daqui" @onclick="ProximoPaciente">Próximo paciente</button>
         }
         else if (_r is not null)
@@ -409,7 +416,7 @@
 
 @if (_comprador is not null)
 {
-    <CompradorDoReceituarioForm Paciente="_comprador" AoConcluir="CompradorCompletadoAsync" AoFechar="CompradorAdiado" />
+    <CompradorDoReceituarioForm Paciente="_comprador" Tipo="@(_r?.Tipo ?? TipoDocumentoClinico.ReceituarioControleEspecial)" AoConcluir="CompradorCompletadoAsync" AoFechar="CompradorAdiado" />
 }
 
 @if (_envioPendente is not null)
@@ -486,9 +493,9 @@
     /// <summary>O modal já se abriu sozinho para ESTE paciente: fechado, não reabre a cada troca de aba — fica o aviso com o botão.</summary>
     private int? _compradorOferecidoPara;
 
-    /// <summary>O que falta do comprador AGORA (receituário de controle especial, com a ficha lida); vazio nos outros papéis.</summary>
+    /// <summary>O que ESTE papel exige da ficha e falta AGORA (DadosDoPacienteNoDocumento): o comprador no receituário, o endereço na receita.</summary>
     private IReadOnlyList<ReceituarioControleEspecialRegras.CampoDoComprador> FaltasDoCompradorAgora
-        => _r is { Tipo: TipoDocumentoClinico.ReceituarioControleEspecial, Paciente: { } p } ? ReceituarioControleEspecialRegras.FaltasDoComprador(p) : [];
+        => _r is { Paciente: { } p } r ? DadosDoPacienteNoDocumento.Faltas(r.Tipo, p) : [];
 
     /// <summary>
     /// 25/11/2026, pedido do dono (no iPhone): o cadastro do comprador abre NA HORA em que o receituário aparece com dado
@@ -696,10 +703,13 @@
         {
             if (_r is null) return [];
             var lista = new List<(string, Func<Task>, bool)>();
-            if (_ultimo is not null)
+            if (_ultimo is { } ultimo)
             {
                 lista.Add((RotuloNova, () => NovaAsync(copiar: false), true));
                 lista.Add(("Com o mesmo texto", () => NovaAsync(copiar: true), true));
+                // O fluxo do receituário em todos os papéis (nov/2026): guardar o arquivo e mandar ao paciente.
+                lista.Add(("Salvar em PDF", () => SalvarPdfAsync(ultimo), true));
+                if (_podeEnviarUltimo) lista.Add(("Enviar ao paciente pelo WhatsApp", () => EnviarUltimoAsync(ultimo), true));
             }
             else
             {
@@ -807,7 +817,6 @@
             if (r.RecusaDaAlergia() is { } alergia) { Erro(alergia); return; }
 
             if (!await CompletarCompradorDoReceituarioAsync(assinar)) return;
-            if (!await CompletarEnderecoDaReceitaAsync()) return;
             r.ConferirLegalmente();
             var dados = r.MontarDocumento();
 
@@ -856,10 +865,10 @@
                 }
             }
 
-            // O documento JÁ está emitido: uma falha daqui para a frente é de impressão, não de
-            // emissão — e a folha diz isso, senão alguém emite de novo.
-            var erro = await Host.SalvarEAbrirAsync(pdf, EmissaoDeDocumentoNaTela.NomeDoArquivo(r.Tipo, emitido.Numero),
-                "PDF (*.pdf)|*.pdf", ".pdf");
+            // O documento JÁ está emitido: o PDF ABRE sozinho (nov/2026, o fluxo do receituário em todos os papéis) —
+            // imprimir é opção dentro dele, nunca passo; guardar o arquivo é o "Salvar em PDF" do rodapé. Uma falha
+            // daqui para a frente é de abrir, não de emissão — e a folha diz isso, senão alguém emite de novo.
+            var erro = await Host.AbrirPdfAsync(pdf, EmissaoDeDocumentoNaTela.NomeDoArquivo(r.Tipo, emitido.Numero));
             if (erro is not null)
             {
                 Erro(EmissaoDeDocumentoNaTela.FalhaDeImpressao(erro, emitido.Numero));
@@ -906,20 +915,23 @@
         _envioPendente = null;
         if (r is { Silencioso: false } && !string.IsNullOrWhiteSpace(r.Frase))
             await Dialogos.AvisoAsync("Enviar ao paciente", r.Frase);
+        // Pelo botão do rodapé o documento JÁ foi concluído: concluir de novo avisaria a tela de fora duas vezes.
+        if (_ultimo?.DocumentoId == concluido.DocumentoId) return;
         await ConcluirAsync(concluido);
     }
 
     /// <summary>
-    /// Receituário de Controle Especial: relê a ficha e, faltando algum dado do COMPRADOR, abre o modal e PÁRA a
-    /// emissão (nada numerado). Gravado o modal, a emissão recomeça sozinha com o mesmo "assinar".
+    /// Qualquer papel (nov/2026, o fluxo do receituário em todos): relê a ficha e, faltando o que ESTE papel exige (o
+    /// comprador no receituário, o endereço na receita), abre o modal e PÁRA a emissão (nada numerado). Gravado o modal,
+    /// a emissão recomeça sozinha com o mesmo "assinar". Substitui a pergunta solta do endereço da receita.
     /// </summary>
     private async Task<bool> CompletarCompradorDoReceituarioAsync(bool assinar)
     {
-        if (_r is not { Tipo: TipoDocumentoClinico.ReceituarioControleEspecial } r) return true;
+        if (_r is not { } r) return true;
         using var escopo = Escopo();
         r.Paciente = await escopo.ServiceProvider.GetRequiredService<PacienteService>().ObterAsync(r.PacienteId)
             ?? throw new InvalidOperationException("Paciente não encontrado.");
-        if (ReceituarioControleEspecialRegras.FaltasDoComprador(r.Paciente).Count == 0) return true;
+        if (DadosDoPacienteNoDocumento.Faltas(r.Tipo, r.Paciente).Count == 0) return true;
         _assinarAposComprador = assinar;
         _emitirAposComprador = true;
         _comprador = r.Paciente;
@@ -940,31 +952,6 @@
         _comprador = null;
         // Sem "adiada": o aviso da folha diz o que falta e tem o botão para completar.
         if (_emitirAposComprador) Informar(EmissaoDeDocumentoNaTela.EmissaoAguardaComprador);
-    }
-
-    /// <summary>
-    /// Relê o endereço antes de perguntar (o balcão pode ter completado o cadastro enquanto o
-    /// profissional escrevia). Nenhum documento é numerado antes desta resposta.
-    /// </summary>
-    private async Task<bool> CompletarEnderecoDaReceitaAsync()
-    {
-        if (_r is not { } r || !r.ReceitaLivre) return true;
-        using var escopo = Escopo();
-        var pacientes = escopo.ServiceProvider.GetRequiredService<PacienteService>();
-        r.Paciente = await pacientes.ObterAsync(r.PacienteId)
-            ?? throw new InvalidOperationException("Paciente não encontrado.");
-        if (string.IsNullOrWhiteSpace(r.Paciente.Endereco))
-        {
-            var endereco = await Dialogos.PerguntarTextoAsync(EmissaoDeDocumentoNaTela.TituloPerguntaEndereco,
-                EmissaoDeDocumentoNaTela.PerguntaEndereco(r.Paciente.Nome));
-            if (endereco is null)
-            {
-                Informar(EmissaoDeDocumentoNaTela.EmissaoAdiada);
-                return false;
-            }
-            r.Paciente = await pacientes.CompletarEnderecoAsync(r.PacienteId, endereco, Operador);
-        }
-        return true;
     }
 
     // ==================== pré-visualizar ====================
@@ -1110,10 +1097,50 @@
     // ==================== várias seguidas (nov/2026) ====================
 
     /// <summary>Saiu: no modo <see cref="Continuar"/> a folha fica e diz que saiu; fora dele, conclui como sempre (quem abriu fecha).</summary>
+    /// <summary>O documento que acabou de sair pode ir ao paciente (assinado, ou papel enviável sem assinatura) — o botão do rodapé.</summary>
+    private bool _podeEnviarUltimo;
+
+    /// <summary>"Salvar em PDF": o MESMO arquivo que abriu (o assinado, quando assinado), com o nome do papel e do número.</summary>
+    private async Task SalvarPdfAsync(Emitido emitido)
+    {
+        try
+        {
+            byte[] pdf;
+            using (var escopo = Escopo())
+            {
+                var sp = escopo.ServiceProvider;
+                pdf = await sp.GetRequiredService<DocumentosClinicosPdfService>()
+                    .GerarAsync(emitido.DocumentoId, await sp.GetRequiredService<ParametrosService>().ObterPrestadorAsync());
+            }
+            var erro = await Host.SalvarEAbrirAsync(pdf, EmissaoDeDocumentoNaTela.NomeDoArquivo(emitido.Tipo, emitido.Numero), "PDF (*.pdf)|*.pdf", ".pdf");
+            if (erro is not null) Erro(erro);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar($"Documento {emitido.Numero} — PDF não pôde ser salvo", ex);
+            Erro("Não foi possível salvar o PDF agora. O documento está guardado no sistema.");
+        }
+    }
+
+    /// <summary>"Enviar ao paciente pelo WhatsApp" depois de emitir: o MESMO formulário de envio de todas as portas.</summary>
+    private async Task EnviarUltimoAsync(Emitido emitido)
+    {
+        DocumentoClinico? doc;
+        using (var escopo = Escopo())
+            doc = await escopo.ServiceProvider.GetRequiredService<DocumentoClinicoService>().ObterAsync(emitido.DocumentoId);
+        if (doc is null || !PerguntarSeEnviaAgora(doc, emitido)) Erro("Este documento não pode ser enviado como arquivo.");
+    }
+
     private async Task ConcluirAsync(Emitido emitido)
     {
         if (!Continuar) { await AoConcluir.InvokeAsync(emitido); return; }
         _ultimo = emitido;
+        using (var escopo = Escopo())
+        {
+            var doc = await escopo.ServiceProvider.GetRequiredService<DocumentoClinicoService>().ObterAsync(emitido.DocumentoId);
+            _podeEnviarUltimo = doc is not null && EmissaoDeDocumentoNaTela.OferecerEnvio(doc.Tipo, doc.AssinadoEletronicamente, doc.Cancelado,
+                SessaoUsuario.Atual.Pode(CentralDocumentosService.AcessoParaEmitir(doc.Tipo)));
+        }
         _mensagem = $"{TipoDocumentoInfo.Rotular(emitido.Tipo)} {emitido.Numero} emitido(a) para {emitido.Paciente}. Faça a próxima daqui.";
         _mensagemEhErro = false;
         await AoEmitir.InvokeAsync(emitido);

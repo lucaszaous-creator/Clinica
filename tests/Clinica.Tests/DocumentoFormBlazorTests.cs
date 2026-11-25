@@ -111,35 +111,37 @@ public sealed class DocumentoFormBlazorTests : IClassFixture<BancoDasTelas>, IDi
     }
 
     [Fact]
-    public void Receita_sem_endereco_pergunta_e_desistir_nao_gasta_numero()
+    public void Receita_sem_endereco_abre_os_dados_do_paciente_e_cancelar_nao_gasta_numero()
     {
+        // Nov/2026, o fluxo do receituário em todos os papéis: a receita sem endereço abre o MESMO modal "complete aqui"
+        // (não mais uma pergunta de texto solta), cancelar não numera nada, e gravar emite e guarda na ficha.
         var (_, paciente) = Semear("Endereco", endereco: null);
         using var ctx = Contexto();
         DocumentoForm.Emitido? emitido = null;
         var form = ctx.RenderComponent<DocumentoForm>(p => p
             .Add(x => x.PacienteId, paciente.Id).Add(x => x.AoConcluir, e => emitido = e));
         EsperarCarregado(form);
-        var dialogos = ctx.Services.GetRequiredService<Dialogos>();
+        IElement Modal() => form.FindAll(".modal").First(m => m.TextContent.Contains("Dados do paciente"));
+        Esperar(() => form.FindAll(".modal h2").Any(h => h.TextContent == "Dados do paciente"));
+        Agir(form, _ => Modal().QuerySelectorAll("button").First(b => b.TextContent.Trim() == "Cancelar"), e => e.ClickAsync(new MouseEventArgs()));
+        Esperar(() => form.FindAll(".modal h2").All(h => h.TextContent != "Dados do paciente"));
+        Assert.True(Contem(form, "Falta na ficha do paciente: Endereço completo. Complete para emitir receita."));
 
         Escrever(form, "Paracetamol 750mg, 1 comprimido de 8 em 8 horas");
         ClicarSemEsperar(form, "Emitir e imprimir");
-        Esperar(() => dialogos.Atual?.Titulo == EmissaoDeDocumentoNaTela.TituloPerguntaEndereco);
-        form.InvokeAsync(() => dialogos.Responder(dialogos.Atual!, confirmou: false)).GetAwaiter().GetResult();
-        Esperar(() => Contem(form, EmissaoDeDocumentoNaTela.EmissaoAdiada));
+        Esperar(() => form.FindAll(".modal h2").Any(h => h.TextContent == "Dados do paciente"));
         using (var db = Db()) Assert.Empty(db.DocumentosClinicos.Where(d => d.PacienteId == paciente.Id));
+        Assert.Equal(1, Modal().QuerySelectorAll(".campo-bloco").Length); // só o endereço: a receita não cobra RG nem UF
 
-        ClicarSemEsperar(form, "Emitir e imprimir");
-        Esperar(() => dialogos.Atual?.Titulo == EmissaoDeDocumentoNaTela.TituloPerguntaEndereco);
-        form.InvokeAsync(() =>
-        {
-            dialogos.Atual!.Texto = "Rua Nova, 22, Centro, Cidade";
-            dialogos.Responder(dialogos.Atual!, confirmou: true);
-        }).GetAwaiter().GetResult();
-        EsperarEmitido(form, () => emitido is not null);
+        Agir(form, _ => Modal().QuerySelectorAll(".campo-bloco").First(c => c.TextContent.Contains("Endereço completo")).QuerySelector("input")!,
+            e => e.InputAsync(new ChangeEventArgs { Value = "Rua Nova, 22, Centro, Cidade" }));
+        Agir(form, _ => Modal().QuerySelectorAll("button").First(b => b.TextContent.Trim() == "Gravar na ficha e emitir"), e => e.ClickAsync(new MouseEventArgs()));
+        EsperarEmitido(form, () => emitido is not null || form.FindAll("button").Any(b => b.TextContent.Trim() == "Salvar em PDF"));
 
         using var db2 = Db();
         Assert.Single(db2.DocumentosClinicos.Where(d => d.PacienteId == paciente.Id));
         Assert.Equal("Rua Nova, 22, Centro, Cidade", db2.Pacientes.Single(p => p.Id == paciente.Id).Endereco);
+        Assert.Contains(db2.Auditoria, e => e.Acao == "DadosPacienteCompletadosNaEmissao" && e.PacienteId == paciente.Id);
     }
 
     [Fact]
@@ -160,7 +162,7 @@ public sealed class DocumentoFormBlazorTests : IClassFixture<BancoDasTelas>, IDi
         Agir(form, f => f.FindAll(".modal").First(m => m.TextContent.Contains("Dados do comprador")).QuerySelectorAll("button")
             .First(b => b.TextContent.Trim() == "Cancelar"), e => e.ClickAsync(new MouseEventArgs()));
         Esperar(() => form.FindAll(".modal h2").All(h => h.TextContent != "Dados do comprador"));
-        Assert.False(Contem(form, EmissaoDeDocumentoNaTela.EmissaoAdiada));
+        Assert.False(Contem(form, "Emissão adiada"));
         Assert.True(Contem(form, "Faltam na ficha do comprador: RG, Órgão emissor, Cidade, UF e Telefone."));
         Assert.False(Contem(form, "Endereço completo e")); // o endereço existe: não é cobrado
 

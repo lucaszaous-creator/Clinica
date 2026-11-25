@@ -4,16 +4,18 @@
   ficha não tem algum deles, a emissão pára AQUI, antes de qualquer número: a pessoa completa só o que falta, a
   ficha grava (com auditoria — PacienteService.CompletarCompradorAsync) e a emissão segue sozinha.
   O que falta é decidido em ReceituarioControleEspecialRegras.FaltasDoComprador (Application, com teste).
+
+  Desde nov/2026 serve a TODOS os papéis ("o mesmo modus operandi do receituário"): o que cada um exige da ficha mora em
+  DadosDoPacienteNoDocumento (a receita, o endereço) e o título e a frase dizem comprador ou paciente conforme o papel.
 *@
 @namespace Clinica.Ui.Blazor.Formularios
 @using Clinica.Application.Modelos
 @inherits TelaBase
 
-<Modal Titulo="Dados do comprador" Subtitulo="@Paciente.Nome" Largura="medio" AoFechar="AoFechar">
+<Modal Titulo="@(Tipo == TipoDocumentoClinico.ReceituarioControleEspecial ? "Dados do comprador" : "Dados do paciente")" Subtitulo="@Paciente.Nome" Largura="medio" AoFechar="AoFechar">
     <ChildContent>
         <p class="secundario">
-            O Receituário de Controle Especial identifica o comprador (o paciente). Complete o que falta na ficha:
-            fica gravado e a emissão continua.
+            @DadosDoPacienteNoDocumento.Motivo(Tipo) fica gravado e a emissão continua.
         </p>
         <div class="campos">
             @if (Falta(ReceituarioControleEspecialRegras.Rg))
@@ -71,6 +73,8 @@
 
 @code {
     [Parameter, EditorRequired] public Paciente Paciente { get; set; } = default!;
+    /// <summary>O papel que está sendo emitido: decide o que a ficha precisa ter (DadosDoPacienteNoDocumento).</summary>
+    [Parameter] public TipoDocumentoClinico Tipo { get; set; } = TipoDocumentoClinico.ReceituarioControleEspecial;
     [Parameter] public EventCallback<Paciente> AoConcluir { get; set; }
     [Parameter] public EventCallback AoFechar { get; set; }
 
@@ -78,20 +82,20 @@
     private string? _rg, _orgao, _endereco, _cidade, _uf, _telefone, _erro;
     private bool _gravando;
 
-    protected override void OnParametersSet() => _faltas = ReceituarioControleEspecialRegras.FaltasDoComprador(Paciente);
+    protected override void OnParametersSet() => _faltas = DadosDoPacienteNoDocumento.Faltas(Tipo, Paciente);
 
     private bool Falta(ReceituarioControleEspecialRegras.CampoDoComprador campo) => _faltas.Contains(campo);
 
     private async Task GravarAsync()
     {
-        if (!Exigir(Permissao.Prescrever, "completar os dados do comprador")) return;
+        if (!Exigir(Permissao.Prescrever, "completar os dados do paciente para o documento")) return;
         _erro = null;
         _gravando = true;
         try
         {
             using var escopo = Escopo();
-            var atualizado = await escopo.ServiceProvider.GetRequiredService<PacienteService>().CompletarCompradorAsync(
-                Paciente.Id, new PacienteService.DadosDoComprador(_rg, _orgao, _endereco, _cidade, _uf, _telefone), Operador);
+            var atualizado = await escopo.ServiceProvider.GetRequiredService<PacienteService>().CompletarParaDocumentoAsync(
+                Paciente.Id, Tipo, new PacienteService.DadosDoComprador(_rg, _orgao, _endereco, _cidade, _uf, _telefone), Operador);
             await AoConcluir.InvokeAsync(atualizado);
         }
         catch (InvalidOperationException ex)

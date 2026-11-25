@@ -46,34 +46,6 @@ public sealed class PacienteService
     public Task<Paciente?> ObterAsync(int pacienteId, CancellationToken ct = default)
         => _repo.ObterPacienteAsync(pacienteId, ct);
 
-    /// <summary>
-    /// Completa somente o endereço ausente durante a emissão, sem regravar a ficha.
-    /// Um endereço preenchido por outro operador enquanto a janela estava aberta é preservado.
-    /// </summary>
-    public async Task<Paciente> CompletarEnderecoAsync(
-        int pacienteId, string endereco, string operador, CancellationToken ct = default)
-    {
-        if (string.IsNullOrWhiteSpace(endereco))
-            throw new InvalidOperationException("Informe o endereço residencial do paciente.");
-        if (endereco.Trim().Length > 300)
-            throw new InvalidOperationException("O endereço aceita até 300 caracteres.");
-
-        var paciente = await _repo.ObterPacienteAsync(pacienteId, ct)
-            ?? throw new InvalidOperationException("Paciente não encontrado.");
-        if (!string.IsNullOrWhiteSpace(paciente.Endereco)) return paciente;
-
-        paciente.Endereco = endereco.Trim();
-        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
-        {
-            Operador = operador,
-            Acao = "EnderecoCompletadoNaEmissao",
-            PacienteId = paciente.Id,
-            Detalhe = "Endereço residencial informado na emissão de receita."
-        }, ct);
-        await _repo.SalvarAsync(ct);
-        return paciente;
-    }
-
     /// <summary>Os dados do COMPRADOR que o Receituário de Controle Especial pede (o paciente).</summary>
     public sealed record DadosDoComprador(
         string? Rg, string? OrgaoEmissor, string? Endereco, string? Cidade, string? Uf, string? Telefone);
@@ -83,8 +55,17 @@ public sealed class PacienteService
     /// estão vazios — o que outro operador preencheu enquanto o modal estava aberto é preservado. A auditoria guarda
     /// QUAIS campos foram completados (os nomes, nunca os valores), no mesmo SaveChanges.
     /// </summary>
-    public async Task<Paciente> CompletarCompradorAsync(
+    public Task<Paciente> CompletarCompradorAsync(
         int pacienteId, DadosDoComprador dados, string operador, CancellationToken ct = default)
+        => CompletarParaDocumentoAsync(pacienteId, TipoDocumentoClinico.ReceituarioControleEspecial, dados, operador, ct);
+
+    /// <summary>
+    /// Completa na ficha, durante a emissão, o que ESTE papel exige e está vazio (<see cref="DadosDoPacienteNoDocumento"/>):
+    /// só campo vazio é gravado — o que outro operador preencheu enquanto o modal estava aberto é preservado. A trilha
+    /// guarda QUAIS campos (os nomes, nunca os valores), no mesmo SaveChanges. Faltando ainda algo, recusa e não grava.
+    /// </summary>
+    public async Task<Paciente> CompletarParaDocumentoAsync(
+        int pacienteId, TipoDocumentoClinico tipo, DadosDoComprador dados, string operador, CancellationToken ct = default)
     {
         static string? Limpo(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
         var rg = Limpo(dados.Rg); var orgao = Limpo(dados.OrgaoEmissor)?.ToUpperInvariant();
@@ -100,26 +81,28 @@ public sealed class PacienteService
         var paciente = await _repo.ObterPacienteAsync(pacienteId, ct)
             ?? throw new InvalidOperationException("Paciente não encontrado.");
 
+        // Só o que ESTE papel pede: a receita comum não grava RG que alguém digitou por engano.
+        var pedidos = DadosDoPacienteNoDocumento.Faltas(tipo, paciente).Select(f => f.Chave).ToHashSet();
         var completados = new List<string>();
-        if (string.IsNullOrWhiteSpace(paciente.Rg) && rg is not null) { paciente.Rg = rg; completados.Add("RG"); }
-        if (string.IsNullOrWhiteSpace(paciente.RgOrgaoEmissor) && orgao is not null) { paciente.RgOrgaoEmissor = orgao; completados.Add("órgão emissor"); }
-        if (string.IsNullOrWhiteSpace(paciente.Endereco) && endereco is not null) { paciente.Endereco = endereco; completados.Add("endereço"); }
-        if (string.IsNullOrWhiteSpace(paciente.Cidade) && cidade is not null) { paciente.Cidade = cidade; completados.Add("cidade"); }
-        if (!ReceituarioControleEspecialRegras.UfValida(paciente.Uf) && uf is not null) { paciente.Uf = uf; completados.Add("UF"); }
-        if (string.IsNullOrWhiteSpace(paciente.Telefone) && telefone is not null) { paciente.Telefone = telefone; completados.Add("telefone"); }
+        if (pedidos.Contains("rg") && rg is not null) { paciente.Rg = rg; completados.Add("RG"); }
+        if (pedidos.Contains("orgao") && orgao is not null) { paciente.RgOrgaoEmissor = orgao; completados.Add("órgão emissor"); }
+        if (pedidos.Contains("endereco") && endereco is not null) { paciente.Endereco = endereco; completados.Add("endereço"); }
+        if (pedidos.Contains("cidade") && cidade is not null) { paciente.Cidade = cidade; completados.Add("cidade"); }
+        if (pedidos.Contains("uf") && uf is not null) { paciente.Uf = uf; completados.Add("UF"); }
+        if (pedidos.Contains("telefone") && telefone is not null) { paciente.Telefone = telefone; completados.Add("telefone"); }
 
-        var faltam = ReceituarioControleEspecialRegras.FaltasDoComprador(paciente);
+        var faltam = DadosDoPacienteNoDocumento.Faltas(tipo, paciente);
         if (faltam.Count > 0)
             throw new InvalidOperationException(
-                "Para o Receituário de Controle Especial falta: " + string.Join(", ", faltam.Select(f => f.Rotulo)) + ".");
+                $"Para {TipoDocumentoInfo.Rotular(tipo).ToLowerInvariant()} falta: " + string.Join(", ", faltam.Select(f => f.Rotulo)) + ".");
         if (completados.Count == 0) return paciente;
 
         await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
         {
             Operador = operador,
-            Acao = "DadosCompradorCompletadosNaEmissao",
+            Acao = DadosDoPacienteNoDocumento.AcaoDeAuditoria(tipo),
             PacienteId = paciente.Id,
-            Detalhe = "Completado na emissão do Receituário de Controle Especial: " + string.Join(", ", completados) + "."
+            Detalhe = $"Completado na emissão de {TipoDocumentoInfo.Rotular(tipo)}: " + string.Join(", ", completados) + "."
         }, ct);
         await _repo.SalvarAsync(ct);
         return paciente;
