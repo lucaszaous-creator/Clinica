@@ -68,6 +68,13 @@
                     <span class="df-emitente-falta">@falta</span>
                 }
             </div>
+            @if (FaltasDoCompradorAgora is { Count: > 0 } faltasDoComprador)
+            {
+                @* O comprador do receituário (25/11/2026): o que falta fica À VISTA, com a porta para completar — não um "adiada". *@
+                <Aviso Tom="atencao" Texto="@EmissaoDeDocumentoNaTela.CompradorPendente(faltasDoComprador.Select(f => f.Rotulo))">
+                    <button type="button" class="botao" disabled="@(!PodeEditar)" @onclick="AbrirCompradorAsync">Completar dados do comprador</button>
+                </Aviso>
+            }
 
             <div class="abas df-abas" role="tablist" aria-label="Documento">
                 <button type="button" role="tab" aria-selected="@Bool(_aba == AbaFolha)" @onclick="() => _aba = AbaFolha">Folha</button>
@@ -452,6 +459,39 @@
     /// <summary>O paciente cujo bloco de comprador está incompleto: o modal está aberto e a emissão, parada antes do número.</summary>
     private Paciente? _comprador;
     private bool _assinarAposComprador;
+    /// <summary>O modal do comprador abriu pela EMISSÃO (gravado, emite) ou sozinho/pelo botão (gravado, só volta à folha).</summary>
+    private bool _emitirAposComprador;
+    /// <summary>O modal já se abriu sozinho para ESTE paciente: fechado, não reabre a cada troca de aba — fica o aviso com o botão.</summary>
+    private int? _compradorOferecidoPara;
+
+    /// <summary>O que falta do comprador AGORA (receituário de controle especial, com a ficha lida); vazio nos outros papéis.</summary>
+    private IReadOnlyList<ReceituarioControleEspecialRegras.CampoDoComprador> FaltasDoCompradorAgora
+        => _r is { Tipo: TipoDocumentoClinico.ReceituarioControleEspecial, Paciente: { } p } ? ReceituarioControleEspecialRegras.FaltasDoComprador(p) : [];
+
+    /// <summary>
+    /// 25/11/2026, pedido do dono (no iPhone): o cadastro do comprador abre NA HORA em que o receituário aparece com dado
+    /// faltando — antes de escrever, não depois do "Emitir" (lá, o toque que chegava logo depois caía no Cancelar do modal
+    /// e a folha dizia "Emissão adiada"). Uma vez por paciente: fechado, fica o aviso com o botão.
+    /// </summary>
+    private void OferecerCompradorAoAbrir()
+    {
+        if (_r is not { } r || !PodeEditar || _comprador is not null || _compradorOferecidoPara == r.PacienteId) return;
+        if (FaltasDoCompradorAgora.Count == 0) return;
+        _compradorOferecidoPara = r.PacienteId;
+        _emitirAposComprador = false;
+        _comprador = r.Paciente;
+    }
+
+    /// <summary>O botão do aviso: relê a ficha (o balcão pode ter completado) e abre o modal, sem emitir depois.</summary>
+    private async Task AbrirCompradorAsync()
+    {
+        if (_r is not { } r || !PodeEditar) return;
+        using (var escopo = Escopo())
+            r.Paciente = await escopo.ServiceProvider.GetRequiredService<PacienteService>().ObterAsync(r.PacienteId) ?? r.Paciente;
+        if (FaltasDoCompradorAgora.Count == 0) return;
+        _emitirAposComprador = false;
+        _comprador = r.Paciente;
+    }
     private IReadOnlyList<Profissional> _profissionais = [];
     private IReadOnlyList<ModeloDocumento> _modelos = [];
     private ModeloDocumento? _modelo;
@@ -539,6 +579,7 @@
         {
             _carregando = false;
         }
+        OferecerCompradorAoAbrir(); // depois da carga: durante ela a folha não se edita
     }
 
     /// <summary>Os modelos do papel no combo — só os ativos e de documento (os da infusão são de outra folha).</summary>
@@ -594,6 +635,7 @@
         _modelo = null;
         await CarregarModelosAsync();
         if (!ReferenceEquals(antes, r.Profissional)) await LerMeiosDoEmitenteAsync(); // o receituário pode ter trocado quem assina
+        OferecerCompradorAoAbrir();
     }
 
     private Task TrocarTipoPeloComboAsync(ChangeEventArgs e)
@@ -828,6 +870,7 @@
             ?? throw new InvalidOperationException("Paciente não encontrado.");
         if (ReceituarioControleEspecialRegras.FaltasDoComprador(r.Paciente).Count == 0) return true;
         _assinarAposComprador = assinar;
+        _emitirAposComprador = true;
         _comprador = r.Paciente;
         return false;
     }
@@ -837,13 +880,15 @@
         _comprador = null;
         if (_r is not { } r) return;
         r.Paciente = atualizado;
+        if (!_emitirAposComprador) { Informar(EmissaoDeDocumentoNaTela.CompradorGravado); return; }
         await EmitirAsync(_assinarAposComprador);
     }
 
     private void CompradorAdiado()
     {
         _comprador = null;
-        Informar(EmissaoDeDocumentoNaTela.EmissaoAdiada);
+        // Sem "adiada": o aviso da folha diz o que falta e tem o botão para completar.
+        if (_emitirAposComprador) Informar(EmissaoDeDocumentoNaTela.EmissaoAguardaComprador);
     }
 
     /// <summary>

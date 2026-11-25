@@ -17,6 +17,19 @@ public sealed class EmitenteDoDocumentoTests : IDisposable
     private static Profissional Medica(int id = 1, string? registro = "52-0000000-0") => new() { Id = id, Nome = "Dra. Fictícia", RegistroConselho = registro, Ativo = true };
 
     [Fact]
+    public void Codigos_TISS_do_cadastro_viram_sigla_no_rotulo_e_o_receituario_nao_acusa_falta()
+    {
+        // 25/11/2026: o cadastro guarda os campos TISS em CÓDIGO (06 = CRM, 33 = RJ). O rótulo do "Emitindo como" lê a
+        // sigla, e o aviso "Complete o conselho (CRM) e a UF" some — mesmo com o RegistroConselho antigo ainda gravado.
+        var p = new Profissional { Nome = "Dra. Ficticia", ConselhoProfissional = "06", NumeroConselho = "5201158546", UfConselho = "33",
+            RegistroConselho = "52-0115854-6", Ativo = true };
+        EmitenteDoDocumento.Rotulo(p).Should().Be("Dra. Ficticia · CRM 5201158546/RJ");
+        EmitenteDoDocumento.FaltaNoCadastro(TipoDocumentoClinico.ReceituarioControleEspecial, p).Should().BeNull();
+        var antigo = new Profissional { Nome = "Dra. Ficticia", RegistroConselho = "52-0115854-6", Ativo = true };
+        EmitenteDoDocumento.FaltaNoCadastro(TipoDocumentoClinico.ReceituarioControleEspecial, antigo).Should().Contain("o conselho (CRM)").And.Contain("a UF");
+    }
+
+    [Fact]
     public void So_a_direcao_ou_quem_nao_tem_profissional_ligado_troca_o_emitente()
     {
         EmitenteDoDocumento.PodeEscolherOutro(PerfilAcesso.Gerente, 1).Should().BeTrue();

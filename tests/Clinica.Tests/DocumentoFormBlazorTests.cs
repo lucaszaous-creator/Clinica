@@ -143,6 +143,48 @@ public sealed class DocumentoFormBlazorTests : IClassFixture<BancoDasTelas>, IDi
     }
 
     [Fact]
+    public void Receituario_sem_dados_do_comprador_abre_o_cadastro_na_hora_e_fechar_deixa_o_aviso_com_o_botao()
+    {
+        // 25/11/2026, pedido do dono no iPhone: o cadastro do comprador abre NA HORA (não depois do "Emitir", onde o toque
+        // seguinte caía no Cancelar e a folha dizia "Emissão adiada … endereço" com o endereço já preenchido).
+        var (_, paciente) = Semear("Comprador", endereco: "Rua das Flores, 10, Centro");
+        using var ctx = Contexto();
+        DocumentoForm.Emitido? emitido = null;
+        var form = ctx.RenderComponent<DocumentoForm>(p => p
+            .Add(x => x.PacienteId, paciente.Id).Add(x => x.Tipo, TipoDocumentoClinico.ReceituarioControleEspecial)
+            .Add(x => x.AoConcluir, e => emitido = e));
+        EsperarCarregado(form);
+        Esperar(() => form.FindAll(".modal h2").Any(h => h.TextContent == "Dados do comprador"));
+
+        // Fechou: nada de "adiada"; fica o aviso do que falta, com a porta.
+        Agir(form, f => f.FindAll(".modal").First(m => m.TextContent.Contains("Dados do comprador")).QuerySelectorAll("button")
+            .First(b => b.TextContent.Trim() == "Cancelar"), e => e.ClickAsync(new MouseEventArgs()));
+        Esperar(() => form.FindAll(".modal h2").All(h => h.TextContent != "Dados do comprador"));
+        Assert.False(Contem(form, EmissaoDeDocumentoNaTela.EmissaoAdiada));
+        Assert.True(Contem(form, "Faltam na ficha do comprador: RG, Órgão emissor, Cidade, UF e Telefone."));
+        Assert.False(Contem(form, "Endereço completo e")); // o endereço existe: não é cobrado
+
+        // O botão do aviso reabre; gravado, volta à folha sem emitir.
+        Clicar(form, "Completar dados do comprador");
+        Esperar(() => form.FindAll(".modal h2").Any(h => h.TextContent == "Dados do comprador"));
+        IElement Modal() => form.FindAll(".modal").First(m => m.TextContent.Contains("Dados do comprador"));
+        Agir(form, _ => Modal().QuerySelectorAll(".campo-bloco").First(c => c.TextContent.Contains("RG")).QuerySelector("input")!, e => e.InputAsync(new ChangeEventArgs { Value = "12.345.678-9" }));
+        Agir(form, _ => Modal().QuerySelectorAll(".campo-bloco").First(c => c.TextContent.Contains("Órgão emissor")).QuerySelector("input")!, e => e.InputAsync(new ChangeEventArgs { Value = "DETRAN-RJ" }));
+        Agir(form, _ => Modal().QuerySelectorAll(".campo-bloco").First(c => c.TextContent.Contains("Cidade")).QuerySelector("input")!, e => e.InputAsync(new ChangeEventArgs { Value = "Macaé" }));
+        Agir(form, _ => Modal().QuerySelectorAll(".campo-bloco").First(c => c.TextContent.Contains("UF")).QuerySelector("select")!, e => e.ChangeAsync(new ChangeEventArgs { Value = "RJ" }));
+        Agir(form, _ => Modal().QuerySelectorAll(".campo-bloco").First(c => c.TextContent.Contains("Telefone")).QuerySelector("input")!, e => e.InputAsync(new ChangeEventArgs { Value = "22999990000" }));
+        Agir(form, _ => Modal().QuerySelectorAll("button").First(b => b.TextContent.Trim() == "Gravar na ficha e emitir"), e => e.ClickAsync(new MouseEventArgs()));
+        Esperar(() => Contem(form, EmissaoDeDocumentoNaTela.CompradorGravado));
+        Assert.False(Contem(form, "Faltam na ficha do comprador"));
+        Assert.Null(emitido);
+        using var db = Db();
+        var ficha = db.Pacientes.Single(p => p.Id == paciente.Id);
+        Assert.Equal("RJ", ficha.Uf);
+        Assert.Equal("Macaé", ficha.Cidade);
+        Assert.Empty(db.DocumentosClinicos.Where(d => d.PacienteId == paciente.Id));
+    }
+
+    [Fact]
     public void A_nova_versao_do_laudo_cancela_o_anterior_no_mesmo_gravar()
     {
         var (prof, paciente) = Semear("Laudo", endereco: null);
