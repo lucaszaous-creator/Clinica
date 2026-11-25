@@ -233,13 +233,16 @@ public sealed class DocumentosClinicosPdfService
         // O Receituário de Controle Especial tem desenho PRÓPRIO (modelo ITI v2.0, duas vias, o campo da assinatura
         // num retângulo fixo) — ver ReceituarioControleEspecialPdf.
         if (documento.Tipo == TipoDocumentoClinico.ReceituarioControleEspecial)
-            return ReceituarioControleEspecialPdf.Gerar(documento, prestador, urlDoArquivo, previa, ValidadorFarmaceutico);
+            return ComMetadados(ReceituarioControleEspecialPdf.Gerar(documento, prestador, urlDoArquivo, previa, ValidadorFarmaceutico));
+
+        // Metadados de prescrição do ITI (nov/2026): no PDF que vai ser assinado, nunca na prévia.
+        byte[] ComMetadados(byte[] pdf) => previa ? pdf : MetadadosDePrescricaoIti.Aplicar(pdf, documento);
 
         var paciente = documento.Paciente;
         var nomeClinica = PrimeiroPreenchido(prestador?.NomeFantasia, prestador?.RazaoSocial) ?? "Clínica";
         var itens = documento.Itens.OrderBy(i => i.Ordem).ThenBy(i => i.Id).ToList();
 
-        return Document.Create(container =>
+        return ComMetadados(Document.Create(container =>
         {
             container.Page(page =>
             {
@@ -418,7 +421,7 @@ public sealed class DocumentosClinicosPdfService
 
                 Rodape(page, documento, paraAssinaturaEletronica, urlDoArquivo, previa);
             });
-        }).GeneratePdf();
+        }).GeneratePdf());
     }
 
     // ==================== Blocos ====================

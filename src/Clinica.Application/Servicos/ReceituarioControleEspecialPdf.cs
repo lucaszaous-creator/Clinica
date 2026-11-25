@@ -109,9 +109,10 @@ public static class ReceituarioControleEspecialPdf
         T(g, 215, 113, "IDENTIFICAÇÃO DO EMITENTE", 8.5, true);
         g.DrawLine(new XPen(Preto, 0.6), 36, 117, 560, 117);
         Linha(g, 44, 135, "NOME COMPLETO:", prof?.Nome, 330);
-        Linha(g, 44, 153, (prof?.ConselhoProfissional is { Length: > 0 } c ? c : "CRM") + ":",
-            prof?.NumeroConselho is { Length: > 0 } nc ? nc : prof?.RegistroConselho, 230);
-        Linha(g, 290, 153, "UF:", prof?.UfConselho, 84);
+        // Sigla e UF por extenso: o cadastro guarda os códigos TISS ("06", "33"), o papel diz "CRM" e "RJ".
+        var registro = RegistroDoPrescritor.De(prof);
+        Linha(g, 44, 153, (registro.Conselho ?? "CRM") + ":", registro.Numero ?? prof?.RegistroConselho, 230);
+        Linha(g, 290, 153, "UF:", registro.Uf, 84);
         Linha(g, 44, 171, "ENDEREÇO COMPLETO:", ReceituarioControleEspecialRegras.EnderecoSemCidade(prestador?.Endereco), 330);
         var clinica = string.Join(" · ", new[]
         {

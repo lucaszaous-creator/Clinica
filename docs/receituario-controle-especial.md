@@ -29,6 +29,11 @@ paciente), emitente e comprador identificados. O modelo é o do ITI v2.0. A refe
      (`Receituario-Controle-Especial-<número>.pdf`). A trilha registra quem, o canal e para onde.
    - **Salvar em PDF:** o arquivo assinado, com o mesmo nome.
 
+Metadados do ITI (receita e receituário): `MetadadosDePrescricaoIti` grava os OIDs do guia no dicionário Info
+antes de assinar. A decisão e a ressalva de que o guia não diz o lugar estão em `docs/safeid-congelado.md`.
+O emitente sai por sigla: o cadastro guarda os códigos TISS ("06" = CRM, "33" = RJ) e o papel mostra "CRM" e
+"RJ" (`RegistroDoPrescritor`).
+
 Limite: 15 linhas de cerca de 92 caracteres por via. Prescrição maior é recusada antes do número, com a frase
 "Divida em dois receituários".
 

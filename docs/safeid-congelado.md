@@ -72,9 +72,15 @@ O alcance vale **só** para estes três pontos; o resto continua congelado:
      e `AjustarFonte` (a letra encolhe até 0,55 para as quatro linhas caberem no campo de 160 × 44 pt). Sem eles
      (todos os outros documentos), o desenho é o de sempre, byte a byte. `CarimboDeAssinatura` passou de `private`
      a `internal` só para o teste medir a escala. CMS, ByteRange, carimbo de tempo, certificado e token: intocados.
-   - **Metadados (ponto 2):** os OIDs de prescrição (2.16.76.1.12.1.1) e do CRM (2.16.76.1.4.2.2.x) estão no guia
-     oficial, mas o guia NÃO diz onde gravá-los no PDF. Pela regra do dono ("não invente"), ficaram de fora até
-     haver fonte oficial para a posição.
+   - **Metadados (ponto 2) — `MetadadosDePrescricaoIti`:** os OIDs vêm do guia oficial do VALIDAR
+     (validar.iti.gov.br/guia-desenvolvedor.html): no cap. V, 2.16.76.1.12.1.1 = "Prescrição de medicamento" e
+     2.16.76.1.4.2.2.1/.2/.3 = CFM número/UF/especialidade; no cap. I, item 3, eles "devem ser incluídos como
+     metadados". **O guia NÃO diz o lugar no PDF nem o formato do valor.** Decisão de 25/11 (Jade, opção a), na
+     leitura literal: uma entrada do dicionário **Info** por OID, com o OID como chave. O valor é o rótulo do guia
+     para o tipo e o dado do prescritor (número, UF por sigla, especialidade) para os do CFM. Os do CFM só vão
+     quando o conselho é CRM. Tudo isso é gravado ANTES de assinar, fica coberto pelo hash e não muda a validade
+     da assinatura. Na primeira assinatura real, conferir se o validador reconhece a prescrição; se não
+     reconhecer, a mudança fica só nesta classe.
 
 ## ✅ Autorização expressa de 24/11/2026 — ASSINAR NA GESTÃO WEB
 

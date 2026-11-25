@@ -244,6 +244,76 @@ public sealed class ReceituarioControleEspecialTests : IDisposable
         ConteudoDaPagina(assinado.Pdf, 1).Should().Contain("ASSINADO DIGITALMENTE").And.Contain("Dra. Fict");
     }
 
+    // ==================== o registro do prescritor e os metadados do ITI ====================
+
+    [Theory]
+    [InlineData("06", "520115854", "33", null, "CRM", "520115854", "RJ")]
+    [InlineData(null, null, null, "CRM-RJ 123456", "CRM", "123456", "RJ")]
+    [InlineData(null, null, null, "CRM/SP 52-0115854-6", "CRM", "52-0115854-6", "SP")]
+    [InlineData(null, null, null, "CRM 123456 RJ", "CRM", "123456", "RJ")]
+    [InlineData("06", "777", null, "CRM-MG 123", "CRM", "777", "MG")]
+    public void O_registro_sai_por_sigla_e_nunca_pelo_codigo_TISS(string? conselho, string? numero, string? uf,
+        string? textoLivre, string esperadoConselho, string esperadoNumero, string esperadaUf)
+    {
+        var r = RegistroDoPrescritor.De(new Profissional
+        {
+            Nome = "Dra. Fictícia", ConselhoProfissional = conselho, NumeroConselho = numero, UfConselho = uf,
+            RegistroConselho = textoLivre
+        });
+        r.Conselho.Should().Be(esperadoConselho);
+        r.Numero.Should().Be(esperadoNumero);
+        r.Uf.Should().Be(esperadaUf, "o papel e o metadado dizem RJ, nunca o código IBGE 33");
+        r.EhMedico.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Receita_de_medico_leva_os_OIDs_do_guia_e_outros_papeis_nao()
+    {
+        var d = Documento();
+        d.Profissional = new Profissional { Nome = "Dra. Fictícia", ConselhoProfissional = "06", NumeroConselho = "123456", UfConselho = "33" };
+        MetadadosDePrescricaoIti.Entradas(d).Should().BeEquivalentTo(new Dictionary<string, string>
+        {
+            ["2.16.76.1.12.1.1"] = "Prescrição de medicamento",
+            ["2.16.76.1.4.2.2.1"] = "123456",
+            ["2.16.76.1.4.2.2.2"] = "RJ"
+        });
+
+        d.Tipo = TipoDocumentoClinico.Receita;
+        MetadadosDePrescricaoIti.Entradas(d).Should().ContainKey("2.16.76.1.12.1.1");
+
+        d.Tipo = TipoDocumentoClinico.Atestado;
+        MetadadosDePrescricaoIti.Entradas(d).Should().BeEmpty("o OID de prescrição é só da receita");
+
+        d.Tipo = TipoDocumentoClinico.Receita;
+        d.Profissional = new Profissional { Nome = "Fictícia", RegistroConselho = "CRO-RJ 999" };
+        // Os OIDs 2.16.76.1.4.2.2.x são do CFM: dentista não recebe número de médico.
+        MetadadosDePrescricaoIti.Entradas(d).Keys.Should().Equal(new[] { "2.16.76.1.12.1.1" });
+    }
+
+    /// <summary>Os metadados entram ANTES da assinatura e continuam no Info depois dela (certificado de teste).</summary>
+    [Fact]
+    public async Task Os_metadados_sobrevivem_a_assinatura()
+    {
+        var d = Documento();
+        d.Profissional = new Profissional { Nome = "Dra. Fictícia de Teste", ConselhoProfissional = "06", NumeroConselho = "123456", UfConselho = "33" };
+        var pdf = new DocumentosClinicosPdfService(_repo).Gerar(d, Prestador(), paraAssinaturaEletronica: true);
+        var assinado = await new AssinaturaDigitalService(exigirCadeiaConfiavel: false).AssinarAsync(pdf,
+            Certificado("AC Teste"), new PedidoAssinatura("Receituário", "Dra. Fictícia de Teste", "CRM-RJ 123456",
+                ReceituarioControleEspecialPdf.AreaDaAssinatura()));
+
+        foreach (var bytes in new[] { pdf, assinado.Pdf })
+        {
+            using var doc = PdfReader.Open(new MemoryStream(bytes), PdfDocumentOpenMode.Import);
+            doc.Info.Elements.GetString("/2.16.76.1.12.1.1").Should().Be("Prescrição de medicamento");
+            doc.Info.Elements.GetString("/2.16.76.1.4.2.2.1").Should().Be("123456");
+            doc.Info.Elements.GetString("/2.16.76.1.4.2.2.2").Should().Be("RJ");
+        }
+
+        var previa = new DocumentosClinicosPdfService(_repo).Gerar(d, Prestador(), previa: true);
+        using var semMetadados = PdfReader.Open(new MemoryStream(previa), PdfDocumentOpenMode.Import);
+        semMetadados.Info.Elements.ContainsKey("/2.16.76.1.12.1.1").Should().BeFalse("a prévia não é prescrição");
+    }
+
     private static DocumentoClinico Documento() => new()
     {
         Id = 1, Numero = "2026/9999", Tipo = TipoDocumentoClinico.ReceituarioControleEspecial, Data = new DateOnly(2026, 11, 25),
