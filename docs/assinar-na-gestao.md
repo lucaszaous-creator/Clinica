@@ -30,6 +30,33 @@ vem para a gestão; o motor não muda.
   rodapé, com alvos de 44 px. Foi testado com toque em 390 px.
 - **Saiu:** o "Assinar no Consultório" do PR anterior (#393 no Clinica e #65 no clinica-site).
 
+## O prazo clínico de 15 minutos (correção de 25/11/2026)
+
+**O defeito:** na primeira noite, a médica tocou em assinar na gestão (Clínico → Prescrições) e recebeu "A assinatura digital não está habilitada neste portal". O SafeID estava ligado.
+
+**A causa:** a API só abre o prontuário e a assinatura com **uso humano nos últimos 15 minutos** (`AtendimentoTabletService.AutorizarAsync`, `SessoesTablet.AtividadeClinicaEm`). Esse prazo só se renova pelo ping de toque ou tecla, `POST /api/clinico/atividade`.
+- O Consultório faz esse ping; a gestão não fazia.
+- Depois de 15 minutos na gestão, toda rota clínica respondia 401.
+- A tela trocava qualquer falha (`.catch(() => null)`) por "não habilitada".
+- Em produção, às 21:08, as sessões abertas da médica tinham a última atividade clínica entre 55 min e 1h44 antes.
+
+**A correção** (só a camada de tela, `wwwroot/assinatura-na-gestao.js`):
+- A gestão faz o **mesmo ping**, pela mesma regra: só depois de toque ou tecla, no máximo a cada 45 s, e antes de cada ação de assinar.
+- Nada afrouxa. Depois de 15 minutos **sem uso**, o ping também é recusado e é preciso entrar de novo, como no Consultório.
+- A recusa diz o motivo:
+  - 401 com a sessão do portal válida: o prazo de 15 minutos;
+  - sem sessão: "sua sessão do portal terminou";
+  - 403: modo paciente ou sem permissão;
+  - outro erro: o código.
+- "Não habilitada" só aparece quando o SafeID e o A1 respondem **desligado**.
+
+**Testes:**
+- `SafeIdTabletTests.Prazo_clinico_vencido_…`: reproduz o 401 com a sessão válida e mostra que o ping não reabre o prazo;
+- `AssinaturaNaGestaoTests`: impede a volta do mascaramento;
+- os 7 cenários do JS conferidos num navegador com `fetch` falso.
+
+Nenhuma assinatura real foi feita.
+
 ## UX · DX · CX
 - 🧑‍💻 **UX:**
   - A médica assina onde emite, no celular ou no computador, sem trocar de tela.
@@ -48,3 +75,4 @@ vem para a gestão; o motor não muda.
 - **Infusão** (prescrição e folha de execução) **na gestão:** segue no Consultório, só com o A1.
 - **Anamnese:** segue no aplicativo do computador.
 - **Cadastrar o A1 pela gestão:** segue em "Meu certificado", no Consultório.
+- **Prazo clínico de 15 minutos sem uso:** continua valendo na gestão. Quem fica parado mais que isso entra de novo com a senha. Afrouxar o prazo seria mudar a regra de segurança, e isso não foi pedido.

@@ -50,6 +50,44 @@ dialog.assinatura-gestao .ag-acoes{display:flex;flex-wrap:wrap;gap:var(--space-2
     return dados;
   }
   const renovarCsrf = async () => { csrf = (await api('/sessao')).csrf; };
+
+  // A ATIVIDADE CLÍNICA (25/11/2026). A API só abre o prontuário e a assinatura para a sessão com uso HUMANO nos
+  // últimos 15 minutos (AtendimentoTabletService.AutorizarAsync, AtividadeClinicaEm), e só o ping explícito de toque ou
+  // tecla renova esse prazo (POST /api/clinico/atividade). O Consultório faz esse ping; a gestão não fazia — quem
+  // entrava pelo portal e usava a gestão por mais de 15 minutos tinha TODA rota clínica recusada (401), e a tela dizia
+  // "não habilitada". Aqui a gestão faz o MESMO ping, pela MESMA regra: só depois de toque ou tecla, no máximo a cada
+  // 45 s. Nada afrouxa: depois de 15 minutos SEM uso o ping também é recusado e é preciso entrar de novo, como no
+  // Consultório. Recusado uma vez, ele para de tentar até a página recarregar (um 401 a cada toque não ajuda ninguém).
+  const PING_MS = 45000;
+  let ultimoPing = 0, pingEmCurso = null, clinicoFechado = false;
+  function renovarAtividade() {
+    if (clinicoFechado || pingEmCurso || Date.now() - ultimoPing < PING_MS) return pingEmCurso;
+    ultimoPing = Date.now();
+    pingEmCurso = (async () => {
+      if (!csrf) await renovarCsrf();
+      try { await api('/clinico/atividade', {}); }
+      catch (e) {
+        if (e.status !== 400) throw e;
+        await renovarCsrf(); await api('/clinico/atividade', {}); // o CSRF da aba envelheceu: uma nova tentativa
+      }
+    })().catch(e => { if (e.status === 401 || e.status === 403) clinicoFechado = true; })
+      .finally(() => { pingEmCurso = null; });
+    return pingEmCurso;
+  }
+  for (const tipo of ['pointerdown', 'keydown']) document.addEventListener(tipo, () => { renovarAtividade(); }, { capture: true, passive: true });
+
+  // Por que a assinatura não abre, dito como é (nunca "não habilitada" por um erro). 401 com a sessão do portal ainda
+  // válida é o prazo clínico de 15 minutos sem uso; sem ela, a sessão terminou.
+  async function motivoDaRecusa(e) {
+    if (e.status === 401) {
+      const s = await fetch('/api/sessao', { credentials: 'same-origin', cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null);
+      return s?.modo === 'equipe'
+        ? 'Por segurança, a assinatura só abre com uso recente: o acesso clínico se fecha depois de 15 minutos sem uso. Saia, entre de novo no portal com sua senha e assine em seguida.'
+        : 'Sua sessão do portal terminou. Entre de novo no portal com sua senha e tente outra vez.';
+    }
+    if (e.status === 403) return 'Este aparelho está no modo paciente ou seu usuário não pode abrir o prontuário. Entre de novo no portal como profissional.';
+    return e.status ? `Não foi possível consultar a assinatura agora (erro ${e.status}). Tente de novo em instantes.` : e.message;
+  }
   const pdf = documento => `/api/clinico/atendimentos/0/documento/${encodeURIComponent(documento)}/pdf`;
 
   function janela(titulo, html) {
@@ -68,7 +106,8 @@ dialog.assinatura-gestao .ag-acoes{display:flex;flex-wrap:wrap;gap:var(--space-2
     b.onclick = async () => {
       const erro = d.querySelector('.ag-erro'); erro.textContent = '';
       d.querySelectorAll('.ag-acoes button').forEach(x => x.disabled = true);
-      try { await acao(); } catch (e) { erro.textContent = e.message; }
+      try { await renovarAtividade(); await acao(); }
+      catch (e) { erro.textContent = e.status === 401 || e.status === 403 ? await motivoDaRecusa(e) : e.message; }
       finally { if (d.isConnected) d.querySelectorAll('.ag-acoes button').forEach(x => x.disabled = false); }
     };
     d.querySelector('.ag-acoes').append(b);
@@ -84,10 +123,20 @@ dialog.assinatura-gestao .ag-acoes{display:flex;flex-wrap:wrap;gap:var(--space-2
     if (!Number.isSafeInteger(documento) || documento <= 0) return { frase: 'Documento inválido para assinar.', erro: true };
     try {
       await renovarCsrf();
-      const comSafeId = (await api('/clinico/safeid').catch(() => null))?.habilitado === true;
-      const a1 = await api('/clinico/a1').catch(() => null);
+      await renovarAtividade(); // o toque em "Assinar" é uso: o prazo clínico se renova antes da consulta
+      // Cada consulta devolve a resposta OU a falha. Só as duas RESPOSTAS dizendo "desligado" são "não habilitada";
+      // qualquer falha (sessão, prazo clínico, permissão, servidor) diz o motivo de verdade.
+      const consultar = caminho => api(caminho).then(dados => ({ dados }), falha => ({ falha }));
+      const safeid = await consultar('/clinico/safeid');
+      const a1r = await consultar('/clinico/a1');
+      const comSafeId = safeid.dados?.habilitado === true;
+      const a1 = a1r.dados;
       const comA1 = a1?.habilitado === true;
-      if (!comSafeId && !comA1) return { frase: 'A assinatura digital não está habilitada neste portal.', erro: true };
+      if (!comSafeId && !comA1) {
+        const falha = safeid.falha || a1r.falha;
+        if (falha) return { frase: await motivoDaRecusa(falha), erro: true };
+        return { frase: 'A assinatura digital não está habilitada neste portal.', erro: true };
+      }
       let alergias = null;
       if (Number.isSafeInteger(paciente) && paciente > 0) {
         const f = await api(`/posto/pacientes/${paciente}?pagina=0`).catch(() => null);
@@ -202,13 +251,14 @@ dialog.assinatura-gestao .ag-acoes{display:flex;flex-wrap:wrap;gap:var(--space-2
       if (a.situacao !== 'autorizado') { aviso('Assinatura não concluída', 'A autorização do SafeID não foi concluída ou expirou. Confira o documento antes de assinar novamente.', a.documento); return; }
       const d = janela('Confirmar assinatura', `<p><strong>${esc(nome)}</strong></p><p>A autorização do SafeID foi recebida. Confirme para assinar e arquivar o documento.</p><p><a href="${pdf(a.documento)}" target="_blank" rel="noopener">Conferir o PDF</a></p>`);
       botao(d, 'Assinar e arquivar', true, async () => {
+        await renovarAtividade();
         await api('/clinico/safeid/' + encodeURIComponent(id) + '/concluir', {});
         d.close();
         aviso('Documento assinado', `${nome}: assinado com SafeID e arquivado.`, a.documento);
       });
       botao(d, 'Cancelar', false, async () => d.close());
     } catch (e) {
-      aviso('Assinatura não concluída', e.message, null);
+      aviso('Assinatura não concluída', e.status === 401 || e.status === 403 ? await motivoDaRecusa(e) : e.message, null);
     }
   }
 

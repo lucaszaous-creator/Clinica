@@ -114,5 +114,12 @@ public sealed class AssinaturaNaGestaoTests : IDisposable
         Assert.DoesNotContain("window.open", js);                 // sem pop-up (Safari do iPhone)
         Assert.Contains("location.assign(url.href)", js);
         Assert.Contains("pscsafeweb.safewebpss.com.br", js);      // só para a Safeweb
+        // 25/11/2026: a gestão renova o prazo clínico como o Consultório (toque/tecla, POST /clinico/atividade) e
+        // nunca transforma falha em "não habilitada" (o .catch(() => null) que escondia o 401 da médica).
+        Assert.Contains("api('/clinico/atividade', {})", js);
+        Assert.Contains("['pointerdown', 'keydown']", js);
+        Assert.DoesNotContain("api('/clinico/safeid').catch", js);
+        Assert.DoesNotContain("api('/clinico/a1').catch", js);
+        Assert.Contains("15 minutos sem uso", js);
     }
 }
