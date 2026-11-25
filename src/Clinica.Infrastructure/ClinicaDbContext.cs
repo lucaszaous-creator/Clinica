@@ -266,6 +266,11 @@ public class ClinicaDbContext : DbContext
             // Endereço residencial: exigência do art. 35 da Lei 5.991/1973 para a receita
             // poder ser aviada. Uma linha só, como a clínica escreve no papel.
             e.Property(p => p.Endereco).HasMaxLength(300);
+            // O comprador do Receituário de Controle Especial (nov/2026).
+            e.Property(p => p.Rg).HasMaxLength(20);
+            e.Property(p => p.RgOrgaoEmissor).HasMaxLength(20);
+            e.Property(p => p.Cidade).HasMaxLength(100);
+            e.Property(p => p.Uf).HasMaxLength(2);
             e.Property(p => p.Carteirinha).HasMaxLength(40);
             e.Property(p => p.Convenio).HasConversion<string>().HasMaxLength(40);
             e.Property(p => p.ConvenioCodigo).HasMaxLength(40);

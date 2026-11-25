@@ -72,7 +72,7 @@ public static class DocumentosDoConsultorio
     /// </summary>
     public static string Icone(FolhaCatalogo folha) => folha.TipoClinico switch
     {
-        TipoDocumentoClinico.Receita => "rx",
+        TipoDocumentoClinico.Receita or TipoDocumentoClinico.ReceituarioControleEspecial => "rx",
         TipoDocumentoClinico.Atestado => "document",
         TipoDocumentoClinico.LaudoMedico => "record",
         TipoDocumentoClinico.Comparecimento => "check",

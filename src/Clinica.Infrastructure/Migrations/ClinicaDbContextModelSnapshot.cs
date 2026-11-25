@@ -5385,6 +5385,10 @@ namespace Clinica.Infrastructure.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
 
+                    b.Property<string>("Cidade")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<string>("Convenio")
                         .IsRequired()
                         .HasMaxLength(40)
@@ -5441,6 +5445,14 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<bool>("PossuiApp")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("Rg")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("RgOrgaoEmissor")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.Property<string>("Sexo")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -5449,6 +5461,10 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<string>("Telefone")
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
+
+                    b.Property<string>("Uf")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
 
                     b.Property<DateOnly?>("ValidadeCarteirinha")
                         .HasColumnType("date");

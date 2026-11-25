@@ -603,7 +603,16 @@ public class DocumentosClinicosTests : IDisposable
             // só falharia na frente de quem fosse imprimi-lo.
             await _documentos.EmitirTermoProcedimentoAsync(pacienteId, await ModeloDeTermoAsync()),
             // O laudo (out/2026), com o CID autorizado — o bloco que só ele desenha.
-            await EmitirLaudoAsync(pacienteId, profissionalId, cid: "F41.1", cidAutorizado: true)
+            await EmitirLaudoAsync(pacienteId, profissionalId, cid: "F41.1", cidAutorizado: true),
+            // O Receituário de Controle Especial (nov/2026): duas vias em PdfSharp, pelo MESMO GerarAsync.
+            await _documentos.EmitirAsync(new DocumentoClinico
+            {
+                Tipo = TipoDocumentoClinico.ReceituarioControleEspecial,
+                PacienteId = pacienteId,
+                ProfissionalId = profissionalId,
+                Data = Dia,
+                Corpo = "Medicamento fictício 500 mg, 12/12 h por 7 dias"
+            })
         };
 
         emitidos.Select(d => d.Tipo).Should().BeEquivalentTo(TipoDocumentoInfo.Todos);

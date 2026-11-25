@@ -1,0 +1,111 @@
+@*
+  DADOS DO COMPRADOR (nov/2026 — Receituário de Controle Especial): o bloco "Identificação do comprador" é o
+  PACIENTE, e a farmácia recusa o receituário sem RG, órgão emissor, endereço, cidade, UF e telefone. Quando a
+  ficha não tem algum deles, a emissão pára AQUI, antes de qualquer número: a pessoa completa só o que falta, a
+  ficha grava (com auditoria — PacienteService.CompletarCompradorAsync) e a emissão segue sozinha.
+  O que falta é decidido em ReceituarioControleEspecialRegras.FaltasDoComprador (Application, com teste).
+*@
+@namespace Clinica.Ui.Blazor.Formularios
+@using Clinica.Application.Modelos
+@inherits TelaBase
+
+<Modal Titulo="Dados do comprador" Subtitulo="@Paciente.Nome" Largura="medio" AoFechar="AoFechar">
+    <ChildContent>
+        <p class="secundario">
+            O Receituário de Controle Especial identifica o comprador (o paciente). Complete o que falta na ficha:
+            fica gravado e a emissão continua.
+        </p>
+        <div class="campos">
+            @if (Falta(ReceituarioControleEspecialRegras.Rg))
+            {
+                <Campo Rotulo="RG" Obrigatorio="true">
+                    <input class="campo" value="@_rg" maxlength="20" autocomplete="off" @oninput="e => _rg = e.Value?.ToString()" />
+                </Campo>
+            }
+            @if (Falta(ReceituarioControleEspecialRegras.OrgaoEmissor))
+            {
+                <Campo Rotulo="Órgão emissor" Dica="Ex.: DETRAN-RJ, SSP-SP" Obrigatorio="true">
+                    <input class="campo" value="@_orgao" maxlength="20" autocomplete="off" @oninput="e => _orgao = e.Value?.ToString()" />
+                </Campo>
+            }
+            @if (Falta(ReceituarioControleEspecialRegras.Endereco))
+            {
+                <Campo Rotulo="Endereço completo" Dica="Rua, número, complemento e bairro" Classe="largo" Obrigatorio="true">
+                    <input class="campo" value="@_endereco" maxlength="300" @oninput="e => _endereco = e.Value?.ToString()" />
+                </Campo>
+            }
+            @if (Falta(ReceituarioControleEspecialRegras.Cidade))
+            {
+                <Campo Rotulo="Cidade" Obrigatorio="true">
+                    <input class="campo" value="@_cidade" maxlength="100" @oninput="e => _cidade = e.Value?.ToString()" />
+                </Campo>
+            }
+            @if (Falta(ReceituarioControleEspecialRegras.Uf))
+            {
+                <Campo Rotulo="UF" Obrigatorio="true">
+                    <select class="campo" value="@_uf" @onchange="e => _uf = e.Value?.ToString()">
+                        <option value="">—</option>
+                        @foreach (var uf in ReceituarioControleEspecialRegras.Ufs.Order()) { <option value="@uf">@uf</option> }
+                    </select>
+                </Campo>
+            }
+            @if (Falta(ReceituarioControleEspecialRegras.Telefone))
+            {
+                <Campo Rotulo="Telefone" Obrigatorio="true">
+                    <input class="campo" value="@_telefone" maxlength="20" inputmode="tel" @oninput="e => _telefone = e.Value?.ToString()" />
+                </Campo>
+            }
+        </div>
+        @if (Falta(ReceituarioControleEspecialRegras.Nome))
+        {
+            <Aviso Tom="erro" Texto="A ficha está sem o nome completo. Corrija o cadastro do paciente antes de emitir." />
+        }
+        <Aviso Tom="erro" Texto="@_erro" />
+    </ChildContent>
+    <Rodape>
+        <button type="button" class="botao" disabled="@_gravando" @onclick="AoFechar">Cancelar</button>
+        <button type="button" class="botao primario" disabled="@(_gravando || Falta(ReceituarioControleEspecialRegras.Nome))"
+                @onclick="GravarAsync">@(_gravando ? "Gravando…" : "Gravar na ficha e emitir")</button>
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public Paciente Paciente { get; set; } = default!;
+    [Parameter] public EventCallback<Paciente> AoConcluir { get; set; }
+    [Parameter] public EventCallback AoFechar { get; set; }
+
+    private IReadOnlyList<ReceituarioControleEspecialRegras.CampoDoComprador> _faltas = [];
+    private string? _rg, _orgao, _endereco, _cidade, _uf, _telefone, _erro;
+    private bool _gravando;
+
+    protected override void OnParametersSet() => _faltas = ReceituarioControleEspecialRegras.FaltasDoComprador(Paciente);
+
+    private bool Falta(ReceituarioControleEspecialRegras.CampoDoComprador campo) => _faltas.Contains(campo);
+
+    private async Task GravarAsync()
+    {
+        if (!Exigir(Permissao.Prescrever, "completar os dados do comprador")) return;
+        _erro = null;
+        _gravando = true;
+        try
+        {
+            using var escopo = Escopo();
+            var atualizado = await escopo.ServiceProvider.GetRequiredService<PacienteService>().CompletarCompradorAsync(
+                Paciente.Id, new PacienteService.DadosDoComprador(_rg, _orgao, _endereco, _cidade, _uf, _telefone), Operador);
+            await AoConcluir.InvokeAsync(atualizado);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _erro = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Receituário de Controle Especial — dados do comprador não gravados", ex);
+            _erro = "Não foi possível gravar na ficha agora. Tente de novo.";
+        }
+        finally
+        {
+            _gravando = false;
+        }
+    }
+}

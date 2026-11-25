@@ -87,3 +87,9 @@
 .modal.maximizado .df-folha{flex:none;max-width:none;width:100%;min-height:calc(100vh - 260px)}
 /* O editor traz a altura das linhas no próprio elemento e um teto de 480 px (atendimento.css): maximizada, os dois cedem. */
 .modal.maximizado .df-folha .editor-texto{min-height:calc(100vh - 420px) !important;max-height:none}
+
+/* Sugestão do Receituário de Controle Especial (nov/2026): antimicrobiano/C1 numa receita comum. */
+.df-sugestao-rce{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2) var(--space-3);margin:0 0 var(--space-3);
+  padding:var(--space-2) var(--space-3);border:1px solid var(--aviso);border-left-width:3px;border-radius:var(--radius-pequeno);
+  background:var(--aviso-suave);color:var(--aviso-texto);font-size:var(--text-small-size);line-height:1.45}
+.df-sugestao-rce p{margin:0;flex:1 1 240px;overflow-wrap:anywhere}

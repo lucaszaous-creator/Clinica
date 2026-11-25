@@ -25,6 +25,7 @@ public static class EmissaoDeDocumentoNaTela
     public static IReadOnlyList<TipoDocumentoClinico> Tipos { get; } =
     [
         TipoDocumentoClinico.Receita,
+        TipoDocumentoClinico.ReceituarioControleEspecial,
         TipoDocumentoClinico.Atestado,
         TipoDocumentoClinico.LaudoMedico,
         TipoDocumentoClinico.Comparecimento,
@@ -86,6 +87,7 @@ public static class EmissaoDeDocumentoNaTela
     public static string TituloDocumento(TipoDocumentoClinico tipo) => tipo switch
     {
         TipoDocumentoClinico.Receita => "Receita médica",
+        TipoDocumentoClinico.ReceituarioControleEspecial => "Receituário de Controle Especial",
         TipoDocumentoClinico.Atestado => "Atestado médico",
         TipoDocumentoClinico.Comparecimento => "Declaração de comparecimento",
         TipoDocumentoClinico.PedidoExame => "Pedido de exames",
@@ -96,7 +98,7 @@ public static class EmissaoDeDocumentoNaTela
     /// <summary>O rótulo do campo de texto, dentro da folha.</summary>
     public static string RotuloDoTexto(TipoDocumentoClinico tipo) => tipo switch
     {
-        TipoDocumentoClinico.Receita => "Prescrição e modo de usar",
+        TipoDocumentoClinico.Receita or TipoDocumentoClinico.ReceituarioControleEspecial => "Prescrição e modo de usar",
         TipoDocumentoClinico.LaudoMedico => "Texto do laudo",
         _ => "Texto complementar · opcional"
     };
@@ -105,7 +107,7 @@ public static class EmissaoDeDocumentoNaTela
     public static string AjudaDoTexto(TipoDocumentoClinico tipo) => tipo switch
     {
         TipoDocumentoClinico.LaudoMedico => "Descreva o quadro clínico, achados e conclusão…",
-        TipoDocumentoClinico.Receita => "Medicamento, dose e modo de usar…",
+        TipoDocumentoClinico.Receita or TipoDocumentoClinico.ReceituarioControleEspecial => "Medicamento, dose e modo de usar…",
         _ => "Texto complementar (opcional)…"
     };
 
@@ -196,7 +198,9 @@ public static class EmissaoDeDocumentoNaTela
 
     /// <summary>O nome do arquivo do documento emitido, sem os caracteres que o Windows recusa.</summary>
     public static string NomeDoArquivo(TipoDocumentoClinico tipo, string numero)
-        => NomeSeguro($"{TipoDocumentoInfo.Rotular(tipo)}-{numero.Replace('/', '-')}.pdf");
+        => tipo == TipoDocumentoClinico.ReceituarioControleEspecial
+            ? NomeSeguro($"Receituario-Controle-Especial-{numero.Replace('/', '-')}.pdf")
+            : NomeSeguro($"{TipoDocumentoInfo.Rotular(tipo)}-{numero.Replace('/', '-')}.pdf");
 
     /// <summary>O nome da prévia — sem número, porque ela não tem.</summary>
     public static string NomeDaPrevia(TipoDocumentoClinico tipo) => NomeSeguro($"Previa-{TipoDocumentoInfo.Rotular(tipo)}.pdf");
@@ -390,6 +394,16 @@ public sealed class RascunhoDeDocumento
         ConferirLegalmente();
         return true;
     }
+
+    /// <summary>
+    /// Antimicrobiano ou C1 numa RECEITA comum: os termos que a farmácia vai cobrar no controle especial. Vazio quando
+    /// o papel já é o receituário, quando o tipo não pode mais trocar (nova versão) ou quando nada da lista aparece.
+    /// É sugestão — a folha mostra a frase e o botão; quem decide é quem prescreve.
+    /// </summary>
+    public IReadOnlyList<string> SugestaoControleEspecial
+        => _tipo == TipoDocumentoClinico.Receita && PodeTrocarTipo
+            ? ReceituarioControleEspecialRegras.TermosEncontrados(_corpo)
+            : [];
 
     public DateOnly Data { get; set; }
     public string? Titulo { get; set; }
@@ -632,7 +646,7 @@ public sealed class RascunhoDeDocumento
 
     // ===================== o que a folha mostra =====================
 
-    public bool ReceitaLivre => Tipo == TipoDocumentoClinico.Receita;
+    public bool ReceitaLivre => TipoDocumentoInfo.EhReceita(Tipo);
 
     /// <summary>O pedido de exame é lista; os outros, não.</summary>
     public bool MostraItens => TipoDocumentoInfo.ExigeItens(Tipo);

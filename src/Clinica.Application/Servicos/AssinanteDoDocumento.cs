@@ -46,8 +46,8 @@ public static class AssinanteDoDocumento
     /// "Emitir" que o serviço recusa.
     /// </summary>
     public static bool Exige(TipoDocumentoClinico tipo)
-        => tipo is TipoDocumentoClinico.Receita
-               or TipoDocumentoClinico.Atestado
+        => TipoDocumentoInfo.EhReceita(tipo)
+               || tipo is TipoDocumentoClinico.Atestado
                or TipoDocumentoClinico.PedidoExame
                or TipoDocumentoClinico.LaudoMedico;
 

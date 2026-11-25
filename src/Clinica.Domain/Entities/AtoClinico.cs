@@ -241,7 +241,17 @@ public enum TipoDocumentoClinico
     /// A alternativa — cair no primeiro valor do enum — seria pior: o termo apareceria como
     /// "Receita", que é mentir sobre um registro de prontuário.
     /// </summary>
-    Desconhecido
+    Desconhecido,
+
+    /// <summary>
+    /// RECEITUÁRIO DE CONTROLE ESPECIAL (nov/2026): o modelo do ITI, versão 2.0 (abril/2020), em duas vias
+    /// (farmácia e paciente), com os blocos do emitente, do comprador e do fornecedor. A farmácia o EXIGE para
+    /// antimicrobiano e para a lista C1 da Portaria 344 — a receita 2026/0484 (claritromicina + amoxicilina) foi
+    /// recusada por isso. É uma receita para todo o resto (endereço do paciente, assinante, publicação, envio):
+    /// quem pergunta "é receita?" pergunta <see cref="TipoDocumentoInfo.EhReceita"/>.
+    /// Gravado como TEXTO (conversor tolerante): o app antigo lê <see cref="Desconhecido"/>, não quebra.
+    /// </summary>
+    ReceituarioControleEspecial
 }
 
 /// <summary>Rótulos e natureza de cada tipo de documento, para a tela e o PDF.</summary>
@@ -258,6 +268,7 @@ public static class TipoDocumentoInfo
         TipoDocumentoClinico.Anamnese => "Anamnese",
         TipoDocumentoClinico.TermoProcedimento => "Termo de procedimento",
         TipoDocumentoClinico.LaudoMedico => "Laudo médico",
+        TipoDocumentoClinico.ReceituarioControleEspecial => "Receituário de Controle Especial",
 
         // Diz o que fazer, não só o que houve: "Desconhecido" sozinho mandaria a clínica
         // procurar defeito no documento, e o que falta é atualizar o programa.
@@ -292,6 +303,14 @@ public static class TipoDocumentoInfo
                or TipoDocumentoClinico.Consentimento
                or TipoDocumentoClinico.Anamnese;
 
+    /// <summary>
+    /// É RECEITA — a comum ou o Receituário de Controle Especial (nov/2026). O endereço do paciente, o assinante, a
+    /// conformidade, a publicação e o envio valem para os dois; a pergunta mora aqui para o segundo tipo não ficar
+    /// de fora de uma regra por esquecimento.
+    /// </summary>
+    public static bool EhReceita(TipoDocumentoClinico tipo)
+        => tipo is TipoDocumentoClinico.Receita or TipoDocumentoClinico.ReceituarioControleEspecial;
+
     /// <summary>Pedido de exame exige itens; a receita também aceita o corpo em texto livre.</summary>
     public static bool ExigeItens(TipoDocumentoClinico tipo)
         => tipo is TipoDocumentoClinico.PedidoExame;
@@ -322,7 +341,8 @@ public static class TipoDocumentoInfo
         TipoDocumentoClinico.Consentimento,
         TipoDocumentoClinico.Anamnese,
         TipoDocumentoClinico.TermoProcedimento,
-        TipoDocumentoClinico.LaudoMedico
+        TipoDocumentoClinico.LaudoMedico,
+        TipoDocumentoClinico.ReceituarioControleEspecial
     ];
 }
 

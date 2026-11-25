@@ -129,6 +129,11 @@ public sealed class DocumentosClinicosPdfService
     /// margem de baixo, e a faixa da assinatura é o PRIMEIRO item da coluna dele — ou
     /// seja, o topo dessa faixa. Os 2 pontos são o respiro de cada lado (a altura tira 4).
     /// </summary>
+    public static AreaAssinatura AreaDaAssinatura(TipoDocumentoClinico tipo, int totalPaginas)
+        => tipo == TipoDocumentoClinico.ReceituarioControleEspecial
+            ? ReceituarioControleEspecialPdf.AreaDaAssinatura()
+            : AreaDaAssinatura(totalPaginas);
+
     public static AreaAssinatura AreaDaAssinatura(int totalPaginas)
         => new(
             Pagina: Math.Max(0, totalPaginas - 1),
@@ -224,6 +229,11 @@ public sealed class DocumentosClinicosPdfService
         byte[]? tracoPaciente = null, bool somentePaciente = false, bool previa = false)
     {
         QuestPDF.Settings.License = LicenseType.Community;
+
+        // O Receituário de Controle Especial tem desenho PRÓPRIO (modelo ITI v2.0, duas vias, o campo da assinatura
+        // num retângulo fixo) — ver ReceituarioControleEspecialPdf.
+        if (documento.Tipo == TipoDocumentoClinico.ReceituarioControleEspecial)
+            return ReceituarioControleEspecialPdf.Gerar(documento, prestador, urlDoArquivo, previa, ValidadorFarmaceutico);
 
         var paciente = documento.Paciente;
         var nomeClinica = PrimeiroPreenchido(prestador?.NomeFantasia, prestador?.RazaoSocial) ?? "Clínica";

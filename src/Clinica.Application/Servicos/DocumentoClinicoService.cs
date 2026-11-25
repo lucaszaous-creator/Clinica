@@ -887,9 +887,14 @@ public sealed class DocumentoClinicoService
         if (TipoDocumentoInfo.ExigeItens(dados.Tipo) && itens.Count == 0 && string.IsNullOrWhiteSpace(dados.Corpo))
             throw new InvalidOperationException("Escreva os exames solicitados no texto ou inclua uma linha no pedido.");
 
-        if (dados.Tipo == TipoDocumentoClinico.Receita
+        if (TipoDocumentoInfo.EhReceita(dados.Tipo)
             && itens.Count == 0 && string.IsNullOrWhiteSpace(dados.Corpo))
             throw new InvalidOperationException("Escreva a prescrição antes de emitir a receita.");
+
+        // O Receituário de Controle Especial tem lugar FIXO para a prescrição (modelo ITI v2.0).
+        if (dados.Tipo == TipoDocumentoClinico.ReceituarioControleEspecial && Clinica.Application.Modelos.ReceituarioControleEspecialRegras.ErroDeTamanho(
+                string.Join("\n", new[] { dados.Corpo }.Concat(itens.Select(i => $"{i.Descricao} {i.Quantidade}\n{i.Detalhe}")))) is { } grande)
+            throw new InvalidOperationException(grande);
 
         // O laudo É o texto: sem ele o papel sairia numerado com cabeçalho e assinatura e
         // nada no meio.

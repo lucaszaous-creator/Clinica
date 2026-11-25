@@ -14,6 +14,10 @@ public sealed class DadosPrestador
     public string? Cnes { get; set; }
     public string? Endereco { get; set; }
     public string? Telefone { get; set; }
+
+    /// <summary>UF da clínica (nov/2026, o bloco do emitente do Receituário de Controle Especial). Sem ela, a UF sai
+    /// do fim do endereço ("…, MACAÉ-RJ").</summary>
+    public string? Uf { get; set; }
     public string? Email { get; set; }
 
     /// <summary>

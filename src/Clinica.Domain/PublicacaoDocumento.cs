@@ -97,7 +97,8 @@ public static class PublicacaoDocumento
     public static readonly TipoDocumentoClinico[] Publicaveis =
     [
         TipoDocumentoClinico.Receita, TipoDocumentoClinico.Atestado,
-        TipoDocumentoClinico.PedidoExame, TipoDocumentoClinico.Comparecimento
+        TipoDocumentoClinico.PedidoExame, TipoDocumentoClinico.Comparecimento,
+        TipoDocumentoClinico.ReceituarioControleEspecial
     ];
 
     /// <summary>

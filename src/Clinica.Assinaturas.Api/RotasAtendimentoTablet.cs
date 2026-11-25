@@ -77,6 +77,29 @@ internal static class RotasAtendimentoTablet
         grupo.MapPost("/atendimentos/{id:int}/documento/{documento:int}/assinatura/endereco",
             async(HttpContext c, PortalTabletService portal, EnderecoPrescricaoTabletService svc, int id, int documento, EnderecoPrescricaoTablet pedido) =>
             { await svc.CompletarAsync(await sessao(c,portal),id,documento,pedido.Endereco,c.RequestAborted); return Results.NoContent(); });
+        // "Enviar ao paciente pelo WhatsApp" (nov/2026): o documento ASSINADO entra na MESMA fila do CRM que os apps
+        // usam (EnvioAoPacienteService). Fora da janela de 24 h o CRM manda o modelo aprovado semdor_documento com o
+        // PDF no cabeçalho; a trilha (quem, canal, para onde) grava no mesmo SaveChanges. Repetir não duplica.
+        grupo.MapPost("/documentos/{documento:int}/enviar-whatsapp",
+            async(HttpContext c, PortalTabletService portal, AtendimentoTabletService svc, ClinicaDbContext db, EnvioAoPacienteService envio, int documento) =>
+            {
+                var (u,_)=await svc.ExigirDocumentoAsync(await sessao(c,portal),0,"documento",documento,false,c.RequestAborted);
+                if(!u.Pode(Permissao.Prescrever)) throw new UnauthorizedAccessException();
+                var assinado=await db.DocumentosClinicos.AnyAsync(d=>d.Id==documento&&d.AssinaturaTipo!=null&&d.CanceladoEm==null,c.RequestAborted);
+                if(!assinado) throw ErroFormularioTablet.Criar("Assine o documento antes de enviar ao paciente.");
+                var r=await envio.EnfileirarWhatsAppAsync(documento,u.Login,c.RequestAborted);
+                if(!r.Ok) throw ErroFormularioTablet.Criar(r.Frase);
+                return Results.Ok(new {frase=r.Frase});
+            });
+        // Receituário de Controle Especial: os dados do comprador (o paciente) que faltam na ficha.
+        grupo.MapPost("/atendimentos/{id:int}/documento/{documento:int}/assinatura/comprador",
+            async(HttpContext c, PortalTabletService portal, EnderecoPrescricaoTabletService svc, int id, int documento, CompradorPrescricaoTablet pedido) =>
+            {
+                await svc.CompletarCompradorAsync(await sessao(c,portal),id,documento,
+                    new(pedido.Rg,pedido.OrgaoEmissor,pedido.Endereco,pedido.Cidade,pedido.Uf,pedido.Telefone),c.RequestAborted);
+                return Results.NoContent();
+            });
     }
 }
 public sealed record EnderecoPrescricaoTablet(string? Endereco);
+public sealed record CompradorPrescricaoTablet(string? Rg, string? OrgaoEmissor, string? Endereco, string? Cidade, string? Uf, string? Telefone);

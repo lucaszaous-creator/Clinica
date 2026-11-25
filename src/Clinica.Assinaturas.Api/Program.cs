@@ -63,6 +63,7 @@ builder.Services.AddScoped<IAcompanhamentoPacienteService,AcompanhamentoPaciente
 builder.Services.AddScoped<IPlanejamentoEnfermagemService,Clinica.Infrastructure.Planejamento.PlanejamentoEnfermagemService>();
 builder.Services.AddScoped<AcessoService>();
 builder.Services.AddScoped<DocumentoClinicoService>();
+builder.Services.AddScoped<PacienteService>();
 builder.Services.AddScoped<ProntuarioService>();
 builder.Services.AddScoped<ConsentimentoService>();
 builder.Services.AddScoped<AssinaturaDoPacienteService>();

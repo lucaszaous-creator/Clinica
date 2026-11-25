@@ -114,7 +114,7 @@ public static class ConformidadeDocumentoClinico
 
         // ---- Só a receita ----
 
-        if (documento.Tipo == TipoDocumentoClinico.Receita)
+        if (TipoDocumentoInfo.EhReceita(documento.Tipo))
         {
             // A exigência que mais volta da farmácia, e a que o sistema nem tinha onde
             // guardar antes desta parcela.

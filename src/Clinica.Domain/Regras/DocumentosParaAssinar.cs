@@ -17,7 +17,7 @@ public static class DocumentosParaAssinar
     /// <summary>Os tipos que o profissional assina pelo Consultório e pela central.</summary>
     public static readonly TipoDocumentoClinico[] Tipos =
     [
-        TipoDocumentoClinico.Receita, TipoDocumentoClinico.Atestado, TipoDocumentoClinico.PedidoExame,
+        TipoDocumentoClinico.Receita, TipoDocumentoClinico.ReceituarioControleEspecial, TipoDocumentoClinico.Atestado, TipoDocumentoClinico.PedidoExame,
         TipoDocumentoClinico.Comparecimento, TipoDocumentoClinico.RelatorioEvolucao, TipoDocumentoClinico.Anamnese
     ];
 

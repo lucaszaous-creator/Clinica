@@ -61,6 +61,14 @@ pontos; o resto continua congelado:
 3. **Receituário de Controle Especial** (modelo ITI v2.0): documento novo, assinável com SafeID/A1. A aparência
    visível da assinatura fica no campo "ASSINATURA MÉDICO(A)"; só a posição e o tamanho mudam, e hash/PAdES
    continuam iguais.
+   - **O que mudou no motor (nov/2026), e só isto:** `AreaAssinatura` ganhou dois campos opcionais —
+     `OutrasPaginas` (o mesmo bloco visível desenhado também na 2ª via, ANTES de assinar, então coberto pelo hash)
+     e `AjustarFonte` (a letra encolhe até 0,55 para as quatro linhas caberem no campo de 160 × 44 pt). Sem eles
+     (todos os outros documentos), o desenho é o de sempre, byte a byte. `CarimboDeAssinatura` passou de `private`
+     a `internal` só para o teste medir a escala. CMS, ByteRange, carimbo de tempo, certificado e token: intocados.
+   - **Metadados (ponto 2):** os OIDs de prescrição (2.16.76.1.12.1.1) e do CRM (2.16.76.1.4.2.2.x) estão no guia
+     oficial, mas o guia NÃO diz onde gravá-los no PDF. Pela regra do dono ("não invente"), ficaram de fora até
+     haver fonte oficial para a posição.
 
 ## ✅ Autorização expressa de 24/11/2026 — ASSINAR NA GESTÃO WEB
 
