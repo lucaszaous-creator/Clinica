@@ -30,3 +30,12 @@
 .rec-lancamentos .rec-rel-situacoes .alternar{white-space:nowrap}
 .rec-lancamentos .rec-rel-lista td .secundario{display:block}
 .rec-lancamentos .tabela-rolagem.carregando{opacity:.6}
+
+/* Celular: a margem lateral do segmentado entra na conta da largura (senão estoura 2 × 16 px em 360). */
+@media (max-width:640px){
+  .rec-lancamentos .rec-lanc-vista{max-width:calc(100% - 2 * var(--space-4))}
+  /* O período (de/até) quebra em duas linhas e o campo de data encolhe, em vez de empurrar a tela. */
+  .rec-lancamentos .rec-lanc-periodo{display:flex;flex-wrap:wrap;max-width:100%}
+  .rec-lancamentos .rec-lanc-periodo label{flex:1 1 140px;min-width:0}
+  .rec-lancamentos .rec-lanc-periodo .campo{min-width:0;flex:1}
+}

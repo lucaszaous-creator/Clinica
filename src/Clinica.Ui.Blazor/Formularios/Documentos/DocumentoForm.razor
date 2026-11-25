@@ -328,14 +328,17 @@
                 </div>
             }
         }
-    </ChildContent>
-    <Rodape>
+        @* Os AVISOS ficam ACIMA do rodapé, colados nele (nov/2026, responsividade): o rodapé é só para as ações. *@
         <div class="df-rodape-avisos">
             <Aviso Texto="@_mensagem" Tom="@(_mensagemEhErro ? "erro" : "sucesso")" />
             @if (_r?.MotivoSemAssinante is { } motivo && !_carregando)
             {
-                @* Por que o "Emitir" está apagado — ao lado do botão; quem emite se escolhe no topo (parcela 41). *@
-                <div class="df-sem-assinante"><span>@motivo</span></div>
+                @* Por que o "Emitir" está apagado; quem emite se escolhe no topo (parcela 41). Na aba "Dados da emissão" a
+                   mesma frase já está embaixo do campo — não repete. *@
+                if (_aba != AbaDados)
+                {
+                    <div class="df-sem-assinante"><span>@motivo</span></div>
+                }
             }
             else if (_r is not null && _jaEmitido is null && !_carregando && _ultimo is null)
             {
@@ -354,28 +357,46 @@
                 </div>
             }
         </div>
+    </ChildContent>
+    <Rodape>
+        @* HIERARQUIA (nov/2026, pedido do dono): UMA ação primária — "Emitir e assinar" quando quem está logado é o
+           emitente, senão "Emitir e imprimir". No computador as outras ficam ao lado; no celular (≤ 480 px) vão para "Mais". *@
+        @if (_maisAberto)
+        {
+            <div class="df-mais-fundo" @onclick="() => _maisAberto = false"></div>
+            <div class="df-mais-menu" role="menu" aria-label="Mais ações">
+                @foreach (var (rotulo, acao, pode) in AcoesSecundarias)
+                {
+                    <button type="button" role="menuitem" disabled="@(!pode)" @onclick="async () => { _maisAberto = false; await acao(); }">@rotulo</button>
+                }
+            </div>
+        }
         @if (_r is not null)
         {
-            <button type="button" class="botao fantasma esquerda" disabled="@(!PodeEditar)" @onclick="PedirNomeModeloAsync">Salvar como modelo</button>
+            <button type="button" class="botao fantasma esquerda df-secundaria" disabled="@(!PodeEditar)" @onclick="PedirNomeModeloAsync">Salvar como modelo</button>
         }
         <button type="button" class="botao df-fechar" disabled="@_emitindo" @onclick="FecharAsync">Fechar</button>
+        @if (_r is not null && AcoesSecundarias.Count > 0)
+        {
+            <button type="button" class="botao df-mais" aria-haspopup="menu" aria-expanded="@Bool(_maisAberto)" @onclick="() => _maisAberto = !_maisAberto">Mais</button>
+        }
         @if (_ultimo is { } ultimo && _r is not null)
         {
             @* EMITIR VÁRIAS SEGUIDAS (pedido da Dra., nov/2026): a folha não fecha depois de emitir; a próxima sai daqui. *@
-            <button type="button" class="botao" title="Outra folha em branco para o mesmo paciente" @onclick="() => NovaAsync(copiar: false)">@(TipoDocumentoInfo.EhReceita(_r.Tipo) ? "Nova receita" : "Novo documento")</button>
-            <button type="button" class="botao" title="Outra folha para o mesmo paciente, já com o texto da que saiu" @onclick="() => NovaAsync(copiar: true)">Com o mesmo texto</button>
+            <button type="button" class="botao df-secundaria" title="Outra folha em branco para o mesmo paciente" @onclick="() => NovaAsync(copiar: false)">@RotuloNova</button>
+            <button type="button" class="botao df-secundaria" title="Outra folha para o mesmo paciente, já com o texto da que saiu" @onclick="() => NovaAsync(copiar: true)">Com o mesmo texto</button>
             <button type="button" class="botao primario" title="Escolher o próximo paciente sem sair daqui" @onclick="ProximoPaciente">Próximo paciente</button>
         }
         else if (_r is not null)
         {
-            <button type="button" class="botao" disabled="@(!PodePrever)" title="Abre o PDF desta folha sem emitir: sem número e sem valor de documento"
+            <button type="button" class="botao df-secundaria" disabled="@(!PodePrever)" title="Abre o PDF desta folha sem emitir: sem número e sem valor de documento"
                     @onclick="PreverAsync">@(_gerandoPrevia ? "Gerando a prévia…" : "Pré-visualizar")</button>
             @* Assinar na hora (A1 ou SafeID, out/2026): emite, abre o seletor e entrega o PDF ASSINADO.
                Desistir no seletor entrega a via de sempre; a assinatura fica para a central. *@
-            <button type="button" class="botao" disabled="@(!PodeEmitir || !QuemAssinaAgora.LogadoAssina)"
+            <button type="button" class="botao @(AssinarEhPrimaria ? "primario" : "df-secundaria")" disabled="@(!PodeEmitir || !QuemAssinaAgora.LogadoAssina)"
                     title="@(QuemAssinaAgora.LogadoAssina ? "Emite e assina com o seu certificado (A1 ou SafeID)" : QuemAssinaAgora.Frase)"
                     @onclick="() => EmitirAsync(assinar: true)">Emitir e assinar</button>
-            <button type="button" class="botao primario" disabled="@(!PodeEmitir)" @onclick="() => EmitirAsync(assinar: false)">@(_emitindo ? "Emitindo…" : "Emitir e imprimir")</button>
+            <button type="button" class="botao @(AssinarEhPrimaria ? "df-secundaria" : "primario")" disabled="@(!PodeEmitir)" @onclick="() => EmitirAsync(assinar: false)">@(_emitindo ? "Emitindo…" : "Emitir e imprimir")</button>
         }
     </Rodape>
 </Modal>
@@ -659,6 +680,35 @@
 
     /// <summary>A direção (ou quem não tem profissional ligado ao login) troca o emitente; o profissional emite como ele mesmo.</summary>
     private static bool PodeEscolherOutro => EmitenteDoDocumento.PodeEscolherOutro(SessaoUsuario.Atual.Perfil, SessaoUsuario.Atual.ProfissionalId);
+
+    /// <summary>"Emitir e assinar" é a ação primária quando quem está logado é o emitente (e há o que emitir).</summary>
+    private bool AssinarEhPrimaria => QuemAssinaAgora.LogadoAssina;
+
+    private string RotuloNova => _r is not null && TipoDocumentoInfo.EhReceita(_r.Tipo) ? "Nova receita" : "Novo documento";
+
+    /// <summary>O menu "Mais" do celular: as ações que não são a primária, na ordem do rodapé do computador.</summary>
+    private bool _maisAberto;
+
+    private IReadOnlyList<(string Rotulo, Func<Task> Acao, bool Pode)> AcoesSecundarias
+    {
+        get
+        {
+            if (_r is null) return [];
+            var lista = new List<(string, Func<Task>, bool)>();
+            if (_ultimo is not null)
+            {
+                lista.Add((RotuloNova, () => NovaAsync(copiar: false), true));
+                lista.Add(("Com o mesmo texto", () => NovaAsync(copiar: true), true));
+            }
+            else
+            {
+                lista.Add((_gerandoPrevia ? "Gerando a prévia…" : "Pré-visualizar", PreverAsync, PodePrever));
+                if (AssinarEhPrimaria) lista.Add(("Emitir e imprimir (sem assinar)", () => EmitirAsync(assinar: false), PodeEmitir));
+            }
+            lista.Add(("Salvar como modelo", PedirNomeModeloAsync, PodeEditar));
+            return lista;
+        }
+    }
 
     private AssinaturaDoEmitente QuemAssinaAgora => EmitenteDoDocumento.Assinante(_r?.Profissional, SessaoUsuario.Atual.ProfissionalId);
 

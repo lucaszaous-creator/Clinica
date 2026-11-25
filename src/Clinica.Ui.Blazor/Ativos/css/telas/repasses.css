@@ -90,3 +90,6 @@ table.lista tr.repasse-bloqueado td{color:var(--texto-secundario)}
   .repasse-rel-barra .botoes-linha{width:100%}
   .repasse-rel-barra .botoes-linha .botao{flex:1}
 }
+
+/* Celular: o corpo do Modal tem 16 px de respiro (clinica.css), e a tabela sangra só isso. */
+@media (max-width:480px){.modal .repasse-tabela-form{margin:0 calc(-1 * var(--space-4))}}
