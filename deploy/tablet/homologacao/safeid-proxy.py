@@ -6,10 +6,27 @@ a porta vem do primeiro argumento, para a produção não depender de editar o a
 """
 import asyncio
 import ipaddress
+import os
+import re
 import socket
 import sys
 
-HOSTS = {'pscsafeweb.safewebpss.com.br', 'pscsafeweb-homologacao.safewebpss.com.br'}
+SAFEWEB = {'pscsafeweb.safewebpss.com.br', 'pscsafeweb-homologacao.safewebpss.com.br'}
+
+
+def hosts_extras(valor):
+    """Hosts a mais (nov/2026: o armazenamento da PUBLICAÇÃO do documento assinado, ex. o R2). Lista fechada,
+    vinda da unit (Environment=PROXY_HOSTS_EXTRAS=a.exemplo,b.exemplo): só nomes DNS completos, sem porta, sem
+    curinga, sem IP. Valor inválido derruba a partida — melhor parar do que abrir um túnel para o lugar errado."""
+    extras = set()
+    for nome in filter(None, (h.strip().lower() for h in (valor or '').split(','))):
+        if not re.fullmatch(r'(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}', nome):
+            raise ValueError('PROXY_HOSTS_EXTRAS: host inválido: ' + nome)
+        extras.add(nome)
+    return extras
+
+
+HOSTS = SAFEWEB | hosts_extras(os.environ.get('PROXY_HOSTS_EXTRAS'))
 PORT = 18743
 conexoes = set()
 

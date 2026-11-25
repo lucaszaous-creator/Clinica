@@ -2289,6 +2289,13 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
                         && d.PublicadoAte < hoje)
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<DocumentoClinico>> DocumentosAssinadosSemPublicacaoAsync(int limite = 20, CancellationToken ct = default)
+        => await _db.DocumentosClinicos
+            .Where(d => d.AssinadoEm != null && d.TokenPublicacao != null && d.PublicadoEm == null && d.CanceladoEm == null
+                        && d.ArquivoAssinadoId != null && PublicacaoDocumento.Publicaveis.Contains(d.Tipo))
+            .OrderBy(d => d.Id).Take(Math.Clamp(limite, 1, 200))
+            .ToListAsync(ct);
+
     public async Task<IReadOnlyList<DocumentoClinico>> DocumentosParaAssinarAsync(int profissionalId, int limite = 200, CancellationToken ct = default)
         => await _db.DocumentosClinicos.AsNoTracking().Include(d => d.Paciente)
             .Where(Clinica.Domain.Regras.DocumentosParaAssinar.Do(profissionalId))

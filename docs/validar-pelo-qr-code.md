@@ -85,3 +85,29 @@ DUAS assinaturas (a prescrição de infusão) — que é documento **interno** (
 atualização incremental. Declarar DocMDP exige mexer em como o PDFsharp escreve a 1ª
 assinatura — área congelada (`docs/safeid-congelado.md`); fica registrado como decisão
 futura, com autorização expressa.
+
+## Nov/2026 — o portal assinava SEM publicar
+
+A receita 2026/0484 (SafeID pelo portal) foi recusada na farmácia: o "Ler QR Code" pedia um código e nada servia.
+
+**Causa:** o portal (`Clinica.Assinaturas.Api`) não registrava a `PublicacaoDocumentoService`. O
+`AssinaturaDeDocumentoClinicoService` a recebia NULA:
+- sem token antes do PDF, o QR apontava para o validador genérico;
+- nada subia para o armazenamento.
+
+**Correção:**
+- O portal registra a publicação e o armazenamento.
+- A fila `PublicacaoPendenteDoPortal` (a cada 2 min) sobe os assinados COM token e não publicados. É idempotente.
+- O proxy de saída do portal (`clinica-safeid`) aceita o host do armazenamento por `PROXY_HOSTS_EXTRAS`.
+
+**Instalação do proxy (root, uma vez):**
+```bash
+sudo install -m 0644 safeid-proxy.py /opt/clinica-safeid-proxy/safeid-proxy.py   # deploy/tablet/homologacao/safeid-proxy.py da main
+sudo mkdir -p /etc/systemd/system/clinica-safeid.service.d
+printf '[Service]\nEnvironment=PROXY_HOSTS_EXTRAS=<conta>.r2.cloudflarestorage.com\n' | sudo tee /etc/systemd/system/clinica-safeid.service.d/publicacao.conf
+sudo systemctl daemon-reload && sudo systemctl restart clinica-safeid
+```
+
+**O que já foi assinado sem token** (9 em 24/11, entre eles 0484 e 0481) **não se conserta publicando**: o QR foi
+selado apontando para o validador. Para esses, emite-se uma nova versão e se assina de novo.
+

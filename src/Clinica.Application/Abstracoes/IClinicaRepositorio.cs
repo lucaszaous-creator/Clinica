@@ -1103,6 +1103,13 @@ public interface IClinicaRepositorio
     Task<ArquivoAssinado?> ObterArquivoAssinadoAsync(
         int arquivoId, CancellationToken ct = default);
 
+    /// <summary>
+    /// Os documentos ASSINADOS, com token (o QR já aponta para o arquivo) e ainda NÃO publicados — a fila que a
+    /// publicação pendente esvazia (nov/2026: o portal assinava sem publicar). RASTREADOS: a publicação grava
+    /// <c>PublicadoEm</c> neles. Do mais antigo ao mais novo, até <paramref name="limite"/>.
+    /// </summary>
+    Task<IReadOnlyList<DocumentoClinico>> DocumentosAssinadosSemPublicacaoAsync(int limite = 20, CancellationToken ct = default);
+
     /// <summary>Guarda o PDF assinado. Não persiste — chame <c>SalvarAsync</c>.</summary>
     Task AdicionarArquivoAssinadoAsync(
         ArquivoAssinado arquivo, CancellationToken ct = default);
