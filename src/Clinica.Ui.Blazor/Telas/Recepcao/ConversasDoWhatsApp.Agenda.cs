@@ -73,7 +73,8 @@ public partial class ConversasDoWhatsApp
     private void PedirAgendaSePreciso(ConversaDoWhatsApp a)
     {
         var chave = a.Conversa?.Id ?? "caso-" + a.Caso?.Id;
-        if (a.Paciente is null || _agendaPedidaPara == chave) return;
+        // Sem ficha também: as vagas e o "Enviar estes horários" servem a quem chega pelo anúncio (reserva sem ficha, nov/2026).
+        if (_agendaPedidaPara == chave) return;
         _agendaPedidaPara = chave;
         _ = InvokeAsync(CarregarAgendaAsync);
     }

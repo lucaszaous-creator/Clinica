@@ -854,6 +854,9 @@ button.wa-citacao:focus-visible{outline:2px solid var(--wa-acao);outline-offset:
   font-variant-numeric:tabular-nums;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.15;cursor:pointer;padding:4px}
 .wa-ag-slot small{font-size:11px;font-weight:500;color:var(--wa-cinza);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wa-ag-slot:hover:not(:disabled){background:var(--wa-acao-suave)}
+/* Sem ficha (até a reserva): as vagas aparecem para enviar, mas não marcam — nada de seta nem cor de botão. */
+.wa-ag-vaga:disabled{cursor:default}.wa-ag-vaga:disabled .icone{visibility:hidden}
+.wa-ag-slot:disabled{color:var(--wa-cinza);border-color:var(--wa-linha);cursor:default}
 @media (max-width:760px){
   .pagina.wa .wa-ficha{width:100%;border-left:0}
   .wa-botao-agenda-rotulo{display:none}
