@@ -439,6 +439,7 @@ fica como histórico (situação), não some.
 | Fora da base de pacientes | A reserva não é `Paciente`: não entra na busca de pacientes, nas listas, no BI, nos relatórios, no faturamento nem nas guias. Ela só ocupa o horário. |
 | Trilha | `Auditoria` registra quem criou, remarcou, desmarcou, marcou a falta, converteu e **consultou** (as reservas do telefone). A trilha guarda o número da reserva, o horário e quem atende, **sem o nome nem o telefone** da pessoa. |
 | Finalidade única | Os dados servem para segurar o horário, lembrar e cadastrar no balcão ("Virar paciente"). O que entra na ficha depois é cadastro normal, com o consentimento de sempre. |
+| Lembrete | O lembrete da véspera (decisão do dono) usa o telefone que a pessoa usou para pedir o horário, com o mesmo modelo dos agendamentos e o PARAR de sempre. A reserva guarda só quando saiu e a resposta (confirmou, pediu cancelar ou remarcar). |
 | Acesso | Pelas mesmas permissões da agenda (apps) e pela ponte do CRM, com papel restrito no Postgres (INSERT/UPDATE em `ReservasDeHorario`, nada de DELETE). |
 
 **Base legal proposta (A VALIDAR pelo dono com o jurídico, ainda não validada):** art. 7º, V da LGPD (procedimentos

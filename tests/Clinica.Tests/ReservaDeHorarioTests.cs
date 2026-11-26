@@ -177,6 +177,46 @@ public sealed class ReservaDeHorarioTests : IDisposable
         (await _db.Pacientes.CountAsync()).Should().Be(1, "com ficha existente nenhuma ficha nova nasce");
     }
 
+    // Lembrete da véspera na reserva (decisão do dono, nov/2026): a resposta passa ao agendamento quando vira paciente,
+    // e remarcar esquece o lembrete do horário antigo.
+    [Fact]
+    public async Task A_resposta_ao_lembrete_da_reserva_passa_ao_agendamento_e_remarcar_a_esquece()
+    {
+        var r = await _reservas.ReservarAsync(Nova(), "rayssa");
+        var antes = await _db.ReservasDeHorario.SingleAsync();
+        antes.LembreteEnviadoEm = Agora.AddHours(-2); antes.RespostaDoLembrete = ReservaDeHorario.RespostasDoLembrete.Confirmou; antes.RespondidaEm = Agora.AddHours(-1);
+        await _db.SaveChangesAsync();
+
+        await _reservas.RemarcarAsync(r.Id, Amanha10.AddHours(1), "ana");
+        var remarcada = await _db.ReservasDeHorario.AsNoTracking().SingleAsync();
+        (remarcada.LembreteEnviadoEm, remarcada.RespostaDoLembrete, remarcada.RespondidaEm).Should().Be((null, null, null), "outro horário, outro lembrete");
+
+        var tracked = await _db.ReservasDeHorario.SingleAsync();
+        tracked.LembreteEnviadoEm = Agora.AddHours(-2); tracked.RespostaDoLembrete = ReservaDeHorario.RespostasDoLembrete.Confirmou; tracked.RespondidaEm = Agora.AddHours(-1);
+        await _db.SaveChangesAsync();
+        var existente = await PacienteAsync();
+        var ag = await _reservas.VirarPacienteAsync(r.Id, new ComoVirarPaciente(existente.Id, null), "rayssa");
+
+        var contato = await _db.Contatos.AsNoTracking().SingleAsync();
+        contato.AgendamentoId.Should().Be(ag.Id);
+        contato.Tipo.Should().Be(TipoContato.ConfirmacaoSessao);
+        contato.Status.Should().Be(StatusContato.Respondido);
+        contato.EnviadoPor.Should().Be(RodadaDeConfirmacao.LembreteAutomatico);
+        RodadaDeConfirmacao.Classificar(contato.Status, contato.EnviadoEm, contato.Comentario).Should().Be(SituacaoConfirmacao.Confirmou,
+            "o balcão lê \"Confirmou\", não \"sem resposta\"");
+    }
+
+    [Fact]
+    public void Sem_lembrete_nao_ha_contato_e_so_enviado_fica_como_avisado()
+    {
+        var ag = new Agendamento { Id = 9, PacienteId = 3, DataHora = Amanha10 };
+        ReservaDeHorarioRegras.ContatoDoLembrete(new ReservaDeHorario(), ag, Agora).Should().BeNull();
+        var avisado = ReservaDeHorarioRegras.ContatoDoLembrete(new ReservaDeHorario { LembreteEnviadoEm = Agora }, ag, Agora)!;
+        (avisado.Status, avisado.Comentario, avisado.Origem).Should().Be((StatusContato.Enviado, null, "AGD:9"));
+        ReservaDeHorarioRegras.ContatoDoLembrete(new ReservaDeHorario { LembreteEnviadoEm = Agora, RespondidaEm = Agora,
+            RespostaDoLembrete = ReservaDeHorario.RespostasDoLembrete.PediuRemarcar }, ag, Agora)!.Comentario.Should().Be(RodadaDeConfirmacao.RespostaRemarcar);
+    }
+
     [Fact]
     public async Task A_trilha_registra_quem_criou_viu_e_alterou_sem_o_nome_nem_o_telefone()
     {

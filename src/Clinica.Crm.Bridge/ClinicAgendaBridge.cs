@@ -31,6 +31,9 @@ public sealed class ClinicAgendaBridge(ClinicaDbContext db,AgendaService agenda,
         var appointments=await db.Agendamentos.AsNoTracking().Include(a=>a.Paciente).Include(a=>a.Profissional).Where(a=>a.DataHora>=now.AddDays(-1)&&a.DataHora<until).OrderBy(a=>a.DataHora).Take(5000).ToListAsync(ct);
         var ids=appointments.Select(a=>a.Id).ToArray();
         var contacts=await db.Contatos.AsNoTracking().Where(c=>c.Tipo==TipoContato.ConfirmacaoSessao&&c.AgendamentoId!=null&&ids.Contains(c.AgendamentoId.Value)).ToListAsync(ct);
+        // As reservas sem ficha abertas, para o lembrete da véspera (decisão do dono, nov/2026) — ver ReservationsOf.
+        var reservas=await db.ReservasDeHorario.AsNoTracking().Include(r=>r.Profissional)
+            .Where(r=>r.Situacao==SituacaoDaReserva.Reservada&&r.DataHora>=now&&r.DataHora<until).OrderBy(r=>r.DataHora).Take(2000).ToListAsync(ct);
         return new(DateTimeOffset.UtcNow,catalog,appointments.Select(a=>{
             var code=a.EspecialidadeConsultaCodigo??a.EspecialidadeConsulta?.ToString()??"";
             var contact=contacts.FirstOrDefault(c=>c.AgendamentoId==a.Id);
@@ -39,8 +42,23 @@ public sealed class ClinicAgendaBridge(ClinicaDbContext db,AgendaService agenda,
             // o CRM avisa a recepção de quem confirmou e de quem não vem.
             var answer=AnswerOf(contact);
             return new ClinicAppointment(a.Id,a.PacienteId,a.Paciente?.Nome??"Paciente",Phone(a.Paciente?.Telefone),new DateTimeOffset(DateTime.SpecifyKind(a.DataHora,DateTimeKind.Unspecified),Zone.GetUtcOffset(a.DataHora)),code,catalog.FirstOrDefault(s=>s.Code==code)?.Name??code,a.Profissional?.Nome??"",a.Status==StatusAgendamento.Agendado?"scheduled":a.Status.ToString(),Revision(a),confirmation,answer,At(contact?.RespondidoEm),At(contact?.EnviadoEm),At(a.CriadoEm));
-        }).ToArray());
+        }).ToArray(),reservas.Select(r=>ReservationOf(r,catalog)).ToArray());
     }
+    /// <summary>
+    /// A reserva no formato do lembrete: Id NEGATIVO (é assim que a decisão volta para a reserva, e não para um
+    /// agendamento), sem ficha (PatientId 0) e com a revisão própria — que só muda com o horário, o telefone ou a
+    /// situação, nunca com a resposta do paciente.
+    /// </summary>
+    public static ClinicAppointment ReservationOf(ReservaDeHorario r,Specialty[] catalog)
+    {
+        var code=r.EspecialidadeConsultaCodigo??r.ModalidadeCodigo;
+        var confirmation=r.RespostaDoLembrete is not null?"responded":r.LembreteEnviadoEm is not null?"notified":"pending";
+        var answer=r.RespostaDoLembrete switch{ReservaDeHorario.RespostasDoLembrete.Confirmou=>"confirmed",null=>"",_=>"not-coming"};
+        return new(-r.Id,0,r.Nome,r.Telefone,Offset(r.DataHora),code,catalog.FirstOrDefault(s=>s.Code==code)?.Name??ReservaDeHorarioRegras.Atendimento(r),
+            r.Profissional?.Nome??"","scheduled",ReservationRevision(r),confirmation,answer,At(r.RespondidaEm),At(r.LembreteEnviadoEm),At(r.CriadaEm));
+    }
+    public static string ReservationRevision(ReservaDeHorario r)=>Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new{Reserva=r.Id,r.DataHora,r.DuracaoMinutos,r.ProfissionalId,r.SalaId,r.Situacao,Phone=Phone(r.Telefone)}))));
+    static DateTimeOffset Offset(DateTime local)=>new(DateTime.SpecifyKind(local,DateTimeKind.Unspecified),Zone.GetUtcOffset(local));
     public static string AnswerOf(ContatoCampanha? c) => c is null ? "" : RodadaDeConfirmacao.Classificar(c.Status, c.EnviadoEm, c.Comentario) switch
     {
         SituacaoConfirmacao.Confirmou => "confirmed",
@@ -51,14 +69,15 @@ public sealed class ClinicAgendaBridge(ClinicaDbContext db,AgendaService agenda,
     public Task<ClinicDecisionResult> Decide(ClinicDecision input, CancellationToken ct) => TransacaoDaPonte.Executar(db, () => DecideCore(input, ct), ct);
     async Task<ClinicDecisionResult> DecideCore(ClinicDecision input, CancellationToken ct)
     {
-        if(!Guid.TryParseExact(input.CommandId,"N",out _)||input.AppointmentId<=0||input.Decision is not("confirm" or "cancel" or "reschedule" or "notified")||string.IsNullOrWhiteSpace(input.MessageId)||input.MessageId.Length>300||(input.Note?.Length??0)>300||input.Phone is null||input.Phone.Length is <10 or >15||input.Revision is null||input.Revision.Length!=64)
+        if(!Guid.TryParseExact(input.CommandId,"N",out _)||input.AppointmentId==0||input.Decision is not("confirm" or "cancel" or "reschedule" or "notified")||string.IsNullOrWhiteSpace(input.MessageId)||input.MessageId.Length>300||(input.Note?.Length??0)>300||input.Phone is null||input.Phone.Length is <10 or >15||input.Revision is null||input.Revision.Length!=64)
             throw new InvalidOperationException("Comando inválido.");
         var prefix="CRM:"+input.CommandId+":";
         var hash=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(input))));
         var marker=prefix+hash;
         await using var tx=await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable,ct);
-        var prior=await db.Auditoria.AsNoTracking().FirstOrDefaultAsync(a=>(a.Acao=="CrmConfirmacao"||a.Acao=="CrmCancelamento"||a.Acao=="CrmLembrete"||a.Acao=="CrmPedidoRemarcar")&&a.Detalhe!=null&&a.Detalhe.StartsWith(prefix),ct);
+        var prior=await db.Auditoria.AsNoTracking().FirstOrDefaultAsync(a=>(a.Acao=="CrmConfirmacao"||a.Acao=="CrmCancelamento"||a.Acao=="CrmLembrete"||a.Acao=="CrmPedidoRemarcar"||a.Acao==AcaoDaReserva)&&a.Detalhe!=null&&a.Detalhe.StartsWith(prefix),ct);
         if(prior is not null){if(prior.Detalhe!=marker)throw new InvalidOperationException("Comando já utilizado.");return Result(input.Decision,prior.Acao=="CrmCancelamento"&&options?.CancelEnabled==true);}
+        if(input.AppointmentId<0){await DecideReservation(input,marker,ct);await tx.CommitAsync(ct);return Result(input.Decision,false);}
         var ap=await db.Agendamentos.Include(a=>a.Paciente).SingleOrDefaultAsync(a=>a.Id==input.AppointmentId,ct)??throw new InvalidOperationException("Horário não encontrado.");
         if(ap.Status!=StatusAgendamento.Agendado||ap.DataHora<=Now()||ap.ChegadaEm is not null||ap.InicioAtendimentoEm is not null||ap.AtendimentoId is not null||Revision(ap)!=input.Revision||Phone(ap.Paciente?.Telefone)!=input.Phone)
             throw new InvalidOperationException("Horário ou contato alterado.");
@@ -89,6 +108,27 @@ public sealed class ClinicAgendaBridge(ClinicaDbContext db,AgendaService agenda,
         // paciente escolhe pelo WhatsApp. Na mesma transação — o pedido existe se, e só se, a resposta foi gravada.
         if(input.Decision=="reschedule")await RemarcacaoPeloPacienteService.RegistrarPedidoAsync(db,ap,input.Phone,Now(),ct,input.Note);
         await tx.CommitAsync(ct);return Result(input.Decision,cancel);
+    }
+    public const string AcaoDaReserva="CrmLembreteReserva";
+    /// <summary>
+    /// A resposta ao lembrete de uma RESERVA sem ficha (nov/2026): fica na própria reserva, com o mesmo vocabulário
+    /// do agendamento. Nada é cancelado sozinho: "cancelar" e "remarcar" viram pedido, que a recepção vê no sino e na
+    /// grade. Sem ficha não há Contato nem pedido de remarcação da clínica (eles pedem paciente); quando a reserva vira
+    /// paciente, a resposta passa para o agendamento (ReservaDeHorarioRegras.ContatoDoLembrete).
+    /// </summary>
+    async Task DecideReservation(ClinicDecision input,string marker,CancellationToken ct)
+    {
+        var r=await db.ReservasDeHorario.SingleOrDefaultAsync(x=>x.Id==-input.AppointmentId,ct)??throw new InvalidOperationException("Reserva não encontrada.");
+        if(r.Situacao!=SituacaoDaReserva.Reservada||r.DataHora<=Now()||ReservationRevision(r)!=input.Revision||Phone(r.Telefone)!=input.Phone)
+            throw new InvalidOperationException("Reserva ou contato alterado.");
+        if(input.Decision=="notified")r.LembreteEnviadoEm??=Now();
+        else{
+            r.LembreteEnviadoEm??=Now();r.RespondidaEm=Now();
+            r.RespostaDoLembrete=input.Decision switch{"confirm"=>ReservaDeHorario.RespostasDoLembrete.Confirmou,
+                "cancel"=>ReservaDeHorario.RespostasDoLembrete.PediuCancelar,_=>ReservaDeHorario.RespostasDoLembrete.PediuRemarcar};
+        }
+        db.Auditoria.Add(new(){Acao=AcaoDaReserva,Operador=input.Decision=="notified"?RodadaDeConfirmacao.LembreteAutomatico:"CRM · resposta do paciente",Detalhe=marker,DataHora=Now()});
+        await db.SaveChangesAsync(ct);
     }
     static ClinicDecisionResult Result(string decision,bool cancelled)=>decision switch{
         "notified"=>new("notified","Lembrete registrado na clínica"),

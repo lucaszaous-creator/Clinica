@@ -4,7 +4,9 @@ public sealed record Specialty(string Code, string Name, bool Active = true);
 public sealed record ClinicAppointment(int Id, int PatientId, string Name, string Phone, DateTimeOffset StartsAt,
     string SpecialtyCode, string SpecialtyName, string Professional, string Status, string Revision, string Confirmation,
     string Answer = "", DateTimeOffset? AnsweredAt = null, DateTimeOffset? NotifiedAt = null, DateTimeOffset? CreatedAt = null);
-public sealed record ClinicSnapshot(DateTimeOffset SyncedAt, Specialty[] Specialties, ClinicAppointment[] Appointments);
+// Reservations (nov/2026, reserva sem ficha): as reservas abertas, SÓ para o lembrete da véspera e o sino — Id NEGATIVO
+// (-id da reserva), PatientId 0. Ficam fora de Appointments para não entrarem na ficha, no contexto nem na agenda do CRM.
+public sealed record ClinicSnapshot(DateTimeOffset SyncedAt, Specialty[] Specialties, ClinicAppointment[] Appointments, ClinicAppointment[]? Reservations = null);
 // Note (out/2026, @SemDor fase 2): no "reschedule" que veio de TEXTO LIVRE, a preferência que a IA
 // leu ("sexta à tarde"); vai para o pedido à recepção. Nulo no toque do botão.
 public sealed record ClinicDecision(string CommandId, int AppointmentId, string Revision, string Phone, string Decision, string MessageId, string? Note = null);
