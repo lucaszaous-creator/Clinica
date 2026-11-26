@@ -735,6 +735,9 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.AlteradaEm).HasColumnType("timestamp without time zone");
             e.Property(x => x.AlteradaPor).HasMaxLength(80);
             e.Property(x => x.Versao).IsConcurrencyToken();
+            e.Property(x => x.LembreteEnviadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.RespostaDoLembrete).HasMaxLength(20);
+            e.Property(x => x.RespondidaEm).HasColumnType("timestamp without time zone");
             e.Ignore(x => x.Fim);
             e.Ignore(x => x.OcupaAgenda);
 

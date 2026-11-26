@@ -61,6 +61,23 @@ public class ReservaDeHorario
     public int? AgendamentoId { get; set; }
     public int? PacienteId { get; set; }
 
+    /// <summary>
+    /// O lembrete da véspera (decisão do dono, nov/2026: a reserva recebe o MESMO pedido de confirmação dos agendamentos,
+    /// pelo número da conversa). Quando saiu, o que a pessoa respondeu (<see cref="RespostasDoLembrete"/>) e quando.
+    /// Não mexem na <see cref="Versao"/>: a resposta do paciente não invalida o que a recepção está vendo.
+    /// </summary>
+    public DateTime? LembreteEnviadoEm { get; set; }
+    public string? RespostaDoLembrete { get; set; }
+    public DateTime? RespondidaEm { get; set; }
+
+    /// <summary>As respostas ao lembrete: os três botões do modelo (Confirmar, Cancelar, Remarcar).</summary>
+    public static class RespostasDoLembrete
+    {
+        public const string Confirmou = "confirmou";
+        public const string PediuCancelar = "pediu-cancelar";
+        public const string PediuRemarcar = "pediu-remarcar";
+    }
+
     public DateTime CriadaEm { get; set; }
     public string CriadaPor { get; set; } = string.Empty;
     public DateTime? AlteradaEm { get; set; }

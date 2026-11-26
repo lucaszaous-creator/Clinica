@@ -147,6 +147,38 @@ public sealed class PonteClinicBookingTests : IDisposable
         Assert.Single(await reservas.List(new ClinicReservationQuery(semFicha), default)); // fica como histórico
     }
 
+    // Lembrete da véspera na reserva sem ficha (decisão do dono, nov/2026): vai no snapshot à parte (Id negativo, sem
+    // ficha), a resposta fica na reserva, repetir o comando não duplica e a reserva remarcada recusa a revisão velha.
+    [Fact] public async Task Reserva_sem_ficha_recebe_o_lembrete_e_a_resposta_fica_na_reserva()
+    {
+        var reservas = new ClinicReservationBridge(db);
+        var agendaPonte = new ClinicAgendaBridge(db, new AgendaService(new ClinicaRepositorio(db), new AtendimentoService(new ClinicaRepositorio(db))));
+        const string semFicha = "5511977770000";
+        var livre = (await bridge.Slots(Query() with { Phone = semFicha, PatientId = 0 }, default)).Slots[0];
+        var r = await reservas.Create(new ClinicReservationRequest(semFicha, "Visitante Fictícia", medico.Id, null, "AcupunturaSimples", null, 30,
+            livre, false, "Unimed", "Ana", "conversa-x"), default);
+
+        var snap = await agendaPonte.Snapshot(default);
+        Assert.DoesNotContain(snap.Appointments, a => a.Phone == semFicha); // fora da agenda, da ficha e do contexto do CRM
+        var ap = Assert.Single(snap.Reservations!);
+        Assert.Equal((-r.Id, 0, semFicha, "scheduled", "pending"), (ap.Id, ap.PatientId, ap.Phone, ap.Status, ap.Confirmation));
+
+        ClinicDecision Cmd(string d) => new(Guid.NewGuid().ToString("N"), ap.Id, ap.Revision, semFicha, d, "msg-" + d);
+        Assert.Equal("notified", (await agendaPonte.Decide(Cmd("notified"), default)).Status);
+        var confirma = Cmd("confirm");
+        Assert.Equal("confirmed", (await agendaPonte.Decide(confirma, default)).Status);
+        Assert.Equal("confirmed", (await agendaPonte.Decide(confirma, default)).Status); // resposta perdida: o mesmo comando
+        Assert.Single(db.Auditoria.Where(e => e.Acao == ClinicAgendaBridge.AcaoDaReserva && e.Detalhe!.Contains(confirma.CommandId)));
+        var depois = Assert.Single((await agendaPonte.Snapshot(default)).Reservations!);
+        Assert.Equal(("responded", "confirmed", ap.Revision), (depois.Confirmation, depois.Answer, depois.Revision));
+        Assert.Equal(r.Revision, (await reservas.List(new(semFicha), default)).Single().Revision); // a recepção não precisa reler
+        Assert.Equal(0, await db.Pacientes.CountAsync(p => p.Telefone == semFicha));
+
+        await reservas.Reschedule(new ClinicReservationReschedule(r.Id, semFicha, r.Revision, livre.AddMinutes(60), "Ana"), default);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => agendaPonte.Decide(Cmd("cancel"), default)); // revisão do horário antigo
+        Assert.Equal("pending", Assert.Single((await agendaPonte.Snapshot(default)).Reservations!).Confirmation);
+    }
+
     [Fact] public async Task Agenda_esconde_o_nome_e_o_id_dos_outros_pacientes()
     {
         db.Agendamentos.Add(new() { PacienteId = paciente.Id, ProfissionalId = medico.Id, DataHora = dia.ToDateTime(new(9, 0)) });

@@ -20,8 +20,8 @@ public sealed record ComoVirarPaciente(int? PacienteExistenteId, Paciente? Novo)
 public static class ReservaDeHorarioRegras
 {
     /// <summary>
-    /// Quantas reservas ABERTAS (futuras, reservadas) um telefone pode ter ao mesmo tempo. Sugestão do Design SemDor (2),
-    /// pendente da decisão do dono — mude só aqui.
+    /// Quantas reservas ABERTAS (futuras, reservadas) um telefone pode ter ao mesmo tempo: 2, decisão do dono (nov/2026).
+    /// Mude só aqui.
     /// </summary>
     public const int LimiteAbertasPorTelefone = 2;
 
@@ -60,6 +60,39 @@ public static class ReservaDeHorarioRegras
     public static bool RecusaReserva(ConflitoAgenda c)
         => c.ImpedeMarcar || c.Recurso is RecursoAgenda.Profissional or RecursoAgenda.Sala
             or RecursoAgenda.Reserva or RecursoAgenda.Bloqueio;
+
+    /// <summary>
+    /// O lembrete da véspera que a RESERVA recebeu, passado ao agendamento quando ela vira paciente (a mesma linha de
+    /// confirmação que o lembrete do agendamento grava, com o mesmo vocabulário). Sem isso, a pessoa que já confirmou
+    /// pela reserva receberia um segundo pedido, e a agenda do balcão mostraria "sem resposta". Nulo quando o lembrete
+    /// não saiu.
+    /// </summary>
+    public static ContatoCampanha? ContatoDoLembrete(ReservaDeHorario r, Agendamento ag, DateTime agora)
+    {
+        if (r.LembreteEnviadoEm is null && r.RespostaDoLembrete is null) return null;
+        var comentario = r.RespostaDoLembrete switch
+        {
+            ReservaDeHorario.RespostasDoLembrete.Confirmou => RodadaDeConfirmacao.RespostaConfirmouPeloWhatsApp,
+            ReservaDeHorario.RespostasDoLembrete.PediuCancelar => RodadaDeConfirmacao.RespostaCancelar,
+            ReservaDeHorario.RespostasDoLembrete.PediuRemarcar => RodadaDeConfirmacao.RespostaRemarcar,
+            _ => null
+        };
+        return new ContatoCampanha
+        {
+            PacienteId = ag.PacienteId, AgendamentoId = ag.Id, Tipo = TipoContato.ConfirmacaoSessao,
+            Origem = ContatoCampanha.OrigemDeAgendamento(ag.Id), Referencia = DateOnly.FromDateTime(ag.DataHora),
+            Canal = CanalContato.WhatsApp, CriadoEm = agora,
+            Status = comentario is null ? StatusContato.Enviado : StatusContato.Respondido,
+            EnviadoEm = r.LembreteEnviadoEm ?? r.RespondidaEm, EnviadoPor = RodadaDeConfirmacao.LembreteAutomatico,
+            RespondidoEm = comentario is null ? null : r.RespondidaEm, Comentario = comentario
+        };
+    }
+
+    /// <summary>Remarcada, a reserva é outro horário: o lembrete e a resposta do horário antigo não valem mais.</summary>
+    public static void EsquecerLembrete(ReservaDeHorario r)
+    {
+        r.LembreteEnviadoEm = null; r.RespostaDoLembrete = null; r.RespondidaEm = null;
+    }
 
     /// <summary>O motivo vale? (só os três combinados com a tela).</summary>
     public static bool MotivoValido(string? motivo) => motivo is not null && ReservaDeHorario.MotivosDeDesmarcar.Contains(motivo);

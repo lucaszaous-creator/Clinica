@@ -24,8 +24,8 @@ uma nem pedir CPF pelo WhatsApp (LGPD). Até aqui a aba Agenda da conversa trava
      reserva ou use 'Virar paciente'".
    - Selo: "Reserva via WhatsApp — sem ficha" (detalhe e agenda) e "Reserva · sem ficha" (bloco da grade, cartão da
      conversa).
-   - Limite de reservas abertas por telefone: `ReservaDeHorarioRegras.LimiteAbertasPorTelefone` = 2. A decisão do
-     dono está pendente, e o valor muda só ali.
+   - Limite de reservas abertas por telefone: `ReservaDeHorarioRegras.LimiteAbertasPorTelefone` = 2 (decisão do dono),
+     conferido no servidor.
 3. **Nada de ficha.** A reserva não cria `Paciente` nem `Agendamento`. Fica fora da busca de pacientes, do BI, dos
    relatórios, do faturamento e das guias.
 4. **Virar paciente** (balcão).
@@ -41,7 +41,18 @@ uma nem pedir CPF pelo WhatsApp (LGPD). Até aqui a aba Agenda da conversa trava
    - Motivos: "A pessoa pediu", "Não respondeu", "A clínica precisou".
    - Remarcar mantém a mesma reserva.
    - Nada sai sozinho: a mensagem pronta fica com a recepção (`RascunhosDaConversa`, do Design).
-6. **Os dados não se apagam.** Desmarcada, não comparecida ou convertida, a linha fica com a situação. A base legal e
+6. **Lembrete da véspera** (decisão do dono, nov/2026). A reserva recebe o MESMO pedido de confirmação dos
+   agendamentos, com o mesmo modelo, pelo número da conversa.
+   - A ponte manda as reservas abertas em `ClinicSnapshot.Reservations` (campo novo no fim), com Id **negativo** e sem
+     ficha. Ficam fora de `Appointments`, então não entram na ficha, no contexto nem na agenda do CRM.
+   - A resposta volta pela mesma `/crm/decision` (Id negativo) e fica na reserva: `LembreteEnviadoEm`,
+     `RespostaDoLembrete` (confirmou, pediu-cancelar, pediu-remarcar) e `RespondidaEm`.
+   - Nada é cancelado sozinho: cancelar e remarcar viram pedido, que aparece no sino do CRM.
+   - A resposta não muda a revisão que a recepção tem na mão. Remarcar a reserva esquece o lembrete do horário antigo.
+   - Ao **virar paciente**, a resposta passa ao agendamento como a linha de confirmação de sempre
+     (`ReservaDeHorarioRegras.ContatoDoLembrete`): o balcão lê "Confirmou" e o CRM não pede de novo.
+   - A mensagem "agendamento feito" não sai para a reserva: só o lembrete foi decidido.
+7. **Os dados não se apagam.** Desmarcada, não comparecida ou convertida, a linha fica com a situação. A base legal e
    as mitigações estão em `docs/conformidade-lgpd.md`, **pendentes de validação jurídica**.
 
 ## Onde mora
@@ -76,8 +87,6 @@ uma nem pedir CPF pelo WhatsApp (LGPD). Até aqui a aba Agenda da conversa trava
 
 - **Telas** (aba Agenda nos apps, grade da Recepção, "Virar paciente", aba do CRM web): ficam com o Design SemDor e com
   o CRM web, que dependem da aprovação do dono à proposta.
-- **Lembrete da véspera para a reserva**: depende de decisão do dono (pergunta na proposta do Design). Até lá, nada sai
-  sozinho para a reserva.
 - **Eliminação a pedido do titular** (art. 18, VI): não há porta; está na lista de pendências da LGPD.
 
 ## 🧑‍💻 UX

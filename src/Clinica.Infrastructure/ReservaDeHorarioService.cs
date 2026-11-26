@@ -94,6 +94,7 @@ public sealed class ReservaDeHorarioService : IReservaDeHorarioService
             await GarantirLivreAsync(novoInicio, r.DuracaoMinutos, r.ProfissionalId, r.SalaId, r.Id, c);
             var antes = r.DataHora;
             r.DataHora = novoInicio;
+            ReservaDeHorarioRegras.EsquecerLembrete(r);
             Alterar(r, operador);
             Trilha("ReservaSemFichaRemarcada", r, $"remarcada de {antes:dd/MM/yyyy HH:mm}", operador);
             await db.SaveChangesAsync(c);
@@ -159,6 +160,7 @@ public sealed class ReservaDeHorarioService : IReservaDeHorarioService
                 especialidadeConsultaCodigo: r.EspecialidadeConsultaCodigo, profissionalId: r.ProfissionalId, salaId: r.SalaId,
                 duracaoMinutos: r.DuracaoMinutos, operador: Operador(operador), particular: r.Particular, ignorarReservaId: r.Id);
 
+            if (ReservaDeHorarioRegras.ContatoDoLembrete(r, ag, agora()) is { } lembrete) db.Contatos.Add(lembrete);
             r.Situacao = SituacaoDaReserva.VirouAgendamento;
             r.AgendamentoId = ag.Id;
             r.PacienteId = paciente.Id;
