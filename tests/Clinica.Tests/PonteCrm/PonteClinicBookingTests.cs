@@ -107,6 +107,18 @@ public sealed class PonteClinicBookingTests : IDisposable
         await Assert.ThrowsAsync<InvalidOperationException>(() => bridge.Slots(Query() with { Phone = "5511988880000" }, default));
     }
 
+    // Reserva de horário sem ficha (nov/2026), passo 1: quem ainda não tem ficha pergunta pelo WhatsApp e a recepção
+    // manda os horários livres. A BUSCA aceita PatientId = 0 (só disponibilidade); reservar continua exigindo a ficha.
+    [Fact] public async Task Sem_ficha_a_busca_de_vagas_funciona_e_reservar_continua_exigindo_a_ficha()
+    {
+        var semFicha = Query() with { Phone = "5511977770000", PatientId = 0 };
+        var vagas = await bridge.Slots(semFicha, default);
+        Assert.NotEmpty(vagas.Slots);
+        Assert.Equal((await bridge.Slots(Query(), default)).Slots, vagas.Slots);
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            bridge.Hold(new BookingHold(Guid.NewGuid().ToString("N"), semFicha, vagas.Slots[0], "Ana"), default));
+    }
+
     [Fact] public async Task Agenda_esconde_o_nome_e_o_id_dos_outros_pacientes()
     {
         db.Agendamentos.Add(new() { PacienteId = paciente.Id, ProfissionalId = medico.Id, DataHora = dia.ToDateTime(new(9, 0)) });
