@@ -164,4 +164,14 @@ public sealed class AgendaDaConversaTests
         AgendaDaConversa.DoDia(vagas, dia, umPorHorario: true).Select(v => v.Inicio.Hour * 100 + v.Inicio.Minute).Should().Equal(1400, 1430);
         AgendaDaConversa.DoDia(vagas, dia).Should().HaveCount(3);
     }
+
+    [Theory]
+    [InlineData("Dra. Helena Duarte", "Dra. Helena")]
+    [InlineData("Dr. Túlio Lins", "Dr. Túlio")]
+    [InlineData("Enf. Abigail", "Enf. Abigail")]
+    [InlineData("Bianca Souza", "Bianca")]
+    [InlineData("Joana", "Joana")]
+    [InlineData("  ", "")]
+    public void O_botao_do_horario_leva_o_titulo_e_o_primeiro_nome(string nome, string curto)
+        => AgendaDaConversa.NomeCurto(nome).Should().Be(curto);
 }

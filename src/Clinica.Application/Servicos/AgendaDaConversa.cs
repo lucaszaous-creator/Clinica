@@ -71,6 +71,18 @@ public static class AgendaDaConversa
     public static IReadOnlyList<VagaNaConversa> Proximas(IEnumerable<VagaNaConversa> vagas, int quantas = ProximasNoTopo)
         => vagas.GroupBy(v => v.Inicio).Select(g => g.First()).OrderBy(v => v.Inicio).Take(quantas).ToList();
 
+    /// <summary>
+    /// O nome curto de quem atende, para o botão do horário (pedido do dono: o nome não pode sair cortado): o título e o
+    /// primeiro nome — "Dra. Helena Duarte" vira "Dra. Helena", "Bianca Souza" vira "Bianca". O nome inteiro vai na dica.
+    /// </summary>
+    public static string NomeCurto(string? profissional)
+    {
+        var partes = (profissional ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (partes.Length == 0) return "";
+        var titulo = partes[0].EndsWith('.') && partes.Length > 1;
+        return titulo ? partes[0] + " " + partes[1] : partes[0];
+    }
+
     /// <summary>Os dias que têm vaga (o ponto verde do calendário).</summary>
     public static IReadOnlySet<DateOnly> DiasComVaga(IEnumerable<VagaNaConversa> vagas)
         => vagas.Select(v => DateOnly.FromDateTime(v.Inicio)).ToHashSet();

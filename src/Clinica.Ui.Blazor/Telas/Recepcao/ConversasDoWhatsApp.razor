@@ -881,7 +881,7 @@ else
                         <div class="wa-ag-slots">
                             @foreach (var v in doDia)
                             {
-                                <button type="button" class="wa-ag-slot" disabled="@(!PodeEscrever || _ocupado)" title="@(_profissionalDaAgenda is null ? $"{v.Inicio:HH:mm} · {v.Profissional}" : null)" @onclick="() => EscolherVaga(a, v)">@v.Inicio.ToString("HH:mm", Formato.PtBr)@if (_profissionalDaAgenda is null) { <small>@v.Profissional</small> }</button>
+                                <button type="button" class="wa-ag-slot" disabled="@(!PodeEscrever || _ocupado)" title="@(_profissionalDaAgenda is null ? $"{v.Inicio:HH:mm} · {v.Profissional}" : null)" @onclick="() => EscolherVaga(a, v)">@v.Inicio.ToString("HH:mm", Formato.PtBr)@if (_profissionalDaAgenda is null) { <small>@AgendaDaConversa.NomeCurto(v.Profissional)</small> }</button>
                             }
                         </div>
                     }
