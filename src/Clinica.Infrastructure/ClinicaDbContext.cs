@@ -146,6 +146,8 @@ public class ClinicaDbContext : DbContext
     public DbSet<CodigoRecuperacaoPortal> CodigosRecuperacaoPortal => Set<CodigoRecuperacaoPortal>();
     public DbSet<ViaAssinadaPaciente> ViasAssinadasPaciente => Set<ViaAssinadaPaciente>();
     public DbSet<BloqueioAgenda> BloqueiosAgenda => Set<BloqueioAgenda>();
+    /// <summary>Reserva de horário sem ficha (nov/2026): ocupa a agenda, não é paciente. Ver ReservaDeHorario.</summary>
+    public DbSet<ReservaDeHorario> ReservasDeHorario => Set<ReservaDeHorario>();
     public DbSet<MetaMensal> Metas => Set<MetaMensal>();
     public DbSet<OrcamentoCategoria> Orcamentos => Set<OrcamentoCategoria>();
     public DbSet<MensagemEquipe> MensagensEquipe => Set<MensagemEquipe>();
@@ -715,6 +717,41 @@ public class ClinicaDbContext : DbContext
 
         // Bloqueio de agenda: férias, feriado, folga. Profissional e sala anuláveis —
         // sem os dois, o bloqueio é da clínica inteira.
+        b.Entity<ReservaDeHorario>(e =>
+        {
+            e.ToTable("ReservasDeHorario");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Nome).IsRequired().HasMaxLength(ReservaDeHorario.NomeMaximo);
+            e.Property(x => x.Telefone).IsRequired().HasMaxLength(20);
+            e.Property(x => x.ConversaId).HasMaxLength(64);
+            e.Property(x => x.DataHora).HasColumnType("timestamp without time zone");
+            e.Property(x => x.ModalidadeCodigo).IsRequired().HasMaxLength(60);
+            e.Property(x => x.EspecialidadeConsultaCodigo).HasMaxLength(60);
+            e.Property(x => x.ConvenioNome).HasMaxLength(ReservaDeHorario.ConvenioMaximo);
+            e.Property(x => x.Situacao).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.MotivoDesmarcacao).HasMaxLength(200);
+            e.Property(x => x.CriadaEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.CriadaPor).IsRequired().HasMaxLength(80);
+            e.Property(x => x.AlteradaEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.AlteradaPor).HasMaxLength(80);
+            e.Property(x => x.Versao).IsConcurrencyToken();
+            e.Property(x => x.LembreteEnviadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.RespostaDoLembrete).HasMaxLength(20);
+            e.Property(x => x.RespondidaEm).HasColumnType("timestamp without time zone");
+            e.Ignore(x => x.Fim);
+            e.Ignore(x => x.OcupaAgenda);
+
+            // Restrict: a reserva é histórico e não some com o profissional (os dados não se apagam).
+            e.HasOne(x => x.Profissional).WithMany().HasForeignKey(x => x.ProfissionalId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Sala>().WithMany().HasForeignKey(x => x.SalaId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Agendamento>().WithMany().HasForeignKey(x => x.AgendamentoId).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<Paciente>().WithMany().HasForeignKey(x => x.PacienteId).OnDelete(DeleteBehavior.Restrict);
+
+            // "O que ocupa este intervalo" (busca de vagas e trava) e "as reservas deste telefone" (a conversa).
+            e.HasIndex(x => new { x.DataHora, x.Situacao });
+            e.HasIndex(x => x.Telefone);
+        });
+
         b.Entity<BloqueioAgenda>(e =>
         {
             e.HasKey(x => x.Id);

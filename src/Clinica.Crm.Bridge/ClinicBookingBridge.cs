@@ -124,7 +124,9 @@ public sealed class ClinicBookingBridge(ClinicaDbContext db, AgendaService agend
         if (until <= start) return [];
         var professional = await repo.ObterProfissionalAsync(q.ProfessionalId, ct) ?? throw new InvalidOperationException("Profissional não encontrado.");
         var room = q.RoomId is { } rid ? await repo.ObterSalaAsync(rid, ct) : null;
-        var busy = await repo.AgendamentosQueSobrepoemAsync(start.Date, until, ct);
+        // A reserva de horário sem ficha (nov/2026) ocupa a vaga como um horário marcado (só em memória).
+        var busy = (await repo.AgendamentosQueSobrepoemAsync(start.Date, until, ct))
+            .Concat((await repo.ReservasQueSobrepoemAsync(start.Date, until, ct)).Select(r => r.ComoOcupacao())).ToList();
         var blocks = await repo.BloqueiosNoPeriodoAsync(start.Date, until, ct);
         var holds = (await ActiveHolds(ct)).Where(h => h.Id != ignoreHold && (h.Query.ProfessionalId == q.ProfessionalId || q.RoomId != null && h.Query.RoomId == q.RoomId)).ToArray();
         var days = q.Weekdays is { Length: > 0 } w ? w.ToHashSet() : null;

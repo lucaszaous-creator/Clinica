@@ -1,3 +1,4 @@
+using Clinica.Application.Modelos;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Clinica.Application.Assinatura;
 using Clinica.Application.Assinatura.SafeID;
@@ -36,6 +37,9 @@ public static class DependencyInjection
         // O pedido de liberação da trava de consulta (nov/2026): pedido pelo app, decidido pela gerência.
         services.AddScoped<LiberacaoDeTravaService>();
         services.AddScoped<ILiberacaoDeTravaService>(sp => sp.GetRequiredService<LiberacaoDeTravaService>());
+        // Reserva de horário sem ficha (nov/2026): ocupa a agenda sem criar paciente.
+        services.AddScoped<ReservaDeHorarioService>();
+        services.AddScoped<IReservaDeHorarioService>(sp => sp.GetRequiredService<ReservaDeHorarioService>());
         // A remarcação pedida pelo paciente (@SemDor): a tela usa a interface; a ponte, a classe (fila do CRM).
         services.AddScoped<RemarcacaoPeloPacienteService>();
         services.AddScoped<IRemarcacaoPeloPacienteService>(sp => sp.GetRequiredService<RemarcacaoPeloPacienteService>());

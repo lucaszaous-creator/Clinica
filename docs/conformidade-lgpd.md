@@ -423,6 +423,32 @@ fica ⚠️ também por este motivo.
 
 ---
 
+## Reserva de horário sem ficha (nov/2026) ⚠️ Base legal pendente de validação jurídica
+
+**O que é.** A recepção segura um horário pela conversa do WhatsApp para quem ainda não é paciente (anúncios trazem
+muita gente só perguntando). Nada de cadastro nem de CPF pelo WhatsApp. Ver `docs/reserva-de-horario-sem-ficha.md`.
+
+**Decisão do dono:** *"Vamos com a B e os dados não se apagam."* A reserva desmarcada, não comparecida ou convertida
+fica como histórico (situação), não some.
+
+**O que o código faz para reduzir o risco:**
+
+| Medida | Como |
+|---|---|
+| Dado mínimo | Só o nome dito na conversa, o telefone da conversa, o horário, quem atende e "particular/convênio X". Sem CPF, carteirinha, nascimento ou endereço; não há campo para eles na reserva (`ReservaDeHorario`). |
+| Fora da base de pacientes | A reserva não é `Paciente`: não entra na busca de pacientes, nas listas, no BI, nos relatórios, no faturamento nem nas guias. Ela só ocupa o horário. |
+| Trilha | `Auditoria` registra quem criou, remarcou, desmarcou, marcou a falta, converteu e **consultou** (as reservas do telefone). A trilha guarda o número da reserva, o horário e quem atende, **sem o nome nem o telefone** da pessoa. |
+| Finalidade única | Os dados servem para segurar o horário, lembrar e cadastrar no balcão ("Virar paciente"). O que entra na ficha depois é cadastro normal, com o consentimento de sempre. |
+| Lembrete | O lembrete da véspera (decisão do dono) usa o telefone que a pessoa usou para pedir o horário, com o mesmo modelo dos agendamentos e o PARAR de sempre. A reserva guarda só quando saiu e a resposta (confirmou, pediu cancelar ou remarcar). |
+| Acesso | Pelas mesmas permissões da agenda (apps) e pela ponte do CRM, com papel restrito no Postgres (INSERT/UPDATE em `ReservasDeHorario`, nada de DELETE). |
+
+**Base legal proposta (A VALIDAR pelo dono com o jurídico, ainda não validada):** art. 7º, V da LGPD (procedimentos
+preliminares relacionados a contrato a pedido do titular: a pessoa pede o horário). Nenhum dado de saúde é coletado na
+reserva. Ficam em aberto, para a mesma validação: **a retenção sem prazo** de quem nunca virou paciente (a decisão "não
+se apagam" foi do dono) e **o direito de eliminação** (art. 18, VI), hoje sem porta no sistema para a reserva.
+
+---
+
 ## O que falta, em uma lista
 
 Para não deixar dúvida sobre o que este documento não cobre:
@@ -434,6 +460,7 @@ Para não deixar dúvida sobre o que este documento não cobre:
 | Procedimento de resposta a incidentes | documento | clínica, com apoio do fornecedor |
 | Contrato de tratamento (DPA) | contrato | clínica + fornecedor |
 | Destino do backup fora da máquina | configuração | clínica |
+| Base legal da reserva de horário sem ficha (abaixo) | validação jurídica | dono da clínica, com o jurídico |
 
 ## Onde isso está no código
 

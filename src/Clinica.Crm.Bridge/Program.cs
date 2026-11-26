@@ -21,6 +21,7 @@ builder.Services.AddScoped<ClinicAgendaBridge>();
 builder.Services.AddScoped<ClinicRecallBridge>();
 builder.Services.AddScoped<ClinicSchedulingBridge>();
 builder.Services.AddScoped<ClinicBookingBridge>();
+builder.Services.AddScoped<ClinicReservationBridge>();
 builder.Services.AddScoped<ClinicRelationshipBridge>();
 builder.Services.AddScoped<ClinicContactBridge>();
 builder.Services.AddScoped<ClinicTeamBridge>();
@@ -125,6 +126,11 @@ IResult Off()=>Results.Json(new{error="Esta operação pelo CRM ainda não está
 app.MapPost("/crm/v1/booking/catalog",(BookingCatalogQuery input,ClinicBookingBridge bridge,CancellationToken ct)=>bridge.Catalog(input,ct));
 app.MapPost("/crm/v1/booking/calendar",(BookingCalendarQuery input,ClinicBookingBridge bridge,CancellationToken ct)=>bridge.Calendar(input,ct));
 app.MapPost("/crm/v1/booking/slots",(BookingQuery input,ClinicBookingBridge bridge,CancellationToken ct)=>bridge.Slots(input,ct));
+// Reserva de horário sem ficha (nov/2026): o mesmo interruptor do agendamento pelo CRM.
+app.MapPost("/crm/v1/reservations/list",async(ClinicReservationQuery input,ClinicReservationBridge bridge,CancellationToken ct)=>booking?Results.Ok(await bridge.List(input,ct)):Off());
+app.MapPost("/crm/v1/reservations",async(ClinicReservationRequest input,ClinicReservationBridge bridge,CancellationToken ct)=>booking?Results.Ok(await bridge.Create(input,ct)):Off());
+app.MapPost("/crm/v1/reservations/cancel",async(ClinicReservationCancel input,ClinicReservationBridge bridge,CancellationToken ct)=>booking?Results.Ok(await bridge.Cancel(input,ct)):Off());
+app.MapPost("/crm/v1/reservations/reschedule",async(ClinicReservationReschedule input,ClinicReservationBridge bridge,CancellationToken ct)=>booking?Results.Ok(await bridge.Reschedule(input,ct)):Off());
 app.MapPost("/crm/v1/booking/status",(BookingAction input,ClinicBookingBridge bridge,CancellationToken ct)=>bridge.Status(input,ct));
 app.MapPost("/crm/v1/booking/hold",async(BookingHold input,ClinicBookingBridge bridge,CancellationToken ct)=>booking?Results.Ok(await bridge.Hold(input,ct)):Off());
 app.MapPost("/crm/v1/booking/confirm",async(BookingAction input,ClinicBookingBridge bridge,CancellationToken ct)=>booking?Results.Ok(await bridge.Confirm(input,ct)):Off());

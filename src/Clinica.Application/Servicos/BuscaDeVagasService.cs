@@ -27,7 +27,7 @@ public sealed class BuscaDeVagasService
         var sala = salaId is { } sid ? await _repo.ObterSalaAsync(sid, ct)
             ?? throw new InvalidOperationException("Sala não encontrada.") : null;
         var ate = aPartirDe.Date.AddDays(BuscaDeVagas.DiasMaximos);
-        var ocupados = await _repo.AgendamentosQueSobrepoemAsync(aPartirDe.Date, ate, ct);
+        var ocupados = await ComReservasAsync(await _repo.AgendamentosQueSobrepoemAsync(aPartirDe.Date, ate, ct), aPartirDe.Date, ate, ct);
         var bloqueios = await _repo.BloqueiosNoPeriodoAsync(aPartirDe.Date, ate, ct);
         var vagas = BuscaDeVagas.Calcular(aPartirDe, duracaoMinutos, profissional, ocupados,
             bloqueios, sala: sala, pacienteId: pacienteId);
@@ -48,8 +48,8 @@ public sealed class BuscaDeVagasService
 
         // Só os horários DELE no período — a agenda da clínica inteira por dois meses seria
         // milhares de linhas com paciente e sala para não usar nenhum.
-        var ocupados = await _repo.AgendamentosDoProfissionalNoPeriodoAsync(
-            profissionalId, aPartirDe.Date, ateQuando, ct);
+        var ocupados = await ComReservasAsync(await _repo.AgendamentosDoProfissionalNoPeriodoAsync(
+            profissionalId, aPartirDe.Date, ateQuando, ct), aPartirDe.Date, ateQuando, ct, profissionalId);
         var bloqueios = await _repo.BloqueiosNoPeriodoAsync(aPartirDe.Date, ateQuando, ct);
 
         var vagas = BuscaDeVagas.Calcular(aPartirDe, duracao, profissional, ocupados, bloqueios, quantidade);
@@ -62,5 +62,18 @@ public sealed class BuscaDeVagasService
             BuscaDeVagas.JornadaPresumida(profissional),
             profissional.DescricaoJornada,
             vagas);
+    }
+
+    /// <summary>
+    /// A reserva de horário sem ficha (nov/2026) OCUPA a vaga: entra na conta como ocupação em memória
+    /// (<see cref="ReservaDeHorario.ComoOcupacao"/>), nunca como agendamento gravado.
+    /// </summary>
+    private async Task<IReadOnlyList<Agendamento>> ComReservasAsync(IReadOnlyList<Agendamento> ocupados, DateTime de, DateTime ate,
+        CancellationToken ct, int? soDoProfissional = null)
+    {
+        var reservas = await _repo.ReservasQueSobrepoemAsync(de, ate, ct);
+        if (reservas.Count == 0) return ocupados;
+        return ocupados.Concat(reservas.Where(r => soDoProfissional is null || r.ProfissionalId == soDoProfissional)
+            .Select(r => r.ComoOcupacao())).ToList();
     }
 }

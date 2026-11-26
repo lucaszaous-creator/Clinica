@@ -36,7 +36,7 @@ public static class AvisosDeChoque
     /// não fala de disputa, fala de a clínica não estar aberta.
     /// </summary>
     public static bool EhGrave(RecursoAgenda recurso)
-        => recurso is RecursoAgenda.Bloqueio or RecursoAgenda.Expediente;
+        => recurso is RecursoAgenda.Bloqueio or RecursoAgenda.Expediente or RecursoAgenda.Reserva;
 
     /// <summary>
     /// Os avisos na ordem em que se leem: o GRAVE primeiro. A recepcionista lê a primeira

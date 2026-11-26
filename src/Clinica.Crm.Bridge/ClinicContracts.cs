@@ -4,7 +4,9 @@ public sealed record Specialty(string Code, string Name, bool Active = true);
 public sealed record ClinicAppointment(int Id, int PatientId, string Name, string Phone, DateTimeOffset StartsAt,
     string SpecialtyCode, string SpecialtyName, string Professional, string Status, string Revision, string Confirmation,
     string Answer = "", DateTimeOffset? AnsweredAt = null, DateTimeOffset? NotifiedAt = null, DateTimeOffset? CreatedAt = null);
-public sealed record ClinicSnapshot(DateTimeOffset SyncedAt, Specialty[] Specialties, ClinicAppointment[] Appointments);
+// Reservations (nov/2026, reserva sem ficha): as reservas abertas, SÓ para o lembrete da véspera e o sino — Id NEGATIVO
+// (-id da reserva), PatientId 0. Ficam fora de Appointments para não entrarem na ficha, no contexto nem na agenda do CRM.
+public sealed record ClinicSnapshot(DateTimeOffset SyncedAt, Specialty[] Specialties, ClinicAppointment[] Appointments, ClinicAppointment[]? Reservations = null);
 // Note (out/2026, @SemDor fase 2): no "reschedule" que veio de TEXTO LIVRE, a preferência que a IA
 // leu ("sexta à tarde"); vai para o pedido à recepção. Nulo no toque do botão.
 public sealed record ClinicDecision(string CommandId, int AppointmentId, string Revision, string Phone, string Decision, string MessageId, string? Note = null);
@@ -137,3 +139,15 @@ public sealed record ClinicTicketLogin(string Ticket);
 // mensagem que alguém mandou pelo CRM a um paciente IDENTIFICADO entra no histórico do caso aberto
 // dele no Clinica. Um registro por conversa por dia; a ponte é idempotente pelo CommandId.
 public sealed record ClinicContactNotice(string CommandId, int PatientId, DateTimeOffset SentAt, string Channel, string Agent);
+
+// Reserva de horário SEM FICHA (nov/2026, pedido do dono): ocupa o horário pela conversa sem criar paciente. Só o mínimo
+// (nome dito na conversa, o telefone, o horário, quem atende, particular/convênio) — nada de CPF nem carteirinha.
+// O MESMO contrato em semdor-crm (src/Clinica.Crm/ClinicContracts.cs). Status: reserved | cancelled | no-show | converted.
+public sealed record ClinicReservationRequest(string Phone, string Name, int ProfessionalId, int? RoomId, string ServiceCode,
+    string? SpecialtyCode, int Duration, DateTimeOffset StartsAt, bool Private, string? Insurance, string Actor, string? ConversationId);
+public sealed record ClinicReservation(int Id, string Name, string Phone, DateTimeOffset StartsAt, int Duration, int ProfessionalId,
+    string ProfessionalName, string ServiceCode, string? SpecialtyCode, bool Private, string? Insurance, string Status,
+    int? AppointmentId, string Revision);
+public sealed record ClinicReservationQuery(string Phone);
+public sealed record ClinicReservationCancel(int Id, string Phone, string Revision, string Reason, string Actor);
+public sealed record ClinicReservationReschedule(int Id, string Phone, string Revision, DateTimeOffset StartsAt, string Actor);
