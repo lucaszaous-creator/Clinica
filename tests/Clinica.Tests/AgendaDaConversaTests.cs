@@ -174,4 +174,31 @@ public sealed class AgendaDaConversaTests
     [InlineData("  ", "")]
     public void O_botao_do_horario_leva_o_titulo_e_o_primeiro_nome(string nome, string curto)
         => AgendaDaConversa.NomeCurto(nome).Should().Be(curto);
+
+    // ------------------------------------------------ a reserva sem ficha (textos do protótipo aprovado pelo dono)
+
+    [Fact]
+    public void A_reserva_diz_o_que_fez_e_pede_o_cadastro_no_balcao_sem_documento_pelo_whatsapp()
+    {
+        var inicio = new DateTime(2026, 11, 27, 14, 0, 0);
+        var particular = RascunhosDaConversa.Reserva("Fernanda Lopes", "Acupuntura (apenas)", inicio, "Dra. Helena", null, Hoje);
+        particular.Should().StartWith("Pronto, Fernanda! Reservei acupuntura para ")
+            .And.Contain("14:00 com a Dra. Helena. No dia, chegue 10 minutos antes para fazermos o seu cadastro. Qualquer coisa é só chamar.")
+            .And.NotContain("CPF").And.NotContain("carteirinha");
+        RascunhosDaConversa.Reserva("Fernanda", "Acupuntura", inicio, "Dra. Helena", "Unimed", Hoje)
+            .Should().EndWith("para fazermos o seu cadastro, e traga a carteirinha da Unimed. Qualquer coisa é só chamar.");
+        RascunhosDaConversa.Reserva(null, "Acupuntura", inicio, null, null, Hoje).Should().StartWith("Pronto! Reservei acupuntura para ");
+    }
+
+    [Fact]
+    public void Remarcar_e_desmarcar_a_reserva_dizem_o_horario()
+    {
+        var antes = new DateTime(2026, 11, 27, 14, 0, 0);
+        var novo = new DateTime(2026, 12, 1, 9, 30, 0);
+        RascunhosDaConversa.RemarcacaoDaReserva("Fernanda", "Acupuntura", antes, novo, "Dra. Helena", Hoje)
+            .Should().StartWith("Pronto, Fernanda! A sua reserva de acupuntura passou de ").And.Contain("09:30 com a Dra. Helena. Qualquer coisa é só chamar.");
+        RascunhosDaConversa.CancelamentoDaReserva("Fernanda", antes, Hoje)
+            .Should().StartWith("Fernanda, cancelei a sua reserva de ").And.EndWith("14:00. Quando quiser outro horário, é só me chamar por aqui.");
+        RascunhosDaConversa.CancelamentoDaReserva(null, antes, Hoje).Should().StartWith("Olá! Cancelei a sua reserva de ");
+    }
 }
