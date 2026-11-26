@@ -44,6 +44,27 @@ public sealed class PonteClinicPatientTests : IDisposable
         Assert.Contains(cards, c => c.Id == filho.Id);
     }
 
+    [Fact] public async Task Ficha_unica_do_numero_vem_marcada_para_se_vincular_sozinha_e_duas_nao()
+    {
+        // 26/11/2026, decisão do dono ("Agenda dentro da conversa"): a ÚNICA ficha do número se vincula sozinha.
+        var unica = Paciente("Ficha Única", "(22) 98888-7777");
+        Paciente("Outro número", "22977776666");
+        var cards = await bridge.Lookup(new("5522988887777"), default);
+        Assert.True(Assert.Single(cards, c => c.Id == unica.Id).AutoVincular);
+
+        Paciente("Segunda do mesmo número", "22988887777");
+        Assert.All(await bridge.Lookup(new("5522988887777"), default), c => Assert.False(c.AutoVincular));
+    }
+
+    [Fact] public void A_regra_da_ficha_unica_compara_o_numero_normalizado()
+    {
+        Assert.Equal(7, FichaPeloTelefone.Unica([(7, "(22) 98888-7777"), (8, "21 3333-4444")], "5522988887777"));
+        Assert.Null(FichaPeloTelefone.Unica([(7, "22988887777"), (9, "+55 22 98888-7777")], "22988887777"));
+        Assert.Null(FichaPeloTelefone.Unica([(7, "22988887777")], ""));
+        Assert.Null(FichaPeloTelefone.Unica([], "22988887777"));
+        Assert.Equal("5522988887777", FichaPeloTelefone.Normalizar("(22) 98888-7777"));
+    }
+
     [Fact] public async Task Paciente_que_escreve_de_outro_numero_e_achado_pelo_nome_ou_documento()
     {
         var p = Paciente("Ana Beatriz Souza", "21988887777", "98765432100");

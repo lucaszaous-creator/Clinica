@@ -365,6 +365,7 @@
 
     private void MudouTrava(bool travado)
     {
+        if (_travado == travado) return;
         _travado = travado;
         StateHasChanged();
     }

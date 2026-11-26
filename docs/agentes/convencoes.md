@@ -5,7 +5,7 @@ sessão). O texto é o MESMO, sem reescrita: design system, WPF/XAML, Blazor, EF
 `verificar-suite`, assinatura digital, impressão, CRM e as rodadas de UI, cada uma com o defeito que a
 originou. Antes de escrever uma tela, uma consulta ou uma checagem, procure aqui a lição da área.
 
-## Índice (215 tópicos, na ordem do arquivo)
+## Índice (216 tópicos, na ordem do arquivo)
 
 Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e leia o tópico inteiro antes de mexer nela.
 
@@ -223,6 +223,7 @@ Procure a palavra da área (`grep -n "palavra" docs/agentes/convencoes.md`) e le
 - Classe GENÉRICA no CSS global é colisão esperando acontecer: `.entrada` da tela de login esticava a legenda do Fluxo de caixa
 - Tela Blazor no CELULAR: abaixo de 640 px, número em uma coluna, tabela vira cartão, filtro na largura toda
 - A foto da prévia (`/tela/X`) não prova que a tela está no MENU: confira a composição com `OrganizacaoNavegacao`
+- Componente filho que avisa o pai só quando MUDA prende o pai quando o filho nasce de novo (a trava do Marcar horário, nov/2026)
 - Atualização que falha não pode se repetir sozinha: o Velopack REABRE o app antigo
 ---
 
@@ -5396,3 +5397,17 @@ do chat SAI quando há janela aberta (`chat-equipe.css`).
 (`CATALOGO=…catalogo-gestao.json`), com as janelas que os botões abrem, e reprova o que passa da borda fora de uma
 faixa que rola sozinha. O job `responsivo` do CI roda em 390 px no WebKit; localmente, rode também 360 e 430. No
 portal (clinica-site), o equivalente é `ferramentas/testar-portal-responsivo.mjs`.
+
+- **Componente filho que avisa o pai só quando MUDA prende o pai quando o filho nasce de novo (a trava do Marcar horário, nov/2026)**. A secretária
+  mandou vídeo: "às vezes o botão azul não libera". A `TravaDeConsultaBox` avisava o formulário
+  (`TravadoChanged`) só quando o estado DELA mudava (`antes != agora`). No balcão a box sai da
+  tela junto com o paciente e nasce de novo para o próximo — começando "sem trava". Paciente
+  seguinte sem trava: nenhuma mudança, nenhum aviso, e o `_travado` do anterior ficava no botão,
+  apagado e mudo. Nada quebrava, nenhum teste via. As regras:
+  1. **Filho que informa estado ao pai informa em TODA leitura**, não só na mudança; o pai é
+     que ignora o repetido (`if (_travado == travado) return;`).
+  2. **O pai zera o que o filho controlava quando o tira da tela** (`Trocar()` zera `_travado`).
+  3. **Botão de gravar não apaga mudo.** Só apaga sem acesso ou gravando; faltando algo, diz a
+     PRIMEIRA pendência no rótulo e o clique leva até o campo (`AtendimentoDoBalcaoNaTela.OQueFalta`,
+     com teste da ordem). Diálogo que aplica a resposta e pede "confirme de novo" parece, para quem
+     usa, que o sistema não marcou. Teste: `MarcarHorarioOQueFaltaTests` (a box falha no código antigo).

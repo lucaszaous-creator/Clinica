@@ -20,12 +20,8 @@ public sealed class ClinicAgendaBridge(ClinicaDbContext db,AgendaService agenda,
 {
     static readonly TimeZoneInfo Zone=TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
     static DateTime Now()=>TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow,Zone).DateTime;
-    public static string Phone(string? phone)
-    {
-        var digits=Telefone.SemPrefixoDeDiscagem(new string((phone??"").Where(char.IsAsciiDigit).ToArray()));
-        if(digits.Length is 10 or 11)digits="55"+digits;
-        return digits.Length is >=10 and <=15?digits:"";
-    }
+    // A regra do número mora no Domain (FichaPeloTelefone), a mesma dos apps.
+    public static string Phone(string? phone)=>FichaPeloTelefone.Normalizar(phone);
     public static string Revision(Agendamento a)=>Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new{a.Id,a.PacienteId,a.DataHora,a.Status,a.ProfissionalId,a.SalaId,a.DuracaoMinutos,a.Encaixe,a.Observacoes,a.ModalidadePrevista,a.ModalidadeCodigo,a.EspecialidadeConsulta,a.EspecialidadeConsultaCodigo,a.ChegadaEm,a.InicioAtendimentoEm,a.AtendimentoId,Phone=Phone(a.Paciente?.Telefone)}))));
     public async Task<ClinicSnapshot> Snapshot(CancellationToken ct)
     {
