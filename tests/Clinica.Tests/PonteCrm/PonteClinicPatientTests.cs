@@ -63,6 +63,12 @@ public sealed class PonteClinicPatientTests : IDisposable
         Assert.Null(FichaPeloTelefone.Unica([(7, "22988887777")], ""));
         Assert.Null(FichaPeloTelefone.Unica([], "22988887777"));
         Assert.Equal("5522988887777", FichaPeloTelefone.Normalizar("(22) 98888-7777"));
+        // O 9º dígito: o celular antigo ("22 8888-7777") é o mesmo número do WhatsApp; o fixo ("22 2777-1234") não ganha 9.
+        Assert.Equal("5522988887777", FichaPeloTelefone.Normalizar("22 8888-7777"));
+        Assert.Equal("5522988887777", FichaPeloTelefone.Normalizar("552288887777"));
+        Assert.Equal("552227771234", FichaPeloTelefone.Normalizar("(22) 2777-1234"));
+        Assert.Equal(7, FichaPeloTelefone.Unica([(7, "22 8888-7777")], "5522988887777"));
+        Assert.Null(FichaPeloTelefone.Unica([(7, "22 8888-7777"), (8, "22988887777")], "5522988887777")); // as duas formas são o mesmo número
     }
 
     [Fact] public async Task Paciente_que_escreve_de_outro_numero_e_achado_pelo_nome_ou_documento()
