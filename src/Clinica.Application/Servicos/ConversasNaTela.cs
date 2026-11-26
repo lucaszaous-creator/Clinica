@@ -301,24 +301,13 @@ public static partial class ConversasNaTela
     }
 
     /// <summary>
-    /// O mesmo número no CRM e no cadastro? A regra da ponte (<c>ClinicAgendaBridge.Phone</c>):
-    /// 10 ou 11 dígitos ganham o 55; o que não fica entre 10 e 15 dígitos não serve.
+    /// O mesmo número no CRM e no cadastro? A regra é UMA só, a da ponte e do vínculo automático
+    /// (<see cref="Clinica.Domain.FichaPeloTelefone.Normalizar"/>): com e sem o 55, com e sem o 9º dígito do celular.
     /// </summary>
     public static bool MesmoTelefone(string? a, string? b)
     {
-        var x = NumeroComDdi(a);
-        return x.Length > 0 && x == NumeroComDdi(b);
-    }
-
-    private static string NumeroComDdi(string? telefone)
-    {
-        var d = Telefone.SemPrefixoDeDiscagem(Telefone.Normalizar(telefone));
-        if (d.Length is 10 or 11) d = "55" + d;
-        // O 9º dígito do celular (nov/2026, pedido do dono: "a ficha deve se auto vincular com o mesmo número"): ficha
-        // antiga com "22 9999-1234" e o WhatsApp com "22 99999-1234" são o mesmo celular. Só o CELULAR ganha o 9 — o
-        // número de 8 dígitos que começa com 6, 7, 8 ou 9; o fixo (2 a 5) continua como está.
-        if (d.Length == 12 && d.StartsWith("55", StringComparison.Ordinal) && d[4] is >= '6' and <= '9') d = d[..4] + "9" + d[4..];
-        return d.Length is >= 10 and <= 15 ? d : "";
+        var x = Clinica.Domain.FichaPeloTelefone.Normalizar(a);
+        return x.Length > 0 && x == Clinica.Domain.FichaPeloTelefone.Normalizar(b);
     }
 
     /// <summary>
