@@ -114,12 +114,12 @@
         {
             <div class="cartao-corpo"><Esqueleto Altura="260" /></div>
         }
-        else if (_linhas.Count == 0)
+        else if (_linhas.Count == 0 && ReservasVisiveis.Count == 0)
         {
             <EstadoVazio Titulo="Ninguém marcado para este dia" Icone="calendario"
                          Descricao="Marque pelo botão “Marcar atendimento” — o horário aparece aqui, na ordem da hora." />
         }
-        else if (_recorte.NenhumCorresponde)
+        else if (_recorte.NenhumCorresponde && ReservasVisiveis.Count == 0)
         {
             <EstadoVazio Titulo="Nenhum paciente corresponde aos filtros" Icone="filtro"
                          Descricao="Confira o nome, a modalidade ou a situação escolhida.">
@@ -144,8 +144,14 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var l in _recorte.Visiveis)
+                        @foreach (var item in ReservasNaAgendaDoDia.Mesclar(_recorte.Visiveis, ReservasVisiveis))
                         {
+                            @if (item.Reserva is { } rsv)
+                            {
+                                @LinhaDaReserva(rsv)
+                                continue;
+                            }
+                            var l = item.Linha!;
                             var (inicio, fim) = Partes(l.Horario);
                             <tr @key="l.AgendamentoId" class="rd-linha grupo-@l.Grupo @(l.ForaDaFila ? "apagada" : null)" title="@l.Detalhe">
                                 <td class="rd-col-hora nao-quebra">
@@ -275,6 +281,10 @@
     <HorarioDaAgendaForm AgendamentoId="horario" AoFechar="() => _horarioAberto = null" AoMudou="() => CarregarAsync()" />
 }
 
+@if (_reservaAberta is { } reservaAberta)
+{
+    <ReservaSemFichaForm Reserva="reservaAberta.Reserva" ModoInicial="reservaAberta.Modo" AoFechar="() => _reservaAberta = null" AoConcluir="ReservaAlteradaAsync" />
+}
 @if (_elegibilidadeAberta)
 {
     @* A aba "Agenda de <dia>" do painel lista o dia que esta tela MOSTRA. *@
@@ -291,6 +301,45 @@
     private DateOnly _dia = DateOnly.FromDateTime(DateTime.Today);
     private DadosDaAgendaDoDia _dados = DadosDaAgendaDoDia.Vazio(DateOnly.FromDateTime(DateTime.Today));
     private IReadOnlyList<LinhaAgendaDoDia> _linhas = [];
+
+    /// <summary>As reservas sem ficha do dia (todas; a tela mostra as que o filtro deixa — <see cref="ReservasNaAgendaDoDia"/>).</summary>
+    private IReadOnlyList<ReservaDeHorario> _reservas = [];
+    private IReadOnlyList<ReservaDeHorario> ReservasVisiveis => ReservasNaAgendaDoDia.Visiveis(_reservas, _filtro);
+
+    /// <summary>A reserva aberta no formulário (o MESMO da Visão geral e da conversa) e por onde abriu.</summary>
+    private (ReservaDeHorario Reserva, ModoDaReserva Modo)? _reservaAberta;
+
+    private async Task ReservaAlteradaAsync(ReservaAlterada r)
+    {
+        _reservaAberta = null;
+        Notificacoes.Sucesso(r.Aviso);
+        await CarregarAsync(silencioso: true);
+    }
+
+    /// <summary>A linha da reserva: a mesma marca da grade e da conversa (contorno tracejado, ícone do WhatsApp).</summary>
+    private RenderFragment LinhaDaReserva(ReservaDeHorario r) =>@<tr @key="@($"reserva-{r.Id}")" class="rd-linha rd-reserva" title="@ReservaDeHorario.Marca">
+        <td class="rd-col-hora nao-quebra"><span class="rd-hora">@r.DataHora.ToString("HH:mm", CultureInfo.InvariantCulture)</span><span class="secundario">até @r.Fim.ToString("HH:mm", CultureInfo.InvariantCulture)</span></td>
+        <td>
+            <div class="rd-paciente">
+                <span class="rd-avatar rd-reserva-icone" aria-hidden="true"><Icone Nome="chat" /></span>
+                <div class="rd-paciente-texto">
+                    <span class="principal">@r.Nome</span>
+                    <span class="secundario">@AgendaDaConversa.Rotulo(r.ModalidadeCodigo, r.EspecialidadeConsultaCodigo) · @ReservaDeHorarioRegras.Atendimento(r) · @ConversasNaTela.TelefoneNaTela(r.Telefone)</span>
+                    <span class="secundario rd-so-compacto">@(r.Profissional?.Rotulo)</span>
+                </div>
+            </div>
+        </td>
+        <td class="rd-col-prof"><span>@(r.Profissional?.Rotulo ?? "—")</span></td>
+        <td class="rd-col-status"><span class="rd-status"><i class="rd-ponto"></i>Reserva via WhatsApp</span><span class="secundario">sem ficha</span>
+            @if (ReservasNaAgendaDoDia.Resposta(r) is { } resp) { <Selo Tom="@resp.Tom" Dica="A resposta ao lembrete da véspera">@resp.Texto</Selo> }</td>
+        <td class="direita rd-col-acoes nao-quebra">
+            <span class="botoes-linha">
+                <button type="button" class="botao mini primario" disabled="@(!Pode(Permissao.EditarAgenda) || _ocupado)" @onclick="() => _reservaAberta = (r, ModoDaReserva.Virar)"
+                        title="@(Pode(Permissao.EditarAgenda) ? "Completar o cadastro: a reserva vira agendamento no mesmo horário" : "Seu acesso não permite mexer na agenda.")">Virar paciente</button>
+                <button type="button" class="botao mini" @onclick="() => _reservaAberta = (r, ModoDaReserva.Detalhe)" aria-label="@($"Abrir a reserva de {r.Nome}")">Abrir</button>
+            </span>
+        </td>
+    </tr>;
     private IReadOnlyList<ProfissionalDaAgenda> _profissionais = [];
     private FiltroAgendaDoDia _filtro = new();
     private RecorteAgendaDoDia _recorte = AgendaDoDiaNaTela.Recortar([], new());
@@ -444,9 +493,20 @@
             {
                 Clinica.Application.Diagnostico.Registrar("Recepção — autorizações do dia não puderam ser lidas", ex);
             }
+            // A reserva sem ficha (nov/2026): DEPOIS da agenda, no mesmo escopo. Falha aqui não derruba a agenda.
+            IReadOnlyList<ReservaDeHorario> reservas = [];
+            try
+            {
+                reservas = await escopo.ServiceProvider.GetRequiredService<IReservaDeHorarioService>().DoDiaAsync(dia);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                Clinica.Application.Diagnostico.Registrar("Recepção — reservas sem ficha do dia não puderam ser lidas", ex);
+            }
             if (geracao != _geracao || Descartada) return;
 
             _dados = dados;
+            _reservas = reservas;
             _autorizacoes = autorizacoes;
             _ultimaLeitura = DateTime.Now;
             _naoVerificado = false;

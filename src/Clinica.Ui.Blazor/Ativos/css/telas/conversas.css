@@ -862,3 +862,18 @@ button.wa-citacao:focus-visible{outline:2px solid var(--wa-acao);outline-offset:
   .wa-botao-agenda-rotulo{display:none}
   .wa-ag-filtros select{font-size:16px}
 }
+/* ===== A RESERVA SEM FICHA na conversa (nov/2026): o resumo e o cartão tracejado (a mesma marca da Agenda) ===== */
+.wa-ag-reserva{border:1.5px dashed var(--wa-acao);border-radius:var(--radius-card);padding:var(--space-3);display:flex;flex-direction:column;gap:var(--space-2);background:var(--superficie)}
+.wa-ag-reserva + .wa-ag-reserva{margin-top:var(--space-2)}
+.wa-ag-reserva small{color:var(--wa-cinza)}
+.wa-ag-reservar{display:flex;flex-direction:column;gap:var(--space-3)}
+.wa-ag-voltar{align-self:flex-start;display:inline-flex;align-items:center;gap:var(--space-1)}
+.wa-ag-resumo{display:grid;grid-template-columns:auto 1fr;gap:var(--space-2) var(--space-4);margin:0;border:1px solid var(--wa-linha);border-radius:var(--radius-card);padding:var(--space-3)}
+.wa-ag-resumo dt{color:var(--wa-cinza)}
+.wa-ag-resumo dd{margin:0;font-weight:600;min-width:0}
+.wa-ag-campo{display:flex;flex-direction:column;gap:var(--space-1);font-size:var(--text-small-size);font-weight:600;color:var(--wa-cinza)}
+.wa-ag-campo small{font-weight:500}
+.wa-ag-campo .campo{font-weight:500;color:var(--texto-primario)}
+.wa-ag-reservar-acoes{justify-content:flex-end}
+@media (max-width:760px){.wa-ag-campo .campo{font-size:16px}.wa-ag-reservar-acoes .botao{flex:1}}
+.wa-ag-reserva .botoes-linha{flex-wrap:wrap}.wa-ag-reserva .botao{white-space:nowrap}

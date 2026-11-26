@@ -335,4 +335,50 @@ public class AgendaDoDiaNaTelaTests
         Assert.Equal("Marcado por ana em 08/08/2026 14:32",
             AgendaDoDiaNaTela.DescreverLancamento(new Agendamento { CriadoPor = "ana", CriadoEm = new DateTime(2026, 8, 8, 14, 32, 0) }));
     }
+
+    // ------------------------------------------------ a reserva sem ficha na Agenda › Dia (nov/2026, ajuste do dono)
+
+    private static ReservaDeHorario Reserva(int hora, int profissionalId = 1, string nome = "Fernanda Lopes",
+        SituacaoDaReserva situacao = SituacaoDaReserva.Reservada)
+        => new() { Id = hora * 10 + profissionalId, Nome = nome, Telefone = "5522998123344", ProfissionalId = profissionalId,
+            DataHora = Dia.ToDateTime(new TimeOnly(hora, 0)), DuracaoMinutos = 30, ModalidadeCodigo = "ACUPUNTURA", Particular = true, Situacao = situacao };
+
+    [Fact]
+    public void A_reserva_entra_na_lista_do_dia_pela_hora_sem_mudar_a_ordem_dos_horarios()
+    {
+        var linhas = new[] { Uma(Ag(8)), Uma(Ag(10)), Uma(Ag(15)) };
+        var itens = ReservasNaAgendaDoDia.Mesclar(linhas, [Reserva(14), Reserva(10), Reserva(17)]);
+
+        Assert.Equal([8, 10, 10, 14, 15, 17], itens.Select(i => i.Quando.Hour));
+        Assert.NotNull(itens[1].Linha);   // no mesmo horário, o paciente vem antes
+        Assert.NotNull(itens[2].Reserva);
+        Assert.NotNull(itens[^1].Reserva); // depois do último horário, vai ao fim
+    }
+
+    [Fact]
+    public void So_aparece_a_reserva_que_ocupa_a_agenda_e_o_filtro_de_paciente_a_tira()
+    {
+        var reservas = new[] { Reserva(9), Reserva(11, situacao: SituacaoDaReserva.Desmarcada), Reserva(14, profissionalId: 2, nome: "Júlia Prado") };
+
+        Assert.Equal(2, ReservasNaAgendaDoDia.Visiveis(reservas, new FiltroAgendaDoDia()).Count);
+        Assert.Single(ReservasNaAgendaDoDia.Visiveis(reservas, new FiltroAgendaDoDia(ProfissionalId: 2)));
+        Assert.Single(ReservasNaAgendaDoDia.Visiveis(reservas, new FiltroAgendaDoDia(Busca: "julia")));   // sem acento e sem caixa
+        Assert.Empty(ReservasNaAgendaDoDia.Visiveis(reservas, new FiltroAgendaDoDia(Situacao: "chegou")));
+        Assert.Empty(ReservasNaAgendaDoDia.Visiveis(reservas, new FiltroAgendaDoDia(Resposta: "confirmou")));
+    }
+
+    [Fact]
+    public void A_resposta_ao_lembrete_da_reserva_tem_as_mesmas_palavras_do_horario_de_paciente()
+    {
+        var r = Reserva(9);
+        Assert.Null(ReservasNaAgendaDoDia.Resposta(r));
+        r.LembreteEnviadoEm = Agora.AddHours(-20);
+        Assert.Equal(("Não confirmou", "neutro"), ReservasNaAgendaDoDia.Resposta(r));
+        r.RespostaDoLembrete = ReservaDeHorario.RespostasDoLembrete.Confirmou;
+        Assert.Equal(("Confirmou", "sucesso"), ReservasNaAgendaDoDia.Resposta(r));
+        r.RespostaDoLembrete = ReservaDeHorario.RespostasDoLembrete.PediuCancelar;
+        Assert.Equal("Pediu para cancelar", ReservasNaAgendaDoDia.Resposta(r)!.Value.Texto);
+        r.RespostaDoLembrete = ReservaDeHorario.RespostasDoLembrete.PediuRemarcar;
+        Assert.Equal(("Não vem — remarcar", "aviso"), ReservasNaAgendaDoDia.Resposta(r));
+    }
 }

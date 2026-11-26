@@ -674,3 +674,17 @@ input[type="date"].campo::-webkit-date-and-time-value, input[type="time"].campo:
   .botoes-linha{flex-wrap:wrap;max-width:100%}
   .selo{flex-shrink:1;min-width:0}
 }
+
+/* ===== A RESERVA SEM FICHA (nov/2026): a mesma marca em todas as portas — fundo branco, contorno tracejado da cor de
+   ação e o ícone do WhatsApp. Não parece paciente (fundo azul/verde) nem bloqueio (listrado). ===== */
+.reserva-sf{display:flex;flex-direction:column;gap:var(--space-4)}
+.reserva-sf-dados{display:grid;grid-template-columns:auto 1fr;gap:var(--space-2) var(--space-4);margin:0}
+.reserva-sf-dados dt{color:var(--texto-secundario)}
+.reserva-sf-dados dd{margin:0;font-weight:600;min-width:0}
+.reserva-sf-duas{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)}
+.reserva-sf-motivo{display:flex;min-height:44px;padding:0 var(--space-3);border:1px solid var(--borda);border-radius:var(--radius-control)}
+.selo-reserva{display:inline-flex;align-items:center;gap:var(--space-1);border:1px dashed var(--acento);color:var(--acento);background:var(--superficie);
+  border-radius:var(--radius-pilula);padding:0 var(--space-2);font-size:var(--text-small-size);font-weight:600;white-space:nowrap}
+.selo-reserva .icone{width:14px;height:14px}
+@media (max-width:760px){.reserva-sf-duas{grid-template-columns:1fr}}
+.reserva-sf-nota{margin:var(--space-1) 0 0;font-size:var(--text-small-size)}

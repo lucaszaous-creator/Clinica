@@ -79,9 +79,11 @@ public sealed class FormulariosDoPaciente(IServiceScopeFactory escopos)
     /// já preenche o campo (out/2026, WhatsApp nativo: "Cadastrar com este telefone" — quem escreveu pelo
     /// WhatsApp não precisa ditar o número que a conversa já tem); a recepção pode mudá-lo antes de gravar.
     /// </summary>
-    public Task<PacienteCadastrado?> CadastrarAsync(string? telefone = null)
+    /// <remarks><paramref name="nome"/> (nov/2026, "Virar paciente" da reserva sem ficha): o nome que a pessoa deu na
+    /// conversa já vem no campo; a recepção completa o resto no balcão.</remarks>
+    public Task<PacienteCadastrado?> CadastrarAsync(string? telefone = null, string? nome = null)
         => Disponivel
-            ? Abrir(new FormularioDoPacienteAberto(TipoFormularioDoPaciente.Cadastro, null, null, telefone))
+            ? Abrir(new FormularioDoPacienteAberto(TipoFormularioDoPaciente.Cadastro, null, null, telefone, nome))
             : Task.FromResult<PacienteCadastrado?>(null);
 
     /// <summary>A edição do cadastro. Verdadeiro = gravou.</summary>
@@ -133,13 +135,16 @@ public sealed class FormulariosDoPaciente(IServiceScopeFactory escopos)
 public enum TipoFormularioDoPaciente { Cadastro, Convenio }
 
 /// <summary>Um formulário pedido: qual, de quem (nulo = paciente novo) e a ficha já lida (o convênio).</summary>
-public sealed class FormularioDoPacienteAberto(TipoFormularioDoPaciente tipo, int? pacienteId, Paciente? paciente, string? telefoneInicial = null)
+public sealed class FormularioDoPacienteAberto(TipoFormularioDoPaciente tipo, int? pacienteId, Paciente? paciente, string? telefoneInicial = null,
+    string? nomeInicial = null)
 {
     public TipoFormularioDoPaciente Tipo { get; } = tipo;
     public int? PacienteId { get; } = pacienteId;
     public Paciente? Paciente { get; } = paciente;
     /// <summary>O telefone que o cadastro NOVO já abre preenchido (nulo = campo vazio, como sempre).</summary>
     public string? TelefoneInicial { get; } = telefoneInicial;
+    /// <summary>O nome que o cadastro NOVO já abre preenchido (a reserva sem ficha); nulo = campo vazio.</summary>
+    public string? NomeInicial { get; } = nomeInicial;
 
     internal TaskCompletionSource<PacienteCadastrado?> Resposta { get; } =
         new(TaskCreationOptions.RunContinuationsAsynchronously);

@@ -129,3 +129,10 @@
 .rd-token .rd-sem-token{width:10.5em;min-width:0;flex:none}
 .rd-token-erro{flex-basis:100%;color:var(--erro-texto);font-size:var(--text-small-size)}
 .rd-aviso-token{margin-bottom:var(--space-2)}
+/* A reserva sem ficha (nov/2026): a linha do dia com a marca da reserva — sem cor de grupo de paciente; a borda da
+   esquerda tracejada e o ícone do WhatsApp no lugar da foto. */
+.rd-tabela tbody tr.rd-reserva td{background:var(--superficie)}
+.rd-tabela tbody tr.rd-reserva td:first-child{box-shadow:none;border-left:2px dashed var(--acento)}
+.rd-avatar.rd-reserva-icone{background:var(--superficie);border:1.5px dashed var(--acento);color:var(--acento)}
+.rd-reserva-icone .icone{width:18px;height:18px}
+.rd-reserva .rd-status .rd-ponto{background:var(--acento)}
