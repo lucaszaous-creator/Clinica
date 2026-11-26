@@ -27,8 +27,11 @@ public sealed class ClinicPatientBridge(ClinicaDbContext db)
 
         // Telefone: a ficha guarda o número como foi digitado, então a comparação é pelo
         // número normalizado — a mesma regra da agenda (ClinicAgendaBridge.Phone).
-        var byPhone = phone.Length == 0 ? [] : (await db.Pacientes.AsNoTracking().Where(p => p.Telefone != null)
-            .Select(p => new { p.Id, p.Telefone }).ToListAsync(ct)).Where(p => ClinicAgendaBridge.Phone(p.Telefone) == phone).Select(p => p.Id).ToHashSet();
+        var comTelefone = phone.Length == 0 ? [] : await db.Pacientes.AsNoTracking().Where(p => p.Telefone != null)
+            .Select(p => new { p.Id, p.Telefone }).ToListAsync(ct);
+        var byPhone = comTelefone.Where(p => ClinicAgendaBridge.Phone(p.Telefone) == phone).Select(p => p.Id).ToHashSet();
+        // A ficha que se vincula sozinha: a ÚNICA deste número (FichaPeloTelefone, a regra dos apps).
+        var unica = FichaPeloTelefone.Unica(comTelefone.Select(p => (p.Id, p.Telefone)), phone);
         var byQuery = new List<int>();
         if (query.Length >= 3)
         {
@@ -67,7 +70,8 @@ public sealed class ClinicPatientBridge(ClinicaDbContext db)
                 upcoming.Where(a => a.PacienteId == p.Id).Take(MaxUpcoming).Select(a => new ClinicPatientVisit(a.Id,
                     new DateTimeOffset(DateTime.SpecifyKind(a.DataHora, DateTimeKind.Unspecified), Zone.GetUtcOffset(a.DataHora)),
                     RotulosEnum.De(a.ModalidadePrevista), a.Profissional?.Nome ?? "", "scheduled",
-                    ClinicAgendaBridge.AnswerOf(contacts.FirstOrDefault(c => c.AgendamentoId == a.Id)))).ToArray());
+                    ClinicAgendaBridge.AnswerOf(contacts.FirstOrDefault(c => c.AgendamentoId == a.Id)))).ToArray(),
+                AutoVincular: p.Id == unica);
         })
         // A ficha do telefone vem primeiro; dentro dela, quem tem horário marcado.
         .OrderByDescending(c => c.PhoneMatch).ThenBy(c => c.Upcoming.Length == 0).ThenBy(c => c.Name).ToArray();
