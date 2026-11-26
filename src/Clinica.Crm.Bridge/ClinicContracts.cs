@@ -71,7 +71,10 @@ public sealed record ClinicPatientLookup(string Phone, string? Query = null);
 public sealed record ClinicPatientVisit(int AppointmentId, DateTimeOffset StartsAt, string Modality, string Professional,
     string Status, string Answer = "");
 public sealed record ClinicPatientCard(int Id, string Name, string Phone, DateOnly? BirthDate, string Insurance,
-    string DocumentEnd, bool PhoneMatch, DateOnly? LastSession, string LastModality, ClinicPatientVisit[] Upcoming);
+    string DocumentEnd, bool PhoneMatch, DateOnly? LastSession, string LastModality, ClinicPatientVisit[] Upcoming,
+    // A ÚNICA ficha com este telefone (nov/2026, decisão do dono: a ficha se vincula sozinha pelo telefone). A regra mora
+    // no Clinica (FichaPeloTelefone.Unica); a ponte só marca. Ponte antiga não manda: falso = nada se vincula sozinho.
+    bool AutoVincular = false);
 
 // O dia do CRM para a direção (out/2026, caminho A): o CRM calcula, a ponte grava uma linha por
 // dia no banco da clínica e o Gerente lê. Só contagens — nenhum dado de paciente. O dia de hoje
