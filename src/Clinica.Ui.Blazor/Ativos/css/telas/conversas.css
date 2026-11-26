@@ -777,3 +777,68 @@ button.wa-citacao:focus-visible{outline:2px solid var(--wa-acao);outline-offset:
   box-shadow:var(--sombra-cartao);color:var(--wa-cinza);font:inherit;font-size:var(--text-small-size);font-weight:600;cursor:pointer}
 .wa-anteriores:hover{color:var(--wa-acao)}
 @media (prefers-reduced-motion:reduce){.wa-balao.destacada{animation:none;box-shadow:0 0 0 3px var(--wa-acao-tint)}}
+
+/* ==========================================================================
+   A AGENDA DENTRO DA CONVERSA (nov/2026, aprovada pelo dono): a aba "Agenda" do painel do contato.
+   1366: o painel ao lado da conversa; ≥ 1600: sempre aberto; ≤ 760: folha de tela cheia. Só tokens, regra de 8.
+   ========================================================================== */
+@media (min-width:1181px){.pagina.wa.com-dados{grid-template-columns:368px minmax(0,1fr) 380px}}
+@media (min-width:1600px){
+  .pagina.wa:not(.sem-conversa){grid-template-columns:400px minmax(0,1fr) 420px;grid-template-areas:"lista conversa ficha"}
+  .pagina.wa:not(.sem-conversa) .wa-ficha{display:flex}
+  .pagina.wa .wa-ficha-fechar{display:none}
+}
+.wa-abas-painel{flex:1;border-bottom:0;gap:var(--space-1)}
+.wa-abas-painel button{min-height:40px}
+.wa-botao-agenda{gap:var(--space-2);color:var(--wa-acao)}
+.wa-botao-agenda[aria-pressed="true"]{background:var(--wa-acao-suave);border-color:var(--wa-acao-tint)}
+.wa-agenda{display:flex;flex-direction:column}
+.wa-ag-feito{display:flex;flex-direction:column;gap:var(--space-2);margin:var(--space-3) var(--space-4) 0;padding:var(--space-3) var(--space-4);
+  border:1px solid var(--verde-100);background:var(--sucesso-suave);border-radius:var(--radius-card);font-size:var(--text-small-size)}
+.wa-ag-feito b{display:flex;align-items:center;gap:var(--space-2);color:var(--sucesso-forte);font-size:var(--text-body-size)}
+.wa-ag-feito .botao{align-self:flex-start}
+.wa-ag-pessoa{display:flex;gap:var(--space-3);align-items:flex-start}
+.wa-ag-pessoa > .icone{color:var(--sucesso-forte);margin-top:2px}
+.wa-ag-pessoa div{display:flex;flex-direction:column;min-width:0}
+.wa-ag-pessoa small{color:var(--wa-cinza);font-size:var(--text-small-size)}
+.wa-ag-auto{color:var(--sucesso-forte)!important}
+.wa-ag-trocar{margin-top:var(--space-2);align-self:flex-start}
+.wa-ag-candidata{display:flex;justify-content:space-between;align-items:center;gap:var(--space-2);border:1px solid var(--wa-linha);border-radius:var(--radius-control);padding:var(--space-2) var(--space-3);margin-top:var(--space-2)}
+.wa-ag-candidata div{display:flex;flex-direction:column;min-width:0}
+.wa-ag-candidata small{color:var(--wa-cinza);font-size:var(--text-small-size)}
+.wa-ag-remarcando{outline:2px solid var(--wa-acao-tint);outline-offset:-2px}
+.wa-ag-modo{display:flex;justify-content:space-between;align-items:center;gap:var(--space-2);background:var(--wa-acao-suave);border:1px solid var(--wa-acao-tint);
+  color:var(--wa-acao);border-radius:var(--radius-control);padding:var(--space-2) var(--space-3);font-weight:600;font-size:var(--text-small-size);margin-bottom:var(--space-2)}
+.wa-ag-filtros{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--space-2)}
+.wa-ag-filtros label{display:flex;flex-direction:column;gap:4px;font-size:var(--text-small-size);font-weight:600;color:var(--wa-cinza);min-width:0}
+.wa-ag-filtros select{min-width:0}
+.wa-ag-sub{display:flex;justify-content:space-between;align-items:center;gap:var(--space-2);margin:var(--space-3) 0 var(--space-2);font-size:var(--text-small-size);
+  text-transform:uppercase;letter-spacing:var(--text-secao-tracking);color:var(--wa-cinza)}
+.wa-ag-sub .link{text-transform:none;letter-spacing:0}
+.wa-ag-proximas{display:flex;flex-direction:column;gap:var(--space-2)}
+.wa-ag-vaga{display:flex;justify-content:space-between;align-items:center;gap:var(--space-2);min-height:44px;width:100%;text-align:left;cursor:pointer;
+  border:1px solid var(--wa-linha);border-radius:var(--radius-control);background:var(--superficie);padding:0 var(--space-3);font:inherit;color:var(--texto-primario)}
+.wa-ag-vaga:hover:not(:disabled){border-color:var(--wa-acao-tint);background:var(--wa-acao-suave)}
+.wa-ag-vaga b{font-variant-numeric:tabular-nums}.wa-ag-vaga small{color:var(--wa-cinza)}
+.wa-ag-cal{border:1px solid var(--wa-linha);border-radius:var(--radius-card);padding:var(--space-2);margin-top:var(--space-3)}
+.wa-ag-cal-topo{display:flex;justify-content:space-between;align-items:center;padding-bottom:var(--space-2)}
+.wa-ag-cal-topo b::first-letter{text-transform:uppercase}
+.wa-ag-grade{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;text-align:center}
+.wa-ag-sem{font-size:11px;font-weight:600;color:var(--wa-cinza);padding:4px 0}
+.wa-ag-dia{height:40px;border:0;border-radius:var(--radius-control);background:transparent;color:var(--texto-secundario);font:inherit;font-variant-numeric:tabular-nums;position:relative;cursor:default}
+.wa-ag-dia.tem{color:var(--texto-primario);font-weight:600;cursor:pointer}
+.wa-ag-dia.tem::after{content:"";position:absolute;left:50%;bottom:5px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:var(--wa-verde)}
+.wa-ag-dia.tem:hover{background:var(--wa-faixa)}
+.wa-ag-dia.hoje{box-shadow:inset 0 0 0 1px var(--wa-acao-tint)}
+.wa-ag-dia.sel{background:var(--wa-acao);color:#fff}.wa-ag-dia.sel::after{background:#fff}
+.wa-ag-slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:var(--space-2)}
+.wa-ag-slot{min-height:44px;border:1px solid var(--wa-acao-tint);border-radius:var(--radius-control);background:var(--superficie);color:var(--wa-acao);font:inherit;font-weight:600;
+  font-variant-numeric:tabular-nums;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.15;cursor:pointer;padding:4px}
+.wa-ag-slot small{font-size:11px;font-weight:500;color:var(--wa-cinza);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wa-ag-slot:hover:not(:disabled){background:var(--wa-acao-suave)}
+@media (max-width:760px){
+  .pagina.wa .wa-ficha{width:100%;border-left:0}
+  .wa-botao-agenda-rotulo{display:none}
+  .wa-ag-filtros{grid-template-columns:minmax(0,1fr)}
+  .wa-ag-filtros select{font-size:16px}
+}

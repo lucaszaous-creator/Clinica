@@ -449,7 +449,7 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
         Assert.Equal("cinza", WhatsAppDaRecepcaoService.TomDoAvatar(null));
         Assert.Equal("final 42", WhatsAppDaRecepcaoService.FimDoDocumento("123.456.789-42"));
         Assert.Equal("—", WhatsAppDaRecepcaoService.FimDoDocumento(null));
-        Assert.Equal(["22998765432", "5522998765432", "022998765432"], WhatsAppDaRecepcaoService.Variantes("5522998765432"));
+        Assert.Equal(["22998765432", "5522998765432", "022998765432", "2298765432", "552298765432", "02298765432"], WhatsAppDaRecepcaoService.Variantes("5522998765432"));
         Assert.Empty(WhatsAppDaRecepcaoService.Variantes("123"));
         Assert.Equal("5522998765432", WhatsAppDaRecepcaoService.ContatoParaOCrm("(22) 99876-5432"));
     }
@@ -460,9 +460,9 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
         var hoje = new DateOnly(2026, 10, 24);
         var novo = new HorarioDoPaciente(1, new DateTime(2026, 10, 28, 14, 0, 0), "", "", "", "", false, false, false, 2,
             ModalidadeAtendimento.AcupunturaSimples, "Dra. Helena");
-        Assert.Equal("Combinado, Maria! Remarquei a sua acupuntura para quarta-feira, 28/10 às 14:00 com Dra. Helena.",
+        Assert.Equal("Combinado, Maria! Remarquei a sua acupuntura para quarta-feira, 28/10 às 14:00 com a Dra. Helena.",
             WhatsAppDaRecepcaoService.RascunhoDeRemarcacao("Maria das Graças Silva", novo, hoje, lembreteAutomatico: false));
-        Assert.Equal("Combinado, Maria! Remarquei a sua acupuntura para quarta-feira, 28/10 às 14:00 com Dra. Helena. Antes da sessão chega o lembrete para você confirmar.",
+        Assert.Equal("Combinado, Maria! Remarquei a sua acupuntura para quarta-feira, 28/10 às 14:00 com a Dra. Helena. Antes da sessão chega o lembrete para você confirmar.",
             WhatsAppDaRecepcaoService.RascunhoDeRemarcacao("Maria das Graças Silva", novo, hoje, lembreteAutomatico: true));
         // Sessão de hoje: o lembrete do dia já passou (ou nem sai), e a mensagem não o promete (R3).
         Assert.DoesNotContain("lembrete", WhatsAppDaRecepcaoService.RascunhoDeRemarcacao("Maria", novo with { Quando = new DateTime(2026, 10, 24, 18, 0, 0) }, hoje, lembreteAutomatico: true));
@@ -835,6 +835,34 @@ public sealed class WhatsAppDaRecepcaoServiceTests : IDisposable
     }
 
     // ------------------------------------------------------------------ o CRM falso
+
+    [Fact]
+    public async Task Uma_ficha_so_com_o_numero_liga_sozinha_com_trilha_e_a_troca_desliga()
+    {
+        // O dono (nov/2026): "a ficha deve se auto vincular com os pacientes com o mesmo número cadastrado". Uma ficha só liga
+        // sozinha, com a trilha da clínica; duas ou mais a recepção escolhe (o telefone não é identidade).
+        var c = _crm.Pôr(Conversa("c-auto", "Sebastião", "5522991204477"));
+        var unica = new FichaCandidata(_sebastiao.Id, _sebastiao.Nome, "SR", "azul", "—", "—", "nenhuma", "—");
+        var outra = new FichaCandidata(_maria.Id, _maria.Nome, "MS", "azul", "—", "—", "nenhuma", "—");
+
+        var nada = await Com(s => s.LigarSozinhaAsync(c, "(22) 99120-4477", [unica, outra]));
+        Assert.Null(nada.PatientId);
+        Assert.Empty(_crm.Ligacoes);
+
+        var ligada = await Com(s => s.LigarSozinhaAsync(c, "(22) 99120-4477", [unica]));
+        Assert.Equal(_sebastiao.Id, ligada.PatientId);
+        using (var db = Db())
+            Assert.Contains(db.Auditoria.Where(e => e.Acao == "FichaLigadaPeloTelefone"), e => e.PacienteId == _sebastiao.Id && e.Detalhe!.Contains("única ficha"));
+
+        var deNovo = await Com(s => s.LigarSozinhaAsync(ligada, "(22) 99120-4477", [unica]));
+        Assert.Single(_crm.Ligacoes);   // já ligada: não liga de novo
+
+        var solta = await Com(s => s.DesligarFichaAsync(deNovo));
+        Assert.Null(solta.PatientId);
+        Assert.Null(_crm.Ligacoes[^1].PatientId);
+        using (var db = Db())
+            Assert.Contains(db.Auditoria, e => e.Acao == "FichaDesligadaDaConversa" && e.PacienteId == _sebastiao.Id);
+    }
 
     private static AppConversationSummary Resumo(string id, DateTimeOffset em)
         => new(id, id, "5522900000000", "whatsapp", "5522333300000", "Recepção", null, false, 1, em, em, null, "", 0, "oi", false, false, null, null);

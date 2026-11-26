@@ -295,6 +295,8 @@
     [Parameter] public string? Duracao { get; set; }
     /// <summary>A modalidade planejada na grade (código do catálogo).</summary>
     [Parameter] public string? ModalidadeCodigo { get; set; }
+    /// <summary>A especialidade da consulta pré-escolhida (a Agenda da conversa, nov/2026). Nula = a de sempre.</summary>
+    [Parameter] public string? EspecialidadeCodigo { get; set; }
     /// <summary>Pedido da lista de espera que este horário atende (fecha ao salvar, pelo ChamarAsync).</summary>
     [Parameter] public int? PedidoListaEsperaId { get; set; }
     /// <summary>
@@ -467,10 +469,16 @@
                     return;
                 }
                 AplicarHorario(ag);
+                // Remarcar pela Agenda da conversa (nov/2026): a vaga escolhida lá chega como o NOVO dia, hora e profissional.
+                // Sem eles (a Agenda do dia, a janela do horário), o formulário abre no horário de hoje, como sempre.
+                if (Data is { } novoDia) _data = DateOnly.FromDateTime(novoDia);
+                if (!string.IsNullOrWhiteSpace(Hora)) _hora = Hora.Trim();
+                if (ProfissionalPreferidoId is { } novoProf && _profissionais.FirstOrDefault(p => p.Id == novoProf) is { } outro) _profissional = outro;
             }
             else
             {
                 CarregarCatalogos(ModalidadeCodigo);
+                if (EspecialidadeCodigo is { Length: > 0 } esp && _especialidades.FirstOrDefault(e => e.Codigo == esp) is { } escolhida) _especialidade = escolhida;
             }
         }
         catch (Exception ex)

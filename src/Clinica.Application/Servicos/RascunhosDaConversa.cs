@@ -18,23 +18,40 @@ public static class RascunhosDaConversa
     public static HorarioDoPaciente? HorarioNovo(IReadOnlyList<HorarioDoPaciente> antes, IReadOnlyList<HorarioDoPaciente> depois)
         => depois.FirstOrDefault(n => antes.All(a => a.AgendamentoId != n.AgendamentoId));
 
-    /// <summary>"Pronto, Maria! Marquei a sua acupuntura para terça-feira, 27/10 às 14:00 com Dra. Helena."</summary>
+    /// <summary>
+    /// "Pronto, Maria! Marquei a sua acupuntura para terça-feira, 27/10 às 14:00 com a Dra. Helena. Qualquer coisa é só
+    /// chamar." — o texto do protótipo aprovado pelo dono (26/11/2026, Agenda dentro da conversa).
+    /// </summary>
     public static string Marcacao(string? nome, HorarioDoPaciente novo, DateOnly hoje)
     {
         var quem = ConversasNaTela.PrimeiroNomeOu(nome, "");
         return $"Pronto{(quem.Length == 0 ? "" : ", " + quem)}! Marquei a sua {ModeloDoWhatsApp.NaFrase(novo.Modalidade)} para "
-               + $"{MensagensDeContato.QuandoPorExtenso(novo.Quando, hoje)}{Com(novo)}.";
+               + $"{MensagensDeContato.QuandoPorExtenso(novo.Quando, hoje)}{Com(novo)}. {QualquerCoisa}";
     }
 
     /// <summary>
-    /// "Maria, cancelei o seu horário de amanhã às 14:00 com Dra. Helena. Se quiser marcar outro dia, é só
-    /// responder por aqui." — o convite é para ELA escrever; não promete nada que o sistema faça sozinho.
+    /// "Pronto, Maria! A sua acupuntura passou de hoje às 14:00 para sexta-feira, 27/11 às 10:00 com a Dra. Helena. Qualquer
+    /// coisa é só chamar." — a remarcação pela Agenda da conversa, que sabe o horário de ANTES.
+    /// </summary>
+    public static string Remarcacao(string? nome, DateTime antes, HorarioDoPaciente novo, DateOnly hoje)
+    {
+        var quem = ConversasNaTela.PrimeiroNomeOu(nome, "");
+        return $"Pronto{(quem.Length == 0 ? "" : ", " + quem)}! A sua {ModeloDoWhatsApp.NaFrase(novo.Modalidade)} passou de "
+               + $"{MensagensDeContato.QuandoPorExtenso(antes, hoje)} para {MensagensDeContato.QuandoPorExtenso(novo.Quando, hoje)}{Com(novo)}. {QualquerCoisa}";
+    }
+
+    /// <summary>O fecho das mensagens de marcar e remarcar (o do protótipo aprovado).</summary>
+    public const string QualquerCoisa = "Qualquer coisa é só chamar.";
+
+    /// <summary>
+    /// "Maria, desmarquei o seu horário de amanhã às 14:00 com a Dra. Helena. Quando quiser remarcar, é só me chamar por
+    /// aqui." — o convite é para ELA escrever; não promete nada que o sistema faça sozinho (texto do protótipo aprovado).
     /// </summary>
     public static string Cancelamento(string? nome, HorarioDoPaciente cancelado, DateOnly hoje)
     {
         var quem = ConversasNaTela.PrimeiroNomeOu(nome, "");
-        return $"{(quem.Length == 0 ? "Olá! C" : quem + ", c")}ancelei o seu horário de {MensagensDeContato.QuandoPorExtenso(cancelado.Quando, hoje)}"
-               + $"{Com(cancelado)}. Se quiser marcar outro dia, é só responder por aqui.";
+        return $"{(quem.Length == 0 ? "Olá! D" : quem + ", d")}esmarquei o seu horário de {MensagensDeContato.QuandoPorExtenso(cancelado.Quando, hoje)}"
+               + $"{Com(cancelado)}. Quando quiser remarcar, é só me chamar por aqui.";
     }
 
     /// <summary>A confirmação passageira depois de marcar pela conversa: diz se a mensagem ficou no campo, ou por que não.</summary>
@@ -48,5 +65,15 @@ public static class RascunhosDaConversa
         => preparou ? "Horário cancelado e liberado na agenda. A mensagem ficou pronta no campo: revise e envie."
             : "Horário cancelado e liberado na agenda. Nenhuma mensagem foi ao paciente.";
 
-    private static string Com(HorarioDoPaciente h) => string.IsNullOrWhiteSpace(h.Profissional) ? "" : $" com {h.Profissional.Trim()}";
+    private static string Com(HorarioDoPaciente h) => ComQuem(h.Profissional);
+
+    /// <summary>" com a Dra. Helena", " com o Dr. Marcos", " com Fulano" (sem título, sem artigo); vazio sem profissional.</summary>
+    public static string ComQuem(string? profissional)
+    {
+        var p = profissional?.Trim();
+        if (string.IsNullOrEmpty(p)) return "";
+        return p.StartsWith("Dra.", StringComparison.OrdinalIgnoreCase) ? $" com a {p}"
+            : p.StartsWith("Dr.", StringComparison.OrdinalIgnoreCase) ? $" com o {p}"
+            : $" com {p}";
+    }
 }

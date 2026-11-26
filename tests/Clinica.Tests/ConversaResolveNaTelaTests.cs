@@ -170,9 +170,10 @@ public sealed class ConversaResolveNaTelaTests : IClassFixture<BancoDasTelas>, I
         var tela = AbrirTela();
         Filtro(tela, "Minhas");
         Abrir(tela, "Roberto");
-        tela.WaitForAssertion(() => tela.FindAll(".wa-marcar button").Should().ContainSingle(), Prazo);
+        // A Agenda dentro da conversa (nov/2026): marcar é tocar numa vaga — o formulário da Agenda abre já preenchido.
+        tela.WaitForAssertion(() => tela.FindAll(".wa-ag-vaga").Should().NotBeEmpty(), Prazo);
 
-        tela.Clicar(() => tela.Find(".wa-marcar button"));
+        tela.Clicar(() => tela.FindAll(".wa-ag-vaga").First());
 
         tela.WaitForAssertion(() => tela.Find(".modal").TextContent.Should().Contain($"Marcar horário para {PessoasDoWhatsApp.Roberto.Nome}"), Prazo);
         tela.WaitForAssertion(() => tela.Find(".agf-paciente-fixo").TextContent.Should().Contain(PessoasDoWhatsApp.Roberto.Nome), Prazo);
@@ -187,12 +188,12 @@ public sealed class ConversaResolveNaTelaTests : IClassFixture<BancoDasTelas>, I
         tela.WaitForAssertion(() => tela.FindAll(".wa-horario").Should().NotBeEmpty(), Prazo);
         var enviadasAntes = Crm.AbrirConversaAsync(0, CrmDeMentira.Ids.Maria).GetAwaiter().GetResult().Messages.Length;
 
-        tela.Clicar(() => tela.FindAll(".wa-horario button").First(b => b.TextContent.Trim() == "Cancelar"));
+        tela.Clicar(() => tela.FindAll(".wa-horario button").First(b => b.TextContent.Trim() == "Desmarcar"));
         tela.WaitForAssertion(() => tela.Find(".modal select"), Prazo);
         Mudar(tela, () => tela.Find(".modal select"), "Profissional ausente");
         tela.Clicar(() => tela.FindAll(".modal-rodape button").Last());
 
-        tela.WaitForAssertion(() => tela.Find(".wa-escrever textarea").GetAttribute("value").Should().StartWith("Maria, cancelei o seu horário de"), Prazo);
+        tela.WaitForAssertion(() => tela.Find(".wa-escrever textarea").GetAttribute("value").Should().StartWith("Maria, desmarquei o seu horário de"), Prazo);
         Crm.AbrirConversaAsync(0, CrmDeMentira.Ids.Maria).GetAwaiter().GetResult().Messages.Length.Should().Be(enviadasAntes, "o rascunho espera o Enviar");
     }
 

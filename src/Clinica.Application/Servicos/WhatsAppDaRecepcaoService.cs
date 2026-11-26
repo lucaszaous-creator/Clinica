@@ -310,7 +310,11 @@ public sealed partial class WhatsAppDaRecepcaoService(
         if (d.Length is < 10 or > 13) return [];
         var sem = d.Length is 12 or 13 && d.StartsWith("55", StringComparison.Ordinal) ? d[2..] : d;
         // A ficha às vezes guarda o 0 do interurbano ("022998999334"): a busca no banco compara dígitos, então ele entra.
-        return sem.Length is 10 or 11 ? [sem, "55" + sem, "0" + sem] : [d];
+        if (sem.Length is not (10 or 11)) return [d];
+        // O mesmo celular com e sem o 9º dígito (nov/2026): a ficha antiga tem "22 9999-1234", o WhatsApp manda "22 99999-1234".
+        var outro = sem.Length == 11 && sem[2] == '9' && sem[3] is >= '6' and <= '9' ? sem.Remove(2, 1)
+            : sem.Length == 10 && sem[2] is >= '6' and <= '9' ? sem.Insert(2, "9") : null;
+        return outro is null ? [sem, "55" + sem, "0" + sem] : [sem, "55" + sem, "0" + sem, outro, "55" + outro, "0" + outro];
     }
 
     /// <summary>O número no formato que o CRM grava (dígitos, com o 55), ou nulo quando ele não serve para mensagem.</summary>
@@ -614,7 +618,7 @@ public sealed partial class WhatsAppDaRecepcaoService(
     public static string RascunhoDeRemarcacao(string? nome, HorarioDoPaciente novo, DateOnly hoje, bool lembreteAutomatico)
     {
         var quem = ConversasNaTela.PrimeiroNomeOu(nome, "");
-        var com = string.IsNullOrWhiteSpace(novo.Profissional) ? "" : $" com {novo.Profissional}";
+        var com = RascunhosDaConversa.ComQuem(novo.Profissional);
         var lembrete = lembreteAutomatico && DateOnly.FromDateTime(novo.Quando) > hoje ? " Antes da sessão chega o lembrete para você confirmar." : "";
         return $"Combinado{(quem.Length == 0 ? "" : ", " + quem)}! Remarquei a sua {ModeloDoWhatsApp.NaFrase(novo.Modalidade)} para "
             + $"{MensagensDeContato.QuandoPorExtenso(novo.Quando, hoje)}{com}.{lembrete}";
@@ -849,6 +853,42 @@ public sealed partial class WhatsAppDaRecepcaoService(
         if (c.PatientId is { } atual && atual != pacienteId)
             throw new InvalidOperationException("Esta conversa já está ligada a outra ficha. A troca é feita no CRM, com o registro de quem trocou.");
         return crm.LigarFichaAsync(UsuarioId, c.Id, new AppPatientLink(pacienteId, nome, c.Version), ct);
+    }
+
+    /// <summary>
+    /// A ficha que LIGA SOZINHA (nov/2026, pedido do dono): o número da conversa bate com UMA ficha só
+    /// (<see cref="AgendaDaConversa.Vinculo"/>). Liga no CRM (que registra quem e quando) e grava a trilha da clínica no
+    /// mesmo ato. Com duas ou mais fichas, ou com a conversa já ligada, não faz nada — a recepção escolhe.
+    /// </summary>
+    public async Task<AppConversation> LigarSozinhaAsync(AppConversation c, string telefone, IReadOnlyList<FichaCandidata> candidatas, CancellationToken ct = default)
+    {
+        if (AgendaDaConversa.Vinculo(c.PatientId, candidatas.Count) != DecisaoDoVinculo.LigarSozinha) return c;
+        var unica = candidatas[0];
+        var ligada = await crm.LigarFichaAsync(UsuarioId, c.Id, new AppPatientLink(unica.Id, unica.Nome, c.Version), ct);
+        await repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = Operador, Acao = "FichaLigadaPeloTelefone", PacienteId = unica.Id,
+            Detalhe = AgendaDaConversa.TrilhaDoVinculo(telefone, unica.Id, unica.Nome)
+        }, ct);
+        await repo.SalvarAsync(ct);
+        return ligada;
+    }
+
+    /// <summary>
+    /// "Não é esta pessoa? Trocar" (nov/2026): desliga a ficha da conversa — o CRM registra quem desligou — e a recepção
+    /// escolhe a certa. A trilha da clínica guarda de qual ficha a conversa saiu.
+    /// </summary>
+    public async Task<AppConversation> DesligarFichaAsync(AppConversation c, CancellationToken ct = default)
+    {
+        if (c.PatientId is not { } atual) return c;
+        var solta = await crm.LigarFichaAsync(UsuarioId, c.Id, new AppPatientLink(null, "", c.Version), ct);
+        await repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = Operador, Acao = "FichaDesligadaDaConversa", PacienteId = atual,
+            Detalhe = $"A recepção desligou a ficha {c.PatientName} (nº {atual}) da conversa: não era esta pessoa."
+        }, ct);
+        await repo.SalvarAsync(ct);
+        return solta;
     }
 
     /// <summary>
