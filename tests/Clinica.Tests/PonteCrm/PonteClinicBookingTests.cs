@@ -92,6 +92,16 @@ public sealed class PonteClinicBookingTests : IDisposable
         Assert.All(late.Slots, t => Assert.True(t.Hour >= 17));
     }
 
+    [Fact] public async Task O_mes_inteiro_cabe_numa_busca_para_o_calendario_da_conversa()
+    {
+        // 26/11/2026, "Agenda na conversa": o calendário marca a vaga em todos os dias do mês. Eram 80 por busca (a primeira
+        // semana de um profissional de meia em meia hora); agora cabe o mês.
+        var mes = await bridge.Slots(Query() with { Through = dia.AddDays(29) }, default);
+        Assert.True(mes.Slots.Length > 80, $"só {mes.Slots.Length} vagas no mês");
+        Assert.True(mes.Slots.Length <= ClinicBookingBridge.VagasPorBusca);
+        Assert.True(mes.Slots.Max() > mes.Slots.Min().AddDays(14), "as vagas param na primeira quinzena");
+    }
+
     [Fact] public async Task Outro_telefone_nao_marca_para_o_paciente()
     {
         await Assert.ThrowsAsync<InvalidOperationException>(() => bridge.Slots(Query() with { Phone = "5511988880000" }, default));
