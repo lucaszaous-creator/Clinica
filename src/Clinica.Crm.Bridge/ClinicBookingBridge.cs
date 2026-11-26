@@ -90,14 +90,21 @@ public sealed class ClinicBookingBridge(ClinicaDbContext db, AgendaService agend
         }).ToArray());
     }
 
-    async Task<(Paciente patient, Profissional professional)> Validate(BookingQuery q, CancellationToken ct)
+    /// <summary>
+    /// Confere o pedido. <paramref name="exigirPaciente"/> falso (nov/2026, "reserva de horário sem ficha"): a BUSCA de
+    /// vagas aceita PatientId = 0 — disponibilidade não depende de quem pergunta, e a recepção manda "estes horários" a
+    /// quem ainda não tem ficha. Reservar, confirmar e cancelar continuam exigindo a ficha do telefone.
+    /// </summary>
+    async Task<(Paciente? patient, Profissional professional)> Validate(BookingQuery q, CancellationToken ct, bool exigirPaciente = true)
     {
         var phone = ValidPhone(q.Phone);
         if (q.Duration is < 5 or > 240 || string.IsNullOrWhiteSpace(q.ServiceCode) || q.Through < q.From
             || q.Through.DayNumber - q.From.DayNumber > BuscaDeVagas.DiasMaximos || q.Before <= q.After)
             throw new InvalidOperationException("Pedido de vagas inválido.");
-        var patient = (await PatientsOf(phone, ct)).FirstOrDefault(p => p.Id == q.PatientId)
-            ?? throw new InvalidOperationException("Paciente não pertence a este telefone.");
+        Paciente? patient = null;
+        if (exigirPaciente || q.PatientId != 0)
+            patient = (await PatientsOf(phone, ct)).FirstOrDefault(p => p.Id == q.PatientId)
+                ?? throw new InvalidOperationException("Paciente não pertence a este telefone.");
         var professional = await db.Profissionais.AsNoTracking().SingleOrDefaultAsync(p => p.Id == q.ProfessionalId && p.Ativo, ct)
             ?? throw new InvalidOperationException("Profissional inativo ou inexistente.");
         if (q.RoomId is { } room && !await db.Salas.AnyAsync(s => s.Id == room && s.Ativa, ct))
@@ -122,7 +129,7 @@ public sealed class ClinicBookingBridge(ClinicaDbContext db, AgendaService agend
         var holds = (await ActiveHolds(ct)).Where(h => h.Id != ignoreHold && (h.Query.ProfessionalId == q.ProfessionalId || q.RoomId != null && h.Query.RoomId == q.RoomId)).ToArray();
         var days = q.Weekdays is { Length: > 0 } w ? w.ToHashSet() : null;
         return BuscaDeVagas.Calcular(start, q.Duration, professional, busy, blocks, quantidade: 2000,
-                diasMaximos: Math.Max(1, (until - start.Date).Days), sala: room, pacienteId: q.PatientId)
+                diasMaximos: Math.Max(1, (until - start.Date).Days), sala: room, pacienteId: q.PatientId == 0 ? null : q.PatientId)
             .Where(v => v.Inicio < until && TimeOnly.FromDateTime(v.Inicio) >= q.After && TimeOnly.FromDateTime(v.Inicio.AddMinutes(q.Duration)) <= q.Before
                 && (days is null || days.Contains((int)v.Inicio.DayOfWeek))
                 && !holds.Any(h => Local(h.StartsAt) < v.Inicio.AddMinutes(q.Duration) && v.Inicio < Local(h.StartsAt).AddMinutes(h.Query.Duration)))
@@ -146,7 +153,7 @@ public sealed class ClinicBookingBridge(ClinicaDbContext db, AgendaService agend
 
     public async Task<BookingSlots> Slots(BookingQuery q, CancellationToken ct)
     {
-        var (_, professional) = await Validate(q, ct);
+        var (_, professional) = await Validate(q, ct, exigirPaciente: false);
         var slots = await FreeSlots(q, ct);
         return new(DateTimeOffset.UtcNow, $"Vagas de {q.Duration} min com {professional.Rotulo}, de {q.From:dd/MM} a {q.Through:dd/MM}, "
             + $"das {q.After:HH\\:mm} às {q.Before:HH\\:mm}.", !professional.JornadaDeclarada, slots);
@@ -176,7 +183,8 @@ public sealed class ClinicBookingBridge(ClinicaDbContext db, AgendaService agend
             if (prior.StartsAt != input.StartsAt || prior.Query != input.Query) throw new InvalidOperationException("Reserva já usada para outro horário.");
             return View(prior);
         }
-        var (patient, _) = await Validate(input.Query, ct);
+        var (achado, _) = await Validate(input.Query, ct);
+        var patient = achado!; // exigirPaciente (o padrão): sem a ficha do telefone, Validate já recusou
         // Uma reserva por paciente: duas abertas ao mesmo tempo são o começo de duas marcações.
         if ((await ActiveHolds(ct)).Any(h => h.Query.PatientId == input.Query.PatientId)) throw new InvalidOperationException("Este paciente já tem uma reserva em andamento.");
         if (!(await FreeSlots(input.Query, ct)).Contains(input.StartsAt)) throw new InvalidOperationException("A vaga deixou de estar disponível.");
