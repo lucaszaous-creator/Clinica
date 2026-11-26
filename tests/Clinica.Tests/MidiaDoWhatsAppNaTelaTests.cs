@@ -106,6 +106,8 @@ public sealed class MidiaDoWhatsAppNaTelaTests : IClassFixture<BancoDasTelas>, I
 
         // O retrato da FICHA (a foto de perfil do WhatsApp a API da Meta não dá): na linha, no
         // cabeçalho e no cartão do paciente; o João tem retrato, o Carlos (sem retrato) fica nas iniciais.
+        // O cartão do paciente mora na aba Contato do painel (a aba Agenda é a que abre primeiro, nov/2026).
+        tela.Clicar(() => tela.FindAll(".wa-abas-painel button").First(b => b.TextContent.Trim() == "Contato"));
         tela.WaitForAssertion(() =>
         {
             tela.Find(".wa-cab .avatar.com-foto img").GetAttribute("src").Should().StartWith("data:image/jpeg;base64,");

@@ -314,6 +314,10 @@ public static partial class ConversasNaTela
     {
         var d = Telefone.SemPrefixoDeDiscagem(Telefone.Normalizar(telefone));
         if (d.Length is 10 or 11) d = "55" + d;
+        // O 9º dígito do celular (nov/2026, pedido do dono: "a ficha deve se auto vincular com o mesmo número"): ficha
+        // antiga com "22 9999-1234" e o WhatsApp com "22 99999-1234" são o mesmo celular. Só o CELULAR ganha o 9 — o
+        // número de 8 dígitos que começa com 6, 7, 8 ou 9; o fixo (2 a 5) continua como está.
+        if (d.Length == 12 && d.StartsWith("55", StringComparison.Ordinal) && d[4] is >= '6' and <= '9') d = d[..4] + "9" + d[4..];
         return d.Length is >= 10 and <= 15 ? d : "";
     }
 

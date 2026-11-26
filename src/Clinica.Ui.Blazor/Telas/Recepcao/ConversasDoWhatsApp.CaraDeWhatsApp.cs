@@ -51,7 +51,7 @@ public partial class ConversasDoWhatsApp
                 if (Exigir(Permissao.EditarAgenda, "escrever nota interna")) { Rascunho(a).Nota = true; _focarCampo = true; }
                 break;
             case AcaoNaConversa.Buscar: if (_buscaConversa is null) AlternarBusca(); else _focarBusca = true; break;
-            case AcaoNaConversa.DadosDoContato: _fichaAberta = true; break;
+            case AcaoNaConversa.DadosDoContato: AbrirContato(); break;
             case AcaoNaConversa.Etiquetas: if (Exigir(Permissao.EditarAgenda, "etiquetar a conversa")) _popover = Popover.Etiquetas; break;
             case AcaoNaConversa.Resumir: await ResumirComSemDorAsync(a); break;
         }

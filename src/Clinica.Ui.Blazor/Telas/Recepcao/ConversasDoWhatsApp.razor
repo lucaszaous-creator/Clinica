@@ -166,7 +166,7 @@ else
                     <button type="button" class="botao icone fantasma wa-voltar" aria-label="Voltar à lista" @onclick="FecharConversa"><Icone Nome="esquerda" /></button>
                     @* Sem telefone não há WhatsApp: nem o selo do canal no avatar (item 15). *@
                     @Avatar(c.Conversa?.PatientId ?? c.Paciente?.Id, c.Iniciais, c.TomDoAvatar, c.SemTelefone ? null : @<span class="wa-canal @(c.Sms ? "sms" : null)"><Icone Nome="@(c.Sms ? "sms" : "chat")" /></span>)
-                    <div class="wa-cab-quem"><h2><button type="button" class="wa-cab-nome" title="Dados do contato" aria-expanded="@Bool(_fichaAberta)" @onclick="() => _fichaAberta = !_fichaAberta">@c.Nome</button></h2>
+                    <div class="wa-cab-quem"><h2><button type="button" class="wa-cab-nome" title="Dados do contato" aria-expanded="@Bool(_fichaAberta)" @onclick="AlternarContato">@c.Nome</button></h2>
                         @if (ConversasNaTela.QuemEscreve(c.Conversa?.Typing, painel.Sessao.AgentId, painel.Agentes) is { } escrevendo)
                         {
                             <div class="wa-escrevendo" role="status">@escrevendo</div>
@@ -193,6 +193,7 @@ else
                     @* O ⋮ do WhatsApp (F1, nov/2026): Assumir/Devolver, Transferir, Nota, Buscar, Dados do contato e Resumo num
                        menu só (MenuDoWhatsApp.DoCabecalho); à vista ficam a lupa e o ⋮, e o nome abre os Dados do contato. *@
                     <div class="wa-cab-acoes">
+                        <button type="button" class="botao fantasma wa-botao-agenda" aria-pressed="@Bool(_fichaAberta && _abaDoPainel == AbaDoPainel.Agenda)" title="Agenda da paciente: vagas, marcar, remarcar e desmarcar sem sair da conversa" @onclick="AlternarAgenda"><Icone Nome="calendario" /><span class="wa-botao-agenda-rotulo">Agenda</span></button>
                         @if (c.Conversa is not null)
                         {
                             <button type="button" class="botao icone fantasma" data-acao="buscar" title="Buscar nesta conversa" aria-label="Buscar nesta conversa" aria-expanded="@Bool(_buscaConversa is not null)" @onclick="AlternarBusca"><Icone Nome="busca" /></button>
@@ -579,8 +580,11 @@ else
             @* DADOS DO CONTATO (F1, nov/2026): o painel do WhatsApp, que abre pelo nome ou pelo ⋮ e fecha no ✕ — no lugar da coluna
                fixa. Tudo o que a coluna tinha continua aqui (caso, ficha, para resolver, horários com status e o "Como foi?"). *@
             <div class="wa-ficha-topo"><button type="button" class="botao icone fantasma wa-ficha-fechar" aria-label="Fechar os dados do contato" @onclick="() => _fichaAberta = false"><Icone Nome="x" /></button>
-                <h2>Dados do contato</h2></div>
-            @if (_aberta is { } quem)
+                <div class="abas wa-abas-painel" role="tablist" aria-label="Painel do contato">
+                    <button type="button" role="tab" aria-selected="@Bool(_abaDoPainel == AbaDoPainel.Contato)" @onclick="AbrirContato">Contato</button>
+                    <button type="button" role="tab" aria-selected="@Bool(_abaDoPainel == AbaDoPainel.Agenda)" @onclick="() => AbrirAgenda()">Agenda</button>
+                </div></div>
+            @if (_abaDoPainel == AbaDoPainel.Contato && _aberta is { } quem)
             {
                 <div class="wa-contato">
                     @Avatar(quem.Conversa?.PatientId ?? quem.Paciente?.Id, quem.Iniciais, quem.TomDoAvatar)
@@ -614,6 +618,10 @@ else
             @if (_aberta is not { } a)
             {
                 @* Sem conversa aberta a coluna nem aparece (.sem-conversa, §15): nada a desenhar aqui. *@
+            }
+            else if (_abaDoPainel == AbaDoPainel.Agenda)
+            {
+                @AgendaDoPainel(a)
             }
             else
             {
@@ -693,30 +701,9 @@ else
                 }
                 @if (a.Dados.Horarios.Count > 0 || a.Paciente is not null)
                 {
-                    <section class="wa-secao"><h3>Horários @if (a.Dados.Horarios.Count > 0) { <button type="button" class="link" @onclick="AbrirAgendaAsync">Agenda</button> }</h3>
-                        @foreach (var h in a.Dados.Horarios.Take(4))
-                        {
-                            <div class="wa-horario @(h.Tom == "perigo" ? "tom-perigo" : h.Tom == "sucesso" ? "tom-sucesso" : null)" @key="h.AgendamentoId">
-                                <div class="wa-horario-topo"><b>@h.QuandoTexto</b><span class="selo tom-@h.Tom">@h.Situacao</span></div>
-                                <small>@h.Detalhe</small>
-                                @* O que o aviso da conversa já oferece para este horário não se repete aqui: o mesmo botão em dois lugares (item 6). *@
-                                @{ var avisoTem = (BotaoDaAcao b) => ConversasNaTela.AvisoOferece(a.Acao, b, h.AgendamentoId); }
-                                <div class="botoes-linha">
-                                    @if (h.PodeConfirmar && !avisoTem(BotaoDaAcao.ConfirmouPorTelefone)) { <button type="button" class="botao mini @(h.Tom == "aviso" ? "primario" : null)" disabled="@(!PodeEscrever || _ocupado)" title="O paciente confirmou (aqui na conversa ou ao telefone)" @onclick="() => ConfirmouAsync(h.AgendamentoId)"><Icone Nome="check" />Confirmar</button> }
-                                    @if (h.PodeNaoVem && !avisoTem(BotaoDaAcao.NaoVem)) { <button type="button" class="botao mini" disabled="@(!PodeEscrever || _ocupado)" title="O paciente avisou que não vem: o sino e o Gerente ficam sabendo, e o horário continua marcado até você remarcar ou cancelar" @onclick="() => NaoVemAsync(h.AgendamentoId)">Não vem</button> }
-                                    @if (h.PodeManter && !avisoTem(BotaoDaAcao.ManterHorario)) { <button type="button" class="botao mini" disabled="@(!PodeEscrever || _ocupado)" @onclick="() => ManterAsync(h.AgendamentoId)">Manter o horário</button> }
-                                    @if (!avisoTem(BotaoDaAcao.Remarcar)) { <button type="button" class="botao mini @(h.Tom == "perigo" ? "primario" : null)" disabled="@(!PodeEscrever || _ocupado)" @onclick="() => _horarioAberto = h.AgendamentoId"><Icone Nome="calendario" />Remarcar</button> }
-                                    @if (!avisoTem(BotaoDaAcao.AceitarCancelamento)) { <button type="button" class="botao mini contorno-perigo" disabled="@(!PodeEscrever || _ocupado)" @onclick="() => AbrirCancelar(h, null)">Cancelar</button> }
-                                </div>
-                            </div>
-                        }
-                        @MarcarHorario(a)
-                    </section>
-                }
-                @if (a.Dados.Confirmacao.Count > 0)
-                {
-                    <section class="wa-secao"><h3>Confirmação de hoje</h3>
-                        <ul class="wa-tempo">@foreach (var x in a.Dados.Confirmacao) { <li><time>@x.Hora</time><span>@x.Texto</span></li> }</ul></section>
+                    @* Os horários moram na aba Agenda (nov/2026, uma porta por pergunta): aqui, o atalho. *@
+                    <section class="wa-secao"><h3>Horários <button type="button" class="link" @onclick="() => AbrirAgenda()">Ver na Agenda</button></h3>
+                        <p class="wa-dica">@(a.ProximoHorario is { } px ? $"Próximo: {px.QuandoTexto}." : "Nenhum horário marcado.") Marque, remarque e desmarque pela aba Agenda.</p></section>
                 }
             }
         </aside>
@@ -724,6 +711,7 @@ else
 
     @* Os formulários e os menus desta aba ficam no azul de ação da SemDor como a tela (.wa-camada repete a troca do --acento). *@
     <div class="wa-camada">
+    @FormularioDaVaga()
     @if (_aberta is { } aberta)
     {
         @switch (_form)
@@ -777,6 +765,137 @@ else
 }
 
 @code {
+    /// <summary>A aba AGENDA do painel do contato (nov/2026): ficha, horários, vagas e a mensagem pronta. A regra é a de
+    /// <see cref="AgendaDaConversa"/>; marcar e remarcar abrem o formulário da Agenda já preenchido (FormularioDaVaga).</summary>
+    private RenderFragment AgendaDoPainel(ConversaDoWhatsApp a) { PedirAgendaSePreciso(a); return AgendaDoPainelDesenho(a); }
+
+    private RenderFragment AgendaDoPainelDesenho(ConversaDoWhatsApp a) =>@<div class="wa-agenda">
+        @if (_feitoNaAgenda is { } feito)
+        {
+            <div class="wa-ag-feito" role="status"><b><Icone Nome="check" />@feito</b><span>A mensagem está pronta no campo da conversa: revise e envie. Nada foi enviado.</span>
+                <button type="button" class="botao primario" @onclick="IrParaAMensagem">Ir para a mensagem</button></div>
+        }
+        <section class="wa-secao wa-ag-ficha"><h3>Paciente</h3>
+            @if (a.Paciente is { } p)
+            {
+                <div class="wa-ag-pessoa"><Icone Nome="check" /><div><strong>@p.Nome</strong><small>Ficha nº @p.Id · @p.Convenio</small>
+                    @if (a.Conversa is { } cv && _ligadasSozinhas.Contains(cv.Id)) { <small class="wa-ag-auto">@AgendaDaConversa.AvisoDoVinculoAutomatico</small> }</div></div>
+                @if (a.Conversa is { PatientId: not null })
+                {
+                    <button type="button" class="link wa-ag-trocar" disabled="@(!PodeEscrever || _ocupado)" @onclick="() => TrocarFichaDaConversaAsync(a)">Não é esta pessoa? Trocar</button>
+                }
+            }
+            else if (a.Dados.Candidatas.Count > 0)
+            {
+                <p class="wa-dica">@(a.Dados.Candidatas.Count == 1 ? "Uma ficha" : $"{a.Dados.Candidatas.Count} fichas") com este telefone. Escolha quem está na conversa; ela continua normalmente.</p>
+                @foreach (var f in a.Dados.Candidatas)
+                {
+                    <div class="wa-ag-candidata" @key="f.Id"><div><strong>@f.Nome</strong><small>@f.Nascimento · @f.FimDoDocumento · próximo: @f.Proxima</small></div>
+                        <button type="button" class="botao mini" disabled="@(!PodeEscrever || _ocupado)" @onclick="() => LigarCandidataAsync(f)">É esta</button></div>
+                }
+            }
+            else
+            {
+                <p class="wa-dica">Nenhuma ficha com @a.Telefone. Busque pelo nome ou cadastre.</p>
+                @if (Pode(Permissao.VerFichaPaciente)) { <SeletorDePaciente Placeholder="Nome ou documento" SelecionadoChanged="pp => LigarFichaEscolhidaAsync(a, pp)" /> }
+                <button type="button" class="botao" disabled="@(!Pode(Permissao.EditarPaciente) || _ocupado)" @onclick="() => CadastrarAsync(a)"><Icone Nome="pessoa" />Cadastrar paciente</button>
+            }
+        </section>
+        @if (a.Paciente is not null)
+        {
+            <section class="wa-secao"><h3>Horários de @a.Paciente.Nome.Split(' ', 2)[0]</h3>
+                @if (a.Dados.Horarios.Count == 0) { <p class="wa-dica">Nenhum horário marcado. Escolha uma vaga abaixo.</p> }
+                @foreach (var h in a.Dados.Horarios.Take(6))
+                {
+                    <div class="wa-horario @(h.Tom == "perigo" ? "tom-perigo" : h.Tom == "sucesso" ? "tom-sucesso" : null) @(_remarcando?.AgendamentoId == h.AgendamentoId ? "wa-ag-remarcando" : null)" @key="h.AgendamentoId">
+                        <div class="wa-horario-topo"><b>@h.QuandoTexto</b><span class="selo tom-@h.Tom">@h.Situacao</span></div>
+                        <small>@h.Detalhe</small>
+                        @{ var avisoTem = (BotaoDaAcao b) => ConversasNaTela.AvisoOferece(a.Acao, b, h.AgendamentoId); }
+                        <div class="botoes-linha">
+                            @if (h.PodeConfirmar && !avisoTem(BotaoDaAcao.ConfirmouPorTelefone)) { <button type="button" class="botao mini @(h.Tom == "aviso" ? "primario" : null)" disabled="@(!PodeEscrever || _ocupado)" title="O paciente confirmou (aqui na conversa ou ao telefone)" @onclick="() => ConfirmouAsync(h.AgendamentoId)"><Icone Nome="check" />Confirmar</button> }
+                            @if (h.PodeNaoVem && !avisoTem(BotaoDaAcao.NaoVem)) { <button type="button" class="botao mini" disabled="@(!PodeEscrever || _ocupado)" title="O paciente avisou que não vem: o sino e o Gerente ficam sabendo, e o horário continua marcado até você remarcar ou desmarcar" @onclick="() => NaoVemAsync(h.AgendamentoId)">Não vem</button> }
+                            @if (h.PodeManter && !avisoTem(BotaoDaAcao.ManterHorario)) { <button type="button" class="botao mini" disabled="@(!PodeEscrever || _ocupado)" @onclick="() => ManterAsync(h.AgendamentoId)">Manter o horário</button> }
+                            @* O que o aviso da conversa já oferece para este horário não se repete aqui (item 6). *@
+                            @if (!avisoTem(BotaoDaAcao.Remarcar)) { <button type="button" class="botao mini" disabled="@(!PodeEscrever || _ocupado)" @onclick="() => AbrirAgenda(h)"><Icone Nome="calendario" />Remarcar</button> }
+                            @if (!avisoTem(BotaoDaAcao.AceitarCancelamento)) { <button type="button" class="botao mini contorno-perigo" disabled="@(!PodeEscrever || _ocupado)" @onclick="() => AbrirCancelar(h, null)">Desmarcar</button> }
+                        </div>
+                    </div>
+                }
+            </section>
+            @if (a.Dados.Confirmacao.Count > 0)
+            {
+                <section class="wa-secao"><h3>Confirmação de hoje</h3>
+                    <ul class="wa-tempo">@foreach (var x in a.Dados.Confirmacao) { <li><time>@x.Hora</time><span>@x.Texto</span></li> }</ul></section>
+            }
+            <section class="wa-secao wa-ag-marcar"><h3>@(_remarcando is null ? "Marcar horário" : "Novo horário")</h3>
+                @if (_remarcando is { } rm)
+                {
+                    <div class="wa-ag-modo">Remarcando @rm.QuandoTexto: escolha o novo horário <button type="button" class="link" @onclick="() => { _remarcando = null; _ = LerVagasAsync(); }">Cancelar</button></div>
+                }
+                <div class="wa-ag-filtros">
+                    <label>O quê<select class="campo" value="@(_oQue is { } oq ? _opcoesDaAgenda.ToList().IndexOf(oq).ToString(System.Globalization.CultureInfo.InvariantCulture) : "")" @onchange="TrocarOQueAsync" disabled="@(_remarcando is not null)">
+                        @for (var i = 0; i < _opcoesDaAgenda.Count; i++) { <option value="@i">@_opcoesDaAgenda[i].Rotulo</option> }</select></label>
+                    <label>Profissional<select class="campo" value="@(_profissionalDaAgenda?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "")" @onchange="TrocarProfissionalDaAgendaAsync">
+                        <option value="">Qualquer um</option>
+                        @foreach (var pr in (_oQue is { } o2 ? AgendaDaConversa.QuemAtende(o2, _equipeDaAgenda) : _equipeDaAgenda)) { <option value="@pr.Id">@pr.Rotulo</option> }</select></label>
+                </div>
+                <p class="wa-dica">@a.Paciente.Convenio · as regras do convênio, o conflito de horário e o encaixe aparecem ao confirmar, na Agenda da clínica.</p>
+                @if (_falhaDasVagas is { } falha) { <Aviso Tom="erro" Texto="@falha" /> }
+                else if (_carregandoVagas) { <p class="wa-dica" role="status">Procurando vagas…</p> }
+                else
+                {
+                    @if (_vagas.Count == 0) { <p class="wa-dica">Sem vaga nos próximos 60 dias para esta escolha.</p> }
+                    else
+                    {
+                        <h4 class="wa-ag-sub">Próximas vagas <button type="button" class="link" disabled="@(!PodeEscrever)" @onclick="() => EnviarHorariosLivres(a)">Enviar estes horários</button></h4>
+                        <div class="wa-ag-proximas">
+                            @foreach (var v in AgendaDaConversa.Proximas(_vagas))
+                            {
+                                <button type="button" class="wa-ag-vaga" disabled="@(!PodeEscrever || _ocupado)" @onclick="() => EscolherVaga(a, v)"><span><b>@VagaTexto(v.Inicio)</b> <small>@v.Profissional</small></span><Icone Nome="direita" /></button>
+                            }
+                        </div>
+                    }
+                    var meses = AgendaDaConversa.MesesParaEscolher(Hoje); var primeiro = _mesDaAgenda; var dias = AgendaDaConversa.DiasComVaga(_vagasDoMes);
+                    <div class="wa-ag-cal @(_carregandoMes ? "carregando" : null)" aria-busy="@Bool(_carregandoMes)">
+                        <div class="wa-ag-cal-topo">
+                            <button type="button" class="botao icone fantasma" aria-label="Mês anterior" disabled="@(primeiro <= meses[0])" @onclick="() => MudarMesDaAgendaAsync(-1)"><Icone Nome="esquerda" /></button>
+                            <label class="wa-ag-mes"><select aria-label="Escolher o mês" value="@primeiro.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)" @onchange="EscolherMesAsync">
+                                @foreach (var m in meses) { <option value="@m.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)">@NomeDoMes(m)</option> }</select><Icone Nome="abaixo" /></label>
+                            <button type="button" class="botao icone fantasma" aria-label="Próximo mês" disabled="@(primeiro >= meses[^1])" @onclick="() => MudarMesDaAgendaAsync(1)"><Icone Nome="direita" /></button>
+                            <button type="button" class="botao mini fantasma wa-ag-hoje" disabled="@(primeiro == meses[0])" @onclick="() => IrParaMesAsync(meses[0])">Hoje</button>
+                        </div>
+                        <div class="wa-ag-grade">
+                            @foreach (var ds in new[] { "D", "S", "T", "Q", "Q", "S", "S" }) { <span class="wa-ag-sem" aria-hidden="true">@ds</span> }
+                            @foreach (var dia in AgendaDaConversa.GradeDoMes(primeiro))
+                            {
+                                var doMes = dia.Month == primeiro.Month; var tem = doMes && !_carregandoMes && dias.Contains(dia);
+                                <button type="button" class="wa-ag-dia @(doMes ? null : "fora") @(dia < Hoje ? "passado" : null) @(tem ? "tem" : null) @(dia == Hoje ? "hoje" : null) @(_diaDaAgenda == dia ? "sel" : null)" disabled="@(!tem)"
+                                        aria-label="@($"{dia.ToString("dddd, dd/MM", Formato.PtBr)}{(tem ? ", tem vaga" : ", sem vaga")}")" aria-pressed="@Bool(_diaDaAgenda == dia)" @onclick="() => EscolherDiaAsync(dia)"><span class="wa-ag-num">@dia.Day</span></button>
+                            }
+                        </div>
+                    </div>
+                    @if (_diaDaAgenda is { } diaSel)
+                    {
+                        var doDia = AgendaDaConversa.DoDia(_vagasDoMes, diaSel, umPorHorario: _profissionalDaAgenda is null);
+                        <h4 class="wa-ag-sub wa-ag-do-dia">@diaSel.ToString("dddd, dd/MM", Formato.PtBr) · @doDia.Count @(doDia.Count == 1 ? "vaga" : "vagas")</h4>
+                        <div class="wa-ag-slots">
+                            @foreach (var v in doDia)
+                            {
+                                <button type="button" class="wa-ag-slot" disabled="@(!PodeEscrever || _ocupado)" title="@(_profissionalDaAgenda is null ? $"{v.Inicio:HH:mm} · {v.Profissional}" : null)" @onclick="() => EscolherVaga(a, v)">@v.Inicio.ToString("HH:mm", Formato.PtBr)@if (_profissionalDaAgenda is null) { <small>@v.Profissional</small> }</button>
+                            }
+                        </div>
+                    }
+                }
+            </section>
+        }
+    </div>;
+
+    /// <summary>"Novembro 2026" — o nome do mês no seletor do calendário.</summary>
+    private static string NomeDoMes(DateOnly mes) { var t = mes.ToString("MMMM yyyy", Formato.PtBr); return char.ToUpper(t[0], Formato.PtBr) + t[1..]; }
+
+    private static string VagaTexto(DateTime quando)
+        => DateOnly.FromDateTime(quando) == Hoje ? $"hoje · {quando:HH:mm}" : $"{quando.ToString("ddd dd/MM", Formato.PtBr).Replace(".", "")} · {quando:HH:mm}";
+
     private enum Popover { Nenhum, Modelos, Rapidas, Emojis, Reacoes, Agendar, Compartilhar, Etiquetas }
     private enum Form { Nenhum, Transferir, ConferirFicha, Cancelar, ComoFoi, Nova }
 
@@ -1050,6 +1169,16 @@ else
                 _recado = null;
                 _itensDesenhados = ConversasNaTela.ItensPorVez;
                 _fichaAberta = false;
+                _remarcando = null;
+                _vagaEscolhida = null;
+                _feitoNaAgenda = null;
+                _diaDaAgenda = null;
+                _profissionalDaAgenda = null;
+                _agendaPedidaPara = null;
+                _mesDaAgenda = MesDeHoje;
+                _vagasDoMes = [];
+                _carregandoMes = false;
+                ++_geracaoDoMes;
             }
         }
         try
@@ -1079,6 +1208,8 @@ else
         {
             if (g == _geracaoConversa) _carregandoConversa = false;
         }
+        // A ficha que liga sozinha (nov/2026): UMA ficha com o número da conversa, ao abrir — com trilha e o "Trocar" à vista.
+        if (g == _geracaoConversa && trocou && !silencioso) await LigarFichaSozinhaAsync();
         // "Para resolver" (R6): lido DEPOIS de a conversa estar na tela, uma vez por troca de paciente (ConversasDoWhatsApp.ParaResolver.cs).
         if (g == _geracaoConversa) await ParaResolverDaConversaAsync();
         // As pílulas do @SemDor (F3): pedidas uma vez por mensagem do paciente, depois de a conversa estar na tela.
@@ -1621,7 +1752,8 @@ else
         switch (b.Acao)
         {
             case BotaoDaAcao.Remarcar when b.AgendamentoId is { } ag:
-                if (Exigir(Permissao.EditarAgenda, "remarcar o horário")) _horarioAberto = ag;
+                if (_aberta?.Dados.Horarios.FirstOrDefault(h => h.AgendamentoId == ag) is { } doAviso) AbrirAgenda(doAviso);
+                else if (Exigir(Permissao.EditarAgenda, "remarcar o horário")) _horarioAberto = ag;
                 break;
             case BotaoDaAcao.ManterHorario when b.AgendamentoId is { } ag: await ManterAsync(ag); break;
             case BotaoDaAcao.ConfirmouPorTelefone when b.AgendamentoId is { } ag: await ConfirmouAsync(ag); break;

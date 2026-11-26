@@ -55,6 +55,38 @@ const medirJanela = () => {
   return { corpo: c.scrollWidth - c.clientWidth, janela: Math.round(m.getBoundingClientRect().right - W), rodape, titulo: m.querySelector('h2')?.innerText?.slice(0, 40) };
 };
 
+// 4. A AGENDA DA CONVERSA (nov/2026, pedido do dono: "isso aqui não está comendo/estourando?"): com a aba Agenda
+//    aberta e um dia escolhido, nada do calendário, dos campos e dos horários pode ficar CORTADO — o calendário e cada
+//    botão de horário não rolam por dentro (scrollWidth <= clientWidth) e o texto escolhido de cada campo cabe nele.
+const medirAgenda = () => {
+  const cortes = [];
+  const nome = e => (e.tagName.toLowerCase() + '.' + [...e.classList].slice(0, 2).join('.')).slice(0, 40);
+  for (const e of document.querySelectorAll('.wa-ag-cal, .wa-ag-grade, .wa-ag-dia, .wa-ag-slot, .wa-ag-slot small, .wa-ag-vaga'))
+    if (e.getBoundingClientRect().width > 0 && e.scrollWidth > e.clientWidth + 1) cortes.push(`${nome(e)} (+${e.scrollWidth - e.clientWidth}px)`);
+  const ctx = document.createElement('canvas').getContext('2d');
+  for (const s of document.querySelectorAll('.wa-ag-filtros select, .wa-ag-mes select')) {
+    const cs = getComputedStyle(s); ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    const texto = s.options[s.selectedIndex]?.text ?? '';
+    const util = s.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    if (ctx.measureText(texto).width > util + 1) cortes.push(`select "${texto}" (${Math.round(ctx.measureText(texto).width)} > ${Math.round(util)}px)`);
+  }
+  const linhas = new Set([...document.querySelectorAll('.wa-ag-dia')].map(d => Math.round(d.getBoundingClientRect().height)));
+  if (linhas.size > 1) cortes.push(`dias com alturas diferentes: ${[...linhas].join('/')}`);
+  return [...new Set(cortes)].slice(0, 6);
+};
+const verificarAgenda = async (p, w) => {
+  const linha = p.locator('.wa-linha').first();
+  if (!(await linha.count())) return;
+  await linha.click(); await pausa(1500);
+  const botao = p.locator('.wa-botao-agenda');
+  if (await botao.count() && (await botao.getAttribute('aria-pressed')) !== 'true') { await botao.click(); await pausa(600); }
+  await p.waitForSelector('.wa-ag-dia.tem', { timeout: 15000 }).catch(() => {});
+  const dia = p.locator('.wa-ag-dia.tem').first();
+  if (await dia.count()) { await dia.click(); await pausa(600); }
+  const cortes = await p.evaluate(medirAgenda);
+  if (cortes.length) { registrar({ tela: 'ConversasDoWhatsApp/Agenda', largura: w, cortes }); await foto(p, `agenda-da-conversa-${w}`); }
+};
+
 const falhas = [];
 const registrar = f => { falhas.push(f); console.log('  ✗', JSON.stringify(f)); };
 const foto = async (p, nome) => p.screenshot({ path: path.join(DIR, nome.replace(/[^\w.-]+/g, '_') + '.png') }).catch(() => {});
@@ -67,6 +99,7 @@ for (const w of LARGURAS) {
       await p.goto(BASE + alvo.url, { waitUntil: 'networkidle', timeout: 30000 }); await pausa(1200);
       const m = await p.evaluate(medir);
       if (m.lado > 0 || m.fora.length) { registrar({ tela: alvo.nome, largura: w, ...m }); await foto(p, `${alvo.nome}-${w}`); }
+      if (alvo.nome === 'ConversasDoWhatsApp') { await verificarAgenda(p, w); await p.goto(BASE + alvo.url, { waitUntil: 'networkidle' }); await pausa(900); }
       if (JANELAS) {
         const rotulos = (await p.$$eval('button:not([disabled])', bs => bs.filter(b => b.offsetParent && !b.closest('.moldura-nav,.moldura-topo,.moldura-lateral,.chat-flutuante') && b.innerText.trim().length > 2
           && !/excluir|cancelar|apagar|sair|remover|desfazer|estornar|encerrar/i.test(b.innerText)).map(b => b.innerText.trim().split('\n')[0])))

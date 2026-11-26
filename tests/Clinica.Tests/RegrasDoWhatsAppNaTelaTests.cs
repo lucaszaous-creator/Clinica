@@ -139,7 +139,7 @@ public sealed class RegrasDoWhatsAppNaTelaTests : IClassFixture<BancoDasTelas>, 
         // O aviso já oferece Confirmar e Não vem para este horário: o cartão fica com o resto.
         var rotulos = horario.QuerySelectorAll("button").Select(b => b.TextContent.Trim()).ToList();
         rotulos.Should().NotContain(r => r.EndsWith("Confirmar") || r == "Não vem");
-        rotulos.Should().Contain(r => r.EndsWith("Remarcar")).And.Contain("Cancelar");
+        rotulos.Should().Contain(r => r.EndsWith("Remarcar")).And.Contain("Desmarcar");
         // A confirmação de hoje diz o canal certo: o automático do WhatsApp, não o SMS (item 15). A frase
         // é conferida SEMPRE pela regra; na tela, só quando a sessão do Carlos ainda cai HOJE — o relógio
         // da prévia desloca a semente pela hora em que a suíte roda, e depois das ~18h a sessão das "16:00"

@@ -81,9 +81,9 @@ public sealed class ConversaResolveTests : IDisposable
         Assert.Null(RascunhosDaConversa.HorarioNovo([existente], [existente with { Quando = existente.Quando.AddHours(3) }]));
 
         var texto = RascunhosDaConversa.Marcacao("Maria das Graças Silva", novo, Hoje);
-        Assert.Equal("Pronto, Maria! Marquei a sua acupuntura para terça-feira, 27/10 às 14:00 com Dra. Helena.", texto);
+        Assert.Equal("Pronto, Maria! Marquei a sua acupuntura para terça-feira, 27/10 às 14:00 com a Dra. Helena. Qualquer coisa é só chamar.", texto);
         Assert.DoesNotContain("lembrete", texto, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal("Pronto! Marquei a sua sessão de BSV para amanhã às 09:00.",
+        Assert.Equal("Pronto! Marquei a sua sessão de BSV para amanhã às 09:00. Qualquer coisa é só chamar.",
             RascunhosDaConversa.Marcacao("5522999990000", Horario(12, new DateTime(2026, 10, 24, 9, 0, 0), null, ModalidadeAtendimento.BsvApenas), Hoje));
     }
 
@@ -91,9 +91,9 @@ public sealed class ConversaResolveTests : IDisposable
     public void Cancelar_diz_o_que_a_clinica_fez_e_convida_sem_prometer()
     {
         var h = Horario(10, new DateTime(2026, 10, 24, 14, 0, 0));
-        Assert.Equal("Maria, cancelei o seu horário de amanhã às 14:00 com Dra. Helena. Se quiser marcar outro dia, é só responder por aqui.",
+        Assert.Equal("Maria, desmarquei o seu horário de amanhã às 14:00 com a Dra. Helena. Quando quiser remarcar, é só me chamar por aqui.",
             RascunhosDaConversa.Cancelamento("Maria das Graças Silva", h, Hoje));
-        Assert.StartsWith("Olá! Cancelei o seu horário de", RascunhosDaConversa.Cancelamento(null, h, Hoje));
+        Assert.StartsWith("Olá! Desmarquei o seu horário de", RascunhosDaConversa.Cancelamento(null, h, Hoje));
         Assert.Contains("ficou pronta no campo", RascunhosDaConversa.DepoisDeCancelar(true));
         Assert.Contains("Nenhuma mensagem foi ao paciente", RascunhosDaConversa.DepoisDeCancelar(false));
         Assert.Contains("escolha um modelo", RascunhosDaConversa.DepoisDeMarcar(false, janelaFechada: true));
