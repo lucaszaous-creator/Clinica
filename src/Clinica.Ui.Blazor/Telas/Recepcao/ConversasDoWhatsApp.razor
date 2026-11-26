@@ -822,12 +822,13 @@ else
                     </div>
                 }
             </section>
+        }
             @if (a.Dados.Confirmacao.Count > 0)
             {
                 <section class="wa-secao"><h3>Confirmação de hoje</h3>
                     <ul class="wa-tempo">@foreach (var x in a.Dados.Confirmacao) { <li><time>@x.Hora</time><span>@x.Texto</span></li> }</ul></section>
             }
-            <section class="wa-secao wa-ag-marcar"><h3>@(_remarcando is null ? "Marcar horário" : "Novo horário")</h3>
+            <section class="wa-secao wa-ag-marcar"><h3>@(_remarcando is not null ? "Novo horário" : a.Paciente is null ? "Horários livres" : "Marcar horário")</h3>
                 @if (_remarcando is { } rm)
                 {
                     <div class="wa-ag-modo">Remarcando @rm.QuandoTexto: escolha o novo horário <button type="button" class="link" @onclick="() => { _remarcando = null; _ = LerVagasAsync(); }">Cancelar</button></div>
@@ -839,7 +840,8 @@ else
                         <option value="">Qualquer um</option>
                         @foreach (var pr in (_oQue is { } o2 ? AgendaDaConversa.QuemAtende(o2, _equipeDaAgenda) : _equipeDaAgenda)) { <option value="@pr.Id">@pr.Rotulo</option> }</select></label>
                 </div>
-                <p class="wa-dica">@a.Paciente.Convenio · as regras do convênio, o conflito de horário e o encaixe aparecem ao confirmar, na Agenda da clínica.</p>
+                @if (a.Paciente is { } pac) { <p class="wa-dica">@pac.Convenio · as regras do convênio, o conflito de horário e o encaixe aparecem ao confirmar, na Agenda da clínica.</p> }
+                else { <p class="wa-dica">Sem ficha: veja as vagas e use "Enviar estes horários". Para marcar, ligue ou cadastre a ficha acima.</p> }
                 @if (_falhaDasVagas is { } falha) { <Aviso Tom="erro" Texto="@falha" /> }
                 else if (_carregandoVagas) { <p class="wa-dica" role="status">Procurando vagas…</p> }
                 else
@@ -851,7 +853,7 @@ else
                         <div class="wa-ag-proximas">
                             @foreach (var v in AgendaDaConversa.Proximas(_vagas))
                             {
-                                <button type="button" class="wa-ag-vaga" disabled="@(!PodeEscrever || _ocupado)" @onclick="() => EscolherVaga(a, v)"><span><b>@VagaTexto(v.Inicio)</b> <small>@v.Profissional</small></span><Icone Nome="direita" /></button>
+                                <button type="button" class="wa-ag-vaga" disabled="@(!PodeEscrever || _ocupado || a.Paciente is null)" @onclick="() => EscolherVaga(a, v)"><span><b>@VagaTexto(v.Inicio)</b> <small>@v.Profissional</small></span><Icone Nome="direita" /></button>
                             }
                         </div>
                     }
@@ -881,13 +883,12 @@ else
                         <div class="wa-ag-slots">
                             @foreach (var v in doDia)
                             {
-                                <button type="button" class="wa-ag-slot" disabled="@(!PodeEscrever || _ocupado)" title="@(_profissionalDaAgenda is null ? $"{v.Inicio:HH:mm} · {v.Profissional}" : null)" @onclick="() => EscolherVaga(a, v)">@v.Inicio.ToString("HH:mm", Formato.PtBr)@if (_profissionalDaAgenda is null) { <small>@AgendaDaConversa.NomeCurto(v.Profissional)</small> }</button>
+                                <button type="button" class="wa-ag-slot" disabled="@(!PodeEscrever || _ocupado || a.Paciente is null)" title="@(_profissionalDaAgenda is null ? $"{v.Inicio:HH:mm} · {v.Profissional}" : null)" @onclick="() => EscolherVaga(a, v)">@v.Inicio.ToString("HH:mm", Formato.PtBr)@if (_profissionalDaAgenda is null) { <small>@AgendaDaConversa.NomeCurto(v.Profissional)</small> }</button>
                             }
                         </div>
                     }
                 }
             </section>
-        }
     </div>;
 
     /// <summary>"Novembro 2026" — o nome do mês no seletor do calendário.</summary>
