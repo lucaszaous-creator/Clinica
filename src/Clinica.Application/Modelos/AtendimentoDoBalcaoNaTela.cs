@@ -72,7 +72,7 @@ public static class AtendimentoDoBalcaoNaTela
 
     /// <summary>A recusa de hora em branco/inválida, no verbo do modo.</summary>
     public static string RecusaSemHora(bool marcar) => marcar
-        ? "Escolha o horário — numa das pílulas ou digitando em \u201COutro horário\u201D."
+        ? "Escolha o horário — numa das pílulas ou digitando em \u201COutro horário\u201D (ex.: 14:00)."
         : "Informe a hora da sessão no formato HH:mm.";
 
     /// <summary>
@@ -420,6 +420,71 @@ public static class AtendimentoDoBalcaoNaTela
     public const string RecusaSemProfissional =
         "Escolha quem vai atender: o horário marcado precisa de dono para aparecer na agenda do profissional e entrar no repasse.";
 
+    // ==================== o que falta (nov/2026) ====================
+    //
+    // A secretária mandou vídeo: "o sistema não libera o botão azul". O botão ficava APAGADO
+    // (trava, hora) ou ACESO e o clique virava diálogo/recusa (plano ou particular,
+    // especialidade, profissional) — nos dois casos sem dizer, no próprio botão, o que faltava.
+    // Agora o botão diz a PRIMEIRA pendência, na ordem em que os campos aparecem na tela, e o
+    // clique leva até o campo. A ordem e as frases moram aqui, com teste.
+
+    /// <summary>A hora digitada como a recepção digita ("14", "14h", "14h30", "1430", "9:5"), em HH:mm; nulo se não for hora.</summary>
+    public static string? NormalizarHora(string? hora)
+    {
+        if (string.IsNullOrWhiteSpace(hora)) return null;
+        var t = hora.Trim().ToLowerInvariant().Replace('h', ':').Replace('.', ':').TrimEnd(':');
+        if (TimeOnly.TryParse(t, System.Globalization.CultureInfo.InvariantCulture, out var direto) && t.Contains(':'))
+            return direto.ToString("HH:mm");
+        int hh, mm;
+        if (t.All(char.IsDigit))
+        {
+            switch (t.Length)
+            {
+                case 1 or 2: hh = int.Parse(t); mm = 0; break;
+                case 3: hh = int.Parse(t[..1]); mm = int.Parse(t[1..]); break;
+                case 4: hh = int.Parse(t[..2]); mm = int.Parse(t[2..]); break;
+                default: return null;
+            }
+        }
+        else
+        {
+            var partes = t.Split(':');
+            if (partes.Length != 2 || !int.TryParse(partes[0], out hh) || !int.TryParse(partes[1], out mm)) return null;
+        }
+        return hh is >= 0 and <= 23 && mm is >= 0 and <= 59 ? $"{hh:00}:{mm:00}" : null;
+    }
+
+    /// <summary>
+    /// A PRIMEIRA coisa que impede marcar/lançar, de cima para baixo na tela — ou nulo, quando
+    /// nada falta e o botão grava. Recusas do SERVIÇO (cobertura, vaga protegida…) não estão
+    /// aqui: elas só se sabem gravando.
+    /// </summary>
+    public static PendenciaDoBalcao? OQueFalta(bool marcar, bool precisaResponderForma, bool temModalidade,
+        bool consultaSemEspecialidade, bool infertilidadeSemGuia, bool horaValida, bool semProfissional,
+        bool preventivoSemVaga, bool travado)
+    {
+        if (precisaResponderForma)
+            return new(OndeFalta.Forma, "Falta: diga se é pelo plano ou particular", FormaDeAtendimentoNaTela.FaltaResponder);
+        if (!temModalidade)
+            return new(OndeFalta.Modalidade, $"Falta: escolha {(marcar ? "o que foi pedido" : "o que foi feito")}",
+                $"Escolha {(marcar ? "o que foi pedido" : "o que foi feito")} no passo 2.");
+        if (consultaSemEspecialidade)
+            return new(OndeFalta.Especialidade, "Falta: a especialidade da consulta", "Escolha a especialidade da consulta no passo 2.");
+        if (infertilidadeSemGuia)
+            return new(OndeFalta.Infertilidade, "Falta: a guia da infertilidade", InfertilidadeNaTela.RecusaSemGuia);
+        if (!horaValida)
+            return new(OndeFalta.Hora, marcar ? "Falta: escolha o horário" : "Falta: a hora da sessão",
+                RecusaSemHora(marcar));
+        if (semProfissional)
+            return new(OndeFalta.Profissional, "Falta: escolha quem atende", RecusaSemProfissional);
+        if (preventivoSemVaga)
+            return new(OndeFalta.Preventivo, "Escolha outro dia para a coleta",
+                "O dia escolhido não tem mais vaga de preventivo: escolha outro dia ou desligue a coleta.");
+        if (travado)
+            return new(OndeFalta.Trava, "Trava do convênio: veja o aviso", TravaDeConsultaNaTela.SalvarTravado);
+        return null;
+    }
+
     // ==================== resultado ====================
 
     /// <summary>As linhas do resultado: o 1º nasce faturável; o 2º só a partir da data prevista.</summary>
@@ -474,3 +539,9 @@ public static class AtendimentoDoBalcaoNaTela
         return limpo.Length == 0 ? "documento.pdf" : limpo;
     }
 }
+
+/// <summary>Onde está o que falta no Marcar/Lançar do balcão — o clique no botão leva até lá.</summary>
+public enum OndeFalta { Forma, Modalidade, Especialidade, Infertilidade, Hora, Profissional, Preventivo, Trava }
+
+/// <summary>A pendência do Marcar/Lançar: o rótulo do botão e a frase que aparece ao clicar.</summary>
+public sealed record PendenciaDoBalcao(OndeFalta Onde, string Botao, string Mensagem);

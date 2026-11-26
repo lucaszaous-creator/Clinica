@@ -55,33 +55,39 @@
                     </p>
                     @* CONVÊNIO ou PARTICULAR (nov/2026): a escolha é DESTE horário — a paciente tem
                        plano e quem atende não o aceita. A ficha continua com o convênio dela. *@
-                    <EscolhaDeFormaDeAtendimento Paciente="_paciente" Particular="_particular" ParticularChanged="TrocarParticular" Nota="@_notaDoParticular"
-                                                 Respondida="FormaRespondida" />
+                    <div id="ra-alvo-Forma" class="@Destaque(OndeFalta.Forma)">
+                        <EscolhaDeFormaDeAtendimento Paciente="_paciente" Particular="_particular" ParticularChanged="TrocarParticular" Nota="@_notaDoParticular"
+                                                     Respondida="FormaRespondida" />
+                    </div>
                     @* CONSULTA DE INFERTILIDADE (nov/2026): a guia interna, só onde nasce o HORÁRIO (Marcar). *@
                     @if (Marcar && !_lancado && EhInfertilidade)
                     {
-                        <EscolhaDeInfertilidade Guia="@_infertilidadeGuiaDe" GuiaChanged="@(g => { _infertilidadeGuiaDe = g; _mensagem = null; })" />
+                        <div id="ra-alvo-Infertilidade" class="@Destaque(OndeFalta.Infertilidade)">
+                            <EscolhaDeInfertilidade Guia="@_infertilidadeGuiaDe" GuiaChanged="@(g => { _infertilidadeGuiaDe = g; _mensagem = null; })" />
+                        </div>
                     }
                     @* A TRAVA DE CONSULTA do convênio (nov/2026): só onde nasce um horário NOVO — lançar
                        sobre o horário que já está na agenda não a confere (a trava é da marcação). *@
                     @if (!UsarHorarioDoDia && !_lancado)
                     {
+                        <div id="ra-alvo-Trava" class="@Destaque(OndeFalta.Trava)">
                         <TravaDeConsultaBox Paciente="_paciente" Quando="QuandoPretendido" Modalidade="_modalidade?.Base" Particular="_particular"
                                     EspecialidadeCodigo="@(EhConsulta ? _especialidade?.Codigo : null)" ProfissionalId="_profissional?.Id"
                                             OfereceParticular="FormaDeAtendimentoNaTela.OfereceEscolha(_paciente)"
                                             AoMarcarParticular="() => TrocarParticular(true)" TravadoChanged="MudouTrava"
                                             MontarPedido="MontarPedidoDeLiberacao" />
+                        </div>
                     }
                 </section>
 
                 @* ============ 2 · O QUE FOI FEITO / PEDIDO ============ *@
                 <section class="cartao ra-passo">
-                    @Passo("2", AtendimentoDoBalcaoNaTela.TituloPassoModalidade(Marcar))
+                    @Passo("2", AtendimentoDoBalcaoNaTela.TituloPassoModalidade(Marcar), feito: _modalidade is not null && !(EhConsulta && _especialidade is null))
                     @if (_modalidades.Count == 0)
                     {
                         <p class="ra-dica">Nenhuma modalidade ativa@(_profissional is null ? "" : " que este profissional atenda") — confira o catálogo em Configurações e as habilitações em Profissionais e salas.</p>
                     }
-                    <div class="ra-modalidades" role="radiogroup" aria-label="Modalidade">
+                    <div id="ra-alvo-Modalidade" class="ra-modalidades @Destaque(OndeFalta.Modalidade)" role="radiogroup" aria-label="Modalidade">
                         @foreach (var m in _modalidades)
                         {
                             var c = _consequencias.GetValueOrDefault(m.Codigo, ConsequenciaDaModalidade.Calculando);
@@ -108,6 +114,7 @@
                     <div class="campos ra-campos-mod">
                         @if (EhConsulta)
                         {
+                            <div id="ra-alvo-Especialidade" class="@Destaque(OndeFalta.Especialidade)">
                             <Campo Rotulo="Especialidade da consulta" Dica="Fica registrada na guia e nos relatórios." Obrigatorio="true">
                                 <select class="campo" value="@(_especialidade?.Codigo ?? "")" @onchange="TrocarEspecialidade">
                                     <option value="">Escolha…</option>
@@ -117,10 +124,11 @@
                                     }
                                 </select>
                             </Campo>
+                            </div>
                             @* COLETA DE PREVENTIVO (out/2026): conta na agenda paralela do profissional
                                (teto por dia) e gera a 2ª guia. A recusa é do AgendaService; aqui só se
                                mostra a conta antes, para a secretária oferecer outro dia à paciente. *@
-                            <div class="ra-preventivo largo">
+                            <div id="ra-alvo-Preventivo" class="ra-preventivo largo @Destaque(OndeFalta.Preventivo)">
                                 <label class="ra-preventivo-linha">
                                     <input type="checkbox" checked="@_preventivo" @onchange="TrocarPreventivo" />
                                     <span class="ra-preventivo-texto"><strong>Coleta de preventivo</strong>
@@ -171,8 +179,8 @@
 
                 @* ============ 3 · QUEM ATENDEU / QUANDO E COM QUEM ============ *@
                 <section class="cartao ra-passo">
-                    @Passo("3", AtendimentoDoBalcaoNaTela.TituloPassoQuando(Marcar))
-                    <div class="campos tres">
+                    @Passo("3", AtendimentoDoBalcaoNaTela.TituloPassoQuando(Marcar), feito: HoraOk && !SemProfissionalEscolhido)
+                    <div id="ra-alvo-Profissional" class="campos tres @Destaque(OndeFalta.Profissional)">
                         <Campo Rotulo="Data">
                             <input type="date" class="campo" value="@_data.ToString("yyyy-MM-dd")" @onchange="TrocarData" />
                         </Campo>
@@ -218,9 +226,9 @@
                         }
                     }
 
-                    <div class="ra-linha-hora">
+                    <div id="ra-alvo-Hora" class="ra-linha-hora @Destaque(OndeFalta.Hora)">
                         <Campo Rotulo="@AtendimentoDoBalcaoNaTela.RotuloHora(Marcar)">
-                            <input class="campo ra-hora-campo" maxlength="5" value="@_hora" @oninput="e => TrocarHora(e.Value?.ToString() ?? string.Empty)"
+                            <input class="campo ra-hora-campo" maxlength="5" value="@_hora" @oninput="e => TrocarHora(e.Value?.ToString() ?? string.Empty)" @onchange="NormalizarHoraDigitada" placeholder="ex.: 14:00"
                                    title="Hora da sessão — qualquer hora, mesmo fora das pílulas." />
                         </Campo>
                         @if (Marcar)
@@ -412,6 +420,10 @@
 
                 <div class="ra-lado-rodape">
                     <Aviso Texto="@_mensagem" Tom="@_tomMensagem" />
+                    @if (_destaque is { } onde && Falta is { } pendente && pendente.Onde == onde)
+                    {
+                        <Aviso Texto="@pendente.Mensagem" Tom="erro" />
+                    }
                     @if (!Marcar && !_lancado)
                     {
                         <label class="marcar" title="Deixe desmarcado para o médico iniciar e finalizar. Marque apenas ao registrar uma sessão já realizada.">
@@ -420,10 +432,16 @@
                     }
                     @if (!_lancado)
                     {
-                        <button type="button" class="botao primario ra-acao" disabled="@(_ocupado || !PodeGravar || FaltaHora || PreventivoSemVaga || Travado)" @onclick="LancarAsync"
-                                title="@(Travado ? TravaDeConsultaNaTela.SalvarTravado : PodeGravar ? null : Marcar ? "Marcar exige acesso de edição à agenda (e ao lançamento, com a guia na marcação)." : "Lançar exige o acesso de lançamento de atendimento.")">
-                            @(_ocupado ? "Gravando…" : PreventivoSemVaga ? "Escolha outro dia para a coleta" : RotuloDoBotao)
+                        @* O botão só APAGA sem acesso ou gravando (nov/2026). Faltando algo, ele DIZ o
+                           quê e o clique leva até o campo — apagado e mudo era o "não libera" do vídeo. *@
+                        <button type="button" class="botao primario ra-acao @(Falta is null ? null : "ra-acao-falta")" disabled="@(_ocupado || !PodeGravar)" @onclick="LancarAsync"
+                                title="@(PodeGravar ? Falta?.Mensagem : Marcar ? "Marcar exige acesso de edição à agenda (e ao lançamento, com a guia na marcação)." : "Lançar exige o acesso de lançamento de atendimento.")">
+                            @(_ocupado ? "Gravando…" : Falta?.Botao ?? RotuloDoBotao)
                         </button>
+                        @if (!PodeGravar)
+                        {
+                            <p class="ra-dica">@(Marcar ? "Seu acesso não permite marcar horário — peça à gerência o acesso de edição da agenda." : "Seu acesso não permite lançar atendimento.")</p>
+                        }
                     }
                     else
                     {
@@ -505,6 +523,7 @@
 
     private void MudouTrava(bool travado)
     {
+        if (_travado == travado) return;
         _travado = travado;
         StateHasChanged();
     }
@@ -513,6 +532,7 @@
     private NovoPedidoDeLiberacao? MontarPedidoDeLiberacao(string motivo)
     {
         if (_paciente is not { } paciente || _modalidade is not { } modalidade) return null;
+        NormalizarHoraDigitada();
         string? falta = !TimeOnly.TryParse(_hora, out var hora) ? TravaDeConsultaNaTela.FaltaHora
             : EhConsulta && _especialidade is null ? TravaDeConsultaNaTela.FaltaEspecialidade
             : Marcar && !_comoEncaixe && _profissional is null ? TravaDeConsultaNaTela.FaltaProfissional
@@ -587,8 +607,40 @@
     /// <summary>A contagem de guias só aparece onde a guia NASCE neste clique.</summary>
     private bool MostraGuias => AtendimentoDoBalcaoNaTela.MostraPrevia(Marcar, _guiaNaMarcacao);
 
-    /// <summary>No marcar sem hora escolhida o botão espera — e diz o que falta.</summary>
-    private bool FaltaHora => Marcar && !AtendimentoDoBalcaoNaTela.HoraValida(_hora);
+    /// <summary>A hora vale como a recepção digita ("14", "14h30", "1430") — o campo a reescreve em HH:mm ao sair dele.</summary>
+    private bool HoraOk => AtendimentoDoBalcaoNaTela.NormalizarHora(_hora) is not null;
+
+    /// <summary>
+    /// A PRIMEIRA coisa que falta para gravar, na ordem da tela (nov/2026). O botão a diz no
+    /// rótulo e o clique leva até ela; a ordem e as frases moram em AtendimentoDoBalcaoNaTela.OQueFalta.
+    /// </summary>
+    private PendenciaDoBalcao? Falta => _paciente is not { } p || _lancado ? null : AtendimentoDoBalcaoNaTela.OQueFalta(
+        Marcar, FormaDeAtendimentoNaTela.PrecisaPerguntar(p, FormaRespondida), _modalidade is not null,
+        EhConsulta && _especialidade is null, Marcar && GuiaDaInfertilidade is { Length: 0 }, HoraOk,
+        SemProfissionalEscolhido, PreventivoSemVaga, Travado);
+
+    /// <summary>A pendência que o último clique apontou: o campo dela ganha o destaque até ser resolvida.</summary>
+    private OndeFalta? _destaque;
+
+    private string? Destaque(OndeFalta onde) => _destaque == onde && Falta?.Onde == onde ? "ra-pendente" : null;
+
+    [Inject] private Microsoft.JSInterop.IJSRuntime Js { get; set; } = default!;
+
+    /// <summary>O clique com algo faltando: destaca o campo, diz o que falta e rola até ele.</summary>
+    private async Task IrParaAsync(PendenciaDoBalcao falta)
+    {
+        _destaque = falta.Onde;
+        _mensagem = null;
+        StateHasChanged();
+        try { await Microsoft.JSInterop.JSRuntimeExtensions.InvokeVoidAsync(Js, "clinicaChat.rolarAte", "ra-alvo-" + falta.Onde); }
+        catch (Exception ex) { Clinica.Application.Diagnostico.Registrar("Recepção — rolar até o que falta", ex); }
+    }
+
+    /// <summary>Ao sair do campo, "14" vira "14:00" — a hora que a pessoa vê é a que vai ser marcada.</summary>
+    private void NormalizarHoraDigitada()
+    {
+        if (AtendimentoDoBalcaoNaTela.NormalizarHora(_hora) is { } h && h != _hora) TrocarHora(h);
+    }
 
     /// <summary>
     /// A coleta está ligada e o dia não comporta mais nenhuma. O botão para antes do clique,
@@ -618,7 +670,7 @@
 
     private string QuandoPorExtenso => AtendimentoDoBalcaoNaTela.QuandoPorExtenso(_data, _hora);
 
-    private string RotuloDoBotao => FaltaHora ? "Escolha o horário para marcar" : AtendimentoDoBalcaoNaTela.RotuloDoBotao(
+    private string RotuloDoBotao => AtendimentoDoBalcaoNaTela.RotuloDoBotao(
         Marcar, _guiaNaMarcacao, _totalGuias, QuandoPorExtenso, UsarHorarioDoDia ? _horarioDoDia!.Hora : null);
 
     private string ResumoAtendimento => _modalidade is null ? AtendimentoDoBalcaoNaTela.Travessao
@@ -860,6 +912,10 @@
     private void Trocar()
     {
         _paciente = null;
+        // A box da trava sai da tela com o paciente; a trava dele não pode ficar presa no botão
+        // do próximo (nov/2026 — o "às vezes não libera" da secretária).
+        _travado = false;
+        _destaque = null;
         _particular = false;
         _formaEscolhidaNaMao = false;
         _infertilidadeGuiaDe = null;
@@ -953,25 +1009,6 @@
     /// sobre o HORÁRIO DO DIA — a resposta foi dada na marcação e veio com ele.
     /// </summary>
     private bool FormaRespondida => _formaEscolhidaNaMao || _lancado || UsarHorarioDoDia;
-
-    /// <summary>
-    /// A PERGUNTA OBRIGATÓRIA (nov/2026): nada se marca nem se lança sem alguém dizer se é pelo
-    /// plano ou particular. Devolve falso quando a pessoa desistiu — ou quando a resposta mudou
-    /// o resumo (guias, preço, avisos): aí ela confere e confirma de novo.
-    /// </summary>
-    private async Task<bool> GarantirFormaRespondidaAsync(Paciente paciente)
-    {
-        if (!FormaDeAtendimentoNaTela.PrecisaPerguntar(paciente, FormaRespondida)) return true;
-        var resposta = await Dialogos.EscolherAsync(FormaDeAtendimentoNaTela.TituloDaPergunta,
-            FormaDeAtendimentoNaTela.Pergunta(paciente, _profissional), FormaDeAtendimentoNaTela.Respostas(paciente));
-        if (resposta is not { } escolhida || Descartada) return false;
-        var particular = escolhida == FormaDeAtendimentoNaTela.RespostaParticular;
-        var mudou = particular != _particular;
-        TrocarParticular(particular);
-        if (!mudou) return true;
-        Avisar(FormaDeAtendimentoNaTela.ConfiraDeNovo);
-        return false;
-    }
 
     private void TrocarPreventivo(ChangeEventArgs e)
     {
@@ -1501,11 +1538,12 @@
         if (_ocupado || _lancado) return;
         if (!Marcar && !Exigir(Permissao.LancarAtendimento, "lançar atendimento")) return;
         if (_paciente is not { } paciente) { Avisar("Selecione o paciente.", "erro"); return; }
-        if (_modalidade is not { } modalidade) { Avisar("Selecione a modalidade.", "erro"); return; }
-        if (EhConsulta && _especialidade is null) { Avisar("Informe a especialidade da consulta.", "erro"); return; }
-        if (!TimeOnly.TryParse(_hora, out var hora)) { Avisar(AtendimentoDoBalcaoNaTela.RecusaSemHora(Marcar), "erro"); return; }
-        if (Marcar && GuiaDaInfertilidade is { Length: 0 }) { Avisar(InfertilidadeNaTela.RecusaSemGuia, "erro"); return; }
-        if (!await GarantirFormaRespondidaAsync(paciente)) return;
+        NormalizarHoraDigitada();
+        // O que falta (plano ou particular, modalidade, especialidade, hora, quem atende, trava…)
+        // leva até o campo — sem diálogo surpresa e sem "confirme de novo" (nov/2026).
+        if (Falta is { } falta) { await IrParaAsync(falta); return; }
+        _destaque = null;
+        if (_modalidade is not { } modalidade || !TimeOnly.TryParse(_hora, out var hora)) return;
 
         // SEM CONVÊNIO NÃO SE LANÇA (parcela 92) — a condição vale onde o atendimento NASCE.
         // A sessão PARTICULAR por escolha passa: a falta de guia é a decisão registrada no horário.
