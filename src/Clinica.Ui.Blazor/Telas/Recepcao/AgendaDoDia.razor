@@ -330,7 +330,8 @@
             </div>
         </td>
         <td class="rd-col-prof"><span>@(r.Profissional?.Rotulo ?? "—")</span></td>
-        <td class="rd-col-status"><span class="rd-status"><i class="rd-ponto"></i>Reserva via WhatsApp</span><span class="secundario">sem ficha</span></td>
+        <td class="rd-col-status"><span class="rd-status"><i class="rd-ponto"></i>Reserva via WhatsApp</span><span class="secundario">sem ficha</span>
+            @if (ReservasNaAgendaDoDia.Resposta(r) is { } resp) { <Selo Tom="@resp.Tom" Dica="A resposta ao lembrete da véspera">@resp.Texto</Selo> }</td>
         <td class="direita rd-col-acoes nao-quebra">
             <span class="botoes-linha">
                 <button type="button" class="botao mini primario" disabled="@(!Pode(Permissao.EditarAgenda) || _ocupado)" @onclick="() => _reservaAberta = (r, ModoDaReserva.Virar)"

@@ -366,4 +366,19 @@ public class AgendaDoDiaNaTelaTests
         Assert.Empty(ReservasNaAgendaDoDia.Visiveis(reservas, new FiltroAgendaDoDia(Situacao: "chegou")));
         Assert.Empty(ReservasNaAgendaDoDia.Visiveis(reservas, new FiltroAgendaDoDia(Resposta: "confirmou")));
     }
+
+    [Fact]
+    public void A_resposta_ao_lembrete_da_reserva_tem_as_mesmas_palavras_do_horario_de_paciente()
+    {
+        var r = Reserva(9);
+        Assert.Null(ReservasNaAgendaDoDia.Resposta(r));
+        r.LembreteEnviadoEm = Agora.AddHours(-20);
+        Assert.Equal(("Não confirmou", "neutro"), ReservasNaAgendaDoDia.Resposta(r));
+        r.RespostaDoLembrete = ReservaDeHorario.RespostasDoLembrete.Confirmou;
+        Assert.Equal(("Confirmou", "sucesso"), ReservasNaAgendaDoDia.Resposta(r));
+        r.RespostaDoLembrete = ReservaDeHorario.RespostasDoLembrete.PediuCancelar;
+        Assert.Equal("Pediu para cancelar", ReservasNaAgendaDoDia.Resposta(r)!.Value.Texto);
+        r.RespostaDoLembrete = ReservaDeHorario.RespostasDoLembrete.PediuRemarcar;
+        Assert.Equal(("Não vem — remarcar", "aviso"), ReservasNaAgendaDoDia.Resposta(r));
+    }
 }

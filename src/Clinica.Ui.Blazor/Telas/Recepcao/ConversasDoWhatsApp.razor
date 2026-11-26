@@ -778,6 +778,7 @@ else
             <div class="wa-ag-reserva" @key="r.Id">
                 <div class="wa-horario-topo"><b>Reserva · @MensagensDeContato.QuandoPorExtenso(r.DataHora, Hoje)</b><span class="selo-reserva"><Icone Nome="chat" />sem ficha</span></div>
                 <small>@AgendaDaConversa.Rotulo(r.ModalidadeCodigo, r.EspecialidadeConsultaCodigo) · @(r.Profissional?.Rotulo) · @ReservaDeHorarioRegras.Atendimento(r)</small>
+                @if (ReservasNaAgendaDoDia.Resposta(r) is { } resp) { <span><Selo Tom="@resp.Tom" Dica="A resposta ao lembrete da véspera">@resp.Texto</Selo></span> }
                 <div class="botoes-linha">
                     <button type="button" class="botao mini" disabled="@(!PodeEscrever || _ocupado || _reservando)" @onclick="() => IniciarRemarcarReserva(r)"><Icone Nome="calendario" />Remarcar</button>
                     <button type="button" class="botao mini contorno-perigo" disabled="@(!PodeEscrever || _ocupado || _reservando)" @onclick="() => _reservaNoFormulario = (r, ModoDaReserva.Desmarcar)">Desmarcar</button>

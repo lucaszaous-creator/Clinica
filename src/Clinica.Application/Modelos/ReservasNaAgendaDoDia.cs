@@ -51,4 +51,18 @@ public static class ReservasNaAgendaDoDia
         while (fila.Count > 0) saida.Add(new(null, fila.Dequeue()));
         return saida;
     }
+
+    /// <summary>
+    /// O que a pessoa respondeu ao lembrete da véspera (decisão do dono: a reserva recebe o mesmo lembrete), com o tom do
+    /// selo — "Confirmou" (sucesso), "Pediu para cancelar" (perigo), "Não vem — remarcar" (aviso), "Não confirmou" (neutro) — ou
+    /// nulo quando o lembrete ainda não saiu. As MESMAS palavras do horário de paciente (SistemaEquipeRegras): o mesmo fato
+    /// tem a mesma palavra em toda porta.
+    /// </summary>
+    public static (string Texto, string Tom)? Resposta(ReservaDeHorario r) => r.RespostaDoLembrete switch
+    {
+        ReservaDeHorario.RespostasDoLembrete.Confirmou => ("Confirmou", "sucesso"),
+        ReservaDeHorario.RespostasDoLembrete.PediuCancelar => ("Pediu para cancelar", "perigo"),
+        ReservaDeHorario.RespostasDoLembrete.PediuRemarcar => ("Não vem — remarcar", "aviso"),
+        _ => r.LembreteEnviadoEm is null ? null : ("Não confirmou", "neutro")
+    };
 }

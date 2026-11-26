@@ -25,6 +25,7 @@
                 <dt>Com</dt><dd>@(Reserva.Profissional?.Rotulo ?? "—")</dd>
                 <dt>O quê</dt><dd>@AgendaDaConversa.Rotulo(Reserva.ModalidadeCodigo, Reserva.EspecialidadeConsultaCodigo) · @ReservaDeHorarioRegras.Atendimento(Reserva)</dd>
                 <dt>Telefone</dt><dd>@ConversasNaTela.TelefoneNaTela(Reserva.Telefone)</dd>
+                @if (ReservasNaAgendaDoDia.Resposta(Reserva) is { } resp) { <dt>Lembrete</dt><dd><Selo Tom="@resp.Tom">@resp.Texto</Selo></dd> }
             </dl>
 
             @if (_modo == ModoDaReserva.Remarcar)
