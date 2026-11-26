@@ -31,7 +31,7 @@ public sealed class ClinicPatientBridge(ClinicaDbContext db)
             .Select(p => new { p.Id, p.Telefone }).ToListAsync(ct);
         var byPhone = comTelefone.Where(p => ClinicAgendaBridge.Phone(p.Telefone) == phone).Select(p => p.Id).ToHashSet();
         // A ficha que se vincula sozinha: a ÚNICA deste número (FichaPeloTelefone, a regra dos apps).
-        var unica = FichaPeloTelefone.Unica(comTelefone.Select(p => (p.Id, p.Telefone)), phone);
+        var unica = FichaPeloTelefone.Unica(comTelefone.Select(p => (p.Id, (string?)p.Telefone)), phone);
         var byQuery = new List<int>();
         if (query.Length >= 3)
         {

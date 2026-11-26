@@ -126,8 +126,15 @@ public sealed class ClinicBookingBridge(ClinicaDbContext db, AgendaService agend
             .Where(v => v.Inicio < until && TimeOnly.FromDateTime(v.Inicio) >= q.After && TimeOnly.FromDateTime(v.Inicio.AddMinutes(q.Duration)) <= q.Before
                 && (days is null || days.Contains((int)v.Inicio.DayOfWeek))
                 && !holds.Any(h => Local(h.StartsAt) < v.Inicio.AddMinutes(q.Duration) && v.Inicio < Local(h.StartsAt).AddMinutes(h.Query.Duration)))
-            .Select(v => Offset(v.Inicio)).Take(80).ToArray();
+            .Select(v => Offset(v.Inicio)).Take(VagasPorBusca).ToArray();
     }
+    /// <summary>
+    /// Quantas vagas uma busca devolve (26/11/2026, "Agenda na conversa": o calendário mostra o MÊS INTEIRO, com o ponto de
+    /// vaga em cada dia). Eram 80, que num profissional de meia em meia hora não passavam da primeira semana. 600 cabe um
+    /// mês, o mesmo número da agenda dos apps (AgendaDaConversa.VagasPorMes).
+    /// </summary>
+    public const int VagasPorBusca = 600;
+
     async Task<Reserva[]> ActiveHolds(CancellationToken ct)
     {
         var since = NowLocal().Add(-HoldFor).AddMinutes(-1);
