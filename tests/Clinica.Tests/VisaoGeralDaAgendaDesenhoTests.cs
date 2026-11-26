@@ -1,6 +1,7 @@
 using Clinica.Application.Abstracoes;
 using Clinica.Application.Formatacao;
 using Clinica.Domain;
+using Clinica.Domain.Entities;
 using Xunit;
 
 namespace Clinica.Tests;
@@ -137,5 +138,28 @@ public sealed class VisaoGeralDaAgendaDesenhoTests
         {
             Dias = [new DiaOcupacao(Segunda, M(atend: 1, ocup: 60, disp: 240))]
         }));
+    }
+
+    [Fact]
+    public void A_reserva_sem_ficha_vira_bloco_no_trilho_de_quem_atende_e_nao_conta_como_atendimento()
+    {
+        var h = new HorarioOcupacao(1, Segunda.ToDateTime(new TimeOnly(9, 0)), Segunda.ToDateTime(new TimeOnly(10, 0)), 1,
+            "Dra. Ana", "Paciente A", "Acupuntura", "Agendado", true);
+        var reserva = new ReservaDeHorario { Id = 7, Nome = "Fernanda Lopes", Telefone = "5522998123344", ProfissionalId = 1,
+            DataHora = Segunda.ToDateTime(new TimeOnly(14, 0)), DuracaoMinutos = 30, ModalidadeCodigo = "ACUPUNTURA", Particular = true };
+        var desmarcada = new ReservaDeHorario { Id = 8, Nome = "Outra", Telefone = "5522998123345", ProfissionalId = 1,
+            DataHora = Segunda.ToDateTime(new TimeOnly(16, 0)), DuracaoMinutos = 30, ModalidadeCodigo = "ACUPUNTURA", Particular = true,
+            Situacao = SituacaoDaReserva.Desmarcada };
+
+        var t = VisaoGeralDaAgendaDesenho.LinhaDoTempo(Semana([h]), Segunda, Segunda.ToDateTime(new TimeOnly(10, 0)), [reserva, desmarcada]);
+
+        var ana = t.Linhas[0];
+        Assert.Equal(2, ana.Atendimentos.Count);              // o atendimento e a reserva; a desmarcada não ocupa
+        Assert.Equal(1, ana.Total);                            // reserva não é atendimento
+        var bloco = ana.Atendimentos[1];
+        Assert.Same(reserva, bloco.Reserva);
+        Assert.Null(bloco.Horario);
+        Assert.Equal(7.0 / 13, bloco.Esquerda, 3);             // 14h na régua 07h–20h
+        Assert.Contains(ReservaDeHorario.Marca, bloco.Dica);
     }
 }

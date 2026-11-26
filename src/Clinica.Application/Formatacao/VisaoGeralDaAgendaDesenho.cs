@@ -1,5 +1,6 @@
 using System.Globalization;
 using Clinica.Application.Abstracoes;
+using Clinica.Application.Modelos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
 
@@ -57,7 +58,8 @@ public sealed record MatrizSemanaOcupacao(IReadOnlyList<DiaDaMatriz> Dias, IRead
     IReadOnlyList<CelulaSemanaOcupacao> Totais);
 
 /// <summary>Um bloco na linha do tempo: uma faixa do horário (fundo) ou um atendimento (por cima).</summary>
-public sealed record BlocoLinhaDoTempo(double Esquerda, double Largura, string Texto, string Dica, HorarioOcupacao? Horario)
+public sealed record BlocoLinhaDoTempo(double Esquerda, double Largura, string Texto, string Dica, HorarioOcupacao? Horario,
+    ReservaDeHorario? Reserva = null)
 {
     public bool Inativo => Horario is { Ocupa: false };
 }
@@ -206,11 +208,14 @@ public static class VisaoGeralDaAgendaDesenho
     /// como blocos (em fração da régua, 0 a 1). A régua vai da abertura padrão da grade ao
     /// fechamento, esticada pelo que existe no dia — como a grade da agenda.
     /// </summary>
-    public static LinhaDoTempoDoDia LinhaDoTempo(OcupacaoAgenda d, DateOnly dia, DateTime agora)
+    public static LinhaDoTempoDoDia LinhaDoTempo(OcupacaoAgenda d, DateOnly dia, DateTime agora, IReadOnlyList<ReservaDeHorario>? reservas = null)
     {
         var inicioDia = dia.ToDateTime(TimeOnly.MinValue);
         var fimDia = inicioDia.AddDays(1);
         var horarios = d.Horarios.Where(h => h.Inicio < fimDia && h.Fim > inicioDia).ToList();
+        // A RESERVA SEM FICHA (nov/2026): só as que ocupam a agenda, no trilho de quem atende — bloco próprio, que não
+        // conta como atendimento (não é paciente ainda) e estica a régua como um horário.
+        var doDia = (reservas ?? []).Where(r => r.OcupaAgenda && r.DataHora < fimDia && r.Fim > inicioDia).ToList();
         var abre = Agendamento.AberturaPadraoGrade.ToTimeSpan();
         var fecha = Agendamento.FechamentoPadraoGrade.ToTimeSpan();
         foreach (var p in d.Profissionais)
@@ -219,10 +224,10 @@ public static class VisaoGeralDaAgendaDesenho
                 if (fx.Min(f => f.Inicio).ToTimeSpan() < abre) abre = fx.Min(f => f.Inicio).ToTimeSpan();
                 if (fx.Max(f => f.Fim).ToTimeSpan() > fecha) fecha = fx.Max(f => f.Fim).ToTimeSpan();
             }
-        foreach (var h in horarios)
+        foreach (var (ini, fim) in horarios.Select(h => (h.Inicio, h.Fim)).Concat(doDia.Select(r => (r.DataHora, r.Fim))))
         {
-            var i = h.Inicio < inicioDia ? TimeSpan.Zero : h.Inicio.TimeOfDay;
-            var f = h.Fim > fimDia ? TimeSpan.FromHours(24) : h.Fim - inicioDia;
+            var i = ini < inicioDia ? TimeSpan.Zero : ini.TimeOfDay;
+            var f = fim > fimDia ? TimeSpan.FromHours(24) : fim - inicioDia;
             if (i < abre) abre = i;
             if (f > fecha) fecha = f;
         }
@@ -243,6 +248,13 @@ public static class VisaoGeralDaAgendaDesenho
                 $"{h.Inicio:HH:mm}–{h.Fim:HH:mm} · {h.Paciente} · {h.Modalidade} · {h.Situacao}", h);
         }
 
+        BlocoLinhaDoTempo BlocoDaReserva(ReservaDeHorario r)
+        {
+            var e = PosDt(r.DataHora);
+            return new(e, Math.Max(0.004, PosDt(r.Fim) - e), $"{r.DataHora:HH:mm} {r.Nome}",
+                $"{r.DataHora:HH:mm}–{r.Fim:HH:mm} · {r.Nome} · {ReservaDeHorario.Marca} · {ReservaDeHorarioRegras.Atendimento(r)}", null, r);
+        }
+
         var linhas = new List<LinhaDoTempoProfissional>();
         foreach (var p in d.Profissionais)
         {
@@ -251,9 +263,12 @@ public static class VisaoGeralDaAgendaDesenho
                 Pos(f.Fim.ToTimeSpan()) - Pos(f.Inicio.ToTimeSpan()), f.ToString(), $"Horário de atendimento {f}", null)).ToList();
             var estado = x?.Fechado ?? (x?.Faixas is { Count: 0 } ? "não atende neste dia" : p.SemHorario ? "horário não cadastrado" : null);
             var deles = horarios.Where(h => h.ProfissionalId == p.Id).Select(Bloco).ToList();
+            var atendidos = deles.Count(b => !b.Inativo);
+            deles.AddRange(doDia.Where(r => r.ProfissionalId == p.Id).Select(BlocoDaReserva));
+            deles.Sort((a, b) => a.Esquerda.CompareTo(b.Esquerda));
             linhas.Add(new LinhaDoTempoProfissional(p.Id, p.Nome, p.SemHorario ? "horário não cadastrado"
                 : x?.Faixas is { Count: > 0 } fx2 ? string.Join(" e ", fx2.Select(f => f.ToString())) : "não atende",
-                estado, faixas, deles, deles.Count(b => !b.Inativo)));
+                estado, faixas, deles, atendidos));
         }
         var semProf = horarios.Where(h => h.ProfissionalId is null).Select(Bloco).ToList();
         if (semProf.Count > 0)

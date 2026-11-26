@@ -110,6 +110,7 @@ public partial class ConversasDoWhatsApp
                 _oQue = _opcoesDaAgenda.FirstOrDefault(o => CatalogoModalidades.Base(o.ModalidadeCodigo) == r.Modalidade
                             && (r.ProfissionalId is not { } pid || _equipeDaAgenda.Any(p => p.Id == pid && p.Atende(o.ModalidadeCodigo, o.EspecialidadeCodigo))));
             _oQue ??= _opcoesDaAgenda.FirstOrDefault();
+            if (_aberta is { } aberta) await LerReservasDaConversaAsync(aberta);
             await LerVagasAsync();
         }
         catch (Exception ex)
@@ -255,6 +256,8 @@ public partial class ConversasDoWhatsApp
     /// <summary>Tocou numa vaga: o formulário da Agenda abre já com paciente, dia, hora, profissional e o "o quê".</summary>
     private void EscolherVaga(ConversaDoWhatsApp a, VagaNaConversa v)
     {
+        // Sem ficha (nov/2026): a vaga abre a RESERVA só com o nome (ConversasDoWhatsApp.Reserva.cs).
+        if (a.Paciente is null) { EscolherVagaParaReserva(a, v); return; }
         if (!Exigir(Permissao.EditarAgenda, _remarcando is null ? "marcar horário" : "remarcar o horário") || a.Paciente is not { } p) return;
         _horariosAntesDeMarcar = a.Dados.Horarios;
         _vagaEscolhida = (p.Id, p.Nome, v, _oQue, _remarcando);

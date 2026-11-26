@@ -344,6 +344,12 @@
                                     }
                                     @foreach (var b in l.Atendimentos)
                                     {
+                                        @if (b.Reserva is { } reserva)
+                                        {
+                                            <button type="button" class="rec-oc-tempo-bloco reserva" style="left:@Largura(b.Esquerda);width:@Largura(b.Largura)"
+                                                    title="@b.Dica" aria-label="@b.Dica" @onclick="() => _reservaAberta = reserva"><Icone Nome="chat" />@b.Texto</button>
+                                            continue;
+                                        }
                                         var h = b.Horario!;
                                         <button type="button" class="rec-oc-tempo-bloco @Familia(h.Familia) @(b.Inativo ? "inativo" : null)"
                                                 style="left:@Largura(b.Esquerda);width:@Largura(b.Largura)" title="@b.Dica" aria-label="@b.Dica"
@@ -450,6 +456,10 @@
 @if (_agendamentoAberto is { } agendamento)
 {
     <HorarioDaAgendaForm AgendamentoId="agendamento" AoFechar="() => _agendamentoAberto = null" AoMudou="CarregarAsync" />
+}
+@if (_reservaAberta is { } reservaAberta)
+{
+    <ReservaSemFichaForm Reserva="reservaAberta" AoFechar="() => _reservaAberta = null" AoConcluir="ReservaAlteradaAsync" />
 }
 @if (_bloqueioDe is { } bloqueio)
 {
@@ -589,6 +599,11 @@
                 throw new UnauthorizedAccessException("Abra a agenda novamente após entrar.");
             using var escopo = Escopo();
             var resultado = await escopo.ServiceProvider.GetRequiredService<IOcupacaoAgendaService>().ConsultarAsync(_usuario, inicio, fim, filtro);
+            // A reserva sem ficha (nov/2026): no modo Dia ela aparece no trilho de quem atende — em sequência, no mesmo escopo.
+            var reservas = _modo == ModoVisaoAgenda.Dia
+                ? (await escopo.ServiceProvider.GetRequiredService<Clinica.Application.Modelos.IReservaDeHorarioService>().DoDiaAsync(inicio))
+                    .Where(r => filtro is null || r.ProfissionalId == filtro).ToList()
+                : [];
             if (geracao != _geracao || Descartada || SessaoUsuario.Atual.UsuarioId != _usuario) return;
 
             // Monta tudo e só então publica — entre limpar e preencher não há espera.
@@ -601,7 +616,7 @@
             _indicadores = VisaoGeralDaAgendaDesenho.Indicadores(resultado);
             var hoje = DateOnly.FromDateTime(DateTime.Today);
             _matriz = _modo == ModoVisaoAgenda.Semana ? VisaoGeralDaAgendaDesenho.Matriz(resultado, hoje) : null;
-            _tempo = _modo == ModoVisaoAgenda.Dia ? VisaoGeralDaAgendaDesenho.LinhaDoTempo(resultado, inicio, DateTime.Now) : null;
+            _tempo = _modo == ModoVisaoAgenda.Dia ? VisaoGeralDaAgendaDesenho.LinhaDoTempo(resultado, inicio, DateTime.Now, reservas) : null;
             var maisCheio = resultado.Dias.Count == 0 ? 0 : resultado.Dias.Max(x => x.Resumo.Atendimentos);
             _calor = _modo != ModoVisaoAgenda.Mes ? [] : resultado.Dias.ToDictionary(x => x.Dia, x =>
             {
@@ -856,6 +871,16 @@
     }
 
     /// <summary>Clique num horário: o MESMO formulário do horário da Grade (remarcar, reabrir, comprovante…).</summary>
+    /// <summary>A reserva sem ficha aberta (o MESMO formulário da Agenda › Dia e da conversa).</summary>
+    private Clinica.Domain.Entities.ReservaDeHorario? _reservaAberta;
+
+    private async Task ReservaAlteradaAsync(ReservaAlterada r)
+    {
+        _reservaAberta = null;
+        Notificacoes.Sucesso(r.Aviso);
+        await CarregarAsync();
+    }
+
     private Task AbrirHorarioAsync(HorarioOcupacao h)
     {
         if (!PodeConsultar() || Carregando) return Task.CompletedTask;

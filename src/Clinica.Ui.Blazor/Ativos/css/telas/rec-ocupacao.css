@@ -203,3 +203,9 @@ button.rec-oc-tempo-nome:hover:not(:disabled){background:var(--superficie-hover)
 .rec-oc-procedimentos .segmentado b{margin-left:4px;font-weight:700}
 .rec-oc-procedimentos .resumo-filtro{color:var(--texto-secundario);font-size:var(--text-small-size)}
 .rec-ocupacao .rec-oc-data .rec-oc-data-rotulo + .campo{padding-left:var(--space-3);margin-left:var(--space-2)}
+/* A reserva sem ficha (nov/2026): branca, contorno tracejado da cor de ação e o ícone do WhatsApp — a mesma marca da
+   Agenda › Dia e da conversa. O listrado é do bloqueio; o fundo colorido é de paciente. */
+.rec-ocupacao .rec-oc-tempo-bloco.reserva{background:var(--superficie);border:1.5px dashed var(--acento);color:var(--acento);font-weight:600;
+  display:flex;align-items:center;gap:var(--space-1)}
+.rec-ocupacao .rec-oc-tempo-bloco.reserva .icone{width:14px;height:14px;flex:none}
+.rec-ocupacao .rec-oc-tempo-bloco.reserva:hover{background:var(--acento-suave)}

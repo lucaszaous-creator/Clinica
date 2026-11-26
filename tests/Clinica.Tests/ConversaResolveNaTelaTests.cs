@@ -197,6 +197,28 @@ public sealed class ConversaResolveNaTelaTests : IClassFixture<BancoDasTelas>, I
         Crm.AbrirConversaAsync(0, CrmDeMentira.Ids.Maria).GetAwaiter().GetResult().Messages.Length.Should().Be(enviadasAntes, "o rascunho espera o Enviar");
     }
 
+    [Fact]
+    public void Sem_ficha_a_vaga_vira_reserva_so_com_o_nome_e_a_mensagem_fica_no_campo_sem_enviar()
+    {
+        // A reserva sem ficha (nov/2026, aprovada pelo dono): quem chega pelo anúncio garante o horário só com o nome.
+        var tela = AbrirTela();
+        Abrir(tela, "99712-0045");
+        tela.WaitForAssertion(() => tela.FindAll(".wa-ag-vaga").Should().NotBeEmpty(), Prazo);
+        var enviadasAntes = Crm.AbrirConversaAsync(0, CrmDeMentira.Ids.NovoContato).GetAwaiter().GetResult().Messages.Length;
+
+        tela.Clicar(() => tela.FindAll(".wa-ag-vaga").First());
+        tela.WaitForAssertion(() => tela.Find(".wa-ag-reservar").TextContent.Should().Contain("É uma reserva, não um cadastro"), NaHora);
+        tela.Find(".wa-ag-reservar button.primario").HasAttribute("disabled").Should().BeTrue("sem nome não se reserva");
+        tela.Digitar(() => tela.Find(".wa-ag-reservar input"), "Fernanda Lopes");
+        tela.Clicar(() => tela.Find(".wa-ag-reservar button.primario"));
+
+        tela.WaitForAssertion(() => tela.Find(".wa-escrever textarea").GetAttribute("value").Should().StartWith("Pronto, Fernanda! Reservei "), Prazo);
+        tela.WaitForAssertion(() => tela.Find(".wa-ag-reserva").TextContent.Should().Contain("sem ficha"), Prazo);
+        using (var db = Db())
+            db.ReservasDeHorario.Should().Contain(r => r.Nome == "Fernanda Lopes" && r.Particular && r.Situacao == SituacaoDaReserva.Reservada);
+        Crm.AbrirConversaAsync(0, CrmDeMentira.Ids.NovoContato).GetAwaiter().GetResult().Messages.Length.Should().Be(enviadasAntes, "o rascunho espera o Enviar");
+    }
+
     private sealed class HostMudo : IHostDaTela
     {
         public Task<string?> ExportarCsvAsync(IReadOnlyList<string> c, IReadOnlyList<IReadOnlyList<string>> l, string n) => Task.FromResult<string?>(null);

@@ -1,0 +1,218 @@
+@*
+  A RESERVA SEM FICHA (nov/2026, aprovada pelo dono): o detalhe de uma reserva e as quatro ações — Virar paciente,
+  Remarcar, Desmarcar e Não compareceu. É UM componente só para as três portas que mostram a reserva: a Agenda › Dia, a
+  Agenda › Visão geral (ajuste pedido pelo dono: "precisa se aplicar o virar paciente nas duas abas") e a conversa do
+  WhatsApp. A regra mora no IReservaDeHorarioService (conflito, limite por telefone, motivos, conversão numa transação);
+  aqui só se desenha e se chama — a recusa chega como frase pronta e aparece inline.
+
+  "Virar paciente":
+    • Paciente novo → o MESMO cadastro de sempre (FormulariosDoPaciente), já com o nome e o telefone da reserva; a
+      validação do cadastro não se repete aqui. Gravado o paciente, a reserva vira agendamento no mesmo horário.
+    • Já tem ficha → a busca de sempre (SeletorDePaciente); o telefone sugere, quem confirma é a recepção.
+
+  As duas barreiras: os botões nascem apagados sem EditarAgenda (e o novo também sem EditarPaciente), e o clique confere.
+*@
+@namespace Clinica.Ui.Blazor.Formularios
+@using Clinica.Application.Modelos
+@inject IServiceScopeFactory Escopos
+@inject IServiceProvider Servicos
+
+<Modal Titulo="@Reserva.Nome" Subtitulo="@ReservaDeHorario.Marca" Largura="medio" AoFechar="AoFechar">
+    <ChildContent>
+        <div class="reserva-sf">
+            <dl class="reserva-sf-dados">
+                <dt>Quando</dt><dd>@QuandoTexto(Reserva)</dd>
+                <dt>Com</dt><dd>@(Reserva.Profissional?.Rotulo ?? "—")</dd>
+                <dt>O quê</dt><dd>@AgendaDaConversa.Rotulo(Reserva.ModalidadeCodigo, Reserva.EspecialidadeConsultaCodigo) · @ReservaDeHorarioRegras.Atendimento(Reserva)</dd>
+                <dt>Telefone</dt><dd>@ConversasNaTela.TelefoneNaTela(Reserva.Telefone)</dd>
+            </dl>
+
+            @if (_modo == ModoDaReserva.Remarcar)
+            {
+                <div class="secao-form">
+                    <h3>Novo horário</h3>
+                    <div class="reserva-sf-duas">
+                        <Campo Rotulo="Data"><input class="campo" type="date" @bind="_novaData" @bind:format="yyyy-MM-dd" /></Campo>
+                        <Campo Rotulo="Hora"><input class="campo" type="time" @bind="_novaHora" /></Campo>
+                    </div>
+                    <p class="secundario reserva-sf-nota">Com @(Reserva.Profissional?.Rotulo ?? "o mesmo profissional"). A agenda confere se o horário está livre.</p>
+                </div>
+            }
+            else if (_modo == ModoDaReserva.Desmarcar)
+            {
+                <div class="secao-form" role="radiogroup" aria-label="Motivo">
+                    <h3>Motivo</h3>
+                    @foreach (var m in ReservaDeHorario.MotivosDeDesmarcar)
+                    {
+                        <label class="marcar reserva-sf-motivo"><input type="radio" name="motivo-reserva" checked="@(_motivo == m)" @onchange="() => _motivo = m" />@m</label>
+                    }
+                    <p class="secundario reserva-sf-nota">O horário volta a ficar livre. O nome e o telefone continuam guardados (nada se apaga).</p>
+                </div>
+            }
+            else if (_modo == ModoDaReserva.Virar)
+            {
+                <div class="secao-form">
+                    <div class="segmentado" role="group" aria-label="Como virar paciente">
+                        <button type="button" aria-pressed="@Bool(!_jaTemFicha)" @onclick="() => { _jaTemFicha = false; _mensagem = null; }">Paciente novo</button>
+                        <button type="button" aria-pressed="@Bool(_jaTemFicha)" @onclick="() => { _jaTemFicha = true; _mensagem = null; }">Já tem ficha</button>
+                    </div>
+                    @if (_jaTemFicha)
+                    {
+                        <Campo Rotulo="Buscar a ficha">
+                            <SeletorDePaciente Placeholder="Nome, CPF ou telefone" Selecionado="_fichaEscolhida" SelecionadoChanged="p => { _fichaEscolhida = p; _mensagem = null; }" />
+                        </Campo>
+                        <p class="secundario reserva-sf-nota">O telefone sugere; quem confirma é a recepção.</p>
+                    }
+                    else
+                    {
+                        <p class="secundario reserva-sf-nota">Abre o cadastro de paciente com o nome e o telefone da reserva. O resto a pessoa informa aqui no balcão.</p>
+                    }
+                    <Aviso Tom="info" Texto="A reserva vira um agendamento normal no mesmo horário, com esta ficha. Nada da conversa se apaga." />
+                </div>
+            }
+            <Aviso Tom="erro" Texto="@_mensagem" />
+        </div>
+    </ChildContent>
+    <Rodape>
+        @if (_modo == ModoDaReserva.Detalhe)
+        {
+            @if (Reserva.DataHora <= DateTime.Now)
+            {
+                <button type="button" class="botao" disabled="@(!PodeAgenda || _ocupado)" @onclick="NaoCompareceuAsync">Não compareceu</button>
+            }
+            <button type="button" class="botao contorno-perigo" disabled="@(!PodeAgenda || _ocupado)" @onclick="() => Trocar(ModoDaReserva.Desmarcar)"
+                    title="@(PodeAgenda ? null : SemAcesso)">Desmarcar</button>
+            <button type="button" class="botao" disabled="@(!PodeAgenda || _ocupado)" @onclick="() => Trocar(ModoDaReserva.Remarcar)"
+                    title="@(PodeAgenda ? null : SemAcesso)">Remarcar</button>
+            <button type="button" class="botao primario" disabled="@(!PodeAgenda || _ocupado)" @onclick="() => Trocar(ModoDaReserva.Virar)"
+                    title="@(PodeAgenda ? null : SemAcesso)"><Icone Nome="pessoa" />Virar paciente</button>
+        }
+        else
+        {
+            <button type="button" class="botao" disabled="@_ocupado" @onclick="Voltar">Voltar</button>
+            @if (_modo == ModoDaReserva.Remarcar)
+            {
+                <button type="button" class="botao primario" disabled="@(!PodeAgenda || _ocupado || _novaData is null || _novaHora is null)" @onclick="RemarcarAsync">@(_ocupado ? "Remarcando…" : "Remarcar")</button>
+            }
+            else if (_modo == ModoDaReserva.Desmarcar)
+            {
+                <button type="button" class="botao perigo" disabled="@(!PodeAgenda || _ocupado || _motivo is null)" @onclick="DesmarcarAsync">@(_ocupado ? "Desmarcando…" : "Desmarcar")</button>
+            }
+            else if (_jaTemFicha)
+            {
+                <button type="button" class="botao primario" disabled="@(!PodeAgenda || _ocupado || _fichaEscolhida is null)" @onclick="VirarExistenteAsync">@(_ocupado ? "Gravando…" : "Virar paciente")</button>
+            }
+            else
+            {
+                <button type="button" class="botao primario" disabled="@(!PodeAgenda || !PodeCadastrar || _ocupado)" @onclick="VirarNovoAsync"
+                        title="@(PodeCadastrar ? null : "Seu acesso não permite cadastrar paciente.")">@(_ocupado ? "Gravando…" : "Cadastrar e virar paciente")</button>
+            }
+        }
+    </Rodape>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public ReservaDeHorario Reserva { get; set; } = null!;
+    /// <summary>Por onde abre: o detalhe (as abas da Agenda) ou direto numa ação (a conversa: "Virar paciente", "Desmarcar").</summary>
+    [Parameter] public ModoDaReserva ModoInicial { get; set; } = ModoDaReserva.Detalhe;
+    [Parameter] public EventCallback AoFechar { get; set; }
+    /// <summary>A ação foi feita: quem abriu relê, avisa e (na conversa) deixa a mensagem pronta.</summary>
+    [Parameter] public EventCallback<ReservaAlterada> AoConcluir { get; set; }
+
+    private const string SemAcesso = "Seu acesso não permite mexer na agenda.";
+    private ModoDaReserva _modo;
+    private DateTime? _novaData;
+    private TimeOnly? _novaHora;
+    private string? _motivo;
+    private bool _jaTemFicha;
+    private Paciente? _fichaEscolhida;
+    private string? _mensagem;
+    private bool _ocupado;
+
+    private static string Bool(bool v) => v ? "true" : "false";
+    private static bool PodeAgenda => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
+    private static bool PodeCadastrar => SessaoUsuario.Atual.Pode(Permissao.EditarPaciente);
+
+    protected override void OnInitialized()
+    {
+        _modo = ModoInicial;
+        _novaData = Reserva.DataHora.Date;
+        _novaHora = TimeOnly.FromDateTime(Reserva.DataHora);
+    }
+
+    private static string QuandoTexto(ReservaDeHorario r)
+        => $"{MensagensDeContato.QuandoPorExtenso(r.DataHora, DateOnly.FromDateTime(DateTime.Today))} até {r.Fim:HH:mm}";
+
+    private void Trocar(ModoDaReserva m) { _modo = m; _mensagem = null; }
+    private void Voltar() { if (ModoInicial != ModoDaReserva.Detalhe) { _ = AoFechar.InvokeAsync(); return; } Trocar(ModoDaReserva.Detalhe); }
+
+    private bool Barreira(Permissao p, string oQue)
+    {
+        if (SessaoUsuario.Atual.Pode(p)) return true;
+        _mensagem = $"Seu acesso não permite {oQue}. Fale com a direção da clínica.";
+        return false;
+    }
+
+    /// <summary>Chama o serviço com escopo próprio; a recusa (frase pronta) vira aviso inline, o resto vai ao log.</summary>
+    private async Task Agir(Func<IReservaDeHorarioService, Task<ReservaAlterada>> acao, string contexto)
+    {
+        if (_ocupado) return;
+        _mensagem = null;
+        _ocupado = true;
+        try
+        {
+            using var escopo = Escopos.CreateScope();
+            var r = await acao(escopo.ServiceProvider.GetRequiredService<IReservaDeHorarioService>());
+            await AoConcluir.InvokeAsync(r);
+        }
+        catch (InvalidOperationException ex) { _mensagem = ex.Message; }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar($"Blazor — reserva sem ficha: {contexto}", ex);
+            _mensagem = "Não foi possível concluir agora. Tente de novo em instantes.";
+        }
+        finally { _ocupado = false; }
+    }
+
+    private Task RemarcarAsync()
+    {
+        if (!Barreira(Permissao.EditarAgenda, "remarcar a reserva") || _novaData is not { } d || _novaHora is not { } h) return Task.CompletedTask;
+        var antes = Reserva.DataHora;
+        return Agir(async s => new ReservaAlterada(AcaoNaReserva.Remarcada, await s.RemarcarAsync(Reserva.Id, d.Date.Add(h.ToTimeSpan()), SessaoUsuario.Atual.Operador), antes, null), "remarcar");
+    }
+
+    private Task DesmarcarAsync()
+    {
+        if (!Barreira(Permissao.EditarAgenda, "desmarcar a reserva") || _motivo is not { } m) return Task.CompletedTask;
+        return Agir(async s => new ReservaAlterada(AcaoNaReserva.Desmarcada, await s.DesmarcarAsync(Reserva.Id, m, SessaoUsuario.Atual.Operador), Reserva.DataHora, null), "desmarcar");
+    }
+
+    private Task NaoCompareceuAsync()
+    {
+        if (!Barreira(Permissao.EditarAgenda, "registrar a falta")) return Task.CompletedTask;
+        return Agir(async s => new ReservaAlterada(AcaoNaReserva.NaoCompareceu, await s.NaoCompareceuAsync(Reserva.Id, SessaoUsuario.Atual.Operador), Reserva.DataHora, null), "não compareceu");
+    }
+
+    private Task VirarExistenteAsync()
+    {
+        if (!Barreira(Permissao.EditarAgenda, "virar a reserva em paciente") || _fichaEscolhida is not { } p) return Task.CompletedTask;
+        return Virar(p.Id, p.Nome);
+    }
+
+    private async Task VirarNovoAsync()
+    {
+        if (!Barreira(Permissao.EditarAgenda, "virar a reserva em paciente") || !Barreira(Permissao.EditarPaciente, "cadastrar paciente")) return;
+        var formularios = Servicos.GetService<FormulariosDoPaciente>();
+        if (formularios is null || !formularios.Disponivel) { _mensagem = FormulariosDoPaciente.Indisponivel; return; }
+        // O MESMO cadastro de sempre (com a validação de sempre), já com o nome e o telefone que a reserva tem.
+        if (await formularios.CadastrarAsync(ConversasNaTela.TelefoneNaTela(Reserva.Telefone), Reserva.Nome) is not { } novo) return;
+        await Virar(novo.Id, novo.Nome);
+    }
+
+    private Task Virar(int pacienteId, string nome)
+        => Agir(async s =>
+        {
+            var ag = await s.VirarPacienteAsync(Reserva.Id, new ComoVirarPaciente(pacienteId, null), SessaoUsuario.Atual.Operador);
+            return new ReservaAlterada(AcaoNaReserva.VirouPaciente, Reserva, Reserva.DataHora, new PacienteCadastrado(pacienteId, nome)) { AgendamentoId = ag.Id };
+        }, "virar paciente");
+}

@@ -712,6 +712,10 @@ else
     @* Os formulários e os menus desta aba ficam no azul de ação da SemDor como a tela (.wa-camada repete a troca do --acento). *@
     <div class="wa-camada">
     @FormularioDaVaga()
+    @if (_reservaNoFormulario is { } rf)
+    {
+        <ReservaSemFichaForm Reserva="rf.Reserva" ModoInicial="rf.Modo" AoFechar="() => _reservaNoFormulario = null" AoConcluir="ReservaDoFormularioAsync" />
+    }
     @if (_aberta is { } aberta)
     {
         @switch (_form)
@@ -767,6 +771,63 @@ else
 @code {
     /// <summary>A aba AGENDA do painel do contato (nov/2026): ficha, horários, vagas e a mensagem pronta. A regra é a de
     /// <see cref="AgendaDaConversa"/>; marcar e remarcar abrem o formulário da Agenda já preenchido (FormularioDaVaga).</summary>
+    /// <summary>As reservas abertas deste telefone: o cartão tracejado com Remarcar, Desmarcar e Virar paciente.</summary>
+    private RenderFragment CartoesDaReserva(ConversaDoWhatsApp a) =>@<section class="wa-secao"><h3>@(ReservasAbertas.Count == 1 ? "Reserva" : "Reservas")</h3>
+        @foreach (var r in ReservasAbertas)
+        {
+            <div class="wa-ag-reserva" @key="r.Id">
+                <div class="wa-horario-topo"><b>Reserva · @MensagensDeContato.QuandoPorExtenso(r.DataHora, Hoje)</b><span class="selo-reserva"><Icone Nome="chat" />sem ficha</span></div>
+                <small>@AgendaDaConversa.Rotulo(r.ModalidadeCodigo, r.EspecialidadeConsultaCodigo) · @(r.Profissional?.Rotulo) · @ReservaDeHorarioRegras.Atendimento(r)</small>
+                <div class="botoes-linha">
+                    <button type="button" class="botao mini" disabled="@(!PodeEscrever || _ocupado || _reservando)" @onclick="() => IniciarRemarcarReserva(r)"><Icone Nome="calendario" />Remarcar</button>
+                    <button type="button" class="botao mini contorno-perigo" disabled="@(!PodeEscrever || _ocupado || _reservando)" @onclick="() => _reservaNoFormulario = (r, ModoDaReserva.Desmarcar)">Desmarcar</button>
+                    <button type="button" class="botao mini primario" disabled="@(!PodeEscrever || _ocupado || _reservando)" @onclick="() => _reservaNoFormulario = (r, ModoDaReserva.Virar)"><Icone Nome="pessoa" />Virar paciente</button>
+                </div>
+            </div>
+        }
+    </section>;
+
+    /// <summary>
+    /// O resumo da RESERVA (protótipo aprovado): quando, com quem e o quê; o nome que a pessoa deu (editável) e particular ou
+    /// convênio — sem CPF e sem carteirinha. "É uma reserva, não um cadastro" à vista, logo acima do Reservar.
+    /// </summary>
+    private RenderFragment ResumoDaReserva(ConversaDoWhatsApp a, VagaNaConversa v, AtendimentoNaAgenda? oque) =>@<section class="wa-secao wa-ag-reservar">
+        <button type="button" class="link wa-ag-voltar" @onclick="() => { _vagaParaReservar = null; _erroDaReserva = null; }"><Icone Nome="esquerda" />Voltar aos horários</button>
+        <h3>Reservar o horário</h3>
+        <dl class="wa-ag-resumo">
+            <dt>Quando</dt><dd>@MensagensDeContato.QuandoPorExtenso(v.Inicio, Hoje)</dd>
+            <dt>Com</dt><dd>@v.Profissional</dd>
+            <dt>O quê</dt><dd>@(oque?.Rotulo ?? "—")</dd>
+        </dl>
+        <label class="wa-ag-campo">Nome
+            <input class="campo" maxlength="@ReservaDeHorario.NomeMaximo" value="@_nomeDaReserva" @oninput="e => _nomeDaReserva = e.Value?.ToString() ?? string.Empty" autocomplete="off" />
+            <small>Como a pessoa se apresentou no WhatsApp. Dá para corrigir.</small>
+        </label>
+        <div class="wa-ag-campo">Atendimento
+            <div class="segmentado" role="group" aria-label="Atendimento">
+                <button type="button" aria-pressed="@Bool(_reservaParticular)" @onclick="() => _reservaParticular = true">Particular</button>
+                <button type="button" aria-pressed="@Bool(!_reservaParticular)" @onclick="() => _reservaParticular = false">Convênio</button>
+            </div>
+        </div>
+        @if (!_reservaParticular)
+        {
+            <label class="wa-ag-campo">Qual convênio
+                <select class="campo" value="@(_convenioDaReserva ?? "")" @onchange="e => _convenioDaReserva = string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value!.ToString()">
+                    <option value="">Escolha…</option>
+                    @foreach (var c in ConveniosDaReserva) { <option value="@c">@c</option> }
+                </select>
+                <small>Sem carteirinha agora: ela traz no dia.</small>
+            </label>
+        }
+        <Aviso Tom="info" Texto="É uma reserva, não um cadastro. Ficam só o nome e este telefone, e o horário fica ocupado na agenda. No balcão, Virar paciente completa a ficha." />
+        @if (_erroDaReserva is { } erro) { <Aviso Tom="erro" Texto="@erro" /> }
+        <div class="botoes-linha wa-ag-reservar-acoes">
+            <button type="button" class="botao" @onclick="() => { _vagaParaReservar = null; _erroDaReserva = null; }">Voltar</button>
+            <button type="button" class="botao primario" disabled="@(!PodeEscrever || _reservando || string.IsNullOrWhiteSpace(_nomeDaReserva) || (!_reservaParticular && _convenioDaReserva is null))"
+                    @onclick="() => ReservarAsync(a)">@(_reservando ? "Reservando…" : "Reservar")</button>
+        </div>
+    </section>;
+
     private RenderFragment AgendaDoPainel(ConversaDoWhatsApp a) { PedirAgendaSePreciso(a); return AgendaDoPainelDesenho(a); }
 
     private RenderFragment AgendaDoPainelDesenho(ConversaDoWhatsApp a) =>@<div class="wa-agenda">
@@ -828,10 +889,22 @@ else
                 <section class="wa-secao"><h3>Confirmação de hoje</h3>
                     <ul class="wa-tempo">@foreach (var x in a.Dados.Confirmacao) { <li><time>@x.Hora</time><span>@x.Texto</span></li> }</ul></section>
             }
-            <section class="wa-secao wa-ag-marcar"><h3>@(_remarcando is not null ? "Novo horário" : a.Paciente is null ? "Horários livres" : "Marcar horário")</h3>
+        @if (a.Paciente is null && _vagaParaReservar is { } paraReservar)
+        {
+            @ResumoDaReserva(a, paraReservar.Vaga, paraReservar.OQue)
+        }
+        else
+        {
+            @if (a.Paciente is null && ReservasAbertas.Count > 0) { @CartoesDaReserva(a) }
+            <section class="wa-secao wa-ag-marcar"><h3>@(_remarcando is not null ? "Novo horário" : _remarcandoReserva is not null ? "Novo horário da reserva" : a.Paciente is null ? "Reservar horário" : "Marcar horário")</h3>
                 @if (_remarcando is { } rm)
                 {
                     <div class="wa-ag-modo">Remarcando @rm.QuandoTexto: escolha o novo horário <button type="button" class="link" @onclick="() => { _remarcando = null; _ = LerVagasAsync(); }">Cancelar</button></div>
+                }
+                @if (_remarcandoReserva is { } rr)
+                {
+                    <div class="wa-ag-modo">Remarcando a reserva de @rr.DataHora.ToString("dd/MM 'às' HH:mm", Formato.PtBr): escolha o novo horário <button type="button" class="link" @onclick="() => { _remarcandoReserva = null; _erroDaReserva = null; }">Cancelar</button></div>
+                    @if (_erroDaReserva is { } erroRem) { <Aviso Tom="erro" Texto="@erroRem" /> }
                 }
                 <div class="wa-ag-filtros">
                     <label>O quê<select class="campo" value="@(_oQue is { } oq ? _opcoesDaAgenda.ToList().IndexOf(oq).ToString(System.Globalization.CultureInfo.InvariantCulture) : "")" @onchange="TrocarOQueAsync" disabled="@(_remarcando is not null)">
@@ -841,7 +914,7 @@ else
                         @foreach (var pr in (_oQue is { } o2 ? AgendaDaConversa.QuemAtende(o2, _equipeDaAgenda) : _equipeDaAgenda)) { <option value="@pr.Id">@pr.Rotulo</option> }</select></label>
                 </div>
                 @if (a.Paciente is { } pac) { <p class="wa-dica">@pac.Convenio · as regras do convênio, o conflito de horário e o encaixe aparecem ao confirmar, na Agenda da clínica.</p> }
-                else { <p class="wa-dica">Sem ficha: veja as vagas e use "Enviar estes horários". Para marcar, ligue ou cadastre a ficha acima.</p> }
+                else { <p class="wa-dica">Sem ficha: toque num horário para reservar só com o nome (sem cadastro e sem CPF), ou use "Enviar estes horários".</p> }
                 @if (_falhaDasVagas is { } falha) { <Aviso Tom="erro" Texto="@falha" /> }
                 else if (_carregandoVagas) { <p class="wa-dica" role="status">Procurando vagas…</p> }
                 else
@@ -853,7 +926,7 @@ else
                         <div class="wa-ag-proximas">
                             @foreach (var v in AgendaDaConversa.Proximas(_vagas))
                             {
-                                <button type="button" class="wa-ag-vaga" disabled="@(!PodeEscrever || _ocupado || a.Paciente is null)" @onclick="() => EscolherVaga(a, v)"><span><b>@VagaTexto(v.Inicio)</b> <small>@v.Profissional</small></span><Icone Nome="direita" /></button>
+                                <button type="button" class="wa-ag-vaga" disabled="@(!PodeEscrever || _ocupado || _reservando)" @onclick="() => EscolherVaga(a, v)"><span><b>@VagaTexto(v.Inicio)</b> <small>@v.Profissional</small></span><Icone Nome="direita" /></button>
                             }
                         </div>
                     }
@@ -883,12 +956,13 @@ else
                         <div class="wa-ag-slots">
                             @foreach (var v in doDia)
                             {
-                                <button type="button" class="wa-ag-slot" disabled="@(!PodeEscrever || _ocupado || a.Paciente is null)" title="@(_profissionalDaAgenda is null ? $"{v.Inicio:HH:mm} · {v.Profissional}" : null)" @onclick="() => EscolherVaga(a, v)">@v.Inicio.ToString("HH:mm", Formato.PtBr)@if (_profissionalDaAgenda is null) { <small>@AgendaDaConversa.NomeCurto(v.Profissional)</small> }</button>
+                                <button type="button" class="wa-ag-slot" disabled="@(!PodeEscrever || _ocupado || _reservando)" title="@(_profissionalDaAgenda is null ? $"{v.Inicio:HH:mm} · {v.Profissional}" : null)" @onclick="() => EscolherVaga(a, v)">@v.Inicio.ToString("HH:mm", Formato.PtBr)@if (_profissionalDaAgenda is null) { <small>@AgendaDaConversa.NomeCurto(v.Profissional)</small> }</button>
                             }
                         </div>
                     }
                 }
             </section>
+        }
     </div>;
 
     /// <summary>"Novembro 2026" — o nome do mês no seletor do calendário.</summary>
@@ -1176,6 +1250,7 @@ else
                 _diaDaAgenda = null;
                 _profissionalDaAgenda = null;
                 _agendaPedidaPara = null;
+                LimparReservaDaConversa();
                 _mesDaAgenda = MesDeHoje;
                 _vagasDoMes = [];
                 _carregandoMes = false;
