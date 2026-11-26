@@ -95,3 +95,12 @@ export function ligarHistorico(ref) {
         }, function () { pedindo = false; });
     }, true);
 }
+
+// 6) A Agenda da conversa (nov/2026): tocou num dia, os horários dele aparecem — rolando o MÍNIMO (o título do dia
+//    entra pela borda de baixo), sem tirar o calendário de vista.
+export function mostrarHorariosDoDia() {
+    setTimeout(function () {
+        const el = document.querySelector('.wa-ag-do-dia');
+        if (el) el.scrollIntoView({ block: 'nearest' });
+    }, 60);
+}

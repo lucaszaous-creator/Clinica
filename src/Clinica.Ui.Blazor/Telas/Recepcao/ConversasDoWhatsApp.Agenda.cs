@@ -5,6 +5,7 @@ using Clinica.Domain.Regras;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.JSInterop;
 
 namespace Clinica.Ui.Blazor.Telas;
 
@@ -36,6 +37,13 @@ public partial class ConversasDoWhatsApp
     private bool _carregandoVagas;
     private string? _falhaDasVagas;
     private int _geracaoDasVagas;
+
+    /// <summary>As vagas do MÊS do calendário (no mês atual, as mesmas de <see cref="_vagas"/>; num mês futuro, lidas a
+    /// partir do dia 1 dele). A carga do mês tem o próprio contador de geração: trocar de mês rápido descarta a anterior.</summary>
+    private IReadOnlyList<VagaNaConversa> _vagasDoMes = [];
+    private bool _carregandoMes;
+    private int _geracaoDoMes;
+    private static DateOnly MesDeHoje => new(DateTime.Today.Year, DateTime.Today.Month, 1);
 
     /// <summary>O horário que está sendo REMARCADO pela Agenda (a próxima vaga tocada vira o novo horário dele).</summary>
     private HorarioDoPaciente? _remarcando;
@@ -124,11 +132,19 @@ public partial class ConversasDoWhatsApp
             using var escopo = Escopo();
             var busca = escopo.ServiceProvider.GetRequiredService<BuscaDeVagasService>();
             var porProfissional = new List<(Profissional, IReadOnlyList<Vaga>)>();
+            // A leitura de agora cobre o mês atual inteiro (e as próximas vagas do topo); mês futuro tem leitura própria.
             foreach (var p in quem)
-                porProfissional.Add((p, (await busca.ProximasAsync(p.Id, DateTime.Now, null, AgendaDaConversa.VagasPorProfissional)).Vagas));
+                porProfissional.Add((p, (await busca.ProximasAsync(p.Id, DateTime.Now, null, AgendaDaConversa.VagasPorMes)).Vagas));
             if (g != _geracaoDasVagas || Descartada) return;
             _vagas = AgendaDaConversa.Juntar(porProfissional);
-            if (_diaDaAgenda is { } d && !AgendaDaConversa.DiasComVaga(_vagas).Contains(d)) _diaDaAgenda = null;
+            if (_mesDaAgenda == MesDeHoje)
+            {
+                ++_geracaoDoMes;
+                _carregandoMes = false;
+                _vagasDoMes = AgendaDaConversa.DoMes(_vagas, _mesDaAgenda);
+                if (_diaDaAgenda is { } d && !AgendaDaConversa.DiasComVaga(_vagasDoMes).Contains(d)) _diaDaAgenda = null;
+            }
+            else _ = InvokeAsync(LerMesAsync);
         }
         catch (Exception ex)
         {
@@ -136,6 +152,7 @@ public partial class ConversasDoWhatsApp
             Clinica.Application.Diagnostico.Registrar("Blazor — as vagas da Agenda da conversa não puderam ser lidas", ex);
             _falhaDasVagas = "Não foi possível ler as vagas agora. Tente de novo em instantes.";
             _vagas = [];
+            _vagasDoMes = [];
         }
         finally { if (g == _geracaoDasVagas) _carregandoVagas = false; }
         if (!Descartada) await InvokeAsync(StateHasChanged);
@@ -163,7 +180,76 @@ public partial class ConversasDoWhatsApp
         await LerVagasAsync();
     }
 
-    private void MudarMesDaAgenda(int k) { _mesDaAgenda = _mesDaAgenda.AddMonths(k); _diaDaAgenda = null; }
+    /// <summary>
+    /// Troca o mês do calendário (‹ ›, a lista de meses e o "Hoje"). No mês atual reaproveita a leitura de agora; num mês
+    /// futuro lê as vagas a partir do dia 1 dele — as células mostram "carregando" sem mudar de tamanho.
+    /// </summary>
+    private async Task IrParaMesAsync(DateOnly mes)
+    {
+        var meses = AgendaDaConversa.MesesParaEscolher(DateOnly.FromDateTime(DateTime.Today));
+        mes = new DateOnly(mes.Year, mes.Month, 1);
+        if (mes < meses[0]) mes = meses[0];
+        if (mes > meses[^1]) mes = meses[^1];
+        if (mes == _mesDaAgenda && !_carregandoMes) return;
+        _mesDaAgenda = mes;
+        _diaDaAgenda = null;
+        if (mes == MesDeHoje)
+        {
+            ++_geracaoDoMes;
+            _carregandoMes = false;
+            _vagasDoMes = AgendaDaConversa.DoMes(_vagas, mes);
+            return;
+        }
+        await LerMesAsync();
+    }
+
+    private Task MudarMesDaAgendaAsync(int k) => IrParaMesAsync(_mesDaAgenda.AddMonths(k));
+
+    private Task EscolherMesAsync(ChangeEventArgs e)
+        => DateOnly.TryParseExact(e.Value?.ToString(), "yyyy-MM-dd", out var m) ? IrParaMesAsync(m) : Task.CompletedTask;
+
+    /// <summary>As vagas de um mês futuro, EM SEQUÊNCIA por profissional (o mesmo DbContext).</summary>
+    private async Task LerMesAsync()
+    {
+        var g = ++_geracaoDoMes;
+        var mes = _mesDaAgenda;
+        _carregandoMes = true;
+        if (!Descartada) await InvokeAsync(StateHasChanged);
+        try
+        {
+            var quem = ProfissionaisDaAgenda();
+            using var escopo = Escopo();
+            var busca = escopo.ServiceProvider.GetRequiredService<BuscaDeVagasService>();
+            var porProfissional = new List<(Profissional, IReadOnlyList<Vaga>)>();
+            var inicio = AgendaDaConversa.InicioDaLeitura(mes, DateTime.Now);
+            foreach (var p in quem)
+                porProfissional.Add((p, (await busca.ProximasAsync(p.Id, inicio, null, AgendaDaConversa.VagasPorMes)).Vagas));
+            if (g != _geracaoDoMes || Descartada) return;
+            _vagasDoMes = AgendaDaConversa.DoMes(AgendaDaConversa.Juntar(porProfissional), mes);
+        }
+        catch (Exception ex)
+        {
+            if (g != _geracaoDoMes) return;
+            Clinica.Application.Diagnostico.Registrar("Blazor — as vagas do mês na Agenda da conversa não puderam ser lidas", ex);
+            _falhaDasVagas = "Não foi possível ler as vagas deste mês. Tente de novo em instantes.";
+            _vagasDoMes = [];
+        }
+        finally { if (g == _geracaoDoMes) _carregandoMes = false; }
+        if (!Descartada) await InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>Tocou num dia: marca o dia e leva os horários à vista, sem esconder o calendário.</summary>
+    private async Task EscolherDiaAsync(DateOnly dia)
+    {
+        _diaDaAgenda = dia;
+        StateHasChanged();
+        try
+        {
+            var modulo = await JS.InvokeAsync<IJSObjectReference>("import", ModuloDaConversa);
+            await modulo.InvokeVoidAsync("mostrarHorariosDoDia");
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException) { }
+    }
 
     /// <summary>Tocou numa vaga: o formulário da Agenda abre já com paciente, dia, hora, profissional e o "o quê".</summary>
     private void EscolherVaga(ConversaDoWhatsApp a, VagaNaConversa v)

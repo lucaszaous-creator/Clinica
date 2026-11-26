@@ -75,9 +75,49 @@ public static class AgendaDaConversa
     public static IReadOnlySet<DateOnly> DiasComVaga(IEnumerable<VagaNaConversa> vagas)
         => vagas.Select(v => DateOnly.FromDateTime(v.Inicio)).ToHashSet();
 
-    /// <summary>As vagas de um dia, pela hora.</summary>
-    public static IReadOnlyList<VagaNaConversa> DoDia(IEnumerable<VagaNaConversa> vagas, DateOnly dia)
-        => vagas.Where(v => DateOnly.FromDateTime(v.Inicio) == dia).OrderBy(v => v.Inicio).ToList();
+    /// <summary>Quantas vagas se pedem a cada profissional para o MÊS do calendário (meia hora a meia hora, um mês inteiro cabe).</summary>
+    public const int VagasPorMes = 600;
+
+    /// <summary>Quantos meses à frente o seletor de mês oferece (pedido do dono: "pelo menos os próximos 6").</summary>
+    public const int MesesAFrente = 6;
+
+    /// <summary>
+    /// A grade do mês (pedido do dono, nov/2026: "deveria aparecer todos os dias dos meses"): SEMPRE 6 semanas × 7 dias,
+    /// de domingo a sábado, com os dias do mês anterior e do seguinte completando as pontas. Seis linhas em todo mês:
+    /// o calendário não muda de altura ao trocar de mês.
+    /// </summary>
+    public static IReadOnlyList<DateOnly> GradeDoMes(DateOnly mes)
+    {
+        var primeiro = new DateOnly(mes.Year, mes.Month, 1);
+        var inicio = primeiro.AddDays(-(int)primeiro.DayOfWeek);
+        return Enumerable.Range(0, 42).Select(inicio.AddDays).ToList();
+    }
+
+    /// <summary>Os meses do seletor: o atual e os <see cref="MesesAFrente"/> seguintes (o primeiro dia de cada um).</summary>
+    public static IReadOnlyList<DateOnly> MesesParaEscolher(DateOnly hoje)
+        => Enumerable.Range(0, MesesAFrente + 1).Select(i => new DateOnly(hoje.Year, hoje.Month, 1).AddMonths(i)).ToList();
+
+    /// <summary>De onde a leitura das vagas do mês parte: agora, no mês atual; a meia-noite do dia 1, num mês futuro.</summary>
+    public static DateTime InicioDaLeitura(DateOnly mes, DateTime agora)
+    {
+        var dia1 = new DateOnly(mes.Year, mes.Month, 1).ToDateTime(TimeOnly.MinValue);
+        return dia1 > agora ? dia1 : agora;
+    }
+
+    /// <summary>Só as vagas daquele mês (a busca lê até 60 dias e o calendário mostra um mês).</summary>
+    public static IReadOnlyList<VagaNaConversa> DoMes(IEnumerable<VagaNaConversa> vagas, DateOnly mes)
+        => vagas.Where(v => v.Inicio.Year == mes.Year && v.Inicio.Month == mes.Month).ToList();
+
+    /// <summary>
+    /// Os horários de um dia, pela hora. Com "qualquer um" (<paramref name="umPorHorario"/>), um botão por HORÁRIO — o
+    /// primeiro profissional livre nele, como nas próximas vagas: cinco profissionais às 14:00 são uma opção para a
+    /// paciente, não cinco botões (o dia cheio passava de cem). Quem quer um profissional escolhe no filtro.
+    /// </summary>
+    public static IReadOnlyList<VagaNaConversa> DoDia(IEnumerable<VagaNaConversa> vagas, DateOnly dia, bool umPorHorario = false)
+    {
+        var doDia = vagas.Where(v => DateOnly.FromDateTime(v.Inicio) == dia).OrderBy(v => v.Inicio);
+        return umPorHorario ? Proximas(doDia, int.MaxValue) : doDia.ToList();
+    }
 
     /// <summary>
     /// "Maria, tenho estes horários de acupuntura com a Dra. Helena: sexta-feira, 27/11 às 08:30, … ou … Qual fica melhor?"

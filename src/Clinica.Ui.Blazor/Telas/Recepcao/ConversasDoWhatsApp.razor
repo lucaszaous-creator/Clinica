@@ -842,40 +842,46 @@ else
                 <p class="wa-dica">@a.Paciente.Convenio · as regras do convênio, o conflito de horário e o encaixe aparecem ao confirmar, na Agenda da clínica.</p>
                 @if (_falhaDasVagas is { } falha) { <Aviso Tom="erro" Texto="@falha" /> }
                 else if (_carregandoVagas) { <p class="wa-dica" role="status">Procurando vagas…</p> }
-                else if (_vagas.Count == 0) { <p class="wa-dica">Sem vaga nos próximos 60 dias para esta escolha.</p> }
                 else
                 {
-                    <h4 class="wa-ag-sub">Próximas vagas <button type="button" class="link" disabled="@(!PodeEscrever)" @onclick="() => EnviarHorariosLivres(a)">Enviar estes horários</button></h4>
-                    <div class="wa-ag-proximas">
-                        @foreach (var v in AgendaDaConversa.Proximas(_vagas))
-                        {
-                            <button type="button" class="wa-ag-vaga" disabled="@(!PodeEscrever || _ocupado)" @onclick="() => EscolherVaga(a, v)"><span><b>@VagaTexto(v.Inicio)</b> <small>@v.Profissional</small></span><Icone Nome="direita" /></button>
-                        }
-                    </div>
-                    var dias = AgendaDaConversa.DiasComVaga(_vagas); var primeiro = _mesDaAgenda; var hojeMes = new DateOnly(DateTime.Today.Year, DateTime.Today.Month, 1);
-                    <div class="wa-ag-cal">
-                        <div class="wa-ag-cal-topo"><button type="button" class="botao icone fantasma" aria-label="Mês anterior" disabled="@(primeiro <= hojeMes)" @onclick="() => MudarMesDaAgenda(-1)"><Icone Nome="esquerda" /></button>
-                            <b>@primeiro.ToString("MMMM yyyy", Formato.PtBr)</b>
-                            <button type="button" class="botao icone fantasma" aria-label="Próximo mês" disabled="@(primeiro >= hojeMes.AddMonths(2))" @onclick="() => MudarMesDaAgenda(1)"><Icone Nome="direita" /></button></div>
-                        <div class="wa-ag-grade">
-                            @foreach (var ds in new[] { "D", "S", "T", "Q", "Q", "S", "S" }) { <span class="wa-ag-sem">@ds</span> }
-                            @for (var k = 0; k < (int)primeiro.DayOfWeek; k++) { <span></span> }
-                            @for (var d = primeiro; d.Month == primeiro.Month; d = d.AddDays(1))
+                    @if (_vagas.Count == 0) { <p class="wa-dica">Sem vaga nos próximos 60 dias para esta escolha.</p> }
+                    else
+                    {
+                        <h4 class="wa-ag-sub">Próximas vagas <button type="button" class="link" disabled="@(!PodeEscrever)" @onclick="() => EnviarHorariosLivres(a)">Enviar estes horários</button></h4>
+                        <div class="wa-ag-proximas">
+                            @foreach (var v in AgendaDaConversa.Proximas(_vagas))
                             {
-                                var dia = d; var tem = dias.Contains(dia);
-                                <button type="button" class="wa-ag-dia @(tem ? "tem" : null) @(dia == Hoje ? "hoje" : null) @(_diaDaAgenda == dia ? "sel" : null)" disabled="@(!tem)"
-                                        aria-label="@($"{dia.ToString("dddd, dd/MM", Formato.PtBr)}{(tem ? ", tem vaga" : ", sem vaga")}")" aria-pressed="@Bool(_diaDaAgenda == dia)" @onclick="() => _diaDaAgenda = dia">@dia.Day</button>
+                                <button type="button" class="wa-ag-vaga" disabled="@(!PodeEscrever || _ocupado)" @onclick="() => EscolherVaga(a, v)"><span><b>@VagaTexto(v.Inicio)</b> <small>@v.Profissional</small></span><Icone Nome="direita" /></button>
+                            }
+                        </div>
+                    }
+                    var meses = AgendaDaConversa.MesesParaEscolher(Hoje); var primeiro = _mesDaAgenda; var dias = AgendaDaConversa.DiasComVaga(_vagasDoMes);
+                    <div class="wa-ag-cal @(_carregandoMes ? "carregando" : null)" aria-busy="@Bool(_carregandoMes)">
+                        <div class="wa-ag-cal-topo">
+                            <button type="button" class="botao icone fantasma" aria-label="Mês anterior" disabled="@(primeiro <= meses[0])" @onclick="() => MudarMesDaAgendaAsync(-1)"><Icone Nome="esquerda" /></button>
+                            <label class="wa-ag-mes"><select aria-label="Escolher o mês" value="@primeiro.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)" @onchange="EscolherMesAsync">
+                                @foreach (var m in meses) { <option value="@m.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)">@NomeDoMes(m)</option> }</select><Icone Nome="abaixo" /></label>
+                            <button type="button" class="botao icone fantasma" aria-label="Próximo mês" disabled="@(primeiro >= meses[^1])" @onclick="() => MudarMesDaAgendaAsync(1)"><Icone Nome="direita" /></button>
+                            <button type="button" class="botao mini fantasma wa-ag-hoje" disabled="@(primeiro == meses[0])" @onclick="() => IrParaMesAsync(meses[0])">Hoje</button>
+                        </div>
+                        <div class="wa-ag-grade">
+                            @foreach (var ds in new[] { "D", "S", "T", "Q", "Q", "S", "S" }) { <span class="wa-ag-sem" aria-hidden="true">@ds</span> }
+                            @foreach (var dia in AgendaDaConversa.GradeDoMes(primeiro))
+                            {
+                                var doMes = dia.Month == primeiro.Month; var tem = doMes && !_carregandoMes && dias.Contains(dia);
+                                <button type="button" class="wa-ag-dia @(doMes ? null : "fora") @(dia < Hoje ? "passado" : null) @(tem ? "tem" : null) @(dia == Hoje ? "hoje" : null) @(_diaDaAgenda == dia ? "sel" : null)" disabled="@(!tem)"
+                                        aria-label="@($"{dia.ToString("dddd, dd/MM", Formato.PtBr)}{(tem ? ", tem vaga" : ", sem vaga")}")" aria-pressed="@Bool(_diaDaAgenda == dia)" @onclick="() => EscolherDiaAsync(dia)"><span class="wa-ag-num">@dia.Day</span></button>
                             }
                         </div>
                     </div>
                     @if (_diaDaAgenda is { } diaSel)
                     {
-                        var doDia = AgendaDaConversa.DoDia(_vagas, diaSel);
-                        <h4 class="wa-ag-sub">@diaSel.ToString("dddd, dd/MM", Formato.PtBr) · @doDia.Count @(doDia.Count == 1 ? "vaga" : "vagas")</h4>
+                        var doDia = AgendaDaConversa.DoDia(_vagasDoMes, diaSel, umPorHorario: _profissionalDaAgenda is null);
+                        <h4 class="wa-ag-sub wa-ag-do-dia">@diaSel.ToString("dddd, dd/MM", Formato.PtBr) · @doDia.Count @(doDia.Count == 1 ? "vaga" : "vagas")</h4>
                         <div class="wa-ag-slots">
                             @foreach (var v in doDia)
                             {
-                                <button type="button" class="wa-ag-slot" disabled="@(!PodeEscrever || _ocupado)" @onclick="() => EscolherVaga(a, v)">@v.Inicio.ToString("HH:mm", Formato.PtBr)@if (_profissionalDaAgenda is null) { <small>@v.Profissional</small> }</button>
+                                <button type="button" class="wa-ag-slot" disabled="@(!PodeEscrever || _ocupado)" title="@(_profissionalDaAgenda is null ? $"{v.Inicio:HH:mm} · {v.Profissional}" : null)" @onclick="() => EscolherVaga(a, v)">@v.Inicio.ToString("HH:mm", Formato.PtBr)@if (_profissionalDaAgenda is null) { <small>@v.Profissional</small> }</button>
                             }
                         </div>
                     }
@@ -883,6 +889,9 @@ else
             </section>
         }
     </div>;
+
+    /// <summary>"Novembro 2026" — o nome do mês no seletor do calendário.</summary>
+    private static string NomeDoMes(DateOnly mes) { var t = mes.ToString("MMMM yyyy", Formato.PtBr); return char.ToUpper(t[0], Formato.PtBr) + t[1..]; }
 
     private static string VagaTexto(DateTime quando)
         => DateOnly.FromDateTime(quando) == Hoje ? $"hoje · {quando:HH:mm}" : $"{quando.ToString("ddd dd/MM", Formato.PtBr).Replace(".", "")} · {quando:HH:mm}";
@@ -1166,6 +1175,10 @@ else
                 _diaDaAgenda = null;
                 _profissionalDaAgenda = null;
                 _agendaPedidaPara = null;
+                _mesDaAgenda = MesDeHoje;
+                _vagasDoMes = [];
+                _carregandoMes = false;
+                ++_geracaoDoMes;
             }
         }
         try

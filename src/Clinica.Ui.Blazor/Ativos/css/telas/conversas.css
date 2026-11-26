@@ -809,7 +809,7 @@ button.wa-citacao:focus-visible{outline:2px solid var(--wa-acao);outline-offset:
 .wa-ag-remarcando{outline:2px solid var(--wa-acao-tint);outline-offset:-2px}
 .wa-ag-modo{display:flex;justify-content:space-between;align-items:center;gap:var(--space-2);background:var(--wa-acao-suave);border:1px solid var(--wa-acao-tint);
   color:var(--wa-acao);border-radius:var(--radius-control);padding:var(--space-2) var(--space-3);font-weight:600;font-size:var(--text-small-size);margin-bottom:var(--space-2)}
-.wa-ag-filtros{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--space-2)}
+.wa-ag-filtros{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--space-2)}
 .wa-ag-filtros label{display:flex;flex-direction:column;gap:4px;font-size:var(--text-small-size);font-weight:600;color:var(--wa-cinza);min-width:0}
 .wa-ag-filtros select{min-width:0}
 .wa-ag-sub{display:flex;justify-content:space-between;align-items:center;gap:var(--space-2);margin:var(--space-3) 0 var(--space-2);font-size:var(--text-small-size);
@@ -820,17 +820,35 @@ button.wa-citacao:focus-visible{outline:2px solid var(--wa-acao);outline-offset:
   border:1px solid var(--wa-linha);border-radius:var(--radius-control);background:var(--superficie);padding:0 var(--space-3);font:inherit;color:var(--texto-primario)}
 .wa-ag-vaga:hover:not(:disabled){border-color:var(--wa-acao-tint);background:var(--wa-acao-suave)}
 .wa-ag-vaga b{font-variant-numeric:tabular-nums}.wa-ag-vaga small{color:var(--wa-cinza)}
-.wa-ag-cal{border:1px solid var(--wa-linha);border-radius:var(--radius-card);padding:var(--space-2);margin-top:var(--space-3)}
-.wa-ag-cal-topo{display:flex;justify-content:space-between;align-items:center;padding-bottom:var(--space-2)}
-.wa-ag-cal-topo b::first-letter{text-transform:uppercase}
-.wa-ag-grade{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;text-align:center}
-.wa-ag-sem{font-size:11px;font-weight:600;color:var(--wa-cinza);padding:4px 0}
-.wa-ag-dia{height:40px;border:0;border-radius:var(--radius-control);background:transparent;color:var(--texto-secundario);font:inherit;font-variant-numeric:tabular-nums;position:relative;cursor:default}
+.wa-ag-cal{border:1px solid var(--wa-linha);border-radius:var(--radius-card);padding:var(--space-2);margin-top:var(--space-3);background:var(--superficie)}
+/* O cabeçalho do mês fica à vista enquanto a grade rola (pedido do dono, nov/2026). */
+.wa-ag-cal-topo{position:sticky;top:0;z-index:1;background:var(--superficie);display:flex;align-items:center;gap:var(--space-1);padding-bottom:var(--space-2)}
+.wa-ag-mes{flex:1;min-width:0;display:flex;align-items:center;justify-content:center}
+.wa-ag-mes select{appearance:none;-webkit-appearance:none;border:0;background:transparent;font:inherit;font-weight:700;color:var(--texto-primario);
+  min-height:40px;padding:0 28px 0 var(--space-2);border-radius:var(--radius-control);cursor:pointer;max-width:100%;text-overflow:ellipsis;text-align-last:right}
+.wa-ag-mes select:hover{background:var(--wa-faixa)}
+.wa-ag-mes .icone{flex:none;margin-left:-26px;pointer-events:none;color:var(--wa-cinza)}
+.wa-ag-hoje{flex:none}
+/* A grade: 7 colunas iguais, 6 linhas em todo mês, cada dia uma célula do mesmo tamanho. O número fica num círculo
+   centrado e o ponto da vaga, numa linha própria logo abaixo — nada empurra a altura. */
+.wa-ag-grade{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;text-align:center}
+.wa-ag-sem{font-size:11px;font-weight:600;color:var(--wa-cinza);height:24px;display:flex;align-items:center;justify-content:center}
+.wa-ag-dia{height:44px;min-width:0;padding:0;border:0;background:transparent;font:inherit;font-variant-numeric:tabular-nums;color:var(--texto-secundario);
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:2px;padding-top:2px;cursor:default;position:relative}
+.wa-ag-num{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;line-height:1}
+.wa-ag-dia::after{content:"";width:4px;height:4px;border-radius:50%;background:transparent;flex:none}
+.wa-ag-dia.fora{color:var(--wa-linha)}
+.wa-ag-dia.passado:not(.fora){color:var(--wa-cinza);opacity:.55}
 .wa-ag-dia.tem{color:var(--texto-primario);font-weight:600;cursor:pointer}
-.wa-ag-dia.tem::after{content:"";position:absolute;left:50%;bottom:5px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:var(--wa-verde)}
-.wa-ag-dia.tem:hover{background:var(--wa-faixa)}
-.wa-ag-dia.hoje{box-shadow:inset 0 0 0 1px var(--wa-acao-tint)}
-.wa-ag-dia.sel{background:var(--wa-acao);color:#fff}.wa-ag-dia.sel::after{background:#fff}
+.wa-ag-dia.tem::after{background:var(--wa-verde)}
+.wa-ag-dia.tem:hover .wa-ag-num{background:var(--wa-faixa)}
+.wa-ag-dia.hoje .wa-ag-num{box-shadow:inset 0 0 0 1.5px var(--wa-acao)}
+.wa-ag-dia.sel .wa-ag-num,.wa-ag-dia.sel:hover .wa-ag-num{background:var(--wa-acao);color:#fff;box-shadow:none}
+.wa-ag-dia:focus-visible{outline:none}.wa-ag-dia:focus-visible .wa-ag-num{outline:2px solid var(--wa-acao);outline-offset:1px}
+/* Carregando o mês: as células ficam onde estão, só esmaecem (sem mudar de tamanho). */
+.wa-ag-cal.carregando .wa-ag-dia:not(.fora) .wa-ag-num{background:var(--wa-faixa);color:transparent;animation:wa-ag-pulsa 1.2s ease-in-out infinite}
+@keyframes wa-ag-pulsa{0%,100%{opacity:.5}50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.wa-ag-cal.carregando .wa-ag-dia .wa-ag-num{animation:none}}
 .wa-ag-slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:var(--space-2)}
 .wa-ag-slot{min-height:44px;border:1px solid var(--wa-acao-tint);border-radius:var(--radius-control);background:var(--superficie);color:var(--wa-acao);font:inherit;font-weight:600;
   font-variant-numeric:tabular-nums;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.15;cursor:pointer;padding:4px}
@@ -839,6 +857,5 @@ button.wa-citacao:focus-visible{outline:2px solid var(--wa-acao);outline-offset:
 @media (max-width:760px){
   .pagina.wa .wa-ficha{width:100%;border-left:0}
   .wa-botao-agenda-rotulo{display:none}
-  .wa-ag-filtros{grid-template-columns:minmax(0,1fr)}
   .wa-ag-filtros select{font-size:16px}
 }
