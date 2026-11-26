@@ -33,7 +33,16 @@ public sealed class ClinicReservationBridge(ClinicaDbContext db)
 
     static ClinicReservation View(ReservaDeHorario r) => new(r.Id, r.Nome, r.Telefone, Offset(r.DataHora), r.DuracaoMinutos,
         r.ProfissionalId, r.Profissional?.Rotulo ?? "", r.ModalidadeCodigo, r.EspecialidadeConsultaCodigo, r.Particular, r.ConvenioNome,
-        Status(r.Situacao), r.AgendamentoId, r.Versao.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        Status(r.Situacao), r.AgendamentoId, r.Versao.ToString(System.Globalization.CultureInfo.InvariantCulture), Reminder(r));
+
+    /// <summary>A resposta ao lembrete, em código do contrato (as palavras ficam com quem mostra).</summary>
+    public static string Reminder(ReservaDeHorario r) => r.RespostaDoLembrete switch
+    {
+        ReservaDeHorario.RespostasDoLembrete.Confirmou => "confirmed",
+        ReservaDeHorario.RespostasDoLembrete.PediuCancelar => "cancel-requested",
+        ReservaDeHorario.RespostasDoLembrete.PediuRemarcar => "reschedule-requested",
+        _ => r.LembreteEnviadoEm is null ? "" : "sent"
+    };
 
     /// <summary>As reservas do telefone da conversa (todas as situações: é o histórico dela).</summary>
     public async Task<ClinicReservation[]> List(ClinicReservationQuery q, CancellationToken ct)

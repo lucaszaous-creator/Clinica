@@ -171,7 +171,9 @@ public sealed class PonteClinicBookingTests : IDisposable
         Assert.Single(db.Auditoria.Where(e => e.Acao == ClinicAgendaBridge.AcaoDaReserva && e.Detalhe!.Contains(confirma.CommandId)));
         var depois = Assert.Single((await agendaPonte.Snapshot(default)).Reservations!);
         Assert.Equal(("responded", "confirmed", ap.Revision), (depois.Confirmation, depois.Answer, depois.Revision));
-        Assert.Equal(r.Revision, (await reservas.List(new(semFicha), default)).Single().Revision); // a recepção não precisa reler
+        var lida = (await reservas.List(new(semFicha), default)).Single();
+        Assert.Equal(r.Revision, lida.Revision); // a recepção não precisa reler
+        Assert.Equal(("", "confirmed"), (r.Reminder, lida.Reminder)); // o cartão da conversa mostra "Confirmou"
         Assert.Equal(0, await db.Pacientes.CountAsync(p => p.Telefone == semFicha));
 
         await reservas.Reschedule(new ClinicReservationReschedule(r.Id, semFicha, r.Revision, livre.AddMinutes(60), "Ana"), default);
