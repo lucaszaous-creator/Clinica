@@ -92,7 +92,6 @@
     private async Task ConferirAsync()
     {
         var g = ++_geracao;
-        var antes = _trava is not null;
         TravaAcesa? trava = null;
         LiberacaoDeTrava? pendente = null;
         if (Paciente is { } paciente && Quando is { } quando && Modalidade is { } modalidade)
@@ -119,7 +118,10 @@
         _trava = trava;
         _pendente = pendente;
         _erro = null;
-        if (antes != (trava is not null)) await TravadoChanged.InvokeAsync(trava is not null);
+        // Avisa o formulário a CADA leitura, não só quando muda (nov/2026): a box nasce de novo
+        // quando a tela troca de paciente, e uma box nova "sem trava" que só avisasse mudança
+        // nunca soltava o botão que a anterior tinha travado — o "às vezes não libera" do vídeo.
+        await TravadoChanged.InvokeAsync(trava is not null);
         StateHasChanged();
     }
 

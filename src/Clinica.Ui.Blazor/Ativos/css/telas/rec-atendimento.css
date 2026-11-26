@@ -30,6 +30,11 @@
 .ra-numero{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--acento);
   color:var(--texto-invertido);font-size:var(--text-small-size);font-weight:700;flex:none}
 .ra-dica{margin:0;color:var(--texto-secundario);font-size:var(--text-small-size);line-height:1.45}
+/* O passo concluído (nov/2026): o número vira ✓ verde — a secretária vê o que já fez e o que falta. */
+.ra-numero.feito{background:var(--sucesso-forte);font-size:0}
+.ra-numero.feito::after{content:"\2713";font-size:var(--text-small-size)}
+/* O que falta, apontado pelo clique no botão: o campo ganha o contorno até ser resolvido. */
+.ra-pendente{outline:2px solid var(--erro);outline-offset:var(--space-1);border-radius:var(--radius-control);background:var(--erro-suave)}
 
 /* ---------- As modalidades, em LINHAS: os números caem numa coluna, que é como se compara número ---------- */
 .ra-modalidades{display:flex;flex-direction:column;border:1px solid var(--borda);border-radius:var(--radius-control);overflow:hidden}
@@ -92,6 +97,7 @@
 .ra-lado-rodape{padding:var(--space-4) var(--space-6);border-top:1px solid var(--borda);display:flex;flex-direction:column;
   gap:var(--space-3);background:var(--superficie);border-radius:0 0 var(--radius-card) var(--radius-card)}
 .ra-acao{width:100%;justify-content:center;height:44px;text-align:center;white-space:normal;line-height:1.2}
+.botao.primario.ra-acao.ra-acao-falta{background:var(--aviso-suave);border-color:var(--aviso-texto);color:var(--aviso-texto)}
 .ra-limpar{align-self:flex-start}
 .ra-lado-rodape .marcar{align-items:flex-start;line-height:1.4;font-size:var(--text-small-size)}
 .ra-lado-rodape .marcar input{margin-top:2px;flex:none}
