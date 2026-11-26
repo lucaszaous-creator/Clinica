@@ -147,7 +147,10 @@ public sealed record ClinicReservationRequest(string Phone, string Name, int Pro
     string? SpecialtyCode, int Duration, DateTimeOffset StartsAt, bool Private, string? Insurance, string Actor, string? ConversationId);
 public sealed record ClinicReservation(int Id, string Name, string Phone, DateTimeOffset StartsAt, int Duration, int ProfessionalId,
     string ProfessionalName, string ServiceCode, string? SpecialtyCode, bool Private, string? Insurance, string Status,
-    int? AppointmentId, string Revision);
+    int? AppointmentId, string Revision,
+    // A resposta ao lembrete da véspera (nov/2026, no fim): confirmed | cancel-requested | reschedule-requested | sent (saiu, sem
+    // resposta) | "" (não saiu). O CRM a mostra com as MESMAS palavras da agenda (ReservasNaAgendaDoDia.Resposta).
+    string Reminder = "");
 public sealed record ClinicReservationQuery(string Phone);
 public sealed record ClinicReservationCancel(int Id, string Phone, string Revision, string Reason, string Actor);
 public sealed record ClinicReservationReschedule(int Id, string Phone, string Revision, DateTimeOffset StartsAt, string Actor);
