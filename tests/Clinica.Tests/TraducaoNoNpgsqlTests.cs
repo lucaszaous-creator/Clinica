@@ -48,6 +48,17 @@ public class TraducaoNoNpgsqlTests
     }
 
     [Fact]
+    public void Reservas_sem_ficha_traduzem_a_situacao_e_a_navegacao()
+    {
+        using var db = Postgres();
+        var repo = new ClinicaRepositorio(db);
+        repo.ConsultaReservasQuePodemSobrepor(new DateTime(2026, 11, 27, 10, 0, 0), new DateTime(2026, 11, 27, 10, 30, 0)).ToQueryString()
+            .Should().Contain("ReservasDeHorario").And.Contain("Situacao").And.Contain("'Reservada'");
+        repo.ConsultaReservasDoTelefone("5522999990001").ToQueryString()
+            .Should().Contain("Telefone").And.Contain("Profissionais");
+    }
+
+    [Fact]
     public void Validade_do_A1_do_emitente_traduz_so_a_data()
     {
         using var db = Postgres();

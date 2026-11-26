@@ -25,7 +25,14 @@ public enum RecursoAgenda
     /// Fora da jornada declarada do profissional (set/2026). Não há outro paciente do
     /// outro lado. Uma trava ativa também se aplica ao encaixe.
     /// </summary>
-    Expediente
+    Expediente,
+
+    /// <summary>
+    /// Reserva de horário SEM FICHA (nov/2026): o horário está segurado para alguém que ainda não é paciente. Sempre
+    /// IMPEDE marcar por cima (a "trava" que o dono pediu) — para usar o horário, desmarque a reserva ou "vire paciente".
+    /// O <see cref="ConflitoAgenda.AgendamentoId"/> carrega o id da RESERVA.
+    /// </summary>
+    Reserva
 }
 
 /// <summary>

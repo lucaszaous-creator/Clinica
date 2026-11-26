@@ -119,6 +119,34 @@ public sealed class PonteClinicBookingTests : IDisposable
             bridge.Hold(new BookingHold(Guid.NewGuid().ToString("N"), semFicha, vagas.Slots[0], "Ana"), default));
     }
 
+    // Reserva de horário SEM FICHA pela conversa (nov/2026): ocupa a vaga, não cria ficha, é deste telefone e idempotente.
+    [Fact] public async Task Reserva_sem_ficha_pela_conversa_ocupa_a_vaga_e_e_so_deste_telefone()
+    {
+        var reservas = new ClinicReservationBridge(db);
+        const string semFicha = "5511977770000";
+        var livre = (await bridge.Slots(Query() with { Phone = semFicha, PatientId = 0 }, default)).Slots[0];
+        var pedido = new ClinicReservationRequest(semFicha, "Visitante Fictícia", medico.Id, null, "AcupunturaSimples", null, 30,
+            livre, true, null, "Ana", "conversa-x");
+
+        var r = await reservas.Create(pedido, default);
+        Assert.Equal("reserved", r.Status);
+        Assert.Equal(r.Id, (await reservas.Create(pedido, default)).Id); // resposta perdida: a mesma reserva, não outra
+        Assert.Equal(0, await db.Pacientes.CountAsync(p => p.Telefone == semFicha));
+        Assert.DoesNotContain(livre, (await bridge.Slots(Query(), default)).Slots);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            reservas.Cancel(new ClinicReservationCancel(r.Id, "5511966660000", r.Revision, "A pessoa pediu", "Ana"), default));
+        var outra = livre.AddMinutes(60);
+        var remarcada = await reservas.Reschedule(new ClinicReservationReschedule(r.Id, semFicha, r.Revision, outra, "Ana"), default);
+        Assert.Equal(outra, remarcada.StartsAt);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => // a revisão lida antes não vale mais
+            reservas.Cancel(new ClinicReservationCancel(r.Id, semFicha, r.Revision, "A pessoa pediu", "Ana"), default));
+        var desmarcada = await reservas.Cancel(new ClinicReservationCancel(r.Id, semFicha, remarcada.Revision, "A pessoa pediu", "Ana"), default);
+        Assert.Equal("cancelled", desmarcada.Status);
+        Assert.Contains(livre, (await bridge.Slots(Query(), default)).Slots);
+        Assert.Single(await reservas.List(new ClinicReservationQuery(semFicha), default)); // fica como histórico
+    }
+
     [Fact] public async Task Agenda_esconde_o_nome_e_o_id_dos_outros_pacientes()
     {
         db.Agendamentos.Add(new() { PacienteId = paciente.Id, ProfissionalId = medico.Id, DataHora = dia.ToDateTime(new(9, 0)) });

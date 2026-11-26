@@ -1587,6 +1587,49 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
     // ---- Lista de espera ----
 
+    // ---- Reserva de horário sem ficha (nov/2026) ----
+
+    public async Task AdicionarReservaAsync(ReservaDeHorario reserva, CancellationToken ct = default)
+        => await _db.ReservasDeHorario.AddAsync(reserva, ct);
+
+    public Task<ReservaDeHorario?> ObterReservaAsync(int id, CancellationToken ct = default)
+        => _db.ReservasDeHorario.Include(r => r.Profissional).FirstOrDefaultAsync(r => r.Id == id, ct);
+
+    /// <summary>
+    /// Filtra no banco por uma janela (a reserva dura no máximo <see cref="DuracaoMaximaDaReserva"/>) e decide a
+    /// sobreposição exata em memória — sem depender de como cada provedor traduz "DataHora + duração".
+    /// </summary>
+    public async Task<IReadOnlyList<ReservaDeHorario>> ReservasQueSobrepoemAsync(DateTime inicio, DateTime fim, CancellationToken ct = default)
+    {
+        var candidatas = await ConsultaReservasQuePodemSobrepor(inicio, fim).ToListAsync(ct);
+        return candidatas.Where(r => r.ColideCom(inicio, fim)).OrderBy(r => r.DataHora).ToList();
+    }
+
+    /// <summary>Exposta para <c>TraducaoNoNpgsqlTests</c>: a situação é texto no banco (conversor de enum).</summary>
+    public IQueryable<ReservaDeHorario> ConsultaReservasQuePodemSobrepor(DateTime inicio, DateTime fim)
+    {
+        var desde = inicio.AddMinutes(-DuracaoMaximaDaReserva);
+        return _db.ReservasDeHorario.AsNoTracking()
+            .Where(r => r.Situacao == SituacaoDaReserva.Reservada && r.DataHora < fim && r.DataHora > desde);
+    }
+
+    public const int DuracaoMaximaDaReserva = 240;
+
+    public async Task<IReadOnlyList<ReservaDeHorario>> ReservasNoPeriodoAsync(DateTime inicio, DateTime fim, CancellationToken ct = default)
+        => await _db.ReservasDeHorario.AsNoTracking().Include(r => r.Profissional)
+            .Where(r => r.DataHora >= inicio && r.DataHora < fim)
+            .OrderBy(r => r.DataHora).ThenBy(r => r.Id)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<ReservaDeHorario>> ReservasDoTelefoneAsync(string telefone, CancellationToken ct = default)
+        => await ConsultaReservasDoTelefone(telefone).ToListAsync(ct);
+
+    /// <summary>Exposta para <c>TraducaoNoNpgsqlTests</c> (navegação do profissional).</summary>
+    public IQueryable<ReservaDeHorario> ConsultaReservasDoTelefone(string telefone)
+        => _db.ReservasDeHorario.AsNoTracking().Include(r => r.Profissional)
+            .Where(r => r.Telefone == telefone)
+            .OrderByDescending(r => r.DataHora).ThenByDescending(r => r.Id);
+
     // ---- Bloqueio de agenda ----
 
     public async Task<IReadOnlyList<BloqueioAgenda>> BloqueiosNoPeriodoAsync(

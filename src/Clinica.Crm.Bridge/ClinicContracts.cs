@@ -137,3 +137,15 @@ public sealed record ClinicTicketLogin(string Ticket);
 // mensagem que alguém mandou pelo CRM a um paciente IDENTIFICADO entra no histórico do caso aberto
 // dele no Clinica. Um registro por conversa por dia; a ponte é idempotente pelo CommandId.
 public sealed record ClinicContactNotice(string CommandId, int PatientId, DateTimeOffset SentAt, string Channel, string Agent);
+
+// Reserva de horário SEM FICHA (nov/2026, pedido do dono): ocupa o horário pela conversa sem criar paciente. Só o mínimo
+// (nome dito na conversa, o telefone, o horário, quem atende, particular/convênio) — nada de CPF nem carteirinha.
+// O MESMO contrato em semdor-crm (src/Clinica.Crm/ClinicContracts.cs). Status: reserved | cancelled | no-show | converted.
+public sealed record ClinicReservationRequest(string Phone, string Name, int ProfessionalId, int? RoomId, string ServiceCode,
+    string? SpecialtyCode, int Duration, DateTimeOffset StartsAt, bool Private, string? Insurance, string Actor, string? ConversationId);
+public sealed record ClinicReservation(int Id, string Name, string Phone, DateTimeOffset StartsAt, int Duration, int ProfessionalId,
+    string ProfessionalName, string ServiceCode, string? SpecialtyCode, bool Private, string? Insurance, string Status,
+    int? AppointmentId, string Revision);
+public sealed record ClinicReservationQuery(string Phone);
+public sealed record ClinicReservationCancel(int Id, string Phone, string Revision, string Reason, string Actor);
+public sealed record ClinicReservationReschedule(int Id, string Phone, string Revision, DateTimeOffset StartsAt, string Actor);

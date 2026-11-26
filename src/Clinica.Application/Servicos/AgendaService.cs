@@ -227,7 +227,8 @@ public sealed class AgendaService
         string? especialidadeConsultaCodigo = null,
         int? profissionalId = null, int? salaId = null, int? duracaoMinutos = null,
         bool encaixe = false, string? operador = null, TipoCodigo? primeiroCodigo = null,
-        bool coletaPreventivo = false, bool particular = false, string? infertilidadeGuiaDe = null)
+        bool coletaPreventivo = false, bool particular = false, string? infertilidadeGuiaDe = null,
+        int? ignorarReservaId = null)
     {
         // A guia INTERNA do atendimento de infertilidade (nov/2026): nulo = não é. Validada
         // antes de qualquer gravação — só classificação interna, não entra em regra de guia.
@@ -273,7 +274,8 @@ public sealed class AgendaService
                 "Escolha quem vai atender. Sem profissional o horário não aparece na agenda "
                 + "de ninguém — nem no \"Meu dia\" de quem atende — e fica de fora do repasse.");
 
-        await GarantirHorarioPermitidoAsync(dataHora, duracaoMinutos, profissionalId, salaId, pacienteId, null, ct);
+        // ignorarReservaId: o "Virar paciente" marca POR CIMA da própria reserva (nov/2026), nenhuma outra.
+        await GarantirHorarioPermitidoAsync(dataHora, duracaoMinutos, profissionalId, salaId, pacienteId, null, ct, ignorarReservaId);
         await GarantirCoberturaDoConvenioAsync(pacienteId, dataHora, modalidade, modalidadeCodigo,
             especialidadeConsultaCodigo ?? especialidadeConsulta?.ToString(), particular, null, soIntervalo: false, ct);
         await GarantirSemTravaDeConsultaAsync(pacienteId, dataHora, modalidade, particular, null,
@@ -725,7 +727,7 @@ public sealed class AgendaService
     public async Task<IReadOnlyList<ConflitoAgenda>> ConflitosAsync(
         DateTime dataHora, int? duracaoMinutos = null,
         int? profissionalId = null, int? salaId = null, int? pacienteId = null,
-        int? ignorarAgendamentoId = null, CancellationToken ct = default)
+        int? ignorarAgendamentoId = null, CancellationToken ct = default, int? ignorarReservaId = null)
     {
         // O profissional é lido UMA vez: dá a duração padrão dele e a jornada (set/2026).
         var profissional = profissionalId is { } pid ? await _repo.ObterProfissionalAsync(pid, ct) : null;
@@ -777,6 +779,12 @@ public sealed class AgendaService
             .Select(b => new ConflitoAgenda(
                 RecursoAgenda.Bloqueio, b.Id, b.Descricao, b.Inicio, b.Fim)));
 
+        // Reserva de horário SEM FICHA (nov/2026): o profissional ou a sala estão segurados para alguém do WhatsApp.
+        if (profissionalId is not null || salaId is not null)
+            conflitos.AddRange((await _repo.ReservasQueSobrepoemAsync(dataHora, fim, ct))
+                .Where(r => r.Id != ignorarReservaId && (r.ProfissionalId == profissionalId || salaId is not null && r.SalaId == salaId))
+                .Select(r => new ConflitoAgenda(RecursoAgenda.Reserva, r.Id, DescricaoDaReserva(r), r.DataHora, r.Fim)));
+
         // A jornada gera aviso ou impedimento conforme a trava do profissional.
         if (profissional is { JornadaDeclarada: true } && !profissional.DentroDoExpediente(dataHora, fim))
             conflitos.Add(new ConflitoAgenda(
@@ -786,21 +794,38 @@ public sealed class AgendaService
 
         return conflitos.Select(c => c with
         {
-            ImpedeMarcar = profissional?.AgendaProtegida == true
+            // A reserva impede SEMPRE (não depende da agenda protegida): é a trava que o dono pediu.
+            ImpedeMarcar = c.Recurso == RecursoAgenda.Reserva || profissional?.AgendaProtegida == true
                 && c.Recurso is RecursoAgenda.Profissional or RecursoAgenda.Bloqueio or RecursoAgenda.Expediente
         }).ToList();
     }
 
     private async Task GarantirHorarioPermitidoAsync(DateTime inicio, int? duracao, int? profissional,
-        int? sala, int paciente, int? ignorar, CancellationToken ct)
+        int? sala, int paciente, int? ignorar, CancellationToken ct, int? ignorarReserva = null)
     {
-        if (profissional is null || (await _repo.ObterProfissionalAsync(profissional.Value, ct))?.AgendaProtegida != true)
-            return;
-        var impedimentos = (await ConflitosAsync(inicio, duracao, profissional, sala, paciente, ignorar, ct))
+        if (profissional is null && sala is null) return;
+        var prof = profissional is { } pid ? await _repo.ObterProfissionalAsync(pid, ct) : null;
+        // A reserva sem ficha trava SEMPRE (nov/2026) — uma consulta só, sem a conferência inteira.
+        var fim = inicio.AddMinutes(duracao ?? prof?.DuracaoPadraoMinutos ?? Agendamento.DuracaoPadraoMinutos);
+        if (await ReservaNoCaminhoAsync(inicio, fim, profissional, sala, ignorarReserva, ct) is { } reserva)
+            throw new InvalidOperationException(DescricaoDaReserva(reserva));
+        if (prof?.AgendaProtegida != true) return;
+        var impedimentos = (await ConflitosAsync(inicio, duracao, profissional, sala, paciente, ignorar, ct, ignorarReserva))
             .Where(c => c.ImpedeMarcar).Select(c => c.Descricao).Distinct().ToArray();
         if (impedimentos.Length > 0)
             throw new InvalidOperationException("Agenda protegida. Escolha outro horário. " + string.Join(" ", impedimentos));
     }
+
+    /// <summary>A reserva ATIVA que ocupa este profissional ou esta sala no intervalo (a primeira), ou nula.</summary>
+    internal async Task<ReservaDeHorario?> ReservaNoCaminhoAsync(DateTime inicio, DateTime fim, int? profissional, int? sala,
+        int? ignorarReserva, CancellationToken ct)
+        => (await _repo.ReservasQueSobrepoemAsync(inicio, fim, ct))
+            .FirstOrDefault(r => r.Id != ignorarReserva && (r.ProfissionalId == profissional || sala is not null && r.SalaId == sala));
+
+    /// <summary>A frase da trava da reserva — a mesma no aviso e na recusa.</summary>
+    public static string DescricaoDaReserva(ReservaDeHorario r)
+        => $"Horário reservado para {r.Nome} ({ReservaDeHorario.MarcaCurta}) às {r.DataHora:HH:mm}. "
+           + "Desmarque a reserva ou use \"Virar paciente\" para usar este horário.";
 
     // ==================== Agenda paralela de PREVENTIVO (out/2026) ====================
     //

@@ -321,6 +321,21 @@ public sealed class PontePapelRestritoTests : IDisposable
         await Negado(() => ponte.Database.ExecuteSqlRawAsync("DELETE FROM \"LiberacoesDeTrava\""));
     }
 
+    // Reserva de horário sem ficha pela conversa (nov/2026): a ponte grava a reserva (INSERT/UPDATE) e a trilha — e
+    // nada em Pacientes nem em Agendamentos. Sem a linha no papel-ponte-crm.sql, reprova (no CI, pela conferência).
+    [Fact] public async Task Reserva_sem_ficha_pela_conversa()
+    {
+        var a = await Horario();
+        var reservas = new ClinicReservationBridge(ponte!);
+        var inicio = new DateTimeOffset(DateTime.SpecifyKind(a.DataHora.AddHours(2), DateTimeKind.Unspecified), TimeSpan.FromHours(-3));
+        var r = await reservas.Create(new ClinicReservationRequest("5511977770000", "Visitante Fictícia", a.ProfissionalId!.Value, null,
+            "AcupunturaSimples", null, 30, inicio, true, null, "Ana", null), default);
+        var remarcada = await reservas.Reschedule(new ClinicReservationReschedule(r.Id, "5511977770000", r.Revision, inicio.AddHours(1), "Ana"), default);
+        await reservas.Cancel(new ClinicReservationCancel(r.Id, "5511977770000", remarcada.Revision, "A pessoa pediu", "Ana"), default);
+        Assert.Equal("cancelled", (await reservas.List(new ClinicReservationQuery("5511977770000"), default)).Single().Status);
+        await Negado(() => ponte!.Database.ExecuteSqlRawAsync("DELETE FROM \"ReservasDeHorario\""));
+    }
+
     public void Dispose()
     {
         // SQLite (o CI): toda gravação que a ponte fez neste teste precisa estar no papel-ponte-crm.sql.

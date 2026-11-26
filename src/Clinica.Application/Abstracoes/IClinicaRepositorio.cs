@@ -491,6 +491,17 @@ public interface IClinicaRepositorio
     /// Bloqueios que alcancam o intervalo informado. A consulta e feita a cada marcacao,
     /// entao ela corta pelo periodo no banco em vez de trazer o historico inteiro.
     /// </summary>
+    // ---- Reserva de horário sem ficha (nov/2026) ----
+    Task AdicionarReservaAsync(ReservaDeHorario reserva, CancellationToken ct = default);
+    /// <summary>A reserva RASTREADA (para alterar), com o profissional.</summary>
+    Task<ReservaDeHorario?> ObterReservaAsync(int id, CancellationToken ct = default);
+    /// <summary>As reservas ATIVAS (Reservada) que se sobrepõem ao intervalo — o que ocupa a agenda.</summary>
+    Task<IReadOnlyList<ReservaDeHorario>> ReservasQueSobrepoemAsync(DateTime inicio, DateTime fim, CancellationToken ct = default);
+    /// <summary>Todas as reservas que começam no período (qualquer situação), com o profissional — a grade e o histórico.</summary>
+    Task<IReadOnlyList<ReservaDeHorario>> ReservasNoPeriodoAsync(DateTime inicio, DateTime fim, CancellationToken ct = default);
+    /// <summary>As reservas de um telefone (normalizado), da mais nova para a mais antiga.</summary>
+    Task<IReadOnlyList<ReservaDeHorario>> ReservasDoTelefoneAsync(string telefone, CancellationToken ct = default);
+
     Task<IReadOnlyList<BloqueioAgenda>> BloqueiosNoPeriodoAsync(
         DateTime inicio, DateTime fim, CancellationToken ct = default);
 
